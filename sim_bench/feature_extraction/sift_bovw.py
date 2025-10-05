@@ -1,6 +1,6 @@
 """
-SIFT + Bag-of-Visual-Words method.
-Uses Strategy pattern for distance computation.
+SIFT + Bag-of-Visual-Words method for local feature-based similarity.
+Uses configurable distance measures for comparison.
 """
 
 import cv2
@@ -10,7 +10,7 @@ from tqdm import tqdm
 import os
 import pickle
 from typing import List
-from sim_bench.methods.base import BaseMethod
+from sim_bench.feature_extraction.base import BaseMethod
 
 
 class SIFTBoVWMethod(BaseMethod):
@@ -40,11 +40,11 @@ class SIFTBoVWMethod(BaseMethod):
             with open(codebook_path, 'rb') as f:
                 return pickle.load(f)
 
-        size = int(self.config['codebook']['size'])
-        max_iter = int(self.config['codebook'].get('kmeans_max_iter', 100))
-        sample_images = int(self.config['codebook'].get('sample_images', 1000))
-        desc_per_img = int(self.config['codebook'].get('descriptors_per_image', 300))
-        n_features = int(self.config['local_features']['n_features_per_image'])
+        size = int(self.method_config['codebook']['size'])
+        max_iter = int(self.method_config['codebook'].get('kmeans_max_iter', 100))
+        sample_images = int(self.method_config['codebook'].get('sample_images', 1000))
+        desc_per_img = int(self.method_config['codebook'].get('descriptors_per_image', 300))
+        n_features = int(self.method_config['local_features']['n_features_per_image'])
 
         sel = files[:min(sample_images, len(files))]
         all_desc = []
@@ -82,13 +82,13 @@ class SIFTBoVWMethod(BaseMethod):
     
     def extract_features(self, image_paths: List[str]) -> np.ndarray:
         """Extract SIFT BoVW features from images."""
-        codebook_size = self.config['codebook']['size']
+        codebook_size = self.method_config['codebook']['size']
         print(f"Extracting SIFT BoVW features (codebook size: {codebook_size})...")
         
-        cache_dir = self.config.get('cache_dir', 'artifacts/sift_bovw')
+        cache_dir = self.method_config.get('cache_dir', 'artifacts/sift_bovw')
         codebook = self._build_codebook(image_paths, cache_dir)
         centers = codebook['cluster_centers']
-        n_features = int(self.config['local_features']['n_features_per_image'])
+        n_features = int(self.method_config['local_features']['n_features_per_image'])
 
         X = []
         for f in tqdm(image_paths, desc="sift_bovw: histograms"):

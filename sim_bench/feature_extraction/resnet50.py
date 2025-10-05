@@ -1,20 +1,31 @@
 """
-Deep learning method using pre-trained CNN features.
-Uses Strategy pattern for distance computation.
+ResNet50 feature extraction method using pre-trained CNN.
+Uses configurable distance measures for comparison.
 """
 
-import torch
-import torch.nn as nn
-import torchvision.transforms as T
+try:
+    import torch
+    import torch.nn as nn
+    import torchvision.transforms as T
+    TORCH_AVAILABLE = True
+except ImportError as e:
+    TORCH_AVAILABLE = False
+    TORCH_ERROR = str(e)
+
 from PIL import Image
 import numpy as np
 from tqdm import tqdm
 from typing import List
-from sim_bench.methods.base import BaseMethod
+from sim_bench.feature_extraction.base import BaseMethod
 
 
-class DeepMethod(BaseMethod):
-    """Deep CNN features with configurable distance strategy."""
+class ResNet50Method(BaseMethod):
+    """ResNet50 CNN features with configurable distance measures."""
+    
+    def __init__(self, method_config):
+        if not TORCH_AVAILABLE:
+            raise ImportError(f"PyTorch is required for deep method but not available: {TORCH_ERROR}")
+        super().__init__(method_config)
     
     def _build_model(self, name="resnet50"):
         """Build and return the CNN backbone model."""
@@ -41,7 +52,7 @@ class DeepMethod(BaseMethod):
     @torch.no_grad()
     def extract_features(self, image_paths: List[str]) -> np.ndarray:
         """Extract deep CNN features from images."""
-        backbone = self.config.get('backbone', 'resnet50')
+        backbone = self.method_config.get('backbone', 'resnet50')
         print(f"Extracting deep features ({backbone})...")
         
         device = torch.device("cpu")
@@ -50,7 +61,7 @@ class DeepMethod(BaseMethod):
 
         feats = []
         batch = []
-        bs = int(self.config.get('batch_size', 16))
+        bs = int(self.method_config.get('batch_size', 16))
         for f in tqdm(image_paths, desc="deep: embeddings"):
             img = Image.open(f).convert('RGB')
             batch.append(tr(img))
@@ -65,6 +76,6 @@ class DeepMethod(BaseMethod):
             feats.append(y.cpu().numpy())
         
         X = np.vstack(feats).astype('float32')
-        if self.config.get('normalize', True):
+        if self.method_config.get('normalize', True):
             X /= (np.linalg.norm(X, axis=1, keepdims=True) + 1e-12)
         return X

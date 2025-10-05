@@ -10,9 +10,19 @@ from typing import Dict, List, Set, Any, Union
 class BaseMetric(ABC):
     """Abstract base class for all metrics."""
     
-    def __init__(self, **kwargs):
-        """Initialize metric with parameters."""
-        self.params = kwargs
+    def __init__(self, metric_name: str = None, metric_config: Dict[str, Any] = None, **kwargs):
+        """
+        Initialize metric with parameters.
+        
+        Args:
+            metric_name: Name of the metric (for consistent interface)
+            metric_config: Dictionary containing metric-specific configuration
+            **kwargs: Additional parameters (for backward compatibility)
+        """
+        self.metric_name = metric_name
+        self.metric_config = metric_config or {}
+        # Merge kwargs for backward compatibility
+        self.params = {**self.metric_config, **kwargs}
     
     @abstractmethod
     def compute(self, ranking_indices: np.ndarray, relevance_sets: List[Set[int]]) -> Union[float, List[float]]:
@@ -61,25 +71,6 @@ def create_relevance_sets_from_groups(groups: List[int]) -> List[Set[int]]:
     return relevance_sets
 
 
-def create_relevance_sets_from_map(relevance_map: Dict[int, List[int]], 
-                                  query_indices: List[int]) -> List[Set[int]]:
-    """
-    Create relevance sets from relevance map (Holidays-style).
-    
-    Args:
-        relevance_map: Dictionary mapping query indices to lists of relevant image indices
-        query_indices: List of query image indices
-        
-    Returns:
-        List of relevance sets
-    """
-    relevance_sets = []
-    
-    for query_idx in query_indices:
-        relevant_images = set(relevance_map.get(query_idx, []))
-        relevance_sets.append(relevant_images)
-    
-    return relevance_sets
 
 
 # Removed redundant functions - now handled by MetricFactory

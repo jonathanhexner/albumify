@@ -10,7 +10,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 
 from sim_bench.datasets import load_dataset
-from sim_bench.methods import load_method
+from sim_bench.feature_extraction import load_method
 from sim_bench import metrics_api as metrics
 from sim_bench.result_manager import ResultManager
 

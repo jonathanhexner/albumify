@@ -19,6 +19,7 @@ A simple, lightweight image similarity benchmarking framework for evaluating ima
 - Dataset(s):
   - **UKBench**: Download from [archive.org](https://archive.org/details/ukbench)
   - **INRIA Holidays**: Download from [INRIA website](http://lear.inrialpes.fr/~jegou/data.php)
+  - **Sample Images**: Included in `samples/` folder for testing (see [Sample Images](#-sample-images))
 
 ### Installation
 
@@ -153,6 +154,53 @@ Results written to: outputs/2025-10-04_14-22-32/chi_square
    - **Features**: SIFT local features + Bag-of-Visual-Words (512 clusters)
    - **Distance**: Cosine distance
    - **Speed**: Slow (codebook building), traditional CV approach
+
+## 🖼️ Sample Images
+
+The `samples/` folder contains representative images from both supported datasets to help you understand the data structure and similarity patterns **without needing to download the full datasets**.
+
+### 📁 What's Included
+
+```
+samples/
+├── ukbench/          # 10 sample images (2.5 groups)
+│   ├── ukbench00000-00003.jpg  # Group 0: Same object, 4 views
+│   ├── ukbench00004-00007.jpg  # Group 1: Another object, 4 views  
+│   └── ukbench00008-00009.jpg  # Group 2: Third object, 2 views
+└── holidays/         # 3 sample images (1 query group)
+    ├── 100000.jpg    # Query: Holiday scene
+    ├── 100001.jpg    # Similar scene, different angle
+    └── 100002.jpg    # Similar scene, different framing
+```
+
+### 🚀 Quick Test with Samples
+
+You can test the framework immediately using the sample images:
+
+```bash
+# Test on UKBench samples (should get high N-S scores)
+python -m sim_bench.cli --methods chi_square,deep --datasets ukbench
+
+# Test on Holidays samples (should get reasonable mAP scores)  
+python -m sim_bench.cli --methods emd,deep --datasets holidays
+
+# Compare all methods on both sample sets
+python -m sim_bench.cli --methods chi_square,emd,deep --datasets ukbench,holidays
+```
+
+### 📊 Expected Results on Samples
+
+| Method | UKBench Samples (N-S) | Holidays Samples (mAP@10) |
+|--------|----------------------|---------------------------|
+| **Chi-Square** | ~2.5-3.0 | ~0.6-0.8 |
+| **EMD** | ~2.7-3.0 | ~0.7-0.9 |
+| **Deep** | ~2.9-3.0 | ~0.8-0.95 |
+
+### 📖 Learn More
+
+- **Detailed explanations**: See [`samples/README.md`](samples/README.md)
+- **Dataset documentation**: See [`docs/DATASETS.md`](docs/DATASETS.md)
+- **Visual inspection**: Open the sample images to see similarity patterns
 
 ## Configuration Files
 
@@ -353,6 +401,33 @@ sim-bench/
 **Optional (for specific methods):**
 - torch>=2.0, torchvision>=0.15  # For deep learning method
 - matplotlib>=3.8  # For visualization (if needed)
+
+## 📚 Documentation
+
+### 📖 Comprehensive Guides
+- **[Dataset Documentation](docs/DATASETS.md)** - Detailed information about UKBench and INRIA Holidays datasets
+- **[Sample Images Guide](samples/README.md)** - Understanding the included sample images and how to use them
+- **[GitHub Setup Guide](GITHUB_SETUP.md)** - Instructions for setting up the repository
+
+### 🔍 Quick References
+- **Sample Images**: `samples/` - Representative images from both datasets for immediate testing
+- **Configuration**: `configs/` - YAML files for datasets, methods, and run settings
+- **Results**: `outputs/` - All evaluation results with timestamps and summaries
+- **Documentation**: `docs/` - Detailed guides and references
+
+### 🎯 Getting Started Paths
+
+1. **Quick Test**: Use sample images to test the framework immediately
+   ```bash
+   python -m sim_bench.cli --methods deep --datasets ukbench
+   ```
+
+2. **Full Evaluation**: Download complete datasets and run comprehensive benchmarks
+   ```bash
+   python -m sim_bench.cli --methods chi_square,emd,deep --datasets ukbench,holidays
+   ```
+
+3. **Custom Dataset**: Add your own dataset following the factory pattern (see Extension section)
 
 ## License
 

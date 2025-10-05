@@ -3,22 +3,26 @@ Normalized Score (N-S) metric implementation.
 """
 
 import numpy as np
-from typing import List, Set
+from typing import Dict, List, Set, Any
 from .base import BaseMetric
 
 
 class NormalizedScore(BaseMetric):
     """Normalized Score (N-S) - average number of relevant images in top-k."""
     
-    def __init__(self, k: int = 4, **kwargs):
+    def __init__(self, metric_name: str = None, metric_config: Dict[str, Any] = None, **kwargs):
         """
         Initialize N-S metric.
         
         Args:
-            k: Number of top results to consider
+            metric_name: Name of the metric (for consistent interface)
+            metric_config: Dictionary containing metric-specific configuration
+            **kwargs: Additional parameters (for backward compatibility)
         """
-        super().__init__(**kwargs)
-        self.k = k
+        super().__init__(metric_name=metric_name, metric_config=metric_config, **kwargs)
+        
+        # Extract k from metric_config or use default
+        self.k = metric_config.get('k', 4) if metric_config else kwargs.get('k', 4)
     
     def compute(self, ranking_indices: np.ndarray, relevance_sets: List[Set[int]]) -> float:
         """

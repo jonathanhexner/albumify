@@ -1,16 +1,16 @@
 """
-Chi-square method for HSV histograms.
-Uses Strategy pattern for distance computation.
+HSV histogram method for color-based image similarity.
+Uses configurable distance measures for comparison.
 """
 
 import cv2
 import numpy as np
 from typing import List
-from sim_bench.methods.base import BaseMethod
+from sim_bench.feature_extraction.base import BaseMethod
 
 
-class ChiSquareMethod(BaseMethod):
-    """HSV histograms with configurable distance strategy."""
+class HSVHistogramMethod(BaseMethod):
+    """HSV color histograms with configurable distance measures."""
     
     def _preprocess(self, img, resize=(256,256), center_crop=(224,224)):
         """Preprocess image with resize and center crop."""
@@ -26,8 +26,8 @@ class ChiSquareMethod(BaseMethod):
     
     def extract_features(self, image_paths: List[str]) -> np.ndarray:
         """Extract HSV histograms from images."""
-        bins = tuple(self.config['features']['bins'])
-        preproc = self.config['features'].get('preproc', {})
+        bins = tuple(self.method_config['features']['bins'])
+        preproc = self.method_config['features'].get('preproc', {})
         
         print(f"Extracting HSV histograms ({bins} bins)...")
         

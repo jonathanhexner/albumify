@@ -67,23 +67,23 @@ def run_unified_benchmark(args) -> None:
             methods = parse_comma_list(args.methods)
         else:
             methods = get_available_methods()
-            print(f"🔍 No methods specified, running all available: {', '.join(methods)}")
+            print(f"No methods specified, running all available: {', '.join(methods)}")
         
         # Parse datasets  
         if args.datasets:
             datasets = parse_comma_list(args.datasets)
         else:
             datasets = get_available_datasets()
-            print(f"🔍 No datasets specified, running all available: {', '.join(datasets)}")
+            print(f"No datasets specified, running all available: {', '.join(datasets)}")
         
         # Load run configuration
         run_config = load_yaml_config(args.run_config)
         
         print("=" * 60)
-        print("🚀 SIM-BENCH EVALUATION")
+        print("SIM-BENCH EVALUATION")
         print("=" * 60)
-        print(f"📊 Datasets: {', '.join(datasets)}")
-        print(f"🔧 Methods: {', '.join(methods)}")
+        print(f"Datasets: {', '.join(datasets)}")
+        print(f"Methods: {', '.join(methods)}")
         print("=" * 60)
         
         # Single dataset, single method - use simple runner
@@ -97,7 +97,7 @@ def run_unified_benchmark(args) -> None:
             experiment_runner = ExperimentRunner(run_config, dataset_config)
             experiment_runner.run_single_method(method_name)
             
-            print(f"\n✅ Results saved to: {experiment_runner.get_output_directory()}")
+            print(f"\nResults saved to: {experiment_runner.get_output_directory()}")
         
         # Single dataset, multiple methods - use method runner
         elif len(datasets) == 1 and len(methods) > 1:
@@ -112,7 +112,7 @@ def run_unified_benchmark(args) -> None:
             experiment_runner = ExperimentRunner(run_config, dataset_config)
             experiment_runner.run_multiple_methods(methods)
             
-            print(f"\n✅ Results saved to: {experiment_runner.get_output_directory()}")
+            print(f"\nResults saved to: {experiment_runner.get_output_directory()}")
         
         # Multiple datasets - use comprehensive benchmark
         else:
@@ -145,10 +145,10 @@ def run_unified_benchmark(args) -> None:
             results = benchmark_runner.run_comprehensive_benchmark()
             
             if not results:
-                print("❌ No results generated!")
+                print("No results generated!")
         
     except Exception as error:
-        print(f"❌ Error running benchmark: {error}")
+        print(f"Error running benchmark: {error}")
         raise
 
 

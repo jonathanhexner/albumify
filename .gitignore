@@ -169,6 +169,11 @@ datasets/
 *.tar.gz
 *.crdownload
 
+# Allow sample images (small representative files)
+!samples/
+!samples/**/*.jpg
+!samples/**/*.png
+
 # Output directories
 outputs/
 artifacts/

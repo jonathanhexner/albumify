@@ -1,10 +1,18 @@
-numpy>=1.26
+# Core dependencies
+numpy>=1.26,<2.0  # Pin to 1.x for PyTorch compatibility
 scipy>=1.11
 scikit-learn>=1.4
-opencv-contrib-python>=4.9
+opencv-contrib-python>=4.8,<4.10
 Pillow>=10.2
 tqdm>=4.66
 PyYAML>=6.0
+pandas>=2.0
+
+# Optional dependencies for specific methods
+torch>=2.0,<2.5; platform_system != "Darwin" or platform_machine != "arm64"
+torch>=2.0,<2.5; platform_system == "Darwin" and platform_machine == "arm64"
+torchvision>=0.15,<0.20
 matplotlib>=3.8
-# POT is optional and not required for the simple baseline
+
+# Optional: Earth Mover's Distance (advanced)
 # POT>=0.9.3

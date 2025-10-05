@@ -3,22 +3,29 @@ Precision@k metric implementation.
 """
 
 import numpy as np
-from typing import List, Set
+from typing import Dict, List, Set, Any
 from .base import BaseMetric
 
 
 class PrecisionAtK(BaseMetric):
     """Precision@k - average precision in top-k results."""
     
-    def __init__(self, k: int = 10, **kwargs):
+    def __init__(self, metric_name: str = None, metric_config: Dict[str, Any] = None, **kwargs):
         """
         Initialize Precision@k metric.
         
         Args:
-            k: Number of top results to consider
+            metric_name: Name of the metric (for consistent interface)
+            metric_config: Dictionary containing metric-specific configuration
+            **kwargs: Additional parameters (for backward compatibility)
         """
-        super().__init__(**kwargs)
-        self.k = k
+        super().__init__(metric_name=metric_name, metric_config=metric_config, **kwargs)
+        
+        # Extract k from metric_name
+        if metric_name and metric_name.startswith('precision@'):
+            self.k = int(metric_name.split('@')[1])
+        else:
+            self.k = kwargs.get('k', 10)  # Fallback for backward compatibility
     
     def compute(self, ranking_indices: np.ndarray, relevance_sets: List[Set[int]]) -> float:
         """

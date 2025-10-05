@@ -3,22 +3,31 @@ Mean Average Precision (mAP) metric implementation.
 """
 
 import numpy as np
-from typing import List, Set, Optional
+from typing import Dict, List, Set, Optional, Any
 from .base import BaseMetric
 
 
 class MeanAveragePrecision(BaseMetric):
     """Mean Average Precision (mAP) metric."""
     
-    def __init__(self, k: Optional[int] = None, **kwargs):
+    def __init__(self, metric_name: str = None, metric_config: Dict[str, Any] = None, **kwargs):
         """
         Initialize mAP metric.
         
         Args:
-            k: Maximum rank to consider (None = use all relevant images)
+            metric_name: Name of the metric (for consistent interface)
+            metric_config: Dictionary containing metric-specific configuration
+            **kwargs: Additional parameters (for backward compatibility)
         """
-        super().__init__(**kwargs)
-        self.k = k
+        super().__init__(metric_name=metric_name, metric_config=metric_config, **kwargs)
+        
+        # Extract k from metric_name
+        if metric_name and metric_name.startswith('map@'):
+            self.k = int(metric_name.split('@')[1])
+        elif metric_name in ['map', 'map_full']:
+            self.k = None
+        else:
+            self.k = kwargs.get('k', None)  # Fallback for backward compatibility
     
     def compute(self, ranking_indices: np.ndarray, relevance_sets: List[Set[int]]) -> float:
         """
