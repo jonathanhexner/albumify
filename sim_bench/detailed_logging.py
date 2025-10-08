@@ -29,7 +29,7 @@ def setup_detailed_logger(log_file: Path, level: str = "DEBUG") -> logging.Logge
     # Create detailed formatter with more info
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S.%f'
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
     
     # File handler only (don't spam console)
@@ -84,40 +84,37 @@ def log_sampling_details(logger: logging.Logger, sampling_config: Dict[str, Any]
         logger.info(f"  [{i}] Group {groups[i]}: {img_path}")
 
 
-def log_feature_extraction_details(logger: logging.Logger, method_name: str,
-                                   image_paths: List[str], features: np.ndarray) -> None:
+def log_feature_extraction_details(
+    logger: logging.Logger, 
+    method_name: str, 
+    image_paths: List[str], 
+    features: np.ndarray
+):
     """
     Log detailed feature extraction information.
     
     Args:
-        logger: Detailed logger instance
-        method_name: Name of the method
-        image_paths: List of image paths
+        logger: Logger instance
+        method_name: Name of the feature extraction method
+        image_paths: List of image file paths
         features: Extracted feature matrix
     """
-    logger.info("=" * 80)
-    logger.info(f"FEATURE EXTRACTION DETAILS: {method_name}")
-    logger.info("=" * 80)
-    logger.info(f"Number of images: {len(image_paths)}")
-    logger.info(f"Feature shape: {features.shape}")
-    logger.info(f"Feature dtype: {features.dtype}")
-    logger.info(f"Memory size: {features.nbytes / (1024**2):.2f} MB")
-    
-    # Feature statistics
-    logger.info(f"Feature statistics:")
-    logger.info(f"  Min: {features.min():.6f}")
-    logger.info(f"  Max: {features.max():.6f}")
-    logger.info(f"  Mean: {features.mean():.6f}")
-    logger.info(f"  Std: {features.std():.6f}")
-    logger.info(f"  Non-zero ratio: {np.count_nonzero(features) / features.size:.4f}")
-    
-    # Per-image sample
-    logger.debug(f"Per-image feature samples (first 3 images):")
-    for i in range(min(3, len(image_paths))):
-        logger.debug(f"  Image {i}: {image_paths[i]}")
-        logger.debug(f"    Feature vector shape: {features[i].shape}")
-        logger.debug(f"    First 10 values: {features[i][:10]}")
-        logger.debug(f"    Min: {features[i].min():.6f}, Max: {features[i].max():.6f}")
+    try:
+        logger.debug(f"Feature Extraction Details for {method_name}")
+        logger.debug(f"Total Images: {len(image_paths)}")
+        logger.debug(f"Feature Matrix Shape: {features.shape}")
+        
+        # Safely log details for first few images
+        for i in range(min(5, len(image_paths))):
+            try:
+                logger.debug(f"  Image {i}: {image_paths[i]}")
+                logger.debug(f"    Feature vector shape: {features[i].shape}")
+                logger.debug(f"    First 10 values: {features[i][:10].tolist()}")
+                logger.debug(f"    Min: {float(features[i].min())}, Max: {float(features[i].max())}")
+            except Exception as img_error:
+                logger.debug(f"  Error logging details for image {i}: {img_error}")
+    except Exception as e:
+        logger.debug(f"Error in feature extraction logging: {e}")
 
 
 def log_distance_computation_details(logger: logging.Logger, method_name: str,

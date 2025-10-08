@@ -34,10 +34,10 @@ def setup_logger(
     # Clear existing handlers
     logger.handlers = []
     
-    # Create formatter
+    # Create formatter with a standard, safe date format
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        datefmt='%Y-%m-%d %H:%M:%S'  # Simplified, safe date format
     )
     
     # File handler

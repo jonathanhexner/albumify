@@ -27,7 +27,7 @@ class ChiSquareMeasure(DistanceMeasure):
         
         for i in tqdm(range(0, num_samples_a, chunk_size), 
                      total=num_chunks, 
-                     desc="Chi-square distances", 
+                     desc=f"Chi-square distances ({num_samples_a} images, {num_chunks} chunks)", 
                      unit="chunk"):
             chunk_a = features_a[i:i+chunk_size][:, None, :]  # [chunk_size, 1, feature_dim]
             chunk_b = features_b[None, :, :]                  # [1, num_samples_b, feature_dim]

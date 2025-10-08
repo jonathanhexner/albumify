@@ -60,7 +60,7 @@ class ExperimentRunner:
         
         # Load dataset once for all experiments
         print(f"\n{'='*60}")
-        print(f"📊 Loading dataset: {dataset_config['name']}")
+        print(f"Loading dataset: {dataset_config['name']}")
         print(f"{'='*60}")
         self.logger.info(f"Loading dataset: {dataset_config['name']}")
         
@@ -70,7 +70,7 @@ class ExperimentRunner:
         # Apply sampling if configured
         sampling_config = run_config.get('sampling', {})
         if sampling_config:
-            print(f"📉 Applying sampling: {sampling_config}")
+            print(f"Applying sampling: {sampling_config}")
             self.logger.info(f"Applying sampling: {sampling_config}")
         self.dataset.apply_sampling(sampling_config)
         
@@ -99,7 +99,7 @@ class ExperimentRunner:
             Dictionary containing method results
         """
         print(f"\n{'='*60}")
-        print(f"🔧 Method: {method_name}")
+        print(f"Method: {method_name}")
         print(f"{'='*60}")
         
         # Load method configuration
@@ -118,7 +118,7 @@ class ExperimentRunner:
         
         # Extract features (with caching)
         image_paths = self.dataset.get_images()
-        print(f"\n[1/4] 🎨 Feature Extraction")
+        print(f"\n[1/4] Feature Extraction")
         print(f"-" * 60)
         
         # Try to load from cache
@@ -129,11 +129,14 @@ class ExperimentRunner:
             feature_matrix = self.feature_cache.load(method_name, method_config, image_paths)
             if feature_matrix is not None:
                 cache_hit = True
+                print(f"[CACHE] Loaded features from cache")
+                self.logger.info(f"Features loaded from cache: {cache_path}")
                 if self.detailed_logger:
                     log_cache_operation(self.detailed_logger, 'hit', method_name, cache_path, True)
         
         # Extract features if not cached
         if feature_matrix is None:
+            print(f"Extracting features for {len(image_paths)} images...")
             if self.detailed_logger and self.feature_cache:
                 log_cache_operation(self.detailed_logger, 'miss', method_name, cache_path, False, 
                                    "Features not in cache, extracting...")
@@ -143,6 +146,8 @@ class ExperimentRunner:
             # Save to cache
             if self.feature_cache:
                 self.feature_cache.save(method_name, method_config, image_paths, feature_matrix)
+                print(f"[CACHE] Saved features to cache")
+                self.logger.info(f"Features saved to cache: {cache_path}")
                 if self.detailed_logger:
                     log_cache_operation(self.detailed_logger, 'save', method_name, cache_path, True)
         
@@ -153,7 +158,7 @@ class ExperimentRunner:
             log_feature_extraction_details(self.detailed_logger, method_name, image_paths, feature_matrix)
         
         # Compute distance matrix
-        print(f"\n[2/4] 📏 Distance Computation")
+        print(f"\n[2/4] Distance Computation")
         print(f"-" * 60)
         print(f"Computing {len(image_paths)} x {len(image_paths)} distance matrix...")
         distance_matrix = method.compute_distances(feature_matrix)
@@ -164,7 +169,7 @@ class ExperimentRunner:
             log_distance_computation_details(self.detailed_logger, method_name, distance_matrix)
         
         # Get rankings (indices sorted by distance)
-        print(f"\n[3/4] 🔢 Ranking Computation")
+        print(f"\n[3/4] Ranking Computation")
         print(f"-" * 60)
         ranking_indices = np.argsort(distance_matrix, axis=1)
         print(f"[OK] Rankings computed for {len(ranking_indices)} queries")
@@ -176,7 +181,7 @@ class ExperimentRunner:
             log_ranking_details(self.detailed_logger, ranking_indices, groups, k)
         
         # Compute metrics
-        print(f"\n[4/4] 📊 Metric Evaluation")
+        print(f"\n[4/4] Metric Evaluation")
         print(f"-" * 60)
         evaluation_data = self.dataset.get_evaluation_data()
         computed_metrics = metrics.compute_metrics(
@@ -187,7 +192,7 @@ class ExperimentRunner:
         
         # Print metrics
         print(f"\n{'='*60}")
-        print(f"📈 RESULTS")
+        print(f"RESULTS")
         print(f"{'='*60}")
         for metric_name, metric_value in computed_metrics.items():
             if metric_name not in ['num_queries', 'num_images']:
@@ -198,7 +203,7 @@ class ExperimentRunner:
         log_results(self.logger, method_name, computed_metrics)
         
         # Save results
-        print(f"\n💾 Saving results...")
+        print(f"\nSaving results...")
         self.result_manager.save_method_results(
             method_name=method_name,
             method_config=method_config,
@@ -215,7 +220,7 @@ class ExperimentRunner:
             'config': method_config
         }
     
-    def run_multiple_methods(self, method_names: List[str]) -> List[Dict[str, Any]]:
+    def run_multiple_methods(self, method_names: List[str]) -> Dict[str, Any]:
         """
         Run evaluation for multiple methods.
         
@@ -223,26 +228,73 @@ class ExperimentRunner:
             method_names: List of method names to run
             
         Returns:
-            List of result dictionaries for each method
+            Comprehensive results dictionary for EDA
         """
-        all_results = []
+        comprehensive_results = {
+            'dataset_name': self.dataset.name,
+            'methods': [],
+            'method_performance': [],
+            'per_query_details': [],
+            'feature_statistics': {},
+            'metadata': {
+                'timestamp': datetime.now().isoformat(),
+                'total_images': len(self.dataset.get_images()),
+                'total_queries': len(self.dataset.get_queries())
+            }
+        }
         
         for method_name in method_names:
             print(f"\n=== Running method: {method_name} ===")
             
             try:
+                # Run single method
                 method_result = self.run_single_method(method_name)
-                all_results.append(method_result)
+                
+                # Compute feature statistics
+                method_config = method_result['config']
+                method = load_method(method_name, method_config)
+                image_paths = self.dataset.get_images()
+                features = method.extract_features(image_paths)
+                
+                method_stats = {
+                    'method_name': method_name,
+                    'feature_shape': features.shape,
+                    'feature_mean': np.mean(features, axis=0),
+                    'feature_std': np.std(features, axis=0),
+                    'feature_min': np.min(features, axis=0),
+                    'feature_max': np.max(features, axis=0)
+                }
+                
+                comprehensive_results['feature_statistics'][method_name] = method_stats
+                comprehensive_results['methods'].append(method_name)
+                comprehensive_results['method_performance'].append({
+                    'method_name': method_name,
+                    'metrics': method_result['metrics']
+                })
+                
+                # Per-query details
+                evaluation_data = self.dataset.get_evaluation_data()
+                groups = evaluation_data.get('groups', [])
+                
+                for query_idx, query_path in enumerate(self.dataset.get_queries()):
+                    query_details = {
+                        'method_name': method_name,
+                        'query_idx': query_idx,
+                        'query_path': query_path,
+                        'ground_truth_group': groups[query_idx] if groups else None,
+                        'top_k_indices': method_result.get('ranking_indices', [])[query_idx] if 'ranking_indices' in method_result else None
+                    }
+                    comprehensive_results['per_query_details'].append(query_details)
                 
             except Exception as error:
                 print(f"❌ ERROR running {method_name}: {error}")
                 continue
         
         # Create summary if multiple methods were run
-        if len(all_results) > 1:
-            self.result_manager.create_summary(all_results)
+        if len(comprehensive_results['methods']) > 1:
+            self.result_manager.create_summary(comprehensive_results['method_performance'])
         
-        return all_results
+        return comprehensive_results
     
     def _print_primary_metric(self, computed_metrics: Dict[str, float]) -> None:
         """Print the primary metric for the dataset."""
@@ -276,9 +328,9 @@ class BenchmarkRunner:
         Returns:
             List of all results across datasets and methods
         """
-        print("=" * 60)
-        print("🚀 COMPREHENSIVE BENCHMARK")
-        print("=" * 60)
+        print(f"\n{'='*60}")
+        print(f"COMPREHENSIVE BENCHMARK")
+        print(f"{'='*60}")
         
         all_results = []
         
@@ -287,7 +339,7 @@ class BenchmarkRunner:
             dataset_name = dataset_config['name']
             dataset_config_path = dataset_config['config']
             
-            print(f"\n📊 Dataset: {dataset_name}")
+            print(f"\nDataset: {dataset_name}")
             print("-" * 40)
             
             try:
@@ -303,7 +355,7 @@ class BenchmarkRunner:
                     all_results.append(result)
                     
             except Exception as error:
-                print(f"❌ Error running {dataset_name}: {error}")
+                print(f"Error running {dataset_name}: {error}")
                 continue
         
         # Create comprehensive summary

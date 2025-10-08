@@ -1,41 +1,41 @@
-dataset: ukbench
-output_dir: "outputs"
-run_name: null
+experiment:
+  name: comprehensive_baseline
+  description: Full dataset baseline for EDA and performance analysis
 
-# Feature caching - speeds up repeated runs significantly
-cache_features: true  # Set to false to disable caching
+datasets:
+  - holidays
+  - ukbench
+
+methods:
+  - chi_square
+  - sift_bovw
+  - deep
+  - emd
+
+sampling:
+  max_groups: 500  # Increased from previous runs
+  max_queries: null  # Allow all queries in selected groups
+
+metrics:
+  - recall@1
+  - recall@4
+  - recall@10
+  - precision@10
+  - map
+  - map@10
+  - ns_score
 
 logging:
-  file: "run.log"
-  level: "INFO"      # Main log level: DEBUG, INFO, WARNING, ERROR
-  detailed: false    # Enable detailed.log with verbose debug info (sampling, features, rankings)
+  level: INFO
+  detailed: true
+  file: outputs/baseline_runs/comprehensive_baseline.log
 
-save:
-  per_query_csv: true
-  rankings_csv: true
-  metrics_csv: true
-  summary_csv: true        # Create summary CSV comparing all methods
-  topk_rankings_k: 10
+cache_features: true
+output_dir: outputs/baseline_runs/comprehensive_baseline
 
-k: 4
-metrics: [ns, recall@1, recall@4, map@10]
-methods: [chi_square, emd]  # List of methods to run with 'run-all' command
-
-# Sampling configuration for testing/development
-# Two supported approaches:
-# 
-# 1. max_groups (RECOMMENDED): Sample by relevance groups to maintain proper structure
-#   * UKBench: 1 group = 4 images, so max_groups=25 means 100 images
-#   * Holidays: 1 group = 1 query series (varying sizes)
-#   * Ensures all groups are complete for valid metrics
-# 
-# 2. max_queries (ALSO SUPPORTED): Limit total images/queries
-#   * UKBench: Limits total images (may create incomplete groups)
-#   * Holidays: Limits number of query series (equivalent to max_groups)
-#   * Useful for exact image count control, but may affect metric validity
-#
-# If both are specified, max_groups takes precedence.
-sampling:
-  max_groups: 100     # Number of groups to sample (null = all). Recommended: 25 for quick tests
-  max_queries:     # Alternate: total images (UKBench) or queries (Holidays)
-  random_seed: 42  # For reproducible sampling
+# EDA-specific configurations
+eda:
+  random_seed: 42
+  subset_for_analysis:
+    total_images: 2000
+    groups_to_analyze: 100

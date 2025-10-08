@@ -1,44 +1,51 @@
-# Comprehensive benchmark configuration
-# Run multiple methods on multiple datasets
-
-output_dir: "outputs"
-run_name: "comprehensive_benchmark"
-
-# Datasets to evaluate
-datasets:
-  - name: "ukbench"
-    config: "configs/dataset.ukbench.yaml"
-    sampling:
-      max_queries: 50
-      max_gallery: 200
-  - name: "holidays"
-    config: "configs/dataset.holidays.yaml"
-    sampling:
-      max_queries: 50
-      max_gallery: 1000
-
-# Methods to evaluate
-methods: [chi_square, emd, deep, sift_bovw]
+# Full Dataset Benchmark Configuration
+# Run: python -m sim_bench benchmark configs/benchmark.yaml
 
 # Global settings
+random_seed: 42
 logging:
-  file: "benchmark.log"
-  level: "INFO"
+  level: INFO
+  detailed: false  # Set to true for verbose debugging
 
+# Datasets to benchmark (null = full dataset)
+datasets:
+  - name: holidays
+    config: configs/dataset.holidays.yaml
+    sampling:
+      max_groups: null
+      max_queries: null
+
+  - name: ukbench
+    config: configs/dataset.ukbench.yaml
+    sampling:
+      max_groups: null
+      max_queries: null
+
+# Methods to evaluate
+methods:
+  - chi_square
+  - sift_bovw
+  - deep
+  - emd
+
+# Metrics to compute
+metrics:
+  - recall@1
+  - recall@4
+  - recall@10
+  - precision@10
+  - map
+  - map@10
+  - ns_score
+
+# Saving configuration
 save:
   per_query_csv: true
   rankings_csv: true
   metrics_csv: true
   summary_csv: true
-  topk_rankings_k: 10
+  topk_rankings_k: 50
 
-# UKBench specific settings
-ukbench:
-  k: 4
-  metrics: [ns, recall@1, recall@4, map@10]
-
-# Holidays specific settings  
-holidays:
-  metrics: [map_full, map@10, map@50, recall@1, recall@10, prec@10]
-
-random_seed: 42
+# Performance
+cache_features: true
+output_dir: outputs/full_benchmark
