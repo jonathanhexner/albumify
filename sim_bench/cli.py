@@ -81,7 +81,7 @@ def run_unified_benchmark(args) -> None:
         
         # Apply quick mode if requested
         if args.quick:
-            print(f"\n⚡ QUICK MODE: Using small subset for fast testing")
+            print(f"\nQUICK MODE: Using small subset for fast testing")
             if 'sampling' not in run_config:
                 run_config['sampling'] = {}
             # Use max_groups for proper sampling (maintains relevance structure)

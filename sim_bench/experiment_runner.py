@@ -174,16 +174,16 @@ class ExperimentRunner:
         ranking_indices = np.argsort(distance_matrix, axis=1)
         print(f"[OK] Rankings computed for {len(ranking_indices)} queries")
         
+        # Compute metrics
+        print(f"\n[4/4] Metric Evaluation")
+        print(f"-" * 60)
+        evaluation_data = self.dataset.get_evaluation_data()
+        
         # Detailed logging: rankings
         if self.detailed_logger:
             k = self.run_config.get('k', 10)
             groups = evaluation_data.get('groups', [])
             log_ranking_details(self.detailed_logger, ranking_indices, groups, k)
-        
-        # Compute metrics
-        print(f"\n[4/4] Metric Evaluation")
-        print(f"-" * 60)
-        evaluation_data = self.dataset.get_evaluation_data()
         computed_metrics = metrics.compute_metrics(
             ranking_indices, 
             evaluation_data, 
@@ -287,7 +287,7 @@ class ExperimentRunner:
                     comprehensive_results['per_query_details'].append(query_details)
                 
             except Exception as error:
-                print(f"❌ ERROR running {method_name}: {error}")
+                print(f"ERROR running {method_name}: {error}")
                 continue
         
         # Create summary if multiple methods were run
@@ -413,7 +413,7 @@ class BenchmarkRunner:
     def _create_comprehensive_summary(self, all_results: List[Dict[str, Any]]) -> None:
         """Create and save comprehensive summary across all datasets."""
         
-        print(f"\n📈 Creating comprehensive summary...")
+        print(f"\nCreating comprehensive summary...")
         
         try:
             import pandas as pd
@@ -436,23 +436,23 @@ class BenchmarkRunner:
             # Print summary table
             self._print_comprehensive_summary(results_dataframe)
             
-            print(f"\n✅ Comprehensive results saved to: {summary_path}")
-            print(f"📁 All detailed results in: {self.master_result_manager.run_directory}")
+            print(f"\nComprehensive results saved to: {summary_path}")
+            print(f"All detailed results in: {self.master_result_manager.run_directory}")
             
         except ImportError:
-            print("❌ pandas not available for comprehensive summary")
+            print("ERROR: pandas not available for comprehensive summary")
         except Exception as error:
-            print(f"❌ Error creating comprehensive summary: {error}")
+            print(f"ERROR creating comprehensive summary: {error}")
     
     def _print_comprehensive_summary(self, results_dataframe) -> None:
         """Print formatted summary table."""
         
-        print(f"\n🎯 BENCHMARK RESULTS SUMMARY")
+        print(f"\nBENCHMARK RESULTS SUMMARY")
         print("=" * 80)
         
         for dataset in results_dataframe['dataset'].unique():
             dataset_results = results_dataframe[results_dataframe['dataset'] == dataset]
-            print(f"\n📊 {dataset.upper()}:")
+            print(f"\n{dataset.upper()}:")
             
             for _, row in dataset_results.iterrows():
                 method = row['method']
