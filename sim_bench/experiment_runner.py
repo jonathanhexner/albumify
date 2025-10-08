@@ -5,14 +5,22 @@ Handles the orchestration of methods, datasets, and result collection.
 
 import yaml
 import numpy as np
+import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from tqdm import tqdm
 
 from sim_bench.datasets import load_dataset
 from sim_bench.feature_extraction import load_method
 from sim_bench import metrics_api as metrics
 from sim_bench.result_manager import ResultManager
+from sim_bench.feature_cache import FeatureCache
+from sim_bench.logging_config import setup_logger, log_experiment_start, log_method_start, log_results, log_experiment_end
+from sim_bench.detailed_logging import (
+    setup_detailed_logger, log_sampling_details, log_feature_extraction_details,
+    log_distance_computation_details, log_ranking_details, log_cache_operation
+)
 
 
 class ExperimentRunner:
@@ -30,14 +38,55 @@ class ExperimentRunner:
         self.dataset_config = dataset_config
         self.result_manager = ResultManager(run_config)
         
+        # Initialize logger
+        log_file = self.result_manager.run_directory / "experiment.log"
+        log_level = run_config.get('logging', {}).get('level', 'INFO')
+        self.logger = setup_logger("sim_bench", log_file, log_level, console=False)
+        
+        # Initialize detailed logger (separate file for verbose details)
+        detailed_log_file = self.result_manager.run_directory / "detailed.log"
+        detailed_enabled = run_config.get('logging', {}).get('detailed', False)
+        if detailed_enabled:
+            self.detailed_logger = setup_detailed_logger(detailed_log_file, level='DEBUG')
+        else:
+            self.detailed_logger = None
+        
+        # Log experiment start
+        log_experiment_start(self.logger, {**run_config, **dataset_config})
+        
+        # Initialize feature cache
+        cache_enabled = run_config.get('cache_features', True)
+        self.feature_cache = FeatureCache() if cache_enabled else None
+        
         # Load dataset once for all experiments
+        print(f"\n{'='*60}")
+        print(f"📊 Loading dataset: {dataset_config['name']}")
+        print(f"{'='*60}")
+        self.logger.info(f"Loading dataset: {dataset_config['name']}")
+        
         self.dataset = load_dataset(dataset_config['name'], dataset_config)
         self.dataset.load_data()
-        self.dataset.apply_sampling(run_config.get('sampling', {}))
         
-        print(f"Dataset: {dataset_config['name']}")
-        print(f"Total images: {len(self.dataset.get_images())}")
-        print(f"Query images: {len(self.dataset.get_queries())}")
+        # Apply sampling if configured
+        sampling_config = run_config.get('sampling', {})
+        if sampling_config:
+            print(f"📉 Applying sampling: {sampling_config}")
+            self.logger.info(f"Applying sampling: {sampling_config}")
+        self.dataset.apply_sampling(sampling_config)
+        
+        print(f"[OK] Total images: {len(self.dataset.get_images())}")
+        print(f"[OK] Query images: {len(self.dataset.get_queries())}")
+        self.logger.info(f"Total images: {len(self.dataset.get_images())}")
+        self.logger.info(f"Query images: {len(self.dataset.get_queries())}")
+        
+        # Detailed logging: sampling details
+        if self.detailed_logger:
+            log_sampling_details(
+                self.detailed_logger,
+                sampling_config,
+                self.dataset.get_evaluation_data().get('groups', []),
+                self.dataset.get_images()
+            )
     
     def run_single_method(self, method_name: str) -> Dict[str, Any]:
         """
@@ -49,7 +98,9 @@ class ExperimentRunner:
         Returns:
             Dictionary containing method results
         """
-        print(f"Method: {method_name}")
+        print(f"\n{'='*60}")
+        print(f"🔧 Method: {method_name}")
+        print(f"{'='*60}")
         
         # Load method configuration
         method_config_path = Path(f"configs/methods/{method_name}.yaml")
@@ -57,21 +108,76 @@ class ExperimentRunner:
             raise FileNotFoundError(f"Method config not found: {method_config_path}")
         
         method_config = yaml.safe_load(method_config_path.read_text())
+        print(f"[OK] Loaded config: {method_config_path}")
+        
+        # Log method start
+        log_method_start(self.logger, method_name, method_config)
         
         # Load and initialize method
         method = load_method(method_name, method_config)
         
-        # Extract features
+        # Extract features (with caching)
         image_paths = self.dataset.get_images()
-        feature_matrix = method.extract_features(image_paths)
+        print(f"\n[1/4] 🎨 Feature Extraction")
+        print(f"-" * 60)
+        
+        # Try to load from cache
+        feature_matrix = None
+        cache_hit = False
+        if self.feature_cache:
+            cache_path = self.feature_cache.get_cache_path(method_name, method_config, image_paths)
+            feature_matrix = self.feature_cache.load(method_name, method_config, image_paths)
+            if feature_matrix is not None:
+                cache_hit = True
+                if self.detailed_logger:
+                    log_cache_operation(self.detailed_logger, 'hit', method_name, cache_path, True)
+        
+        # Extract features if not cached
+        if feature_matrix is None:
+            if self.detailed_logger and self.feature_cache:
+                log_cache_operation(self.detailed_logger, 'miss', method_name, cache_path, False, 
+                                   "Features not in cache, extracting...")
+            
+            feature_matrix = method.extract_features(image_paths)
+            
+            # Save to cache
+            if self.feature_cache:
+                self.feature_cache.save(method_name, method_config, image_paths, feature_matrix)
+                if self.detailed_logger:
+                    log_cache_operation(self.detailed_logger, 'save', method_name, cache_path, True)
+        
+        print(f"[OK] Feature matrix shape: {feature_matrix.shape}")
+        
+        # Detailed logging: feature extraction
+        if self.detailed_logger:
+            log_feature_extraction_details(self.detailed_logger, method_name, image_paths, feature_matrix)
         
         # Compute distance matrix
+        print(f"\n[2/4] 📏 Distance Computation")
+        print(f"-" * 60)
+        print(f"Computing {len(image_paths)} x {len(image_paths)} distance matrix...")
         distance_matrix = method.compute_distances(feature_matrix)
+        print(f"[OK] Distance matrix computed: {distance_matrix.shape}")
+        
+        # Detailed logging: distance computation
+        if self.detailed_logger:
+            log_distance_computation_details(self.detailed_logger, method_name, distance_matrix)
         
         # Get rankings (indices sorted by distance)
+        print(f"\n[3/4] 🔢 Ranking Computation")
+        print(f"-" * 60)
         ranking_indices = np.argsort(distance_matrix, axis=1)
+        print(f"[OK] Rankings computed for {len(ranking_indices)} queries")
+        
+        # Detailed logging: rankings
+        if self.detailed_logger:
+            k = self.run_config.get('k', 10)
+            groups = evaluation_data.get('groups', [])
+            log_ranking_details(self.detailed_logger, ranking_indices, groups, k)
         
         # Compute metrics
+        print(f"\n[4/4] 📊 Metric Evaluation")
+        print(f"-" * 60)
         evaluation_data = self.dataset.get_evaluation_data()
         computed_metrics = metrics.compute_metrics(
             ranking_indices, 
@@ -79,7 +185,20 @@ class ExperimentRunner:
             self.run_config
         )
         
+        # Print metrics
+        print(f"\n{'='*60}")
+        print(f"📈 RESULTS")
+        print(f"{'='*60}")
+        for metric_name, metric_value in computed_metrics.items():
+            if metric_name not in ['num_queries', 'num_images']:
+                print(f"  {metric_name:20s}: {metric_value:.4f}")
+        print(f"{'='*60}")
+        
+        # Log results
+        log_results(self.logger, method_name, computed_metrics)
+        
         # Save results
+        print(f"\n💾 Saving results...")
         self.result_manager.save_method_results(
             method_name=method_name,
             method_config=method_config,
@@ -88,9 +207,7 @@ class ExperimentRunner:
             computed_metrics=computed_metrics,
             dataset=self.dataset
         )
-        
-        # Print primary metric
-        self._print_primary_metric(computed_metrics)
+        print(f"[OK] Results saved to: {self.result_manager.run_directory / method_name}")
         
         return {
             'method': method_name,

@@ -4,6 +4,7 @@ Chi-square distance measure for histograms.
 
 import numpy as np
 from typing import Dict, Any
+from tqdm import tqdm
 from .base import DistanceMeasure
 
 
@@ -22,7 +23,12 @@ class ChiSquareMeasure(DistanceMeasure):
         
         # Chunked computation for memory efficiency
         chunk_size = max(1, 1024 // max(1, feature_dim // 256))
-        for i in range(0, num_samples_a, chunk_size):
+        num_chunks = (num_samples_a + chunk_size - 1) // chunk_size
+        
+        for i in tqdm(range(0, num_samples_a, chunk_size), 
+                     total=num_chunks, 
+                     desc="Chi-square distances", 
+                     unit="chunk"):
             chunk_a = features_a[i:i+chunk_size][:, None, :]  # [chunk_size, 1, feature_dim]
             chunk_b = features_b[None, :, :]                  # [1, num_samples_b, feature_dim]
             numerator = (chunk_a - chunk_b) ** 2

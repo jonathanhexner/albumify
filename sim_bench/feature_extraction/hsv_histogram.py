@@ -6,6 +6,7 @@ Uses configurable distance measures for comparison.
 import cv2
 import numpy as np
 from typing import List
+from tqdm import tqdm
 from sim_bench.feature_extraction.base import BaseMethod
 
 
@@ -29,10 +30,10 @@ class HSVHistogramMethod(BaseMethod):
         bins = tuple(self.method_config['features']['bins'])
         preproc = self.method_config['features'].get('preproc', {})
         
-        print(f"Extracting HSV histograms ({bins} bins)...")
+        print(f"Extracting HSV histograms ({bins} bins) from {len(image_paths)} images...")
         
         H = []
-        for f in image_paths:
+        for f in tqdm(image_paths, desc="HSV histograms", unit="img"):
             img = cv2.imread(f)
             if img is None:
                 raise FileNotFoundError(f)

@@ -4,6 +4,7 @@ Wasserstein (Earth Mover's Distance) measure for histograms.
 
 import numpy as np
 from typing import Dict, Any
+from tqdm import tqdm
 from .base import DistanceMeasure
 
 
@@ -52,7 +53,7 @@ class WassersteinMeasure(DistanceMeasure):
         
         # Compute pairwise Wasserstein distances
         distance_matrix = np.empty((num_samples_a, num_samples_b), dtype=np.float32)
-        for i in range(num_samples_a):
+        for i in tqdm(range(num_samples_a), desc="Wasserstein distances", unit="query"):
             for j in range(num_samples_b):
                 distance_matrix[i, j] = wasserstein_distance(
                     bin_coordinates, bin_coordinates, 

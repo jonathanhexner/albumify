@@ -2,6 +2,15 @@
 
 A simple, lightweight image similarity benchmarking framework for evaluating image retrieval methods on standard datasets.
 
+## ⚡ New: Performance & UX Improvements
+
+- **Feature Caching**: 10-300x speedup for repeated experiments
+- **Quick Test Mode**: `--quick` flag for rapid development iteration  
+- **Progress Monitoring**: Real-time feedback with progress bars
+- **Python Logging**: Automatic experiment logs to file (in addition to console)
+- **Group-Based Sampling**: Sample by relevance groups, not total images (maintains valid metrics!)
+- **Better Documentation**: See `docs/PERFORMANCE.md`, `docs/LOGGING_AND_SAMPLING.md`, and `docs/CACHE_STORAGE.md`
+
 ## Features
 
 - 🚀 **Simple & Fast**: Unified CLI with comma-separated lists, runs out of the box
@@ -13,6 +22,35 @@ A simple, lightweight image similarity benchmarking framework for evaluating ima
 - 🏭 **Multiple Methods**: Chi-square, EMD (Wasserstein), Deep Learning (ResNet50), SIFT BoVW
 
 ## Quick Start
+
+### ⚡ Fast Testing (New!)
+
+```bash
+# Quick test with 100 images (completes in seconds!)
+python -m sim_bench.cli --quick --methods chi_square --datasets ukbench
+
+# Custom quick test size
+python -m sim_bench.cli --quick --quick-size 50 --methods resnet50
+```
+
+See `docs/PERFORMANCE.md` for optimization guide and caching details.
+
+### 📊 Results Analysis (New!)
+
+```bash
+# Analyze results in Jupyter notebook
+jupyter notebook analyze_results.ipynb
+```
+
+The notebook provides automatic analysis:
+- Method comparisons with visualizations
+- Per-query performance distributions
+- Best/worst query identification  
+- Multi-experiment comparisons
+
+See `docs/ANALYSIS_NOTEBOOK.md` for guide.
+
+## Installation & Setup
 
 ### Prerequisites
 - Python 3.10+
@@ -39,8 +77,21 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install --upgrade pip
+
+# Option 1: Full install (includes visualization, notebook, deep learning)
 pip install -r requirements.txt
+
+# Option 2: Minimal install (benchmarking only, no visualization)
+pip install -r requirements-minimal.txt
+
+# Option 3: Development install (includes testing, docs, jupyter)
+pip install -r requirements-dev.txt
 ```
+
+**Recommendation:**
+- **Users**: Use `requirements.txt` (includes notebook for analysis)
+- **CI/Testing**: Use `requirements-minimal.txt` (faster, smaller)
+- **Developers**: Use `requirements-dev.txt` (includes all tools)
 
 ### Configuration
 

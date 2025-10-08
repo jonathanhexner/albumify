@@ -1,0 +1,10 @@
+# Minimal requirements for benchmarking only (no visualization, no deep learning)
+numpy>=1.26,<2.0
+scipy>=1.11
+scikit-learn>=1.4
+opencv-contrib-python>=4.8,<4.10
+Pillow>=10.2
+tqdm>=4.66
+PyYAML>=6.0
+pandas>=2.0
+

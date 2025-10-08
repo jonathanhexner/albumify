@@ -53,7 +53,8 @@ class ResNet50Method(BaseMethod):
     def extract_features(self, image_paths: List[str]) -> np.ndarray:
         """Extract deep CNN features from images."""
         backbone = self.method_config.get('backbone', 'resnet50')
-        print(f"Extracting deep features ({backbone})...")
+        bs = int(self.method_config.get('batch_size', 16))
+        print(f"Extracting {backbone} features from {len(image_paths)} images (batch_size={bs})...")
         
         device = torch.device("cpu")
         model = self._build_model(backbone).to(device)
@@ -61,8 +62,7 @@ class ResNet50Method(BaseMethod):
 
         feats = []
         batch = []
-        bs = int(self.method_config.get('batch_size', 16))
-        for f in tqdm(image_paths, desc="deep: embeddings"):
+        for f in tqdm(image_paths, desc=f"{backbone} features", unit="img"):
             img = Image.open(f).convert('RGB')
             batch.append(tr(img))
             if len(batch) == bs:

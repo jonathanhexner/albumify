@@ -79,6 +79,23 @@ def run_unified_benchmark(args) -> None:
         # Load run configuration
         run_config = load_yaml_config(args.run_config)
         
+        # Apply quick mode if requested
+        if args.quick:
+            print(f"\n⚡ QUICK MODE: Using small subset for fast testing")
+            if 'sampling' not in run_config:
+                run_config['sampling'] = {}
+            # Use max_groups for proper sampling (maintains relevance structure)
+            # For UKBench: 1 group = 4 images, so quick_size/4 groups
+            run_config['sampling']['max_groups'] = max(1, args.quick_size // 4)
+            run_config['cache_features'] = False  # Don't cache in quick mode
+            estimated_images = run_config['sampling']['max_groups'] * 4  # UKBench estimate
+            print(f"   • Limited to {run_config['sampling']['max_groups']} groups (~{estimated_images} images for UKBench)")
+            print(f"   • Feature caching disabled")
+        
+        # Apply no-cache flag
+        if args.no_cache:
+            run_config['cache_features'] = False
+        
         print("=" * 60)
         print("SIM-BENCH EVALUATION")
         print("=" * 60)
@@ -206,6 +223,25 @@ Examples:
         type=str,
         default='configs/run.yaml',
         help="Path to run configuration YAML file (default: configs/run.yaml)"
+    )
+    
+    parser.add_argument(
+        '--quick', '-q',
+        action='store_true',
+        help="Quick test mode: run on small subset for fast iteration (disables caching)"
+    )
+    
+    parser.add_argument(
+        '--quick-size',
+        type=int,
+        default=100,
+        help="Approx. number of images to use in quick mode (default: 100, converted to groups)"
+    )
+    
+    parser.add_argument(
+        '--no-cache',
+        action='store_true',
+        help="Disable feature caching"
     )
     
     return parser

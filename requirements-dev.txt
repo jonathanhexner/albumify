@@ -1,0 +1,20 @@
+# Development requirements (includes everything)
+-r requirements.txt
+
+# Additional dev tools
+jupyter>=1.0
+notebook>=7.0
+jupyterlab>=4.0
+ipywidgets>=8.0
+
+# Testing and linting
+pytest>=7.4
+pytest-cov>=4.1
+black>=23.0
+flake8>=6.0
+mypy>=1.5
+
+# Documentation
+sphinx>=7.0
+sphinx-rtd-theme>=1.3
+

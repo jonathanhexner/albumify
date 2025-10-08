@@ -2,9 +2,13 @@ dataset: ukbench
 output_dir: "outputs"
 run_name: null
 
+# Feature caching - speeds up repeated runs significantly
+cache_features: true  # Set to false to disable caching
+
 logging:
   file: "run.log"
-  level: "INFO"
+  level: "INFO"      # Main log level: DEBUG, INFO, WARNING, ERROR
+  detailed: false    # Enable detailed.log with verbose debug info (sampling, features, rankings)
 
 save:
   per_query_csv: true
@@ -17,7 +21,21 @@ k: 4
 metrics: [ns, recall@1, recall@4, map@10]
 methods: [chi_square, emd]  # List of methods to run with 'run-all' command
 
+# Sampling configuration for testing/development
+# Two supported approaches:
+# 
+# 1. max_groups (RECOMMENDED): Sample by relevance groups to maintain proper structure
+#   * UKBench: 1 group = 4 images, so max_groups=25 means 100 images
+#   * Holidays: 1 group = 1 query series (varying sizes)
+#   * Ensures all groups are complete for valid metrics
+# 
+# 2. max_queries (ALSO SUPPORTED): Limit total images/queries
+#   * UKBench: Limits total images (may create incomplete groups)
+#   * Holidays: Limits number of query series (equivalent to max_groups)
+#   * Useful for exact image count control, but may affect metric validity
+#
+# If both are specified, max_groups takes precedence.
 sampling:
-  max_queries: 50
-  max_gallery: 2000
-  random_seed: 42
+  max_groups: 100     # Number of groups to sample (null = all). Recommended: 25 for quick tests
+  max_queries:     # Alternate: total images (UKBench) or queries (Holidays)
+  random_seed: 42  # For reproducible sampling
