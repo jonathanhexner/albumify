@@ -13,7 +13,7 @@ methods:
   - emd
 
 sampling:
-  max_groups: 500  # Increased from previous runs
+  max_groups:   # Increased from previous runs
   max_queries: null  # Allow all queries in selected groups
 
 metrics:
@@ -37,5 +37,5 @@ output_dir: outputs/baseline_runs/comprehensive_baseline
 eda:
   random_seed: 42
   subset_for_analysis:
-    total_images: 2000
-    groups_to_analyze: 100
+    total_images: 
+    groups_to_analyze: 

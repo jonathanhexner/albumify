@@ -268,7 +268,7 @@ class ExperimentRunner:
                 comprehensive_results['feature_statistics'][method_name] = method_stats
                 comprehensive_results['methods'].append(method_name)
                 comprehensive_results['method_performance'].append({
-                    'method_name': method_name,
+                    'method': method_name,
                     'metrics': method_result['metrics']
                 })
                 
