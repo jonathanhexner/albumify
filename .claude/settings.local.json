@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/**)",
+      "Bash(cd:*)",
+      "Bash(python diagnose_groups.py:*)",
+      "Bash(python:*)",
+      "Bash(where:*)",
+      "Bash(\".venv\\Scripts\\python.exe\" diagnose_groups.py)",
+      "Bash(\".venv\\Scripts\\python.exe\" diagnose_visual_groups.py)",
+      "Bash(\".venv\\Scripts\\python.exe\" -c \"from pathlib import Path; files = sorted(Path(r''D:\\Similar Images\\DataSets\\InriaHolidaysFull'').glob(''111*.jpg'')); [print(f.name) for f in files]\")",
+      "Bash(dir \"D:\\Similar Images\\DataSets\\InriaHolidaysFull\")",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(\".venv\\Scripts\\python.exe\" test_visualization.py)",
+      "Bash(\".venv\\Scripts\\python.exe\" find_cell.py)",
+      "Bash(rm:*)",
+      "Bash(awk:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

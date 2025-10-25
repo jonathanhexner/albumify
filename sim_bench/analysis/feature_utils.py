@@ -288,6 +288,70 @@ def get_query_feature_matrix(
     return features.T
 
 
+def analyze_feature_discriminability(
+    feature_matrix: np.ndarray,
+    group_ids: List[int],
+    top_k: int = 20
+) -> Dict[str, np.ndarray]:
+    """
+    Compute Fisher criterion: between-group variance / within-group variance.
+    
+    Higher score = feature separates groups well (good for retrieval).
+    Lower score = feature confuses groups (bad for retrieval).
+    
+    Args:
+        feature_matrix: Feature matrix [n_samples, n_features]
+        group_ids: Group ID for each sample
+        top_k: Number of top discriminative features to return
+        
+    Returns:
+        Dictionary with:
+            - fisher_scores: Score for each feature dimension
+            - top_discriminative_dims: Indices of top-k features
+            - top_discriminative_scores: Scores of top-k features
+            - between_var: Between-group variance per dimension
+            - within_var: Within-group variance per dimension
+    """
+    n_features = feature_matrix.shape[1]
+    n_samples = len(group_ids)
+    unique_groups = sorted(set(group_ids))
+    n_groups = len(unique_groups)
+    
+    overall_mean = np.mean(feature_matrix, axis=0)
+    
+    between_var = np.zeros(n_features)
+    within_var = np.zeros(n_features)
+    
+    # Single loop: compute both variances simultaneously
+    for gid in unique_groups:
+        group_mask = np.array(group_ids) == gid
+        group_features = feature_matrix[group_mask]
+        group_mean = np.mean(group_features, axis=0)
+        group_size = np.sum(group_mask)
+        
+        # Between-group variance contribution
+        between_var += group_size * (group_mean - overall_mean) ** 2
+        
+        # Within-group variance contribution
+        within_var += np.sum((group_features - group_mean) ** 2, axis=0)
+    
+    between_var /= n_groups
+    within_var /= (n_samples - n_groups)
+    
+    # Fisher criterion with numerical stability
+    fisher_scores = between_var / (within_var + 1e-10)
+    
+    top_indices = np.argsort(fisher_scores)[::-1][:top_k]
+    
+    return {
+        'fisher_scores': fisher_scores,
+        'top_discriminative_dims': top_indices,
+        'top_discriminative_scores': fisher_scores[top_indices],
+        'between_var': between_var,
+        'within_var': within_var
+    }
+
+
 def analyze_within_group_feature_diversity(
     query_indices: List[int],
     query_group_ids: List[int],
@@ -398,91 +462,6 @@ def analyze_within_group_feature_diversity(
         results[gid] = result
     
     return results
-
-
-def analyze_feature_discriminability(
-    query_indices: List[int],
-    query_group_ids: List[int],
-    cache_file: Path,
-    top_k: int = 20
-) -> Dict[str, Any]:
-    """
-    Analyze which features are good at discriminating between groups.
-    
-    Good features have:
-    - Low within-group variance (similar images have similar values)
-    - High between-group variance (different images have different values)
-    
-    This is similar to the Fisher criterion used in feature selection.
-    
-    Args:
-        query_indices: List of query indices
-        query_group_ids: Group ID for each query
-        cache_file: Path to feature cache file
-        top_k: Number of top discriminative features to return
-        
-    Returns:
-        Dictionary with:
-            'fisher_scores': Fisher criterion for each dimension
-            'top_discriminative_dims': Indices of top-k features
-            'top_fisher_scores': Fisher scores for top features
-            'within_group_variances': Mean within-group variance per dimension
-            'between_group_variances': Between-group variance per dimension
-    """
-    # Get features for all queries
-    query_features = get_features_by_index(query_indices, cache_file)
-    n_features = query_features.shape[1]
-    
-    # Group features by group_id
-    from collections import defaultdict
-    groups = defaultdict(list)
-    for i, gid in enumerate(query_group_ids):
-        groups[gid].append(i)
-    
-    # Compute overall mean
-    overall_mean = query_features.mean(axis=0)  # [feature_dim]
-    
-    # Compute within-group and between-group variances
-    within_group_var = np.zeros(n_features)
-    between_group_var = np.zeros(n_features)
-    
-    for gid, indices_in_group in groups.items():
-        if len(indices_in_group) < 2:
-            continue
-        
-        group_features = query_features[indices_in_group]
-        group_mean = group_features.mean(axis=0)
-        group_size = len(indices_in_group)
-        
-        # Within-group variance for this group
-        within_var = np.var(group_features, axis=0)
-        within_group_var += within_var * group_size
-        
-        # Between-group variance contribution
-        mean_diff = (group_mean - overall_mean) ** 2
-        between_group_var += mean_diff * group_size
-    
-    # Normalize by total number of samples
-    n_samples = len(query_indices)
-    within_group_var /= n_samples
-    between_group_var /= n_samples
-    
-    # Compute Fisher score (ratio of between to within variance)
-    # Add small epsilon to avoid division by zero
-    fisher_scores = between_group_var / (within_group_var + 1e-10)
-    
-    # Find top discriminative features
-    top_dims = np.argsort(fisher_scores)[-top_k:][::-1]
-    
-    return {
-        'fisher_scores': fisher_scores,
-        'top_discriminative_dims': top_dims,
-        'top_fisher_scores': fisher_scores[top_dims],
-        'within_group_variances': within_group_var,
-        'between_group_variances': between_group_var,
-        'mean_fisher_score': fisher_scores.mean(),
-        'median_fisher_score': np.median(fisher_scores)
-    }
 
 
 def compute_feature_statistics(features: np.ndarray) -> pd.DataFrame:

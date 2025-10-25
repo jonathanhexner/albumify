@@ -1,13 +1,13 @@
 name: holidays
 root: "D:/Similar Images/DataSets/InriaHolidaysFull"
 pattern: "*.jpg"
-description: "INRIA Holidays dataset - 1,491 images, 500 queries, variable group sizes"
+description: "INRIA Holidays dataset - 1,491 images, all images as queries (UKBench-style), variable group sizes"
 
 # Dataset characteristics
 total_images: 1491
-num_queries: 500
-# Query identification: Queries are automatically identified as the first (lowest numbered) image in each series
-# No separate query_pattern needed - queries are determined by logic, not filename pattern
+num_queries: 1491  # ALL images are queries (aligned with UKBench behavior)
+# Query identification: All images are queries, each queries for other images in same group
+# No separate query_pattern needed - queries are all images
 
 # Evaluation settings specific to Holidays
 evaluation:

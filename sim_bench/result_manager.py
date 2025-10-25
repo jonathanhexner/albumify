@@ -68,7 +68,7 @@ class ResultManager:
         self._save_metrics_csv(method_directory, method_name, computed_metrics, dataset)
         self._save_per_query_csv(method_directory, ranking_indices, computed_metrics, dataset)
         self._save_rankings_csv(method_directory, ranking_indices, distance_matrix, dataset)
-        self._save_manifest_json(method_directory, method_name, method_config)
+        self._save_manifest_json(method_directory, method_name, method_config, dataset)
         
         print(f"Results written to: {method_directory}")
     
@@ -103,15 +103,18 @@ class ResultManager:
                     datetime.now().isoformat()
                 ]
             else:  # Holidays
-                header = ["method", "map_full", "map@10", "map@50", "recall@1", "recall@10", "prec@10", "num_queries", "num_gallery", "created_at"]
+                # Fixed: Use actual metric names as computed by the factory
+                # 'map' is computed, not 'map_full'
+                # 'precision@10' is computed, not 'prec@10'
+                header = ["method", "map", "map@10", "map@50", "recall@1", "recall@10", "precision@10", "num_queries", "num_gallery", "created_at"]
                 row = [
                     method_name,
-                    f"{computed_metrics.get('map_full', 0):.6f}",
+                    f"{computed_metrics.get('map', 0):.6f}",
                     f"{computed_metrics.get('map@10', 0):.6f}",
                     f"{computed_metrics.get('map@50', 0):.6f}",
                     f"{computed_metrics.get('recall@1', 0):.6f}",
                     f"{computed_metrics.get('recall@10', 0):.6f}",
-                    f"{computed_metrics.get('prec@10', 0):.6f}",
+                    f"{computed_metrics.get('precision@10', 0):.6f}",
                     len(dataset.get_queries()),
                     len(dataset.get_images()),
                     datetime.now().isoformat()
@@ -137,10 +140,18 @@ class ResultManager:
         with open(per_query_file, "w", newline="") as file:
             writer = csv.writer(file)
             
-            if hasattr(dataset, 'groups'):  # UKBench
+            # Detect dataset type by name (more reliable than attributes)
+            dataset_name = dataset.dataset_config.get('name', '').lower()
+            if dataset_name == 'ukbench':
                 self._save_ukbench_per_query(writer, ranking_indices, dataset)
-            else:  # Holidays
+            elif dataset_name == 'holidays':
                 self._save_holidays_per_query(writer, ranking_indices, dataset)
+            else:
+                # Fallback to old logic for backward compatibility
+                if hasattr(dataset, 'groups'):
+                    self._save_ukbench_per_query(writer, ranking_indices, dataset)
+                else:
+                    self._save_holidays_per_query(writer, ranking_indices, dataset)
     
     def _save_ukbench_per_query(
         self,
@@ -188,16 +199,18 @@ class ResultManager:
         ranking_indices: np.ndarray,
         dataset: BaseDataset
     ) -> None:
-        """Save Holidays per-query results."""
+        """Save Holidays per-query results (all images are queries now, like UKBench)."""
         
-        writer.writerow(["query_idx", "query_path", "num_relevant", "ap_full", "ap@10", "recall@10"])
+        writer.writerow(["query_idx", "query_path", "group_id", "num_relevant", "ap_full", "ap@10", "recall@10"])
         
         images = dataset.get_images()
         queries = dataset.get_queries()
         relevance_map = dataset.data['relevance_map']
+        groups = dataset.data['groups']
         
         for query_idx in queries:
             relevant_images = relevance_map.get(query_idx, [])
+            query_group = groups[query_idx]
             
             # Compute full AP and AP@10
             relevant_count = 0
@@ -220,6 +233,7 @@ class ResultManager:
             writer.writerow([
                 query_idx,
                 images[query_idx],
+                query_group,
                 len(relevant_images),
                 f"{ap_full:.6f}",
                 f"{ap_10:.6f}",
@@ -233,7 +247,7 @@ class ResultManager:
         distance_matrix: np.ndarray,
         dataset: BaseDataset
     ) -> None:
-        """Save rankings CSV."""
+        """Save rankings CSV with image identifiers instead of array positions."""
         
         if not self.run_config.get('save', {}).get('rankings_csv', True):
             return
@@ -243,24 +257,27 @@ class ResultManager:
         
         with open(rankings_file, "w", newline="") as file:
             writer = csv.writer(file)
-            writer.writerow(["query_idx", "rank", "result_idx", "distance"])
+            writer.writerow(["query_filename", "rank", "result_filename", "distance"])
             
             images = dataset.get_images()
             queries = dataset.get_queries()
             
             for query_idx in queries:
+                query_filename = Path(images[query_idx]).name
                 for rank in range(min(topk_limit, len(images))):
                     result_idx = ranking_indices[query_idx][rank]
+                    result_filename = Path(images[result_idx]).name
                     distance = distance_matrix[query_idx][result_idx]
-                    writer.writerow([query_idx, rank, result_idx, f"{distance:.6f}"])
+                    writer.writerow([query_filename, rank, result_filename, f"{distance:.6f}"])
     
     def _save_manifest_json(
         self,
         method_directory: Path,
         method_name: str,
-        method_config: Dict[str, Any]
+        method_config: Dict[str, Any],
+        dataset: BaseDataset = None
     ) -> None:
-        """Save method manifest JSON."""
+        """Save method manifest JSON with dataset metadata."""
         
         manifest_file = method_directory / "manifest.json"
         manifest_data = {
@@ -268,6 +285,15 @@ class ResultManager:
             "config": method_config,
             "created_at": datetime.now().isoformat()
         }
+        
+        # Add dataset metadata for future analysis
+        if dataset:
+            manifest_data["dataset"] = {
+                "name": dataset.dataset_config.get('name', 'unknown'),
+                "total_images": len(dataset.get_images()),
+                "total_queries": len(dataset.get_queries()),
+                "num_groups": len(set(dataset.data.get('groups', [])))
+            }
         
         with open(manifest_file, 'w') as file:
             json.dump(manifest_data, file, indent=2)

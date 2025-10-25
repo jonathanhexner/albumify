@@ -140,14 +140,17 @@ def _render_image(ax: plt.Axes, image_path: Path, title: str, title_color: str =
 
 
 def _format_result_title(
-    rank: int, 
-    result_idx: int, 
-    distance: float, 
-    result_group: int, 
-    query_group: int
+    rank: int,
+    result_idx: int,
+    distance: float,
+    result_group: int,
+    query_group: int,
+    filename: str = ""
 ) -> str:
     """Format a compact title for a result image."""
     match_indicator = "✓" if result_group == query_group else ""
+    if filename:
+        return f"#{rank} {filename}\nidx={result_idx} grp={result_group}{match_indicator} d={distance:.3f}"
     return f"#{rank} idx={result_idx} grp={result_group}{match_indicator} d={distance:.3f}"
 
 
@@ -216,38 +219,43 @@ def plot_query_topn_grid(
     cell_idx = 0
     
     # Render query
+    query_filename = Path(query_data.query_path).name
     _render_image(
         axes_flat[cell_idx],
         Path(query_data.query_path),
-        f"QUERY (idx={query_data.query_idx}, grp={query_data.query_group})",
+        f"QUERY: {query_filename}\n(idx={query_data.query_idx}, grp={query_data.query_group})",
         title_color="blue",
         fontsize=config.label_fontsize
     )
     cell_idx += 1
-    
+
     # Render results
     for _, r in query_data.top_results.iterrows():
         result_idx = int(r["result_idx"])
         distance = float(r["distance"]) if pd.notna(r["distance"]) else float("nan")
         rank = int(r['rank'])
         result_group = query_data.group_map.get(result_idx, -1)
-        
-        title = _format_result_title(rank, result_idx, distance, result_group, query_data.query_group)
+        result_path = Path(query_data.image_index_to_path[result_idx])
+        result_filename = result_path.name
+
+        title = _format_result_title(rank, result_idx, distance, result_group, query_data.query_group, result_filename)
         _render_image(
             axes_flat[cell_idx],
-            Path(query_data.image_index_to_path[result_idx]),
+            result_path,
             title,
             fontsize=config.label_fontsize
         )
         cell_idx += 1
-    
+
     # Render ground truth (if enabled)
     if ground_truth:
         for gt_idx in ground_truth.indices:
+            gt_path = Path(query_data.image_index_to_path[gt_idx])
+            gt_filename = gt_path.name
             _render_image(
                 axes_flat[cell_idx],
-                Path(query_data.image_index_to_path[gt_idx]),
-                f"GT idx={gt_idx} grp={ground_truth.group_id}",
+                gt_path,
+                f"GT: {gt_filename}\n(idx={gt_idx}, grp={ground_truth.group_id})",
                 title_color="green",
                 fontsize=config.label_fontsize
             )

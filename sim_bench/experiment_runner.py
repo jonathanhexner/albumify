@@ -300,8 +300,8 @@ class ExperimentRunner:
         """Print the primary metric for the dataset."""
         if 'ns_score' in computed_metrics:
             print(f"N-S score: {computed_metrics['ns_score']:.3f}")
-        elif 'map_full' in computed_metrics:
-            print(f"mAP (full): {computed_metrics['map_full']:.3f}")
+        elif 'map' in computed_metrics:
+            print(f"mAP (full): {computed_metrics['map']:.3f}")
     
     def get_output_directory(self) -> Path:
         """Get the output directory for this experiment."""
@@ -462,7 +462,7 @@ class BenchmarkRunner:
                     recall_4 = row.get('recall@4', 'N/A')
                     print(f"  {method:12} | N-S: {ns_score:5.3f} | R@1: {recall_1:5.3f} | R@4: {recall_4:5.3f}")
                 elif dataset == 'holidays':
-                    map_full = row.get('map_full', 'N/A')
+                    map_full = row.get('map', 'N/A')
                     map_10 = row.get('map@10', 'N/A')
                     recall_1 = row.get('recall@1', 'N/A')
                     print(f"  {method:12} | mAP: {map_full:5.3f} | mAP@10: {map_10:5.3f} | R@1: {recall_1:5.3f}")

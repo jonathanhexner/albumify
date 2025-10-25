@@ -64,8 +64,12 @@ class MeanAveragePrecision(BaseMetric):
                 continue
                 
             # Determine evaluation depth
-            eval_k = self.k if self.k is not None else len(relevant_images)
-            eval_k = min(eval_k, len(ranking_indices[query_idx]) - 1)  # -1 to skip self
+            if self.k is not None:
+                # For map@k, limit to k results
+                eval_k = min(self.k, len(ranking_indices[query_idx]) - 1)  # -1 to skip self
+            else:
+                # For map_full, use all available results (excluding self)
+                eval_k = len(ranking_indices[query_idx]) - 1  # -1 to skip self
             
             # Calculate AP for this query
             relevant_count = 0

@@ -134,7 +134,7 @@
             "request": "launch",
             "module": "sim_bench.cli",
             "args": [
-                "--methods", "chi_square,emd,deep,sift_bovw",
+                "--methods", "emd,deep,sift_bovw",
                 "--datasets", "holidays",
                 "--run-config", "configs/run.yaml"
             ],

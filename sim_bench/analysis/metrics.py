@@ -82,20 +82,32 @@ def compute_recall_at_k(
                 )
                 
                 # For holidays, need to know total relevant images
-                # This is a limitation without the full dataset info
-                # Use num_relevant from per_query if available
+                # Use num_relevant from per_query (must be present for Holidays)
                 if 'num_relevant' in per_query_df.columns:
-                    num_relevant = per_query_df[per_query_df['query_idx'] == query_idx]['num_relevant'].iloc[0]
-                    recall = relevant_retrieved / num_relevant if num_relevant > 0 else 0.0
+                    query_row = per_query_df[per_query_df['query_idx'] == query_idx]
+                    if len(query_row) > 0:
+                        num_relevant = query_row['num_relevant'].iloc[0]
+                        recall = relevant_retrieved / num_relevant if num_relevant > 0 else 0.0
+                    else:
+                        recall = 0.0
                 else:
-                    recall = 0.0  # Cannot compute without relevance info
+                    raise ValueError(
+                        f"Holidays dataset requires 'num_relevant' column in per_query.csv!\n"
+                        f"Available columns: {per_query_df.columns.tolist()}\n\n"
+                        f"Solution: Re-run the experiment to generate proper Holidays output."
+                    )
                 
                 results.append({
                     'query_idx': query_idx,
                     f'recall@{k}': recall
                 })
         else:
-            raise ValueError("Cannot compute recall for Holidays without group_id or relevance information")
+            raise ValueError(
+                f"Cannot compute recall without group_id!\n"
+                f"Dataset type: {dataset_type}\n"
+                f"Available columns: {per_query_df.columns.tolist()}\n\n"
+                f"Solution: Ensure per_query.csv has 'group_id' column."
+            )
     
     return pd.DataFrame(results)
 

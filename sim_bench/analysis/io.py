@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Dict, Optional, List
 import pandas as pd
+import yaml
 
 from .config import get_global_config
 from sim_bench.datasets import load_dataset
@@ -37,9 +38,94 @@ def load_per_query(method: str, experiment_dir: Optional[Path] = None) -> pd.Dat
 
 
 def load_rankings(method: str, experiment_dir: Optional[Path] = None) -> pd.DataFrame:
-    """Load rankings.csv for a method."""
+    """Load rankings.csv with backward compatibility for both old and new formats."""
     path = get_rankings_path(method, experiment_dir)
-    return pd.read_csv(path)
+    df = pd.read_csv(path)
+    
+    # Check if using new format (filenames) and convert to old format for compatibility
+    if 'query_filename' in df.columns:
+        print(f"[INFO] Converting rankings from filenames to indices for compatibility...")
+        # Ensure experiment_dir is resolved
+        if experiment_dir is None:
+            try:
+                experiment_dir = _resolve_experiment_dir(None)
+            except ValueError:
+                # If global config is not set, try to detect from the rankings file path
+                experiment_dir = path.parent.parent
+                print(f"[INFO] Using experiment directory: {experiment_dir}")
+        return _convert_rankings_to_indices(df, method, experiment_dir)
+    
+    return df
+
+
+def _convert_rankings_to_indices(
+    rankings_df: pd.DataFrame, 
+    method: str, 
+    experiment_dir: Path
+) -> pd.DataFrame:
+    """Convert rankings from filenames back to indices for backward compatibility."""
+    
+    # Load dataset to get image mappings
+    dataset_name = _detect_dataset_from_experiment(experiment_dir)
+    config_file = Path(__file__).parent.parent.parent / "configs" / f"dataset.{dataset_name}.yaml"
+    
+    if not config_file.exists():
+        raise FileNotFoundError(f"Dataset config not found: {config_file}")
+    
+    with open(config_file, 'r') as f:
+        dataset_config = yaml.safe_load(f)
+    
+    from sim_bench.datasets import load_dataset
+    dataset = load_dataset(dataset_name, dataset_config)
+    images = dataset.get_images()
+    
+    # Create filename to index mapping
+    filename_to_idx = {Path(img).name: idx for idx, img in enumerate(images)}
+    
+    # Convert filenames back to indices
+    df = rankings_df.copy()
+    df['query_idx'] = df['query_filename'].apply(lambda f: filename_to_idx[f])
+    df['result_idx'] = df['result_filename'].apply(lambda f: filename_to_idx[f])
+    
+    # Drop filename columns and reorder
+    df = df.drop(columns=['query_filename', 'result_filename'])
+    df = df[['query_idx', 'rank', 'result_idx', 'distance']]
+    
+    return df
+
+
+def _detect_dataset_from_experiment(experiment_dir: Path) -> str:
+    """Detect dataset name from experiment directory structure."""
+    # Try to find manifest.json with dataset info
+    for method_dir in experiment_dir.iterdir():
+        if method_dir.is_dir():
+            manifest_file = method_dir / "manifest.json"
+            if manifest_file.exists():
+                try:
+                    import json
+                    with open(manifest_file, 'r') as f:
+                        manifest = json.load(f)
+                    if 'dataset' in manifest and 'name' in manifest['dataset']:
+                        return manifest['dataset']['name']
+                except:
+                    continue
+    
+    # Fallback: try to detect from per_query.csv structure
+    for method_dir in experiment_dir.iterdir():
+        if method_dir.is_dir():
+            per_query_file = method_dir / "per_query.csv"
+            if per_query_file.exists():
+                df = pd.read_csv(per_query_file, nrows=5)
+                if 'group_id' in df.columns:
+                    # Check if it looks like Holidays (high group IDs) or UKBench (low group IDs)
+                    sample_groups = df['group_id'].head().tolist()
+                    if any(g > 1000 for g in sample_groups):
+                        return 'holidays'
+                    else:
+                        return 'ukbench'
+    
+    # Default fallback
+    return 'holidays'
 
 
 def build_image_index_to_path(per_query_df: pd.DataFrame) -> Dict[int, str]:

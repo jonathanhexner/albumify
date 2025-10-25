@@ -23,6 +23,7 @@ metrics:
   - precision@10
   - map
   - map@10
+  - map@50  # Added to match CSV header
   - ns_score
 
 logging:
