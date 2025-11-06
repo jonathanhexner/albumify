@@ -118,7 +118,7 @@ pip install -r requirements-dev.txt
    ```yaml
    sampling:
      max_queries: 200  # Limit for faster testing (50 for Holidays)
-   k: 4               # Top-k for N-S score (UKBench only)
+   k: 4               # Top-k for N-S score computation
    ```
 
 ### Running Evaluation
@@ -145,7 +145,7 @@ python -m sim_bench.cli
 python -m sim_bench.cli --methods emd --datasets holidays --run-config configs/run.yaml
 ```
 
-**Available Methods**: `chi_square`, `emd`, `deep`, `sift_bovw`  
+**Available Methods**: `chi_square`, `emd`, `deep`, `dinov2`, `openclip`, `sift_bovw`  
 **Available Datasets**: `ukbench`, `holidays`
 
 ## Understanding Results
@@ -158,7 +158,7 @@ Results are saved to `outputs/<timestamp>/<method>/`:
   - **Recall@k**: Fraction of queries with relevant results in top-k
   - **Precision@k**: Average precision in top-k results
   - **mAP@k**: Mean Average Precision at k (ranking quality)
-  - **N-S Score**: UKBench-specific normalized score (average relevant in top-4)
+  - **N-S Score**: Normalized score (average relevant in top-k, works with all datasets)
 - **`per_query.csv`**: Per-query detailed metrics
 - **`rankings.csv`**: Full ranking lists for analysis
 - **`summary.csv`**: Cross-method comparison (when running multiple methods)
@@ -201,7 +201,19 @@ Results written to: outputs/2025-10-04_14-22-32/chi_square
    - **Distance**: Cosine distance
    - **Speed**: Fast, requires PyTorch
 
-4. **SIFT BoVW** (`sift_bovw`):
+4. **DINOv2** (`dinov2`) 🆕:
+   - **Features**: Meta's self-supervised ViT (384-1536-dim)
+   - **Distance**: Cosine distance
+   - **Speed**: Fast, state-of-the-art quality
+   - **Variants**: small, base, large, giant
+
+5. **OpenCLIP** (`openclip`) 🆕:
+   - **Features**: Vision-language model (512-1024-dim)
+   - **Distance**: Cosine distance
+   - **Speed**: Fast, excellent semantic understanding
+   - **Models**: ViT-B-32, ViT-L-14, and more
+
+6. **SIFT BoVW** (`sift_bovw`):
    - **Features**: SIFT local features + Bag-of-Visual-Words (512 clusters)
    - **Distance**: Cosine distance
    - **Speed**: Slow (codebook building), traditional CV approach
@@ -229,10 +241,10 @@ samples/
 You can test the framework immediately using the sample images:
 
 ```bash
-# Test on UKBench samples (should get high N-S scores)
+# Test on UKBench samples (easy dataset, expect high scores)
 python -m sim_bench.cli --methods chi_square,deep --datasets ukbench
 
-# Test on Holidays samples (should get reasonable mAP scores)  
+# Test on Holidays samples (harder dataset, expect lower scores)
 python -m sim_bench.cli --methods emd,deep --datasets holidays
 
 # Compare all methods on both sample sets
@@ -312,10 +324,15 @@ output_dir: "outputs"
 sampling:
   max_queries: 200    # null for all queries
 metrics:
-  - "ns"              # N-S Score (UKBench)
+  - "ns_score"        # N-S Score (normalized score)
   - "recall@1"        # Accuracy
   - "recall@4"        # Recall at 4
+  - "recall@10"       # Recall at 10
+  - "precision@10"    # Precision at 10
+  - "map"             # Mean Average Precision (full)
   - "map@10"          # Mean Average Precision at 10
+  - "map@50"          # Mean Average Precision at 50
+  # Note: All metrics work with all datasets
 save:
   per_query_csv: true
   rankings_csv: true
@@ -450,15 +467,16 @@ sim-bench/
 - pandas>=2.0  # For result summaries
 
 **Optional (for specific methods):**
-- torch>=2.0, torchvision>=0.15  # For deep learning method
+- torch>=2.0, torchvision>=0.15  # For deep learning methods (ResNet50, DINOv2, OpenCLIP)
+- open-clip-torch>=2.20  # For OpenCLIP method
 - matplotlib>=3.8  # For visualization (if needed)
 
 ## 📚 Documentation
 
 ### 📖 Comprehensive Guides
 - **[Dataset Documentation](docs/DATASETS.md)** - Detailed information about UKBench and INRIA Holidays datasets
+- **[DINOv2 & OpenCLIP Guide](docs/DINOV2_AND_OPENCLIP.md)** - 🆕 New state-of-the-art feature extractors
 - **[Sample Images Guide](samples/README.md)** - Understanding the included sample images and how to use them
-- **[GitHub Setup Guide](GITHUB_SETUP.md)** - Instructions for setting up the repository
 
 ### 🔍 Quick References
 - **Sample Images**: `samples/` - Representative images from both datasets for immediate testing

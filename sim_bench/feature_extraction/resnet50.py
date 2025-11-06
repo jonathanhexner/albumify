@@ -49,9 +49,10 @@ class ResNet50Method(BaseMethod):
             T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
     
-    @torch.no_grad()
     def extract_features(self, image_paths: List[str]) -> np.ndarray:
         """Extract deep CNN features from images."""
+        import torch
+        
         backbone = self.method_config.get('backbone', 'resnet50')
         bs = int(self.method_config.get('batch_size', 16))
         print(f"Extracting {backbone} features from {len(image_paths)} images (batch_size={bs})...")

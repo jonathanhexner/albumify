@@ -141,6 +141,10 @@ def run_unified_benchmark(args) -> None:
                 'datasets': [],
                 'logging': run_config.get('logging', {}),
                 'save': run_config.get('save', {}),
+                'metrics': run_config.get('metrics', []),  # CRITICAL: Pass metrics list
+                'k': run_config.get('k', 4),  # Pass k parameter for N-S score
+                'sampling': run_config.get('sampling', {}),  # Pass sampling config
+                'cache_features': run_config.get('cache_features', True),  # Pass cache setting
                 'random_seed': run_config.get('random_seed', 42)
             }
             

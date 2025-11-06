@@ -1,17 +1,21 @@
 # Universal metrics configuration
-# All metrics work with any dataset - no dataset-specific restrictions
+# All metrics work with any dataset - ALL datasets use the SAME metrics
 
 # Available metrics (all dataset-agnostic):
 available_metrics:
   - "accuracy"      # Fraction of queries with relevant result at rank 1
   - "recall@1"      # Fraction of queries with ≥1 relevant in top-1 (same as accuracy)
-  - "recall@4"      # Fraction of queries with ≥1 relevant in top-4  
+  - "recall@4"      # Fraction of queries with ≥1 relevant in top-4
   - "recall@10"     # Fraction of queries with ≥1 relevant in top-10
   - "precision@10"  # Average precision in top-10 results
   - "map"           # Mean Average Precision (full)
   - "map@10"        # Mean Average Precision at 10
   - "map@50"        # Mean Average Precision at 50
   - "ns_score"      # Normalized Score (avg relevant in top-k)
+
+# IMPORTANT: All datasets measure the same thing - matching images from the same group/burst
+# Therefore, ALL experiments should use the same set of metrics regardless of dataset.
+# The recommended configuration is 'comprehensive_metrics' below.
 
 # Example configurations for different use cases:
 
@@ -21,14 +25,14 @@ quick_metrics: [accuracy, recall@4, map@10]
 # Standard evaluation (balanced)
 standard_metrics: [accuracy, recall@4, recall@10, map@10, ns_score]
 
-# Comprehensive evaluation (all metrics)
+# Comprehensive evaluation (all metrics) - RECOMMENDED
+# Use this for all datasets to ensure consistent evaluation
 comprehensive_metrics: [accuracy, recall@1, recall@4, recall@10, precision@10, map, map@10, map@50, ns_score]
 
-# UKBench traditional (for comparison with papers)
-ukbench_traditional: [ns_score, recall@1, recall@4, map@10]
-
-# Holidays traditional (for comparison with papers)  
-holidays_traditional: [map, map@10, map@50, recall@1, recall@10, precision@10]
+# Legacy configurations (DO NOT USE - kept for historical reference only)
+# These were used in old experiments but created inconsistent results across datasets
+# ukbench_traditional: [ns_score, recall@1, recall@4, map@10]  # DEPRECATED
+# holidays_traditional: [map, map@10, map@50, recall@1, recall@10, precision@10]  # DEPRECATED
 
 # Parameters:
 k: 4  # For N-S score computation (can be any value)

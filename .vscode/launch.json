@@ -1,7 +1,15 @@
 {
     "version": "0.2.0",
     "configurations": [
-        
+        {
+            "name": "rerun_baseline_experiments",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.rerun_baseline_experiments",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
         {
             "name": "UKBench - Chi-Square",
             "type": "python",
@@ -155,6 +163,35 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": true
-        }
+        },
+        {
+            "name": "OpenCLIP, Dinov2 Benchmark",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.cli",
+            "args": [
+                "--methods", "openclip,dinov2",
+                "--datasets", "ukbench,holidays",
+                "--run-config", "configs/run.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "OpenCLIP Benchmark",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.cli",
+            "args": [
+                "--methods", "openclip",
+                "--datasets", "ukbench,holidays",
+                "--run-config", "configs/run.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }              
+
     ]
 }

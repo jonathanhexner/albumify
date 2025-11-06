@@ -79,6 +79,8 @@ def load_method(method_name: str, method_config: Dict[str, Any]) -> BaseMethod:
     from sim_bench.feature_extraction.hsv_histogram import HSVHistogramMethod
     from sim_bench.feature_extraction.resnet50 import ResNet50Method
     from sim_bench.feature_extraction.sift_bovw import SIFTBoVWMethod
+    from sim_bench.feature_extraction.dinov2 import DINOv2Method
+    from sim_bench.feature_extraction.openclip import OpenCLIPMethod
 
     # Method registry - supporting both old and new names for backward compatibility
     method_registry = {
@@ -89,6 +91,8 @@ def load_method(method_name: str, method_config: Dict[str, Any]) -> BaseMethod:
         'resnet50': ResNet50Method,          # New specific name
         'cnn_feature': ResNet50Method,       # Generic CNN name
         'sift_bovw': SIFTBoVWMethod,
+        'dinov2': DINOv2Method,              # Meta's self-supervised ViT
+        'openclip': OpenCLIPMethod,          # OpenCLIP vision-language model
     }
     
     if method_name not in method_registry:

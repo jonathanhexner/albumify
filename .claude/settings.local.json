@@ -17,7 +17,11 @@
       "Bash(rm:*)",
       "Bash(awk:*)",
       "Bash(find:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(\".venv\\Scripts\\python.exe\" test_multi_experiment.py)",
+      "Bash(dir:*)",
+      "Bash(\".venv\\Scripts\\python.exe\" recalculate_metrics.py)",
+      "Bash(\".venv\\Scripts\\python.exe\" fix_all_metrics.py)"
     ],
     "deny": [],
     "ask": []

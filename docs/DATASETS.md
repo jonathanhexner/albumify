@@ -4,10 +4,12 @@ This document provides comprehensive information about the datasets supported by
 
 ## 📊 Supported Datasets
 
-| Dataset | Images | Queries | Groups | Avg Group Size | Primary Metric | Difficulty |
-|---------|--------|---------|--------|----------------|----------------|------------|
-| **UKBench** | 10,200 | 2,550 | 2,550 | 4 (fixed) | N-S Score | Easy-Medium |
-| **INRIA Holidays** | 1,491 | 500 | 500 | 2-20+ (variable) | mAP | Medium-Hard |
+| Dataset | Images | Queries | Groups | Avg Group Size | Difficulty |
+|---------|--------|---------|--------|----------------|------------|
+| **UKBench** | 10,200 | 2,550 | 2,550 | 4 (fixed) | Easy-Medium |
+| **INRIA Holidays** | 1,491 | 500 | 500 | 2-20+ (variable) | Medium-Hard |
+
+**Note**: All datasets use the same comprehensive set of metrics for consistent evaluation. See [configs/metrics.yaml](../configs/metrics.yaml) for details.
 
 ## 🎯 UKBench Dataset
 
@@ -147,28 +149,43 @@ sampling:
   max_gallery: 2000    # Limit gallery size
   random_seed: 42      # Reproducible sampling
 
-k: 4                   # Top-k for N-S score (UKBench)
-metrics: [ns, recall@1, recall@4, map@10]
+k: 4                   # Top-k for N-S score computation
+# Use comprehensive metrics for all datasets (recommended)
+metrics: [accuracy, recall@1, recall@4, recall@10, precision@10, map, map@10, map@50, ns_score]
 ```
 
 ## 📈 Evaluation Metrics
 
-### N-S Score (UKBench)
-- **Range**: 0.0 to 4.0
-- **Perfect Score**: 4.0 (all 4 group members in top-4)
-- **Good Score**: >3.0
-- **Formula**: Average number of relevant images in top-4 results across all queries
+**IMPORTANT**: All datasets use the same comprehensive set of metrics. Both UKBench and Holidays measure the same task (matching images from the same group/burst), so they are evaluated identically.
 
-### mAP (Mean Average Precision)
+### Universal Metrics (Applied to ALL Datasets)
+
+#### N-S Score (Normalized Score)
+- **Range**: 0.0 to k (typically 4.0)
+- **Perfect Score**: k (all group members in top-k)
+- **Good Score**: >3.0 for k=4
+- **Formula**: Average number of relevant images in top-k results across all queries
+- **Use Case**: Quick metric for variable group sizes
+
+#### mAP (Mean Average Precision)
 - **Range**: 0.0 to 1.0
 - **Perfect Score**: 1.0 (all relevant images ranked first)
-- **Good Score**: >0.6 for Holidays
+- **Good Score**: >0.6 for challenging datasets
 - **Formula**: Average of AP scores across all queries
+- **Use Case**: Standard IR metric, accounts for ranking quality
 
-### Universal Metrics
-- **Recall@k**: Fraction of queries with at least one relevant result in top-k
-- **Precision@k**: Average precision in top-k results
-- **Accuracy**: Recall@1 (fraction with correct result in top-1)
+#### Recall@k
+- **Range**: 0.0 to 1.0
+- **Formula**: Fraction of queries with at least one relevant result in top-k
+- **Common values**: k ∈ {1, 4, 10}
+
+#### Precision@k
+- **Range**: 0.0 to 1.0
+- **Formula**: Average precision in top-k results
+- **Common values**: k ∈ {10, 50}
+
+#### Accuracy
+- Same as Recall@1 (fraction with correct result in top-1)
 
 ## 🚀 Usage Examples
 

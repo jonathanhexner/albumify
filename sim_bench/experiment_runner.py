@@ -350,9 +350,11 @@ class BenchmarkRunner:
                 )
                 
                 # Add dataset information to results
-                for result in dataset_results:
-                    result['dataset'] = dataset_name
-                    all_results.append(result)
+                # dataset_results is a dict with 'method_performance' list
+                if dataset_results and 'method_performance' in dataset_results:
+                    for result in dataset_results['method_performance']:
+                        result['dataset'] = dataset_name
+                        all_results.append(result)
                     
             except Exception as error:
                 print(f"Error running {dataset_name}: {error}")
@@ -400,8 +402,11 @@ class BenchmarkRunner:
             'logging': self.benchmark_config.get('logging', {}),
             'save': self.benchmark_config.get('save', {}),
             'methods': self.benchmark_config['methods'],
+            'metrics': self.benchmark_config.get('metrics', []),  # FIX: Pass metrics list
+            'k': self.benchmark_config.get('k', 4),                # FIX: Pass k parameter
             'sampling': dataset_config.get('sampling', {}),
-            'random_seed': self.benchmark_config.get('random_seed', 42)
+            'random_seed': self.benchmark_config.get('random_seed', 42),
+            'cache_features': self.benchmark_config.get('cache_features', True)  # Pass cache setting too
         }
         
         # Add dataset-specific settings
@@ -457,12 +462,20 @@ class BenchmarkRunner:
             for _, row in dataset_results.iterrows():
                 method = row['method']
                 if dataset == 'ukbench':
-                    ns_score = row.get('ns_score', 'N/A')
-                    recall_1 = row.get('recall@1', 'N/A')
-                    recall_4 = row.get('recall@4', 'N/A')
+                    ns_score = row.get('ns_score', 0.0)
+                    recall_1 = row.get('recall@1', 0.0)
+                    recall_4 = row.get('recall@4', 0.0)
+                    # Convert to float if string
+                    ns_score = float(ns_score) if ns_score != 'N/A' else 0.0
+                    recall_1 = float(recall_1) if recall_1 != 'N/A' else 0.0
+                    recall_4 = float(recall_4) if recall_4 != 'N/A' else 0.0
                     print(f"  {method:12} | N-S: {ns_score:5.3f} | R@1: {recall_1:5.3f} | R@4: {recall_4:5.3f}")
                 elif dataset == 'holidays':
-                    map_full = row.get('map', 'N/A')
-                    map_10 = row.get('map@10', 'N/A')
-                    recall_1 = row.get('recall@1', 'N/A')
+                    map_full = row.get('map', 0.0)
+                    map_10 = row.get('map@10', 0.0)
+                    recall_1 = row.get('recall@1', 0.0)
+                    # Convert to float if string
+                    map_full = float(map_full) if map_full != 'N/A' else 0.0
+                    map_10 = float(map_10) if map_10 != 'N/A' else 0.0
+                    recall_1 = float(recall_1) if recall_1 != 'N/A' else 0.0
                     print(f"  {method:12} | mAP: {map_full:5.3f} | mAP@10: {map_10:5.3f} | R@1: {recall_1:5.3f}")

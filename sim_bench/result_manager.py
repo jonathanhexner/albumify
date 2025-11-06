@@ -85,41 +85,30 @@ class ResultManager:
             return
         
         metrics_file = method_directory / "metrics.csv"
-        
+
         with open(metrics_file, "w", newline="") as file:
             writer = csv.writer(file)
-            
-            # Write header and data based on dataset type
-            if hasattr(dataset, 'groups'):  # UKBench
-                header = ["method", "ns", "recall@1", "recall@4", "map@10", "num_queries", "num_gallery", "created_at"]
-                row = [
-                    method_name,
-                    f"{computed_metrics.get('ns_score', 0):.6f}",
-                    f"{computed_metrics.get('recall@1', 0):.6f}",
-                    f"{computed_metrics.get('recall@4', 0):.6f}",
-                    f"{computed_metrics.get('map@10', 0):.6f}",
-                    len(dataset.get_queries()),
-                    len(dataset.get_images()),
-                    datetime.now().isoformat()
-                ]
-            else:  # Holidays
-                # Fixed: Use actual metric names as computed by the factory
-                # 'map' is computed, not 'map_full'
-                # 'precision@10' is computed, not 'prec@10'
-                header = ["method", "map", "map@10", "map@50", "recall@1", "recall@10", "precision@10", "num_queries", "num_gallery", "created_at"]
-                row = [
-                    method_name,
-                    f"{computed_metrics.get('map', 0):.6f}",
-                    f"{computed_metrics.get('map@10', 0):.6f}",
-                    f"{computed_metrics.get('map@50', 0):.6f}",
-                    f"{computed_metrics.get('recall@1', 0):.6f}",
-                    f"{computed_metrics.get('recall@10', 0):.6f}",
-                    f"{computed_metrics.get('precision@10', 0):.6f}",
-                    len(dataset.get_queries()),
-                    len(dataset.get_images()),
-                    datetime.now().isoformat()
-                ]
-            
+
+            # Extract all metric columns (excluding metadata)
+            metadata_keys = {'num_queries', 'num_images'}
+            metric_names = [key for key in computed_metrics.keys() if key not in metadata_keys]
+
+            # Build header: method, all metrics (sorted for consistency), metadata
+            header = ["method"] + sorted(metric_names) + ["num_queries", "num_gallery", "created_at"]
+
+            # Build row with corresponding values
+            row = [method_name]
+            for metric_name in sorted(metric_names):
+                value = computed_metrics.get(metric_name, 0)
+                row.append(f"{value:.6f}")
+
+            # Add metadata
+            row.extend([
+                len(dataset.get_queries()),
+                len(dataset.get_images()),
+                datetime.now().isoformat()
+            ])
+
             writer.writerow(header)
             writer.writerow(row)
     
