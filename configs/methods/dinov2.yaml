@@ -1,0 +1,17 @@
+method: dinov2
+variant: "base"           # Options: "small", "base", "large", "giant"
+batch_size: 16
+device: "cpu"             # Options: "cpu", "cuda"
+normalize: true           # L2 normalization (recommended)
+distance: "cosine"        # Distance measure for similarity
+cache_dir: "artifacts/dinov2"
+
+# Model variants and their embedding dimensions:
+# - small:  384-dim features (fastest)
+# - base:   768-dim features (good balance)
+# - large:  1024-dim features (more powerful)
+# - giant:  1536-dim features (most powerful, slowest)
+
+
+
+

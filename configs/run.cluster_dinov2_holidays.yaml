@@ -1,0 +1,44 @@
+# DBSCAN Clustering with DINOv2 on Holidays dataset
+# Tight clustering with epsilon=0.1
+
+experiment:
+  name: holidays_dinov2_dbscan
+  description: Cluster Holidays dataset using DINOv2 embeddings with DBSCAN (eps=0.1)
+
+# Single dataset and method for clustering
+dataset: holidays
+method: dinov2
+
+# Sample ~50 images (Holidays has variable images per group)
+sampling:
+  max_groups: 10            # ~50 images (Holidays has ~5 images per group avg)
+  max_queries: null
+
+# DBSCAN Clustering configuration
+clustering:
+  enabled: true
+  algorithm: dbscan
+  
+  # DBSCAN parameters - tight clustering
+  params:
+    metric: cosine          # Cosine distance for DINOv2 embeddings
+    eps: 0.2          # Tight clustering (small epsilon)
+    min_samples: 1          # Minimum samples for core point
+  
+  # Output configuration
+  output:
+    save_csv: true          # Save clusters.csv (image_path, cluster_id)
+    save_stats: true        # Save cluster_stats.json
+    save_galleries: false   # Generate HTML galleries per cluster (TODO)
+
+# Standard experiment settings
+logging:
+  level: INFO
+  detailed: false
+
+cache_features: true
+output_dir: outputs/cluster_runs/holidays_dinov2_dbscan
+
+# Random seed for reproducibility
+random_seed: 42
+

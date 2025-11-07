@@ -1,0 +1,11 @@
+name: budapest
+root: "D:/Budapest2025_Google"
+subdirs:
+  images: "."  # All images in root directory
+pattern: "*.jpg"  # Windows is case-insensitive, no need for multiple patterns
+
+# Note: This is a flat directory dataset with no ground truth
+# - Total images: 310 (122 JPEG + 188 HEIC)
+# - Use convert_heic_to_jpeg.py to convert HEIC files
+# - Suitable for clustering only, not evaluation
+

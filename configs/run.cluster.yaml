@@ -1,0 +1,50 @@
+# Clustering experiment configuration
+# Run a single method and cluster the resulting features
+
+experiment:
+  name: ukbench_dinov2_clustering
+  description: Cluster UKBench images using DINOv2 features with DBSCAN
+
+# Single dataset and method for clustering
+dataset: ukbench
+method: sift_bovw  # Using SIFT BoVW (no PyTorch required)
+
+# Optional: sample subset for faster experiments
+sampling:
+  max_groups: 200           # ~800 images for UKBench (4 per group)
+  max_queries: null
+
+# Clustering configuration
+clustering:
+  enabled: true
+  algorithm: dbscan         # 'dbscan' or 'kmeans'
+  
+  # Algorithm-specific parameters
+  params:
+    # DBSCAN parameters
+    metric: cosine          # 'cosine' or 'euclidean'
+    eps: 0.30               # Maximum distance for neighborhood (tune based on data)
+    min_samples: 4          # Minimum samples for core point
+    
+    # KMeans parameters (used if algorithm: kmeans)
+    # n_clusters: 50
+    # n_init: 10
+    # random_state: 42
+  
+  # Output configuration
+  output:
+    save_csv: true          # Save clusters.csv (image_path, cluster_id)
+    save_stats: true        # Save cluster_stats.json
+    save_galleries: false   # Generate HTML galleries per cluster (TODO)
+
+# Standard experiment settings
+logging:
+  level: INFO
+  detailed: false
+
+cache_features: true
+output_dir: outputs/cluster_runs/ukbench_dinov2_clustering
+
+# Random seed for reproducibility
+random_seed: 42
+

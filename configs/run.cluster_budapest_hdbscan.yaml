@@ -1,0 +1,52 @@
+# HDBSCAN Clustering for Budapest dataset
+# Hierarchical DBSCAN - automatically determines number of clusters
+
+experiment:
+  name: budapest_hdbscan
+  description: HDBSCAN clustering on Budapest photos
+
+# Dataset and method
+dataset: budapest
+method: dinov2  # Use semantic embeddings
+
+# Sampling
+sampling:
+  max_groups:       # Leave empty to use all images
+  max_queries: 150  # Or use all images
+
+# HDBSCAN Clustering
+clustering:
+  enabled: true
+  algorithm: hdbscan  # Hierarchical DBSCAN
+  
+  params:
+    metric: cosine
+    min_cluster_size: 2        # Minimum images per cluster
+    min_samples: 2          # Defaults to min_cluster_size
+    cluster_selection_epsilon: 0.0
+    cluster_selection_method: eom  # 'eom' = excess of mass (recommended)
+  
+  output:
+    save_csv: true
+    save_stats: true
+    save_galleries: true
+    open_browser: false
+
+# Standard settings
+logging:
+  level: INFO
+  detailed: false
+
+cache_features: true
+output_dir: outputs/cluster_runs/budapest_hdbscan
+random_seed: 42
+
+# HDBSCAN Notes:
+# - Automatically determines number of clusters
+# - More robust than DBSCAN (no eps tuning needed)
+# - min_cluster_size: Main parameter to tune (5-10 for photos)
+# - Handles varying density clusters better than DBSCAN
+# - Returns cluster stability/persistence scores
+#
+# Requires: pip install hdbscan
+

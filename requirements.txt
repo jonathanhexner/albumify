@@ -7,6 +7,7 @@ Pillow>=10.2
 tqdm>=4.66
 PyYAML>=6.0
 pandas>=2.0
+hdbscan>=0.8  # Hierarchical DBSCAN for clustering
 
 # Optional: Deep learning methods (ResNet50, DINOv2, OpenCLIP)
 torch>=2.0; platform_system != "Darwin" or platform_machine != "arm64"
@@ -18,6 +19,7 @@ open-clip-torch>=2.20  # For OpenCLIP method
 matplotlib>=3.8
 seaborn>=0.13
 fivecentplots>=0.5.4  # Advanced box plots for multi-experiment comparison
+Jinja2>=3.1  # HTML gallery generation for clustering
 
 # Optional: Jupyter notebook analysis
 jupyter>=1.0

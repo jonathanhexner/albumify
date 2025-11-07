@@ -1,0 +1,42 @@
+# Clustering experiment with KMeans
+# Run a single method and cluster the resulting features
+
+experiment:
+  name: ukbench_sift_kmeans
+  description: Cluster UKBench images using SIFT BoVW features with KMeans
+
+# Single dataset and method for clustering
+dataset: ukbench
+method: sift_bovw
+
+# Optional: sample subset for faster experiments
+sampling:
+  max_groups: 200           # ~800 images for UKBench (4 per group)
+  max_queries: null
+
+# Clustering configuration - KMeans
+clustering:
+  enabled: true
+  algorithm: kmeans         # Use KMeans for guaranteed clusters
+  
+  params:
+    n_clusters: 10          # Create 10 clusters
+    n_init: 10              # Number of initializations
+    random_state: 42        # For reproducibility
+  
+  output:
+    save_csv: true          # Save clusters.csv (image_path, cluster_id)
+    save_stats: true        # Save cluster_stats.json
+    save_galleries: false   # Generate HTML galleries per cluster (TODO)
+
+# Standard experiment settings
+logging:
+  level: INFO
+  detailed: false
+
+cache_features: true
+output_dir: outputs/cluster_runs/ukbench_sift_kmeans
+
+# Random seed for reproducibility
+random_seed: 42
+

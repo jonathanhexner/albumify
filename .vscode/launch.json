@@ -191,7 +191,43 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": true
-        }              
+        },              
+        {
+            "name": "Dinov2 clustering - Holidays",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.cli",
+            "args": [
 
+                "--run-config", "configs/run.cluster_dinov2_holidays.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Dinov2 clustering - Budapest",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.cli",
+            "args": [
+                "--run-config", "configs/run.cluster_budapest.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "HDBSCAN clustering - Budapest",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.cli",
+            "args": [
+                "--run-config", "configs/run.cluster_budapest_hdbscan.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
     ]
 }

@@ -21,6 +21,7 @@ from sim_bench.detailed_logging import (
     setup_detailed_logger, log_sampling_details, log_feature_extraction_details,
     log_distance_computation_details, log_ranking_details, log_cache_operation
 )
+from sim_bench.clustering import load_clustering_method
 
 
 class ExperimentRunner:
@@ -291,6 +292,52 @@ class ExperimentRunner:
             dataset=self.dataset
         )
         print(f"[OK] Results saved to: {self.result_manager.run_directory / method_name}")
+
+    def run_clustering(self, method_name: str, cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Run feature extraction and clustering for a single method.
+
+        Args:
+            method_name: Name of the method to run
+            cluster_config: Clustering configuration dictionary
+
+        Returns:
+            Dictionary containing clustering results
+        """
+        print(f"\n{'='*60}")
+        print(f"CLUSTERING EXPERIMENT")
+        print(f"{'='*60}")
+        print(f"Method: {method_name}")
+        print(f"Algorithm: {cluster_config.get('algorithm', 'dbscan')}")
+        print(f"{'='*60}")
+
+        # Load method
+        method_config = self._load_method_config(method_name)
+        method = load_method(method_name, method_config)
+
+        # Extract features (with caching)
+        image_paths = self.dataset.get_images()
+        feature_matrix = self._extract_features_with_cache(method_name, method_config, method, image_paths)
+
+        # Load clustering method using factory
+        print(f"\n[2/3] Clustering")
+        print(f"-" * 60)
+        clusterer = load_clustering_method(cluster_config)
+        labels, stats = clusterer.cluster(feature_matrix)
+
+        # Save results
+        print(f"\n[3/3] Saving Results")
+        print(f"-" * 60)
+        output_dir = self.result_manager.run_directory
+        experiment_name = self.run_config.get('experiment', {}).get('name', 'Clustering Experiment')
+        clusterer.save_results(output_dir, image_paths, labels, stats, experiment_name)
+
+        return {
+            'method': method_name,
+            'labels': labels,
+            'stats': stats,
+            'config': cluster_config
+        }
     
     def run_multiple_methods(self, method_names: List[str]) -> Dict[str, Any]:
         """

@@ -54,6 +54,58 @@ def parse_comma_list(value: str) -> List[str]:
     return [item.strip() for item in value.split(',') if item.strip()]
 
 
+def run_clustering_experiment(run_config: Dict[str, Any], args) -> None:
+    """
+    Run clustering experiment (single method, single dataset).
+    
+    Args:
+        run_config: Run configuration dictionary
+        args: Command line arguments
+    """
+    print(f"\n{'='*60}")
+    print("CLUSTERING MODE")
+    print(f"{'='*60}")
+    
+    # Get dataset and method from config
+    dataset_name = run_config.get('dataset')
+    method_name = run_config.get('method')
+    
+    if not dataset_name or not method_name:
+        raise ValueError("Clustering mode requires 'dataset' and 'method' in config")
+    
+    print(f"Dataset: {dataset_name}")
+    print(f"Method: {method_name}")
+    print(f"{'='*60}")
+    
+    # Load dataset configuration
+    dataset_config_path = f"configs/dataset.{dataset_name}.yaml"
+    dataset_config = load_yaml_config(dataset_config_path)
+    
+    # Apply quick mode if requested
+    if args.quick:
+        print(f"\nQUICK MODE: Using small subset for fast testing")
+        if 'sampling' not in run_config:
+            run_config['sampling'] = {}
+        run_config['sampling']['max_groups'] = max(1, args.quick_size // 4)
+        run_config['cache_features'] = False
+        print(f"   • Limited to {run_config['sampling']['max_groups']} groups")
+        print(f"   • Feature caching disabled")
+    
+    # Apply no-cache flag
+    if args.no_cache:
+        run_config['cache_features'] = False
+    
+    # Create experiment runner
+    experiment_runner = ExperimentRunner(run_config, dataset_config)
+    
+    # Run clustering
+    cluster_config = run_config.get('clustering', {})
+    result = experiment_runner.run_clustering(method_name, cluster_config)
+    
+    print(f"\nClustering complete!")
+    print(f"Results saved to: {experiment_runner.get_output_directory()}")
+
+
 def run_unified_benchmark(args) -> None:
     """
     Run unified benchmark with flexible method and dataset selection.
@@ -62,6 +114,14 @@ def run_unified_benchmark(args) -> None:
         args: Command line arguments
     """
     try:
+        # Load run configuration first
+        run_config = load_yaml_config(args.run_config)
+        
+        # Check if clustering mode
+        if run_config.get('clustering', {}).get('enabled', False):
+            run_clustering_experiment(run_config, args)
+            return
+        
         # Parse methods
         if args.methods:
             methods = parse_comma_list(args.methods)
@@ -75,9 +135,6 @@ def run_unified_benchmark(args) -> None:
         else:
             datasets = get_available_datasets()
             print(f"No datasets specified, running all available: {', '.join(datasets)}")
-        
-        # Load run configuration
-        run_config = load_yaml_config(args.run_config)
         
         # Apply quick mode if requested
         if args.quick:

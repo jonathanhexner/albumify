@@ -1,0 +1,24 @@
+method: openclip
+model: "ViT-B-32"                      # Model architecture
+pretrained: "laion2b_s34b_b79k"        # Pretrained checkpoint
+batch_size: 16
+device: "cpu"                          # Options: "cpu", "cuda"
+normalize: true                        # L2 normalization (recommended for CLIP)
+distance: "cosine"                     # Distance measure for similarity
+cache_dir: "artifacts/openclip"
+
+# Popular model configurations:
+# Fast models:
+#   - model: "ViT-B-32", pretrained: "laion2b_s34b_b79k"    # 512-dim, fast
+#   - model: "ViT-B-16", pretrained: "laion2b_s34b_b88k"    # 512-dim, better
+# 
+# High-quality models:
+#   - model: "ViT-L-14", pretrained: "laion2b_s32b_b82k"    # 768-dim, powerful
+#   - model: "ViT-H-14", pretrained: "laion2b_s32b_b79k"    # 1024-dim, best
+#
+# OpenAI original:
+#   - model: "ViT-B-32", pretrained: "openai"               # 512-dim, baseline
+
+
+
+

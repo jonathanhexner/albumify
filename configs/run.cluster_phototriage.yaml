@@ -1,0 +1,47 @@
+# Clustering experiment for Photo Triage dataset
+# Automatic Triage for a Photo Series (Kaggle dataset)
+
+experiment:
+  name: phototriage_clustering
+  description: Cluster photo series using SIFT BoVW with KMeans
+
+# Dataset and method
+dataset: phototriage
+method: sift_bovw  # Fast method for testing; change to dinov2 for better results
+
+# Sampling (Photo Triage has 12,988 images - sample for faster testing)
+sampling:
+  max_groups: 50    # ~130 images (avg 2.6 images per group)
+  max_queries: null
+
+# Clustering configuration
+clustering:
+  enabled: true
+  algorithm: kmeans  # or 'dbscan' for density-based clustering
+  
+  # KMeans parameters
+  params:
+    n_clusters: 20        # Expect ~50 groups, but allow merging
+    n_init: 10
+    random_state: 42
+    
+    # DBSCAN parameters (if using algorithm: dbscan)
+    # metric: cosine
+    # eps: 0.4
+    # min_samples: 3
+  
+  # Output configuration
+  output:
+    save_csv: true
+    save_stats: true
+    save_galleries: false
+
+# Standard settings
+logging:
+  level: INFO
+  detailed: false
+
+cache_features: true
+output_dir: outputs/cluster_runs/phototriage_clustering
+random_seed: 42
+

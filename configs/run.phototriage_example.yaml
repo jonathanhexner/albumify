@@ -1,0 +1,43 @@
+# Example configuration for Photo Triage dataset experiments
+# Automatic Triage for a Photo Series (Kaggle dataset)
+
+experiment:
+  name: phototriage_example
+  description: Example run on Photo Triage dataset with sampling
+
+# Dataset configuration  
+dataset: phototriage
+
+# Method to use
+method: sift_bovw  # or: dinov2, openclip, deep, chi_square, emd
+
+# Sampling (recommended for testing)
+# Photo Triage is large: 12,988 images in 4,986 groups
+sampling:
+  max_groups: 100   # Sample 100 groups (~260 images avg)
+  max_queries: null
+
+# Metrics to compute
+metrics:
+  - recall@1
+  - recall@4
+  - recall@10
+  - precision@10
+  - map
+  - map@10
+  - ns_score
+
+# Logging
+logging:
+  level: INFO
+  detailed: false
+
+# Feature caching
+cache_features: true
+
+# Output directory
+output_dir: outputs/phototriage_runs/example
+
+# Random seed
+random_seed: 42
+

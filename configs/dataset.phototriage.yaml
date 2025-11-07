@@ -1,0 +1,13 @@
+name: phototriage
+root: "D:/Similar Images/automatic_triage_photo_series"
+subdirs:
+  images: "train_val/train_val_imgs"
+pattern: "*.JPG"
+
+# Dataset info:
+# - Total images: 12,988
+# - Total groups: 4,986  
+# - Group sizes: 1-8 images per group (avg 2.6)
+# - Filename format: GGGGGG-II.JPG (G=group ID, I=image ID)
+#   Example: 000001-01.JPG, 000001-02.JPG (group 000001)
+

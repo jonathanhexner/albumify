@@ -1,0 +1,64 @@
+# Clustering experiment for Budapest2025_Google dataset
+# Personal photo collection - no ground truth
+
+experiment:
+  name: budapest_clustering
+  description: Cluster Budapest photos to find similar images
+
+# Dataset and method
+dataset: budapest
+method: dinov2  # Better semantic clustering
+
+# Sampling (optional - 310 images is manageable)
+sampling:
+  max_groups:       # Leave empty to use all images
+  max_queries: 150  # Or set a smaller number for testing
+
+# Clustering configuration
+clustering:
+  enabled: true
+  algorithm: dbscan  # Options: 'dbscan', 'hdbscan', 'kmeans'
+  
+  # DBSCAN parameters (current)
+  params:
+    metric: cosine
+    eps: 0.3             # Adjust based on results (0.3-0.5 range)
+    min_samples: 1        # Minimum photos for a cluster
+    
+    # HDBSCAN parameters (if using algorithm: hdbscan)
+    # metric: cosine
+    # min_cluster_size: 5      # Minimum cluster size (auto-determines # clusters)
+    # min_samples: None        # Defaults to min_cluster_size
+    # cluster_selection_epsilon: 0.0
+    # cluster_selection_method: eom  # 'eom' or 'leaf'
+    
+    # KMeans parameters (if using algorithm: kmeans)
+    # n_clusters: 20      # Specify expected number of clusters
+    # n_init: 10
+    # random_state: 42
+  
+  # Output configuration
+  output:
+    save_csv: true        # clusters.csv with image paths
+    save_stats: true      # cluster_stats.json
+    save_galleries: true  # Generate HTML gallery
+    open_browser: false   # Auto-open in browser (optional)
+
+# Standard settings
+logging:
+  level: INFO
+  detailed: false
+
+cache_features: true
+output_dir: outputs/cluster_runs/budapest_clustering
+random_seed: 42
+
+# Notes:
+# 1. Run convert_heic_to_jpeg.py first to convert HEIC → JPEG
+# 2. For better semantic clustering, change method to 'dinov2' (requires venv)
+# 3. Adjust eps based on results:
+#    - eps too low (e.g., 0.1): Everything is noise
+#    - eps too high (e.g., 0.7): Everything in one cluster
+#    - Good range: 0.3-0.5
+# 4. Results will be in outputs/cluster_runs/budapest_clustering/
+
