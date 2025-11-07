@@ -218,6 +218,72 @@ Results written to: outputs/2025-10-04_14-22-32/chi_square
    - **Distance**: Cosine distance
    - **Speed**: Slow (codebook building), traditional CV approach
 
+## Benchmark Results
+
+Comprehensive evaluation of all methods on standard datasets (INRIA Holidays and UKBench):
+
+### Overall Method Rankings
+
+**INRIA Holidays Dataset** (1491 queries):
+
+| Rank | Method | mAP | mAP@10 | Recall@10 |
+|------|--------|-----|--------|-----------|
+| 1 | **DINOv2** | 0.893 | 0.885 | 1.000 |
+| 2 | **OpenCLIP** | 0.869 | 0.861 | 1.000 |
+| 3 | **Deep (ResNet50)** | 0.832 | 0.820 | 1.000 |
+| 4 | **SIFT BoVW** | 0.385 | 0.368 | 1.000 |
+| 5 | **EMD** | 0.245 | 0.225 | 1.000 |
+
+**UKBench Dataset** (10,200 queries):
+
+| Rank | Method | mAP | mAP@10 | Recall@10 | N-S Score |
+|------|--------|-----|--------|-----------|-----------|
+| 1 | **DINOv2** | 0.958 | 0.958 | 0.998 | N/A |
+| 2 | **OpenCLIP** | 0.946 | 0.947 | 0.996 | N/A |
+| 3 | **Deep (ResNet50)** | 0.946 | 0.946 | 0.998 | 2.83 |
+| 4 | **SIFT BoVW** | 0.499 | 0.500 | 0.784 | 1.52 |
+| 5 | **EMD** | 0.263 | 0.265 | 0.617 | 0.84 |
+
+### Key Findings
+
+- **DINOv2 is the clear winner** across both datasets, achieving the highest mAP and mAP@10 scores
+- **Self-supervised and vision-language models** (DINOv2, OpenCLIP) significantly outperform traditional methods
+- **Deep learning methods** consistently achieve 0.82-0.96 mAP, while traditional methods range 0.24-0.50
+- **UKBench is easier** than Holidays (avg mAP@10: 0.723 vs 0.632) due to controlled object views
+- All methods achieve **perfect Recall@10 on Holidays**, but vary significantly in ranking quality (mAP)
+
+### Dataset Difficulty
+
+**Cross-Dataset Average mAP@10**:
+- **UKBench**: 0.723 (easier - controlled object views, 4 images per object)
+- **INRIA Holidays**: 0.632 (harder - real vacation photos with viewpoint/lighting variations)
+
+### Per-Query Performance Statistics (AP@10)
+
+**INRIA Holidays**:
+| Method | Mean | Median | Std Dev |
+|--------|------|--------|---------|
+| DINOv2 | 0.8850 | 1.0000 | 0.2426 |
+| OpenCLIP | 0.8607 | 1.0000 | 0.2619 |
+| Deep (ResNet50) | 0.8203 | 0.9375 | 0.2815 |
+| SIFT BoVW | 0.3679 | 0.3333 | 0.3260 |
+| EMD | 0.2252 | 0.1667 | 0.2562 |
+
+**UKBench**:
+| Method | Mean | Median | Std Dev |
+|--------|------|--------|---------|
+| DINOv2 | 0.9582 | 1.0000 | 0.1279 |
+| OpenCLIP | 0.9467 | 1.0000 | 0.1530 |
+| Deep (ResNet50) | 0.9463 | 1.0000 | 0.1519 |
+| SIFT BoVW | 0.5002 | 0.5000 | 0.3406 |
+| EMD | 0.2647 | 0.2500 | 0.2282 |
+
+### Method Correlation
+
+Methods show **high agreement** on query difficulty (correlation 0.66-0.84 on Holidays, 0.68-0.94 on UKBench), indicating that queries that are hard for one method tend to be hard for others as well.
+
+**Full Analysis**: See [methods_comparison_updated.html](docs/methods_comparison_updated.html) for complete analysis including visualizations, correlation matrices, and per-query performance distributions.
+
 ## 🖼️ Sample Images
 
 The `samples/` folder contains representative images from both supported datasets to help you understand the data structure and similarity patterns **without needing to download the full datasets**.
