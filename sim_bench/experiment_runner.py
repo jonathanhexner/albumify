@@ -91,106 +91,175 @@ class ExperimentRunner:
     def run_single_method(self, method_name: str) -> Dict[str, Any]:
         """
         Run evaluation for a single method.
-        
+
         Args:
             method_name: Name of the method to run
-            
+
         Returns:
             Dictionary containing method results
         """
         print(f"\n{'='*60}")
         print(f"Method: {method_name}")
         print(f"{'='*60}")
-        
-        # Load method configuration
+
+        # Load method
+        method_config = self._load_method_config(method_name)
+        method = load_method(method_name, method_config)
+
+        # Extract features (with caching)
+        image_paths = self.dataset.get_images()
+        feature_matrix = self._extract_features_with_cache(method_name, method_config, method, image_paths)
+
+        # Compute distances and rankings
+        distance_matrix = self._compute_distances(method, feature_matrix, image_paths)
+        ranking_indices = self._compute_rankings(distance_matrix)
+
+        # Evaluate metrics
+        computed_metrics = self._evaluate_metrics(ranking_indices)
+
+        # Save and return results
+        self._save_results(method_name, method_config, ranking_indices, distance_matrix, computed_metrics)
+
+        return {
+            'method': method_name,
+            'metrics': computed_metrics,
+            'config': method_config
+        }
+
+    def _load_method_config(self, method_name: str) -> Dict[str, Any]:
+        """Load method configuration from file."""
         method_config_path = Path(f"configs/methods/{method_name}.yaml")
         if not method_config_path.exists():
             raise FileNotFoundError(f"Method config not found: {method_config_path}")
-        
+
         method_config = yaml.safe_load(method_config_path.read_text())
         print(f"[OK] Loaded config: {method_config_path}")
-        
-        # Log method start
         log_method_start(self.logger, method_name, method_config)
-        
-        # Load and initialize method
-        method = load_method(method_name, method_config)
-        
-        # Extract features (with caching)
-        image_paths = self.dataset.get_images()
+        return method_config
+
+    def _extract_features_with_cache(
+        self,
+        method_name: str,
+        method_config: Dict[str, Any],
+        method: Any,
+        image_paths: List[Path]
+    ) -> np.ndarray:
+        """Extract features with caching support."""
         print(f"\n[1/4] Feature Extraction")
         print(f"-" * 60)
-        
-        # Try to load from cache
-        feature_matrix = None
-        cache_hit = False
-        if self.feature_cache:
-            cache_path = self.feature_cache.get_cache_path(method_name, method_config, image_paths)
-            feature_matrix = self.feature_cache.load(method_name, method_config, image_paths)
-            if feature_matrix is not None:
-                cache_hit = True
-                print(f"[CACHE] Loaded features from cache")
-                self.logger.info(f"Features loaded from cache: {cache_path}")
-                if self.detailed_logger:
-                    log_cache_operation(self.detailed_logger, 'hit', method_name, cache_path, True)
-        
-        # Extract features if not cached
+
+        # Try cache first
+        feature_matrix = self._try_load_from_cache(method_name, method_config, image_paths)
+
+        # Extract if not cached
         if feature_matrix is None:
-            print(f"Extracting features for {len(image_paths)} images...")
-            if self.detailed_logger and self.feature_cache:
-                log_cache_operation(self.detailed_logger, 'miss', method_name, cache_path, False, 
-                                   "Features not in cache, extracting...")
-            
-            feature_matrix = method.extract_features(image_paths)
-            
-            # Save to cache
-            if self.feature_cache:
-                self.feature_cache.save(method_name, method_config, image_paths, feature_matrix)
-                print(f"[CACHE] Saved features to cache")
-                self.logger.info(f"Features saved to cache: {cache_path}")
-                if self.detailed_logger:
-                    log_cache_operation(self.detailed_logger, 'save', method_name, cache_path, True)
-        
+            feature_matrix = self._extract_and_cache_features(method_name, method_config, method, image_paths)
+
         print(f"[OK] Feature matrix shape: {feature_matrix.shape}")
-        
-        # Detailed logging: feature extraction
+
         if self.detailed_logger:
             log_feature_extraction_details(self.detailed_logger, method_name, image_paths, feature_matrix)
-        
-        # Compute distance matrix
+
+        return feature_matrix
+
+    def _try_load_from_cache(
+        self,
+        method_name: str,
+        method_config: Dict[str, Any],
+        image_paths: List[Path]
+    ) -> Optional[np.ndarray]:
+        """Try to load features from cache."""
+        if not self.feature_cache:
+            return None
+
+        cache_path = self.feature_cache.get_cache_path(method_name, method_config, image_paths)
+        feature_matrix = self.feature_cache.load(method_name, method_config, image_paths)
+
+        if feature_matrix is not None:
+            print(f"[CACHE] Loaded features from cache")
+            self.logger.info(f"Features loaded from cache: {cache_path}")
+            if self.detailed_logger:
+                log_cache_operation(self.detailed_logger, 'hit', method_name, cache_path, True)
+
+        return feature_matrix
+
+    def _extract_and_cache_features(
+        self,
+        method_name: str,
+        method_config: Dict[str, Any],
+        method: Any,
+        image_paths: List[Path]
+    ) -> np.ndarray:
+        """Extract features and save to cache."""
+        print(f"Extracting features for {len(image_paths)} images...")
+
+        if self.detailed_logger and self.feature_cache:
+            cache_path = self.feature_cache.get_cache_path(method_name, method_config, image_paths)
+            log_cache_operation(self.detailed_logger, 'miss', method_name, cache_path, False,
+                               "Features not in cache, extracting...")
+
+        feature_matrix = method.extract_features(image_paths)
+
+        # Save to cache
+        if self.feature_cache:
+            cache_path = self.feature_cache.get_cache_path(method_name, method_config, image_paths)
+            self.feature_cache.save(method_name, method_config, image_paths, feature_matrix)
+            print(f"[CACHE] Saved features to cache")
+            self.logger.info(f"Features saved to cache: {cache_path}")
+            if self.detailed_logger:
+                log_cache_operation(self.detailed_logger, 'save', method_name, cache_path, True)
+
+        return feature_matrix
+
+    def _compute_distances(
+        self,
+        method: Any,
+        feature_matrix: np.ndarray,
+        image_paths: List[Path]
+    ) -> np.ndarray:
+        """Compute distance matrix."""
         print(f"\n[2/4] Distance Computation")
         print(f"-" * 60)
         print(f"Computing {len(image_paths)} x {len(image_paths)} distance matrix...")
+
         distance_matrix = method.compute_distances(feature_matrix)
         print(f"[OK] Distance matrix computed: {distance_matrix.shape}")
-        
-        # Detailed logging: distance computation
+
         if self.detailed_logger:
-            log_distance_computation_details(self.detailed_logger, method_name, distance_matrix)
-        
-        # Get rankings (indices sorted by distance)
+            log_distance_computation_details(self.detailed_logger, method.name if hasattr(method, 'name') else 'unknown', distance_matrix)
+
+        return distance_matrix
+
+    def _compute_rankings(self, distance_matrix: np.ndarray) -> np.ndarray:
+        """Compute ranking indices from distance matrix."""
         print(f"\n[3/4] Ranking Computation")
         print(f"-" * 60)
+
         ranking_indices = np.argsort(distance_matrix, axis=1)
         print(f"[OK] Rankings computed for {len(ranking_indices)} queries")
-        
-        # Compute metrics
+
+        return ranking_indices
+
+    def _evaluate_metrics(self, ranking_indices: np.ndarray) -> Dict[str, float]:
+        """Evaluate all configured metrics."""
         print(f"\n[4/4] Metric Evaluation")
         print(f"-" * 60)
+
         evaluation_data = self.dataset.get_evaluation_data()
-        
+
         # Detailed logging: rankings
         if self.detailed_logger:
             k = self.run_config.get('k', 10)
             groups = evaluation_data.get('groups', [])
             log_ranking_details(self.detailed_logger, ranking_indices, groups, k)
+
         computed_metrics = metrics.compute_metrics(
-            ranking_indices, 
-            evaluation_data, 
+            ranking_indices,
+            evaluation_data,
             self.run_config
         )
-        
-        # Print metrics
+
+        # Print results
         print(f"\n{'='*60}")
         print(f"RESULTS")
         print(f"{'='*60}")
@@ -198,11 +267,20 @@ class ExperimentRunner:
             if metric_name not in ['num_queries', 'num_images']:
                 print(f"  {metric_name:20s}: {metric_value:.4f}")
         print(f"{'='*60}")
-        
-        # Log results
+
+        return computed_metrics
+
+    def _save_results(
+        self,
+        method_name: str,
+        method_config: Dict[str, Any],
+        ranking_indices: np.ndarray,
+        distance_matrix: np.ndarray,
+        computed_metrics: Dict[str, float]
+    ) -> None:
+        """Save method results to disk."""
         log_results(self.logger, method_name, computed_metrics)
-        
-        # Save results
+
         print(f"\nSaving results...")
         self.result_manager.save_method_results(
             method_name=method_name,
@@ -213,12 +291,6 @@ class ExperimentRunner:
             dataset=self.dataset
         )
         print(f"[OK] Results saved to: {self.result_manager.run_directory / method_name}")
-        
-        return {
-            'method': method_name,
-            'metrics': computed_metrics,
-            'config': method_config
-        }
     
     def run_multiple_methods(self, method_names: List[str]) -> Dict[str, Any]:
         """
