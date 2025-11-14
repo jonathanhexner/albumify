@@ -165,19 +165,33 @@
             "justMyCode": true
         },
         {
-            "name": "OpenCLIP, Dinov2 Benchmark",
+            "name": "run all methods holidays",
             "type": "python",
             "request": "launch",
             "module": "sim_bench.cli",
             "args": [
-                "--methods", "openclip,dinov2",
-                "--datasets", "ukbench,holidays",
+                "--methods", "deep,sift_bovw,openclip,dinov2",
+                "--datasets", "holidays",
                 "--run-config", "configs/run.yaml"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": true
-        },
+        },  
+        {
+            "name": "run all methods all datasets",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.cli",
+            "args": [
+                "--methods", "deep,sift_bovw,openclip,dinov2",
+                "--datasets", "ukbench,holidays,phototriage",
+                "--run-config", "configs/run.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },        
         {
             "name": "OpenCLIP Benchmark",
             "type": "python",
@@ -224,6 +238,57 @@
             "module": "sim_bench.cli",
             "args": [
                 "--run-config", "configs/run.cluster_budapest_hdbscan.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Image Quality Assessment - Quick Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_comprehensive_benchmark.py",
+            "args": [
+                "--quick",
+                "--output-dir", "outputs/quality_benchmarks"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Image Quality Assessment - Full Benchmark",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_comprehensive_benchmark.py",
+            "args": [
+                "--output-dir", "outputs/quality_benchmarks"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Image Quality Assessment - Config File",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_quality_benchmark.py",
+            "args": [
+                "configs/quality_benchmark.quick_test.yaml",
+                "--output", "outputs/quality_benchmarks"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Image Quality Assessment - Deep Learning Only",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_comprehensive_benchmark.py",
+            "args": [
+                "--config", "configs/quality_benchmark.deep_learning.yaml",
+                "--output-dir", "outputs/quality_benchmarks"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

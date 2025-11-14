@@ -1,0 +1,56 @@
+# Benchmark configuration for quality assessment on PhotoTriage
+# This config runs all quality assessment methods on PhotoTriage dataset
+
+datasets:
+  - name: phototriage
+    config: configs/dataset.phototriage.yaml
+    # Optional: limit dataset size for faster testing
+    # sampling:
+    #   strategy: random
+    #   num_series: 50
+
+methods:
+  # Rule-based methods (fast baseline)
+  - name: composite_rule_based
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.3
+        exposure: 0.2
+        colorfulness: 0.2
+        contrast: 0.15
+        noise: 0.15
+  
+  - name: sharpness_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 1.0
+        exposure: 0.0
+        colorfulness: 0.0
+        contrast: 0.0
+        noise: 0.0
+  
+  # CNN-based method (NIMA)
+  - name: nima_mobilenet
+    type: nima
+    config:
+      backbone: mobilenet
+      weights_path: null  # Will use pretrained if available
+      device: cuda  # or 'cpu'
+  
+  # Transformer-based method
+  - name: musiq_aesthetic
+    type: musiq
+    config:
+      variant: ava  # or 'koniq', 'spaq'
+      weights_path: null
+      device: cuda
+
+# Optional: benchmark settings
+settings:
+  verbose: true
+  save_visualizations: false
+  num_workers: 4
+
+

@@ -1,0 +1,52 @@
+# Deep learning benchmark configuration
+# Tests CNN (NIMA) and Transformer (ViT) methods on PhotoTriage
+
+datasets:
+  - name: phototriage
+    config: configs/dataset.phototriage.yaml
+    # Remove sampling for full dataset
+    # sampling:
+    #   strategy: random
+    #   num_series: 100
+    #   seed: 42
+
+methods:
+  # Optional: Baseline for comparison (comment out if you want ONLY deep learning)
+  # - name: sharpness_only
+  #   type: rule_based
+  #   config:
+  #     weights:
+  #       sharpness: 1.0
+  #       exposure: 0.0
+  #       colorfulness: 0.0
+  #       contrast: 0.0
+  #       noise: 0.0
+  
+  # Recommended CNN: NIMA with MobileNetV2
+  - name: nima_mobilenet
+    type: nima
+    config:
+      backbone: mobilenet_v2
+      weights_path: null  # Use ImageNet pretrained
+      device: cpu  # Changed to CPU (PyTorch not compiled with CUDA)
+  
+  # Alternative CNN: NIMA with ResNet50 (more accurate, slower)
+  - name: nima_resnet50
+    type: nima
+    config:
+      backbone: resnet50
+      weights_path: null
+      device: cpu  # Changed to CPU (PyTorch not compiled with CUDA)
+  
+  # Recommended Transformer: ViT-Base
+  - name: vit_base
+    type: vit
+    config:
+      model_name: google/vit-base-patch16-224
+      weights_path: null  # Use ImageNet pretrained
+      device: cpu  # Changed to CPU (PyTorch not compiled with CUDA)
+
+settings:
+  verbose: true
+  save_visualizations: false
+

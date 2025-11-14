@@ -1,0 +1,73 @@
+# Test run configuration for PhotoTriage with all methods
+# Uses sampling for reasonable runtime
+
+datasets:
+  - name: phototriage
+    config: configs/dataset.phototriage.yaml
+    sampling:
+      strategy: random
+      num_series: 50  # Reasonable sample for testing
+      seed: 42
+
+methods:
+  # Rule-based methods (fast, no dependencies)
+  - name: sharpness_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 1.0
+        exposure: 0.0
+        colorfulness: 0.0
+        contrast: 0.0
+        noise: 0.0
+  
+  - name: exposure_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.0
+        exposure: 1.0
+        colorfulness: 0.0
+        contrast: 0.0
+        noise: 0.0
+  
+  - name: composite_equal
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.25
+        exposure: 0.25
+        colorfulness: 0.25
+        contrast: 0.25
+        noise: 0.0
+  
+  - name: composite_optimized
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.35
+        exposure: 0.25
+        colorfulness: 0.2
+        contrast: 0.15
+        noise: 0.05
+  
+  # CNN method (if available)
+  - name: nima_mobilenet
+    type: nima
+    config:
+      backbone: mobilenet_v2
+      device: cpu  # Use CPU to avoid CUDA issues
+      weights_path: null
+  
+  # Transformer method (if available)
+  - name: vit_base
+    type: vit
+    config:
+      model_name: google/vit-base-patch16-224
+      device: cpu  # Use CPU to avoid CUDA issues
+      weights_path: null
+
+settings:
+  verbose: true
+  save_visualizations: true
+

@@ -406,6 +406,7 @@ class ExperimentRunner:
                     comprehensive_results['per_query_details'].append(query_details)
                 
             except Exception as error:
+                self.logger.error(f"ERROR running {method_name}: {error}", exc_info=True)
                 print(f"ERROR running {method_name}: {error}")
                 continue
         
@@ -439,6 +440,11 @@ class BenchmarkRunner:
         """
         self.benchmark_config = benchmark_config
         self.master_result_manager = ResultManager(benchmark_config)
+        
+        # Initialize logger
+        log_file = self.master_result_manager.run_directory / "benchmark.log"
+        log_level = benchmark_config.get('logging', {}).get('level', 'INFO')
+        self.logger = setup_logger("sim_bench.benchmark", log_file, log_level, console=False)
     
     def run_comprehensive_benchmark(self) -> List[Dict[str, Any]]:
         """
@@ -476,6 +482,7 @@ class BenchmarkRunner:
                         all_results.append(result)
                     
             except Exception as error:
+                self.logger.error(f"Error running {dataset_name}: {error}", exc_info=True)
                 print(f"Error running {dataset_name}: {error}")
                 continue
         
@@ -564,8 +571,10 @@ class BenchmarkRunner:
             print(f"All detailed results in: {self.master_result_manager.run_directory}")
             
         except ImportError:
+            self.logger.error("ERROR: pandas not available for comprehensive summary")
             print("ERROR: pandas not available for comprehensive summary")
         except Exception as error:
+            self.logger.error(f"ERROR creating comprehensive summary: {error}", exc_info=True)
             print(f"ERROR creating comprehensive summary: {error}")
     
     def _print_comprehensive_summary(self, results_dataframe) -> None:

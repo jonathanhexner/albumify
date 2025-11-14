@@ -1,0 +1,57 @@
+# Quick test configuration (sampled data)
+# Tests all methods on 100 series for fast validation
+
+datasets:
+  - name: phototriage
+    config: configs/dataset.phototriage.yaml
+    sampling:
+      strategy: random
+      num_series: 100  # Quick test with 100 series
+      seed: 42
+
+methods:
+  # Rule-based methods
+  - name: sharpness_only
+    type: rule_based
+    config:
+      weights: {sharpness: 1.0, exposure: 0.0, colorfulness: 0.0, contrast: 0.0, noise: 0.0}
+  
+  - name: exposure_only
+    type: rule_based
+    config:
+      weights: {sharpness: 0.0, exposure: 1.0, colorfulness: 0.0, contrast: 0.0, noise: 0.0}
+  
+  - name: colorfulness_only
+    type: rule_based
+    config:
+      weights: {sharpness: 0.0, exposure: 0.0, colorfulness: 1.0, contrast: 0.0, noise: 0.0}
+  
+  - name: contrast_only
+    type: rule_based
+    config:
+      weights: {sharpness: 0.0, exposure: 0.0, colorfulness: 0.0, contrast: 1.0, noise: 0.0}
+  
+  - name: composite_balanced
+    type: rule_based
+    config:
+      weights: {sharpness: 0.40, exposure: 0.30, colorfulness: 0.20, contrast: 0.10, noise: 0.0}
+  
+  # Deep learning methods
+  - name: nima_mobilenet
+    type: nima
+    config:
+      backbone: mobilenet_v2
+      weights_path: null
+      device: cpu  # Changed to CPU (PyTorch not compiled with CUDA)
+  
+  - name: vit_base
+    type: vit
+    config:
+      model_name: google/vit-base-patch16-224
+      weights_path: null
+      device: cpu  # Changed to CPU (PyTorch not compiled with CUDA)
+
+settings:
+  verbose: true
+  save_visualizations: false
+

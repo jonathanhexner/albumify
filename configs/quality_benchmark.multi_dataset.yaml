@@ -1,0 +1,60 @@
+# Multi-dataset benchmark configuration
+# Tests quality assessment methods across multiple datasets
+
+datasets:
+  - name: phototriage
+    config: configs/dataset.phototriage.yaml
+    sampling:
+      strategy: random
+      num_series: 100
+      seed: 42
+  
+  # Add more datasets if you have them configured
+  # - name: budapest
+  #   config: configs/dataset.budapest.yaml
+  #   sampling:
+  #     strategy: random
+  #     num_series: 100
+  #     seed: 42
+
+methods:
+  # Full suite of methods
+  - name: composite_rule_based
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.3
+        exposure: 0.2
+        colorfulness: 0.2
+        contrast: 0.15
+        noise: 0.15
+  
+  - name: sharpness_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 1.0
+        exposure: 0.0
+        colorfulness: 0.0
+        contrast: 0.0
+        noise: 0.0
+  
+  - name: nima_mobilenet
+    type: nima
+    config:
+      backbone: mobilenet
+      weights_path: null
+      device: cuda
+  
+  - name: musiq_aesthetic
+    type: musiq
+    config:
+      variant: ava
+      weights_path: null
+      device: cuda
+
+settings:
+  verbose: true
+  save_visualizations: false
+
+

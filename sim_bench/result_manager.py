@@ -119,7 +119,7 @@ class ResultManager:
         computed_metrics: Dict[str, float],
         dataset: BaseDataset
     ) -> None:
-        """Save per-query results CSV."""
+        """Save per-query results CSV using unified approach."""
         
         if not self.run_config.get('save', {}).get('per_query_csv', True):
             return
@@ -129,104 +129,53 @@ class ResultManager:
         with open(per_query_file, "w", newline="") as file:
             writer = csv.writer(file)
             
-            # Detect dataset type by name (more reliable than attributes)
-            dataset_name = dataset.dataset_config.get('name', '').lower()
-            if dataset_name == 'ukbench':
-                self._save_ukbench_per_query(writer, ranking_indices, dataset)
-            elif dataset_name == 'holidays':
-                self._save_holidays_per_query(writer, ranking_indices, dataset)
-            else:
-                # Fallback to old logic for backward compatibility
-                if hasattr(dataset, 'groups'):
-                    self._save_ukbench_per_query(writer, ranking_indices, dataset)
-                else:
-                    self._save_holidays_per_query(writer, ranking_indices, dataset)
+            # Write unified per-query CSV
+            self._write_unified_per_query(writer, ranking_indices, dataset)
     
-    def _save_ukbench_per_query(
+    def _write_unified_per_query(
         self,
         writer: csv.writer,
         ranking_indices: np.ndarray,
         dataset: BaseDataset
     ) -> None:
-        """Save UKBench per-query results."""
+        """Write per-query results using dataset abstraction (works for all datasets)."""
         
-        writer.writerow(["query_idx", "query_path", "group_id", "ns_hitcount@4", "ap@10"])
+        # Write header
+        writer.writerow(["query_idx", "query_path", "group_id", "num_relevant", "ns_hitcount@4", "ap@10"])
         
         images = dataset.get_images()
-        groups = dataset.groups
+        queries = dataset.get_queries()
+        evaluation_data = dataset.get_evaluation_data()
+        groups = evaluation_data.get('groups', [])
         k_value = self.run_config.get('k', 4)
         
-        for query_idx in range(len(images)):
+        for query_idx in queries:
+            num_relevant = dataset.get_num_relevant(query_idx)
             query_group = groups[query_idx]
             
             # Count hits in top-k (excluding self at rank 0)
             hits = sum(1 for result_idx in ranking_indices[query_idx][1:k_value+1] 
-                      if groups[result_idx] == query_group)
+                      if dataset.is_relevant(query_idx, result_idx))
             
-            # Compute AP@10
+            # Compute AP@10 using correct normalization
             relevant_count = 0
             precision_sum = 0.0
             
             for rank, result_idx in enumerate(ranking_indices[query_idx][1:11], start=1):
-                if groups[result_idx] == query_group:
+                if dataset.is_relevant(query_idx, result_idx):
                     relevant_count += 1
                     precision_sum += relevant_count / rank
             
-            average_precision_10 = precision_sum / min(10, 3)  # Max 3 relevant per group
+            # CORRECT: Divide by actual number of relevant images for this query
+            ap_10 = precision_sum / num_relevant if num_relevant > 0 else 0.0
             
             writer.writerow([
                 query_idx,
                 images[query_idx],
                 query_group,
+                num_relevant,
                 hits,
-                f"{average_precision_10:.6f}"
-            ])
-    
-    def _save_holidays_per_query(
-        self,
-        writer: csv.writer,
-        ranking_indices: np.ndarray,
-        dataset: BaseDataset
-    ) -> None:
-        """Save Holidays per-query results (all images are queries now, like UKBench)."""
-        
-        writer.writerow(["query_idx", "query_path", "group_id", "num_relevant", "ap_full", "ap@10", "recall@10"])
-        
-        images = dataset.get_images()
-        queries = dataset.get_queries()
-        relevance_map = dataset.data['relevance_map']
-        groups = dataset.data['groups']
-        
-        for query_idx in queries:
-            relevant_images = relevance_map.get(query_idx, [])
-            query_group = groups[query_idx]
-            
-            # Compute full AP and AP@10
-            relevant_count = 0
-            precision_sum_full = 0.0
-            precision_sum_10 = 0.0
-            
-            for rank, result_idx in enumerate(ranking_indices[query_idx][1:], start=1):
-                if result_idx in relevant_images:
-                    relevant_count += 1
-                    precision_sum_full += relevant_count / rank
-                    if rank <= 10:
-                        precision_sum_10 += relevant_count / rank
-            
-            ap_full = precision_sum_full / len(relevant_images) if relevant_images else 0.0
-            ap_10 = precision_sum_10 / min(len(relevant_images), 10) if relevant_images else 0.0
-            
-            # Compute recall@10
-            recall_10 = min(relevant_count, 10) / len(relevant_images) if relevant_images else 0.0
-            
-            writer.writerow([
-                query_idx,
-                images[query_idx],
-                query_group,
-                len(relevant_images),
-                f"{ap_full:.6f}",
-                f"{ap_10:.6f}",
-                f"{recall_10:.6f}"
+                f"{ap_10:.6f}"
             ])
     
     def _save_rankings_csv(

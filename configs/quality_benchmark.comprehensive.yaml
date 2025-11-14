@@ -1,0 +1,122 @@
+# Comprehensive quality assessment benchmark
+# Tests all rule-based methods, NIMA (CNN), and ViT (Transformer) on PhotoTriage
+
+datasets:
+  - name: phototriage
+    config: configs/dataset.phototriage.yaml
+    # Remove sampling for full dataset, or adjust num_series for testing
+    # sampling:
+    #   strategy: random
+    #   num_series: 100
+    #   seed: 42
+
+methods:
+  # ============================================
+  # Rule-Based Methods (Fast, No GPU Required)
+  # ============================================
+  
+  # Individual metrics
+  - name: sharpness_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 1.0
+        exposure: 0.0
+        colorfulness: 0.0
+        contrast: 0.0
+        noise: 0.0
+  
+  - name: exposure_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.0
+        exposure: 1.0
+        colorfulness: 0.0
+        contrast: 0.0
+        noise: 0.0
+  
+  - name: colorfulness_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.0
+        exposure: 0.0
+        colorfulness: 1.0
+        contrast: 0.0
+        noise: 0.0
+  
+  - name: contrast_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.0
+        exposure: 0.0
+        colorfulness: 0.0
+        contrast: 1.0
+        noise: 0.0
+  
+  # Composite methods (weighted combinations)
+  - name: composite_balanced
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.40
+        exposure: 0.30
+        colorfulness: 0.20
+        contrast: 0.10
+        noise: 0.0
+  
+  - name: composite_sharpness_focused
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.60
+        exposure: 0.20
+        colorfulness: 0.10
+        contrast: 0.10
+        noise: 0.0
+  
+  - name: composite_exposure_focused
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.20
+        exposure: 0.50
+        colorfulness: 0.15
+        contrast: 0.15
+        noise: 0.0
+  
+  # ============================================
+  # CNN-Based Methods (NIMA)
+  # ============================================
+  
+  - name: nima_mobilenet
+    type: nima
+    config:
+      backbone: mobilenet_v2
+      weights_path: null  # Use ImageNet pretrained
+      device: cpu  # Changed to CPU (PyTorch not compiled with CUDA)
+  
+  - name: nima_resnet50
+    type: nima
+    config:
+      backbone: resnet50
+      weights_path: null
+      device: cpu  # Changed to CPU (PyTorch not compiled with CUDA)
+  
+  # ============================================
+  # Transformer-Based Methods (ViT)
+  # ============================================
+  
+  - name: vit_base
+    type: vit
+    config:
+      model_name: google/vit-base-patch16-224
+      weights_path: null  # Use ImageNet pretrained
+      device: cpu  # Changed to CPU (PyTorch not compiled with CUDA)
+
+settings:
+  verbose: true
+  save_visualizations: false
+

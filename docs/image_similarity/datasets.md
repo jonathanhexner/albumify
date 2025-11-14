@@ -4,10 +4,11 @@ This document provides comprehensive information about the datasets supported by
 
 ## 📊 Supported Datasets
 
-| Dataset | Images | Queries | Groups | Avg Group Size | Difficulty |
-|---------|--------|---------|--------|----------------|------------|
-| **UKBench** | 10,200 | 2,550 | 2,550 | 4 (fixed) | Easy-Medium |
-| **INRIA Holidays** | 1,491 | 500 | 500 | 2-20+ (variable) | Medium-Hard |
+| Dataset | Images | Queries | Groups | Avg Group Size | Difficulty | Use Case |
+|---------|--------|---------|--------|----------------|------------|----------|
+| **UKBench** | 10,200 | 2,550 | 2,550 | 4 (fixed) | Easy-Medium | Object retrieval |
+| **INRIA Holidays** | 1,491 | 500 | 500 | 2-20+ (variable) | Medium-Hard | Scene/landmark retrieval |
+| **PhotoTriage** | 12,988 | 4,986 | 4,986 | 2.6 (variable) | Medium | Photo series grouping & quality assessment |
 
 **Note**: All datasets use the same comprehensive set of metrics for consistent evaluation. See [configs/metrics.yaml](../configs/metrics.yaml) for details.
 
@@ -103,6 +104,79 @@ The framework automatically identifies queries as the first (lowest numbered) im
 
 ### Sample Images
 See `samples/holidays/` for an example query group showing the similarity patterns.
+
+---
+
+## 📸 PhotoTriage Dataset
+
+### Overview
+The PhotoTriage dataset is from the paper "Automatic Triage for a Photo Series" and is designed for photo burst organization and best photo selection.
+
+### Dataset Characteristics
+- **Total Images**: 12,988 high-resolution color images
+- **Resolution**: Variable (typically camera resolution)
+- **Format**: JPEG
+- **Content**: Real-world photo series (bursts) from users
+- **Structure**: Variable group sizes (1-8 images per series, average: 2.6)
+- **Naming**: Pattern GGGGGG-II.JPG (group ID - image ID)
+
+### Ground Truth
+- **Groups**: 4,986 photo series
+- **Best Image**: Human-annotated "best" photo per series (for quality assessment)
+- **Evaluation**: Can be used for both similarity search and quality assessment tasks
+
+### Download & Setup
+1. **Download**: Available on Kaggle - "Automatic Triage for a Photo Series"
+2. **Extract**: Extract images to train_val/train_val_imgs folder
+3. **Configure**: Update `configs/dataset.phototriage.yaml`:
+   ```yaml
+   name: phototriage
+   root: "/path/to/automatic_triage_photo_series"
+   subdirs:
+     images: "train_val/train_val_imgs"
+   pattern: "*.JPG"
+   ```
+
+### Group Detection
+The framework automatically parses groups from the GGGGGG-II.JPG filename pattern:
+- `000001-01.JPG`, `000001-02.JPG` → Group 000001
+- `000002-01.JPG`, `000002-02.JPG`, `000002-03.JPG` → Group 000002
+
+### Expected Performance (Image Grouping)
+| Method | N-S Score Range | Notes |
+|--------|----------------|-------|
+| **Random** | 0.65-0.75 | Baseline |
+| **Chi-Square** | 2.0-2.3 | Color helps for burst photos |
+| **EMD** | 2.2-2.5 | Better than chi-square |
+| **Deep (DINOv2)** | 2.5-2.8 | Best for semantic grouping |
+| **SIFT BoVW** | 2.0-2.4 | Works well for static scenes |
+
+### Expected Performance (Quality Assessment)
+| Method | Top-1 Accuracy | Notes |
+|--------|----------------|-------|
+| **Sharpness Only** | 64.95% | Best single metric |
+| **Contrast Only** | 48.37% | Good but less reliable |
+| **Composite Methods** | 42-43% | Need better tuning |
+| **NIMA (CNN)** | 65-75%* | Requires training data |
+
+*Expected performance based on literature; actual results depend on training.
+
+### Use Cases
+1. **Photo Burst Grouping**: Group images from same photo session
+2. **Best Photo Selection**: Automatically select best photo from burst
+3. **Quality Assessment Benchmarking**: Evaluate image quality methods
+4. **Photo Organization**: Organize large photo collections
+
+### Sample Config for Quality Assessment
+```bash
+# Run quality assessment on PhotoTriage
+python run_quality_benchmark.py configs/quality_benchmark.phototriage.yaml
+
+# Quick test with 100 series
+python run_quality_benchmark.py configs/quality_benchmark.quick.yaml
+```
+
+See [PHOTO_TRIAGE.md](PHOTO_TRIAGE.md) for detailed documentation.
 
 ---
 

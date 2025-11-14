@@ -21,7 +21,9 @@
       "Bash(\".venv\\Scripts\\python.exe\" test_multi_experiment.py)",
       "Bash(dir:*)",
       "Bash(\".venv\\Scripts\\python.exe\" recalculate_metrics.py)",
-      "Bash(\".venv\\Scripts\\python.exe\" fix_all_metrics.py)"
+      "Bash(\".venv\\Scripts\\python.exe\" fix_all_metrics.py)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": []

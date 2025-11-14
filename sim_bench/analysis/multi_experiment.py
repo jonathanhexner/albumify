@@ -289,7 +289,7 @@ def merge_per_query_metrics(
 
     Returns:
         DataFrame with columns:
-        - query_idx, query_path, group_id, num_relevant (from first method)
+        - query_idx, query_path, group_id (from first method)
         - {metric}_{method} for each metric-method combination
 
     Example:
@@ -300,7 +300,7 @@ def merge_per_query_metrics(
         ...     metrics=['ap@10', 'recall@10']
         ... )
         >>> merged.columns
-        ['query_idx', 'query_path', 'group_id', 'num_relevant',
+        ['query_idx', 'query_path', 'group_id',
          'ap@10_deep', 'recall@10_deep', 'ap@10_dinov2', 'recall@10_dinov2', ...]
     """
     df_merged = pd.DataFrame()
@@ -320,7 +320,7 @@ def merge_per_query_metrics(
 
         if n_method == 0:
             # First method: include all metadata columns + metrics
-            cols = ['query_idx', 'query_path', 'group_id', 'num_relevant'] + metrics
+            cols = ['query_idx', 'query_path', 'group_id'] + metrics
             df_merged = df_method[cols].copy()
             df_merged.rename(columns=rename_map, inplace=True)
         else:

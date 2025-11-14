@@ -1,0 +1,97 @@
+# Test run with rule-based methods only (no deep learning dependencies required)
+
+datasets:
+  - name: phototriage
+    config: configs/dataset.phototriage.yaml
+    sampling:
+      strategy: random
+      num_series: 100
+      seed: 42
+
+methods:
+  # Single metric methods
+  - name: sharpness_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 1.0
+        exposure: 0.0
+        colorfulness: 0.0
+        contrast: 0.0
+        noise: 0.0
+  
+  - name: exposure_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.0
+        exposure: 1.0
+        colorfulness: 0.0
+        contrast: 0.0
+        noise: 0.0
+  
+  - name: colorfulness_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.0
+        exposure: 0.0
+        colorfulness: 1.0
+        contrast: 0.0
+        noise: 0.0
+  
+  - name: contrast_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.0
+        exposure: 0.0
+        colorfulness: 0.0
+        contrast: 1.0
+        noise: 0.0
+  
+  # Composite methods
+  - name: composite_equal
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.25
+        exposure: 0.25
+        colorfulness: 0.25
+        contrast: 0.25
+        noise: 0.0
+  
+  - name: composite_sharpness_focus
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.5
+        exposure: 0.2
+        colorfulness: 0.15
+        contrast: 0.1
+        noise: 0.05
+  
+  - name: composite_balanced
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.35
+        exposure: 0.25
+        colorfulness: 0.2
+        contrast: 0.15
+        noise: 0.05
+  
+  - name: composite_aesthetic
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.25
+        exposure: 0.3
+        colorfulness: 0.3
+        contrast: 0.1
+        noise: 0.05
+
+settings:
+  verbose: true
+  save_visualizations: false
+

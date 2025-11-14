@@ -217,3 +217,12 @@ Thumbs.db
 # Local configuration overrides
 configs/local_*.yaml
 configs/*_local.yaml
+
+# Test outputs
+tests/__pycache__/
+tests/.pytest_cache/
+tests/*.pyc
+
+# Temporary/junk files
+*.stackdump
+nul

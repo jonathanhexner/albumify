@@ -1,0 +1,38 @@
+# Quick benchmark configuration for testing
+# Uses sampled dataset and subset of methods for fast iteration
+
+datasets:
+  - name: phototriage
+    config: configs/dataset.phototriage.yaml
+    sampling:
+      strategy: random
+      num_series: 20  # Small sample for quick testing
+      seed: 42
+
+methods:
+  # Fast rule-based methods only
+  - name: composite_rule_based
+    type: rule_based
+    config:
+      weights:
+        sharpness: 0.3
+        exposure: 0.2
+        colorfulness: 0.2
+        contrast: 0.15
+        noise: 0.15
+  
+  - name: sharpness_only
+    type: rule_based
+    config:
+      weights:
+        sharpness: 1.0
+        exposure: 0.0
+        colorfulness: 0.0
+        contrast: 0.0
+        noise: 0.0
+
+settings:
+  verbose: true
+  save_visualizations: false
+
+
