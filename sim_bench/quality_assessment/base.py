@@ -11,11 +11,11 @@ import os
 
 class QualityAssessor(ABC):
     """Base class for all quality assessment methods."""
-    
+
     def __init__(self, device: str = 'cpu', enable_cache: bool = True):
         """
         Initialize quality assessor.
-        
+
         Args:
             device: Device to run on ('cpu' or 'cuda')
             enable_cache: Whether to cache quality scores for images
@@ -24,6 +24,31 @@ class QualityAssessor(ABC):
         self.name = self.__class__.__name__
         self.enable_cache = enable_cache
         self._score_cache = {}  # Cache: image_path -> quality_score
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """
+        Check if this method's dependencies are available.
+
+        Returns:
+            True if the method can be instantiated, False otherwise
+        """
+        return True  # Default: always available (override for methods with dependencies)
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> 'QualityAssessor':
+        """
+        Create instance from configuration dictionary.
+
+        Args:
+            config: Configuration parameters (method pulls what it needs)
+
+        Returns:
+            Configured QualityAssessor instance
+        """
+        # Default implementation: pass all config as kwargs
+        # Override in subclasses if custom logic needed
+        return cls(**config)
         
     @abstractmethod
     def assess_image(self, image_path: str) -> float:

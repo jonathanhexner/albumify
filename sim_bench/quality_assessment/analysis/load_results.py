@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def find_benchmark_folders(base_dir: Path) -> List[Path]:
@@ -24,12 +27,181 @@ def find_benchmark_folders(base_dir: Path) -> List[Path]:
         return []
     
     benchmark_folders = sorted(
-        [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith('benchmark_')],
+        [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith(('pairwise_', 'benchmark_'))],
         key=lambda x: x.stat().st_mtime,
         reverse=True
     )
     
     return benchmark_folders
+
+
+def _resolve_benchmark_dirs(
+    benchmark_dir: Optional[Path],
+    auto_scan: bool,
+    base_dir: Optional[Path],
+    use_latest: bool
+) -> List[Path]:
+    """
+    Resolve benchmark directory/directories from various input modes.
+    
+    Args:
+        benchmark_dir: Path to specific benchmark folder (if not auto_scan)
+        auto_scan: If True, scan base_dir for benchmark folders
+        base_dir: Base directory to scan (if auto_scan)
+        use_latest: If True and auto_scan, use only latest folder; else use all
+        
+    Returns:
+        List of resolved benchmark directory paths (single item if use_latest=True)
+        
+    Raises:
+        ValueError: If required parameters are missing or no folders found
+    """
+    if auto_scan:
+        if base_dir is None:
+            raise ValueError("base_dir required when auto_scan=True")
+        
+        benchmark_folders = find_benchmark_folders(Path(base_dir))
+        if not benchmark_folders:
+            raise ValueError(f"No benchmark folders found in {base_dir}")
+        
+        if use_latest:
+            selected_dirs = [benchmark_folders[0]]
+            logger.info(f"Using latest benchmark: {selected_dirs[0].name}")
+        else:
+            selected_dirs = benchmark_folders
+            logger.info(f"Found {len(benchmark_folders)} benchmark folders, loading all")
+        
+        return selected_dirs
+    
+    if benchmark_dir is None:
+        raise ValueError("benchmark_dir required when auto_scan=False")
+    
+    return [Path(benchmark_dir)]
+
+
+def _validate_benchmark_dir(benchmark_dir: Path) -> None:
+    """Validate that benchmark directory exists and contains required files."""
+    if not benchmark_dir.exists():
+        raise ValueError(f"Benchmark directory not found: {benchmark_dir}")
+    
+    required_files = ["methods_summary.csv", "detailed_results.csv"]
+    missing_files = [f for f in required_files if not (benchmark_dir / f).exists()]
+    
+    if missing_files:
+        raise ValueError(f"Missing required files in {benchmark_dir}: {', '.join(missing_files)}")
+
+
+def _load_summary_files(benchmark_dir: Path) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Load methods_summary.csv and detailed_results.csv from a single directory."""
+    methods_summary_df = pd.read_csv(benchmark_dir / "methods_summary.csv")
+    detailed_results_df = pd.read_csv(benchmark_dir / "detailed_results.csv")
+    return methods_summary_df, detailed_results_df
+
+
+def _load_and_concatenate_summary_files(benchmark_dirs: List[Path]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Load and concatenate summary files from multiple benchmark directories.
+    
+    Args:
+        benchmark_dirs: List of benchmark directory paths
+        
+    Returns:
+        Tuple of concatenated DataFrames (methods_summary_df, detailed_results_df)
+    """
+    all_methods_summary = []
+    all_detailed_results = []
+    
+    for benchmark_dir in benchmark_dirs:
+        _validate_benchmark_dir(benchmark_dir)
+        methods_df, detailed_df = _load_summary_files(benchmark_dir)
+        
+        # Add source folder identifier
+        methods_df['source_folder'] = benchmark_dir.name
+        detailed_df['source_folder'] = benchmark_dir.name
+        
+        all_methods_summary.append(methods_df)
+        all_detailed_results.append(detailed_df)
+    
+    # Concatenate and reset index
+    methods_summary_df = pd.concat(all_methods_summary, ignore_index=True)
+    detailed_results_df = pd.concat(all_detailed_results, ignore_index=True)
+    
+    logger.info(f"Loaded and concatenated results from {len(benchmark_dirs)} benchmark folders")
+    
+    return methods_summary_df, detailed_results_df
+
+
+def _parse_method_name_from_filename(filename: str) -> Optional[Tuple[str, str]]:
+    """
+    Parse dataset and method name from series CSV filename.
+    
+    Args:
+        filename: Filename like "phototriage_sharpness_only_series.csv"
+        
+    Returns:
+        Tuple of (dataset_name, method_name) or None if parsing fails
+    """
+    parts = Path(filename).stem.split('_')
+    if len(parts) >= 3 and parts[-1] == 'series':
+        dataset_name = parts[0]  # e.g., 'phototriage'
+        method_name = '_'.join(parts[1:-1])  # e.g., 'sharpness_only'
+        return dataset_name, method_name
+    return None
+
+
+def _load_series_data(benchmark_dir: Path) -> Dict[str, pd.DataFrame]:
+    """Load all per-series CSV files from a single benchmark directory."""
+    series_data_dict = {}
+    
+    for csv_file in benchmark_dir.glob("*_series.csv"):
+        parsed = _parse_method_name_from_filename(csv_file.name)
+        if parsed is None:
+            logger.warning(f"Could not parse method name from: {csv_file.name}")
+            continue
+        
+        dataset_name, method_name = parsed
+        df = pd.read_csv(csv_file)
+        series_data_dict[method_name] = df
+        logger.info(f"Loaded {method_name}: {len(df)} series")
+    
+    if not series_data_dict:
+        logger.warning("No per-series CSV files found")
+    
+    return series_data_dict
+
+
+def _load_and_concatenate_series_data(benchmark_dirs: List[Path]) -> Dict[str, pd.DataFrame]:
+    """
+    Load and concatenate per-series data from multiple benchmark directories.
+    
+    Args:
+        benchmark_dirs: List of benchmark directory paths
+        
+    Returns:
+        Dict mapping method_name -> concatenated per-series DataFrame
+    """
+    all_series_data = {}
+    
+    for benchmark_dir in benchmark_dirs:
+        series_data = _load_series_data(benchmark_dir)
+        
+        for method_name, df in series_data.items():
+            # Add source folder identifier
+            df = df.copy()
+            df['source_folder'] = benchmark_dir.name
+            
+            if method_name in all_series_data:
+                # Concatenate if method already exists
+                all_series_data[method_name] = pd.concat(
+                    [all_series_data[method_name], df],
+                    ignore_index=True
+                )
+            else:
+                all_series_data[method_name] = df
+    
+    logger.info(f"Loaded series data for {len(all_series_data)} methods from {len(benchmark_dirs)} folders")
+    
+    return all_series_data
 
 
 def load_quality_results(
@@ -45,73 +217,41 @@ def load_quality_results(
         benchmark_dir: Path to specific benchmark folder (if not auto_scan)
         auto_scan: If True, scan base_dir for benchmark folders
         base_dir: Base directory to scan (if auto_scan)
-        use_latest: If True and auto_scan, use latest folder; else return all
+        use_latest: If True and auto_scan, use only latest folder; 
+                   If False and auto_scan, load and concatenate all folders
         
     Returns:
         Tuple of:
-        - methods_summary_df: Overall method comparison
-        - detailed_results_df: Per-dataset, per-method results
-        - series_data_dict: Dict mapping method_name -> per-series DataFrame
-        - actual_benchmark_dir: Path to the benchmark folder used
+        - methods_summary_df: Overall method comparison (concatenated if multiple folders)
+        - detailed_results_df: Per-dataset, per-method results (concatenated if multiple folders)
+        - series_data_dict: Dict mapping method_name -> per-series DataFrame (concatenated if multiple folders)
+        - actual_benchmark_dir: Path to the benchmark folder used (or first folder if multiple)
+        
+    Note:
+        When loading multiple folders (use_latest=False), all DataFrames include a 'source_folder' 
+        column indicating which benchmark folder each row came from.
     """
-    if auto_scan:
-        if base_dir is None:
-            raise ValueError("base_dir required when auto_scan=True")
-        
-        base_dir = Path(base_dir)
-        benchmark_folders = find_benchmark_folders(base_dir)
-        
-        if not benchmark_folders:
-            raise ValueError(f"No benchmark folders found in {base_dir}")
-        
-        if use_latest:
-            benchmark_dir = benchmark_folders[0]
-            print(f"Using latest benchmark: {benchmark_dir.name}")
-        else:
-            # For now, use latest (can extend to support multiple later)
-            benchmark_dir = benchmark_folders[0]
-            print(f"Found {len(benchmark_folders)} benchmark folders, using latest: {benchmark_dir.name}")
+    # Resolve benchmark directory/directories
+    resolved_dirs = _resolve_benchmark_dirs(benchmark_dir, auto_scan, base_dir, use_latest)
+    
+    # Validate all directories
+    for resolved_dir in resolved_dirs:
+        _validate_benchmark_dir(resolved_dir)
+    
+    # Load summary files (concatenate if multiple folders)
+    if len(resolved_dirs) == 1:
+        methods_summary_df, detailed_results_df = _load_summary_files(resolved_dirs[0])
     else:
-        if benchmark_dir is None:
-            raise ValueError("benchmark_dir required when auto_scan=False")
+        methods_summary_df, detailed_results_df = _load_and_concatenate_summary_files(resolved_dirs)
     
-    benchmark_dir = Path(benchmark_dir)
-    if not benchmark_dir.exists():
-        raise ValueError(f"Benchmark directory not found: {benchmark_dir}")
+    # Load per-series data (concatenate if multiple folders)
+    if len(resolved_dirs) == 1:
+        series_data_dict = _load_series_data(resolved_dirs[0])
+    else:
+        series_data_dict = _load_and_concatenate_series_data(resolved_dirs)
     
-    # Load methods_summary.csv
-    methods_summary_path = benchmark_dir / "methods_summary.csv"
-    if not methods_summary_path.exists():
-        raise ValueError(f"methods_summary.csv not found in {benchmark_dir}")
-    
-    methods_summary_df = pd.read_csv(methods_summary_path)
-    
-    # Load detailed_results.csv
-    detailed_results_path = benchmark_dir / "detailed_results.csv"
-    if not detailed_results_path.exists():
-        raise ValueError(f"detailed_results.csv not found in {benchmark_dir}")
-    
-    detailed_results_df = pd.read_csv(detailed_results_path)
-    
-    # Load all per-series CSV files
-    series_data_dict = {}
-    dataset_name = None
-    
-    for csv_file in benchmark_dir.glob("*_series.csv"):
-        # Parse method name from filename: phototriage_sharpness_only_series.csv -> sharpness_only
-        parts = csv_file.stem.split('_')
-        if len(parts) >= 3 and parts[-1] == 'series':
-            dataset_name = parts[0]  # e.g., 'phototriage'
-            method_name = '_'.join(parts[1:-1])  # e.g., 'sharpness_only'
-            
-            df = pd.read_csv(csv_file)
-            series_data_dict[method_name] = df
-            print(f"Loaded {method_name}: {len(df)} series")
-    
-    if not series_data_dict:
-        print("Warning: No per-series CSV files found")
-    
-    return methods_summary_df, detailed_results_df, series_data_dict, benchmark_dir
+    # Return first directory as the "actual" benchmark_dir for backward compatibility
+    return methods_summary_df, detailed_results_df, series_data_dict, resolved_dirs[0]
 
 
 def parse_series_data(series_df: pd.DataFrame) -> pd.DataFrame:

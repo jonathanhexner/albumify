@@ -1,0 +1,70 @@
+# Hierarchical Clustering Benchmark Configuration
+#
+# Two-level clustering:
+# - Level 1: Cluster by scene/event (using DINOv2 visual features)
+# - Level 2: Cluster by people within each event (using face embeddings)
+#
+# Example: Organize party photos
+# - Level 1: Different events (birthday party, wedding, BBQ)
+# - Level 2: Different people at each event
+
+experiment_name: "hierarchical_clustering_benchmark"
+
+dataset:
+  name: "custom"
+  path: "path/to/your/photos"
+  sample_size: null  # Use all images
+
+# Level 1: Scene/event clustering with DINOv2
+level1_method:
+  method: "dinov2"
+  device: "cpu"
+  distance: "cosine"
+
+# Level 2: Person clustering with face embeddings
+level2_method:
+  method: "face_embeddings"
+  backend: "retinaface"
+  embedding_model: "VGG-Face"
+  aggregation: "average"
+  min_confidence: 0.9
+  device: "cpu"
+  distance: "cosine"
+
+# Clustering configuration
+clustering:
+  algorithm: "hierarchical"
+  params:
+    # Level 1 clustering config
+    level1_config:
+      algorithm: "dbscan"
+      params:
+        eps: 0.5
+        min_samples: 3
+      output:
+        save_csv: false
+        save_stats: false
+
+    # Level 2 clustering config
+    level2_config:
+      algorithm: "dbscan"
+      params:
+        eps: 0.4  # Tighter clustering for faces
+        min_samples: 2
+      output:
+        save_csv: false
+        save_stats: false
+
+    # Feature types for each level
+    level1_features: "dinov2"
+    level2_features: "face_embeddings"
+
+# Output
+output_dir: "outputs/hierarchical_clustering"
+save_galleries: true  # Generate HTML galleries
+open_browser: false
+
+# Logging
+logging:
+  level: "INFO"
+  log_file: "logs/hierarchical_clustering.log"

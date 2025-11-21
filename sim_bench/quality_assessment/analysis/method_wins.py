@@ -7,8 +7,6 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from PIL import Image
-import matplotlib
-matplotlib.use('TkAgg')  # Use interactive backend with proper window controls
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
@@ -128,10 +126,11 @@ def visualize_method_wins(
             # Get ground truth image
             gt_image_path = image_paths[ground_truth_idx]
             
-            # Create figure: Ground truth row + methods rows (each method shows top 3 images)
-            n_cols = top_n_methods + 1  # +1 for ground truth
-            n_rows = 1 + top_n_images  # 1 for ground truth, top_n_images for method images
-            fig = plt.figure(figsize=(4 * n_cols, 4 * n_rows))
+            # Create figure: Ground truth row + method rows (each method in a row, ranks in columns)
+            n_cols = top_n_images  # Columns for ranks
+            n_rows = 1 + len(methods)  # 1 for ground truth, one row per method
+            # Make figure wider for better visibility
+            fig = plt.figure(figsize=(6 * n_cols, 5 * n_rows))
             gs = gridspec.GridSpec(n_rows, n_cols, figure=fig, hspace=0.4, wspace=0.3)
             
             # Plot ground truth (spans full width in first row)
@@ -147,7 +146,7 @@ def visualize_method_wins(
                           ha='center', va='center', transform=ax_gt.transAxes)
                 ax_gt.set_title('Ground Truth (Error)', fontsize=12)
             
-            # Plot top 3 images for each method
+            # Plot each method in its own row, with ranks as columns
             for method_idx, method_name in enumerate(methods):
                 if method_name not in series_data_dict:
                     continue
@@ -166,10 +165,10 @@ def visualize_method_wins(
                 top_indices = sorted(range(len(method_scores)), 
                                    key=lambda i: method_scores[i], reverse=True)[:top_n_images]
                 
-                # Plot top images for this method (one per row, in method's column)
-                for img_idx, top_idx in enumerate(top_indices):
-                    row = 1 + img_idx  # Start from row 1 (row 0 is ground truth)
-                    col = method_idx + 1  # Column 0 is reserved, methods start at 1
+                # Plot top images for this method (one per column, in method's row)
+                row = 1 + method_idx  # Start from row 1 (row 0 is ground truth)
+                for rank_idx, top_idx in enumerate(top_indices):
+                    col = rank_idx  # Each rank is a column
                     ax = fig.add_subplot(gs[row, col])
                     
                     try:
@@ -179,10 +178,10 @@ def visualize_method_wins(
                         
                         score = method_scores[top_idx]
                         filename = Path(method_paths[top_idx]).name
-                        rank = img_idx + 1
+                        rank = rank_idx + 1
                         
-                        # Method name only on first image
-                        if img_idx == 0:
+                        # Method name only on first rank (leftmost column)
+                        if rank_idx == 0:
                             title = f'{method_name}\nRank {rank}: {score:.3f}\n{filename}'
                             fontweight = 'bold'
                         else:
@@ -193,7 +192,7 @@ def visualize_method_wins(
                     except Exception as e:
                         ax.text(0.5, 0.5, f'Error:\n{e}', ha='center', va='center',
                               transform=ax.transAxes, fontsize=8)
-                        ax.set_title(f'{method_name} (Error)' if img_idx == 0 else 'Error', fontsize=9)
+                        ax.set_title(f'{method_name} (Error)' if rank_idx == 0 else 'Error', fontsize=9)
             
             # Add overall title
             fig.suptitle(f'Method Win: {method} (Series {group_id})', 
@@ -206,12 +205,13 @@ def visualize_method_wins(
                 saved_figs.append(fig_path)
             
             if show_plots:
+                # In notebooks, this will display inline; in scripts, it will show in a window
                 plt.show(block=False)
-                # Ensure figure window has proper controls
+                # Try to set window title (only works with GUI backends)
                 try:
                     fig.canvas.manager.set_window_title(f'Method Win: {method} (Series {group_id})')
                 except AttributeError:
-                    pass  # Some backends don't support set_window_title
+                    pass  # Some backends (like inline) don't support set_window_title
             else:
                 plt.close(fig)
     

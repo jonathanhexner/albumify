@@ -187,17 +187,16 @@ class QualityBenchmark:
         """Benchmark a single method on a dataset."""
         
         # Import here to avoid circular dependency
-        from sim_bench.quality_assessment import load_quality_method
-        
+        from sim_bench.quality_assessment.registry import create_quality_assessor
+
         # Create method
-        config = method_config.get('config', {})
-        method = load_quality_method(method_config['type'], config)
-        
+        method = create_quality_assessor(method_config)
+
         # Time method creation
         creation_time = time.time()
-        
+
         # Warm-up run (for GPU methods)
-        if config.get('device') == 'cuda':
+        if method_config.get('device') == 'cuda':
             print("  Warming up GPU...")
             test_img = dataset.get_images()[0]
             _ = method.assess_image(test_img)

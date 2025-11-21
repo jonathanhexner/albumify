@@ -1,0 +1,13 @@
+# Learned CLIP Aesthetic Prompts from PhotoTriage Dataset
+# Based on analysis of user preferences and rejection reasons
+
+contrastive_pairs:
+  - ["a sharp and well-focused photograph", "a blurry and out-of-focus photograph"]
+  - ["a well-composed and uncluttered photograph", "a cluttered and poorly-composed photograph"]
+  - ["a photo with good framing", "a photo with bad framing or too cropped"]
+  - ["a well-exposed photograph with good lighting", "a dark or poorly-lit photograph"]
+  - ["a photo with good color and clarity", "a photo with bad color or hazy appearance"]
+  - ["an interesting photograph with a clear subject", "a boring photo that lacks a subject"]
+  - ["a photo with a good field of view", "a photo with a too narrow or limited view"]
+  - ["a photo that shows important details clearly", "a photo where you can't see details well"]
+  - ["a high-quality photograph", "a low-quality photograph"]

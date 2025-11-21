@@ -1,0 +1,100 @@
+# Pairwise Quality Assessment Benchmark Configuration
+# Evaluates methods on pairwise comparison task (not series selection)
+
+dataset:
+  # Path to pairs JSONL file with pairwise comparisons
+  pairs_file: "data/phototriage/pairs_train.jsonl"
+
+  # Whether to evaluate per-attribute performance (requires attribute-labeled pairs)
+  use_attributes: false
+
+methods:
+  # Rule-based methods
+  - name: "Sharpness"
+    type: "rule_based"
+    weights:
+      sharpness: 1.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "Exposure"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 1.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "Contrast"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 1.0
+
+  - name: "Colorfulness"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 0.0
+      colorfulness: 1.0
+      contrast: 0.0
+
+  - name: "Combined-RuleBased"
+    type: "rule_based"
+    weights:
+      sharpness: 0.4
+      exposure: 0.3
+      colorfulness: 0.2
+      contrast: 0.1
+
+  # CLIP-based aesthetic assessment
+  - name: "CLIP-Aesthetic-LAION"
+    type: "clip_aesthetic"
+    variant: "laion"
+    device: "cuda"
+    batch_size: 32
+
+  - name: "CLIP-Aesthetic-SAC"
+    type: "clip_aesthetic"
+    variant: "sac"
+    device: "cuda"
+    batch_size: 32
+
+  # Learned CLIP prompts (from PhotoTriage user feedback)
+  - name: "CLIP-LearnedPrompts"
+    type: "clip_aesthetic"
+    variant: "learned"
+    prompts_config: "configs/learned_aesthetic_prompts.yaml"
+    device: "cuda"
+    batch_size: 32
+
+  # CNN-based methods (if available)
+  # - name: "NIMA-Aesthetic"
+  #   type: "cnn"
+  #   model: "nima"
+  #   weights: "aesthetic"
+  #   device: "cuda"
+
+  # Transformer-based methods (if available)
+  # - name: "MUSIQ"
+  #   type: "transformer"
+  #   model: "musiq"
+  #   checkpoint: "koniq"
+  #   device: "cuda"
+
+output:
+  # Base directory for results
+  base_dir: "outputs/pairwise_benchmark"
+
+  # Create timestamped subdirectory
+  create_timestamp_dir: true
+
+execution:
+  # Show progress bars
+  verbose: true
+
+  # Logging level
+  log_level: "INFO"

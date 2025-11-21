@@ -1,0 +1,65 @@
+# Face Embedding Similarity Benchmark Configuration
+#
+# Evaluates face recognition embeddings for image similarity/retrieval.
+# Images are considered similar if they contain the same people.
+#
+# Use cases:
+# - Grouping photos by person
+# - Finding all photos of a specific person
+# - Person-based photo organization
+
+experiment_name: "face_embeddings_benchmark"
+
+dataset:
+  name: "holidays"  # Or your dataset with people
+  path: "D:/Similar Images/DataSets/InriaHolidaysFull"
+  ground_truth_path: "D:/Similar Images/DataSets/InriaHolidaysFull/holidays_gt.txt"
+  sample_size: 500  # Start small for testing
+
+# Feature extraction method
+method:
+  # Method name from registry
+  method: "face_embeddings"
+
+  # Face detection backend
+  backend: "retinaface"  # Options: retinaface, opencv, ssd, dlib, mtcnn
+
+  # Face recognition model
+  embedding_model: "VGG-Face"  # Options: VGG-Face, Facenet, OpenFace, DeepFace, ArcFace
+
+  # Aggregation strategy for multiple faces per image
+  aggregation: "average"  # Options: average, max_confidence, first, concat
+
+  # Maximum faces to consider (for concat mode)
+  max_faces: 5
+
+  # Minimum detection confidence
+  min_confidence: 0.9
+
+  # Device
+  device: "cpu"  # Change to "cuda" if GPU available
+
+  # Distance metric
+  distance: "cosine"  # Options: cosine, euclidean, cityblock
+
+# Caching
+cache_dir: "artifacts/cache/face_embeddings"
+
+# Output
+output_dir: "outputs/face_embeddings_benchmark"
+save_distance_matrix: false  # Large for face embeddings
+save_rankings: true
+
+# Evaluation metrics
+metrics:
+  - "map"  # Mean Average Precision
+  - "recall@k"
+  - "ndcg"
+
+# Recall@k values to compute
+recall_k_values: [1, 5, 10, 20, 50]
+
+# Logging
+logging:
+  level: "INFO"
+  log_file: "logs/face_embeddings_benchmark.log"

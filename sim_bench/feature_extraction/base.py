@@ -81,6 +81,8 @@ def load_method(method_name: str, method_config: Dict[str, Any]) -> BaseMethod:
     from sim_bench.feature_extraction.sift_bovw import SIFTBoVWMethod
     from sim_bench.feature_extraction.dinov2 import DINOv2Method
     from sim_bench.feature_extraction.openclip import OpenCLIPMethod
+    from sim_bench.feature_extraction.face_embeddings import FaceEmbeddingMethod
+    from sim_bench.feature_extraction.landmark_embeddings import LandmarkEmbeddingMethod
 
     # Method registry - supporting both old and new names for backward compatibility
     method_registry = {
@@ -93,6 +95,8 @@ def load_method(method_name: str, method_config: Dict[str, Any]) -> BaseMethod:
         'sift_bovw': SIFTBoVWMethod,
         'dinov2': DINOv2Method,              # Meta's self-supervised ViT
         'openclip': OpenCLIPMethod,          # OpenCLIP vision-language model
+        'face_embeddings': FaceEmbeddingMethod,    # Face recognition embeddings
+        'landmark_embeddings': LandmarkEmbeddingMethod,  # Landmark/place embeddings
     }
     
     if method_name not in method_registry:

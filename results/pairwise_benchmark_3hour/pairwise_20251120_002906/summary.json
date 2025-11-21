@@ -1,0 +1,85 @@
+{
+  "benchmark_info": {
+    "pairs_file": "data\\phototriage\\pairs_train.jsonl",
+    "num_methods": 5,
+    "use_attributes": false,
+    "timestamp": "2025-11-20T01:06:56.490484"
+  },
+  "methods": {
+    "Sharpness": {
+      "global_accuracy": 0.56725,
+      "num_pairs": 4000,
+      "runtime_seconds": 528.3642776012421,
+      "config": {
+        "method": "RuleBasedQuality",
+        "device": "cpu",
+        "weights": {
+          "sharpness": 1.0,
+          "exposure": 0.0,
+          "colorfulness": 0.0,
+          "contrast": 0.0
+        }
+      }
+    },
+    "Exposure": {
+      "global_accuracy": 0.56025,
+      "num_pairs": 4000,
+      "runtime_seconds": 446.4563250541687,
+      "config": {
+        "method": "RuleBasedQuality",
+        "device": "cpu",
+        "weights": {
+          "sharpness": 0.0,
+          "exposure": 1.0,
+          "colorfulness": 0.0,
+          "contrast": 0.0
+        }
+      }
+    },
+    "Contrast": {
+      "global_accuracy": 0.49375,
+      "num_pairs": 4000,
+      "runtime_seconds": 404.6415922641754,
+      "config": {
+        "method": "RuleBasedQuality",
+        "device": "cpu",
+        "weights": {
+          "sharpness": 0.0,
+          "exposure": 0.0,
+          "colorfulness": 0.0,
+          "contrast": 1.0
+        }
+      }
+    },
+    "Colorfulness": {
+      "global_accuracy": 0.56525,
+      "num_pairs": 4000,
+      "runtime_seconds": 442.0364167690277,
+      "config": {
+        "method": "RuleBasedQuality",
+        "device": "cpu",
+        "weights": {
+          "sharpness": 0.0,
+          "exposure": 0.0,
+          "colorfulness": 1.0,
+          "contrast": 0.0
+        }
+      }
+    },
+    "Combined-RuleBased": {
+      "global_accuracy": 0.59175,
+      "num_pairs": 4000,
+      "runtime_seconds": 446.9114582538605,
+      "config": {
+        "method": "RuleBasedQuality",
+        "device": "cpu",
+        "weights": {
+          "sharpness": 0.4,
+          "exposure": 0.3,
+          "colorfulness": 0.2,
+          "contrast": 0.1
+        }
+      }
+    }
+  }
+}

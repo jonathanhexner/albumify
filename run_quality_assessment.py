@@ -22,7 +22,7 @@ from pathlib import Path
 import torch
 
 from sim_bench.datasets import load_dataset
-from sim_bench.quality_assessment import load_quality_method
+from sim_bench.quality_assessment.registry import create_quality_assessor
 from sim_bench.quality_assessment.evaluator import QualityEvaluator
 
 
@@ -131,8 +131,10 @@ def create_method(args):
     if args.method in ['nima', 'vit']:
         config['backbone'] = args.backbone if args.method == 'nima' else args.backbone.replace('mobilenet_v2', 'google/vit-base-patch16-224')
         config['weights_path'] = args.weights
-    
-    method = load_quality_method(args.method, config)
+
+    # Create using registry
+    config['type'] = args.method
+    method = create_quality_assessor(config)
     
     return method
 
@@ -159,14 +161,15 @@ def main():
         
         # Rule-based
         print("Loading rule-based method...")
-        methods.append(('Rule-Based', load_quality_method('rule_based')))
-        
+        methods.append(('Rule-Based', create_quality_assessor({'type': 'rule_based'})))
+
         # NIMA
         try:
             print("Loading NIMA (MobileNetV2)...")
             methods.append((
                 'NIMA (MobileNetV2)',
-                load_quality_method('nima', {
+                create_quality_assessor({
+                    'type': 'nima',
                     'backbone': 'mobilenet_v2',
                     'device': args.device,
                     'batch_size': args.batch_size
@@ -174,13 +177,14 @@ def main():
             ))
         except Exception as e:
             print(f"Could not load NIMA: {e}")
-        
+
         # ViT
         try:
             print("Loading ViT...")
             methods.append((
                 'ViT (Base)',
-                load_quality_method('vit', {
+                create_quality_assessor({
+                    'type': 'vit',
                     'model_name': 'google/vit-base-patch16-224',
                     'device': args.device,
                     'batch_size': max(1, args.batch_size // 2)  # ViT uses more memory
@@ -231,5 +235,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
 
 

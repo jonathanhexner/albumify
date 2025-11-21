@@ -1,0 +1,53 @@
+# Quick test configuration for pairwise benchmark - Final methods
+# Tests all 15 methods on 100 sampled pairs for rapid validation
+
+dataset:
+  pairs_file: "data/phototriage/pairs_train_filtered.jsonl"
+  use_attributes: false
+
+  # Sample only 100 pairs for quick test
+  sampling:
+    enabled: true
+    num_pairs: 100
+    random_seed: 42
+
+methods:
+  # Test 2 rule-based methods
+  - name: "RuleBased_Sharpness"
+    type: "rule_based"
+    weights:
+      sharpness: 1.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "RuleBased_Balanced"
+    type: "rule_based"
+    weights:
+      sharpness: 0.4
+      exposure: 0.3
+      colorfulness: 0.2
+      contrast: 0.1
+
+  # Test 2 CLIP attribute methods
+  - name: "CLIP_AestheticOverall"
+    type: "clip_aesthetic_overall"
+    model_name: "ViT-B-32"
+    pretrained: "laion2b_s34b_b79k"
+    device: "cpu"
+    enable_cache: true
+
+  - name: "CLIP_Sharpness"
+    type: "clip_sharpness"
+    model_name: "ViT-B-32"
+    pretrained: "laion2b_s34b_b79k"
+    device: "cpu"
+    enable_cache: true
+
+output:
+  base_dir: "outputs/pairwise_benchmark_quick_test"
+  create_timestamp_dir: true
+
+execution:
+  verbose: true
+  log_level: "INFO"

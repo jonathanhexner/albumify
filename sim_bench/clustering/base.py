@@ -158,14 +158,16 @@ def load_clustering_method(config: Dict[str, Any]) -> ClusteringMethod:
     from sim_bench.clustering.dbscan import DBSCANClusterer
     from sim_bench.clustering.kmeans import KMeansClusterer
     from sim_bench.clustering.hdbscan import HDBSCANClusterer
-    
+    from sim_bench.clustering.hierarchical import HierarchicalClusterer
+
     algorithm = config.get('algorithm', 'dbscan').lower()
-    
+
     # Method registry
     clustering_registry = {
         'dbscan': DBSCANClusterer,
         'kmeans': KMeansClusterer,
         'hdbscan': HDBSCANClusterer,
+        'hierarchical': HierarchicalClusterer,
     }
     
     if algorithm not in clustering_registry:

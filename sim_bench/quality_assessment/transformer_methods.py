@@ -10,6 +10,7 @@ import numpy as np
 from typing import Dict, Any, List
 
 from sim_bench.quality_assessment.base import QualityAssessor
+from sim_bench.quality_assessment.registry import register_method
 
 try:
     from transformers import ViTModel, ViTConfig
@@ -76,9 +77,11 @@ class ViTQualityModel(nn.Module):
         return quality_dist
 
 
+@register_method('vit')
+@register_method('transformer')
 class ViTQuality(QualityAssessor):
     """Vision Transformer quality assessment."""
-    
+
     def __init__(
         self,
         model_name: str = 'google/vit-base-patch16-224',
@@ -129,7 +132,39 @@ class ViTQuality(QualityAssessor):
                 std=[0.5, 0.5, 0.5]
             )
         ])
-        
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Check if transformers dependencies are available."""
+        try:
+            import torch
+            from transformers import ViTModel
+            return True
+        except ImportError:
+            return False
+
+    @classmethod
+    def from_config(cls, config: Dict) -> 'ViTQuality':
+        """
+        Create ViTQuality from config dict.
+
+        Args:
+            config: Configuration dictionary with keys:
+                - model: Model name or checkpoint (default: 'google/vit-base-patch16-224')
+                - weights: Path to weights file (optional)
+                - device: Device to run on (default: 'cpu')
+                - batch_size: Batch size (default: 4)
+
+        Returns:
+            Configured ViTQuality instance
+        """
+        return cls(
+            model_name=config.get('model', config.get('model_name', config.get('checkpoint', 'google/vit-base-patch16-224'))),
+            weights_path=config.get('weights_path', config.get('weights')),
+            device=config.get('device', 'cpu'),
+            batch_size=config.get('batch_size', 4)
+        )
+
     def assess_image(self, image_path: str) -> float:
         """
         Assess image quality.
@@ -319,5 +354,8 @@ def train_vit_quality(
             print(f"Saved best model to {save_path}")
     
     return model
+
+
+
 
 

@@ -1,0 +1,55 @@
+{
+  "benchmark_info": {
+    "pairs_file": "data\\phototriage\\pairs_train.jsonl",
+    "num_methods": 3,
+    "use_attributes": false,
+    "timestamp": "2025-11-20T01:24:43.920521"
+  },
+  "methods": {
+    "Sharpness": {
+      "global_accuracy": 0.5633954451345756,
+      "num_pairs": 12075,
+      "runtime_seconds": 1427.5225765705109,
+      "config": {
+        "method": "RuleBasedQuality",
+        "device": "cpu",
+        "weights": {
+          "sharpness": 1.0,
+          "exposure": 0.0,
+          "colorfulness": 0.0,
+          "contrast": 0.0
+        }
+      }
+    },
+    "Exposure": {
+      "global_accuracy": 0.5577639751552795,
+      "num_pairs": 12075,
+      "runtime_seconds": 1334.0779912471771,
+      "config": {
+        "method": "RuleBasedQuality",
+        "device": "cpu",
+        "weights": {
+          "sharpness": 0.0,
+          "exposure": 1.0,
+          "colorfulness": 0.0,
+          "contrast": 0.0
+        }
+      }
+    },
+    "Combined-RuleBased": {
+      "global_accuracy": 0.577391304347826,
+      "num_pairs": 12075,
+      "runtime_seconds": 1177.0066952705383,
+      "config": {
+        "method": "RuleBasedQuality",
+        "device": "cpu",
+        "weights": {
+          "sharpness": 0.5,
+          "exposure": 0.3,
+          "colorfulness": 0.1,
+          "contrast": 0.1
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,19 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "create_labeled_pairs_dual_method",
+            "type": "python",
+            "request": "launch",
+            "module": "create_labeled_pairs_dual_method",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--input-dir", "D:/Similar Images/automatic_triage_photo_series/train_val/reviews_trainval/reviews_trainval",
+                "--output-dir", "D:/Similar Images/automatic_triage_photo_series/train_val/reviews_trainval/reviews_trainval",
+            ],            
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },  
+        {
             "name": "rerun_baseline_experiments",
             "type": "python",
             "request": "launch",
@@ -289,6 +302,33 @@
             "args": [
                 "--config", "configs/quality_benchmark.deep_learning.yaml",
                 "--output-dir", "outputs/quality_benchmarks"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Pairwise Benchmark - Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_pairwise_benchmark.py",
+            "args": [
+                "--config", "configs/pairwise_benchmark.test.yaml",
+                "--log-level", "INFO"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Pairwise Benchmark - NIMA/MUSIQ/LAION",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_pairwise_benchmark.py",
+            "args": [
+                "--config", "configs/pairwise_benchmark.test.yaml",
+                "--log-level", "INFO",
+                "--methods", "NIMA-MobileNet,NIMA-ResNet50,MUSIQ,CLIP-Aesthetic-LAION"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

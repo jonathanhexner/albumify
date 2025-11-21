@@ -1,0 +1,176 @@
+# Pairwise Quality Assessment Benchmark - Final Configuration
+# PhotoTriage dataset with filtered high-agreement pairs
+#
+# This configuration benchmarks 15 methods total:
+# - 7 rule-based methods (sharpness, exposure, contrast, colorfulness, 3 composites)
+# - 7 CLIP attribute-specific methods (aesthetic, composition, subject_placement, cropping, sharpness, exposure, color)
+# - 1 ViT-base deep learning method
+#
+# Each CLIP method uses a SEPARATE attribute with NO aggregation, as required.
+
+dataset:
+  # Filtered pairs: Agreement >= 0.7, num_reviewers >= 2
+  # Results in ~12,073 high-quality pairs (49.9% of total)
+  pairs_file: "data/phototriage/pairs_train_filtered.jsonl"
+
+  # Don't evaluate per-attribute (we're testing methods, not analyzing attributes)
+  use_attributes: false
+
+  # Optional: Enable sampling for quick testing
+  # sampling:
+  #   enabled: true
+  #   num_pairs: 500
+  #   random_seed: 42
+
+methods:
+  # ======================================================================
+  # RULE-BASED METHODS (7 total)
+  # ======================================================================
+
+  # Single-attribute rule-based methods
+  - name: "RuleBased_Sharpness"
+    type: "rule_based"
+    weights:
+      sharpness: 1.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "RuleBased_Exposure"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 1.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "RuleBased_Contrast"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 1.0
+
+  - name: "RuleBased_Colorfulness"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 0.0
+      colorfulness: 1.0
+      contrast: 0.0
+
+  # Composite rule-based methods
+  - name: "RuleBased_Balanced"
+    type: "rule_based"
+    weights:
+      sharpness: 0.4
+      exposure: 0.3
+      colorfulness: 0.2
+      contrast: 0.1
+
+  - name: "RuleBased_SharpnessFocused"
+    type: "rule_based"
+    weights:
+      sharpness: 0.6
+      exposure: 0.2
+      colorfulness: 0.1
+      contrast: 0.1
+
+  - name: "RuleBased_ExposureFocused"
+    type: "rule_based"
+    weights:
+      sharpness: 0.2
+      exposure: 0.5
+      colorfulness: 0.2
+      contrast: 0.1
+
+  # ======================================================================
+  # CLIP ATTRIBUTE-SPECIFIC METHODS (7 total)
+  # ======================================================================
+  # IMPORTANT: Each is a SEPARATE method with NO aggregation
+  # Score = mean(similarity(image, positive) - similarity(image, negative))
+
+  - name: "CLIP_AestheticOverall"
+    type: "clip_aesthetic_overall"
+    model_name: "ViT-B-32"
+    pretrained: "laion2b_s34b_b79k"
+    device: "cpu"  # Change to "cuda" if GPU available
+    enable_cache: true
+
+  - name: "CLIP_Composition"
+    type: "clip_composition"
+    model_name: "ViT-B-32"
+    pretrained: "laion2b_s34b_b79k"
+    device: "cpu"
+    enable_cache: true
+
+  - name: "CLIP_SubjectPlacement"
+    type: "clip_subject_placement"
+    model_name: "ViT-B-32"
+    pretrained: "laion2b_s34b_b79k"
+    device: "cpu"
+    enable_cache: true
+
+  - name: "CLIP_Cropping"
+    type: "clip_cropping"
+    model_name: "ViT-B-32"
+    pretrained: "laion2b_s34b_b79k"
+    device: "cpu"
+    enable_cache: true
+
+  - name: "CLIP_Sharpness"
+    type: "clip_sharpness"
+    model_name: "ViT-B-32"
+    pretrained: "laion2b_s34b_b79k"
+    device: "cpu"
+    enable_cache: true
+
+  - name: "CLIP_Exposure"
+    type: "clip_exposure"
+    model_name: "ViT-B-32"
+    pretrained: "laion2b_s34b_b79k"
+    device: "cpu"
+    enable_cache: true
+
+  - name: "CLIP_Color"
+    type: "clip_color"
+    model_name: "ViT-B-32"
+    pretrained: "laion2b_s34b_b79k"
+    device: "cpu"
+    enable_cache: true
+
+  # ======================================================================
+  # DEEP LEARNING METHODS (1 total)
+  # ======================================================================
+  # Note: NIMA skipped due to poor previous performance
+
+  - name: "ViT_Base"
+    type: "vit"
+    model_name: "vit_base_patch16_224"
+    pretrained: true
+    device: "cpu"
+    enable_cache: true
+
+output:
+  # Base directory for results
+  base_dir: "outputs/pairwise_benchmark_final"
+
+  # Create timestamped subdirectory
+  create_timestamp_dir: true
+
+execution:
+  # Show progress bars
+  verbose: true
+
+  # Logging level
+  log_level: "INFO"
+
+# Expected output files:
+# - methods_summary.csv: Overall method comparison
+# - detailed_results.csv: Per-dataset, per-method results
+# - {method}/per_pair_results.csv: Detailed per-pair predictions
+# - overall_comparison.csv: Pairwise accuracy comparison
+# - preference_strength_analysis.csv: Accuracy by strong vs weak preferences
+# - summary.json: Complete benchmark metadata
+# - benchmark.log: Full execution log

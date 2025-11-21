@@ -1,0 +1,176 @@
+# Pairwise Benchmark Test Configuration - 200 Pairs
+# Quick test run for validation and debugging
+
+dataset:  
+  pairs_file: "data/phototriage/pairs_train.jsonl"
+  use_attributes: false
+
+  # Sample 200 pairs for quick testing
+  sampling:
+    enabled: true
+    num_pairs: 1000
+    random_seed: 42
+
+methods:
+  # Rule-based methods (5 methods)
+  - name: "Sharpness"
+    type: "rule_based"
+    weights:
+      sharpness: 1.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "Exposure"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 1.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "Contrast"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 1.0
+
+  - name: "Colorfulness"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 0.0
+      colorfulness: 1.0
+      contrast: 0.0
+
+  - name: "Combined-RuleBased"
+    type: "rule_based"
+    weights:
+      sharpness: 0.4
+      exposure: 0.3
+      colorfulness: 0.2
+      contrast: 0.1
+
+  # CLIP methods with attribute-specific prompts (7 methods)
+  # Each attribute uses a single contrastive pair for focused evaluation
+  # NOTE: Change device to "cuda" if you have GPU available
+  - name: "CLIP-Aesthetic-Overall"
+    type: "clip_aesthetic"
+    model_name: "ViT-B-32"
+    device: "cpu"
+    aggregation_method: "contrastive_only"
+    custom_prompts:
+      contrastive:
+        - "a highly aesthetic, visually pleasing, beautiful photograph"
+        - "an unattractive, poorly composed, ugly photograph"
+      positive: []
+      negative: []
+
+  - name: "CLIP-Composition"
+    type: "clip_aesthetic"
+    model_name: "ViT-B-32"
+    device: "cpu"
+    aggregation_method: "contrastive_only"
+    custom_prompts:
+      contrastive:
+        - "a well-composed photograph with excellent visual balance"
+        - "a poorly-composed photograph with bad visual balance"
+      positive: []
+      negative: []
+
+  - name: "CLIP-Subject-Placement"
+    type: "clip_aesthetic"
+    model_name: "ViT-B-32"
+    device: "cpu"
+    aggregation_method: "contrastive_only"
+    custom_prompts:
+      contrastive:
+        - "a photo with the subject well placed in the frame"
+        - "a photo with the subject not well placed in the frame"
+      positive: []
+      negative: []
+
+  - name: "CLIP-Cropping"
+    type: "clip_aesthetic"
+    model_name: "ViT-B-32"
+    device: "cpu"
+    aggregation_method: "contrastive_only"
+    custom_prompts:
+      contrastive:
+        - "a photo that is well cropped and shows the complete subject"
+        - "a photo that is poorly cropped or cuts off the subject"
+      positive: []
+      negative: []
+
+  - name: "CLIP-Sharpness"
+    type: "clip_aesthetic"
+    model_name: "ViT-B-32"
+    device: "cpu"
+    aggregation_method: "contrastive_only"
+    custom_prompts:
+      contrastive:
+        - "a sharp, in-focus photograph with clear details"
+        - "a blurry, out-of-focus photograph with unclear details"
+      positive: []
+      negative: []
+
+  - name: "CLIP-Exposure"
+    type: "clip_aesthetic"
+    model_name: "ViT-B-32"
+    device: "cpu"
+    aggregation_method: "contrastive_only"
+    custom_prompts:
+      contrastive:
+        - "a photo with good exposure and lighting"
+        - "a photo with poor exposure, too dark or too bright"
+      positive: []
+      negative: []
+
+  - name: "CLIP-Color"
+    type: "clip_aesthetic"
+    model_name: "ViT-B-32"
+    device: "cpu"
+    aggregation_method: "contrastive_only"
+    custom_prompts:
+      contrastive:
+        - "a photo with vibrant, natural colors"
+        - "a photo with dull, washed out colors"
+      positive: []
+      negative: []
+
+  # Deep Learning Methods
+  - name: "NIMA-MobileNet"
+    type: "nima"
+    backbone: "mobilenet_v2"
+    device: "cpu"
+    batch_size: 8
+
+  - name: "NIMA-ResNet50"
+    type: "nima"
+    backbone: "resnet50"
+    device: "cpu"
+    batch_size: 4
+
+  - name: "MUSIQ"
+    type: "musiq"
+    use_pyiqa: true  # Use pyiqa library for pre-trained weights (recommended)
+    device: "cpu"
+    batch_size: 1
+
+  - name: "CLIP-Aesthetic-LAION"
+    type: "clip_aesthetic"
+    variant: "laion"
+    model_name: "ViT-B-32"
+    device: "cpu"
+
+output:
+  base_dir: "outputs/pairwise_benchmark_test"
+  create_timestamp_dir: true
+
+execution:
+  verbose: true
+  log_level: "INFO"
+  use_bradley_terry: false  # Set to true to enable BT model fitting
+

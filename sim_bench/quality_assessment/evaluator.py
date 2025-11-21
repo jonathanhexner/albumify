@@ -89,29 +89,42 @@ class QualityEvaluator:
             try:
                 scores = self.method.assess_batch(paths)
                 predicted_best_idx = int(np.argmax(scores))
-                
+
                 # Compute full ranking (best to worst)
                 ranked_indices = np.argsort(scores)[::-1].tolist()  # Descending order
                 # ranked_indices[i] = index of image ranked at position i (0 = best)
-                
+
                 # Compute metrics
                 is_top1_correct = (predicted_best_idx == ground_truth_best_idx)
                 correct_top1 += int(is_top1_correct)
-                
+
                 # Top-2 accuracy
                 top2_indices = ranked_indices[:2]
                 is_top2_correct = ground_truth_best_idx in top2_indices
                 correct_top2 += int(is_top2_correct)
-                
+
                 # Mean Reciprocal Rank
                 rank_of_best = ranked_indices.index(ground_truth_best_idx) + 1  # 1-indexed
                 reciprocal_ranks.append(1.0 / rank_of_best)
-                
+
                 # Store per-image ranking information
                 # ranked_by_position[i] = index of image at rank i+1 (1-indexed)
                 # image_rank[i] = rank (1-indexed) of image at position i
                 image_ranks = [ranked_indices.index(i) + 1 for i in range(len(paths))]
-                
+
+                # Optionally capture detailed scores (for CLIP methods)
+                detailed_scores = None
+                if hasattr(self.method, 'get_detailed_scores'):
+                    try:
+                        # Get detailed scores for each image in series
+                        detailed_scores = []
+                        for path in paths:
+                            detailed = self.method.get_detailed_scores(path)
+                            detailed_scores.append(detailed if detailed else {})
+                    except Exception as e:
+                        self.logger.warning(f"Could not get detailed scores: {e}")
+                        detailed_scores = None
+
                 series_results.append({
                     'group_id': group_id,
                     'num_images': len(paths),
@@ -121,7 +134,8 @@ class QualityEvaluator:
                     'scores': scores.tolist(),
                     'ranking': ranked_indices,  # Full ranking: [best_idx, 2nd_best_idx, ..., worst_idx]
                     'image_ranks': image_ranks,  # Rank for each image: [rank_of_img0, rank_of_img1, ...]
-                    'image_paths': paths  # Store paths for reference
+                    'image_paths': paths,  # Store paths for reference
+                    'detailed_scores': detailed_scores  # Optional detailed scores (e.g., per-prompt CLIP scores)
                 })
                 
             except Exception as e:

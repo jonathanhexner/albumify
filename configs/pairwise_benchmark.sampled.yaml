@@ -1,0 +1,59 @@
+# Sampled Pairwise Benchmark Configuration
+# Uses a subset of pairs for faster iteration/testing
+
+dataset:
+  pairs_file: "data/phototriage/pairs_train.jsonl"
+  use_attributes: false
+
+  # Sampling configuration
+  sampling:
+    enabled: true
+    num_pairs: 1000  # Sample 1000 pairs instead of all 12075
+    random_seed: 42
+
+methods:
+  # Rule-based methods (fast)
+  - name: "Sharpness"
+    type: "rule_based"
+    weights:
+      sharpness: 1.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "Exposure"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 1.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "Combined-RuleBased"
+    type: "rule_based"
+    weights:
+      sharpness: 0.4
+      exposure: 0.3
+      colorfulness: 0.2
+      contrast: 0.1
+
+  # CLIP methods (slower, GPU recommended)
+  - name: "CLIP-Aesthetic-LAION"
+    type: "clip_aesthetic"
+    variant: "laion"
+    model_name: "ViT-B-32"
+    device: "cuda"
+
+  - name: "CLIP-LearnedPrompts"
+    type: "clip_aesthetic"
+    variant: "learned"
+    prompts_config: "configs/learned_aesthetic_prompts.yaml"
+    device: "cuda"
+
+output:
+  base_dir: "outputs/pairwise_benchmark_sampled"
+  create_timestamp_dir: true
+
+execution:
+  verbose: true
+  log_level: "INFO"

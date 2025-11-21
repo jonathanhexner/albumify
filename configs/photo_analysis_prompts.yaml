@@ -1,0 +1,116 @@
+# Photo Analysis Prompts Configuration
+# 57 zero-shot CLIP prompts for comprehensive photo understanding
+
+# ==========================================================================
+# Scene / Content Type (20 prompts)
+# Used to understand what's in the image and route to appropriate models
+# ==========================================================================
+scene_content:
+  - "a photo of a person"
+  - "a group photo"
+  - "a close-up face portrait"
+  - "a crowd of people"
+  - "a photo of a landmark"
+  - "a city skyline"
+  - "an indoor room"
+  - "an outdoor landscape"
+  - "a house exterior"
+  - "a mountain landscape"
+  - "a beach scene"
+  - "a photo of food"
+  - "a document or text page"
+  - "a drawing or painting"
+  - "a product photo"
+  - "a pet or animal"
+  - "a vehicle"
+  - "a building interior"
+  - "a night scene"
+  - "a daytime scene"
+
+# ==========================================================================
+# Image Quality / Technical Cues (12 prompts)
+# Used for quality assessment and filtering
+# ==========================================================================
+quality_technical:
+  - "a high-quality photo"
+  - "a low-quality photo"
+  - "a blurry photo"
+  - "a sharp photo"
+  - "a noisy image"
+  - "a clean image"
+  - "a well-exposed photo"
+  - "an underexposed photo"
+  - "an overexposed photo"
+  - "a photo with good lighting"
+  - "a photo with bad lighting"
+  - "a color photo"
+
+# ==========================================================================
+# Composition / Aesthetic (14 prompts)
+# Used for aesthetic assessment and layout decisions
+# ==========================================================================
+composition_aesthetic:
+  - "a well-composed photograph"
+  - "a poorly composed photograph"
+  - "a balanced composition"
+  - "an unbalanced composition"
+  - "a centered composition"
+  - "a rule of thirds composition"
+  - "a minimalist composition"
+  - "a cluttered composition"
+  - "a photo with good framing"
+  - "a photo with bad framing"
+  - "a photo with leading lines"
+  - "a photo with symmetry"
+  - "a photo with depth and perspective"
+  - "a flat composition"
+
+# ==========================================================================
+# Human-Focused (11 prompts)
+# Used to route to face detection/recognition and assess photo quality
+# ==========================================================================
+human_focused:
+  - "a selfie"
+  - "a portrait of one person"
+  - "a portrait of two people"
+  - "a group of people"
+  - "a person standing"
+  - "a person sitting"
+  - "a person smiling"
+  - "a person in profile"
+  - "a photo with multiple faces"
+  - "a person looking away from camera"
+  - "a person with eyes shut"
+
+# ==========================================================================
+# Routing Thresholds
+# Confidence thresholds for triggering specialized models
+# ==========================================================================
+routing_thresholds:
+  face_detection: 0.6       # Trigger if person/face prompts > 0.6
+  landmark_detection: 0.6   # Trigger if landmark prompts > 0.6
+  object_detection: 0.5     # Trigger if object/product prompts > 0.5
+  text_detection: 0.7       # Trigger if document/text prompts > 0.7
+
+# ==========================================================================
+# Importance Score Weights
+# How to combine different scores into overall importance score
+# ==========================================================================
+importance_weights:
+  quality: 0.4              # Technical quality weight
+  composition: 0.3          # Composition/aesthetic weight
+  uniqueness: 0.3           # Diversity/uniqueness weight
+
+# ==========================================================================
+# Aggregation Settings
+# How to aggregate multiple prompt similarities
+# ==========================================================================
+aggregation:
+  method: weighted          # 'mean', 'max', 'weighted'
+
+  # Weights for different prompt categories (used if method='weighted')
+  category_weights:
+    scene_content: 1.0
+    quality_technical: 1.5    # Quality is more important
+    composition_aesthetic: 1.3  # Composition matters
+    human_focused: 1.0

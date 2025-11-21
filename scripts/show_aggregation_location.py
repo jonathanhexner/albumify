@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+"""
+Show exactly where aggregation happens in the code.
+"""
+
+def show_aggregation_location():
+    """Show the exact code location and flow."""
+    
+    print("="*80)
+    print("AGGREGATION LOCATION: Exact Code Path")
+    print("="*80)
+    
+    print("\n1. CALL STACK:")
+    print("   " + "-"*76)
+    print("   pairwise_evaluator.py:133")
+    print("   -> score_a = self.method.assess_image(image_a_path)")
+    print("   " + "-"*76)
+    print("   clip_aesthetic.py:225")
+    print("   -> score = self.aesthetic_assessor.assess_image(image_path)")
+    print("   " + "-"*76)
+    print("   aesthetic.py:116")
+    print("   -> return self.assess_batch([image_path])[0]")
+    print("   " + "-"*76)
+    print("   aesthetic.py:118-145 (assess_batch)")
+    print("   -> Encode images + Compute similarities")
+    print("   -> AGGREGATION CALLED HERE (line 141)")
+    print("   " + "-"*76)
+    
+    print("\n2. AGGREGATION HAPPENS HERE:")
+    print("   " + "="*76)
+    print("   FILE: sim_bench/vision_language/applications/aesthetic.py")
+    print("   FUNCTION: _aggregate_weighted()")
+    print("   LINE: 212-228")
+    print("   " + "="*76)
+    
+    print("\n3. THE CODE:")
+    print("   " + "-"*76)
+    print("   def _aggregate_weighted(self, similarities: np.ndarray):")
+    print("       # similarities shape: [n_images, n_prompts]")
+    print("       # For learned variant: [1, 18] (1 image, 18 prompts)")
+    print("   ")
+    print("       # Step 1: Contrastive component (50% weight)")
+    print("       contrastive = self._aggregate_contrastive(similarities)")
+    print("       #   For each of 9 pairs: pos_sim - neg_sim")
+    print("       #   Returns: mean of 9 contrastive scores")
+    print("   ")
+    print("       # Step 2: Positive component (30% weight)")
+    print("       positive = np.mean(similarities[:, start:end], axis=1)")
+    print("       #   For learned variant: empty (no positive attributes)")
+    print("   ")
+    print("       # Step 3: Negative component (20% weight, inverted)")
+    print("       negative = -np.mean(similarities[:, start:end], axis=1)")
+    print("       #   For learned variant: empty (no negative attributes)")
+    print("   ")
+    print("       # Step 4: Weighted combination")
+    print("       return 0.5 * contrastive + 0.3 * positive + 0.2 * negative")
+    print("       #   Returns: [n_images] array, e.g., [0.25]")
+    print("   " + "-"*76)
+    
+    print("\n4. CONTRASTIVE AGGREGATION (Sub-function):")
+    print("   " + "-"*76)
+    print("   FILE: Same file (aesthetic.py)")
+    print("   FUNCTION: _aggregate_contrastive()")
+    print("   LINE: 201-210")
+    print("   " + "-"*76)
+    print("   def _aggregate_contrastive(self, similarities):")
+    print("       contrastive_scores = []")
+    print("       for i in range(9):  # 9 pairs for learned variant")
+    print("           pos_sim = similarities[:, i*2]      # Even index")
+    print("           neg_sim = similarities[:, i*2 + 1]  # Odd index")
+    print("           contrastive_scores.append(pos_sim - neg_sim)")
+    print("       return np.mean(contrastive_scores, axis=0)")
+    print("   " + "-"*76)
+    
+    print("\n5. DATA SHAPE EXAMPLE (Learned Variant):")
+    print("   " + "-"*76)
+    print("   Input to _aggregate_weighted:")
+    print("     similarities.shape = (1, 18)")
+    print("     [0.65, 0.20, 0.70, 0.15, ..., 0.60, 0.25]")
+    print("     ^pair1^ ^pair2^              ^pair9^")
+    print("   ")
+    print("   After _aggregate_contrastive:")
+    print("     contrastive = [0.50]  # mean of 9 contrastive scores")
+    print("   ")
+    print("   After weighted combination:")
+    print("     final_score = 0.5 * 0.50 + 0.3 * 0 + 0.2 * 0 = [0.25]")
+    print("   " + "-"*76)
+    
+    print("\n" + "="*80)
+    print("SUMMARY: Aggregation happens in aesthetic.py, line 212-228")
+    print("         Called from assess_batch(), line 141")
+    print("="*80)
+
+
+if __name__ == '__main__':
+    show_aggregation_location()
+

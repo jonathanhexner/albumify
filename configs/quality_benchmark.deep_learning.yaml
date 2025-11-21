@@ -46,6 +46,16 @@ methods:
       weights_path: null  # Use ImageNet pretrained
       device: cpu  # Changed to CPU (PyTorch not compiled with CUDA)
 
+  # NEW: CLIP-based aesthetic assessment
+  - name: clip_aesthetic
+    type: clip_aesthetic
+    config:
+      model_name: ViT-B-32  # Matches NIMA/ViT model size
+      pretrained: laion2b_s34b_b79k
+      device: cpu  # or 'cuda' if available
+      aggregation_method: weighted  # 'weighted', 'contrastive_only', or 'mean'
+      enable_cache: true
+
 settings:
   verbose: true
   save_visualizations: false

@@ -115,6 +115,154 @@ def export_notebook_to_pdf(
             raise RuntimeError(f"Could not export notebook: WebPDF failed ({e}), HTML failed ({e2})")
 
 
+def export_notebook_to_html(
+    notebook_path: str,
+    output_dir: Optional[str] = None,
+    timestamp: bool = True,
+    prefix: Optional[str] = None
+) -> Path:
+    """
+    Export a Jupyter notebook directly to HTML.
+    
+    Args:
+        notebook_path: Path to the .ipynb file
+        output_dir: Output directory (defaults to same dir as notebook)
+        timestamp: If True, add timestamp to filename
+        prefix: Optional prefix for filename (e.g., method name)
+        
+    Returns:
+        Path to the generated HTML file
+        
+    Example:
+        export_notebook_to_html("quality_assessment_analysis.ipynb")
+        # Generates: quality_assessment_analysis_20251023_143022.html
+    """
+    try:
+        import nbconvert
+        from nbconvert import HTMLExporter
+    except ImportError:
+        raise ImportError(
+            "nbconvert not installed. Install with: pip install nbconvert"
+        )
+    
+    notebook_path = Path(notebook_path)
+    output_dir = Path(output_dir) if output_dir else notebook_path.parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate output filename with optional prefix
+    base_name = notebook_path.stem
+    parts = []
+    if prefix:
+        parts.append(prefix)
+    parts.append(base_name)
+    if timestamp:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        parts.append(ts)
+    
+    # Load notebook
+    import nbformat
+    from nbconvert.preprocessors import ExecutePreprocessor
+    
+    print(f"Loading notebook: {notebook_path.name}")
+    with open(notebook_path, 'r', encoding='utf-8') as f:
+        nb = nbformat.read(f, as_version=4)
+    
+    # Execute notebook to ensure all outputs (including plots) are captured
+    print(f"Executing notebook (this may take a few minutes)...")
+    ep = ExecutePreprocessor(timeout=600, kernel_name='python3')
+    try:
+        ep.preprocess(nb, {'metadata': {'path': str(notebook_path.parent)}})
+        print(f"Notebook executed successfully")
+    except Exception as e:
+        print(f"Warning: Notebook execution failed: {e}")
+        print(f"Proceeding with existing outputs...")
+    
+    # Export to HTML
+    print(f"Converting to HTML...")
+    exporter = HTMLExporter()
+    output_name = "_".join(parts) + ".html"
+    output_path = output_dir / output_name
+    (body, resources) = exporter.from_notebook_node(nb)
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(body)
+    
+    print(f"HTML saved to: {output_path}")
+    return output_path
+
+
+def export_quality_assessment_report(
+    notebook_path: Optional[str] = None,
+    base_dir: Optional[str] = None,
+    output_dir: Optional[str] = None,
+    use_latest: bool = False,
+    timestamp: bool = True
+) -> Path:
+    """
+    Export quality assessment analysis notebook to HTML for single or multiple benchmark folders.
+    
+    Args:
+        notebook_path: Path to quality_assessment_analysis.ipynb (defaults to notebooks/)
+        base_dir: Base directory containing benchmark_* folders (if None, uses single folder)
+        output_dir: Where to save HTML (defaults to base_dir/analysis_reports or benchmark_dir/analysis_reports)
+        use_latest: If True, only export for latest folder; if False, export combined report for all folders
+        timestamp: If True, add timestamp to filename
+        
+    Returns:
+        Path to generated HTML file
+        
+    Example:
+        # Export combined report from all benchmark folders
+        export_quality_assessment_report(
+            base_dir="outputs/quality_benchmarks",
+            use_latest=False  # Combine all folders
+        )
+        
+        # Export report for latest folder only
+        export_quality_assessment_report(
+            base_dir="outputs/quality_benchmarks",
+            use_latest=True
+        )
+    """
+    from pathlib import Path
+    from sim_bench.quality_assessment.analysis.load_results import find_benchmark_folders
+    
+    # Default notebook path
+    if notebook_path is None:
+        notebook_path = Path(__file__).parent.parent.parent / "notebooks" / "quality_assessment_analysis.ipynb"
+    notebook_path = Path(notebook_path)
+    
+    if not notebook_path.exists():
+        raise FileNotFoundError(f"Notebook not found: {notebook_path}")
+    
+    # Determine output directory
+    if output_dir is None:
+        if base_dir:
+            output_dir = Path(base_dir) / "analysis_reports"
+        else:
+            output_dir = notebook_path.parent / "reports"
+    else:
+        output_dir = Path(output_dir)
+    
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate filename
+    parts = ["quality_assessment_analysis"]
+    if base_dir and not use_latest:
+        parts.append("combined")
+    if timestamp:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        parts.append(ts)
+    
+    # Export notebook
+    return export_notebook_to_html(
+        str(notebook_path),
+        output_dir=str(output_dir),
+        timestamp=False,  # We already added timestamp above
+        prefix="_".join(parts[:-1] if timestamp else parts)
+    )
+
+
 def quick_export(notebook_name: str = "method_analysis.ipynb", experiment_name: str = None) -> Path:
     """
     Quick export helper for analysis notebooks.

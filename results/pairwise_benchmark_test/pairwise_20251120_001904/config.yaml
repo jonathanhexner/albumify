@@ -1,0 +1,31 @@
+dataset:
+  pairs_file: data/phototriage/pairs_train.jsonl
+  use_attributes: false
+execution:
+  log_level: INFO
+  verbose: true
+methods:
+- name: Sharpness
+  type: rule_based
+  weights:
+    colorfulness: 0.0
+    contrast: 0.0
+    exposure: 0.0
+    sharpness: 1.0
+- name: Exposure
+  type: rule_based
+  weights:
+    colorfulness: 0.0
+    contrast: 0.0
+    exposure: 1.0
+    sharpness: 0.0
+- name: Combined-RuleBased
+  type: rule_based
+  weights:
+    colorfulness: 0.1
+    contrast: 0.1
+    exposure: 0.3
+    sharpness: 0.5
+output:
+  base_dir: results/pairwise_benchmark_test
+  create_timestamp_dir: true

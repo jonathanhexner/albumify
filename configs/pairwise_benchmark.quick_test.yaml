@@ -1,0 +1,40 @@
+# Quick test configuration for pairwise benchmark
+# Uses only rule-based methods for fast validation
+
+dataset:
+  pairs_file: "data/phototriage/pairs_train.jsonl"
+  use_attributes: false
+
+methods:
+  # Just a few fast rule-based methods
+  - name: "Sharpness"
+    type: "rule_based"
+    weights:
+      sharpness: 1.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "Exposure"
+    type: "rule_based"
+    weights:
+      sharpness: 0.0
+      exposure: 1.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+  - name: "Combined-RuleBased"
+    type: "rule_based"
+    weights:
+      sharpness: 0.5
+      exposure: 0.3
+      colorfulness: 0.1
+      contrast: 0.1
+
+output:
+  base_dir: "outputs/pairwise_benchmark_test"
+  create_timestamp_dir: true
+
+execution:
+  verbose: true
+  log_level: "INFO"

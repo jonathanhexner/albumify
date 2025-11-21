@@ -1,0 +1,30 @@
+# Quick logging test configuration
+# Samples only 100 pairs for fast validation
+
+dataset:
+  pairs_file: "data/phototriage/pairs_train.jsonl"
+  use_attributes: false
+
+  # Sampling for quick test
+  sampling:
+    enabled: true
+    num_pairs: 100
+    random_seed: 42
+
+methods:
+  # Just one fast rule-based method
+  - name: "Sharpness"
+    type: "rule_based"
+    weights:
+      sharpness: 1.0
+      exposure: 0.0
+      colorfulness: 0.0
+      contrast: 0.0
+
+output:
+  base_dir: "outputs/pairwise_benchmark_logging_test"
+  create_timestamp_dir: true
+
+execution:
+  verbose: true
+  log_level: "INFO"

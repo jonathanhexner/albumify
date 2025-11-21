@@ -1,0 +1,102 @@
+# Global Configuration for sim-bench
+# This file contains settings that apply across all modules and experiments
+# Individual experiment configs can override these settings
+
+# ============================================================================
+# Compute Resources
+# ============================================================================
+device: cpu  # Device for computation: 'cpu', 'cuda', 'cuda:0', 'cuda:1', 'mps'
+num_workers: 4  # Number of parallel workers for CPU operations
+
+# ============================================================================
+# Directory Paths
+# ============================================================================
+output_dir: outputs/  # Default output directory for all results
+cache_dir: .cache/    # Cache directory for embeddings, thumbnails, etc.
+log_dir: logs/        # Directory for log files
+
+# ============================================================================
+# Caching Settings
+# ============================================================================
+enable_embedding_cache: true   # Cache vision-language model embeddings
+enable_thumbnail_cache: true   # Cache generated thumbnails
+enable_quality_cache: true     # Cache quality assessment scores
+cache_max_size_gb: 10          # Maximum cache size in GB (automatic cleanup)
+
+# ============================================================================
+# Image Processing
+# ============================================================================
+thumbnail_sizes:
+  tiny: 128      # For fast CLIP tagging and routing decisions
+  small: 512     # For UI previews and quick browsing
+  medium: 1024   # For quality assessment and composition analysis
+  large: 2048    # For specialized models (face detection, etc.)
+
+thumbnail_quality: 90  # JPEG quality for thumbnails (1-100)
+thumbnail_format: jpg  # Thumbnail format: 'jpg' or 'png'
+
+# ============================================================================
+# Vision-Language Model Defaults
+# ============================================================================
+clip:
+  model_name: ViT-B-32              # CLIP model architecture
+  pretrained: laion2b_s34b_b79k     # Pretrained checkpoint
+  batch_size: 32                     # Batch size for encoding
+  enable_cache: true                 # Cache CLIP embeddings
+
+# ============================================================================
+# Quality Assessment
+# ============================================================================
+quality_assessment:
+  default_method: clip_aesthetic  # Default quality method
+  enable_cache: true              # Cache quality scores
+  batch_size: 16                  # Batch size for assessment
+
+# ============================================================================
+# Photo Analysis
+# ============================================================================
+photo_analysis:
+  use_thumbnails: true           # Use thumbnails for analysis (recommended)
+  thumbnail_size: tiny           # Which thumbnail size to use for CLIP tagging
+  routing_threshold: 0.6         # Confidence threshold for routing decisions
+  importance_weights:            # Weights for computing importance score
+    quality: 0.4                 # Quality assessment weight
+    composition: 0.3             # Composition score weight
+    uniqueness: 0.3              # Uniqueness/diversity weight
+
+# ============================================================================
+# Clustering
+# ============================================================================
+clustering:
+  default_algorithm: hdbscan     # Default clustering algorithm
+  min_cluster_size: 5            # Minimum photos per cluster
+  normalize_features: true       # L2-normalize features before clustering
+
+# ============================================================================
+# Logging
+# ============================================================================
+logging:
+  level: INFO                    # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+  log_to_file: true              # Write logs to file
+  log_to_console: true           # Print logs to console
+  max_log_size_mb: 100           # Max log file size before rotation
+  backup_count: 3                # Number of backup log files to keep
+
+# ============================================================================
+# Performance
+# ============================================================================
+performance:
+  max_batch_size: 64             # Maximum batch size (memory constraint)
+  prefetch_factor: 2             # Number of batches to prefetch
+  pin_memory: false              # Pin memory for CUDA (set true if using GPU)
+  persistent_workers: false      # Keep workers alive between epochs
+
+# ============================================================================
+# Export
+# ============================================================================
+export:
+  default_format: html           # Default export format
+  include_metadata: true         # Include metadata in exports
+  copy_original_files: false     # Copy vs. symlink original files

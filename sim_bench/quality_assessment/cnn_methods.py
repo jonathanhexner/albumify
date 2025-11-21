@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 from sim_bench.quality_assessment.base import QualityAssessor
+from sim_bench.quality_assessment.registry import register_method
 
 
 class NIMAModel(nn.Module):
@@ -63,9 +64,11 @@ class NIMAModel(nn.Module):
         return quality_dist
 
 
+@register_method('nima')
+@register_method('cnn')
 class NIMAQuality(QualityAssessor):
     """NIMA-style CNN quality assessment."""
-    
+
     def __init__(
         self,
         backbone: str = 'mobilenet_v2',
@@ -106,7 +109,39 @@ class NIMAQuality(QualityAssessor):
                 std=[0.229, 0.224, 0.225]
             )
         ])
-        
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Check if PyTorch dependencies are available."""
+        try:
+            import torch
+            import torchvision
+            return True
+        except ImportError:
+            return False
+
+    @classmethod
+    def from_config(cls, config: Dict) -> 'NIMAQuality':
+        """
+        Create NIMAQuality from config dict.
+
+        Args:
+            config: Configuration dictionary with keys:
+                - backbone: CNN architecture (default: 'mobilenet_v2')
+                - weights: Path to weights file (optional)
+                - device: Device to run on (default: 'cpu')
+                - batch_size: Batch size (default: 8)
+
+        Returns:
+            Configured NIMAQuality instance
+        """
+        return cls(
+            backbone=config.get('backbone', config.get('model', 'mobilenet_v2')),
+            weights_path=config.get('weights_path', config.get('weights')),
+            device=config.get('device', 'cpu'),
+            batch_size=config.get('batch_size', 8)
+        )
+
     def assess_image(self, image_path: str) -> float:
         """
         Assess image quality.
@@ -278,5 +313,8 @@ def train_nima(
             print(f"Saved best model to {save_path}")
     
     return model
+
+
+
 
 

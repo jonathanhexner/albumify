@@ -1,0 +1,64 @@
+dataset:
+  pairs_file: data/phototriage/pairs_train.jsonl
+  sampling:
+    enabled: true
+    num_pairs: 4000
+    random_seed: 42
+  use_attributes: false
+execution:
+  log_level: INFO
+  verbose: true
+methods:
+- name: Sharpness
+  type: rule_based
+  weights:
+    colorfulness: 0.0
+    contrast: 0.0
+    exposure: 0.0
+    sharpness: 1.0
+- name: Exposure
+  type: rule_based
+  weights:
+    colorfulness: 0.0
+    contrast: 0.0
+    exposure: 1.0
+    sharpness: 0.0
+- name: Contrast
+  type: rule_based
+  weights:
+    colorfulness: 0.0
+    contrast: 1.0
+    exposure: 0.0
+    sharpness: 0.0
+- name: Colorfulness
+  type: rule_based
+  weights:
+    colorfulness: 1.0
+    contrast: 0.0
+    exposure: 0.0
+    sharpness: 0.0
+- name: Combined-RuleBased
+  type: rule_based
+  weights:
+    colorfulness: 0.2
+    contrast: 0.1
+    exposure: 0.3
+    sharpness: 0.4
+- device: cuda
+  model_name: ViT-B-32
+  name: CLIP-Aesthetic-LAION
+  type: clip_aesthetic
+  variant: laion
+- device: cuda
+  model_name: ViT-B-32
+  name: CLIP-Aesthetic-SAC
+  type: clip_aesthetic
+  variant: sac
+- device: cuda
+  name: CLIP-LearnedPrompts
+  prompts_config: configs/learned_aesthetic_prompts.yaml
+  type: clip_aesthetic
+  variant: learned
+output:
+  base_dir: results/pairwise_benchmark_3hour
+  create_timestamp_dir: true
