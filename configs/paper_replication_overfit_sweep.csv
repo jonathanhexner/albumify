@@ -1,0 +1,8 @@
+experiment_name,seed,mlp_hidden_dims,batch_size,learning_rate,max_epochs,dropout,use_clip,use_cnn_features,use_iqa_features,comparison_mode,cnn_backbone,cnn_layer,activation,optimizer,momentum,weight_decay,use_visual_tower,notes
+paper_exact,24,"128,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Exact paper replication: VGG16 + SGD + tanh + no dropout
+batch_size_32,24,"128,128",32,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Exact paper replication: VGG16 + SGD + tanh + no dropout
+batch_size_16,24,"128,128",16,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Exact paper replication: VGG16 + SGD + tanh + no dropout
+paper_weight_decay_0.001,24,"128,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.001,false,Exact paper replication: VGG16 + SGD + tanh + no dropout
+paper_weight_decay_0.005,24,"128,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.005,false,Exact paper replication: VGG16 + SGD + tanh + no dropout
+paper_seed_1,67,"128,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Exact paper replication: VGG16 + SGD + tanh + no dropout
+paper_seed_2,256,"128,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Exact paper replication: VGG16 + SGD + tanh + no dropout

@@ -1,0 +1,43 @@
+# Multi-feature fusion: CLIP + ResNet50 + IQA → MLP
+# Frozen features mode (fast training)
+
+name: "multifeature_frozen"
+
+# Data configuration
+data:
+  root_dir: "data/phototriage"
+  min_agreement: 0.7
+  min_reviewers: 2
+  split_ratios: [0.8, 0.1, 0.1]  # train/val/test
+  quick_experiment: null  # Set to 0.1 for 10% of data
+
+# Model architecture (Siamese with frozen features)
+model:
+  use_clip: true
+  use_cnn: true
+  use_iqa: true
+  cnn_backbone: "resnet50"
+  cnn_layer: "layer4"
+  mlp_hidden_dims: [256, 128]  # MLP layers (always trainable)
+  dropout: 0.5
+
+# Training configuration
+training:
+  batch_size: 32
+  learning_rate: 0.001
+  optimizer: "adamw"  # or "sgd"
+  momentum: 0.9  # Only used for SGD
+  weight_decay: 0.01
+  max_epochs: 50
+  early_stop_patience: 10
+
+# Feature cache directory
+cache_dir: "cache/phototriage_features"
+
+# Output configuration
+output:
+  output_dir: null  # Auto-generate timestamped if null
+
+# Device and seed
+device: "cuda"  # or "cpu"
+seed: 42

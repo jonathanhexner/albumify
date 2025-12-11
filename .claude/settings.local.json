@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(\".venv/Scripts/python.exe\" -m py_compile run_hyperparameter_search.py)",
+      "Bash(timeout:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

@@ -333,6 +333,523 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": true
-        }
+        },
+        {
+            "name": "Train Binary Classifier - Conservative (Recommended)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.quality_assessment.trained_models.train_binary_classifier",
+            "args": [
+                "--csv_path", "D:/Similar Images/automatic_triage_photo_series/photo_triage_pairs_embedding_labels.csv",
+                "--images_dir", "D:/Similar Images/automatic_triage_photo_series/train_val/train_val_imgs",
+                "--output_dir", "outputs/phototriage_binary_conservative",
+                "--batch_size", "64",
+                "--num_epochs", "50",
+                "--learning_rate", "0.00001"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Binary Classifier - Aggressive (If Conservative Fails)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.quality_assessment.trained_models.train_binary_classifier",
+            "args": [
+                "--csv_path", "D:/Similar Images/automatic_triage_photo_series/photo_triage_pairs_embedding_labels.csv",
+                "--images_dir", "D:/Similar Images/automatic_triage_photo_series/train_val/train_val_imgs",
+                "--output_dir", "outputs/phototriage_binary_aggressive",
+                "--batch_size", "128",
+                "--num_epochs", "100",
+                "--learning_rate", "0.000005"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Binary Classifier - Original Settings (Baseline)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.quality_assessment.trained_models.train_binary_classifier",
+            "args": [
+                "--csv_path", "D:/Similar Images/automatic_triage_photo_series/photo_triage_pairs_embedding_labels.csv",
+                "--images_dir", "D:/Similar Images/automatic_triage_photo_series/train_val/train_val_imgs",
+                "--output_dir", "outputs/phototriage_binary_baseline",
+                "--batch_size", "32",
+                "--num_epochs", "30",
+                "--learning_rate", "0.0001"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Binary Classifier - Linear Head (Quick Test)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.quality_assessment.trained_models.train_binary_classifier",
+            "args": [
+                "--csv_path", "D:/Similar Images/automatic_triage_photo_series/photo_triage_pairs_embedding_labels.csv",
+                "--images_dir", "D:/Similar Images/automatic_triage_photo_series/train_val/train_val_imgs",
+                "--output_dir", "outputs/phototriage_binary_linear",
+                "--mlp_hidden_dims",
+                "--batch_size", "128",
+                "--num_epochs", "30",
+                "--learning_rate", "0.001"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Series Classifier - MLP (Recommended)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.quality_assessment.trained_models.train_series_classifier",
+            "args": [
+                "--csv_path", "D:/Similar Images/automatic_triage_photo_series/photo_triage_pairs_embedding_labels.csv",
+                "--images_dir", "D:/Similar Images/automatic_triage_photo_series/train_val/train_val_imgs",
+                "--embeddings_cache", "outputs/phototriage_binary/embeddings_cache.pkl",
+                "--output_dir", "outputs/phototriage_series_mlp",
+                "--mlp_hidden_dims", "256", "128",
+                "--batch_size", "32",
+                "--num_epochs", "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Series Classifier - Linear (Quick Baseline)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.quality_assessment.trained_models.train_series_classifier",
+            "args": [
+                "--csv_path", "D:/Similar Images/automatic_triage_photo_series/photo_triage_pairs_embedding_labels.csv",
+                "--images_dir", "D:/Similar Images/automatic_triage_photo_series/train_val/train_val_imgs",
+                "--embeddings_cache", "outputs/phototriage_binary/embeddings_cache.pkl",
+                "--output_dir", "outputs/phototriage_series_linear",
+                "--mlp_hidden_dims",
+                "--batch_size", "32",
+                "--num_epochs", "30",
+                "--learning_rate", "0.001"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Series Classifier - Transformer (Advanced)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.quality_assessment.trained_models.train_series_classifier",
+            "args": [
+                "--csv_path", "D:/Similar Images/automatic_triage_photo_series/photo_triage_pairs_embedding_labels.csv",
+                "--images_dir", "D:/Similar Images/automatic_triage_photo_series/train_val/train_val_imgs",
+                "--embeddings_cache", "outputs/phototriage_binary/embeddings_cache.pkl",
+                "--output_dir", "outputs/phototriage_series_transformer",
+                "--use_transformer",
+                "--batch_size", "32",
+                "--num_epochs", "30"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Frozen Features - Multifeature ⭐",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_frozen",
+            "args": [
+                "--config", "configs/frozen/multifeature.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Frozen Features - ResNet50",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_frozen",
+            "args": [
+                "--config", "configs/frozen/resnet50.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Frozen Features - VGG16",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_frozen",
+            "args": [
+                "--config", "configs/frozen/vgg16.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Frozen - Quick Experiment (10%) ⚡",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_frozen",
+            "args": [
+                "--config", "configs/frozen/multifeature.yaml",
+                "--quick-experiment", "0.1"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train E2E - VGG16 ⭐",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_siamese_e2e",
+            "args": [
+                "--config", "configs/siamese_e2e/vgg16.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train E2E - ResNet50",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_siamese_e2e",
+            "args": [
+                "--config", "configs/siamese_e2e/resnet50.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Frozen - CLIP + Aesthetic",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_frozen",
+            "args": [
+                "--config", "configs/frozen/clip_aesthetic.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Hyperparameter Search - All Experiments (CSV)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Hyperparameter Search - Selected Experiments",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--experiments", "simple_mlp", "use_iqa_features", "tiny_mlp"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Hyperparameter Search - IQA ONLY",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--experiments", "iqa_only"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Paper Replication - Quick Test ⚡",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--config", "configs/paper_replication_grid.csv",
+                "--experiments", "quick_test"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Paper Replication - Exact Paper Config ⭐",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--config", "configs/paper_replication_grid.csv",
+                "--experiments", "paper_exact", "paper_iqa"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Paper Replication - Learning Rate Grid",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--config", "configs/paper_replication_grid.csv",
+                "--experiments", "lr_0001", "lr_0005", "lr_002"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Paper Replication - Batch Size Grid",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--config", "configs/paper_replication_grid.csv",
+                "--experiments", "batch_32", "batch_128"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Paper Replication - Dropout Grid",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--config", "configs/paper_replication_grid.csv",
+                "--experiments", "dropout_01", "dropout_03"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Paper Replication - CNN Backbone Comparison",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--config", "configs/paper_replication_grid.csv",
+                "--experiments", "resnet50_layer3", "resnet50_layer4", "resnet50_iqa"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Paper Replication - Full Grid (All 19 Experiments)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--config", "configs/paper_replication_grid.csv"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Paper Replication - Sweep overfitting",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--config", "configs/paper_replication_overfit_sweep.csv"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },        
+        {
+            "name": "Paper Replication - Paper Exact",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_hyperparameter_search.py",
+            "args": [
+                "--config", "configs/paper_replication_grid.csv",
+                "--experiments", "paper_exact"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+
+        
+
+        {
+            "name": "Train E2E - VGG16 Quick Test ⚡",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_siamese_e2e",
+            "args": [
+                "--config", "configs/siamese_e2e/vgg16.yaml",
+                "--quick-experiment", "0.1"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train E2E - ResNet50 Quick Test ⚡",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_siamese_e2e",
+            "args": [
+                "--config", "configs/siamese_e2e/resnet50.yaml",
+                "--quick-experiment", "0.1"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Hyperparameter Search (Use run_hyperparameter_search.py)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_frozen",
+            "args": [
+                "--config", "configs/frozen/multifeature.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Frozen CNN Baseline - VGG16 Paper Arch 📊",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_frozen",
+            "args": [
+                "--config", "configs/frozen/vgg16.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Siamese E2E📊",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sim_bench/training/train_siamese_e2e.py",
+            "args": [
+                "--config", "configs/siamese_e2e/resnet50.yaml",
+                "--quick-experiment", "0.15"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        }        
     ]
 }

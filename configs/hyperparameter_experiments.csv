@@ -1,0 +1,15 @@
+experiment_name,mlp_hidden_dims,batch_size,learning_rate,max_epochs,dropout,use_clip,use_cnn_features,use_iqa_features,comparison_mode,notes
+baseline,"512,256",64,0.0001,30,0.3,true,true,true,diff_only,Baseline with diff_only comparison
+baseline_full,"512,256",64,0.0001,30,0.3,true,true,true,full,Baseline with full comparison [emb1;emb2;diff]
+simple_mlp,256,64,0.0001,30,0.3,true,true,true,diff_only,Simpler 1-layer MLP
+tiny_mlp,128,128,0.0005,30,0.3,true,true,true,diff_only,Very small MLP with larger batches
+high_dropout,"512,256",64,0.0001,30,0.5,true,true,true,diff_only,Higher dropout for regularization
+larger_batches,256,256,0.001,30,0.3,true,true,true,diff_only,Large batches for implicit regularization
+clip_only,256,128,0.0005,30,0.3,true,false,false,diff_only,CLIP features only (512-dim)
+cnn_only,256,128,0.0005,30,0.3,false,true,false,diff_only,CNN features only (1024-dim)
+cnn_iqa,256,128,0.0005,30,0.3,false,true,true,diff_only,CNN + IQA features (1028-dim)
+iqa_only,,256,0.001,30,0.0,false,false,true,diff_only,IQA features only (4-dim) - linear model
+iqa_only_mlp,8,256,0.001,30,0.2,false,false,true,diff_only,IQA features with small hidden layer
+high_lr,256,128,0.001,30,0.3,true,true,true,diff_only,Higher learning rate
+low_lr,256,128,0.00005,30,0.3,true,true,true,diff_only,Lower learning rate
+quick_test,128,128,0.0005,5,0.3,true,true,true,diff_only,Fast test to verify setup (5 epochs)

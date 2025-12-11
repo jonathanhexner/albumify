@@ -116,7 +116,8 @@ def classify_reasons(reviews_df: pd.DataFrame) -> pd.DataFrame:
         'framing',
         'cropping_completeness',
         'subject_placement',
-        'background_clutter'
+        'background_clutter',
+
     }
 
     labels = []
@@ -297,6 +298,8 @@ Example usage:
     # Classify reasons to labels
     logger.info("Classifying reason texts using AttributeMapper (keyword matching)")
     classified_df = classify_reasons(reviews_df)
+    classified_df.to_csv(r"D:\Similar Images\automatic_triage_photo_series\reviews_with_classified_labels_df.csv", index=False)
+
 
     # Aggregate by pair
     logger.info("Aggregating by image pairs")

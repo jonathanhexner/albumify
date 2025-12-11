@@ -1,0 +1,20 @@
+experiment_name,mlp_hidden_dims,batch_size,learning_rate,max_epochs,dropout,use_clip,use_cnn_features,use_iqa_features,comparison_mode,cnn_backbone,cnn_layer,activation,optimizer,momentum,weight_decay,use_visual_tower,notes
+paper_exact,"128,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Exact paper replication: VGG16 + SGD + tanh + no dropout
+paper_iqa,"128,128",64,0.001,30,0.0,false,true,true,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Paper + IQA features (4-dim)
+batch_32,"128,128",32,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Batch size 32
+batch_128,"128,128",128,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Batch size 128
+lr_0005,"128,128",64,0.0005,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Lower LR 0.0005
+lr_002,"128,128",64,0.002,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Higher LR 0.002
+lr_0001,"128,128",64,0.0001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Much lower LR 0.0001
+dropout_01,"128,128",64,0.001,30,0.1,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Small dropout 0.1
+dropout_03,"128,128",64,0.001,30,0.3,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Standard dropout 0.3
+adamw,"128,128",64,0.0001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,adamw,0.9,0.01,false,AdamW optimizer instead of SGD
+relu,"128,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,relu,sgd,0.9,0.0005,false,ReLU activation instead of tanh
+resnet50_layer3,"128,128",64,0.001,30,0.0,false,true,false,diff_only,resnet50,layer3,tanh,sgd,0.9,0.0005,false,ResNet-50 layer3 (1024-dim) instead of VGG16
+resnet50_layer4,"128,128",64,0.001,30,0.0,false,true,false,diff_only,resnet50,layer4,tanh,sgd,0.9,0.0005,false,ResNet-50 layer4 (2048-dim)
+resnet50_iqa,"128,128",64,0.001,30,0.0,false,true,true,diff_only,resnet50,layer3,tanh,sgd,0.9,0.0005,false,ResNet-50 + IQA
+mlp_256,"256,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Larger MLP: 256→128
+mlp_512,"512,256",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Much larger MLP: 512→256
+mlp_64,"64,64",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Smaller MLP: 64→64
+late_fusion,"128,64",64,0.0001,30,0.3,true,true,true,diff_only,vgg16,layer3,relu,adamw,0.9,0.01,true,Current best config with VGG16 + late fusion
+quick_test,"128,128",64,0.001,5,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Quick test (5 epochs only)

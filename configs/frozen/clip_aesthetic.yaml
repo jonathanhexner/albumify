@@ -1,0 +1,35 @@
+# CLIP aesthetic: Frozen CLIP → MLP
+# Pure aesthetic scoring
+
+name: "clip_aesthetic_frozen"
+
+data:
+  root_dir: "data/phototriage"
+  min_agreement: 0.7
+  min_reviewers: 2
+  split_ratios: [0.8, 0.1, 0.1]
+  quick_experiment: null
+
+model:
+  use_clip: true
+  use_cnn: false
+  use_iqa: false
+  cnn_backbone: "resnet50"  # Not used
+  cnn_layer: "layer4"
+  mlp_hidden_dims: [256, 128]
+  dropout: 0.5
+
+training:
+  batch_size: 32
+  learning_rate: 0.001
+  optimizer: "adamw"
+  momentum: 0.9
+  weight_decay: 0.01
+  max_epochs: 50
+  early_stop_patience: 10
+
+cache_dir: "cache/phototriage_features"
+output:
+  output_dir: null
+device: "cuda"
+seed: 42

@@ -1,0 +1,27 @@
+{
+  "description": "PhotoTriage pairwise comparison dataset",
+  "image_dir": "D:\\Similar Images\\automatic_triage_photo_series\\train_val\\train_val_imgs",
+  "splits": {
+    "train": {
+      "num_pairs": 10525,
+      "num_series": 4432,
+      "avg_preference_strength": 0.7394605225652974,
+      "strong_pairs": 4810,
+      "weak_pairs": 1113
+    },
+    "val": {
+      "num_pairs": 430,
+      "num_series": 189,
+      "avg_preference_strength": 0.7444186046511626,
+      "strong_pairs": 202,
+      "weak_pairs": 39
+    },
+    "test": {
+      "num_pairs": 0,
+      "num_series": 0,
+      "avg_preference_strength": 0.0,
+      "strong_pairs": 0,
+      "weak_pairs": 0
+    }
+  }
+}

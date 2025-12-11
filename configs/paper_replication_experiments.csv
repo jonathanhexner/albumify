@@ -1,0 +1,16 @@
+experiment_name,mlp_hidden_dims,batch_size,learning_rate,max_epochs,dropout,use_clip,use_cnn_features,use_iqa_features,comparison_mode,cnn_backbone,cnn_layer,activation,optimizer,momentum,weight_decay,use_visual_tower,notes
+paper_exact,"128,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Exact paper replication: VGG16 + tanh + SGD + no dropout
+paper_exact_iqa,"128,128",64,0.001,30,0.0,false,true,true,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Paper arch + IQA features
+paper_vgg16_adamw,"128,128",64,0.0001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,adamw,0.9,0.01,false,VGG16 + tanh + AdamW (instead of SGD)
+paper_vgg16_relu,"128,128",64,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,relu,sgd,0.9,0.0005,false,VGG16 + ReLU (instead of tanh)
+paper_vgg16_dropout01,"128,128",64,0.001,30,0.1,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,VGG16 + small dropout (0.1)
+paper_vgg16_dropout03,"128,128",64,0.001,30,0.3,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,VGG16 + standard dropout (0.3)
+paper_vgg16_batch32,"128,128",32,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,VGG16 + smaller batch (32)
+paper_vgg16_batch128,"128,128",128,0.001,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,VGG16 + larger batch (128)
+paper_vgg16_lr0005,"128,128",64,0.0005,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,VGG16 + lower LR (0.0005)
+paper_vgg16_lr002,"128,128",64,0.002,30,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,VGG16 + higher LR (0.002)
+resnet50_paper_style,"128,128",64,0.001,30,0.0,false,true,false,diff_only,resnet50,layer3,tanh,sgd,0.9,0.0005,false,ResNet-50 with paper-style hyperparams
+resnet50_paper_iqa,"128,128",64,0.001,30,0.0,false,true,true,diff_only,resnet50,layer3,tanh,sgd,0.9,0.0005,false,ResNet-50 + IQA + paper-style hyperparams
+resnet50_layer4,"128,128",64,0.001,30,0.0,false,true,false,diff_only,resnet50,layer4,tanh,sgd,0.9,0.0005,false,ResNet-50 layer4 (2048-dim) + paper-style
+current_best_vgg16,"128,64",64,0.0001,30,0.3,true,true,true,diff_only,vgg16,layer3,relu,adamw,0.9,0.01,true,VGG16 with current best hyperparams (late fusion)
+quick_paper_test,"128,128",64,0.001,5,0.0,false,true,false,diff_only,vgg16,layer3,tanh,sgd,0.9,0.0005,false,Quick test (5 epochs) for paper replication

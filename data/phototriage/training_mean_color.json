@@ -1,0 +1,14 @@
+{
+  "mean_rgb_normalized": [
+    0.4601187005530684,
+    0.44983620181609835,
+    0.42988234537570896
+  ],
+  "mean_rgb_255": [
+    117.33026864103245,
+    114.70823146310508,
+    109.61999807080579
+  ],
+  "num_images": 11716,
+  "description": "Mean RGB color computed from PhotoTriage training set for aspect-ratio preserving preprocessing"
+}

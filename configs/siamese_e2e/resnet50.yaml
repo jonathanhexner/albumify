@@ -1,0 +1,37 @@
+# End-to-End ResNet50 Siamese Network Training
+# Fine-tunes entire ResNet50 CNN backbone + MLP head
+
+name: "siamese_e2e_resnet50"
+
+data:
+  root_dir: "D:\\Similar Images\\automatic_triage_photo_series"
+  min_agreement: 0.7
+  min_reviewers: 2
+  split_mode: "series_based"
+  quick_experiment: null  # Set to 0.1 for 10% of data
+
+model:
+  # Siamese CNN + MLP configuration
+  cnn_backbone: "resnet50"
+  pretrained: true
+  use_paper_preprocessing: false  # Standard ResNet preprocessing
+  
+  # MLP head architecture
+  mlp_hidden_dims: [256, 128]
+  dropout: 0.3
+  activation: "relu"
+
+training:
+  batch_size: 16  # Smaller batch size for memory constraints
+  learning_rate: 0.0001  # Lower LR for fine-tuning
+  optimizer: "sgd"
+  momentum: 0.9
+  weight_decay: 0.0005
+  max_epochs: 30
+  early_stop_patience: 5
+
+output_dir: "outputs/siamese_e2e_resnet50"
+device: "cpu"
+seed: 42
+log_interval: 10  # Log every N batches
+
