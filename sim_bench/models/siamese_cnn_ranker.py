@@ -12,6 +12,8 @@ Supports:
 - Paper-style preprocessing (aspect ratio + padding)
 - Flexible MLP architecture
 """
+from PIL import Image
+
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -212,7 +214,7 @@ class AspectRatioResizeAndPad:
             new_h = self.target_size
             new_w = int(w * self.target_size / h)
         
-        img = img.resize((new_w, new_h), transforms.InterpolationMode.BILINEAR)
+        img = img.resize((new_w, new_h), Image.Resampling.BILINEAR)
         
         # Convert to tensor
         img_tensor = transforms.ToTensor()(img)
