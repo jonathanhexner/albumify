@@ -229,13 +229,7 @@ def train_model(model, train_loader, val_loader, optimizer, config, output_dir):
 
 
 def main():
-    # Setup logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
-
-    # Parse arguments
+    # Parse arguments first
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', required=True, help='Path to YAML config')
     parser.add_argument('--output-dir', default=None, help='Override output directory')
@@ -255,6 +249,18 @@ def main():
         f"outputs/siamese_e2e/{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     )
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Setup logging (both console and file)
+    log_file = output_dir / 'training.log'
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )
+    logger.info(f"Logging to: {log_file}")
 
     with open(output_dir / 'config.yaml', 'w') as f:
         yaml.dump(config, f)

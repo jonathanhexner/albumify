@@ -85,6 +85,7 @@ The notebook saves:
 - `results.json` - Final test results
 - `training_history.json` - Loss/accuracy per epoch
 - `training_curves.png` - Training/validation plots
+- `training.log` - Complete training logs (all epochs + batches)
 - `siamese_training_results.zip` - All outputs packaged
 
 ### Tips

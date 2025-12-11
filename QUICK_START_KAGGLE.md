@@ -60,6 +60,7 @@ The results zip contains:
 - ✅ `results.json` - Test accuracy and loss
 - ✅ `training_history.json` - Per-epoch metrics
 - ✅ `training_curves.png` - Loss/accuracy plots
+- ✅ `training.log` - Complete training logs
 
 ## Expected Performance
 
