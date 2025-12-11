@@ -76,7 +76,7 @@ class PhotoTriageData:
         self.csv_path = self.root_dir / csv_filename
         if not self.csv_path.exists():
             # Fall back to package data directory
-            package_csv = Path(__file__).parent.parent / "data" / "phototriage" / csv_filename
+            package_csv = Path(__file__).parent.parent.parent / "data" / "phototriage" / csv_filename
             if package_csv.exists():
                 self.csv_path = package_csv
                 logger.info(f"Using CSV from package: {package_csv}")
