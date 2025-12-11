@@ -150,7 +150,6 @@ def load_data(config):
     """Load and split PhotoTriage data."""
     data = PhotoTriageData(
         config['data']['root_dir'],
-        config['data']['csv_filename'],
         config['data']['min_agreement'],
         config['data']['min_reviewers']
     )

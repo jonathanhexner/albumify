@@ -55,7 +55,6 @@ class PhotoTriageData:
     def __init__(
         self,
         root_dir: str,
-        csv_filename: str = "photo_triage_pairs_embedding_labels.csv",
         min_agreement: float = 0.7,
         min_reviewers: int = 2
     ):
@@ -68,6 +67,7 @@ class PhotoTriageData:
             min_agreement: Minimum agreement threshold (0-1)
             min_reviewers: Minimum number of reviewers
         """
+        csv_filename: str = "photo_triage_pairs_embedding_labels.csv"
         self.root_dir = Path(root_dir)
         self.min_agreement = min_agreement
         self.min_reviewers = min_reviewers
