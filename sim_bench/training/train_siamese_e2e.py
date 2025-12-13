@@ -68,20 +68,32 @@ def load_config(path):
 
 
 def create_optimizer(model, config):
-    """Create optimizer from config."""
+    """Create optimizer with differential learning rates."""
     opt_name = config['training']['optimizer'].lower()
-    lr = config['training']['learning_rate']
+    base_lr = config['training']['learning_rate']
     wd = config['training']['weight_decay']
+    
+    # Use differential learning rates: 1x for backbone, 10x for head
+    use_diff_lr = config['training'].get('differential_lr', True)
+    
+    if use_diff_lr:
+        param_groups = [
+            {'params': model.get_1x_lr_params(), 'lr': base_lr},
+            {'params': model.get_10x_lr_params(), 'lr': base_lr * 10}
+        ]
+        logger.info(f"Using differential LR: backbone={base_lr}, head={base_lr * 10}")
+    else:
+        param_groups = model.parameters()
+        logger.info(f"Using single LR: {base_lr}")
 
     if opt_name == 'sgd':
         return torch.optim.SGD(
-            model.parameters(),
-            lr=lr,
+            param_groups,
             momentum=config['training']['momentum'],
             weight_decay=wd
         )
-    else:  # adamw (default)
-        return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
+    else:  # adamw
+        return torch.optim.AdamW(param_groups, lr=base_lr, weight_decay=wd)
 
 
 def create_model(config, output_dir):

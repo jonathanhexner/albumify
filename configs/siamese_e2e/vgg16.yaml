@@ -24,13 +24,14 @@ model:
   activation: "tanh"
 
 training:
-  batch_size: 16  # Smaller batch size for memory constraints
-  learning_rate: 0.001  # Paper uses 0.001 for VGG16
+  batch_size: 8  # Match reference implementation
+  learning_rate: 0.00001  # Base LR for backbone (1e-5), head gets 10x (1e-4)
+  differential_lr: true  # Use 1x LR for backbone, 10x for head
   optimizer: "sgd"
   momentum: 0.9
   weight_decay: 0.0005
   max_epochs: 30
-  early_stop_patience: 5
+  early_stop_patience: 10
 
 output_dir: "outputs/siamese_e2e_vgg16"
 device: "cpu"

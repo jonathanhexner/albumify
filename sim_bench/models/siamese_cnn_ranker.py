@@ -13,7 +13,6 @@ Supports:
 - Flexible MLP architecture
 """
 from PIL import Image
-
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -165,6 +164,18 @@ class SiameseCNNRanker(nn.Module):
     def get_trainable_params(self):
         """Get all trainable parameters."""
         return filter(lambda p: p.requires_grad, self.parameters())
+    
+    def get_1x_lr_params(self):
+        """Get CNN backbone parameters (for lower learning rate)."""
+        for param in self.backbone.parameters():
+            if param.requires_grad:
+                yield param
+    
+    def get_10x_lr_params(self):
+        """Get MLP head parameters (for higher learning rate)."""
+        for param in self.mlp.parameters():
+            if param.requires_grad:
+                yield param
     
     def get_differential_lr_groups(self, base_lr: float = 1e-3, fc_multiplier: float = 10.0):
         """

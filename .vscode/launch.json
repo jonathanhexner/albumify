@@ -842,7 +842,6 @@
             "program": "${workspaceFolder}/sim_bench/training/train_siamese_e2e.py",
             "args": [
                 "--config", "configs/siamese_e2e/resnet50.yaml",
-                "--quick-experiment", "0.15"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
