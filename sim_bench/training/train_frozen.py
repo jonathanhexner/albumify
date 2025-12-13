@@ -184,6 +184,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', required=True, help='Path to YAML config')
     parser.add_argument('--output-dir', default=None, help='Override output directory')
+    parser.add_argument('--data-dir', default=None, help='Override data root directory')
+    parser.add_argument('--device', default=None, help='Override device (cpu/cuda)')
     parser.add_argument('--quick-experiment', type=float, default=None, help='Use fraction of data')
     args = parser.parse_args()
 
@@ -191,6 +193,10 @@ def main():
     config = load_config(args.config)
     if args.output_dir:
         config['output']['output_dir'] = args.output_dir
+    if args.data_dir:
+        config['data']['root_dir'] = args.data_dir
+    if args.device:
+        config['device'] = args.device
     if args.quick_experiment:
         config['data']['quick_experiment'] = args.quick_experiment
 
