@@ -10,9 +10,10 @@ model_type: "reference"
 transform_type: "paper"
 
 data:
+  external_path: "/workspace/Series-Photo-Selection"
   root_dir: "/workspace/triage"
   # When using external dataloader, specify the image_root (where train_val_imgs are)
-  image_root: "D:\\Similar Images\\automatic_triage_photo_series\\train_val\\train_val_imgs"
+  image_root: "/workspace/triage/train_val/train_val_imgs"
   min_agreement: 0.7
   min_reviewers: 2
   split_mode: "series_based"
