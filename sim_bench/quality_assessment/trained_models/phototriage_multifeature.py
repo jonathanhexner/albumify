@@ -470,18 +470,17 @@ class MultiFeaturePairwiseRanker(nn.Module):
         else:  # "full"
             comparison_input_dim = 3 * self.embedding_dim
         
-        # Paper uses 2-way Softmax (outputs probabilities for both classes)
-        # We use LogSoftmax for numerical stability with NLLLoss
+        # 2-way classification head (outputs logits)
+        # Use with CrossEntropyLoss which applies softmax internally
         comparison_hidden_dim = config.get('comparison_hidden_dim', 64)
         comparison_dropout = config.get('comparison_dropout', 0.3)
         self.comparison_head = nn.Sequential(
             nn.Linear(comparison_input_dim, comparison_hidden_dim),
             nn.Tanh() if activation == "tanh" else nn.ReLU(),
             nn.Dropout(comparison_dropout),
-            nn.Linear(comparison_hidden_dim, 2),  # 2 outputs for 2-way classification
-            nn.LogSoftmax(dim=-1)  # Log probabilities for numerical stability
+            nn.Linear(comparison_hidden_dim, 2)  # 2 outputs for 2-way classification
         )
-        logger.info(f"Comparison head ({activation_str}, {comparison_mode}): {comparison_input_dim} → {comparison_hidden_dim} → 2 (2-way softmax)")
+        logger.info(f"Comparison head ({activation_str}, {comparison_mode}): {comparison_input_dim} → {comparison_hidden_dim} → 2 (2-way classification)")
 
         # Log total parameters
         total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -646,9 +645,9 @@ class MultiFeaturePairwiseRanker(nn.Module):
         else:  # "full"
             combined = torch.cat([emb1, emb2, emb1 - emb2], dim=-1)
 
-        # Comparison head outputs (batch_size, 2) log probabilities
-        log_probs = self.comparison_head(combined)
-        return log_probs
+        # Comparison head outputs (batch_size, 2) logits
+        logits = self.comparison_head(combined)
+        return logits
 
     def forward_images(self, img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
         """
@@ -761,26 +760,25 @@ class MultiFeaturePairwiseDataset(Dataset):
 # EndToEndPairDataset removed - now defined in training scripts where it's actually used
 
 
-def compute_pairwise_accuracy(log_probs: torch.Tensor, winners: torch.Tensor) -> float:
+def compute_pairwise_accuracy(logits: torch.Tensor, winners: torch.Tensor) -> float:
     """
     Compute pairwise accuracy: how often does the model predict the correct winner?
 
     Args:
-        log_probs: Log probabilities from model (batch_size, 2)
-                   - Index 0: log P(img2 > img1)
-                   - Index 1: log P(img1 > img2)
+        logits: Logits from model (batch_size, 2)
+                - Index 0: score for img2 > img1
+                - Index 1: score for img1 > img2
         winners: Ground truth winners (batch_size,), 0 if img1 wins, 1 if img2 wins
 
     Returns:
         Accuracy as float [0, 1]
     """
-    # Predicted winner: argmax of log probabilities
-    # If log_probs[:, 1] > log_probs[:, 0], then pred_winner = 1 (img1 wins)
-    # If log_probs[:, 0] > log_probs[:, 1], then pred_winner = 0 (img2 wins)
-    # But our encoding is: winner=0 means img1 wins, winner=1 means img2 wins
-    # So we need to invert: if model says img1 wins (argmax=1), winner should be 0
-    pred_winners = log_probs.argmax(dim=-1)  # 1 if img1 wins, 0 if img2 wins
-    pred_winners = 1 - pred_winners  # Invert to match winner encoding
+    # Predicted winner: argmax of logits
+    # Model outputs: Index 0 = score for img2 > img1, Index 1 = score for img1 > img2
+    # Winners encoding: 0 = img1 wins, 1 = img2 wins
+    # argmax gives: 0 if img2 wins, 1 if img1 wins
+    # This matches our winner encoding directly
+    pred_winners = logits.argmax(dim=-1)
 
     # Compare with ground truth
     correct = (pred_winners == winners).sum().item()

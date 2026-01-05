@@ -13,52 +13,24 @@ import yaml
 import logging
 from pathlib import Path
 from datetime import datetime
+import copy
 import json
-
+import random
+import sys
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
 import numpy as np
 import pandas as pd
-from PIL import Image
 
 from sim_bench.datasets.phototriage_data import PhotoTriageData
+from sim_bench.datasets.dataloader_factory import DataLoaderFactory
+from sim_bench.datasets.siamese_dataloaders import get_dataset_from_loader
+from sim_bench.datasets.transform_factory import create_transform
 from sim_bench.models.siamese_cnn_ranker import SiameseCNNRanker
-from sim_bench.quality_assessment.trained_models.phototriage_multifeature import compute_pairwise_accuracy
+from sim_bench.utils.model_inspection import inspect_model_output
+from sim_bench.training.model_comparison import dump_model_to_csv
 
 logger = logging.getLogger(__name__)
-
-
-class EndToEndPairDataset(Dataset):
-    """Dataset that loads raw images for end-to-end training."""
-    
-    def __init__(self, pairs_df: pd.DataFrame, image_dir: str, transform):
-        self.pairs_df = pairs_df
-        self.image_dir = Path(image_dir)
-        self.transform = transform
-    
-    def __len__(self):
-        return len(self.pairs_df)
-    
-    def __getitem__(self, idx):
-        row = self.pairs_df.iloc[idx]
-        
-        img1_path = self.image_dir / row['image1']
-        img2_path = self.image_dir / row['image2']
-        
-        img1 = Image.open(img1_path).convert('RGB')
-        img2 = Image.open(img2_path).convert('RGB')
-        
-        img1_tensor = self.transform(img1)
-        img2_tensor = self.transform(img2)
-        
-        return {
-            'img1': img1_tensor,
-            'img2': img2_tensor,
-            'winner': torch.tensor(int(row['winner']), dtype=torch.long),
-            'image1': row['image1'],
-            'image2': row['image2']
-        }
 
 
 def load_config(path):
@@ -67,15 +39,54 @@ def load_config(path):
         return yaml.safe_load(f)
 
 
+def set_random_seeds(seed):
+    """
+    Set random seeds for reproducibility.
+    
+    Sets seeds for torch, numpy, and Python's random module.
+    Optionally sets CUDA seeds if CUDA is available.
+    
+    Args:
+        seed: Integer seed value. If None, seeds are not set.
+    """
+    if seed is None:
+        return
+    
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def compute_batch_metrics(logits, winners):
+    """
+    Compute loss and accuracy for a batch.
+
+    Returns:
+        loss: Cross-entropy loss
+        accuracy: Accuracy (fraction correct)
+        num_correct: Number of correct predictions
+        batch_size: Total number of samples
+    """
+    loss = F.cross_entropy(logits, winners)
+    preds = logits.argmax(dim=-1)
+    num_correct = (preds == winners).sum().item()
+    batch_size = len(winners)
+    accuracy = num_correct / batch_size
+    return loss, accuracy, num_correct, batch_size
+
+
 def create_optimizer(model, config):
     """Create optimizer with differential learning rates."""
     opt_name = config['training']['optimizer'].lower()
     base_lr = config['training']['learning_rate']
     wd = config['training']['weight_decay']
-    
+
     # Use differential learning rates: 1x for backbone, 10x for head
     use_diff_lr = config['training'].get('differential_lr', True)
-    
+
     if use_diff_lr:
         param_groups = [
             {'params': model.get_1x_lr_params(), 'lr': base_lr},
@@ -96,46 +107,228 @@ def create_optimizer(model, config):
         return torch.optim.AdamW(param_groups, lr=base_lr, weight_decay=wd)
 
 
-def create_model(config, output_dir):
-    """Create Siamese CNN + MLP ranker from config dict."""
-    return SiameseCNNRanker(config['model']).to(config['device'])
+def create_model(config):
+    """
+    Create Siamese CNN + MLP ranker from config dict.
+
+    Supports two model types:
+    - 'siamese_cnn': Our SiameseCNNRanker implementation
+    - 'reference': Reference model from Series-Photo-Selection
+
+    Args:
+        config: Configuration dict with 'model_type' key
+
+    Returns:
+        Model instance on the configured device
+    """
+    model_type = config.get('model_type', 'siamese_cnn')
+    device = config['device']
+
+    if model_type == 'reference':
+        # Load reference model from Series-Photo-Selection
+        import sys
+        reference_path = config.get('reference_model_path', r'D:\Projects\Series-Photo-Selection')
+        if reference_path not in sys.path:
+            logger.info(f"Adding reference model path to sys.path: {reference_path}")
+            sys.path.insert(0, reference_path)
+
+        from models.ResNet50 import make_network
+        model = make_network()
+        logger.info("Created reference model from Series-Photo-Selection")
+
+    elif model_type == 'siamese_cnn':
+        # Our implementation
+        model = SiameseCNNRanker(config['model'])
+        logger.info(f"Created SiameseCNNRanker with backbone: {config['model']['cnn_backbone']}")
+
+    else:
+        raise ValueError(f"Unknown model_type: {model_type}. Must be 'siamese_cnn' or 'reference'")
+
+    return model.to(device)
 
 
-def train_epoch(model, loader, optimizer, device, log_interval=10):
-    """Train for one epoch."""
-    model.train()
-    total_loss = 0.0
-    total_acc = 0.0
+def train_epoch(models_dict, optimizers_dict, loader, device, log_interval=10,
+                epoch=None, output_dir=None, batch_comparison_interval=None, config=None):
+    """
+    Train one or more models for one epoch.
+
+    Args:
+        models_dict: Dict of {model_name: model} to train. First entry is primary model.
+        optimizers_dict: Dict of {model_name: optimizer} matching models_dict
+        loader: DataLoader
+        device: Device
+        log_interval: Log every N batches
+        epoch: Current epoch (for logging)
+        output_dir: Output directory (for comparison logs)
+        batch_comparison_interval: Compare models every N batches (if None, no comparison)
+
+    Returns:
+        Dict of {model_name: (avg_loss, avg_acc)} for each model
+
+    Example:
+        >>> # Single model
+        >>> models = {'main': model}
+        >>> optimizers = {'main': optimizer}
+        >>> results = train_epoch(models, optimizers, loader, device)
+        >>> train_loss, train_acc = results['main']
+        >>>
+        >>> # Multiple models (with reference)
+        >>> models = {'main': model, 'reference': ref_model}
+        >>> optimizers = {'main': optimizer, 'reference': ref_optimizer}
+        >>> results = train_epoch(models, optimizers, loader, device)
+    """
+    # Set all models to train mode
+    for model in models_dict.values():
+        model.train()
+
+    # Track metrics for each model
+    model_names = list(models_dict.keys())
+    metrics = {
+        name: {'total_loss': 0.0, 'total_correct': 0, 'total_samples': 0}
+        for name in model_names
+    }
+
+    # Track comparison metrics only if we have multiple models
+    # (Skipped when len(models_dict) == 1)
+    comparison_log = [] if (len(models_dict) > 1 and batch_comparison_interval is not None) else None
 
     for batch_idx, batch in enumerate(loader, 1):
         img1 = batch['img1'].to(device)
         img2 = batch['img2'].to(device)
         winners = batch['winner'].to(device)
 
-        log_probs = model(img1, img2)
-        loss = F.nll_loss(log_probs, 1 - winners)
+        # Train each model
+        batch_metrics = {}
+        for name, model in models_dict.items():
+            optimizer = optimizers_dict[name]
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # Clear gradients from previous iteration
+            optimizer.zero_grad()
 
-        batch_loss = loss.item()
-        batch_acc = compute_pairwise_accuracy(log_probs, winners)
-        
-        total_loss += batch_loss
-        total_acc += batch_acc
+            # Forward pass
+            logits = model(img1, img2)
+            loss, batch_acc, num_correct, batch_size = compute_batch_metrics(logits, winners)
 
+            # Log batch predictions
+            from sim_bench.utils.batch_logger import log_batch_predictions
+            log_batch_predictions(
+                config.get('batch_predictions_path', config['output_dir'] / 'telemetry' / 'batch_predictions.csv'),
+                batch_idx, epoch,
+                batch['image1'], batch['image2'],
+                winners, logits
+            )
+
+            # Backward pass
+            loss.backward()
+            optimizer.step()
+
+            # Telemetry hook - collect metrics after optimizer.step()
+            from sim_bench import telemetry
+            telemetry.record(model, optimizer, batch_idx, epoch, device, batch)
+
+            # Track metrics
+            batch_loss = loss.item()
+            metrics[name]['total_loss'] += batch_loss
+            metrics[name]['total_correct'] += num_correct
+            metrics[name]['total_samples'] += batch_size
+
+            batch_metrics[name] = {'loss': batch_loss, 'acc': batch_acc}
+
+        # Logging
         if batch_idx % log_interval == 0:
-            logger.info(f"  Batch {batch_idx}/{len(loader)}: loss={batch_loss:.4f}, acc={batch_acc:.3f}")
+            if len(models_dict) == 1:
+                # Single model: simple format
+                name = model_names[0]
+                logger.info(f"  Batch {batch_idx}/{len(loader)}: "
+                          f"loss={batch_metrics[name]['loss']:.4f}, "
+                          f"acc={batch_metrics[name]['acc']:.3f}")
+            else:
+                # Multiple models: compare format
+                log_parts = [f"Batch {batch_idx}/{len(loader)}:"]
+                for name in model_names:
+                    log_parts.append(f"{name}_loss={batch_metrics[name]['loss']:.4f}, "
+                                   f"{name}_acc={batch_metrics[name]['acc']:.3f}")
+                logger.info("  " + " | ".join(log_parts))
 
-    return total_loss / len(loader), total_acc / len(loader)
+        # Compare models if enabled (only runs when len(models_dict) > 1)
+        if comparison_log is not None and batch_idx % batch_comparison_interval == 0:
+            from sim_bench.training.model_comparison import compare_model_states
+
+            # Compare first model with all others
+            primary_name = model_names[0]
+            primary_model = models_dict[primary_name]
+
+            for ref_name in model_names[1:]:  # Empty loop if only 1 model
+                ref_model = models_dict[ref_name]
+
+                # Compare only MLP head
+                mlp_filter = lambda name: 'mlp' in name or 'fc' in name
+                comp = compare_model_states(primary_model.state_dict(), ref_model.state_dict(), mlp_filter)
+                comp.update({
+                    'epoch': epoch,
+                    'batch': batch_idx,
+                    'primary_model': primary_name,
+                    'reference_model': ref_name,
+                    'primary_loss': batch_metrics[primary_name]['loss'],
+                    'reference_loss': batch_metrics[ref_name]['loss'],
+                    'primary_acc': batch_metrics[primary_name]['acc'],
+                    'reference_acc': batch_metrics[ref_name]['acc'],
+                    'loss_diff': abs(batch_metrics[primary_name]['loss'] - batch_metrics[ref_name]['loss']),
+                    'acc_diff': abs(batch_metrics[primary_name]['acc'] - batch_metrics[ref_name]['acc'])
+                })
+                comparison_log.append(comp)
+
+    # Save comparison log if we collected any
+    if comparison_log:
+        comp_dir = Path(output_dir) / "batch_comparisons"
+        comp_dir.mkdir(parents=True, exist_ok=True)
+        with open(comp_dir / f"epoch_{epoch:03d}.json", 'w') as f:
+            json.dump(comparison_log, f, indent=2)
+
+    # Compute and return average metrics for each model
+    results = {}
+    for name in model_names:
+        avg_loss = metrics[name]['total_loss'] / len(loader)
+        avg_acc = metrics[name]['total_correct'] / metrics[name]['total_samples'] if metrics[name]['total_samples'] > 0 else 0.0
+        results[name] = (avg_loss, avg_acc)
+
+    return results
 
 
-def evaluate(model, loader, device, log_interval=10):
-    """Evaluate model on a dataset."""
+def evaluate(model, loader, device, output_dir, epoch, split_name,
+             inspect_k=6, log_interval=10):
+    """
+    Evaluate model with comprehensive diagnostics.
+
+    Now only needs the loader - extracts dataset and metadata internally.
+
+    Saves per-epoch diagnostics to diagnose overfitting:
+    - Confusion matrix, per-class recalls
+    - Sample predictions with probabilities
+    - Per-series accuracy breakdown
+    - Visual inspection of sample pairs
+    """
+    from sim_bench.training.diagnostics import (
+        save_epoch_metrics, save_per_series_breakdown, inspect_series_pairs
+    )
+
+    # Extract dataset and metadata from loader
+    dataset = get_dataset_from_loader(loader)
+
     model.eval()
+
+    # Create directories
+    epoch_dir = output_dir / f"epoch_{epoch:03d}"
+    split_dir = epoch_dir / split_name
+    metrics_dir = split_dir / 'metrics'
+    inspect_dir = split_dir / 'inspect'
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    inspect_dir.mkdir(parents=True, exist_ok=True)
+
+    # Collect predictions
+    all_preds, all_winners, all_logprobs = [], [], []
+    all_image1, all_image2 = [], []
     total_loss = 0.0
-    total_acc = 0.0
 
     with torch.no_grad():
         for batch_idx, batch in enumerate(loader, 1):
@@ -143,59 +336,167 @@ def evaluate(model, loader, device, log_interval=10):
             img2 = batch['img2'].to(device)
             winners = batch['winner'].to(device)
 
-            log_probs = model(img1, img2)
-            loss = F.nll_loss(log_probs, 1 - winners)
+            # Use common metrics function
+            logits = model(img1, img2)
+            loss, batch_acc, _, _ = compute_batch_metrics(logits, winners)
+            preds = logits.argmax(dim=-1)
 
-            batch_loss = loss.item()
-            batch_acc = compute_pairwise_accuracy(log_probs, winners)
-            
-            total_loss += batch_loss
-            total_acc += batch_acc
+            all_preds.extend(preds.cpu().numpy())
+            all_winners.extend(winners.cpu().numpy())
+            all_logprobs.extend(logits.detach().cpu().numpy())
+            all_image1.extend(batch['image1'])
+            all_image2.extend(batch['image2'])
+            total_loss += loss.item()
 
             if batch_idx % log_interval == 0:
-                logger.info(f"  Eval Batch {batch_idx}/{len(loader)}: loss={batch_loss:.4f}, acc={batch_acc:.3f}")
+                logger.info(f"  Eval Batch {batch_idx}/{len(loader)}: loss={loss.item():.4f}, acc={batch_acc:.3f}")
 
-    return total_loss / len(loader), total_acc / len(loader)
+    # Convert to arrays
+    all_preds = np.array(all_preds)
+    all_winners = np.array(all_winners)
+    all_logprobs = np.array(all_logprobs)
+    avg_loss = total_loss / len(loader)
+    # Accuracy: total correct / total samples (handles variable batch sizes correctly)
+    avg_acc = (all_preds == all_winners).mean()
+
+    # Save diagnostics - pass dataset instead of pairs_df
+    save_epoch_metrics(all_preds, all_winners, all_logprobs, all_image1, all_image2,
+                       dataset, avg_loss, metrics_dir)
+    save_per_series_breakdown(all_preds, all_winners, all_image1, all_image2, dataset, metrics_dir)
+
+    # Visual inspection
+    if inspect_k > 0:
+        pairs_df = dataset.get_dataframe()
+        series_id = pairs_df['series_id'].iloc[0]
+        inspect_series_pairs(model, dataset, device, inspect_dir, series_id, k=inspect_k)
+
+    logger.info(f"  {split_name.capitalize()}: loss={avg_loss:.4f}, acc={avg_acc:.3f}")
+    return avg_loss, avg_acc
 
 
-def load_data(config):
-    """Load and split PhotoTriage data."""
-    data = PhotoTriageData(
-        config['data']['root_dir'],
-        config['data']['min_agreement'],
-        config['data']['min_reviewers']
-    )
+def create_dataloaders(config, transform, batch_size):
+    """
+    Create dataloaders - supports both PhotoTriage and external sources.
 
-    train_df, val_df, test_df = data.get_series_based_splits(
-        0.8, 0.1, 0.1,
-        config['seed'],
-        config['data'].get('quick_experiment')
-    )
+    This is the ONE function you need to call - it handles everything:
+    - Loading data (PhotoTriage or external)
+    - Creating datasets
+    - Creating DataLoaders
 
-    logger.info(f"Data loaded: {len(train_df)} train, {len(val_df)} val, {len(test_df)} test")
-    return data, train_df, val_df, test_df
+    Just set config['use_external_dataloader'] = True to switch sources!
+
+    Args:
+        config: Configuration dict with data source and parameters
+        transform: Image transform (only used for PhotoTriage; external has its own)
+        batch_size: Batch size for loaders
+
+    Returns:
+        (train_loader, val_loader, test_loader)
+    """
+    # Set RNG seeds for deterministic behavior
+    # - random.seed() controls dataset shuffling (in make_shuffle_path)
+    # - torch.manual_seed() controls DataLoader shuffling (torch.randperm)
+    seed = config.get('seed')
+    set_random_seeds(seed)
+
+    use_external = config.get('use_external_dataloader', False)
+    factory = DataLoaderFactory(batch_size=batch_size, num_workers=0, seed=seed)
+
+    if use_external:
+        # External dataloader (already has transforms built-in)
+        import sys
+        external_path = config['data'].get('external_path', r'D:\Projects\Series-Photo-Selection')
+        if external_path not in sys.path:
+            logger.info(f"Adding external path to sys.path: {external_path}")
+            sys.path.insert(0, external_path)
+
+        from data.dataloader import MyDataset
+
+        # Get image_root - use root_dir if image_root not specified
+        image_root = config['data'].get('image_root')
+        if image_root is None:
+            # Fall back to root_dir if available
+            image_root = config['data'].get('root_dir')
+
+        if image_root is None:
+            raise ValueError(
+                "When using external dataloader, you must specify either 'image_root' or 'root_dir' in config['data']. "
+                "Example: data:\n  image_root: D:\\path\\to\\train_val_imgs"
+            )
+
+        logger.info(f"Using external dataloader with image_root: {image_root}, seed: {config.get('seed')}")
+        train_data = MyDataset(train=True, image_root=image_root, seed=config.get('seed'))
+        val_data = MyDataset(train=False, image_root=image_root, seed=config.get('seed'))
+
+        logger.info(f"External data: {len(train_data)} train, {len(val_data)} val")
+        return factory.create_from_external(train_data, val_data, None)
+    else:
+        # PhotoTriage (original)
+        data = PhotoTriageData(
+            config['data']['root_dir'],
+            config['data']['min_agreement'],
+            config['data']['min_reviewers']
+        )
+
+        train_df, val_df, test_df = data.get_series_based_splits(
+            0.8, 0.1, 0.1,
+            config['seed'],
+            config['data'].get('quick_experiment')
+        )
+
+        logger.info(f"PhotoTriage: {len(train_df)} train, {len(val_df)} val, {len(test_df)} test")
+        return factory.create_from_phototriage(data, train_df, val_df, test_df, transform)
 
 
-def create_dataloaders(train_df, val_df, test_df, data, transform, batch_size):
-    """Create PyTorch data loaders."""
-    train_dataset = EndToEndPairDataset(train_df, data.train_val_img_dir, transform)
-    val_dataset = EndToEndPairDataset(val_df, data.train_val_img_dir, transform)
-    test_dataset = EndToEndPairDataset(test_df, data.train_val_img_dir, transform)
+def plot_training_curves(history, output_dir):
+    """Plot and save training/validation curves."""
+    import matplotlib.pyplot as plt
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
 
-    return train_loader, val_loader, test_loader
+    epochs = range(1, len(history['train_loss']) + 1)
+
+    # Loss plot
+    ax1.plot(epochs, history['train_loss'], 'b-', label='Train Loss')
+    ax1.plot(epochs, history['val_loss'], 'r-', label='Val Loss')
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('Loss')
+    ax1.set_title('Training and Validation Loss')
+    ax1.legend()
+    ax1.grid(True)
+
+    # Accuracy plot
+    ax2.plot(epochs, history['train_acc'], 'b-', label='Train Acc')
+    ax2.plot(epochs, history['val_acc'], 'r-', label='Val Acc')
+    ax2.set_xlabel('Epoch')
+    ax2.set_ylabel('Accuracy')
+    ax2.set_title('Training and Validation Accuracy')
+    ax2.legend()
+    ax2.grid(True)
+
+    plt.tight_layout()
+    plt.savefig(output_dir / 'training_curves.png', dpi=150)
+    logger.info(f"Training curves saved to {output_dir / 'training_curves.png'}")
+    plt.close()
 
 
 def train_model(model, train_loader, val_loader, optimizer, config, output_dir):
-    """Training loop with early stopping."""
+    """
+    Training loop with early stopping and comprehensive diagnostics.
+
+    Simplified signature - only needs loaders, not DataFrames.
+    Removed parameters: train_df, val_df, data, transform
+    """
     best_val_acc = 0.0
     patience = 0
     device = config['device']
     log_interval = config.get('log_interval', 10)
-    
+
+    # Per-batch model dumping setup
+    batch_comparison_interval = config.get('batch_comparison_interval')
+    if batch_comparison_interval is not None:
+        logger.info(f"Per-batch model dumping enabled: saving every {batch_comparison_interval} batches")
+
     # Track training history
     history = {
         'train_loss': [],
@@ -206,12 +507,32 @@ def train_model(model, train_loader, val_loader, optimizer, config, output_dir):
 
     for epoch in range(config['training']['max_epochs']):
         logger.info(f"Epoch {epoch+1}/{config['training']['max_epochs']}:")
-        train_loss, train_acc = train_epoch(model, train_loader, optimizer, device, log_interval)
+
+        # Train with dictionary interface (single model for now)
+        models_dict = {'main': model}
+        optimizers_dict = {'main': optimizer}
+
+        results = train_epoch(
+            models_dict, optimizers_dict, train_loader, device, log_interval,
+            epoch=epoch, output_dir=output_dir,
+            batch_comparison_interval=batch_comparison_interval,
+            config=config
+        )
+
+        train_loss, train_acc = results['main']
         logger.info(f"  Train: loss={train_loss:.4f}, acc={train_acc:.3f}")
-        
-        val_loss, val_acc = evaluate(model, val_loader, device, log_interval)
-        logger.info(f"  Val: loss={val_loss:.4f}, acc={val_acc:.3f}")
-        
+
+        # Comprehensive validation evaluation with diagnostics
+        val_loss, val_acc = evaluate(
+            model, val_loader, device,
+            output_dir, epoch, 'val',
+            inspect_k=6, log_interval=log_interval
+        )
+
+        # Compute mode gap diagnostic (BatchNorm check)
+        from sim_bench.training.diagnostics import compute_mode_gap_diagnostic
+        compute_mode_gap_diagnostic(model, train_loader, val_loader, device, output_dir, epoch, train_acc)
+
         # Save history
         history['train_loss'].append(train_loss)
         history['train_acc'].append(train_acc)
@@ -232,7 +553,7 @@ def train_model(model, train_loader, val_loader, optimizer, config, output_dir):
             if patience >= config['training']['early_stop_patience']:
                 logger.info(f"Early stopping at epoch {epoch+1}")
                 break
-    
+
     # Save training history
     with open(output_dir / 'training_history.json', 'w') as f:
         json.dump(history, f, indent=2)
@@ -274,7 +595,7 @@ def main():
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler(log_file),
+            logging.FileHandler(log_file, encoding='utf-8'),
             logging.StreamHandler()
         ]
     )
@@ -286,34 +607,99 @@ def main():
     logger.info(f"Training end-to-end {config['model']['cnn_backbone']} | Output: {output_dir}")
 
     # Set random seeds
-    torch.manual_seed(config['seed'])
-    np.random.seed(config['seed'])
-
-    # Load data
-    data, train_df, val_df, test_df = load_data(config)
+    set_random_seeds(config['seed'])
 
     # Create model
-    model = create_model(config, output_dir)
-    transform = model.preprocess
+    model = create_model(config)
+    
+    # Dump model state for comparison
+    dump_model_to_csv(model, output_dir / 'model_state_after_creation.csv')
 
-    # Create dataloaders
+    # Create transform independently of model
+    transform = create_transform(config)
+
+    # Compare with reference if enabled
+    if config.get('compare_with_reference', False):
+        from sim_bench.training.model_comparison import compare_with_reference_model
+        compare_with_reference_model(model, config, output_dir)
+
+    # Create dataloaders for actual training (fresh RNG state)
     train_loader, val_loader, test_loader = create_dataloaders(
-        train_df, val_df, test_df, data, transform,
-        config['training']['batch_size']
+        config, transform, config['training']['batch_size']
     )
+    # Verify first batch for debugging (creates temporary loaders)
+    train_first_batch = next(iter(train_loader))
+    val_first_batch = next(iter(val_loader))
+    df_train_loader = pd.DataFrame({
+        'image1': train_first_batch['image1'],
+        'image2': train_first_batch['image2']
+    })
+
+
+    df_val_loader = pd.DataFrame({
+        'image1': val_first_batch['image1'],
+        'image2': val_first_batch['image2']
+    })
+    print("First training batch:")
+    print(df_train_loader)
+
+    print("\nFirst validation batch:")
+    print(df_val_loader)
+
 
     # Create optimizer
     optimizer = create_optimizer(model, config)
+    set_random_seeds(config['seed'])
+    print(f"Random state after optimizer creation: {random.getstate()[1][:5]}")
+    print(f"Random state after optimizer creation: {np.random.get_state()[1][:5]}")
+    print(f"Random state after optimizer creation: {torch.get_rng_state()[:10]}")
+    batch = next(iter(train_loader))
+    print("Train loader inspect_model_output iter: ", str(batch['image1']), str(batch['image2']))
+    set_random_seeds(config['seed'])
+    # Add output_dir to config and initialize telemetry
+    config['output_dir'] = output_dir
+    from sim_bench import telemetry
+    telemetry.init(config, val_loader)
+    set_random_seeds(config['seed'])
 
-    # Train
-    best_val_acc, history = train_model(model, train_loader, val_loader, optimizer, config, output_dir)
+    # Dump model state before inspection
+    dump_model_to_csv(model, output_dir / 'model_state_before_inspection.csv')
 
-    # Test
+    # Inspect model output before training
+    logger.info("\nInspecting model output before training...")
+    df_inspect = inspect_model_output(
+        model, train_loader, config['device'],
+        save_path=output_dir / 'initial_model_inspection.csv'
+    )
+    logger.info(f"Initial batch accuracy: {df_inspect['correct'].mean():.3f}")
+    logger.info(f"Sample predictions:\n{df_inspect.head()}")
+    set_random_seeds(config['seed'])
+
+    # Set batch predictions path if enabled
+    if config.get('log_batch_predictions', False):
+        config['batch_predictions_path'] = output_dir / 'telemetry' / 'batch_predictions.csv'
+        logger.info(f"Batch prediction logging enabled: {config['batch_predictions_path']}")
+
+    # Train - simplified call with only loaders
+    best_val_acc, history = train_model(
+        model, train_loader, val_loader, optimizer, config, output_dir
+    )
+
+    # Test - comprehensive evaluation on test set (if available)
     checkpoint = torch.load(output_dir / 'best_model.pt')
     model.load_state_dict(checkpoint['model_state_dict'])
-    test_loss, test_acc = evaluate(model, test_loader, config['device'])
+    final_epoch = checkpoint['epoch']
 
-    logger.info(f"Test accuracy: {test_acc:.3f}")
+    if test_loader is not None:
+        test_loss, test_acc = evaluate(
+            model, test_loader, config['device'],
+            output_dir, final_epoch, 'test',
+            inspect_k=6, log_interval=config.get('log_interval', 10)
+        )
+        logger.info(f"Test accuracy: {test_acc:.3f}")
+    else:
+        logger.info("No test set available (external dataloader only has train/val)")
+        test_loss, test_acc = None, None
 
     # Save final results
     with open(output_dir / 'results.json', 'w') as f:
@@ -323,38 +709,9 @@ def main():
             'best_val_acc': best_val_acc,
             'final_epoch': len(history['train_loss'])
         }, f, indent=2)
-    
+
     # Plot training curves
-    try:
-        import matplotlib.pyplot as plt
-        
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-        
-        # Loss plot
-        epochs = range(1, len(history['train_loss']) + 1)
-        ax1.plot(epochs, history['train_loss'], 'b-', label='Train Loss')
-        ax1.plot(epochs, history['val_loss'], 'r-', label='Val Loss')
-        ax1.set_xlabel('Epoch')
-        ax1.set_ylabel('Loss')
-        ax1.set_title('Training and Validation Loss')
-        ax1.legend()
-        ax1.grid(True)
-        
-        # Accuracy plot
-        ax2.plot(epochs, history['train_acc'], 'b-', label='Train Acc')
-        ax2.plot(epochs, history['val_acc'], 'r-', label='Val Acc')
-        ax2.set_xlabel('Epoch')
-        ax2.set_ylabel('Accuracy')
-        ax2.set_title('Training and Validation Accuracy')
-        ax2.legend()
-        ax2.grid(True)
-        
-        plt.tight_layout()
-        plt.savefig(output_dir / 'training_curves.png', dpi=150)
-        logger.info(f"Training curves saved to {output_dir / 'training_curves.png'}")
-        plt.close()
-    except ImportError:
-        logger.warning("matplotlib not available, skipping plot generation")
+    plot_training_curves(history, output_dir)
 
 
 if __name__ == '__main__':

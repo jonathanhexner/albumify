@@ -76,15 +76,15 @@ def train_epoch(model, loader, optimizer, device):
         feat2 = batch['feat2'].to(device)
         winners = batch['winner'].to(device)
 
-        log_probs = model(feat1, feat2)
-        loss = F.nll_loss(log_probs, 1 - winners)
+        logits = model(feat1, feat2)
+        loss = F.cross_entropy(logits, winners)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         total_loss += loss.item()
-        total_acc += compute_pairwise_accuracy(log_probs, winners)
+        total_acc += compute_pairwise_accuracy(logits, winners)
 
     return total_loss / len(loader), total_acc / len(loader)
 
@@ -101,11 +101,11 @@ def evaluate(model, loader, device):
             feat2 = batch['feat2'].to(device)
             winners = batch['winner'].to(device)
 
-            log_probs = model(feat1, feat2)
-            loss = F.nll_loss(log_probs, 1 - winners)
+            logits = model(feat1, feat2)
+            loss = F.cross_entropy(logits, winners)
 
             total_loss += loss.item()
-            total_acc += compute_pairwise_accuracy(log_probs, winners)
+            total_acc += compute_pairwise_accuracy(logits, winners)
 
     return total_loss / len(loader), total_acc / len(loader)
 

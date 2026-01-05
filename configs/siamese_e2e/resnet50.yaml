@@ -3,8 +3,16 @@
 
 name: "siamese_e2e_resnet50"
 
+# Model type: 'siamese_cnn' (our implementation) or 'reference' (Series-Photo-Selection)
+model_type: "siamese_cnn"
+
+# Transform type: 'standard', 'paper', 'external', or 'auto' (auto-detect from config)
+transform_type: "auto"
+
 data:
   root_dir: "D:\\Similar Images\\automatic_triage_photo_series"
+  # When using external dataloader, specify the image_root (where train_val_imgs are)
+  image_root: "D:\\Similar Images\\automatic_triage_photo_series\\train_val\\train_val_imgs"
   min_agreement: 0.7
   min_reviewers: 2
   split_mode: "series_based"
@@ -14,11 +22,12 @@ model:
   # Siamese CNN + MLP configuration
   cnn_backbone: "resnet50"
   pretrained: true
-  use_paper_preprocessing: false  # Standard ResNet preprocessing
-  
-  # MLP head architecture
-  mlp_hidden_dims: [256, 128]
-  dropout: 0.3
+  use_paper_preprocessing: true  # Aspect-ratio preserving resize (matches reference)
+  padding_mean_color: [0.485, 0.456, 0.406]  # ImageNet mean for padding
+
+  # MLP head architecture - Match reference implementation (direct linear layer)
+  mlp_hidden_dims: []  # Empty = direct 2048 → 2 mapping
+  dropout: 0.0
   activation: "relu"
 
 training:
@@ -28,7 +37,7 @@ training:
   optimizer: "sgd"
   momentum: 0.9
   weight_decay: 0.0005
-  max_epochs: 10  # Match reference (was using 50)
+  max_epochs: 2  # Match reference implementation
   early_stop_patience: 10
 
 output_dir:
@@ -36,3 +45,22 @@ device: "cpu"
 seed: 42
 log_interval: 10  # Log every N batches
 
+# Telemetry configuration
+telemetry:
+  enabled: true
+  collect_every_n: 200  # Collect metrics every 200 batches
+
+  # Enable/disable individual metrics
+  track_gradients: true
+  track_weight_delta: true
+  track_learning_rates: true
+  track_holdout_logits: true
+  track_batch_stats: true
+
+  # Holdout settings
+  holdout_size: 50  # Number of validation pairs to track
+
+# Model comparison (optional debugging)
+compare_with_reference: false  # Set to true to compare with reference ResNet50 model at start
+batch_comparison_interval: 100000  # Dump model state every N batches for comparison (null = disabled, e.g. 10)
+use_external_dataloader: false

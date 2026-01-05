@@ -4,6 +4,12 @@
 
 name: "siamese_e2e_vgg16"
 
+# Model type: 'siamese_cnn' (our implementation) or 'reference' (Series-Photo-Selection)
+model_type: "siamese_cnn"
+
+# Transform type: 'standard', 'paper', 'external', or 'auto' (auto-detect from config)
+transform_type: "auto"
+
 data:
   root_dir: "D:\\Similar Images\\automatic_triage_photo_series"
   min_agreement: 0.7
@@ -37,4 +43,19 @@ output_dir: "outputs/siamese_e2e_vgg16"
 device: "cpu"
 seed: 42
 log_interval: 10  # Log every N batches
+
+# Telemetry configuration
+telemetry:
+  enabled: true
+  collect_every_n: 200  # Collect metrics every 200 batches
+
+  # Enable/disable individual metrics
+  track_gradients: true
+  track_weight_delta: true
+  track_learning_rates: true
+  track_holdout_logits: true
+  track_batch_stats: true
+
+  # Holdout settings
+  holdout_size: 50  # Number of validation pairs to track
 

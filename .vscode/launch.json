@@ -849,6 +849,21 @@
             "env": {
                 "PYTHONUNBUFFERED": "1"
             }
-        }        
+        },
+        {
+            "name": "Train Siamese E2E_ref",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sim_bench/training/train_siamese_e2e.py",
+            "args": [
+                "--config", "configs/siamese_e2e/resnet50_ref.yaml",
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        }                        
     ]
 }

@@ -168,7 +168,7 @@ class PhotoTriageData:
         df_filtered['compareFile1'] = df_filtered['compareFile1'].apply(self.normalize_filename)
         df_filtered['compareFile2'] = df_filtered['compareFile2'].apply(self.normalize_filename)
 
-        logger.info(f"Normalized filenames (e.g., '1-1.JPG' → '{df_filtered.iloc[0]['compareFile1']}')")
+        logger.info(f"Normalized filenames (e.g., '1-1.JPG' -> '{df_filtered.iloc[0]['compareFile1']}')")
 
         # Create winner label: 1 if MaxVote == compareID2 (image2 wins), else 0 (image1 wins)
         df_filtered['winner'] = (df_filtered['MaxVote'] == df_filtered['compareID2']).astype(int)

@@ -105,13 +105,24 @@ class SiameseCNNRanker(nn.Module):
         
         # Final output layer (2-way classification)
         layers.append(nn.Linear(in_dim, 2))
-        layers.append(nn.LogSoftmax(dim=-1))
-        
+
         self.mlp = nn.Sequential(*layers)
-        
+
+        # Initialize MLP weights (match reference implementation)
+        self._initialize_mlp_weights()
+
         # Create preprocessing transform
         self.preprocess = self._create_transform()
-    
+
+    def _initialize_mlp_weights(self):
+        """Initialize MLP weights to match reference implementation."""
+        for m in self.mlp.modules():
+            if isinstance(m, nn.Linear):
+                # Kaiming normal initialization (same as reference)
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
     def _create_transform(self):
         """Create image preprocessing transform."""
         if self.use_paper_preprocessing:
@@ -136,30 +147,36 @@ class SiameseCNNRanker(nn.Module):
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ])
     
-    def forward(self, img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
+    def forward(self, img1: torch.Tensor, img2: torch.Tensor, return_feats: bool = False):
         """
         Forward pass for Siamese network.
-        
+
         Args:
             img1: First image batch (batch_size, 3, H, W)
             img2: Second image batch (batch_size, 3, H, W)
-            
+            return_feats: If True, return (log_probs, feat1, feat2, diff) for diagnostics
+
         Returns:
-            Log probabilities (batch_size, 2)
-            Index 0: log P(img2 > img1)
-            Index 1: log P(img1 > img2)
+            If return_feats=False:
+                Logits (batch_size, 2)
+                Index 0: score for img2 > img1
+                Index 1: score for img1 > img2
+            If return_feats=True:
+                Tuple of (logits, feat1, feat2, diff)
         """
         # Extract features through shared CNN
         feat1 = self.backbone(img1)
         feat2 = self.backbone(img2)
-        
+
         # Compute difference
         diff = feat1 - feat2
-        
+
         # Pass through MLP
-        log_probs = self.mlp(diff)
-        
-        return log_probs
+        logits = self.mlp(diff)
+
+        if return_feats:
+            return logits, feat1, feat2, diff
+        return logits
     
     def get_trainable_params(self):
         """Get all trainable parameters."""
