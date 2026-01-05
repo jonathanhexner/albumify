@@ -364,8 +364,8 @@ def evaluate(model, loader, device, output_dir, epoch, split_name,
                        dataset, avg_loss, metrics_dir)
     save_per_series_breakdown(all_preds, all_winners, all_image1, all_image2, dataset, metrics_dir)
 
-    # Visual inspection
-    if inspect_k > 0:
+    # Visual inspection (PhotoTriage only - external datasets don't have series_id metadata)
+    if inspect_k > 0 and hasattr(dataset, 'get_dataframe'):
         pairs_df = dataset.get_dataframe()
         series_id = pairs_df['series_id'].iloc[0]
         inspect_series_pairs(model, dataset, device, inspect_dir, series_id, k=inspect_k)
