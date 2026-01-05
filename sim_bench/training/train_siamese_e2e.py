@@ -127,7 +127,7 @@ def create_model(config):
     if model_type == 'reference':
         # Load reference model from Series-Photo-Selection
         import sys
-        reference_path = config.get('reference_model_path', r'D:\Projects\Series-Photo-Selection')
+        reference_path = config['data'].get('external_path', r'D:\Projects\Series-Photo-Selection')
         if reference_path not in sys.path:
             logger.info(f"Adding reference model path to sys.path: {reference_path}")
             sys.path.insert(0, reference_path)
