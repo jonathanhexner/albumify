@@ -43,8 +43,8 @@ training:
   early_stop_patience: 5
   loss_type: "kl_div"                          # "kl_div", "cross_entropy", "mse", "l1"
 
-output_dir: null                               # Auto-generated if null
-device: "cpu"                                  # CPU mode
+output_dir: "outputs/ava/cpu_run"              # Output directory (null = auto timestamp)
+device: "cpu"                                  # "cpu" or "cuda"
 seed: 42
 log_interval: 10                               # Log every 10 batches
 save_val_predictions: true                     # Save val predictions as parquet each epoch

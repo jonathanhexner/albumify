@@ -1,0 +1,47 @@
+# AVA Short Test Run - CPU
+# Quick integration test with real data
+
+name: "ava_test_short"
+
+data:
+  ava_txt: "D:/DataSets/ava/AVA_Files/AVA.txt"
+  image_dir: "D:/DataSets/ava/images"
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  num_workers: 0
+
+model:
+  backbone: "resnet50"
+  pretrained: true
+  mlp_hidden_dims: [256]
+  dropout: 0.2
+  activation: "relu"
+  output_mode: "distribution"
+
+transform:
+  resize_size: 256
+  crop_size: 224
+  normalize_mean: [0.485, 0.456, 0.406]
+  normalize_std: [0.229, 0.224, 0.225]
+  augmentation:
+    horizontal_flip: 0.5
+    random_crop: false
+    color_jitter: null
+
+training:
+  batch_size: 8
+  learning_rate: 0.0001
+  differential_lr: true
+  optimizer: "adamw"
+  weight_decay: 0.0001
+  max_epochs: 1
+  early_stop_patience: 5
+  loss_type: "kl_div"
+
+output_dir: "outputs/ava/test_short_run"
+device: "cpu"
+seed: 42
+log_interval: 20
+save_val_predictions: true
+max_batches: 50  # Limit batches for quick testing

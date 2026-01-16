@@ -78,9 +78,10 @@ def create_optimizer(model: AVAResNet, config: dict):
 
 def create_dataloaders(config: dict) -> tuple:
     """Create train/val/test dataloaders."""
-    # Load labels
-    labels_df = load_ava_labels(config['data']['ava_txt'])
-    logger.info(f"Loaded {len(labels_df)} images from AVA.txt")
+    # Load labels (filter to existing images)
+    image_dir = config['data']['image_dir']
+    labels_df = load_ava_labels(config['data']['ava_txt'], image_dir=image_dir)
+    logger.info(f"Loaded {len(labels_df)} images from AVA.txt (filtered to existing)")
 
     # Create splits
     train_ratio = config['data'].get('train_ratio', 0.8)
@@ -172,10 +173,12 @@ def train_epoch(model: AVAResNet, loader: DataLoader, optimizer,
     output_mode = config['model'].get('output_mode', 'distribution')
     loss_type = config['training'].get('loss_type', 'kl_div')
     log_interval = config.get('log_interval', 50)
+    max_batches = config.get('max_batches')  # For quick testing
 
     total_loss = 0.0
     all_pred_means = []
     all_gt_means = []
+    num_batches = 0
 
     for batch_idx, batch in enumerate(loader, 1):
         images = batch['image'].to(device)
@@ -189,6 +192,7 @@ def train_epoch(model: AVAResNet, loader: DataLoader, optimizer,
         optimizer.step()
 
         total_loss += loss.item()
+        num_batches += 1
         pred_means = compute_mean_score(output, output_mode).detach().cpu().numpy()
         all_pred_means.extend(pred_means)
         all_gt_means.extend(gt_means)
@@ -196,7 +200,11 @@ def train_epoch(model: AVAResNet, loader: DataLoader, optimizer,
         if batch_idx % log_interval == 0:
             logger.info(f"  Batch {batch_idx}/{len(loader)}: loss={loss.item():.4f}")
 
-    avg_loss = total_loss / len(loader)
+        if max_batches and batch_idx >= max_batches:
+            logger.info(f"  Stopping after {max_batches} batches (max_batches limit)")
+            break
+
+    avg_loss = total_loss / num_batches
     return avg_loss, np.array(all_pred_means), np.array(all_gt_means)
 
 
@@ -211,6 +219,7 @@ def evaluate(model: AVAResNet, loader: DataLoader, device: str, config: dict,
     model.eval()
     output_mode = config['model'].get('output_mode', 'distribution')
     loss_type = config['training'].get('loss_type', 'kl_div')
+    max_batches = config.get('max_batches')  # For quick testing
 
     total_loss = 0.0
     all_pred_means = []
@@ -218,9 +227,10 @@ def evaluate(model: AVAResNet, loader: DataLoader, device: str, config: dict,
     all_image_ids = []
     all_pred_dists = []
     all_gt_dists = []
+    num_batches = 0
 
     with torch.no_grad():
-        for batch in loader:
+        for batch_idx, batch in enumerate(loader, 1):
             images = batch['image'].to(device)
             targets = batch['target'].to(device)
             gt_means = batch['mean_score'].numpy()
@@ -231,6 +241,7 @@ def evaluate(model: AVAResNet, loader: DataLoader, device: str, config: dict,
             loss = compute_loss(output, targets, output_mode, loss_type)
 
             total_loss += loss.item()
+            num_batches += 1
             pred_means = compute_mean_score(output, output_mode).cpu().numpy()
 
             if output_mode == 'distribution':
@@ -244,7 +255,10 @@ def evaluate(model: AVAResNet, loader: DataLoader, device: str, config: dict,
             all_pred_dists.extend(pred_dists)
             all_gt_dists.extend(gt_dists)
 
-    avg_loss = total_loss / len(loader)
+            if max_batches and batch_idx >= max_batches:
+                break
+
+    avg_loss = total_loss / num_batches
     pred_means = np.array(all_pred_means)
     gt_means = np.array(all_gt_means)
 
@@ -381,22 +395,17 @@ def plot_training_curves(history: dict, output_dir: Path):
 def main():
     parser = argparse.ArgumentParser(description='Train AVA ResNet')
     parser.add_argument('--config', required=True, help='Path to YAML config')
-    parser.add_argument('--output-dir', default=None, help='Override output directory')
-    parser.add_argument('--device', default=None, help='Override device (cpu/cuda)')
     args = parser.parse_args()
 
-    # Load config
+    # Load config - all settings come from config file
     config = load_config(args.config)
-    if args.output_dir:
-        config['output_dir'] = args.output_dir
-    if args.device:
-        config['device'] = args.device
 
-    # Setup output directory
-    output_dir = Path(
-        config.get('output_dir') or
-        f"outputs/ava/{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    )
+    # Setup output directory from config
+    output_dir_str = config.get('output_dir')
+    if output_dir_str:
+        output_dir = Path(output_dir_str)
+    else:
+        output_dir = Path(f"outputs/ava/{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Setup logging
