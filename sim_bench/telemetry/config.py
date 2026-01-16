@@ -20,6 +20,11 @@ class TelemetryConfig:
         track_learning_rates: Track actual learning rates per param group
         track_holdout_logits: Track predictions on fixed validation subset
         track_batch_stats: Track batch-level statistics (data balance)
+        track_weight_snapshots: Save full model checkpoints periodically
+        track_per_layer_stats: Track per-layer weight statistics
+
+        # Snapshot settings
+        weight_snapshot_every_n: Save weight snapshot every N batches
 
         # Holdout settings
         holdout_size: Number of validation pairs to track
@@ -34,6 +39,11 @@ class TelemetryConfig:
     track_learning_rates: bool = True
     track_holdout_logits: bool = True
     track_batch_stats: bool = True
+    track_weight_snapshots: bool = False
+    track_per_layer_stats: bool = False
+
+    # Snapshot settings
+    weight_snapshot_every_n: int = 500
 
     # Holdout settings
     holdout_size: int = 50

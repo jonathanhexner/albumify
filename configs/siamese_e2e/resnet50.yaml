@@ -37,7 +37,7 @@ training:
   optimizer: "sgd"
   momentum: 0.9
   weight_decay: 0.0005
-  max_epochs: 2  # Match reference implementation
+  max_epochs: 3    # Match reference implementation
   early_stop_patience: 10
 
 output_dir:
@@ -59,6 +59,10 @@ telemetry:
 
   # Holdout settings
   holdout_size: 50  # Number of validation pairs to track
+# Batch prediction logging (for debugging training differences)
+log_batch_predictions: false  # Set to true to log per-batch predictions
+log_predictions_every_n: 200000  # Log every N batches (1 = all, 10 = every 10th)
+
 
 # Model comparison (optional debugging)
 compare_with_reference: false  # Set to true to compare with reference ResNet50 model at start

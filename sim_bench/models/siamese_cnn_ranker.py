@@ -119,7 +119,7 @@ class SiameseCNNRanker(nn.Module):
         for m in self.mlp.modules():
             if isinstance(m, nn.Linear):
                 # Kaiming normal initialization (same as reference)
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 

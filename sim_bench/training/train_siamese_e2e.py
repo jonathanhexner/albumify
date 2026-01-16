@@ -652,7 +652,7 @@ def main():
     set_random_seeds(config['seed'])
     print(f"Random state after optimizer creation: {random.getstate()[1][:5]}")
     print(f"Random state after optimizer creation: {np.random.get_state()[1][:5]}")
-    print(f"Random state after optimizer creation: {torch.get_rng_state()[:10]}")
+    print(f"Random state after optimizer creation: {torch.get_rng_state()[:10]}  ")
     batch = next(iter(train_loader))
     print("Train loader inspect_model_output iter: ", str(batch['image1']), str(batch['image2']))
     set_random_seeds(config['seed'])

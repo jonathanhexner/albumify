@@ -1,0 +1,46 @@
+# Example configuration for using the reference model from Series-Photo-Selection
+# This uses the make_network() function from D:\Projects\Series-Photo-Selection\models\ResNet50.py
+
+# Model configuration
+model_type: reference  # Use 'reference' to load the reference model, 'siamese_cnn' for our implementation
+reference_model_path: 'D:\Projects\Series-Photo-Selection'  # Path to reference implementation
+
+# Transform configuration
+transform_type: auto  # Will auto-detect 'external' for reference model
+
+# Note: When using reference model, the 'model' section is not used
+# The reference model is created by make_network() which has fixed architecture
+model:
+  cnn_backbone: resnet50  # Not used for reference model, but kept for compatibility
+
+# Use external dataloader (from Series-Photo-Selection)
+use_external_dataloader: true
+
+# Data configuration
+data:
+  external_path: 'D:\Projects\Series-Photo-Selection'
+  image_root: 'D:\Similar Images\automatic_triage_photo_series\train_val\train_val_imgs'
+  min_agreement: 0.7
+  min_reviewers: 2
+  quick_experiment: null  # Set to 0.1 for quick testing
+
+# Training configuration
+training:
+  batch_size: 8
+  max_epochs: 100
+  learning_rate: 0.00001
+  momentum: 0.9
+  weight_decay: 0.0005
+  optimizer: sgd
+  early_stop_patience: 10
+  differential_lr: true  # Use 1x LR for backbone, 10x for head
+
+# Device configuration
+device: cpu  # Use 'cuda' if GPU available
+seed: 42
+
+# Output configuration
+output_dir: null  # Will be auto-generated if not specified
+
+# Logging
+log_interval: 10

@@ -1,35 +1,97 @@
 # Scripts Directory
 
-This directory contains utility scripts and tools for the sim-bench project.
+All utility and executable scripts organized by purpose.
 
-## Structure
+## Directory Structure
 
-### utilities/
+### `datasets/`
+**Dataset-specific scripts** - Tools for working with specific datasets.
 
-One-off utility scripts for data processing, metrics recalculation, and fixing experiment results:
+- `datasets/phototriage/` - PhotoTriage dataset scripts
+  - Data preparation and labeling
+  - Analysis and visualization
+  - Dataset conversion utilities
+- `datasets/ukbench/` - UKBench dataset scripts (future)
+- `datasets/holidays/` - Holidays dataset scripts (future)
 
-- **convert_heic_to_jpeg.py** - Convert HEIC images to JPEG format for datasets
-- **add_missing_ukbench_metrics.py** - Add missing recall@10 and mAP metrics to UKBench results
-- **fix_all_dinov2.py** - Fix DINOv2 metrics.csv files
-- **fix_all_metrics.py** - General metrics fix utility
-- **recalculate_metrics.py** - Recalculate metrics from existing rankings.csv files
-- **rerun_baseline_experiments.py** - Re-run baseline experiments with fixed metrics
+### `debug/`
+**Debugging and verification scripts** - One-off tools for troubleshooting and validation.
 
-## Usage
+- Determinism checks
+- Training pipeline verification
+- Dataloader debugging
+- Model inspection utilities
 
-These utilities are typically run once to fix or process specific datasets or experiment results:
+**Note:** These are NOT unit tests - they're ad-hoc verification tools.
+
+### `analysis/`
+**Analysis and visualization scripts** - Tools for analyzing results and creating visualizations.
+
+- Benchmark result analysis
+- Quality assessment visualization
+- Performance comparison tools
+
+### `data_preparation/`
+**General dataset preparation scripts** - Cross-dataset data processing utilities.
+
+- Data conversion tools
+- Feature precomputation
+- General preprocessing utilities
+
+### `utilities/`
+**General utility scripts** - Miscellaneous tools.
+
+- Kaggle notebook generation
+- Training monitoring
+- Model evaluation
+- Integration verification
+
+## Script Organization Guidelines
+
+**Dataset-Specific Scripts** → `datasets/{dataset_name}/`
+- If it's specific to PhotoTriage, UKBench, or Holidays, put it in the appropriate dataset folder
+
+**Debugging Scripts** → `debug/`
+- One-off verification scripts
+- Determinism checks
+- Pipeline validation
+- Named `verify_*`, `check_*`, or `quick_*`
+
+**Analysis Scripts** → `analysis/`
+- Result visualization
+- Benchmark analysis
+- Performance comparison
+
+**General Tools** → `utilities/`
+- Cross-cutting utilities
+- Monitoring tools
+- Generic helpers
+
+## Running Scripts
+
+Most scripts can be run from the project root:
 
 ```bash
-# Example: Convert HEIC images to JPEG
-python scripts/utilities/convert_heic_to_jpeg.py
+# Dataset-specific
+python scripts/datasets/phototriage/analyze_results.py
 
-# Example: Recalculate metrics from existing rankings
-python scripts/utilities/recalculate_metrics.py
+# Debugging
+python scripts/debug/verify_file_determinism.py
 
-# Example: Re-run baseline experiments
-python scripts/utilities/rerun_baseline_experiments.py
+# Analysis
+python scripts/analysis/visualize_quality_benchmark.py
 ```
 
-## Note
+## Contributing
 
-Most of these scripts contain hardcoded paths to specific datasets or output directories. Review and modify the paths in each script before running.
+When adding new scripts:
+1. Choose the appropriate subdirectory
+2. Use clear, descriptive names
+3. Add a docstring at the top of the file
+4. Include usage examples in the docstring
+5. Update this README if adding a new category
+
+## See Also
+
+- [`../tests/`](../tests/) - Actual unit and integration tests
+- [`../examples/`](../examples/) - Example usage scripts

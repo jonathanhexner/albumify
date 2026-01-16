@@ -141,8 +141,8 @@ def save_epoch_metrics(all_preds, all_winners, all_logprobs, all_image1, all_ima
     with open(metrics_dir / 'eval_summary.json', 'w') as f:
         json.dump(summary, f, indent=2)
 
-    # Sample dump (200 rows)
-    n_dump = min(200, len(all_preds))
+    # Save all predictions (no limit)
+    n_dump = len(all_preds)
     # Convert logits to probabilities using softmax
     all_probs = np.exp(all_logprobs) / np.exp(all_logprobs).sum(axis=1, keepdims=True)
     dump_data = {

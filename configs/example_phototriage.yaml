@@ -1,0 +1,35 @@
+# Example configuration for PhotoTriage data source
+
+# Data source selection
+data_source: phototriage
+
+# Data configuration
+data:
+  root_dir: data/phototriage
+  min_agreement: 0.7
+  min_reviewers: 2
+  quick_experiment: null  # or 0.1 for 10% of data
+
+# Model configuration
+model:
+  cnn_backbone: resnet50
+  mlp_hidden_sizes: [512, 256]
+  freeze_backbone: false
+
+# Training configuration
+training:
+  batch_size: 16
+  learning_rate: 0.0001
+  max_epochs: 50
+  early_stop_patience: 10
+  optimizer: adamw
+  weight_decay: 0.0001
+  differential_lr: true
+
+# General
+seed: 42
+device: cuda  # or cpu
+log_interval: 10
+
+# Output
+output_dir: outputs/siamese_e2e/phototriage

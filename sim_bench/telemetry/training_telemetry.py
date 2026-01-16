@@ -35,6 +35,11 @@ class TrainingTelemetry:
         self.holdout_data = None
         self.holdout_filenames = []
         self.checkpoint_file = self.output_dir / 'last_checkpoint.pt'
+        self.snapshots_dir = self.output_dir / 'weight_snapshots'
+        
+        if config.track_weight_snapshots:
+            self.snapshots_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Weight snapshots enabled: saving every {config.weight_snapshot_every_n} batches")
 
         logger.info(f"Telemetry initialized: output_dir={self.output_dir}, "
                    f"collect_every_n={config.collect_every_n}")
@@ -130,6 +135,19 @@ class TrainingTelemetry:
                     **metadata,
                     **pred
                 })
+
+        if self.config.track_per_layer_stats:
+            per_layer_stats = self._compute_per_layer_stats(model)
+            # Write each layer as a separate row
+            for layer_stats in per_layer_stats:
+                self._append_to_csv('per_layer_stats.csv', {
+                    **metadata,
+                    **layer_stats
+                })
+
+        if self.config.track_weight_snapshots:
+            if batch_idx % self.config.weight_snapshot_every_n == 0:
+                self._save_weight_snapshot(model, batch_idx, epoch)
 
         logger.debug(f"Telemetry collected at batch {batch_idx}")
 
@@ -339,3 +357,58 @@ class TrainingTelemetry:
             'winner_1_pct': winner_counts[1] / total * 100,
             'batch_size': total
         }
+
+    def _save_weight_snapshot(self, model: torch.nn.Module, batch_idx: int, epoch: int):
+        """Save full model checkpoint for later analysis.
+
+        Saves complete model state_dict to enable:
+        - Per-layer weight comparison between experiments
+        - Weight distribution analysis
+        - Divergence point identification
+
+        Args:
+            model: PyTorch model
+            batch_idx: Current batch index
+            epoch: Current epoch number
+        """
+        snapshot_path = self.snapshots_dir / f'weights_epoch{epoch}_batch{batch_idx}.pt'
+        
+        torch.save({
+            'model_state_dict': model.state_dict(),
+            'batch_idx': batch_idx,
+            'epoch': epoch
+        }, snapshot_path)
+        
+        logger.debug(f"Weight snapshot saved: {snapshot_path}")
+
+    def _compute_per_layer_stats(self, model: torch.nn.Module) -> List[Dict[str, Any]]:
+        """Compute detailed statistics for each model layer.
+
+        Provides per-layer insights:
+        - Mean, std, min, max: Distribution characteristics
+        - L2 norm: Overall magnitude
+        - Layer name: For tracking specific components
+
+        Args:
+            model: PyTorch model
+
+        Returns:
+            List of dictionaries, one per layer with statistics
+        """
+        layer_stats = []
+        
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                data = param.data
+                
+                layer_stats.append({
+                    'layer_name': name,
+                    'mean': float(data.mean().item()),
+                    'std': float(data.std().item()),
+                    'min': float(data.min().item()),
+                    'max': float(data.max().item()),
+                    'l2_norm': float(data.norm().item()),
+                    'num_params': int(data.numel())
+                })
+        
+        return layer_stats

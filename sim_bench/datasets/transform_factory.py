@@ -13,6 +13,43 @@ import torch
 logger = logging.getLogger(__name__)
 
 
+class FixScaleCrop:
+    """
+    Resize preserving aspect ratio, then center crop to square.
+    
+    Matches the external Series-Photo-Selection preprocessing.
+    """
+    def __init__(self, crop_size: int = 224):
+        self.crop_size = crop_size
+        self.normalize = transforms.Normalize(
+            mean=(0.485, 0.456, 0.406),
+            std=(0.229, 0.224, 0.225)
+        )
+    
+    def __call__(self, img):
+        """Apply transform to PIL image."""
+        w, h = img.size
+        
+        # Resize so smaller dimension equals crop_size
+        if w > h:
+            oh = self.crop_size
+            ow = int(1.0 * w * oh / h)
+        else:
+            ow = self.crop_size
+            oh = int(1.0 * h * ow / w)
+        img = img.resize((ow, oh), Image.Resampling.BILINEAR)
+        
+        # Center crop
+        w, h = img.size
+        x1 = int(round((w - self.crop_size) / 2.))
+        y1 = int(round((h - self.crop_size) / 2.))
+        img = img.crop((x1, y1, x1 + self.crop_size, y1 + self.crop_size))
+        
+        # Convert to tensor and normalize
+        img_tensor = transforms.ToTensor()(img)
+        return self.normalize(img_tensor)
+
+
 class AspectRatioResizeAndPad:
     """
     Resize image preserving aspect ratio, then pad to square.
@@ -112,7 +149,13 @@ def create_transform(config: dict):
         return None
 
     elif transform_type == 'paper':
-        # PhotoTriage paper preprocessing
+        # Use FixScaleCrop (matches external preprocessing)
+        transform = FixScaleCrop(crop_size=224)
+        logger.info(f"Created FixScaleCrop transform (aspect ratio + center crop)")
+        return transform
+    
+    elif transform_type == 'paper_pad':
+        # Old paper preprocessing with padding (for reference)
         padding_mean_color = config.get('model', {}).get('padding_mean_color')
         if padding_mean_color:
             padding_mean_color = tuple(padding_mean_color)
