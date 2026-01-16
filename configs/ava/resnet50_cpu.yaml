@@ -1,0 +1,50 @@
+# AVA ResNet50 Training Config - CPU
+# For machines without GPU
+
+name: "ava_resnet50_cpu"
+
+data:
+  ava_txt: "D:/datasets/AVA/AVA.txt"           # UPDATE: Path to AVA.txt
+  image_dir: "D:/datasets/AVA/images"          # UPDATE: Path to images directory
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  num_workers: 0                               # CPU: use 0 workers
+
+model:
+  backbone: "resnet50"
+  pretrained: true
+  mlp_hidden_dims: [256]                       # Single hidden layer
+  dropout: 0.2
+  activation: "relu"
+  output_mode: "distribution"                  # "distribution" or "regression"
+
+transform:
+  resize_size: 256
+  crop_size: 224
+  normalize_mean: [0.485, 0.456, 0.406]        # ImageNet mean
+  normalize_std: [0.229, 0.224, 0.225]         # ImageNet std
+  augmentation:
+    horizontal_flip: 0.5
+    random_crop: true
+    color_jitter:
+      brightness: 0.1
+      contrast: 0.1
+      saturation: 0.1
+      hue: 0.05
+
+training:
+  batch_size: 8                                # Small batch for CPU
+  learning_rate: 0.0001
+  differential_lr: true                        # 1x backbone, 10x head
+  optimizer: "adamw"                           # "adamw" or "sgd"
+  weight_decay: 0.0001
+  max_epochs: 30
+  early_stop_patience: 5
+  loss_type: "kl_div"                          # "kl_div", "cross_entropy", "mse", "l1"
+
+output_dir: null                               # Auto-generated if null
+device: "cpu"                                  # CPU mode
+seed: 42
+log_interval: 10                               # Log every 10 batches
+save_val_predictions: true                     # Save val predictions as parquet each epoch
