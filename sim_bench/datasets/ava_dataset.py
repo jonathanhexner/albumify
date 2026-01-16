@@ -1,0 +1,151 @@
+"""
+AVA Dataset for aesthetic score prediction.
+
+Loads images and score distributions from the AVA dataset.
+Supports both distribution (10 bins) and regression (mean score) targets.
+"""
+import numpy as np
+import pandas as pd
+import torch
+from torch.utils.data import Dataset
+from pathlib import Path
+from PIL import Image
+
+
+def load_ava_labels(ava_txt_path: str, image_dir: str = None) -> pd.DataFrame:
+    """
+    Load AVA.txt labels file.
+
+    AVA.txt format (space-separated, 15 columns):
+        - Column 0: Image ID
+        - Column 1: Challenge ID (ignored)
+        - Columns 2-11: Vote counts for ratings 1-10
+        - Columns 12-14: Semantic tags and challenge ref (ignored)
+
+    Args:
+        ava_txt_path: Path to AVA.txt file
+        image_dir: If provided, filter to only images that exist on disk
+
+    Returns:
+        DataFrame with columns: image_id, votes_1..votes_10, total_votes, mean_score
+    """
+    # Read all columns
+    df = pd.read_csv(ava_txt_path, sep=' ', header=None)
+
+    # Extract relevant columns
+    result = pd.DataFrame()
+    result['image_id'] = df[0].astype(str)
+
+    # Vote counts for scores 1-10 (columns 2-11)
+    for i in range(10):
+        result[f'votes_{i+1}'] = df[i + 2]
+
+    # Compute total votes and mean score
+    vote_cols = [f'votes_{i}' for i in range(1, 11)]
+    result['total_votes'] = result[vote_cols].sum(axis=1)
+
+    # Mean score: weighted average
+    scores = np.arange(1, 11)
+    vote_matrix = result[vote_cols].values
+    result['mean_score'] = (vote_matrix * scores).sum(axis=1) / result['total_votes']
+
+    # Filter to existing images if image_dir provided
+    if image_dir is not None:
+        image_dir = Path(image_dir)
+        existing_mask = result['image_id'].apply(lambda x: (image_dir / f"{x}.jpg").exists())
+        n_before = len(result)
+        result = result[existing_mask].reset_index(drop=True)
+        n_after = len(result)
+        if n_before != n_after:
+            print(f"Filtered to {n_after}/{n_before} images that exist on disk")
+
+    return result
+
+
+def create_splits(df: pd.DataFrame, train_ratio: float = 0.8, val_ratio: float = 0.1,
+                  seed: int = 42) -> tuple:
+    """
+    Create train/val/test splits.
+
+    Args:
+        df: DataFrame with AVA labels
+        train_ratio: Fraction for training
+        val_ratio: Fraction for validation
+        seed: Random seed
+
+    Returns:
+        (train_indices, val_indices, test_indices) as numpy arrays
+    """
+    n = len(df)
+    indices = np.arange(n)
+
+    rng = np.random.default_rng(seed)
+    rng.shuffle(indices)
+
+    train_end = int(n * train_ratio)
+    val_end = int(n * (train_ratio + val_ratio))
+
+    train_indices = indices[:train_end]
+    val_indices = indices[train_end:val_end]
+    test_indices = indices[val_end:]
+
+    return train_indices, val_indices, test_indices
+
+
+class AVADataset(Dataset):
+    """
+    PyTorch Dataset for AVA aesthetic scores.
+
+    Args:
+        labels_df: DataFrame from load_ava_labels()
+        image_dir: Directory containing {image_id}.jpg files
+        transform: Image transform (from create_transform)
+        indices: Array of indices to use (for train/val/test splits)
+        output_mode: 'distribution' (10 bins) or 'regression' (mean score)
+    """
+
+    def __init__(self, labels_df: pd.DataFrame, image_dir: str, transform,
+                 indices: np.ndarray = None, output_mode: str = 'distribution'):
+        self.image_dir = Path(image_dir)
+        self.transform = transform
+        self.output_mode = output_mode
+
+        # Filter to specified indices
+        if indices is not None:
+            self.df = labels_df.iloc[indices].reset_index(drop=True)
+        else:
+            self.df = labels_df.reset_index(drop=True)
+
+        # Precompute normalized distributions
+        vote_cols = [f'votes_{i}' for i in range(1, 11)]
+        votes = self.df[vote_cols].values.astype(np.float32)
+        self.distributions = votes / votes.sum(axis=1, keepdims=True)
+
+    def __len__(self) -> int:
+        return len(self.df)
+
+    def __getitem__(self, idx: int) -> dict:
+        row = self.df.iloc[idx]
+        image_id = row['image_id']
+
+        # Load image
+        image_path = self.image_dir / f"{image_id}.jpg"
+        image = Image.open(image_path).convert('RGB')
+
+        # Apply transform
+        if self.transform:
+            image = self.transform(image)
+
+        # Get target
+        if self.output_mode == 'distribution':
+            target = torch.tensor(self.distributions[idx], dtype=torch.float32)
+        else:  # regression
+            target = torch.tensor(row['mean_score'], dtype=torch.float32)
+
+        return {
+            'image': image,
+            'target': target,
+            'image_id': image_id,
+            'mean_score': row['mean_score'],
+            'distribution': torch.tensor(self.distributions[idx], dtype=torch.float32)
+        }
