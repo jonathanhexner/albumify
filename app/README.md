@@ -1,149 +1,154 @@
-# Photo Organization & Visualization Apps
+# Photo Apps
 
-Streamlit applications for photo analysis, organization, and clustering visualization.
+Streamlit applications for photo organization and analysis.
 
 ## Available Apps
 
-### 1. **Main App** (Recommended) 
-**File:** `main.py`  
-**Run:** `streamlit run app/main.py`
+### 📁 Photo Organization
+**Directory:** `photo_organization/`
 
-Production-grade photo organization app with clean architecture.
+AI agent-based apps for organizing photos by events, people, landmarks, and quality.
 
-**Features:**
-- 📁 Event clustering
-- 👤 Face recognition  
-- 🗺️ Landmark detection
-- ⭐ Quality assessment
-- 🏷️ Smart tagging
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
-
----
-
-### 2. **Legacy Photo Analysis**
-**File:** `legacy_photo_analysis.py`  
-**Run:** `streamlit run app/legacy_photo_analysis.py`
-
-Original photo analysis interface (simpler version).
-
-**Features:**
-- CLIP tagging
-- Face detection
-- Landmark recognition
-- HTML report generation
-
----
-
-### 3. **Agent Apps**
-**Files:** `agent_v1.py`, `agent_v2.py`  
-**Run:** 
 ```bash
-streamlit run app/agent_v1.py
-streamlit run app/agent_v2.py
+# Production app (recommended)
+streamlit run app/photo_organization/main.py
 ```
 
-Experimental AI agent interfaces for photo organization.
+**Features:**
+- Event clustering
+- Face recognition
+- Landmark detection
+- Quality assessment
+- Smart tagging
+
+See [`photo_organization/README.md`](photo_organization/README.md) for details.
+
+---
+
+### 🔍 Photo Analysis
+**Directory:** `photo_analysis/`
+
+Analyze photos with CLIP tagging, face detection, and landmark recognition. Generates HTML reports.
+
+```bash
+streamlit run app/photo_analysis/main.py
+```
+
+**Features:**
+- CLIP-based scene/object tagging
+- Face detection and recognition
+- Landmark identification
+- HTML report generation
+
+See [`photo_analysis/README.md`](photo_analysis/README.md) for details.
 
 ---
 
 ## Quick Start
 
-**Recommended for new users:**
+**For organizing photos:**
 ```bash
-streamlit run app/main.py
+streamlit run app/photo_organization/main.py
 ```
 
-Then:
-1. Click "Initialize Agent" in sidebar
-2. Enter your photo directory path
-3. Start asking questions!
-
-## Example Queries
-
-- "Organize my photos by event"
-- "Find my best 10 photos"
-- "Group photos by person"
-- "Show me all portrait photos"
-- "Find photos from my vacation"
-
-## Requirements
-
+**For analyzing photos:**
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+streamlit run app/photo_analysis/main.py
 ```
 
-Core dependencies:
-- `streamlit` - Web framework
-- `sim_bench` - Image analysis package (this project)
+## Directory Structure
 
-## Development
-
-### Project Structure
 ```
 app/
-├── main.py                    # Main app entry point ⭐
-├── legacy_photo_analysis.py   # Legacy interface
-├── agent_v1.py                # Agent interface v1
-├── agent_v2.py                # Agent interface v2
-├── config/                    # Configuration
-├── core/                      # Business logic
-├── state/                     # State management
-├── ui/                        # UI components
-└── README.md                  # This file
+├── photo_organization/          # Photo organization apps
+│   ├── main.py                 # Production app ⭐
+│   ├── agent_v1.py             # Experimental v1
+│   ├── agent_v2.py             # Experimental v2
+│   └── README.md
+│
+├── photo_analysis/              # Photo analysis app
+│   ├── main.py                 # Analysis + HTML reports
+│   └── README.md
+│
+├── config/                      # Shared configuration
+├── core/                        # Shared business logic
+├── state/                       # Shared state management
+├── ui/                          # Shared UI components
+│
+├── ARCHITECTURE.md              # Architecture documentation
+└── README.md                    # This file
 ```
 
-### Architecture
+## Shared Components
 
-The main app (`main.py`) follows clean architecture principles:
-- **Core** - Framework-agnostic business logic
-- **UI** - Streamlit-specific presentation
-- **State** - State management layer
-- **Config** - Configuration and settings
+Both app categories share:
+- **config/** - Configuration and constants
+- **core/** - Business logic (models, services)
+- **state/** - State management
+- **ui/** - Reusable UI components
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed documentation.
+This enables code reuse and consistent architecture.
 
 ## Clustering & Similarity Visualization
 
-Clustering results are visualized as **interactive HTML galleries**, not in Streamlit.
+**Note:** Clustering results are visualized as **HTML galleries** (not in Streamlit).
 
-**Location:** `sim_bench/clustering/gallery.py`
+**Location:** `../sim_bench/clustering/gallery.py`
 
-When you run clustering operations, HTML galleries are automatically generated with:
+When you run clustering operations, interactive HTML galleries are generated:
 - Cluster statistics
 - Image thumbnails grouped by cluster
 - Interactive navigation
 - Noise detection (DBSCAN)
 
-**Generated files:**
-- `outputs/clustering_*/clusters.html` - Interactive gallery
-- `outputs/clustering_*/clusters.csv` - Cluster assignments
+**Output:** `outputs/clustering_*/clusters.html`
+
+## Requirements
+
+```bash
+# From project root
+pip install -r requirements.txt
+```
+
+Core dependencies:
+- `streamlit` - Web framework
+- `sim_bench` - Image analysis (this project)
+
+## Development
+
+### Adding New Apps
+
+1. Choose category: `photo_organization/` or `photo_analysis/`
+2. Create new app file in appropriate directory
+3. Update category README
+4. Use shared components from parent directories
+
+### Architecture
+
+Photo organization apps follow clean architecture:
+- **Core** - Framework-agnostic business logic
+- **UI** - Streamlit-specific presentation
+- **State** - State management
+- **Config** - Configuration
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 
 ## Troubleshooting
 
 ### App won't start
 - Ensure Python 3.10+ is installed
-- Install all dependencies: `pip install -r requirements.txt`
-- Check logs in console for errors
+- Install dependencies: `pip install -r ../requirements.txt`
+- Check console for errors
 
 ### No images found
-- Verify directory path is correct
+- Verify directory path
 - Ensure `.jpg`/`.jpeg`/`.png` files exist
 - Check file permissions
 
 ### Agent initialization fails
 - Check logs for detailed error
-- Ensure sim_bench package is installed correctly
+- Ensure sim_bench is installed correctly
 
 ## License
 
 MIT License - see parent LICENSE file.
-
-## Contributing
-
-When adding new Streamlit apps:
-1. Place them in `app/` directory
-2. Use descriptive filenames
-3. Add entry to this README
-4. Follow clean architecture (see main.py)
