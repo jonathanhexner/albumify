@@ -85,6 +85,12 @@ def create_dataloaders(config: dict) -> tuple:
                                  cached_parquet=cached_parquet)
     logger.info(f"Loaded {len(labels_df)} images from AVA.txt (filtered to existing)")
 
+    # Limit samples if specified (for sanity checks)
+    max_samples = config['data'].get('max_samples')
+    if max_samples and max_samples < len(labels_df):
+        labels_df = labels_df.iloc[:max_samples].reset_index(drop=True)
+        logger.info(f"Limited to {max_samples} samples for sanity check")
+
     # Create splits
     train_ratio = config['data'].get('train_ratio', 0.8)
     val_ratio = config['data'].get('val_ratio', 0.1)
@@ -260,12 +266,23 @@ def evaluate(model: AVAResNet, loader: DataLoader, device: str, config: dict,
             if max_batches and batch_idx >= max_batches:
                 break
 
+    # Handle empty loader case
+    if num_batches == 0:
+        return 0.0, float('nan'), np.array([]), np.array([]), [], np.array([]), np.array([])
+
     avg_loss = total_loss / num_batches
     pred_means = np.array(all_pred_means)
     gt_means = np.array(all_gt_means)
 
     # Compute Spearman correlation
     spearman_corr, _ = spearmanr(pred_means, gt_means)
+
+    # Log prediction statistics (detect collapse)
+    if config.get('verbose_diagnostics', False):
+        logger.info(f"    pred_mean: min={pred_means.min():.3f}, max={pred_means.max():.3f}, "
+                    f"std={pred_means.std():.3f}")
+        logger.info(f"    gt_mean:   min={gt_means.min():.3f}, max={gt_means.max():.3f}, "
+                    f"std={gt_means.std():.3f}")
 
     # Save predictions if requested
     if output_dir is not None and epoch is not None and config.get('save_val_predictions', False):
@@ -321,6 +338,9 @@ def train_model(model: AVAResNet, train_loader: DataLoader, val_loader: DataLoad
         'val_spearman': []
     }
 
+    # Check if val_loader is empty (for overfit sanity check)
+    use_train_for_eval = len(val_loader.dataset) == 0
+
     for epoch in range(max_epochs):
         logger.info(f"Epoch {epoch + 1}/{max_epochs}")
 
@@ -329,9 +349,13 @@ def train_model(model: AVAResNet, train_loader: DataLoader, val_loader: DataLoad
         train_spearman, _ = spearmanr(train_preds, train_gts)
         logger.info(f"  Train: loss={train_loss:.4f}, spearman={train_spearman:.4f}")
 
-        # Validate
-        val_loss, val_spearman, _, _, _, _, _ = evaluate(model, val_loader, device, config, output_dir, epoch)
-        logger.info(f"  Val: loss={val_loss:.4f}, spearman={val_spearman:.4f}")
+        # Validate (use train set if val is empty - for overfit sanity check)
+        if use_train_for_eval:
+            val_loss, val_spearman, _, _, _, _, _ = evaluate(model, train_loader, device, config, output_dir, epoch)
+            logger.info(f"  Eval (on train): loss={val_loss:.4f}, spearman={val_spearman:.4f}")
+        else:
+            val_loss, val_spearman, _, _, _, _, _ = evaluate(model, val_loader, device, config, output_dir, epoch)
+            logger.info(f"  Val: loss={val_loss:.4f}, spearman={val_spearman:.4f}")
 
         # Save history
         history['train_loss'].append(train_loss)
@@ -448,13 +472,21 @@ def main():
     # Plot curves
     plot_training_curves(history, output_dir)
 
-    # Test evaluation
-    logger.info("Evaluating on test set...")
+    # Test evaluation (skip if test set is empty)
     checkpoint = torch.load(output_dir / 'best_model.pt')
     model.load_state_dict(checkpoint['model_state_dict'])
 
-    test_loss, test_spearman, _, _, _, _, _ = evaluate(model, test_loader, config['device'], config)
-    logger.info(f"Test: loss={test_loss:.4f}, spearman={test_spearman:.4f}")
+    if len(test_loader.dataset) > 0 and len(test_loader) > 0:
+        logger.info("Evaluating on test set...")
+        test_loss, test_spearman, _, _, _, _, _ = evaluate(model, test_loader, config['device'], config)
+        if not np.isnan(test_spearman):
+            logger.info(f"Test: loss={test_loss:.4f}, spearman={test_spearman:.4f}")
+        else:
+            logger.info("Test set evaluation returned nan (possible empty set)")
+            test_loss, test_spearman = None, None
+    else:
+        logger.info("No test set (skipping test evaluation)")
+        test_loss, test_spearman = None, None
 
     # Save final results
     results = {
@@ -466,7 +498,7 @@ def main():
     with open(output_dir / 'results.json', 'w') as f:
         json.dump(results, f, indent=2)
 
-    logger.info(f"Training complete. Best val spearman: {best_spearman:.4f}, Test spearman: {test_spearman:.4f}")
+    logger.info(f"Training complete. Best val spearman: {best_spearman:.4f}")
 
 
 if __name__ == '__main__':

@@ -1,0 +1,46 @@
+# AVA Overfit Sanity Check
+# Train on 64 images, should overfit to near-perfect performance
+# Expected: loss -> ~0, spearman -> ~1.0
+
+name: "ava_overfit_sanity"
+
+data:
+  ava_txt: "D:/DataSets/ava/AVA_Files/AVA.txt"
+  image_dir: "D:/DataSets/ava/images"
+  train_ratio: 1.0      # Use all 64 images for training
+  val_ratio: 0.0        # No validation (we'll use train set for eval)
+  test_ratio: 0.0
+  num_workers: 0
+  max_samples: 64       # Limit to 64 images total
+
+model:
+  backbone: "resnet50"
+  pretrained: true
+  mlp_hidden_dims: [256]
+  dropout: 0.0          # No dropout for overfitting test
+  activation: "relu"
+  output_mode: "distribution"
+
+transform:
+  resize_size: 256
+  crop_size: 224
+  normalize_mean: [0.485, 0.456, 0.406]
+  normalize_std: [0.229, 0.224, 0.225]
+  augmentation: null    # No augmentation for overfitting test
+
+training:
+  batch_size: 8
+  learning_rate: 0.001  # Higher LR for faster convergence
+  differential_lr: true
+  optimizer: "adamw"
+  weight_decay: 0.0     # No weight decay for overfitting test
+  max_epochs: 50        # Many epochs to ensure overfitting
+  early_stop_patience: 100  # Disable early stopping
+  loss_type: "kl_div"
+
+output_dir: "outputs/ava/overfit_sanity_check"
+device: "cpu"
+seed: 42
+log_interval: 1         # Log every batch
+save_val_predictions: false
+verbose_diagnostics: true  # Log pred/gt min/max/std to detect collapse
