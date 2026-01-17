@@ -4,8 +4,9 @@
 name: "ava_resnet50_gpu"
 
 data:
-  ava_txt: "D:/datasets/AVA/AVA.txt"           # UPDATE: Path to AVA.txt
-  image_dir: "D:/datasets/AVA/images"          # UPDATE: Path to images directory
+  ava_txt: "/workspace/AVA_Files/AVA.txt"           # UPDATE: Path to AVA.txt
+  image_dir: "/workspace/images"          # UPDATE: Path to images directory
+  cached_parquet: "/workspace/AVA_Files/ava_dataset_corrected_filtered.parquet"  # Preprocessed cache (instant loading)
   train_ratio: 0.8
   val_ratio: 0.1
   test_ratio: 0.1

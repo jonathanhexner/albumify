@@ -873,6 +873,53 @@
             "env": {
                 "PYTHONUNBUFFERED": "1"
             }
-        }                        
+        },
+        {
+            "name": "Train AVA ResNet - GPU",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_ava_resnet",
+            "args": [
+                "--config", "configs/ava/resnet50_gpu.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Test AVA Data Sanity - GPU",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.test_ava_data_sanity",
+            "args": [
+                "--config", "configs/ava/resnet50_gpu.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Preprocess AVA Dataset (Create Cache)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.datasets.preprocess_ava",
+            "args": [
+                "--ava-txt", "/workspace/AVA_Files/AVA.txt",
+                "--image-dir", "/workspace/images",
+                "--output", "/workspace/AVA_Files/ava_dataset.parquet"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        }
     ]
 }

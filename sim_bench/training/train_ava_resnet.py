@@ -80,7 +80,9 @@ def create_dataloaders(config: dict) -> tuple:
     """Create train/val/test dataloaders."""
     # Load labels (filter to existing images)
     image_dir = config['data']['image_dir']
-    labels_df = load_ava_labels(config['data']['ava_txt'], image_dir=image_dir)
+    cached_parquet = config['data'].get('cached_parquet')
+    labels_df = load_ava_labels(config['data']['ava_txt'], image_dir=image_dir, 
+                                 cached_parquet=cached_parquet)
     logger.info(f"Loaded {len(labels_df)} images from AVA.txt (filtered to existing)")
 
     # Create splits
