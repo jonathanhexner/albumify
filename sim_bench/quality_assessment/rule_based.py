@@ -9,10 +9,8 @@ from pathlib import Path
 from typing import Dict, Any
 
 from sim_bench.quality_assessment.base import QualityAssessor
-from sim_bench.quality_assessment.registry import register_method
 
 
-@register_method('rule_based')
 class RuleBasedQuality(QualityAssessor):
     """Rule-based quality assessment using multiple hand-crafted metrics."""
     
