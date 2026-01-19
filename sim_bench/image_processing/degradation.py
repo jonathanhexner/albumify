@@ -55,7 +55,7 @@ class ImageDegradationProcessor(ImageProcessor):
 
         Args:
             image_path: Path to input image
-            degradation_type: Type of degradation (blur, exposure, jpeg)
+            degradation_type: Type of degradation (blur, exposure, jpeg, crop_edge, crop_corner, crop_aspect, crop_center)
             **kwargs: Degradation-specific parameters
 
         Returns:
@@ -64,7 +64,11 @@ class ImageDegradationProcessor(ImageProcessor):
         degradation_map = {
             "blur": self.apply_gaussian_blur,
             "exposure": self.apply_exposure_adjustment,
-            "jpeg": self.apply_jpeg_compression
+            "jpeg": self.apply_jpeg_compression,
+            "crop_edge": self.apply_edge_crop,
+            "crop_corner": self.apply_corner_crop,
+            "crop_aspect": self.apply_aspect_distortion_crop,
+            "crop_center": self.apply_center_content_crop
         }
 
         handler = degradation_map.get(degradation_type)
@@ -167,6 +171,182 @@ class ImageDegradationProcessor(ImageProcessor):
             [cv2.IMWRITE_JPEG_QUALITY, quality]
         )
 
+        return output_path
+
+    def apply_edge_crop(
+        self,
+        image_path: Union[str, Path],
+        crop_percentage: float = 0.25,
+        side: str = 'right',
+        output_path: Optional[Union[str, Path]] = None
+    ) -> Path:
+        """
+        Aggressively crop one edge of the image.
+        
+        Removes content from one side, simulating accidental cropping or
+        cutting off important subjects at the edge.
+        
+        Args:
+            image_path: Path to input image
+            crop_percentage: Fraction to remove from edge (0.2 = remove 20%)
+            side: Which side to crop ('left', 'right', 'top', 'bottom')
+            output_path: Output path (auto-generated if None)
+            
+        Returns:
+            Path to cropped image
+        """
+        img = cv2.imread(str(image_path))
+        h, w = img.shape[:2]
+        
+        if side == 'left':
+            crop_pixels = int(w * crop_percentage)
+            cropped = img[:, crop_pixels:]
+        elif side == 'right':
+            crop_pixels = int(w * crop_percentage)
+            cropped = img[:, :-crop_pixels]
+        elif side == 'top':
+            crop_pixels = int(h * crop_percentage)
+            cropped = img[crop_pixels:, :]
+        elif side == 'bottom':
+            crop_pixels = int(h * crop_percentage)
+            cropped = img[:-crop_pixels, :]
+        else:
+            raise ValueError(f"Invalid side: {side}. Must be 'left', 'right', 'top', or 'bottom'")
+        
+        output_path = self._get_output_path(
+            image_path, output_path, f"crop_edge_{side}_{int(crop_percentage*100)}pct"
+        )
+        cv2.imwrite(str(output_path), cropped)
+        
+        return output_path
+
+    def apply_corner_crop(
+        self,
+        image_path: Union[str, Path],
+        crop_fraction: float = 0.7,
+        corner: str = 'top_left',
+        output_path: Optional[Union[str, Path]] = None
+    ) -> Path:
+        """
+        Crop to a corner region of the image.
+        
+        Simulates off-center composition or accidentally cutting off subjects.
+        
+        Args:
+            image_path: Path to input image
+            crop_fraction: Fraction of original dimensions to keep (0.7 = keep 70%)
+            corner: Which corner ('top_left', 'top_right', 'bottom_left', 'bottom_right')
+            output_path: Output path (auto-generated if None)
+            
+        Returns:
+            Path to cropped image
+        """
+        img = cv2.imread(str(image_path))
+        h, w = img.shape[:2]
+        
+        new_h = int(h * crop_fraction)
+        new_w = int(w * crop_fraction)
+        
+        if corner == 'top_left':
+            cropped = img[:new_h, :new_w]
+        elif corner == 'top_right':
+            cropped = img[:new_h, -new_w:]
+        elif corner == 'bottom_left':
+            cropped = img[-new_h:, :new_w]
+        elif corner == 'bottom_right':
+            cropped = img[-new_h:, -new_w:]
+        else:
+            raise ValueError(f"Invalid corner: {corner}")
+        
+        output_path = self._get_output_path(
+            image_path, output_path, f"crop_corner_{corner}_{int(crop_fraction*100)}pct"
+        )
+        cv2.imwrite(str(output_path), cropped)
+        
+        return output_path
+
+    def apply_aspect_distortion_crop(
+        self,
+        image_path: Union[str, Path],
+        aspect_mode: str = 'tall',
+        keep_fraction: float = 0.5,
+        output_path: Optional[Union[str, Path]] = None
+    ) -> Path:
+        """
+        Crop to create distorted aspect ratio.
+        
+        Creates tall/skinny or wide crops that distort composition.
+        
+        Args:
+            image_path: Path to input image
+            aspect_mode: 'tall' (narrow width) or 'wide' (narrow height)
+            keep_fraction: Fraction of dimension to keep (0.5 = keep 50% of width/height)
+            output_path: Output path (auto-generated if None)
+            
+        Returns:
+            Path to cropped image
+        """
+        img = cv2.imread(str(image_path))
+        h, w = img.shape[:2]
+        
+        if aspect_mode == 'tall':
+            # Keep full height, reduce width
+            new_w = int(w * keep_fraction)
+            offset = (w - new_w) // 2
+            cropped = img[:, offset:offset+new_w]
+        elif aspect_mode == 'wide':
+            # Keep full width, reduce height
+            new_h = int(h * keep_fraction)
+            offset = (h - new_h) // 2
+            cropped = img[offset:offset+new_h, :]
+        else:
+            raise ValueError(f"Invalid aspect_mode: {aspect_mode}. Must be 'tall' or 'wide'")
+        
+        output_path = self._get_output_path(
+            image_path, output_path, f"crop_aspect_{aspect_mode}_{int(keep_fraction*100)}pct"
+        )
+        cv2.imwrite(str(output_path), cropped)
+        
+        return output_path
+
+    def apply_center_content_crop(
+        self,
+        image_path: Union[str, Path],
+        crop_fraction: float = 0.6,
+        output_path: Optional[Union[str, Path]] = None
+    ) -> Path:
+        """
+        Crop out the center region of the image.
+        
+        Removes the likely subject area (center-biased), simulating
+        cutting off the main subject.
+        
+        Args:
+            image_path: Path to input image
+            crop_fraction: Fraction of center to keep (0.6 = keep center 60%)
+            output_path: Output path (auto-generated if None)
+            
+        Returns:
+            Path to cropped image
+        """
+        img = cv2.imread(str(image_path))
+        h, w = img.shape[:2]
+        
+        # Calculate center crop dimensions
+        new_h = int(h * crop_fraction)
+        new_w = int(w * crop_fraction)
+        
+        # Center the crop
+        y_offset = (h - new_h) // 2
+        x_offset = (w - new_w) // 2
+        
+        cropped = img[y_offset:y_offset+new_h, x_offset:x_offset+new_w]
+        
+        output_path = self._get_output_path(
+            image_path, output_path, f"crop_center_{int(crop_fraction*100)}pct"
+        )
+        cv2.imwrite(str(output_path), cropped)
+        
         return output_path
 
     def apply_degradation_suite(

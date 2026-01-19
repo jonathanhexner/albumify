@@ -170,9 +170,12 @@ def compute_mean_score(output: torch.Tensor, output_mode: str) -> torch.Tensor:
 
 
 def train_epoch(model: AVAResNet, loader: DataLoader, optimizer,
-                device: str, config: dict) -> tuple:
+                device: str, config: dict, epoch: int = None) -> tuple:
     """
     Train for one epoch.
+
+    Args:
+        epoch: Current epoch number (for telemetry logging)
 
     Returns:
         (avg_loss, all_pred_means, all_gt_means)
@@ -198,6 +201,10 @@ def train_epoch(model: AVAResNet, loader: DataLoader, optimizer,
         loss = compute_loss(output, targets, output_mode, loss_type)
         loss.backward()
         optimizer.step()
+
+        # Collect telemetry (gradients, learning rates) after optimizer.step()
+        from sim_bench.telemetry.ava_telemetry import collect_telemetry
+        collect_telemetry(model, optimizer, batch_idx, epoch, device, config)
 
         total_loss += loss.item()
         num_batches += 1
@@ -341,11 +348,15 @@ def train_model(model: AVAResNet, train_loader: DataLoader, val_loader: DataLoad
     # Check if val_loader is empty (for overfit sanity check)
     use_train_for_eval = len(val_loader.dataset) == 0
 
+    # Initialize telemetry
+    from sim_bench.telemetry.ava_telemetry import init_telemetry
+    init_telemetry(config)
+
     for epoch in range(max_epochs):
         logger.info(f"Epoch {epoch + 1}/{max_epochs}")
 
         # Train
-        train_loss, train_preds, train_gts = train_epoch(model, train_loader, optimizer, device, config)
+        train_loss, train_preds, train_gts = train_epoch(model, train_loader, optimizer, device, config, epoch)
         train_spearman, _ = spearmanr(train_preds, train_gts)
         logger.info(f"  Train: loss={train_loss:.4f}, spearman={train_spearman:.4f}")
 

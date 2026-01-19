@@ -1,0 +1,17 @@
+# Test images (user-provided)
+test_images/*.jpg
+test_images/*.jpeg
+test_images/*.png
+test_images/*.JPG
+test_images/*.JPEG
+test_images/*.PNG
+
+# Output files
+outputs/*.jpg
+outputs/*.jpeg
+outputs/*.png
+outputs/*.csv
+
+# Keep directories
+!test_images/.gitkeep
+!outputs/.gitkeep

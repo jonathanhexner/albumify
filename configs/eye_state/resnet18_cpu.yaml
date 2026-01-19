@@ -1,0 +1,52 @@
+# Eye State Classifier Training Config - CPU
+# ResNet18 backbone for eye open/closed classification on MRL dataset
+
+name: "eye_state_resnet18_cpu"
+
+data:
+  data_dir: "D:/DataSets/mrl"                   # Path to MRL dataset (has train/val/test subfolders)
+  cached_parquet: null                          # Optional: path to cached labels parquet
+  max_samples: null                             # Limit samples per split (for debugging)
+  num_workers: 0                                # CPU: use 0 workers
+
+model:
+  backbone: "resnet18"                          # Smaller backbone for eye images
+  pretrained: true
+  mlp_hidden_dims: [128]                        # Single hidden layer
+  dropout: 0.3
+  activation: "relu"
+  input_channels: 3                             # RGB input (more stable)
+
+transform:
+  resize_size: 64                               # MRL images are small
+  crop_size: 48
+  grayscale: false                              # Keep RGB
+  normalize_mean: [0.485, 0.456, 0.406]         # ImageNet normalization
+  normalize_std: [0.229, 0.224, 0.225]
+  augmentation:
+    horizontal_flip: 0.5                        # Eyes are symmetric-ish
+    random_crop: true
+    # rotation: 10                              # Disabled - can cause CPU primitive errors
+    # brightness: 0.2                           # Disabled - can cause CPU primitive errors
+    # contrast: 0.2                             # Disabled - can cause CPU primitive errors
+
+training:
+  batch_size: 16                                # Smaller batch for CPU
+  learning_rate: 0.0001
+  differential_lr: true                         # 1x backbone, 10x head
+  optimizer: "adamw"
+  weight_decay: 0.0001
+  max_epochs: 30
+  early_stop_patience: 10
+  pos_weight: null                              # Set if class imbalance (e.g., 1.5 for more closed)
+
+output_dir: "outputs/eye_state/cpu_run"
+device: "cpu"
+seed: 42
+log_interval: 50
+save_val_predictions: true
+
+# Telemetry configuration
+telemetry:
+  enabled: true
+  collect_every_n: 10                           # Collect metrics every 10 batches

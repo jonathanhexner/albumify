@@ -1,0 +1,46 @@
+# Eye State Classifier - Overfit Test Config
+# Tests that the model can memorize 64 samples (sanity check)
+
+name: "eye_state_overfit_test"
+
+data:
+  data_dir: "D:/DataSets/mrl"
+  cached_parquet: null
+  max_samples: 64                               # Only 64 samples for overfit test
+  num_workers: 0
+
+model:
+  backbone: "resnet18"
+  pretrained: true
+  mlp_hidden_dims: [128]
+  dropout: 0.0                                  # No dropout for overfit test
+  activation: "relu"
+  input_channels: 3                             # Use RGB to avoid conv1 modification
+
+transform:
+  resize_size: 64
+  crop_size: 48
+  grayscale: false                              # Keep RGB
+  normalize_mean: [0.485, 0.456, 0.406]         # ImageNet normalization
+  normalize_std: [0.229, 0.224, 0.225]
+  augmentation: {}                              # No augmentation for overfit test
+
+training:
+  batch_size: 16
+  learning_rate: 0.001                          # Higher LR for faster overfit
+  differential_lr: false                        # Single LR for simplicity
+  optimizer: "adamw"
+  weight_decay: 0.0                             # No regularization
+  max_epochs: 100
+  early_stop_patience: 100                      # Don't early stop
+  pos_weight: null
+
+output_dir: "outputs/eye_state/overfit_test"
+device: "cpu"
+seed: 42
+log_interval: 5
+save_val_predictions: false
+
+telemetry:
+  enabled: true
+  collect_every_n: 5

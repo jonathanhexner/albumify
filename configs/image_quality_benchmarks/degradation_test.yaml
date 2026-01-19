@@ -1,0 +1,58 @@
+# Image Quality Model Degradation Benchmark
+# Tests multiple models (Siamese, AVA, IQA) on synthetic degradations
+
+name: "degradation_benchmark_ava_vs_siamese"
+
+# Image source configuration
+images:
+  source: "phototriage"  # "phototriage" or "ava"
+  num_images: 50
+  
+  # For PhotoTriage images:
+  checkpoint_dir: "outputs/siamese_e2e/20260111_005327"
+  image_root: "D:/Similar Images/automatic_triage_photo_series/train_val/train_val_imgs"
+  
+  # For AVA images (uncomment and use when source: "ava"):
+  # predictions_dir: "outputs/ava/gpu_run_regression_18_01/predictions"
+  # image_dir: "D:/datasets/ava/images"
+
+# Models to evaluate
+models:
+  - type: "siamese"
+    name: "Siamese-PhotoTriage"
+    checkpoint: "outputs/siamese_e2e/20260111_005327/best_model.pt"
+    device: "cpu"
+  
+  - type: "ava"
+    name: "AVA-Regression"
+    checkpoint: "outputs/ava/gpu_run_regression_18_01/best_model.pt"
+    device: "cpu"
+  
+  - type: "rule_based_iqa"
+    name: "Rule-Based-IQA"
+    device: "cpu"
+# Degradation parameters
+degradations:
+  # Gaussian blur (sigma values)
+  blur_sigmas: [1.0, 2.0, 4.0, 8.0]
+  
+  # JPEG compression (quality levels, lower = worse)
+  jpeg_qualities: [80, 60, 40, 20, 10]
+  
+  # Exposure adjustment (stops, negative = darker, positive = brighter)
+  exposure_stops: [-2, -1, 1, 2]
+  
+  # Edge crops (percentage to remove from one side)
+  crop_edge_pcts: [0.20, 0.30]
+  
+  # Corner crops (fraction of image to keep, shifted to corner)
+  crop_corner_fracs: [0.70, 0.60]
+  
+  # Aspect distortion crops (tall/wide, fraction to keep)
+  crop_aspect_fracs: [0.60, 0.50]
+  
+  # Center content crops (cut center subject area)
+  crop_center_fracs: [0.70, 0.60]
+
+# Output directory
+output_dir: "outputs/benchmark_ava_vs_siamese"

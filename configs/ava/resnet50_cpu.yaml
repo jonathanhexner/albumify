@@ -4,8 +4,8 @@
 name: "ava_resnet50_cpu"
 
 data:
-  ava_txt: "D:/datasets/AVA/AVA.txt"           # UPDATE: Path to AVA.txt
-  image_dir: "D:/datasets/AVA/images"          # UPDATE: Path to images directory
+  ava_txt: "D:/datasets/ava/AVA_Files/AVA.txt"           # UPDATE: Path to AVA.txt
+  image_dir: "D:/datasets/ava/images"          # UPDATE: Path to images directory
   train_ratio: 0.8
   val_ratio: 0.1
   test_ratio: 0.1
@@ -46,5 +46,10 @@ training:
 output_dir: "outputs/ava/cpu_run"              # Output directory (null = auto timestamp)
 device: "cpu"                                  # "cpu" or "cuda"
 seed: 42
-log_interval: 10                               # Log every 10 batches
+log_interval: 100                              # Log every 100 batches
 save_val_predictions: true                     # Save val predictions as parquet each epoch
+
+# Telemetry configuration (gradient/weight tracking)
+telemetry:
+  enabled: true                                # Enable gradient telemetry
+  collect_every_n: 10                          # Collect metrics every 10 batches

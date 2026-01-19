@@ -1,6 +1,14 @@
 # sim-bench
 
-A simple, lightweight image similarity benchmarking framework for evaluating image retrieval methods on standard datasets.
+A comprehensive framework for image similarity benchmarking and image quality assessment.
+
+## Overview
+
+This project encompasses two main areas:
+1. **Image Similarity Benchmarking**: Evaluate image retrieval methods on standard datasets (UKBench, INRIA Holidays)
+2. **Image Quality Assessment**: Train and benchmark models for image quality and aesthetic prediction
+
+**Latest Achievement (Jan 2026)**: [Unified quality model benchmark](#-image-quality-assessment-new) comparing Siamese, AVA, and IQA approaches - see [MILESTONES.md](MILESTONES.md) for results.
 
 ## ⚡ New: Performance & UX Improvements
 
@@ -49,6 +57,69 @@ The notebook provides automatic analysis:
 - Multi-experiment comparisons
 
 See `docs/ANALYSIS_NOTEBOOK.md` for guide.
+
+## 🎨 Image Quality Assessment (NEW!)
+
+### Unified Model Benchmark
+
+Compare different approaches to image quality assessment on synthetic degradations:
+
+```bash
+# Run benchmark comparing Siamese, AVA, and IQA models
+python scripts/image_quality_utilities/test_model_degradations.py \
+    --config configs/image_quality_benchmarks/degradation_test.yaml
+```
+
+**Results (Jan 2026 - 50 images, 1350 degraded variants):**
+
+| Model | Overall | Blur | JPEG | Exposure | Crops |
+|-------|---------|------|------|----------|-------|
+| **Siamese E2E** | **89.9%** | 84.5% | **100%** | 74.0% | **94%** |
+| **AVA ResNet** | 81.9% | **92.5%** | 95.2% | **91.0%** | 71% |
+| **Rule-Based IQA** | 68.4% | **100%** | 89.6% | 78.5% | 47% |
+
+**Key Insights:**
+- **Siamese** (trained on human preferences): Best at compositional quality (crops, framing)
+- **AVA** (trained on aesthetic scores): Best at technical quality (exposure, blur)
+- **IQA** (hand-crafted features): Limited to low-level metrics, no compositional understanding
+
+See [MILESTONES.md](MILESTONES.md) for detailed analysis.
+
+### Training Models
+
+**Train Siamese E2E (PhotoTriage dataset):**
+```bash
+python -m sim_bench.training.train_siamese_e2e \
+    --config configs/siamese_e2e/resnet50.yaml
+```
+
+**Train AVA ResNet (aesthetic scores):**
+```bash
+python -m sim_bench.training.train_ava_resnet \
+    --config configs/ava/resnet50_cpu.yaml
+```
+
+**Features:**
+- Gradient telemetry for training diagnostics
+- Validation prediction storage per epoch
+- Config-driven training with YAML files
+- Support for differential learning rates
+
+### Streamlit Apps
+
+**Photo Organization (AI Agent):**
+```bash
+streamlit run app/photo_organization/main.py
+```
+Organize photos by events, people, landmarks, and quality through natural language.
+
+**Photo Analysis (Batch Processing):**
+```bash
+streamlit run app/photo_analysis/main.py
+```
+Generate HTML reports with CLIP tags, face detection, and landmark recognition.
+
+See `app/README.md` for details.
 
 ## Installation & Setup
 

@@ -3,7 +3,11 @@
     "allow": [
       "Bash(\".venv/Scripts/python.exe\" -m py_compile run_hyperparameter_search.py)",
       "Bash(timeout:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(conda activate:*)",
+      "Bash(python -m sim_bench.training.train_eye_state:*)",
+      "Bash(D:/anaconda3/envs/sim-bench/python.exe -m sim_bench.training.train_eye_state:*)"
     ],
     "deny": [],
     "ask": []
