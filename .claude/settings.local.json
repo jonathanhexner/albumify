@@ -7,7 +7,9 @@
       "Bash(find:*)",
       "Bash(conda activate:*)",
       "Bash(python -m sim_bench.training.train_eye_state:*)",
-      "Bash(D:/anaconda3/envs/sim-bench/python.exe -m sim_bench.training.train_eye_state:*)"
+      "Bash(D:/anaconda3/envs/sim-bench/python.exe -m sim_bench.training.train_eye_state:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

@@ -35,7 +35,7 @@ google-generativeai>=0.3.0  # For Gemini agent
 # Optional: Specialized models
 # deepface>=0.0.79  # For face detection/recognition
 # insightface>=0.7.3  # Alternative face detection backend
-# mediapipe>=0.10.0  # Alternative face detection backend
+mediapipe>=0.10.0  # Required for portrait analysis (album organization feature)
 
 # Optional: Earth Mover's Distance (advanced)
 # POT>=0.9.3

@@ -41,17 +41,32 @@ class RuleBasedQuality(QualityAssessor):
         total = sum(self.weights.values())
         self.weights = {k: v/total for k, v in self.weights.items()}
         
+    def _load_image_with_exif(self, image_path: str) -> np.ndarray:
+        """Load image with EXIF orientation correction."""
+        from PIL import Image, ImageOps
+
+        with Image.open(image_path) as pil_img:
+            # Apply EXIF orientation (fixes rotation issues)
+            pil_img = ImageOps.exif_transpose(pil_img)
+            # Convert to RGB if needed
+            if pil_img.mode != 'RGB':
+                pil_img = pil_img.convert('RGB')
+            # Convert to BGR for OpenCV compatibility
+            img = np.array(pil_img)
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        return img
+
     def assess_image(self, image_path: str) -> float:
         """
         Assess image quality using combined metrics.
-        
+
         Args:
             image_path: Path to image file
-            
+
         Returns:
             Quality score [0-1], higher is better
         """
-        img = cv2.imread(str(image_path))
+        img = self._load_image_with_exif(image_path)
         if img is None:
             raise ValueError(f"Could not load image: {image_path}")
             
@@ -237,14 +252,14 @@ class RuleBasedQuality(QualityAssessor):
     def get_detailed_scores(self, image_path: str) -> Dict[str, float]:
         """
         Get detailed breakdown of all quality metrics.
-        
+
         Args:
             image_path: Path to image
-            
+
         Returns:
             Dictionary with individual metric scores
         """
-        img = cv2.imread(str(image_path))
+        img = self._load_image_with_exif(image_path)
         if img is None:
             raise ValueError(f"Could not load image: {image_path}")
             

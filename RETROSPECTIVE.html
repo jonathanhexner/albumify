@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sim-bench Project Retrospective</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 40px;
+            background: #f8f9fa;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 60px;
+        }
+
+        .section-title {
+            font-size: 2em;
+            color: #667eea;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 40px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 40px;
+            padding-left: 30px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -44px;
+            top: 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 4px solid white;
+            box-shadow: 0 0 0 4px #667eea;
+        }
+
+        .timeline-date {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .timeline-content {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .timeline-content h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+
+        .timeline-content p {
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .timeline-content ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .timeline-content li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #555;
+        }
+
+        .timeline-content li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .metric-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            margin: 2px;
+        }
+
+        .future-section {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 15px;
+            margin-top: 40px;
+        }
+
+        .future-section h2 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .future-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .future-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .future-card h3 {
+            color: white;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .future-card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .future-card li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .future-card li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: white;
+        }
+
+        .thoughts {
+            background: #e3f2fd;
+            padding: 30px;
+            border-radius: 15px;
+            border-left: 5px solid #2196f3;
+            margin-top: 30px;
+        }
+
+        .thoughts h3 {
+            color: #1976d2;
+            margin-bottom: 15px;
+        }
+
+        .thoughts p {
+            color: #555;
+            line-height: 1.8;
+        }
+
+        footer {
+            background: #2d3748;
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+            
+            .stat-card {
+                padding: 15px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .timeline {
+                padding-left: 20px;
+            }
+        }
+
+        .emoji {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 sim-bench Retrospective</h1>
+            <p>A Personal Learning Journey Through Image Analysis & Quality Assessment</p>
+            <p style="margin-top: 15px; font-size: 0.95em; opacity: 0.9;">
+                This retrospective documents my exploration, experiments, successes, and failures - 
+                a reference for understanding what I've built and what can be improved.
+            </p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <span class="stat-number">6+</span>
+                <span class="stat-label">Months of Development</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">3</span>
+                <span class="stat-label">Major Capabilities</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">15+</span>
+                <span class="stat-label">Methods Implemented</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">5</span>
+                <span class="stat-label">Datasets Integrated</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">89.9%</span>
+                <span class="stat-label">Best Model Accuracy</span>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2 class="section-title"><span class="emoji">🎯</span> Project Overview</h2>
+                <p style="font-size: 1.1em; color: #555; line-height: 1.8;">
+                    <strong>sim-bench</strong> evolved from a simple image similarity benchmarking tool into a comprehensive 
+                    framework for image analysis, encompassing similarity search, clustering, and quality assessment. 
+                    The project demonstrates the journey from classical computer vision to modern deep learning approaches, 
+                    with a focus on practical applications in photo organization and quality ranking.
+                </p>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title"><span class="emoji">💪</span> The Three Muscles of Data Science</h2>
+                <p style="font-size: 1.05em; color: #555; margin-bottom: 20px;">
+                    This project was guided by a structured methodology emphasizing three core competencies:
+                </p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
+                    <div style="background: #e3f2fd; padding: 25px; border-radius: 10px; border-left: 5px solid #2196f3;">
+                        <h3 style="color: #1976d2; margin-bottom: 15px;">🔍 Data Analysis Muscle</h3>
+                        <p style="color: #555; line-height: 1.7;">
+                            Understanding data deeply: asking right questions, cleaning, feature engineering, discovering hidden patterns.
+                        </p>
+                        <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
+                            <strong>In this project:</strong> Analyzing 34,827 user feedback reasons, discovering 60% had no tags, 
+                            understanding label distributions, creating learned CLIP prompts from user language.
+                        </p>
+                    </div>
+                    
+                    <div style="background: #f3e5f5; padding: 25px; border-radius: 10px; border-left: 5px solid #9c27b0;">
+                        <h3 style="color: #7b1fa2; margin-bottom: 15px;">💡 Algorithmic Muscle</h3>
+                        <p style="color: #555; line-height: 1.7;">
+                            Defining measurable problems, proposing solutions (simple first, then advanced), statistical inference, 
+                            measuring performance with supporting metrics.
+                        </p>
+                        <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
+                            <strong>In this project:</strong> Starting with dummy baselines, building from chi-square to DINOv2, 
+                            systematic benchmarking, comparing Siamese vs AVA vs IQA on degradations.
+                        </p>
+                    </div>
+                    
+                    <div style="background: #e8f5e9; padding: 25px; border-radius: 10px; border-left: 5px solid #4caf50;">
+                        <h3 style="color: #388e3c; margin-bottom: 15px;">⚙️ Implementation Muscle</h3>
+                        <p style="color: #555; line-height: 1.7;">
+                            Development and programming, building applications, creating quick demos that connect algorithms to real data.
+                        </p>
+                        <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
+                            <strong>In this project:</strong> Clean factory patterns, Streamlit apps (photo organization, batch analysis), 
+                            production-grade architecture with 100% type coverage.
+                        </p>
+                    </div>
+                </div>
+
+                <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin-top: 25px; border-left: 5px solid #ffc107;">
+                    <h3 style="color: #f57f17; margin-bottom: 10px;">🎯 Core Philosophy</h3>
+                    <p style="color: #666; line-height: 1.7;">
+                        <strong>Start Simple → Measure → Understand → Iterate.</strong> Always begin with baseline/dummy models 
+                        to establish a reference point. Question "too good" results. Manual analysis of failures beats blind 
+                        complexity. Build measurement infrastructure before adding agents or fancy features.
+                    </p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title"><span class="emoji">📅</span> Timeline of Major Events</h2>
+                
+                <div class="timeline">
+                    <!-- Methodology Setup -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">2025 - Project Inception</span>
+                        <div class="timeline-content">
+                            <h3>🎓 Methodology & Domain Selection</h3>
+                            <p>Structured 6-meeting journey with Zachar (mentor) establishing data science fundamentals</p>
+                            <ul>
+                                <li><strong>Domain chosen:</strong> Photo quality assessment and organization</li>
+                                <li>Established "three muscles" approach: Analysis, Algorithms, Implementation</li>
+                                <li>Philosophy: Start simple (baselines/dummies), measure everything, iterate</li>
+                                <li>Planned progression: Baseline → EDA → TDD for data → Model training → Agents → Demo</li>
+                                <li>Selected datasets: PhotoTriage, AVA, UKBench, Holidays</li>
+                            </ul>
+                            <p><strong>Key Principle:</strong> Build measurement infrastructure first, agents second</p>
+                        </div>
+                    </div>
+
+                    <!-- Literature Review -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">2025 - Early Phase</span>
+                        <div class="timeline-content">
+                            <h3>📚 Deep Literature Review & Industry Research</h3>
+                            <p>Comprehensive study of how Google, Meta, and Apple approach image similarity</p>
+                            <ul>
+                                <li><strong>Meta:</strong> FAISS with 1.5T vectors, DINOv2, self-supervised learning</li>
+                                <li><strong>Google:</strong> ScaNN indexing, DELG/SigLIP, hybrid visual+semantic approach</li>
+                                <li><strong>Apple:</strong> On-device clustering, hierarchical organization</li>
+                                <li>Studied 6 specialized networks: Face (FaceNet, ArcFace), Multimodal (CLIP, BLIP), Detection</li>
+                                <li>Key insight: <strong>Semantic vs Visual distinction</strong> - DINOv2 excels at content but needs geometric features for duplicates</li>
+                            </ul>
+                            <p><strong>Critical Discovery:</strong> Industry uses <em>hybrid approaches</em> - not just semantic embeddings. 
+                            Combined perceptual hashing + geometric matching (SIFT/ORB) + semantic embeddings (DINOv2).</p>
+                        </div>
+                    </div>
+
+                    <!-- Dataset Research -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">2025 - Early Phase</span>
+                        <div class="timeline-content">
+                            <h3>📊 Dataset Research & Selection</h3>
+                            <p>Evaluated multiple datasets for different aspects of image similarity</p>
+                            <ul>
+                                <li><strong>UKBench:</strong> 10,200 images, 2,550 objects (Easy-Medium difficulty)</li>
+                                <li><strong>INRIA Holidays:</strong> 1,491 images, 500 queries (Medium-Hard, realistic scenes)</li>
+                                <li><strong>PhotoTriage:</strong> 12,988 images, 4,986 series (Real-world bursts + quality labels)</li>
+                                <li>Researched additional datasets: Google Landmarks v2, HDR+ Bursts, ROxford/RParis</li>
+                                <li>Established universal metrics working across all datasets</li>
+                            </ul>
+                            <p><strong>Dataset Characteristics:</strong> UKBench (controlled, 4 images/object) vs Holidays (variable groups, 
+                            vacation photos) vs PhotoTriage (photo series with quality annotations)</p>
+                        </div>
+                    </div>
+
+                    <!-- Early Development -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">2025 - Early Development</span>
+                        <div class="timeline-content">
+                            <h3>🚀 Foundation: Image Similarity Benchmarking</h3>
+                            <p>Built the core framework implementing research findings</p>
+                            <ul>
+                                <li>Implemented classical methods (Chi-Square, EMD/Wasserstein)</li>
+                                <li>Added deep learning features (ResNet50, DINOv2, OpenCLIP)</li>
+                                <li>Integrated standard datasets (UKBench, INRIA Holidays, PhotoTriage)</li>
+                                <li>Created universal metrics system (mAP, Recall@k, N-S Score)</li>
+                                <li>Established factory pattern architecture for extensibility</li>
+                                <li>Implemented feature caching (10-300x speedup on reruns)</li>
+                                <li>Built comprehensive analysis tools and comparison visualizations</li>
+                            </ul>
+                            <p><strong>Key Achievement:</strong> DINOv2 reached <span class="metric-badge">mAP@10: 0.885</span> on Holidays, 
+                            <span class="metric-badge">0.958</span> on UKBench</p>
+                        </div>
+                    </div>
+
+                    <!-- Clustering -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">2025 - Mid-Year</span>
+                        <div class="timeline-content">
+                            <h3>🎨 Clustering Capabilities</h3>
+                            <p>Extended beyond retrieval to automatic photo grouping</p>
+                            <ul>
+                                <li>Implemented KMeans, DBSCAN, HDBSCAN clustering</li>
+                                <li>Added HTML gallery visualization</li>
+                                <li>Tested on Budapest (310 images) and PhotoTriage datasets</li>
+                                <li>Integrated deep features for semantic clustering</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Quality Assessment Foundation -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">2025 - Late Development</span>
+                        <div class="timeline-content">
+                            <h3>⭐ Quality Assessment Era Begins</h3>
+                            <p>Pivoted to solving photo selection from bursts/series</p>
+                            <ul>
+                                <li>Implemented rule-based methods (sharpness, exposure, contrast)</li>
+                                <li>Added CNN models (NIMA MobileNet, ResNet50)</li>
+                                <li>Integrated Transformer models (ViT-Base)</li>
+                                <li>Built comprehensive benchmark framework</li>
+                                <li>Integrated PhotoTriage dataset (12,988 images, 4,986 groups)</li>
+                            </ul>
+                            <p><strong>Surprise Finding:</strong> Simple sharpness achieved <span class="metric-badge">64.95% accuracy</span>, beating all deep learning methods!</p>
+                        </div>
+                    </div>
+
+                    <!-- CLIP Aesthetic -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">November 2025</span>
+                        <div class="timeline-content">
+                            <h3>🎓 CLIP Aesthetic & Learned Prompts</h3>
+                            <p>Data-driven approach to quality assessment</p>
+                            <ul>
+                                <li>Implemented CLIP-based aesthetic scoring</li>
+                                <li>Analyzed 34,827 PhotoTriage user feedback reasons</li>
+                                <li>Learned 9 contrastive prompt pairs from user language</li>
+                                <li>Created LearnedCLIPAestheticAssessor</li>
+                                <li>Built regression training pipeline for optimal aggregation</li>
+                            </ul>
+                            <p><strong>Innovation:</strong> Prompts reflect actual user criteria ("blurry", "too dark", "bad framing")</p>
+                        </div>
+                    </div>
+
+                    <!-- Training Infrastructure -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">January 11, 2026</span>
+                        <div class="timeline-content">
+                            <h3>🧠 Siamese Network Training</h3>
+                            <p>End-to-end learning from human preferences</p>
+                            <ul>
+                                <li>Implemented Siamese CNN architecture</li>
+                                <li>Trained on PhotoTriage pairwise comparisons</li>
+                                <li>Achieved <span class="metric-badge">69.6% validation accuracy</span></li>
+                                <li>Built modular training infrastructure</li>
+                                <li>Added telemetry and diagnostics</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Repository Cleanup -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">January 13, 2026</span>
+                        <div class="timeline-content">
+                            <h3>🧹 Major Repository Cleanup</h3>
+                            <p>Professional organization and documentation</p>
+                            <ul>
+                                <li>Reorganized 80+ files into logical structure</li>
+                                <li>Created docs/development/ hierarchy</li>
+                                <li>Reduced root markdown files by 97%</li>
+                                <li>Established clear conventions</li>
+                                <li>Improved discoverability and maintainability</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- AVA Training -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">January 18, 2026</span>
+                        <div class="timeline-content">
+                            <h3>🎯 AVA Aesthetic Model Training</h3>
+                            <p>Learning aesthetic scores from expert judgments</p>
+                            <ul>
+                                <li>Trained ResNet50 on AVA dataset</li>
+                                <li>Achieved <span class="metric-badge">Spearman: 0.637</span> correlation</li>
+                                <li>Implemented regression-based quality prediction</li>
+                                <li>Added gradient telemetry system</li>
+                                <li>Built validation prediction storage</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Unified Benchmark -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">January 18, 2026</span>
+                        <div class="timeline-content">
+                            <h3>🏆 Unified Image Quality Benchmark</h3>
+                            <p>Scientific comparison of three fundamentally different approaches</p>
+                            <ul>
+                                <li>Tested on 1,350 synthetic degradations (50 images × 27 variants)</li>
+                                <li><span class="highlight">Siamese E2E: 89.9%</span> - Best on compositional quality</li>
+                                <li><span class="highlight">AVA ResNet: 81.9%</span> - Best on technical quality</li>
+                                <li><span class="highlight">Rule-Based IQA: 68.4%</span> - Fast baseline</li>
+                                <li>Validated model specialization hypothesis</li>
+                            </ul>
+                            <p><strong>Key Insight:</strong> Models are complementary - Siamese excels at crops (94%), AVA at exposure (91%), IQA at blur (100%)</p>
+                        </div>
+                    </div>
+
+                    <!-- App Refactoring -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">January 2026</span>
+                        <div class="timeline-content">
+                            <h3>🎨 Streamlit App Refactoring</h3>
+                            <p>Production-grade architecture transformation</p>
+                            <ul>
+                                <li>Separated concerns into config/core/state/ui layers</li>
+                                <li>Achieved 100% type hint coverage</li>
+                                <li>Created framework-agnostic business logic</li>
+                                <li>Built AI agent interface for photo organization</li>
+                                <li>Added batch photo analysis capabilities</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Siamese Deep Dive -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">Late November 2025</span>
+                        <div class="timeline-content">
+                            <h3>🔬 Deep Dive: Multi-Feature Fusion Experiments</h3>
+                            <p>Exploring hybrid approaches combining deep and traditional features</p>
+                            <ul>
+                                <li>Analyzed label distribution - discovered 60% of pairs had no explicit tag</li>
+                                <li>Attempted MLP on CLIP+ViT features - results disappointing</li>
+                                <li>Implemented multi-level feature fusion approach</li>
+                                <li>Combined: Transformer embeddings + CNN intermediate features + IQA metrics</li>
+                                <li>Achieved <span class="metric-badge">72% validation</span>, <span class="metric-badge">69.84% test</span></li>
+                            </ul>
+                            <p><strong>Key Insight:</strong> Deep embeddings alone too coarse for quality assessment - need multi-level features</p>
+                        </div>
+                    </div>
+
+                    <!-- Data Leakage Discovery -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">Late November 2025</span>
+                        <div class="timeline-content">
+                            <h3>⚠️ Critical Discovery: Data Leakage & Overfitting</h3>
+                            <p>Found and fixed fundamental validation strategy flaw</p>
+                            <ul>
+                                <li><strong>Problem:</strong> Train/val/test splits didn't separate by series_id</li>
+                                <li>Model saw different pairs from same photo series across splits</li>
+                                <li>Results were "too good to be true" - suspected and investigated</li>
+                                <li>After proper series-level splitting: validation dropped to <span class="metric-badge">~50%</span></li>
+                                <li>Revealed severe overfitting with large Siamese architecture</li>
+                            </ul>
+                            <p><strong>Lesson Learned:</strong> Critical thinking and validation of "good" results. Data leakage is subtle but devastating.</p>
+                        </div>
+                    </div>
+
+                    <!-- Debugging & Iteration -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">Early December 2025</span>
+                        <div class="timeline-content">
+                            <h3>🔧 Iterative Debugging & Model Refinement</h3>
+                            <p>Systematic approach to understanding and fixing overfitting</p>
+                            <ul>
+                                <li>Revisited original paper (VGG16 Siamese, 128-unit MLP head)</li>
+                                <li>Implemented proper series-based batching for realistic training</li>
+                                <li>Experimented with regularization: dropout, smaller networks, learning rates</li>
+                                <li>Discovered AI tools sometimes obscure paper implementation details</li>
+                                <li>Recognized need to start with simpler models and build up</li>
+                            </ul>
+                            <p><strong>Current Status:</strong> Working through systematic debugging, validation ~50% with proper splits</p>
+                        </div>
+                    </div>
+
+                    <!-- Recent Work -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">January 2026 - Recent</span>
+                        <div class="timeline-content">
+                            <h3>👤 MediaPipe Portrait Analysis Exploration</h3>
+                            <p>Investigating face and pose detection for photo quality</p>
+                            <ul>
+                                <li>Exploring MediaPipe for portrait-specific quality metrics</li>
+                                <li>Analyzing facial landmarks and pose estimation</li>
+                                <li>Building portrait-specific quality features (open/closed eyes, face count)</li>
+                                <li>Creating analysis notebooks and visualizations</li>
+                                <li>Potential integration with Siamese model as additional features</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Future Directions -->
+                    <div class="timeline-item">
+                        <span class="timeline-date">Next Steps</span>
+                        <div class="timeline-content">
+                            <h3>🎯 Bradley-Terry Ranking & Error Analysis</h3>
+                            <p>Moving toward production-ready ranking system</p>
+                            <ul>
+                                <li><strong>Bradley-Terry Model:</strong> Convert pairwise scores to absolute rankings</li>
+                                <li>Enables single-pass ranking without evaluating all pairs</li>
+                                <li><strong>Error Analysis:</strong> Manual examination of 100-200 failure cases</li>
+                                <li>Build interactive dashboard for error pattern analysis</li>
+                                <li>Consider additional datasets beyond PhotoTriage's ~10K images</li>
+                            </ul>
+                            <p><strong>Philosophy:</strong> Start simple, understand failures, iterate based on data - not just model complexity</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title"><span class="emoji">🎯</span> Core Capabilities Today</h2>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; border-top: 4px solid #667eea;">
+                        <h3 style="color: #667eea; margin-bottom: 15px;">1️⃣ Image Similarity</h3>
+                        <p><strong>Methods:</strong> Chi-Square, EMD, ResNet50, DINOv2, OpenCLIP, SIFT BoVW</p>
+                        <p><strong>Datasets:</strong> UKBench (10,200), Holidays (1,491), PhotoTriage (12,988)</p>
+                        <p><strong>Best:</strong> DINOv2 with 0.958 mAP@10 on UKBench</p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; border-top: 4px solid #764ba2;">
+                        <h3 style="color: #764ba2; margin-bottom: 15px;">2️⃣ Clustering</h3>
+                        <p><strong>Methods:</strong> KMeans, DBSCAN, HDBSCAN</p>
+                        <p><strong>Features:</strong> Color histograms, DINOv2, CLIP embeddings</p>
+                        <p><strong>Output:</strong> HTML gallery visualizations</p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; border-top: 4px solid #f5576c;">
+                        <h3 style="color: #f5576c; margin-bottom: 15px;">3️⃣ Quality Assessment</h3>
+                        <p><strong>Approaches:</strong> Rule-based, CNN (NIMA), Transformer (ViT), CLIP Aesthetic, Siamese E2E, AVA ResNet</p>
+                        <p><strong>Best Overall:</strong> Siamese E2E at 89.9% on degradation test</p>
+                        <p><strong>Best on Real Data:</strong> Sharpness-only at 64.95% on PhotoTriage</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 class="section-title"><span class="emoji">📖</span> Documentation Created</h2>
+                <p style="font-size: 1.05em; color: #555; margin-bottom: 20px;">
+                    Extensive documentation was created throughout this journey, serving as both learning material and reference:
+                </p>
+                
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">Image Similarity Research (docs/image_similarity/)</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>research_literature_review.md</strong> - 500+ lines analyzing Google, Meta, Apple approaches
+                        </li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>datasets.md</strong> - Comprehensive dataset documentation (UKBench, Holidays, PhotoTriage)
+                        </li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>methods_comparison.md</strong> - Detailed method comparisons with analysis tools
+                        </li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>performance.md</strong> - Caching, optimization strategies, benchmarking tips
+                        </li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>methods_deep_learning.md</strong> - Deep learning methods and embeddings
+                        </li>
+                        <li style="padding: 8px 0;">
+                            <strong>research_datasets.xlsx</strong> - Dataset comparison spreadsheet
+                        </li>
+                    </ul>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">Quality Assessment Documentation (docs/quality_assessment/)</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>LEARNED_CLIP_PROMPTS_SUMMARY.md</strong> - Complete documentation of learned prompts
+                        </li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>README_QUALITY_BENCHMARK.md</strong> - Quality benchmark guide
+                        </li>
+                        <li style="padding: 8px 0;">
+                            <strong>29 markdown files</strong> covering methods, benchmarks, analysis
+                        </li>
+                    </ul>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 10px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">Development Documentation (docs/development/)</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>12 session logs</strong> - Debugging sessions, implementation Q&A
+                        </li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>9 refactoring docs</strong> - Major refactoring documentation
+                        </li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>15 implementation summaries</strong> - Feature implementations
+                        </li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid #ddd;">
+                            <strong>7 experiment logs</strong> - Experimental work and investigations
+                        </li>
+                        <li style="padding: 8px 0;">
+                            <strong>CONVENTIONS.md</strong> - Repository organization standards
+                        </li>
+                    </ul>
+                </div>
+
+                <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin-top: 20px; border-left: 5px solid #ffc107;">
+                    <h4 style="color: #f57f17; margin-bottom: 10px;">💡 What Can Be Improved</h4>
+                    <p style="color: #666; line-height: 1.7;">
+                        <strong>Consolidation Opportunity:</strong> Many of these documents could be consolidated into this 
+                        retrospective for easier reference. Consider creating a comprehensive "Research & Methodology" section 
+                        that pulls together the literature review, dataset selection rationale, and methodological choices. 
+                        The development logs could be summarized into "Lessons Learned" entries.
+                    </p>
+                </div>
+            </div>
+
+            <div class="future-section">
+                <h2>🔮 Future Plans & Ideas</h2>
+                
+                <div class="future-grid">
+                    <div class="future-card">
+                        <h3>Immediate Next Steps</h3>
+                        <ul>
+                            <li>Run benchmark with learned CLIP prompts</li>
+                            <li>Train regression model for prompt aggregation</li>
+                            <li>Compare hardcoded vs learned vs regression approaches</li>
+                            <li>Continue MediaPipe portrait analysis exploration</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="future-card">
+                        <h3>Research Questions</h3>
+                        <ul>
+                            <li>Does learning from user feedback improve accuracy?</li>
+                            <li>Can we learn better aggregation weights?</li>
+                            <li>Which quality dimensions matter most?</li>
+                            <li>Do learned prompts generalize across datasets?</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="future-card">
+                        <h3>Enhancements</h3>
+                        <ul>
+                            <li>Add larger CLIP models (ViT-L-14, ViT-H-14)</li>
+                            <li>Build ensemble methods (sharpness + CLIP)</li>
+                            <li>Implement active learning for prompt refinement</li>
+                            <li>Multi-modal approach combining metrics</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="future-card">
+                        <h3>Cross-Dataset Work</h3>
+                        <ul>
+                            <li>Train AVA on PhotoTriage for fair comparison</li>
+                            <li>Test cross-dataset generalization</li>
+                            <li>Extend to semantic degradations</li>
+                            <li>Create failure case visualizations</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="thoughts">
+                <h3>💭 General Thoughts & Reflections</h3>
+                <p>
+                    <strong>What I've Learned:</strong> The journey from classical CV to deep learning has been illuminating. 
+                    The biggest surprise? Simple sharpness metrics still dominate on real user data (64.95%), despite sophisticated 
+                    deep learning models. This suggests that while compositional understanding requires learning (as proven by 
+                    Siamese's 89.9% on crops), users primarily care about technical sharpness when selecting from photo bursts.
+                </p>
+                <p style="margin-top: 15px;">
+                    <strong>The Importance of Critical Thinking:</strong> The data leakage discovery was pivotal. When results 
+                    looked "too good" (72% validation), I investigated rather than celebrated. Turned out series_id wasn't properly 
+                    separated between splits - the model was seeing related images across train/validation/test. After fixing, 
+                    validation dropped to ~50%, revealing the true challenge. This taught me to always question exceptional results 
+                    and validate assumptions rigorously.
+                </p>
+                <p style="margin-top: 15px;">
+                    <strong>Simplicity vs Complexity:</strong> The iterative process showed that bigger isn't always better. 
+                    Multi-feature fusion (deep + CNN intermediate + IQA) worked better than pure deep learning. Starting with 
+                    VGG16 Siamese showed severe overfitting, suggesting the need to start simpler and build up. The best baseline 
+                    remains sharpness at 64.95% - a humbling reminder that domain knowledge matters.
+                </p>
+                <p style="margin-top: 15px;">
+                    <strong>Architecture Evolution:</strong> The shift to clean factory patterns, type-safe code, and proper 
+                    separation of concerns has made the codebase significantly more maintainable. The app refactoring especially 
+                    demonstrates how production-ready code should be structured.
+                </p>
+                <p style="margin-top: 15px;">
+                    <strong>Data-Driven Insights:</strong> Learning prompts from 34,827 user feedback reasons showed how users 
+                    actually think about quality - very different from photography textbooks. However, discovering that 60% of 
+                    pairs had no explicit tags revealed how messy real-world data is. The complementary nature of different 
+                    models (Siamese for composition, AVA for aesthetics, IQA for technical metrics) suggests ensemble methods 
+                    could be powerful.
+                </p>
+                <p style="margin-top: 15px;">
+                    <strong>The Value of Manual Analysis:</strong> Zachar's advice to manually examine 100-200 error cases 
+                    resonates strongly. Understanding failure patterns through careful analysis beats blindly adding model 
+                    complexity. Building an error analysis dashboard could be more valuable than trying the next architecture.
+                </p>
+                <p style="margin-top: 15px;">
+                    <strong>Looking Forward:</strong> The foundation is solid but the journey continues. Bradley-Terry ranking 
+                    offers a path to production-ready single-pass scoring. Portrait-specific features (MediaPipe) could address 
+                    specific failure modes. Most importantly: start simple, understand deeply, iterate based on data - not hype.
+                </p>
+            </div>
+        </div>
+
+        <footer>
+            <p><strong>sim-bench</strong> - Image Analysis & Quality Assessment Framework</p>
+            <p style="margin-top: 10px; opacity: 0.8;">Last Updated: January 22, 2026</p>
+            <p style="margin-top: 10px;"><a href="README.md">View Documentation</a> | <a href="PROJECT_SUMMARY.md">Project Summary</a></p>
+        </footer>
+    </div>
+</body>
+</html>
