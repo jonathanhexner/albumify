@@ -346,7 +346,7 @@ def merge_configs(*configs: Union[Dict, Path, str]) -> Dict[str, Any]:
 
 
 def _deep_merge_dicts(base: Dict, updates: Dict) -> None:
-    """Helper for deep dictionary merge."""
+    """Helper for deep dictionary merge (in-place)."""
     for key, value in updates.items():
         if key in base and isinstance(base[key], dict) and isinstance(value, dict):
             _deep_merge_dicts(base[key], value)
@@ -354,9 +354,33 @@ def _deep_merge_dicts(base: Dict, updates: Dict) -> None:
             base[key] = value
 
 
+def deep_merge(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Deep merge two dictionaries, returning a new dictionary.
+
+    Args:
+        base: Base configuration dictionary
+        updates: Updates to apply (takes precedence)
+
+    Returns:
+        New dictionary with base values updated by updates
+
+    Example:
+        >>> base = {'a': 1, 'nested': {'b': 2, 'c': 3}}
+        >>> updates = {'nested': {'b': 20, 'd': 4}}
+        >>> result = deep_merge(base, updates)
+        >>> # result = {'a': 1, 'nested': {'b': 20, 'c': 3, 'd': 4}}
+    """
+    import copy
+    result = copy.deepcopy(base)
+    _deep_merge_dicts(result, updates)
+    return result
+
+
 __all__ = [
     'GlobalConfig',
     'get_global_config',
     'setup_logging',
-    'merge_configs'
+    'merge_configs',
+    'deep_merge'
 ]

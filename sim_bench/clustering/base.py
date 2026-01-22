@@ -8,6 +8,9 @@ from typing import Dict, Any, Tuple
 import numpy as np
 from pathlib import Path
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ClusteringMethod(ABC):
@@ -63,7 +66,7 @@ class ClusteringMethod(ABC):
     ) -> None:
         """
         Save clustering results to disk.
-        
+
         Args:
             output_dir: Directory to save results
             image_paths: List of image paths
@@ -73,7 +76,9 @@ class ClusteringMethod(ABC):
         """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
+        saved_files = []
+
         # Save clusters CSV
         if self.output_config.get('save_csv', True):
             csv_path = output_dir / 'clusters.csv'
@@ -81,62 +86,50 @@ class ClusteringMethod(ABC):
                 f.write('image_path,cluster_id\n')
                 for img_path, label in zip(image_paths, labels):
                     f.write(f'{img_path},{label}\n')
-            print(f"[OK] Saved clusters to: {csv_path}")
-        
+            saved_files.append(f"clusters: {csv_path}")
+
         # Save statistics JSON
         if self.output_config.get('save_stats', True):
             stats_path = output_dir / 'cluster_stats.json'
             with open(stats_path, 'w') as f:
                 json.dump(stats, f, indent=2)
-            print(f"[OK] Saved statistics to: {stats_path}")
-        
+            saved_files.append(f"stats: {stats_path}")
+
         # Generate HTML gallery
         if self.output_config.get('save_galleries', False):
-            try:
-                from sim_bench.clustering.gallery import generate_cluster_gallery, open_in_browser
-                
-                html_path = generate_cluster_gallery(
-                    output_dir,
-                    image_paths,
-                    labels,
-                    stats,
-                    experiment_name
-                )
-                print(f"[OK] Saved HTML gallery to: {html_path}")
-                
-                # Optionally open in browser
-                if self.output_config.get('open_browser', False):
-                    open_in_browser(html_path)
-                    print(f"[OK] Opened gallery in browser")
-                    
-            except ImportError as e:
-                print(f"[WARNING] Could not generate HTML gallery: {e}")
-                print(f"          Install jinja2: pip install jinja2")
-            except Exception as e:
-                print(f"[WARNING] Error generating HTML gallery: {e}")
-        
-        # Print summary
-        self._print_summary(stats)
+            from sim_bench.clustering.gallery import generate_cluster_gallery, open_in_browser
+
+            html_path = generate_cluster_gallery(
+                output_dir,
+                image_paths,
+                labels,
+                stats,
+                experiment_name
+            )
+            saved_files.append(f"gallery: {html_path}")
+
+            if self.output_config.get('open_browser', False):
+                open_in_browser(html_path)
+
+        logger.info(f"Saved clustering results: {', '.join(saved_files)}")
+        self._log_summary(stats)
     
-    def _print_summary(self, stats: Dict[str, Any]) -> None:
-        """Print clustering summary."""
-        print(f"\n{'='*60}")
-        print(f"CLUSTERING RESULTS")
-        print(f"{'='*60}")
-        print(f"Algorithm: {stats['algorithm']}")
-        print(f"Number of clusters: {stats['n_clusters']}")
-        if 'n_noise' in stats:
-            print(f"Noise points: {stats['n_noise']} ({stats['noise_ratio']:.1%})")
-        print(f"Cluster size distribution:")
+    def _log_summary(self, stats: Dict[str, Any]) -> None:
+        """Log clustering summary."""
         sizes = sorted(stats['cluster_sizes'].values(), reverse=True) if stats['cluster_sizes'] else []
+
+        noise_info = ""
+        if 'n_noise' in stats:
+            noise_info = f", noise={stats['n_noise']} ({stats['noise_ratio']:.1%})"
+
+        size_info = "no clusters"
         if sizes:
-            print(f"  Min: {min(sizes)}")
-            print(f"  Max: {max(sizes)}")
-            print(f"  Mean: {np.mean(sizes):.1f}")
-            print(f"  Median: {np.median(sizes):.1f}")
-        else:
-            print(f"  No clusters found")
-        print(f"{'='*60}")
+            size_info = f"min={min(sizes)}, max={max(sizes)}, mean={np.mean(sizes):.1f}"
+
+        logger.info(
+            f"Clustering complete: algorithm={stats['algorithm']}, "
+            f"n_clusters={stats['n_clusters']}{noise_info}, sizes=[{size_info}]"
+        )
     
     def __str__(self) -> str:
         return f"{self.__class__.__name__}({self.algorithm})"

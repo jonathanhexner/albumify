@@ -53,71 +53,77 @@ class FaceModel(SpecializedModel):
         """Lazy load the face model."""
         if self._model is not None:
             return
-            
-        if self.backend == 'deepface':
-            try:
-                from deepface import DeepFace
-                self._model = DeepFace
-                logger.info(f"Loaded DeepFace backend (model: {self.model_name})")
-            except ImportError:
-                raise ImportError("DeepFace not installed. Install with: pip install deepface")
-        elif self.backend == 'insightface':
-            try:
-                import insightface
-                self._model = insightface.app.FaceAnalysis()
-                self._model.prepare(ctx_id=-1 if self.device == 'cpu' else 0)
-                logger.info("Loaded InsightFace backend")
-            except ImportError:
-                raise ImportError("InsightFace not installed. Install with: pip install insightface")
-        elif self.backend == 'mediapipe':
-            try:
-                import mediapipe as mp
-                self._face_detection = mp.solutions.face_detection.FaceDetection()
-                self._face_mesh = mp.solutions.face_mesh.FaceMesh()
-                logger.info("Loaded MediaPipe backend")
-            except ImportError:
-                raise ImportError("MediaPipe not installed. Install with: pip install mediapipe")
-        else:
+
+        backend_loaders = {
+            'deepface': self._load_deepface,
+            'insightface': self._load_insightface,
+            'mediapipe': self._load_mediapipe
+        }
+
+        loader = backend_loaders.get(self.backend)
+        if loader is None:
             raise ValueError(f"Unknown backend: {self.backend}")
+        loader()
+
+    def _load_deepface(self):
+        """Load DeepFace backend."""
+        from deepface import DeepFace
+        self._model = DeepFace
+        logger.info(f"Loaded DeepFace backend (model: {self.model_name})")
+
+    def _load_insightface(self):
+        """Load InsightFace backend."""
+        import insightface
+        self._model = insightface.app.FaceAnalysis()
+        ctx_id = -1 if self.device == 'cpu' else 0
+        self._model.prepare(ctx_id=ctx_id)
+        logger.info("Loaded InsightFace backend")
+
+    def _load_mediapipe(self):
+        """Load MediaPipe backend."""
+        import mediapipe as mp
+        self._face_detection = mp.solutions.face_detection.FaceDetection()
+        self._face_mesh = mp.solutions.face_mesh.FaceMesh()
+        logger.info("Loaded MediaPipe backend")
     
     def extract_embeddings(self, image_paths: List[str]) -> Dict[str, np.ndarray]:
         """
         Extract face embeddings from images.
-        
+
         Args:
             image_paths: List of image file paths
-            
+
         Returns:
             Dict mapping image_path -> embedding array
             Shape: [n_faces, embedding_dim] if multiple faces, or [embedding_dim] if single face
         """
         self._load_model()
         embeddings = {}
-        
+
         for image_path in image_paths:
-            try:
-                result = self.process_image(image_path)
-                if result.get('embeddings'):
-                    # Stack multiple face embeddings
-                    face_embs = np.array(result['embeddings'])
-                    if face_embs.ndim == 1:
-                        face_embs = face_embs.reshape(1, -1)
-                    embeddings[image_path] = face_embs
-                else:
-                    embeddings[image_path] = np.array([]).reshape(0, 512)  # Empty
-            except Exception as e:
-                logger.warning(f"Failed to extract faces from {image_path}: {e}")
-                embeddings[image_path] = np.array([]).reshape(0, 512)
-        
+            result = self.process_image(image_path)
+            face_embs = self._extract_embeddings_from_result(result)
+            embeddings[image_path] = face_embs
+
         return embeddings
+
+    def _extract_embeddings_from_result(self, result: Dict[str, Any]) -> np.ndarray:
+        """Extract embeddings array from process_image result."""
+        if not result.get('embeddings'):
+            return np.array([]).reshape(0, 512)
+
+        face_embs = np.array(result['embeddings'])
+        if face_embs.ndim == 1:
+            face_embs = face_embs.reshape(1, -1)
+        return face_embs
     
     def process_image(self, image_path: str) -> Dict[str, Any]:
         """
         Process single image and extract face information.
-        
+
         Args:
             image_path: Path to image file
-            
+
         Returns:
             Dict with:
                 - embeddings: List of face embedding arrays
@@ -126,56 +132,47 @@ class FaceModel(SpecializedModel):
         """
         self._load_model()
         image_path = Path(image_path)
-        
+
         if not image_path.exists():
             raise FileNotFoundError(f"Image not found: {image_path}")
-        
-        if self.backend == 'deepface':
-            return self._process_deepface(image_path)
-        elif self.backend == 'insightface':
-            return self._process_insightface(image_path)
-        elif self.backend == 'mediapipe':
-            return self._process_mediapipe(image_path)
-        else:
+
+        processors = {
+            'deepface': self._process_deepface,
+            'insightface': self._process_insightface,
+            'mediapipe': self._process_mediapipe
+        }
+
+        processor = processors.get(self.backend)
+        if processor is None:
             raise ValueError(f"Unsupported backend: {self.backend}")
+        return processor(image_path)
     
     def _process_deepface(self, image_path: Path) -> Dict[str, Any]:
         """Process image using DeepFace backend."""
         from deepface import DeepFace
-        import cv2
-        
-        try:
-            # Detect and extract embeddings
-            objs = DeepFace.represent(
-                str(image_path),
-                model_name=self.model_name,
-                enforce_detection=False,
-                detector_backend='opencv'
-            )
-            
-            embeddings = []
-            detections = []
-            
-            for obj in objs:
-                embeddings.append(np.array(obj['embedding']))
-                detections.append({
-                    'bbox': obj.get('facial_area', {}),
-                    'confidence': 1.0,  # DeepFace doesn't provide confidence
-                    'region': obj.get('region', {})
-                })
-            
-            return {
-                'embeddings': embeddings,
-                'detections': detections,
-                'face_count': len(embeddings)
+
+        objs = DeepFace.represent(
+            str(image_path),
+            model_name=self.model_name,
+            enforce_detection=False,
+            detector_backend='opencv'
+        )
+
+        embeddings = [np.array(obj['embedding']) for obj in objs]
+        detections = [
+            {
+                'bbox': obj.get('facial_area', {}),
+                'confidence': 1.0,
+                'region': obj.get('region', {})
             }
-        except Exception as e:
-            logger.debug(f"DeepFace processing failed for {image_path}: {e}")
-            return {
-                'embeddings': [],
-                'detections': [],
-                'face_count': 0
-            }
+            for obj in objs
+        ]
+
+        return {
+            'embeddings': embeddings,
+            'detections': detections,
+            'face_count': len(embeddings)
+        }
     
     def _process_insightface(self, image_path: Path) -> Dict[str, Any]:
         """Process image using InsightFace backend."""

@@ -100,3 +100,51 @@ export:
   default_format: html           # Default export format
   include_metadata: true         # Include metadata in exports
   copy_original_files: false     # Copy vs. symlink original files
+
+# ============================================================================
+# Album Organization
+# ============================================================================
+album:
+  # Quality thresholds for filtering
+  quality:
+    min_iqa_score: 0.3           # Minimum technical quality (0-1)
+    min_ava_score: 4.0           # Minimum aesthetic score (1-10)
+    min_sharpness: 0.2           # Minimum sharpness (0-1)
+
+  # Portrait preferences for selection
+  portrait:
+    require_eyes_open: true      # Filter out photos with closed eyes
+    prefer_smiling: true         # Prefer smiling photos in selection
+    smile_importance: 0.3        # Weight for smile in scoring (0-1)
+    eyes_open_importance: 0.4    # Weight for eyes open in scoring (0-1)
+
+  # Clustering settings
+  clustering:
+    method: hdbscan              # Clustering algorithm: 'hdbscan', 'dbscan', 'kmeans'
+    feature_method: dinov2       # Feature extraction: 'dinov2', 'openclip', 'resnet50'
+    min_cluster_size: 3          # Minimum photos per cluster
+
+  # Best image selection
+  selection:
+    images_per_cluster: 1        # Number of images to select per cluster
+    ava_weight: 0.5              # Weight for aesthetic score
+    iqa_weight: 0.2              # Weight for technical quality
+    portrait_weight: 0.3         # Weight for portrait metrics
+    use_siamese_tiebreaker: true # Use Siamese model for close decisions
+
+  # Export settings
+  export:
+    format: folder               # Export format: 'folder', 'zip'
+    organize_by_cluster: true    # Organize output by cluster
+    include_thumbnails: true     # Include thumbnails in export
+
+# ============================================================================
+# Portrait Analysis (MediaPipe)
+# ============================================================================
+portrait_analysis:
+  face_detection_confidence: 0.5       # Minimum confidence for face detection
+  portrait_face_ratio_threshold: 0.0005 # Min face area ratio for portrait
+  portrait_center_offset_threshold: 0.3 # Max center offset for portrait
+  eye_open_ear_threshold: 0.2          # Eye Aspect Ratio threshold
+  smile_width_threshold: 0.15          # Mouth width ratio for smile
+  smile_elevation_threshold: 0.005     # Corner elevation for smile
