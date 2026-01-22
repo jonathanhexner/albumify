@@ -1,0 +1,79 @@
+================================================================================
+                    PRODUCTION MODELS - QUICK REFERENCE
+================================================================================
+
+MODELS IN THIS FOLDER
+----------------------
+
+1. ava_aesthetic_model.pt (96 MB)
+   Purpose: Aesthetic quality scoring (1-10)
+   When:    Every image during analysis
+   Weight:  50% of selection score
+
+2. siamese_comparison_model.pt (94 MB)
+   Purpose: Pairwise A vs B comparison
+   When:    Tiebreaking (scores within 5%)
+   Weight:  Final decision in close calls
+
+
+WHERE THEY'RE USED
+------------------
+
+Config:  configs/global_config.yaml
+Code:    sim_bench/model_hub/hub.py
+Scoring: sim_bench/album/selection.py
+
+
+SELECTION FORMULA
+-----------------
+
+composite_score = 50% AVA + 20% IQA + 30% Portrait
+
+If top candidates within 5%:
+  → Siamese model compares them
+  → Picks winner based on confidence
+
+
+VERIFY THEY'RE WORKING
+-----------------------
+
+1. Restart app
+2. Look for in logs:
+   "INFO - Loaded AVA model"
+   "INFO - Loaded Siamese comparison model"
+3. Check Performance tab after running album
+
+
+TRAINING DETAILS
+----------------
+
+AVA Model:
+  - Dataset: AVA (250K images, human aesthetic ratings)
+  - Architecture: ResNet50 + regression head
+  - Loss: MSE (Mean Squared Error)
+  - Device: GPU
+  - Date: Jan 18, 2026
+
+Siamese Model:
+  - Dataset: PhotoTriage (pairwise comparisons)
+  - Architecture: Siamese CNN (shared ResNet50)
+  - Loss: Binary Cross-Entropy
+  - Device: CPU
+  - Date: Jan 13, 2026
+
+
+FULL DOCS
+---------
+
+See README.md in this folder for complete documentation
+
+
+ORIGINAL SOURCES
+----------------
+
+AVA:     outputs/ava/gpu_run_regression_18_01/
+Siamese: outputs/siamese_e2e/20260113_073023/
+(Preserved for training history & reference)
+
+
+================================================================================

@@ -1,0 +1,51 @@
+data:
+  ava_txt: /workspace/AVA_Files/AVA.txt
+  cached_parquet: /workspace/AVA_Files/ava_dataset_corrected_filtered.parquet
+  image_dir: /workspace/images
+  num_workers: 4
+  test_ratio: 0.1
+  train_ratio: 0.8
+  val_ratio: 0.1
+device: cuda
+grad_log_interval: 200
+log_interval: 50
+model:
+  activation: relu
+  backbone: resnet50
+  dropout: 0.2
+  mlp_hidden_dims:
+  - 256
+  output_mode: regression
+  pretrained: true
+name: ava_resnet50_gpu
+output_dir: outputs/ava/gpu_run_regression_18_01
+save_val_predictions: true
+seed: 42
+training:
+  batch_size: 64
+  differential_lr: true
+  early_stop_patience: 5
+  learning_rate: 0.0001
+  loss_type: mse
+  max_epochs: 30
+  optimizer: adamw
+  weight_decay: 0.0001
+transform:
+  augmentation:
+    color_jitter:
+      brightness: 0.1
+      contrast: 0.1
+      hue: 0.05
+      saturation: 0.1
+    horizontal_flip: 0.5
+    random_crop: true
+  crop_size: 224
+  normalize_mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  normalize_std:
+  - 0.229
+  - 0.224
+  - 0.225
+  resize_size: 256

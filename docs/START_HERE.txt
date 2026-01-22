@@ -1,0 +1,135 @@
+================================================================================
+              ARCHITECTURE DOCUMENTATION - HOW TO VIEW
+================================================================================
+
+PROBLEM: Browser security blocks the HTML viewer, Cursor shows "null" error
+
+SOLUTIONS (in order of ease):
+================================================================================
+
+
+METHOD 1: Read as Plain Text (Works Right Now!)
+--------------------------------------------------------------------------------
+The .md files are designed to be readable even as plain text!
+
+Just open in Notepad or any text editor:
+  → GETTING_STARTED.md        (Start here - 15 min read)
+  → ALBUM_APP_ARCHITECTURE.md (Complete reference)
+  → FILE_DEPENDENCY_MAP.md    (How files connect)
+
+They have headers, bullet points, code blocks - all readable!
+
+
+METHOD 2: Use Web Server (For Pretty HTML View)
+--------------------------------------------------------------------------------
+1. Double-click: serve_docs.bat
+2. Open browser to: http://localhost:8000/VIEW_DOCS.html
+3. Enjoy formatted view with sidebar navigation
+4. Press Ctrl+C in terminal to stop server
+
+
+METHOD 3: Fix Cursor Preview
+--------------------------------------------------------------------------------
+The "null" error usually means Cursor is having a hiccup.
+
+Try:
+  1. Close ALL open .md files in Cursor
+  2. Restart Cursor completely
+  3. Open one .md file
+  4. Press Ctrl+Shift+V (should show preview)
+
+If still broken:
+  - Right-click file → "Reopen Editor With..." → "Text Editor"
+  - Then try Ctrl+Shift+V again
+
+
+METHOD 4: Use VS Code Instead
+--------------------------------------------------------------------------------
+If Cursor won't cooperate:
+  1. Open folder in VS Code: code D:\sim-bench\docs
+  2. Open any .md file
+  3. Press Ctrl+Shift+V
+  4. Works perfectly!
+
+
+================================================================================
+                    QUICK START (RIGHT NOW)
+================================================================================
+
+RECOMMENDED: Just read GETTING_STARTED.md as plain text!
+
+It tells you:
+  ✓ What the album app does
+  ✓ How it uses your trained models
+  ✓ Why your AVA model isn't working (not configured!)
+  ✓ How to fix it (add one line to config)
+  ✓ How everything connects
+
+Open in Notepad:
+  D:\sim-bench\docs\GETTING_STARTED.md
+
+
+================================================================================
+                        KEY FINDINGS
+================================================================================
+
+YOUR TRAINED AVA MODEL EXISTS BUT ISN'T BEING USED!
+
+Location: outputs/ava/gpu_run_regression_18_01/best_model.pt
+
+Fix: Add this line to configs/global_config.yaml:
+
+quality_assessment:
+  ava_checkpoint: outputs/ava/gpu_run_regression_18_01/best_model.pt
+
+Then restart the app.
+
+
+================================================================================
+                     DOCUMENT OVERVIEW
+================================================================================
+
+1. GETTING_STARTED.md (15 min)
+   → Quick overview, how to enable AVA, basic architecture
+
+2. ALBUM_APP_ARCHITECTURE.md (30 min)
+   → Complete 3-layer architecture, model loading, data flow
+
+3. FILE_DEPENDENCY_MAP.md (20 min)
+   → Which file calls which, exact execution traces
+
+4. MODEL_USAGE_QUICK_REFERENCE.md (10 min)
+   → Model-specific details, troubleshooting
+
+5. ARCHITECTURE_INDEX.md
+   → Navigation hub for all docs
+
+
+================================================================================
+                    WHY MARKDOWN (.md)?
+================================================================================
+
+Markdown is the universal format for technical documentation:
+  ✓ Readable as plain text (no special tools needed)
+  ✓ Beautiful when rendered (in Cursor, VS Code, GitHub, browsers)
+  ✓ Easy to search (Ctrl+F works)
+  ✓ Git-friendly (can track changes)
+  ✓ Copy-paste friendly (code examples work)
+
+Used by: GitHub, Stack Overflow, Reddit, Discord, documentation sites
+
+
+================================================================================
+                       NEXT STEPS
+================================================================================
+
+1. Open GETTING_STARTED.md in Notepad (or keep trying Cursor preview)
+2. Read the "TL;DR" section at the top
+3. Add ava_checkpoint to your config file
+4. Restart app and verify AVA loads
+
+
+Need help? All the info is in the docs - they're designed to be readable
+even without fancy rendering!
+
+================================================================================

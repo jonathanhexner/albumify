@@ -1,0 +1,48 @@
+batch_comparison_interval: 100000
+compare_with_reference: false
+data:
+  image_root: D:\Similar Images\automatic_triage_photo_series\train_val\train_val_imgs
+  min_agreement: 0.7
+  min_reviewers: 2
+  quick_experiment: null
+  root_dir: D:\Similar Images\automatic_triage_photo_series
+  split_mode: series_based
+device: cpu
+log_batch_predictions: false
+log_interval: 10
+log_predictions_every_n: 200000
+model:
+  activation: relu
+  cnn_backbone: resnet50
+  dropout: 0.0
+  mlp_hidden_dims: []
+  padding_mean_color:
+  - 0.485
+  - 0.456
+  - 0.406
+  pretrained: true
+  use_paper_preprocessing: true
+model_type: siamese_cnn
+name: siamese_e2e_resnet50
+output_dir: null
+seed: 42
+telemetry:
+  collect_every_n: 200
+  enabled: true
+  holdout_size: 50
+  track_batch_stats: true
+  track_gradients: true
+  track_holdout_logits: true
+  track_learning_rates: true
+  track_weight_delta: true
+training:
+  batch_size: 8
+  differential_lr: true
+  early_stop_patience: 10
+  learning_rate: 1.0e-05
+  max_epochs: 3
+  momentum: 0.9
+  optimizer: sgd
+  weight_decay: 0.0005
+transform_type: auto
+use_external_dataloader: false

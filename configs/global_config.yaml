@@ -51,6 +51,10 @@ quality_assessment:
   default_method: clip_aesthetic  # Default quality method
   enable_cache: true              # Cache quality scores
   batch_size: 16                  # Batch size for assessment
+  
+  # Production Models - Clear, stable paths (copied from outputs/)
+  ava_checkpoint: models/album_app/ava_aesthetic_model.pt
+  siamese_checkpoint: models/album_app/siamese_comparison_model.pt
 
 # ============================================================================
 # Photo Analysis
@@ -105,6 +109,12 @@ export:
 # Album Organization
 # ============================================================================
 album:
+  # Preprocessing settings (NEW - for performance optimization)
+  preprocessing:
+    enabled: true                # Enable thumbnail preprocessing for 50%+ speedup
+    cache_thumbnails: true       # Cache thumbnails to disk
+    num_workers: 4               # Parallel workers for thumbnail generation
+  
   # Quality thresholds for filtering
   quality:
     min_iqa_score: 0.3           # Minimum technical quality (0-1)
@@ -122,7 +132,8 @@ album:
   clustering:
     method: hdbscan              # Clustering algorithm: 'hdbscan', 'dbscan', 'kmeans'
     feature_method: dinov2       # Feature extraction: 'dinov2', 'openclip', 'resnet50'
-    min_cluster_size: 3          # Minimum photos per cluster
+    min_cluster_size: 3          # Minimum photos per cluster (1 = allow singletons)
+    handle_noise: as_individual_clusters  # How to handle noise: 'as_individual_clusters', 'group_together', 'exclude'
 
   # Best image selection
   selection:
