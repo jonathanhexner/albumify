@@ -50,6 +50,13 @@ class ModelHub:
         self._feature_extractor = None
         self._clustering_method = None
 
+        # Feature cache for avoiding re-extraction
+        self._feature_cache = None
+        if config.get('enable_embedding_cache', True):
+            from sim_bench.feature_cache import FeatureCache
+            cache_dir = Path(config.get('cache_dir', '.cache')) / 'features'
+            self._feature_cache = FeatureCache(cache_root=cache_dir)
+
         logger.info(f"ModelHub initialized (device={self._device})")
 
     # =========================================================================
@@ -205,7 +212,7 @@ class ModelHub:
 
     def extract_features(self, image_paths: List[Path]) -> np.ndarray:
         """
-        Extract features for clustering.
+        Extract features for clustering (with caching).
 
         Args:
             image_paths: List of image paths
@@ -213,9 +220,26 @@ class ModelHub:
         Returns:
             Feature matrix [n_images, feature_dim]
         """
-        extractor = self._get_feature_extractor()
         str_paths = [str(p) for p in image_paths]
-        return extractor.extract_features(str_paths)
+        method = self._config.get('album', {}).get('clustering', {}).get('feature_method', 'dinov2')
+        method_config = {'method': method, 'device': self._device}
+
+        # Try to load from cache
+        if self._feature_cache:
+            cached = self._feature_cache.load(method, method_config, str_paths)
+            if cached is not None:
+                logger.info(f"Using cached features ({len(str_paths)} images)")
+                return cached
+
+        # Extract features
+        extractor = self._get_feature_extractor()
+        features = extractor.extract_features(str_paths)
+
+        # Save to cache
+        if self._feature_cache:
+            self._feature_cache.save(method, method_config, str_paths, features)
+
+        return features
 
     def cluster_images(self, features: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
         """

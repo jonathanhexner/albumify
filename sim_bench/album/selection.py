@@ -3,6 +3,7 @@ Best image selection from clusters.
 """
 
 import logging
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from sim_bench.model_hub import ImageMetrics, ModelHub
@@ -84,26 +85,32 @@ class BestImageSelector:
     ) -> List[str]:
         """
         Select best N images from a single cluster.
+
+        Uses Siamese model to compare top candidates when available.
         """
         if len(cluster_images) <= self._images_per_cluster:
             return cluster_images
-        
+
         scored = []
         for img_path in cluster_images:
             metric = metrics.get(img_path)
             if not metric:
                 continue
-            
+
             score = self.compute_score(metric)
             scored.append((img_path, score))
-        
+
         scored.sort(key=lambda x: x[1], reverse=True)
-        
+
+        # Use Siamese to compare top candidates (compare top 3, select best)
+        if self._use_siamese and hub and len(scored) >= 2:
+            top_candidates = scored[:min(3, len(scored))]
+            winner = self._select_best_with_siamese(top_candidates, hub)
+            if winner:
+                return [winner]
+
+        # Fallback to score-based selection
         top_n = scored[:self._images_per_cluster]
-        
-        if self._use_siamese and hub and len(top_n) > 1:
-            top_n = self._apply_siamese_tiebreaker(top_n, hub)
-        
         return [path for path, _ in top_n]
     
     def compute_score(self, metrics: ImageMetrics) -> float:
@@ -122,36 +129,56 @@ class BestImageSelector:
             portrait_weight=self._portrait_weight
         )
     
-    def _apply_siamese_tiebreaker(
+    def _select_best_with_siamese(
         self,
         candidates: List[tuple],
         hub: ModelHub
-    ) -> List[tuple]:
+    ) -> Optional[str]:
         """
-        Use Siamese model to break ties between similar scores.
-        
-        Only applies if scores are very close (within 5%).
+        Use Siamese model to select best image from candidates.
+
+        Compares all pairs and selects image with most wins.
+        Falls back to highest-scored if Siamese unavailable.
+
+        Args:
+            candidates: List of (path, score) tuples, sorted by score descending
+            hub: ModelHub with Siamese model
+
+        Returns:
+            Path of best image, or None if comparison fails
         """
         if len(candidates) < 2:
-            return candidates
-        
+            return candidates[0][0] if candidates else None
+
         paths = [path for path, score in candidates]
-        scores = [score for path, score in candidates]
-        
-        if max(scores) - min(scores) > 0.05:
-            return candidates
-        
-        comparisons = []
-        for i in range(len(paths) - 1):
-            result = hub.compare_images(paths[i], paths[i + 1])
-            winner_idx = i if result['winner'] == 1 else i + 1
-            comparisons.append((winner_idx, result['confidence']))
-        
-        if not comparisons:
-            return candidates
-        
-        best_idx = max(comparisons, key=lambda x: x[1])[0]
-        return [candidates[best_idx]]
+
+        # Track wins for each candidate
+        wins = {path: 0 for path in paths}
+
+        try:
+            # Compare all pairs
+            for i in range(len(paths)):
+                for j in range(i + 1, len(paths)):
+                    result = hub.compare_images(paths[i], paths[j])
+                    if result and 'winner' in result:
+                        winner_path = paths[i] if result['winner'] == 1 else paths[j]
+                        wins[winner_path] += 1
+                        logger.debug(
+                            f"Siamese: {Path(paths[i]).name} vs {Path(paths[j]).name} "
+                            f"-> winner: {Path(winner_path).name} (conf: {result.get('confidence', 0):.2f})"
+                        )
+
+            # Select candidate with most wins
+            best_path = max(wins, key=wins.get)
+            logger.info(
+                f"Siamese selection: {Path(best_path).name} "
+                f"(wins: {wins[best_path]}/{len(paths)-1})"
+            )
+            return best_path
+
+        except Exception as e:
+            logger.warning(f"Siamese comparison failed: {e}, using score-based selection")
+            return None
     
     def select_diverse(
         self,

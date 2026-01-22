@@ -29,7 +29,13 @@ def render_results(result):
     
     st.header("📸 Results")
     
-    st.success(f"✅ Selected {len(result.selected_images)} best images from {len(result.clusters)} clusters")
+    filtered_count = len(getattr(result, 'filtered_out', []))
+    st.success(
+        f"✅ Selected {len(result.selected_images)} best images from {len(result.clusters)} clusters  \n"
+        f"📊 {result.total_images} total → {result.filtered_images} passed filters → {len(result.selected_images)} selected"
+    )
+    if filtered_count > 0:
+        st.warning(f"🚫 {filtered_count} images filtered out (didn't meet quality thresholds)")
     
     tab1, tab2, tab3, tab4 = st.tabs(["🖼️ Gallery", "📊 Metrics", "⚡ Performance", "📁 Export"])
     
@@ -49,49 +55,125 @@ def render_results(result):
 def render_gallery(result):
     """Render cluster gallery with images."""
     import streamlit as st
-    
-    st.subheader("Cluster Gallery")
-    
-    cluster_filter = st.selectbox(
-        "Filter by Cluster",
-        options=['All'] + [f"Cluster {cid}" for cid in sorted(result.clusters.keys())],
-        index=0
-    )
-    
-    if cluster_filter == 'All':
-        clusters_to_show = result.clusters
+
+    st.subheader("Image Gallery")
+
+    # Build filter options
+    filter_options = ['All Images', 'Clustered Only', 'Filtered Out']
+    filter_options += [f"Cluster {cid}" for cid in sorted(result.clusters.keys())]
+
+    view_filter = st.selectbox("View", options=filter_options, index=0)
+
+    # Determine which images to show
+    if view_filter == 'All Images':
+        _render_all_images_gallery(result, st)
+    elif view_filter == 'Filtered Out':
+        _render_filtered_out_gallery(result, st)
+    elif view_filter == 'Clustered Only':
+        _render_clusters_gallery(result, result.clusters, st)
     else:
-        cluster_id = int(cluster_filter.split()[1])
-        clusters_to_show = {cluster_id: result.clusters[cluster_id]}
-    
+        cluster_id = int(view_filter.split()[1])
+        _render_clusters_gallery(result, {cluster_id: result.clusters[cluster_id]}, st)
+
+
+def _render_image_card(img_path, result, st):
+    """Render a single image card with detailed metrics."""
+    try:
+        img = load_image_for_display(img_path)
+
+        # Determine status
+        is_selected = img_path in result.selected_images
+        is_filtered = hasattr(result, 'filtered_out') and img_path in result.filtered_out
+
+        # Display image
+        st.image(img, use_container_width=True)
+
+        # Status badge
+        if is_filtered:
+            st.error("🚫 Filtered")
+        elif is_selected:
+            st.success("⭐ Selected")
+
+        # Show metrics
+        metric = result.metrics.get(img_path)
+        if metric:
+            # Compute total score
+            total_score = metric.get_composite_score() if hasattr(metric, 'get_composite_score') else None
+
+            # Build detailed caption
+            lines = []
+
+            # Total score
+            if total_score is not None:
+                lines.append(f"**Score: {total_score:.2f}**")
+
+            # Quality metrics
+            qual_parts = []
+            if metric.ava_score is not None:
+                qual_parts.append(f"AVA:{metric.ava_score:.1f}")
+            if metric.iqa_score is not None:
+                qual_parts.append(f"IQA:{metric.iqa_score:.2f}")
+            if metric.sharpness is not None:
+                qual_parts.append(f"Sharp:{metric.sharpness:.2f}")
+            if qual_parts:
+                lines.append(" | ".join(qual_parts))
+
+            # Portrait metrics (eyes/smile)
+            if metric.is_portrait:
+                eyes_icon = "👁️" if metric.eyes_open else "😑"
+                smile_icon = "😊" if metric.is_smiling else "😐"
+                lines.append(f"Portrait: {eyes_icon} {smile_icon}")
+
+            st.caption("  \n".join(lines))  # Two spaces + newline for markdown line break
+        else:
+            st.caption("No metrics")
+
+    except Exception as e:
+        st.error(f"Error: {e}")
+
+
+def _render_all_images_gallery(result, st):
+    """Render all images grouped by status."""
+    # First show filtered out images
+    filtered_out = getattr(result, 'filtered_out', [])
+    if filtered_out:
+        with st.expander(f"🚫 Filtered Out ({len(filtered_out)} images)", expanded=False):
+            st.caption("These images didn't pass quality/portrait thresholds")
+            cols = st.columns(4)
+            for idx, img_path in enumerate(filtered_out):
+                with cols[idx % 4]:
+                    _render_image_card(img_path, result, st)
+
+    # Then show clustered images
+    _render_clusters_gallery(result, result.clusters, st)
+
+
+def _render_filtered_out_gallery(result, st):
+    """Render only filtered out images."""
+    filtered_out = getattr(result, 'filtered_out', [])
+    if not filtered_out:
+        st.info("No images were filtered out")
+        return
+
+    st.markdown(f"### 🚫 Filtered Out ({len(filtered_out)} images)")
+    cols = st.columns(4)
+    for idx, img_path in enumerate(filtered_out):
+        with cols[idx % 4]:
+            _render_image_card(img_path, result, st)
+
+
+def _render_clusters_gallery(result, clusters_to_show, st):
+    """Render cluster gallery."""
     for cluster_id, images in sorted(clusters_to_show.items()):
+        selected_count = sum(1 for img in images if img in result.selected_images)
         st.markdown(f"### 📁 Cluster {cluster_id}")
-        st.caption(f"{len(images)} images, {sum(1 for img in images if img in result.selected_images)} selected")
-        
+        st.caption(f"{len(images)} images, {selected_count} selected")
+
         cols = st.columns(4)
-        
         for idx, img_path in enumerate(images):
             with cols[idx % 4]:
-                try:
-                    img = load_image_for_display(img_path)
-                    st.image(img, use_column_width=True)
-                    
-                    if img_path in result.selected_images:
-                        st.success("⭐ Selected")
-                    
-                    metric = result.metrics.get(img_path)
-                    if metric:
-                        caption_parts = []
-                        if metric.iqa_score:
-                            caption_parts.append(f"IQA: {metric.iqa_score:.2f}")
-                        if metric.ava_score:
-                            caption_parts.append(f"AVA: {metric.ava_score:.1f}")
-                        
-                        st.caption(" | ".join(caption_parts))
-                
-                except Exception as e:
-                    st.error(f"Error loading image: {e}")
-        
+                _render_image_card(img_path, result, st)
+
         st.divider()
 
 
@@ -106,18 +188,32 @@ def render_metrics(result):
         st.info("No metrics available")
         return
     
+    filtered_out = set(getattr(result, 'filtered_out', []))
+
     rows = []
     for img_path, metric in result.metrics.items():
+        # Determine status
+        if img_path in result.selected_images:
+            status = '⭐ Selected'
+        elif img_path in filtered_out:
+            status = '🚫 Filtered'
+        else:
+            status = 'Clustered'
+
+        # Compute total score
+        total = metric.get_composite_score() if hasattr(metric, 'get_composite_score') else None
+
         rows.append({
             'Image': Path(img_path).name,
-            'IQA': metric.iqa_score if metric.iqa_score else 'N/A',
-            'AVA': metric.ava_score if metric.ava_score else 'N/A',
-            'Sharpness': metric.sharpness if metric.sharpness else 'N/A',
-            'Portrait': '✓' if metric.is_portrait else '✗',
-            'Eyes Open': '✓' if metric.eyes_open else '✗' if metric.is_portrait else '-',
-            'Smiling': '✓' if metric.is_smiling else '✗' if metric.is_portrait else '-',
-            'Cluster': metric.cluster_id if metric.cluster_id is not None else 'Noise',
-            'Selected': '⭐' if img_path in result.selected_images else '',
+            'Status': status,
+            'Score': f"{total:.2f}" if total is not None else 'N/A',
+            'AVA': f"{metric.ava_score:.1f}" if metric.ava_score else 'N/A',
+            'IQA': f"{metric.iqa_score:.2f}" if metric.iqa_score else 'N/A',
+            'Sharp': f"{metric.sharpness:.2f}" if metric.sharpness else 'N/A',
+            'Portrait': '✓' if metric.is_portrait else '',
+            'Eyes': '👁️' if metric.eyes_open else '😑' if metric.is_portrait else '',
+            'Smile': '😊' if metric.is_smiling else '😐' if metric.is_portrait else '',
+            'Cluster': metric.cluster_id if metric.cluster_id is not None else '-',
         })
     
     df = pd.DataFrame(rows)

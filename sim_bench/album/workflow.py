@@ -12,6 +12,7 @@ from uuid import uuid4
 from sim_bench.model_hub import ModelHub, ImageMetrics
 from sim_bench.album import stages
 from sim_bench.album.preprocessor import ImagePreprocessor
+from sim_bench.album.selection import BestImageSelector
 from sim_bench.album.telemetry import WorkflowTelemetry, TimingTracker
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,8 @@ class WorkflowResult:
     clusters: Dict[int, List[str]]
     selected_images: List[str]
     metrics: Dict[str, ImageMetrics]
+    all_images: List[str] = field(default_factory=list)  # All discovered images
+    filtered_out: List[str] = field(default_factory=list)  # Images that didn't pass filters
     cluster_stats: Dict[str, Any] = field(default_factory=dict)
     export_path: Optional[Path] = None
     run_id: Optional[str] = None
@@ -68,7 +71,8 @@ class AlbumWorkflow:
         
         self._hub = ModelHub(config)
         self._preprocessor = ImagePreprocessor(config)
-        
+        self._selector = BestImageSelector(config)
+
         logger.info("AlbumWorkflow initialized")
     
     def run(
@@ -198,6 +202,10 @@ class AlbumWorkflow:
         
         self._progress(progress_callback, "complete", 1.0)
         
+        # Track which images were filtered out
+        all_image_paths = [str(p) for p in images]
+        filtered_out = [p for p in all_image_paths if p not in all_passed]
+
         return WorkflowResult(
             source_directory=source_directory,
             total_images=len(images),
@@ -205,6 +213,8 @@ class AlbumWorkflow:
             clusters=clusters,
             selected_images=selected,
             metrics=metrics,
+            all_images=all_image_paths,
+            filtered_out=filtered_out,
             cluster_stats=cluster_stats,
             export_path=export_path,
             run_id=run_id,
