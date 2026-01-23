@@ -11,7 +11,7 @@ device: "cuda"  # or "cpu"
 # Data configuration
 data:
   data_format: "recordio"  # "recordio" or "folder"
-  rec_path: "D:/DataSets/casia_Webface/casia-webface/train.rec"
+  rec_path: "/workspace/casia-webface/train.rec"
   num_classes: 10572  # CASIA-WebFace rec file has 10,431 identities
   val_ratio: 0.05  # 5% for validation (face datasets are large)
   num_workers: 4

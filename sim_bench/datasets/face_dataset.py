@@ -30,6 +30,9 @@ class MXNetRecordDataset(Dataset):
 
     Note: Labels are extracted directly from the rec file header (bytes 4-8),
     NOT from the .lst file (which may have mismatches).
+
+    IMPORTANT: File handles are opened per-worker to avoid race conditions
+    with DataLoader multi-processing.
     """
 
     def __init__(self, rec_path: str, transform=None, num_classes: int = None):
@@ -45,6 +48,9 @@ class MXNetRecordDataset(Dataset):
         self.idx_path = self.rec_path.with_suffix('.idx')
         self.transform = transform
 
+        # Per-worker file handle (opened lazily)
+        self._rec_file = None
+
         if not self.rec_path.exists():
             raise FileNotFoundError(f"RecordIO file not found: {self.rec_path}")
         if not self.idx_path.exists():
@@ -54,11 +60,9 @@ class MXNetRecordDataset(Dataset):
         all_offsets = self._load_idx()
         logger.info(f"Loaded {len(all_offsets)} index entries from {self.idx_path}")
 
-        # Open record file
-        self.rec_file = open(self.rec_path, 'rb')
-
         # Pre-scan to find valid image records (flag=0)
         # and extract labels from rec file headers
+        # Uses a temporary file handle that gets closed after scanning
         self.samples = self._build_valid_samples(all_offsets)
         logger.info(f"Found {len(self.samples)} valid image records")
 
@@ -69,6 +73,17 @@ class MXNetRecordDataset(Dataset):
         logger.info(f"Dataset has {actual_classes} unique classes (labels {min(actual_labels)}-{max(actual_labels)})")
         if num_classes and actual_classes != num_classes:
             logger.warning(f"Expected {num_classes} classes, found {actual_classes}")
+
+    @property
+    def rec_file(self):
+        """
+        Lazily open file handle for this worker process.
+
+        Each DataLoader worker gets its own file handle to avoid race conditions.
+        """
+        if self._rec_file is None:
+            self._rec_file = open(self.rec_path, 'rb')
+        return self._rec_file
 
     def _load_idx(self) -> List[int]:
         """Load byte offsets from index file."""
@@ -87,35 +102,39 @@ class MXNetRecordDataset(Dataset):
 
         Valid image records have flag=0 in their header.
         Labels are extracted from the rec file header (bytes 4-8 as float).
+
+        Uses a temporary file handle that gets closed after scanning.
         """
         samples = []
 
-        for offset in all_offsets:
-            self.rec_file.seek(offset)
+        # Use temporary file handle for scanning (not shared with workers)
+        with open(self.rec_path, 'rb') as rec_file:
+            for offset in all_offsets:
+                rec_file.seek(offset)
 
-            # Read record header
-            magic_bytes = self.rec_file.read(4)
-            if len(magic_bytes) < 4:
-                continue
+                # Read record header
+                magic_bytes = rec_file.read(4)
+                if len(magic_bytes) < 4:
+                    continue
 
-            magic = struct.unpack('I', magic_bytes)[0]
-            if magic != 0xced7230a:
-                continue
+                magic = struct.unpack('I', magic_bytes)[0]
+                if magic != 0xced7230a:
+                    continue
 
-            length_flag = struct.unpack('I', self.rec_file.read(4))[0]
-            length = length_flag & ((1 << 29) - 1)
+                length_flag = struct.unpack('I', rec_file.read(4))[0]
+                length = length_flag & ((1 << 29) - 1)
 
-            # Read the data header: flag(4) + label(4)
-            if length < 8:
-                continue
+                # Read the data header: flag(4) + label(4)
+                if length < 8:
+                    continue
 
-            header_data = self.rec_file.read(8)
-            data_flag = struct.unpack('I', header_data[0:4])[0]
-            label = int(struct.unpack('f', header_data[4:8])[0])
+                header_data = rec_file.read(8)
+                data_flag = struct.unpack('I', header_data[0:4])[0]
+                label = int(struct.unpack('f', header_data[4:8])[0])
 
-            # Flag 0 = image record, other flags = metadata
-            if data_flag == 0:
-                samples.append((offset, label))
+                # Flag 0 = image record, other flags = metadata
+                if data_flag == 0:
+                    samples.append((offset, label))
 
         return samples
 
@@ -178,8 +197,9 @@ class MXNetRecordDataset(Dataset):
         }
 
     def __del__(self):
-        if hasattr(self, 'rec_file') and self.rec_file:
-            self.rec_file.close()
+        if hasattr(self, '_rec_file') and self._rec_file is not None:
+            self._rec_file.close()
+            self._rec_file = None
 
 
 class FolderFaceDataset(Dataset):
@@ -297,3 +317,164 @@ def create_train_val_split(dataset: Dataset, val_ratio: float = 0.1,
     train_indices = indices[n_val:]
 
     return train_indices, val_indices
+
+
+class PKSampler:
+    """
+    PK Sampler for face recognition training.
+
+    Samples P identities with K images each per batch.
+    This ensures each batch has multiple views of the same identity,
+    which is beneficial for metric learning and ArcFace training.
+
+    Batch size = P * K
+    """
+
+    def __init__(self, dataset, p_identities: int = 16, k_images: int = 4,
+                 seed: int = 42):
+        """
+        Initialize PK Sampler.
+
+        Args:
+            dataset: Dataset with 'samples' attribute containing (offset, label) tuples
+            p_identities: Number of identities per batch
+            k_images: Number of images per identity per batch
+            seed: Random seed
+        """
+        self.p = p_identities
+        self.k = k_images
+        self.batch_size = p_identities * k_images
+        self.seed = seed
+
+        # Build label -> indices mapping
+        self.label_to_indices = {}
+        for idx, (offset, label) in enumerate(dataset.samples):
+            if label not in self.label_to_indices:
+                self.label_to_indices[label] = []
+            self.label_to_indices[label].append(idx)
+
+        # Filter to identities with at least K images
+        self.valid_labels = [label for label, indices in self.label_to_indices.items()
+                             if len(indices) >= k_images]
+
+        if len(self.valid_labels) < p_identities:
+            logger.warning(f"Only {len(self.valid_labels)} identities have >= {k_images} images. "
+                          f"Reducing P from {p_identities} to {len(self.valid_labels)}")
+            self.p = len(self.valid_labels)
+            self.batch_size = self.p * self.k
+
+        # Calculate number of batches per epoch
+        # Each identity can appear multiple times per epoch
+        total_valid_images = sum(len(self.label_to_indices[l]) for l in self.valid_labels)
+        self.num_batches = total_valid_images // self.batch_size
+
+        logger.info(f"PKSampler: P={self.p}, K={self.k}, batch_size={self.batch_size}, "
+                   f"valid_identities={len(self.valid_labels)}, batches_per_epoch={self.num_batches}")
+
+    def __iter__(self):
+        """Generate batches of indices."""
+        rng = np.random.RandomState(self.seed)
+
+        # Shuffle labels for this epoch
+        labels = self.valid_labels.copy()
+        rng.shuffle(labels)
+
+        # Create index pools for each label (shuffled)
+        label_pools = {}
+        for label in labels:
+            indices = self.label_to_indices[label].copy()
+            rng.shuffle(indices)
+            label_pools[label] = indices
+
+        # Generate batches
+        label_idx = 0
+        for _ in range(self.num_batches):
+            batch = []
+
+            # Select P identities for this batch
+            selected_labels = []
+            for _ in range(self.p):
+                selected_labels.append(labels[label_idx % len(labels)])
+                label_idx += 1
+
+            # Sample K images from each selected identity
+            for label in selected_labels:
+                pool = label_pools[label]
+
+                # If pool is exhausted, reshuffle and reset
+                if len(pool) < self.k:
+                    pool = self.label_to_indices[label].copy()
+                    rng.shuffle(pool)
+                    label_pools[label] = pool
+
+                # Take K images
+                batch.extend(pool[:self.k])
+                label_pools[label] = pool[self.k:]
+
+            yield batch
+
+        # Increment seed for next epoch
+        self.seed += 1
+
+    def __len__(self):
+        return self.num_batches
+
+
+class BalancedBatchSampler:
+    """
+    Simpler balanced sampler that ensures diverse identities per batch.
+
+    Unlike PKSampler, this doesn't require K images per identity,
+    but tries to maximize identity diversity in each batch.
+    """
+
+    def __init__(self, dataset, batch_size: int = 64, seed: int = 42):
+        """
+        Initialize balanced sampler.
+
+        Args:
+            dataset: Dataset with 'samples' attribute
+            batch_size: Batch size
+            seed: Random seed
+        """
+        self.batch_size = batch_size
+        self.seed = seed
+
+        # Build label -> indices mapping
+        self.label_to_indices = {}
+        for idx, (offset, label) in enumerate(dataset.samples):
+            if label not in self.label_to_indices:
+                self.label_to_indices[label] = []
+            self.label_to_indices[label].append(idx)
+
+        self.labels = list(self.label_to_indices.keys())
+        self.num_samples = len(dataset)
+        self.num_batches = self.num_samples // batch_size
+
+        logger.info(f"BalancedBatchSampler: batch_size={batch_size}, "
+                   f"identities={len(self.labels)}, batches_per_epoch={self.num_batches}")
+
+    def __iter__(self):
+        """Generate batches with diverse identities."""
+        rng = np.random.RandomState(self.seed)
+
+        # Create shuffled pool of all indices, grouped by label
+        all_indices = []
+        for label in self.labels:
+            indices = self.label_to_indices[label].copy()
+            rng.shuffle(indices)
+            all_indices.extend(indices)
+
+        # Shuffle again to mix identities
+        rng.shuffle(all_indices)
+
+        # Generate batches
+        for i in range(self.num_batches):
+            start = i * self.batch_size
+            end = start + self.batch_size
+            yield all_indices[start:end]
+
+        self.seed += 1
+
+    def __len__(self):
+        return self.num_batches

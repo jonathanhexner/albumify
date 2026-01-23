@@ -22,7 +22,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 
 from sim_bench.models.face_resnet import FaceResNet, create_transform
-from sim_bench.datasets.face_dataset import create_face_dataset, create_train_val_split
+from sim_bench.datasets.face_dataset import create_face_dataset, create_train_val_split, PKSampler
 
 logger = logging.getLogger(__name__)
 
@@ -75,33 +75,79 @@ def create_optimizer(model: FaceResNet, config: dict):
         return torch.optim.AdamW(param_groups, lr=base_lr, weight_decay=wd)
 
 
-def create_scheduler(optimizer, config: dict):
-    """Create learning rate scheduler if configured."""
+def create_scheduler(optimizer, config: dict, num_batches_per_epoch: int = None):
+    """
+    Create learning rate scheduler if configured.
+
+    Args:
+        optimizer: PyTorch optimizer
+        config: Training config
+        num_batches_per_epoch: Number of batches per epoch (for warmup)
+    """
     scheduler_cfg = config['training'].get('scheduler')
     if scheduler_cfg is None:
-        return None
+        return None, None
 
     scheduler_type = scheduler_cfg.get('type', 'step')
+    warmup_epochs = scheduler_cfg.get('warmup_epochs', 0)
 
+    # Create main scheduler
     if scheduler_type == 'step':
         step_size = scheduler_cfg.get('step_size', 10)
         gamma = scheduler_cfg.get('gamma', 0.1)
-        return torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+        main_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
     elif scheduler_type == 'multistep':
         milestones = scheduler_cfg.get('milestones', [10, 20, 30])
         gamma = scheduler_cfg.get('gamma', 0.1)
-        return torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
+        main_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
     elif scheduler_type == 'cosine':
         T_max = scheduler_cfg.get('T_max', config['training']['max_epochs'])
         eta_min = scheduler_cfg.get('eta_min', 0)
-        return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
+        main_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
     else:
         logger.warning(f"Unknown scheduler type: {scheduler_type}")
-        return None
+        return None, None
+
+    # Create warmup scheduler if configured
+    warmup_scheduler = None
+    if warmup_epochs > 0 and num_batches_per_epoch is not None:
+        warmup_steps = warmup_epochs * num_batches_per_epoch
+        warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+            optimizer,
+            start_factor=0.01,  # Start at 1% of target LR
+            end_factor=1.0,
+            total_iters=warmup_steps
+        )
+        logger.info(f"Using {warmup_epochs} epoch warmup ({warmup_steps} steps)")
+
+    return main_scheduler, warmup_scheduler
+
+
+class FaceSubset:
+    """
+    A subset wrapper that preserves label information for samplers.
+
+    Unlike torch Subset, this exposes 'samples' attribute for PKSampler.
+    """
+
+    def __init__(self, dataset, indices):
+        self.dataset = dataset
+        self.indices = indices
+        # Build samples list for this subset (remapped indices)
+        self.samples = []
+        for new_idx, orig_idx in enumerate(indices):
+            offset, label = dataset.samples[orig_idx]
+            self.samples.append((offset, label))
+
+    def __getitem__(self, idx):
+        return self.dataset[self.indices[idx]]
+
+    def __len__(self):
+        return len(self.indices)
 
 
 def create_dataloaders(config: dict) -> tuple:
-    """Create train/val dataloaders."""
+    """Create train/val dataloaders with optional PK sampling."""
     # Create transforms
     transform_config = config.get('transform', {})
     train_transform = create_transform(transform_config, is_train=True)
@@ -116,8 +162,8 @@ def create_dataloaders(config: dict) -> tuple:
     train_idx, val_idx = create_train_val_split(full_dataset, val_ratio, seed)
     logger.info(f"Split: {len(train_idx)} train, {len(val_idx)} val samples")
 
-    # Create subset datasets
-    train_dataset = Subset(full_dataset, train_idx)
+    # Create subset datasets using FaceSubset to preserve label info
+    train_dataset = FaceSubset(full_dataset, train_idx)
 
     # Create val dataset with val transform
     val_full = create_face_dataset(config['data'], transform=val_transform)
@@ -128,14 +174,35 @@ def create_dataloaders(config: dict) -> tuple:
     num_workers = config['data'].get('num_workers', 4)
     pin_memory = config['device'] == 'cuda'
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=True  # Important for BatchNorm stability
-    )
+    # Check if PK sampling is enabled
+    sampler_config = config['data'].get('sampler', {})
+    use_pk_sampler = sampler_config.get('type', 'random') == 'pk'
+
+    if use_pk_sampler:
+        p_identities = sampler_config.get('p_identities', 16)
+        k_images = sampler_config.get('k_images', 4)
+        pk_sampler = PKSampler(train_dataset, p_identities=p_identities,
+                               k_images=k_images, seed=seed)
+        logger.info(f"Using PK Sampler: P={p_identities}, K={k_images}, "
+                   f"effective_batch_size={p_identities * k_images}")
+
+        train_loader = DataLoader(
+            train_dataset,
+            batch_sampler=pk_sampler,
+            num_workers=num_workers,
+            pin_memory=pin_memory
+        )
+    else:
+        logger.info(f"Using random sampling with batch_size={batch_size}")
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            drop_last=True  # Important for BatchNorm stability
+        )
+
     val_loader = DataLoader(
         val_dataset,
         batch_size=batch_size,
@@ -148,12 +215,14 @@ def create_dataloaders(config: dict) -> tuple:
 
 
 def train_epoch(model: FaceResNet, loader: DataLoader, optimizer,
-                device: str, config: dict, epoch: int = None) -> tuple:
+                device: str, config: dict, epoch: int = None,
+                warmup_scheduler=None) -> tuple:
     """
     Train for one epoch.
 
     Args:
         epoch: Current epoch number (for telemetry logging)
+        warmup_scheduler: Optional warmup scheduler (stepped after each batch)
 
     Returns:
         (avg_loss, accuracy)
@@ -180,6 +249,10 @@ def train_epoch(model: FaceResNet, loader: DataLoader, optimizer,
         loss.backward()
         optimizer.step()
 
+        # Step warmup scheduler (per-batch during warmup phase)
+        if warmup_scheduler is not None:
+            warmup_scheduler.step()
+
         # Collect telemetry after optimizer.step()
         from sim_bench.telemetry.face_telemetry import collect_telemetry
         collect_telemetry(model, optimizer, batch_idx, epoch, device, config)
@@ -197,7 +270,8 @@ def train_epoch(model: FaceResNet, loader: DataLoader, optimizer,
 
         if batch_idx % log_interval == 0:
             acc = 100.0 * correct / total
-            logger.info(f"  Batch {batch_idx}/{len(loader)}: loss={loss.item():.4f}, acc={acc:.2f}%")
+            current_lr = optimizer.param_groups[0]['lr']
+            logger.info(f"  Batch {batch_idx}/{len(loader)}: loss={loss.item():.4f}, acc={acc:.2f}%, lr={current_lr:.6f}")
 
         if max_batches and batch_idx >= max_batches:
             logger.info(f"  Stopping after {max_batches} batches (max_batches limit)")
@@ -260,9 +334,13 @@ def evaluate(model: FaceResNet, loader: DataLoader, device: str, config: dict,
 
 
 def train_model(model: FaceResNet, train_loader: DataLoader, val_loader: DataLoader,
-                optimizer, scheduler, config: dict, output_dir: Path) -> tuple:
+                optimizer, scheduler, config: dict, output_dir: Path,
+                warmup_scheduler=None) -> tuple:
     """
     Main training loop with early stopping.
+
+    Args:
+        warmup_scheduler: Optional warmup scheduler (stepped per batch)
 
     Returns:
         (best_accuracy, history)
@@ -270,6 +348,7 @@ def train_model(model: FaceResNet, train_loader: DataLoader, val_loader: DataLoa
     device = config['device']
     max_epochs = config['training']['max_epochs']
     patience = config['training'].get('early_stop_patience', 10)
+    warmup_epochs = config['training'].get('scheduler', {}).get('warmup_epochs', 0)
 
     best_acc = -1.0  # Start at -1 to ensure first model is saved
     patience_counter = 0
@@ -291,8 +370,12 @@ def train_model(model: FaceResNet, train_loader: DataLoader, val_loader: DataLoa
         current_lr = optimizer.param_groups[0]['lr']
         logger.info(f"Epoch {epoch + 1}/{max_epochs} (lr={current_lr:.6f})")
 
-        # Train
-        train_loss, train_acc = train_epoch(model, train_loader, optimizer, device, config, epoch)
+        # Train (pass warmup_scheduler for per-batch stepping during warmup)
+        use_warmup = warmup_scheduler is not None and epoch < warmup_epochs
+        train_loss, train_acc = train_epoch(
+            model, train_loader, optimizer, device, config, epoch,
+            warmup_scheduler=warmup_scheduler if use_warmup else None
+        )
         logger.info(f"  Train: loss={train_loss:.4f}, acc={train_acc:.2f}%")
 
         # Validate
@@ -472,13 +555,16 @@ def main():
 
     # Create optimizer and scheduler
     optimizer = create_optimizer(model, config)
-    scheduler = create_scheduler(optimizer, config)
+    scheduler, warmup_scheduler = create_scheduler(optimizer, config, num_batches_per_epoch=len(train_loader))
     if scheduler:
-        logger.info(f"Using scheduler: {config['training']['scheduler']['type']}")
+        scheduler_type = config['training']['scheduler']['type']
+        warmup_epochs = config['training']['scheduler'].get('warmup_epochs', 0)
+        logger.info(f"Using scheduler: {scheduler_type}" + (f" with {warmup_epochs} epoch warmup" if warmup_epochs > 0 else ""))
 
     # Train
     logger.info("Starting training...")
-    best_acc, history = train_model(model, train_loader, val_loader, optimizer, scheduler, config, output_dir)
+    best_acc, history = train_model(model, train_loader, val_loader, optimizer, scheduler, config, output_dir,
+                                    warmup_scheduler=warmup_scheduler)
 
     # Plot curves
     plot_training_curves(history, output_dir)

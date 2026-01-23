@@ -2,6 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Run Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
@@ -1018,6 +1030,21 @@
             "module": "sim_bench.training.train_face_resnet",
             "args": [
                 "--config", "configs/face/resnet50_arcface_test.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Face ResNet - PK Sampler + Warmup 🎯",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_face_resnet",
+            "args": [
+                "--config", "configs/face/resnet50_arcface_pk.yaml"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
