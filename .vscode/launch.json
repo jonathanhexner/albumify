@@ -995,6 +995,51 @@
             "env": {
                 "PYTHONUNBUFFERED": "1"
             }
+        },
+        {
+            "name": "Train Face ResNet - ArcFace (Full) ⭐",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_face_resnet",
+            "args": [
+                "--config", "configs/face/resnet50_arcface.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Face ResNet - ArcFace Quick Test ⚡",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_face_resnet",
+            "args": [
+                "--config", "configs/face/resnet50_arcface_test.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Train Face ResNet18 - ArcFace (Lighter)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.train_face_resnet",
+            "args": [
+                "--config", "configs/face/resnet18_arcface.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
         }
     ]
 }

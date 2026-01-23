@@ -1,194 +1,126 @@
 # Album Organization Module
 
-Workflow pipeline for organizing photo albums with quality filtering, clustering, and best image selection.
+Photo album organization pipeline with layered architecture.
 
-## Overview
+## Architecture
 
-The album module provides an end-to-end workflow for:
-1. Discovering images in a directory
-2. **Preprocessing with thumbnails** (50%+ speedup)
-3. Analyzing quality and portrait metrics
-4. Filtering by quality thresholds
-5. Clustering similar images
-6. Selecting best images per cluster
-7. Exporting results
-8. **Performance telemetry** for debugging
+```
+sim_bench/album/
+├── domain/              # Data models (no dependencies)
+│   ├── models.py        # WorkflowResult, ClusterInfo
+│   └── types.py         # WorkflowStage, type aliases
+├── services/            # Business logic (depends on domain only)
+│   ├── album_service.py # Main orchestration service
+│   └── selection_service.py # Best image selection
+├── stages.py            # Pure pipeline stage functions
+├── preprocessor.py      # Thumbnail preprocessing
+├── telemetry.py         # Performance tracking
+└── export/              # Export functionality
+```
 
 ## Usage
 
-### Basic Workflow
-
 ```python
-from pathlib import Path
-from sim_bench.album import create_album_workflow
+from sim_bench.album import AlbumService, WorkflowResult
+from sim_bench.config import get_global_config
 
-# Create workflow with default settings
-workflow = create_album_workflow(
-    source_directory=Path("~/Photos/Vacation2024"),
-    album_name="Summer Vacation"
+# Create service with config
+config = get_global_config().to_dict()
+service = AlbumService(config)
+
+# Run album organization
+result = service.organize_album(
+    source_directory=Path("/path/to/photos"),
+    output_directory=Path("/path/to/output")
 )
 
-# Run complete pipeline
-result = workflow.run(
-    source_directory=Path("~/Photos/Vacation2024"),
-    output_directory=Path("~/Photos/Organized/Vacation2024")
-)
-
-# Check results
-print(f"Processed {result.total_images} images")
-print(f"Found {len(result.clusters)} clusters")
-print(f"Selected {len(result.selected_images)} best images")
-
-# Access telemetry
-print(f"Total time: {result.telemetry.total_duration_sec:.1f}s")
-for timing in result.telemetry.timings:
-    print(f"  {timing.name}: {timing.duration_sec:.2f}s")
+# Access results
+print(f"Selected {len(result.selected_images)} from {len(result.clusters)} clusters")
 ```
 
-### With Enhanced Progress Callback
+## Domain Models
 
-```python
-def show_progress(stage: str, progress: float, operation: str = None, image_name: str = None):
-    """Enhanced callback showing detailed progress."""
-    if operation and image_name:
-        print(f"{stage}: {operation} - {image_name}")
-    else:
-        print(f"{stage}: {progress*100:.0f}%")
+### WorkflowResult
 
-result = workflow.run(
-    source_directory=Path("~/Photos"),
-    output_directory=Path("~/Photos/Best"),
-    progress_callback=show_progress
-)
-```
-
-### Custom Configuration
-
-```python
-# Override specific settings
-overrides = {
-    'album': {
-        'quality': {'min_ava_score': 6.0},  # More strict
-        'portrait': {'require_eyes_open': False},
-        'selection': {'images_per_cluster': 2}
-    }
-}
-
-workflow = create_album_workflow(
-    source_directory=Path("~/Photos"),
-    album_name="My Album",
-    overrides=overrides
-)
-```
-
-## Pipeline Stages
-
-### 1. Discover Images
-Scans source directory for image files (jpg, png, heic, raw).
-
-### 2. Preprocess Images (NEW)
-**Performance Optimization**: Generates thumbnails at appropriate resolutions:
-- **1024px** for IQA and feature extraction
-- **2048px** for portrait/face detection
-- **Cached to disk** for reuse across runs
-- **50-65% faster** than analyzing full-resolution images
-
-### 3. Analyze Quality
-Runs quality assessment (IQA, AVA) and portrait analysis (face, eyes, smile) using thumbnails.
-
-### 4. Filter Quality
-Applies minimum thresholds:
-- IQA score (technical quality)
-- AVA score (aesthetic quality)
-- Sharpness
-
-### 5. Filter Portrait
-For portrait images:
-- Optionally require eyes open
-- Apply portrait-specific preferences
-
-### 6. Extract Features
-Extracts embeddings using DINOv2 or other feature extractors.
-
-### 7. Cluster Images
-Groups similar images using HDBSCAN or other clustering algorithms.
-- **Configurable min_cluster_size** (1 = allow singletons)
-- Noise handling options
-
-### 8. Select Best
-Selects best N images per cluster based on weighted scoring:
-- AVA weight (aesthetic quality)
-- IQA weight (technical quality)
-- Portrait weight (eyes open, smiling)
-
-### 9. Export Results
-Copies selected images to output directory, optionally organized by cluster.
-- Exports telemetry JSON with performance metrics
-
-## Configuration
-
-Settings are defined in `configs/global_config.yaml`:
-
-```yaml
-album:
-  # NEW: Preprocessing for 50%+ speedup
-  preprocessing:
-    enabled: true                # Enable thumbnail preprocessing
-    cache_thumbnails: true       # Cache to disk for reuse
-    num_workers: 4               # Parallel workers
-  
-  quality:
-    min_iqa_score: 0.3
-    min_ava_score: 4.0
-    min_sharpness: 0.2
-  
-  portrait:
-    require_eyes_open: true
-    prefer_smiling: true
-    smile_importance: 0.3
-    eyes_open_importance: 0.4
-  
-  clustering:
-    method: hdbscan
-    feature_method: dinov2
-    min_cluster_size: 3          # 1 = allow singletons
-    handle_noise: as_individual_clusters
-  
-  selection:
-    images_per_cluster: 1
-    ava_weight: 0.5
-    iqa_weight: 0.2
-    portrait_weight: 0.3
-  
-  export:
-    format: folder
-    organize_by_cluster: true
-    include_thumbnails: true
-```
-
-## WorkflowResult
-
-The `run()` method returns a `WorkflowResult` with:
+Main output of the organization pipeline:
 
 ```python
 @dataclass
 class WorkflowResult:
-    source_directory: Path           # Input directory
-    total_images: int                # Total images found
-    filtered_images: int             # Images passing filters
-    clusters: Dict[int, List[str]]   # Cluster assignments
-    selected_images: List[str]       # Best images selected
-    metrics: Dict[str, ImageMetrics] # Full metrics for all images
-    cluster_stats: Dict[str, Any]    # Cluster statistics
-    export_path: Optional[Path]      # Where results were exported
-    run_id: Optional[str]            # NEW: Unique run identifier
-    telemetry: Optional[WorkflowTelemetry]  # NEW: Performance metrics
+    source_directory: Path
+    total_images: int
+    filtered_images: int
+    clusters: Dict[int, List[str]]  # cluster_id -> image paths
+    selected_images: List[str]
+    metrics: Dict[str, ImageMetrics]
+    # ... additional fields
 ```
 
-## Design Principles
+### WorkflowStage
 
-1. **Config-only constructors** - All settings from config dict
-2. **Stage-based pipeline** - Clear separation of concerns
-3. **Progress tracking** - Callback support for UI integration
-4. **Flexible filtering** - Configurable quality and portrait thresholds
-5. **Smart selection** - Weighted scoring for best image selection
+Enum for progress tracking:
+
+```python
+class WorkflowStage(Enum):
+    DISCOVER = auto()
+    PREPROCESS = auto()
+    ANALYZE = auto()
+    FILTER_QUALITY = auto()
+    FILTER_PORTRAIT = auto()
+    EXTRACT_FEATURES = auto()
+    CLUSTER = auto()
+    SELECT = auto()
+    EXPORT = auto()
+    COMPLETE = auto()
+```
+
+## Services
+
+### AlbumService
+
+Main orchestration service:
+
+- `organize_album(source, output, callback)` - Run full pipeline
+- `get_config()` - Get current configuration
+
+### SelectionService
+
+Best image selection:
+
+- `select_best(clusters, metrics, hub)` - Select from clusters
+- `compute_score(metric)` - Compute weighted score
+- `select_diverse(images, metrics)` - Diversity-aware selection
+
+## Configuration
+
+All services are configured via dict:
+
+```python
+config = {
+    'album': {
+        'quality': {'min_iqa_score': 0.3, 'min_ava_score': 4.0},
+        'portrait': {'require_eyes_open': True},
+        'clustering': {'method': 'hdbscan', 'min_cluster_size': 3},
+        'selection': {'ava_weight': 0.5, 'iqa_weight': 0.2, 'portrait_weight': 0.3},
+        'preprocessing': {'enabled': True, 'num_workers': 4},
+        'export': {'organize_by_cluster': True}
+    }
+}
+```
+
+## FastAPI Integration
+
+The service layer is designed for easy API wrapping:
+
+```python
+from fastapi import FastAPI
+from sim_bench.album import AlbumService
+
+app = FastAPI()
+
+@app.post("/albums/{album_id}/organize")
+async def organize_album(album_id: str, request: OrganizeRequest):
+    service = AlbumService(request.config)
+    result = service.organize_album(request.source, request.output)
+    return result_to_response(result)
+```

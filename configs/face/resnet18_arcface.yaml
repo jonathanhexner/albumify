@@ -1,0 +1,58 @@
+# Face Recognition Training Configuration
+# Dataset: CASIA-WebFace
+# Model: ResNet-18 + ArcFace (lighter, faster training)
+
+seed: 42
+device: "cuda"
+
+data:
+  data_format: "recordio"
+  rec_path: "D:/DataSets/casia_Webface/casia-webface/train.rec"
+  num_classes: 10572
+  val_ratio: 0.05
+  num_workers: 4
+
+model:
+  backbone: "resnet18"  # Lighter backbone
+  pretrained: true
+  embedding_dim: 512
+  num_classes: 10572
+  dropout: 0.0
+  arcface_margin: 0.5
+  arcface_scale: 64.0
+
+transform:
+  input_size: 112
+  normalize_mean: [0.5, 0.5, 0.5]
+  normalize_std: [0.5, 0.5, 0.5]
+  augmentation:
+    horizontal_flip: 0.5
+    color_jitter:
+      brightness: 0.1
+      contrast: 0.1
+      saturation: 0.1
+      hue: 0.05
+
+training:
+  batch_size: 128  # Can use larger batch with smaller model
+  learning_rate: 0.1
+  differential_lr: true
+  optimizer: "sgd"
+  momentum: 0.9
+  weight_decay: 0.0005
+  max_epochs: 30
+  early_stop_patience: 10
+
+  scheduler:
+    type: "multistep"
+    milestones: [10, 18, 24]
+    gamma: 0.1
+
+telemetry:
+  enabled: true
+  collect_every_n: 100
+  track_arcface_weights: true
+
+save_embeddings: true
+checkpoint_interval: 5
+log_interval: 100

@@ -14,7 +14,7 @@ def test_imports():
     print("TEST: Album Module Imports")
     print("="*80)
 
-    from sim_bench.album import AlbumWorkflow, WorkflowResult, create_album_workflow
+    from sim_bench.album import AlbumService, WorkflowResult, WorkflowStage
     from sim_bench.album import stages
     print("[OK] Album modules imported")
     return True
@@ -44,34 +44,38 @@ def test_config_defaults():
     return True
 
 
-def test_workflow_creation():
-    """Test workflow factory function."""
+def test_service_creation():
+    """Test AlbumService creation."""
     print("\n" + "="*80)
-    print("TEST: Workflow Creation")
+    print("TEST: Service Creation")
     print("="*80)
 
-    from sim_bench.album import create_album_workflow
+    from sim_bench.album import AlbumService
+    from sim_bench.config import get_global_config
 
-    workflow = create_album_workflow(
-        source_directory=Path("test_images"),
-        album_name="Test Album"
-    )
+    config = get_global_config().to_dict()
+    service = AlbumService(config)
     
-    print(f"[OK] Workflow created for album: Test Album")
-    print(f"     Clustering method: {workflow._clustering_config.get('method')}")
-    print(f"     Min cluster size: {workflow._clustering_config.get('min_cluster_size')}")
+    album_config = service.get_config()
+    
+    print(f"[OK] AlbumService created")
+    print(f"     Clustering method: {album_config['clustering'].get('method')}")
+    print(f"     Min cluster size: {album_config['clustering'].get('min_cluster_size')}")
     
     return True
 
 
-def test_workflow_with_overrides():
-    """Test workflow with custom configuration overrides."""
+def test_service_with_overrides():
+    """Test AlbumService with custom configuration overrides."""
     print("\n" + "="*80)
-    print("TEST: Workflow with Overrides")
+    print("TEST: Service with Overrides")
     print("="*80)
 
-    from sim_bench.album import create_album_workflow
+    from sim_bench.album import AlbumService
+    from sim_bench.config import get_global_config
 
+    config = get_global_config().to_dict()
+    
     overrides = {
         'album': {
             'quality': {'min_ava_score': 6.0},
@@ -79,16 +83,17 @@ def test_workflow_with_overrides():
         }
     }
     
-    workflow = create_album_workflow(
-        source_directory=Path("test_images"),
-        album_name="Test Album",
-        overrides=overrides
-    )
+    # Deep merge
+    config['album']['quality']['min_ava_score'] = 6.0
+    config['album']['selection']['images_per_cluster'] = 2
     
-    min_ava = workflow._quality_config.get('min_ava_score')
-    images_per = workflow._selection_config.get('images_per_cluster')
+    service = AlbumService(config)
+    album_config = service.get_config()
     
-    print(f"[OK] Workflow created with overrides")
+    min_ava = album_config['quality'].get('min_ava_score')
+    images_per = album_config['selection'].get('images_per_cluster')
+    
+    print(f"[OK] Service created with overrides")
     print(f"     Min AVA score: {min_ava} (expected 6.0)")
     print(f"     Images per cluster: {images_per} (expected 2)")
     
@@ -202,7 +207,9 @@ def test_full_workflow():
     print("TEST: Full Workflow Execution")
     print("="*80)
 
-    from sim_bench.album import create_album_workflow
+    from sim_bench.album import AlbumService
+    from sim_bench.album.domain.types import WorkflowStage
+    from sim_bench.config import get_global_config
     import tempfile
 
     test_images = Path(__file__).parent.parent / "test_images"
@@ -217,16 +224,14 @@ def test_full_workflow():
     
     print(f"[INFO] Running workflow with {len(image_files)} images")
     
-    workflow = create_album_workflow(
-        source_directory=test_images,
-        album_name="Test Album"
-    )
+    config = get_global_config().to_dict()
+    service = AlbumService(config)
     
-    def progress(stage, pct):
-        print(f"     {stage}: {pct*100:.0f}%")
+    def progress(stage: WorkflowStage, pct: float, detail: str = None):
+        print(f"     {stage.name}: {pct*100:.0f}%")
     
     with tempfile.TemporaryDirectory() as tmpdir:
-        result = workflow.run(
+        result = service.organize_album(
             source_directory=test_images,
             output_directory=Path(tmpdir),
             progress_callback=progress
@@ -250,8 +255,8 @@ def run_all_tests():
     tests = [
         test_imports,
         test_config_defaults,
-        test_workflow_creation,
-        test_workflow_with_overrides,
+        test_service_creation,
+        test_service_with_overrides,
         test_stage_discover_images,
         test_stage_filter_quality,
         test_stage_filter_portrait,

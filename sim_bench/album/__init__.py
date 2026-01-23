@@ -5,12 +5,21 @@ Provides workflow pipeline for organizing photo albums:
 - Image discovery and quality filtering
 - Portrait analysis and clustering
 - Best image selection and export
+
+Usage:
+    from sim_bench.album import AlbumService
+    
+    service = AlbumService(config)
+    result = service.organize_album(source_dir, output_dir)
 """
 
-from sim_bench.album.workflow import AlbumWorkflow, WorkflowResult, create_album_workflow
+from sim_bench.album.domain import WorkflowResult, ClusterInfo, WorkflowStage
+from sim_bench.album.services import AlbumService, SelectionService
 
 __all__ = [
-    'AlbumWorkflow',
+    'AlbumService',
+    'SelectionService',
     'WorkflowResult',
-    'create_album_workflow',
+    'ClusterInfo',
+    'WorkflowStage',
 ]

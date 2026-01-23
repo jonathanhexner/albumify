@@ -1,9 +1,13 @@
 """
-Streamlit UI components for album organization.
+Album Organization UI Module.
+
+Streamlit UI for photo album organization workflow.
+
+Usage:
+    from app.album.components import render_config_panel, render_results
+    from app.album.session import AlbumSession
 """
 
-from app.album.config_panel import render_album_config
-from app.album.workflow_runner import render_workflow_runner
-from app.album.results_viewer import render_results
+from app.album.session import AlbumSession
 
-__all__ = ['render_album_config', 'render_workflow_runner', 'render_results']
+__all__ = ['AlbumSession']
