@@ -1039,12 +1039,12 @@
             }
         },
         {
-            "name": "Train Face ResNet - PK Sampler + Warmup 🎯",
+            "name": "Train Face ResNet with lfw",
             "type": "python",
             "request": "launch",
-            "module": "sim_bench.training.train_face_resnet",
+            "module": "sim_bench.face_recognition.train",
             "args": [
-                "--config", "configs/face/resnet50_arcface_pk.yaml"
+                "--config", "configs/face/resnet50_arcface.yaml"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -1061,6 +1061,83 @@
             "args": [
                 "--config", "configs/face/resnet18_arcface.yaml"
             ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Phase 2: Train Multitask (Quick Test) 🧪",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.phase2_pretraining.train_multitask",
+            "args": [
+                "--config", "configs/face/multitask_affectnet_test.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Phase 2: Train Multitask (Full) ⭐",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.phase2_pretraining.train_multitask",
+            "args": [
+                "--config", "configs/face/multitask_affectnet.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Phase 2: Extract Landmarks (Train)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.phase2_pretraining.extract_landmarks",
+            "args": [
+                "--data_dir", "D:/DataSets/AffectNet/train",
+                "--output_cache", "cache/affectnet_landmarks_train.json",
+                "--num_landmarks", "5"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Phase 2: Extract Landmarks (Val)",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.phase2_pretraining.extract_landmarks",
+            "args": [
+                "--data_dir", "D:/DataSets/AffectNet/val",
+                "--output_cache", "cache/affectnet_landmarks_val.json",
+                "--num_landmarks", "5"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONUNBUFFERED": "1"
+            }
+        },
+        {
+            "name": "Phase 2: Sanity Check",
+            "type": "python",
+            "request": "launch",
+            "module": "sim_bench.training.phase2_pretraining.sanity_check",
+            "args": [],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": true,

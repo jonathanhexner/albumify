@@ -1,35 +1,44 @@
 # Face Recognition Training Configuration
-# Dataset: CASIA-WebFace
+# Dataset: CASIA-WebFace (112x112)
 # Model: ResNet-50 + ArcFace
 
 # Reproducibility
 seed: 42
 
 # Device configuration
-device: "cuda"  # or "cpu"
+device: "cpu"  # or "cpu"
 
 # Data configuration
 data:
-  data_format: "recordio"  # "recordio" or "folder"
-  rec_path: "/workspace/casia-webface/train.rec"
-  num_classes: 10572  # CASIA-WebFace rec file has 10,431 identities
-  val_ratio: 0.05  # 5% for validation (face datasets are large)
-  num_workers: 4
+  data_format: "recordio"
+  rec_path: "D:/DataSets/faces_webface_112x112/train.rec"
+  num_classes: 10572  # CASIA-WebFace identities
+  val_ratio: 0.1  # 10% identities held out for validation
+  num_workers: 0
+
+  # LFW verification benchmark
+  lfw_bin: "D:/DataSets/faces_webface_112x112/lfw.bin"
+
+  # PK sampling for better identity diversity per batch
+  sampler:
+    type: "pk"  # or "random"
+    p_identities: 16
+    k_images: 4
 
 # Model configuration
 model:
   backbone: "resnet50"
-  pretrained: true  # ImageNet pretrained
-  embedding_dim: 512  # Standard for face recognition
-  num_classes: 10572
+  pretrained: true
+  embedding_dim: 512
+  num_classes: 10572  # Will be updated based on train split
   dropout: 0.0
-  arcface_margin: 0.5  # ~28.6 degrees
+  arcface_margin: 0.5
   arcface_scale: 64.0
 
 # Transform configuration
 transform:
-  input_size: 112  # Standard face recognition size
-  normalize_mean: [0.5, 0.5, 0.5]  # Map to [-1, 1]
+  input_size: 112
+  normalize_mean: [0.5, 0.5, 0.5]
   normalize_std: [0.5, 0.5, 0.5]
   augmentation:
     horizontal_flip: 0.5
@@ -42,35 +51,27 @@ transform:
 
 # Training configuration
 training:
-  batch_size: 64
-  learning_rate: 0.01  # With differential_lr, head gets 0.1
-  differential_lr: true  # 1x backbone, 10x head
-  optimizer: "sgd"  # SGD works well for face recognition
+  batch_size: 128
+  learning_rate: 0.001
+  differential_lr: true
+  optimizer: "sgd"
   momentum: 0.9
   weight_decay: 0.0005
   max_epochs: 30
-  early_stop_patience: 10
 
-  # Learning rate schedule
   scheduler:
     type: "multistep"
     milestones: [10, 18, 24]
     gamma: 0.1
+    warmup_epochs: 1
 
-# Telemetry configuration
-telemetry:
-  enabled: true
-  collect_every_n: 100
-  track_embeddings: false  # Can be expensive
-  track_arcface_weights: true
+# Validation configuration
+verification_interval: 5  # Run LFW verification every N epochs
 
 # Output configuration
-output_dir: null  # Will be auto-generated if null
-save_embeddings: true
-checkpoint_interval: 5  # Save checkpoint every N epochs
+output_dir: null
+checkpoint_interval: 5
+log_interval: 100
 
-# Logging
-log_interval: 100  # Log every N batches
-
-# Debug/testing options (comment out for full training)
-# max_batches: 10  # Limit batches per epoch for testing
+# Debug options
+# max_batches: 10

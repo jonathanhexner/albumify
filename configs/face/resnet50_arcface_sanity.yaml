@@ -1,0 +1,59 @@
+# Face Recognition - Sanity Check Config
+# Purpose: Overfit on small subset to verify training works
+# Expected: Train accuracy should reach ~100% quickly
+
+seed: 42
+device: "cpu"
+
+data:
+  data_format: "recordio"
+  rec_path: "D:/DataSets/faces_webface_112x112/train.rec"
+  num_classes: 10572
+  val_ratio: 0.1
+  num_workers: 0
+
+  lfw_bin: "D:/DataSets/faces_webface_112x112/lfw.bin"
+
+  # Use random sampling for sanity check (simpler)
+  sampler:
+    type: "random"
+
+model:
+  backbone: "resnet50"
+  pretrained: true
+  embedding_dim: 512
+  num_classes: 10572
+  dropout: 0.0
+  arcface_margin: 0.5
+  arcface_scale: 64.0
+
+transform:
+  input_size: 112
+  normalize_mean: [0.5, 0.5, 0.5]
+  normalize_std: [0.5, 0.5, 0.5]
+  # No augmentation for sanity check - should overfit easily
+  augmentation:
+    horizontal_flip: 0.0
+    random_crop: false
+
+training:
+  batch_size: 32
+  learning_rate: 0.01  # Higher LR for faster convergence
+  differential_lr: true
+  optimizer: "sgd"
+  momentum: 0.9
+  weight_decay: 0.0  # No regularization for overfitting test
+  max_epochs: 10
+
+  scheduler:
+    type: "step"
+    step_size: 100  # Effectively no LR decay
+    gamma: 1.0
+    warmup_epochs: 0
+
+verification_interval: 30  # Check LFW every 2 epochs
+checkpoint_interval: 5
+log_interval: 10  # Log frequently
+
+# CRITICAL: Limit to small subset for sanity check
+max_batches: 20  # Only 20 batches per epoch (~640 images)
