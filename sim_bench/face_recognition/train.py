@@ -67,7 +67,8 @@ class IdentitySubset:
         return len(self.indices)
 
 
-def create_identity_split(dataset, val_ratio: float = 0.1, seed: int = 42):
+def create_identity_split(dataset, val_ratio: float = 0.1, seed: int = 42,
+                          max_train_identities: int = None):
     """
     Split dataset by identity (not by image).
 
@@ -77,6 +78,7 @@ def create_identity_split(dataset, val_ratio: float = 0.1, seed: int = 42):
         dataset: Dataset with samples attribute [(offset, label), ...]
         val_ratio: Fraction of identities for validation
         seed: Random seed
+        max_train_identities: Limit train to this many identities (for sanity check)
 
     Returns:
         train_indices, val_indices, train_label_remap, val_label_remap
@@ -97,6 +99,11 @@ def create_identity_split(dataset, val_ratio: float = 0.1, seed: int = 42):
     val_labels = set(all_labels[:n_val_ids])
     train_labels = set(all_labels[n_val_ids:])
 
+    # Limit train identities for sanity check
+    if max_train_identities and max_train_identities < len(train_labels):
+        train_labels = set(list(train_labels)[:max_train_identities])
+        logger.info(f"SANITY CHECK: Limited to {max_train_identities} train identities")
+
     logger.info(f"Identity split: {len(train_labels)} train, {len(val_labels)} val identities")
 
     # Collect indices
@@ -106,7 +113,7 @@ def create_identity_split(dataset, val_ratio: float = 0.1, seed: int = 42):
     for label, indices in label_to_indices.items():
         if label in train_labels:
             train_indices.extend(indices)
-        else:
+        elif label in val_labels:
             val_indices.extend(indices)
 
     # Create label remapping for contiguous labels (required for classification head)
@@ -134,8 +141,9 @@ def create_dataloaders(config: dict):
     # Split by identity
     val_ratio = config['data'].get('val_ratio', 0.1)
     seed = config.get('seed', 42)
+    max_train_ids = config['data'].get('max_train_identities')  # For sanity check
     train_idx, val_idx, train_remap, val_remap = create_identity_split(
-        full_dataset, val_ratio, seed
+        full_dataset, val_ratio, seed, max_train_identities=max_train_ids
     )
 
     # Update num_classes in config for training set
@@ -244,6 +252,8 @@ def train_epoch(model, loader, optimizer, device, config, warmup_scheduler=None)
 
     avg_loss = total_loss / num_batches
     accuracy = 100.0 * correct / total
+
+    logger.info(f"  Epoch stats: {num_batches} batches, {total} samples, {correct}/{total} correct")
 
     return avg_loss, accuracy
 

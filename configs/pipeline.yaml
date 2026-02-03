@@ -1,0 +1,109 @@
+# =============================================================================
+# Pipeline Configuration
+# =============================================================================
+# Controls the photo selection pipeline: face detection, scoring, clustering,
+# and smart image selection.
+#
+# This file is loaded as the "default" config profile on API startup.
+# Users can create custom profiles that override these values.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Pipeline Steps (default sequence)
+# -----------------------------------------------------------------------------
+default_pipeline:
+  - discover_images
+  - detect_faces
+  - score_iqa
+  - score_ava
+  - score_face_pose
+  - score_face_eyes
+  - score_face_smile
+  - filter_quality
+  - extract_scene_embedding
+  - cluster_scenes
+  - extract_face_embeddings
+  - cluster_by_identity
+  - select_best
+
+# -----------------------------------------------------------------------------
+# Step Configurations
+# -----------------------------------------------------------------------------
+# Each key is a step name. Values are passed to that step's process() method.
+
+# Face Detection (detect_faces)
+detect_faces:
+  min_face_ratio: 0.02         # Face must cover at least 2% of image
+  detection_confidence: 0.5     # MediaPipe confidence threshold
+  crop_padding: 0.2            # 20% padding around face crop
+
+# Face Pose Scoring (score_face_pose)
+score_face_pose:
+  device: cpu                  # Device for SixDRepNet (cpu, cuda, mps)
+  max_yaw: 75                  # Beyond this = reject (back of head)
+  max_pitch: 45                # Extreme up/down angle
+  max_roll: 30                 # Extreme head tilt
+  frontal_range: 15            # 0-15° = fully frontal (score 1.0)
+
+# Eye State Scoring (score_face_eyes)
+score_face_eyes:
+  # Uses MediaPipe EAR (Eye Aspect Ratio) internally
+  open_threshold: 0.2          # EAR above this = eyes open
+
+# Smile Scoring (score_face_smile)
+score_face_smile:
+  width_threshold: 0.15        # Mouth width ratio threshold for smile detection
+
+# IQA Scoring (score_iqa)
+score_iqa: {}
+
+# AVA Scoring (score_ava)
+score_ava:
+  checkpoint_path: models/album_app/ava_resnet50.pt
+
+# Quality Filtering (filter_quality)
+filter_quality:
+  min_iqa_score: 0.3           # Minimum technical quality (0-1)
+  min_sharpness: 0.2           # Minimum sharpness (0-1)
+
+# Scene Embedding (extract_scene_embedding)
+extract_scene_embedding:
+  model: dinov2                # Options: dinov2, openclip, resnet50
+  device: cpu                  # Options: cpu, cuda, mps
+
+# Scene Clustering (cluster_scenes)
+cluster_scenes:
+  method: hdbscan              # Options: hdbscan, dbscan, kmeans
+  min_cluster_size: 2          # Minimum images per cluster
+  min_samples: 2               # HDBSCAN parameter
+
+# Face Embedding (extract_face_embeddings)
+extract_face_embeddings:
+  checkpoint_path: models/album_app/arcface_resnet50.pt
+  device: cpu
+
+# Identity Clustering (cluster_by_identity)
+cluster_by_identity:
+  distance_threshold: 0.6      # ArcFace distance for same person
+  method: agglomerative        # Clustering method
+
+# Selection (select_best)
+select_best:
+  max_per_cluster: 2           # Maximum images per cluster
+  min_per_cluster: 1           # Minimum images per cluster
+  min_score_threshold: 0.4     # Don't keep if score below this
+  max_score_gap: 0.25          # Don't keep 2nd if gap exceeds this
+
+  # Face scoring weights (for face clusters)
+  face_weights:
+    eyes_open: 0.30
+    pose: 0.30
+    smile: 0.20
+    ava: 0.20
+
+  # Siamese model for near-duplicate detection
+  siamese:
+    enabled: true
+    checkpoint_path: models/album_app/siamese_comparison_model.pt
+    duplicate_threshold: 0.95   # Above this = near-duplicate
+    tiebreaker_range: 0.05     # Use Siamese if scores within 5%

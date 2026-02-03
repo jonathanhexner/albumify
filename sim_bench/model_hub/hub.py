@@ -49,6 +49,7 @@ class ModelHub:
         self._portrait_analyzer = None
         self._feature_extractor = None
         self._clustering_method = None
+        self._face_embedder = None
 
         # Feature cache for avoiding re-extraction
         self._feature_cache = None
@@ -74,7 +75,7 @@ class ModelHub:
     def _get_portrait_analyzer(self):
         """Lazy load portrait analyzer."""
         if self._portrait_analyzer is None:
-            from sim_bench.portrait_analysis import MediaPipePortraitAnalyzer
+            from sim_bench.portrait_analysis.analyzer import MediaPipePortraitAnalyzer
             self._portrait_analyzer = MediaPipePortraitAnalyzer(self._config)
             logger.info("Loaded portrait analyzer (MediaPipe)")
         return self._portrait_analyzer
@@ -109,6 +110,14 @@ class ModelHub:
             self._clustering_method = load_clustering_method(full_config)
             logger.info(f"Loaded clustering method ({full_config['algorithm']})")
         return self._clustering_method
+
+    def _get_face_embedder(self):
+        """Lazy load face embedding service."""
+        if self._face_embedder is None:
+            from sim_bench.album.services.face_embedding_service import FaceEmbeddingService
+            self._face_embedder = FaceEmbeddingService(self._config)
+            logger.info("Loaded face embedding service")
+        return self._face_embedder
 
     # =========================================================================
     # Quality Assessment
@@ -253,6 +262,56 @@ class ModelHub:
         """
         clusterer = self._get_clustering_method()
         return clusterer.cluster(features)
+
+    # =========================================================================
+    # Face Embedding
+    # =========================================================================
+
+    def extract_face_embeddings(
+        self,
+        image_paths: List[Path],
+        batch_size: int = 32
+    ) -> np.ndarray:
+        """
+        Extract face embeddings for clustering/labeling.
+
+        Uses trained ArcFace model for 512-dim face embeddings.
+        Requires 'face.checkpoint_path' in config.
+
+        Args:
+            image_paths: List of image paths
+            batch_size: Batch size for inference
+
+        Returns:
+            Face embeddings array [n_images, 512]
+        """
+        embedder = self._get_face_embedder()
+        return embedder.extract_embeddings_batch(image_paths, batch_size=batch_size)
+
+    def cluster_faces(
+        self,
+        image_paths: List[Path],
+        n_clusters: Optional[int] = None,
+        distance_threshold: float = 0.5
+    ) -> np.ndarray:
+        """
+        Cluster faces by identity.
+
+        Args:
+            image_paths: List of face image paths
+            n_clusters: Number of clusters (if known)
+            distance_threshold: Distance threshold for auto-clustering
+
+        Returns:
+            Cluster labels array
+        """
+        embedder = self._get_face_embedder()
+        embeddings = embedder.extract_embeddings_batch(image_paths)
+        return embedder.cluster_faces(
+            embeddings,
+            n_clusters=n_clusters,
+            distance_threshold=distance_threshold
+        )
 
     # =========================================================================
     # Unified Analysis

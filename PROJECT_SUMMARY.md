@@ -1,6 +1,25 @@
 # sim-bench Project Summary
 
-## What I Just Completed
+## Latest Achievement (January 18, 2026) 🏆
+
+Successfully completed **Unified Image Quality Benchmark** comparing three approaches:
+
+**Results (50 images, 1350 degraded variants):**
+- **Siamese E2E: 89.9%** overall accuracy (best at compositional quality)
+- **AVA ResNet: 81.9%** overall accuracy (best at technical quality)
+- **Rule-Based IQA: 68.4%** overall accuracy (limited to low-level metrics)
+
+**Key Insights:**
+- Models are **complementary, not competitive**
+- Siamese excels at crops/framing (trained on human preferences)
+- AVA excels at exposure/blur (trained on aesthetic scores)
+- Training data determines model specialization
+
+See [MILESTONES.md](MILESTONES.md) for detailed results.
+
+---
+
+## Previous Achievement (November 16, 2025)
 
 Successfully implemented **learned CLIP aesthetic prompts** for quality assessment, including:
 

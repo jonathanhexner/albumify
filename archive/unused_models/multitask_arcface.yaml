@@ -1,0 +1,72 @@
+# Multitask Face Model with ArcFace Backbone
+# Dataset: AffectNet
+# Tasks: Expression Classification (8 classes) + Landmark Regression (5 points)
+# Backbone: Pretrained ArcFace ResNet-50 (from face recognition training)
+
+# Reproducibility
+seed: 42
+
+# Device configuration
+device: "cuda"  # or "cpu"
+
+# Data configuration
+data:
+  root_dir: "D:/DataSets/AffectNet"
+  landmarks_cache: "cache/affectnet_landmarks.json"
+  num_landmarks: 5  # 5-point landmarks from cache
+  num_workers: 0  # Use 0 on Windows to avoid multiprocessing issues
+
+# Model configuration
+model:
+  # Path to trained ArcFace checkpoint
+  arcface_checkpoint: "D:/sim-bench/outputs/face/20260125_224553/best_model.pt"
+
+  # Whether to freeze backbone (start frozen for transfer learning)
+  freeze_backbone: true
+
+  # Head configuration
+  num_expression_classes: 8  # AffectNet: Neutral, Happy, Sad, Surprise, Fear, Disgust, Anger, Contempt
+  num_landmarks: 5
+  landmark_hidden_dim: 512
+  expression_hidden_dim: 512
+
+# Transform configuration
+# NOTE: Using 112x112 to match ArcFace backbone input size
+transform:
+  input_size: 112
+  normalize_mean: [0.5, 0.5, 0.5]  # Match ArcFace normalization
+  normalize_std: [0.5, 0.5, 0.5]
+  augmentation:
+    horizontal_flip: 0.5
+    color_jitter:
+      brightness: 0.1
+      contrast: 0.1
+      saturation: 0.1
+      hue: 0.05
+
+# Training configuration
+training:
+  batch_size: 64  # Can use larger batch with frozen backbone
+  learning_rate: 0.001
+  optimizer: "adamw"
+  weight_decay: 0.0001
+  max_epochs: 30
+
+  # Use uncertainty weighting for task balancing
+  use_uncertainty_weighting: true
+
+  # Differential learning rate (when backbone is unfrozen)
+  differential_lr: true
+  backbone_lr_multiplier: 0.1  # Backbone gets 10x lower LR
+
+  # Optionally unfreeze backbone after N epochs for fine-tuning
+  # unfreeze_backbone_epoch: 10
+
+  # Learning rate schedule
+  scheduler:
+    type: "cosine"
+    min_lr: 0.00001
+
+# Output configuration
+checkpoint_interval: 10
+log_interval: 50
