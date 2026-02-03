@@ -6,6 +6,30 @@
 
 ---
 
+## 2026-02-03 16:30:00
+
+**Files**: 
+- `.gitattributes`
+- `models/album_app/arcface_resnet50.pt`
+- `models/album_app/ava_resnet50.pt`
+- `models/album_app/siamese_comparison_model.pt`
+
+**Change**: Migrated all PyTorch model files (.pt) to Git LFS
+
+**Reason**: User requested moving .pt files to Git LFS to reduce repository size and improve clone/push/pull performance for large binary files.
+
+**Details**:
+- Ran `git lfs install` to initialize Git LFS
+- Ran `git lfs track "*.pt"` to configure LFS tracking
+- Updated `.gitattributes` with `*.pt filter=lfs diff=lfs merge=lfs -text`
+- Committed all 3 model files as LFS objects (99% rewrite)
+- Files now stored as LFS pointers in git, actual data in LFS storage
+- Model sizes: arcface_resnet50.pt, ava_resnet50.pt, siamese_comparison_model.pt
+
+**Commit**: `9df805c` - "chore: migrate model files (.pt) to Git LFS"
+
+---
+
 ## 2026-02-03 16:00:00
 
 **Files**: 
