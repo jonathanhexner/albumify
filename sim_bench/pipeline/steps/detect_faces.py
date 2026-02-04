@@ -35,7 +35,7 @@ class DetectFacesStep(BaseStep):
                     },
                     "detection_confidence": {
                         "type": "number",
-                        "default": 0.5,
+                        "default": 0.3,
                         "description": "MediaPipe detection confidence threshold"
                     },
                     "crop_padding": {

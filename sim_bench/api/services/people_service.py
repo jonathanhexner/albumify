@@ -264,10 +264,13 @@ class PeopleService:
             images = set()
 
             for face in faces:
+                bbox = None
+                if face.bbox is not None:
+                    bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]
                 instance = {
                     'image_path': str(face.original_path),
                     'face_index': face.face_index,
-                    'bbox': list(face.bbox) if face.bbox is not None else None,
+                    'bbox': bbox,
                     'score': getattr(face, 'quality', None) and face.quality.overall
                 }
                 face_instances.append(instance)
@@ -292,7 +295,7 @@ class PeopleService:
                 image_count=len(images),
                 thumbnail_image_path=str(thumbnail_face.original_path) if thumbnail_face else None,
                 thumbnail_face_index=thumbnail_face.face_index if thumbnail_face else None,
-                thumbnail_bbox=list(thumbnail_face.bbox) if thumbnail_face and thumbnail_face.bbox is not None else None
+                thumbnail_bbox=[thumbnail_face.bbox.x, thumbnail_face.bbox.y, thumbnail_face.bbox.w, thumbnail_face.bbox.h] if thumbnail_face and thumbnail_face.bbox is not None else None
             )
 
             self._session.add(person)

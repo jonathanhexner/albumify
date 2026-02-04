@@ -153,7 +153,7 @@ album:
 # Portrait Analysis (MediaPipe)
 # ============================================================================
 portrait_analysis:
-  face_detection_confidence: 0.5       # Minimum confidence for face detection
+  face_detection_confidence: 0.3       # Minimum confidence for face detection (lowered from 0.5)
   portrait_face_ratio_threshold: 0.0005 # Min face area ratio for portrait
   portrait_center_offset_threshold: 0.3 # Max center offset for portrait
   eye_open_ear_threshold: 0.2          # Eye Aspect Ratio threshold

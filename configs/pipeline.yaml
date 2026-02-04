@@ -34,7 +34,7 @@ default_pipeline:
 # Face Detection (detect_faces)
 detect_faces:
   min_face_ratio: 0.02         # Face must cover at least 2% of image
-  detection_confidence: 0.5     # MediaPipe confidence threshold
+  detection_confidence: 0.3     # MediaPipe confidence threshold (lowered from 0.5 to catch more faces)
   crop_padding: 0.2            # 20% padding around face crop
 
 # Face Pose Scoring (score_face_pose)

@@ -54,6 +54,9 @@ class PipelineContext:
     people_thumbnails: dict[int, Any] = field(default_factory=dict)
     people_best_images: dict[int, dict] = field(default_factory=dict)
 
+    # Composite scores (keyed by image path string, computed during select_best)
+    composite_scores: dict[str, float] = field(default_factory=dict)
+
     # Selection
     selected_images: list[str] = field(default_factory=list)
 

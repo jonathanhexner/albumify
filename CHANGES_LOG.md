@@ -6,15 +6,16 @@
 
 ---
 
-## 2026-02-03 16:30:00
+## 2026-02-03 16:30:00 ✅ COMPLETE
 
 **Files**: 
 - `.gitattributes`
 - `models/album_app/arcface_resnet50.pt`
 - `models/album_app/ava_resnet50.pt`
 - `models/album_app/siamese_comparison_model.pt`
+- Git history (rewritten)
 
-**Change**: Migrated all PyTorch model files (.pt) to Git LFS
+**Change**: Migrated all PyTorch model files (.pt) to Git LFS and rewrote repository history
 
 **Reason**: User requested moving .pt files to Git LFS to reduce repository size and improve clone/push/pull performance for large binary files.
 
@@ -23,10 +24,18 @@
 - Ran `git lfs track "*.pt"` to configure LFS tracking
 - Updated `.gitattributes` with `*.pt filter=lfs diff=lfs merge=lfs -text`
 - Committed all 3 model files as LFS objects (99% rewrite)
-- Files now stored as LFS pointers in git, actual data in LFS storage
-- Model sizes: arcface_resnet50.pt, ava_resnet50.pt, siamese_comparison_model.pt
+- Rewrote entire Git history using `git lfs migrate import --everything`
+- Uploaded 309 MB LFS objects to remote storage
+- Force-pushed rewritten history (commit 851bbe4) to GitHub
+- Verified: local and remote in sync, all 3 model files tracked by LFS
+- Repository size reduced by ~300 MB
 
-**Commit**: `9df805c` - "chore: migrate model files (.pt) to Git LFS"
+**Commits**: 
+- `9df805c` - "chore: migrate model files (.pt) to Git LFS"
+- `6f4f1ee` - History rewrite commit
+- `851bbe4` - Final documentation commit
+
+**Verification**: `git lfs ls-files` shows 3 files, `git status` shows "up to date with origin/main"
 
 ---
 
@@ -129,6 +138,36 @@
 
 ---
 
+## 2026-02-04 10:30:00
+
+**Files**: 
+- `SCORE_PERSISTENCE_DEBUG_PLAN.md` (created and updated)
+
+**Change**: Created comprehensive debug and fix plan for missing scores + People Management feature
+
+**Reason**: User reported that Pose, Eyes, Smile, and Final Score columns are showing None values, and People column is empty. User also clarified they want full people management (identify, name, filter).
+
+**Details**:
+- Documented 4 main problems: face scores None, composite_score None, people empty, face detection threshold
+- Root cause hypothesis: scores computed but not persisted to database image_metrics JSON
+- **Split into 3 sprints**:
+  - **Sprint 1** (1.5 hrs): Fix score persistence to database
+  - **Sprint 2** (2 hrs): Full People Management UI (gallery, naming, filtering)
+  - **Sprint 3** (30 min): Tune face detection (DECREASE threshold 0.5→0.3 to catch more faces)
+- Clarified face detection issue is FALSE NEGATIVES (missing real faces), not false positives
+- Expanded People feature to include:
+  - New People Gallery page with thumbnails and naming interface
+  - Person filtering in Results page
+  - Backend API endpoints for get_people() and update_person_name()
+- Test strategy with 10-image test album
+- Clear success criteria per sprint
+- Identified 11 files (4 new, 7 modified)
+- Total estimated fix time: 4-5 hours (can split across sessions)
+
+**Next Steps**: User to choose Option A (Sprint 1 first) or Option B (all sprints together)
+
+---
+
 ## Historical Changes (Pre-Log)
 
 For changes before this log was created, see:
@@ -172,3 +211,35 @@ This log helps:
 - Understand evolution of codebase
 - Coordinate between different AI sessions
 - Provide context for future development
+
+---
+
+### 2026-02-04 12:00:00
+**Files**: `sim_bench/pipeline/context.py`
+**Change**: Added `composite_scores: dict[str, float]` field to PipelineContext dataclass
+**Reason**: Composite scores were computed transiently in select_best but never persisted; needed a field to store them for database persistence
+
+### 2026-02-04 12:01:00
+**Files**: `sim_bench/api/services/pipeline_service.py`
+**Change**: Replaced inline image_metrics dict comprehension with `_build_image_metrics()` helper method that correctly aggregates per-face scores by iterating over detected faces using cache keys (`"path:face_N"`), includes composite_score, and calls `PeopleService.create_from_clusters()` to persist Person records after pipeline completion
+**Reason**: Face scores (pose/eyes/smile) were always None because `pipeline_service.py` looked up scores by image path, but face scoring steps store scores keyed by cache key format (`"path:face_0"`). Also, Person records were never created because `create_from_clusters()` was never called from the pipeline execution flow.
+
+### 2026-02-04 12:02:00
+**Files**: `sim_bench/pipeline/steps/select_best.py`
+**Change**: Added `context.composite_scores[path] = score` loop after scoring images in `_select_from_cluster()` to persist computed composite scores back into the pipeline context
+**Reason**: Composite scores were computed for ranking but discarded after selection; they need to be stored in context so `pipeline_service.py` can persist them to the database
+
+### 2026-02-04 12:03:00
+**Files**: `sim_bench/api/services/people_service.py`
+**Change**: Fixed BoundingBox serialization in `create_from_clusters()` - replaced `list(face.bbox)` with explicit `[face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]` for both face_instances and thumbnail_bbox
+**Reason**: BoundingBox is a dataclass and not iterable; `list(bbox)` would raise TypeError at runtime
+
+### 2026-02-04 12:04:00
+**Files**: `sim_bench/api/services/result_service.py`
+**Change**: Changed person display name from `f"Person {person.person_index}"` to `f"Person {person.person_index + 1}"` (1-based indexing)
+**Reason**: person_index is 0-based (cluster ID), but user-facing display should be 1-based for readability
+
+### 2026-02-04 12:05:00
+**Files**: `sim_bench/pipeline/steps/detect_faces.py`, `sim_bench/face_pipeline/crop_service.py`, `configs/pipeline.yaml`, `configs/global_config.yaml`
+**Change**: Lowered face detection confidence threshold from 0.5 to 0.3 across all config defaults and code defaults
+**Reason**: Threshold of 0.5 was causing false negatives (missing real faces); lowering to 0.3 catches more real faces while the existing min_face_ratio (2%) filter still rejects tiny artifacts

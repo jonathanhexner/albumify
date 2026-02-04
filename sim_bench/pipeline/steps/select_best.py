@@ -244,6 +244,10 @@ class SelectBestStep(BaseStep):
         else:
             scored_images = self._score_non_face_cluster(context, image_paths)
 
+        # Persist composite scores in context for database storage
+        for path, score in scored_images:
+            context.composite_scores[path] = score
+
         # Sort by score descending
         scored_images.sort(key=lambda x: x[1], reverse=True)
 

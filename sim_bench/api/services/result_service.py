@@ -163,7 +163,7 @@ class ResultService:
         )
         image_people: dict[str, list[str]] = {}
         for person in people:
-            display_name = person.name or f"Person {person.person_index}"
+            display_name = person.name or f"Person {person.person_index + 1}"
             for face in (person.face_instances or []):
                 path = face.get('image_path')
                 if path:

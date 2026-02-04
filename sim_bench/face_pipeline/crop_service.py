@@ -30,7 +30,7 @@ class FaceCropService:
         self._config = config
         fp_config = config.get('face_pipeline', {})
 
-        self._detection_confidence = fp_config.get('detection_confidence', 0.5)
+        self._detection_confidence = fp_config.get('detection_confidence', 0.3)
         self._min_face_ratio = fp_config.get('min_face_ratio', MIN_FACE_RATIO)
         self._crop_padding = fp_config.get('crop_padding', 0.2)  # 20% padding around face
 
