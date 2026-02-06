@@ -3,6 +3,7 @@
 import streamlit as st
 from pathlib import Path
 from typing import List, Optional, Callable, Set
+from PIL import Image, ImageOps
 
 from app.streamlit.models import Person, ImageInfo
 from app.streamlit.api_client import get_client, ApiError
@@ -46,7 +47,7 @@ def render_people_grid(
                     st.session_state.selected_person_ids = selected_ids
                     st.rerun()
             else:
-                if render_person_card(person):
+                if render_person_card(person, album_id=album_id):
                     selected_person = person
                     if on_person_click:
                         on_person_click(person)
@@ -86,14 +87,45 @@ def _render_selection_toolbar(people: List[Person], album_id: Optional[str]) -> 
     return selected_ids
 
 
-def render_person_card(person: Person) -> bool:
+def render_person_card(person: Person, album_id: Optional[str] = None) -> bool:
     """Render a single person card. Returns True if clicked."""
     with st.container():
         _render_person_thumbnail(person)
         display_name = person.name or f"Person {person.person_id[:6]}"
-        st.write(f"**{display_name}**")
-        st.caption(f"{person.face_count} photos")
-        return st.button("View", key=f"person_{person.person_id}", use_container_width=True)
+
+        # Inline rename functionality
+        rename_key = f"renaming_inline_{person.person_id}"
+        if st.session_state.get(rename_key):
+            new_name = st.text_input(
+                "Name",
+                value=person.name or "",
+                key=f"name_input_{person.person_id}",
+                placeholder="Enter name"
+            )
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Save", key=f"save_name_{person.person_id}", use_container_width=True):
+                    if new_name and album_id:
+                        client = get_client()
+                        client.rename_person(album_id, person.person_id, new_name)
+                        add_notification(f"Renamed to {new_name}", "success")
+                    st.session_state[rename_key] = False
+                    st.rerun()
+            with col2:
+                if st.button("Cancel", key=f"cancel_name_{person.person_id}", use_container_width=True):
+                    st.session_state[rename_key] = False
+                    st.rerun()
+            return False
+        else:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"**{display_name}**")
+            with col2:
+                if st.button("✏️", key=f"edit_name_{person.person_id}", help="Rename"):
+                    st.session_state[rename_key] = True
+                    st.rerun()
+            st.caption(f"{person.face_count} photos")
+            return st.button("View", key=f"person_{person.person_id}", use_container_width=True)
 
 
 def render_person_card_selectable(person: Person, is_selected: bool) -> bool:
@@ -113,12 +145,40 @@ def render_person_card_selectable(person: Person, is_selected: bool) -> bool:
 
 def _render_person_thumbnail(person: Person) -> None:
     """Render person's representative face thumbnail."""
-    if person.representative_face:
-        face_path = Path(person.representative_face)
-        if face_path.exists():
-            st.image(str(face_path), use_container_width=True)
-            return
-    _render_placeholder_avatar()
+    if not person.representative_face:
+        _render_placeholder_avatar()
+        return
+
+    face_path = Path(person.representative_face)
+    if not face_path.exists():
+        _render_placeholder_avatar()
+        return
+
+    try:
+        img = Image.open(face_path)
+        img = ImageOps.exif_transpose(img)
+        img = _crop_face_region(img, person.thumbnail_bbox)
+        st.image(img, use_container_width=True)
+    except Exception:
+        _render_placeholder_avatar()
+
+
+def _crop_face_region(img: Image.Image, bbox: list) -> Image.Image:
+    """Crop image to face region with padding. Returns original if no bbox."""
+    if not bbox or len(bbox) != 4:
+        return img
+
+    img_w, img_h = img.size
+    x, y, w, h = [v * dim for v, dim in zip(bbox, [img_w, img_h, img_w, img_h])]
+
+    # 30% padding
+    pad_x, pad_y = w * 0.3, h * 0.3
+    left = max(0, int(x - pad_x))
+    top = max(0, int(y - pad_y))
+    right = min(img_w, int(x + w + pad_x))
+    bottom = min(img_h, int(y + h + pad_y))
+
+    return img.crop((left, top, right, bottom))
 
 
 def _render_placeholder_avatar() -> None:

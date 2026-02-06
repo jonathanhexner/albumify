@@ -481,6 +481,7 @@ class ApiClient:
             face_count=data.get("face_count", 0),
             image_count=data.get("image_count", 0),
             representative_face=representative,
+            thumbnail_bbox=data.get("thumbnail_bbox"),
             images=data.get("images", []),
         )
 

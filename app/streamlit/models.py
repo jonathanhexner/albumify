@@ -93,6 +93,7 @@ class Person:
     face_count: int = 0
     image_count: int = 0
     representative_face: Optional[str] = None  # Path to representative image
+    thumbnail_bbox: Optional[List[float]] = None  # [x, y, w, h] for face crop
     images: List[str] = field(default_factory=list)
 
 

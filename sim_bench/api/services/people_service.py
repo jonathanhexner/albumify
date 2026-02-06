@@ -235,6 +235,18 @@ class PeopleService:
         )
         return (max_index[0] + 1) if max_index else 0
 
+    def _get_thumbnail_info(self, face) -> tuple:
+        """Extract thumbnail path and bbox from a face object."""
+        if not face:
+            return None, None
+        # Prefer pre-cropped image if available
+        crop_path = getattr(face, 'crop_path', None)
+        if crop_path:
+            return str(crop_path), None
+        # Fall back to original image + bbox
+        bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h] if face.bbox else None
+        return str(face.original_path), bbox
+
     def create_from_clusters(
         self,
         album_id: str,
@@ -276,13 +288,9 @@ class PeopleService:
                 face_instances.append(instance)
                 images.add(str(face.original_path))
 
-            # Determine thumbnail
-            thumbnail_face = None
-            if people_thumbnails and cluster_id in people_thumbnails:
-                thumbnail_face = people_thumbnails[cluster_id]
-            elif faces:
-                # Default to first face
-                thumbnail_face = faces[0]
+            # Determine thumbnail - prefer saved crop_path over original image
+            thumbnail_face = (people_thumbnails or {}).get(cluster_id) or (faces[0] if faces else None)
+            thumbnail_path, thumbnail_bbox = self._get_thumbnail_info(thumbnail_face)
 
             person = Person(
                 id=str(uuid.uuid4()),
@@ -293,9 +301,9 @@ class PeopleService:
                 face_instances=face_instances,
                 face_count=len(face_instances),
                 image_count=len(images),
-                thumbnail_image_path=str(thumbnail_face.original_path) if thumbnail_face else None,
+                thumbnail_image_path=thumbnail_path,
                 thumbnail_face_index=thumbnail_face.face_index if thumbnail_face else None,
-                thumbnail_bbox=[thumbnail_face.bbox.x, thumbnail_face.bbox.y, thumbnail_face.bbox.w, thumbnail_face.bbox.h] if thumbnail_face and thumbnail_face.bbox is not None else None
+                thumbnail_bbox=thumbnail_bbox
             )
 
             self._session.add(person)

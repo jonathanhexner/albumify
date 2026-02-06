@@ -333,3 +333,76 @@ This log helps:
 - Sub-clusters sorted by face count (descending)
 - Shows face count, identity signature, and thumbnail grid (up to 6 images)
 - Uses emoji indicators: 👥 for faces, 📷 for no-face clusters
+
+### 2026-02-06 11:00:00
+**Files**:
+- `app/streamlit/components/people_browser.py`
+- `app/streamlit/models.py`
+- `app/streamlit/api_client.py`
+
+**Change**: Fixed People tab to show cropped face thumbnails and added inline rename
+
+**Reason**: Person thumbnails were showing full image instead of just the face; user requested ability to edit person name from grid view
+
+**Details**:
+- Added `thumbnail_bbox` field to Person model
+- Updated `_parse_person()` to include thumbnail_bbox from API
+- Updated `_render_person_thumbnail()` to crop face from image using bbox with 30% padding
+- Added inline rename functionality to `render_person_card()` - click pencil icon to rename
+- Pass album_id to render_person_card for rename API calls
+
+### 2026-02-06 12:00:00
+**Files**: `sim_bench/pipeline/steps/cluster_by_identity.py`
+
+**Change**: Fixed critical bug - sub-clustering now uses global person IDs from cluster_people instead of independent embedding quantization
+
+**Reason**: Selection logic was inconsistent with People tab. "Person 3" in People tab was computed by global clustering, but sub-clustering used a different quantized embedding hash. This caused images with the same person to be placed in different sub-clusters and not compete properly.
+
+**Details**:
+- Added `_build_face_to_person_lookup()` to map (image_path, face_index) → person_id
+- Modified `process()` to look up person IDs from `context.people_clusters`
+- Removed old `_compute_identity_signature()` that used embedding quantization
+- Updated dependency: now depends on `cluster_people` instead of `extract_face_embeddings`
+- Sub-cluster identity now shows "Person_0+Person_1" format for clarity
+- Added `person_ids` list to sub-cluster metadata for downstream use
+
+### 2026-02-06 12:30:00
+**Files**:
+- `sim_bench/pipeline/steps/detect_faces.py`
+- `sim_bench/face_pipeline/types.py`
+- `sim_bench/api/services/people_service.py`
+
+**Change**: Store cropped face images to disk for faster thumbnail loading
+
+**Reason**: Previously cropped faces in memory but discarded them. For People tab thumbnails, had to re-crop from full image every time. Now save to `.faces/` directory.
+
+**Details**:
+- Added `_get_faces_dir()`, `_get_face_crop_path()`, `_save_face_crop()` helpers
+- Modified `_serialize_faces()` to save crops to `{album}/.faces/{image}_face_{n}.jpg`
+- Added `crop_path` field to `CroppedFace` dataclass
+- Modified `_deserialize_faces()` to load from saved crop if available
+- Updated `people_service.create_from_clusters()` to use `crop_path` for thumbnail if available
+- Thumbnail stored as direct path to cropped face (no bbox needed when pre-cropped)
+
+### 2026-02-06 12:31:00
+**Files**: `app/streamlit/components/gallery.py`
+
+**Change**: Make gallery images display with consistent square aspect ratio
+
+**Reason**: Portrait and landscape images had different heights in grid, causing inconsistent visual layout
+
+**Details**:
+- Updated `_load_image_for_display()` to crop to center square by default
+- Added `make_square` parameter (default True) for control
+- Gallery now shows uniform thumbnail grid
+
+### 2026-02-06 12:32:00
+**Files**: `app/streamlit/components/people_browser.py`
+
+**Change**: Fixed bbox coordinate conversion in person thumbnail cropping
+
+**Reason**: Bbox values are stored in relative coordinates (0-1 range) but code was using them as pixel values, causing incorrect crop regions
+
+**Details**:
+- Added conversion: `x = x_rel * img_w`, etc.
+- Padding calculation now works correctly with pixel values

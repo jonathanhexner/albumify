@@ -14,10 +14,22 @@ from app.streamlit.models import ImageInfo, ClusterInfo
 from app.streamlit.config import get_config
 
 
-def _load_image_for_display(image_path: Path) -> Image.Image:
-    """Load image with EXIF orientation correction."""
+def _load_image_for_display(image_path: Path, make_square: bool = True) -> Image.Image:
+    """Load image with EXIF orientation correction and optional square crop.
+
+    Args:
+        image_path: Path to the image file
+        make_square: If True, crop to center square for consistent grid display
+    """
     with Image.open(image_path) as img:
         img = ImageOps.exif_transpose(img)
+        if make_square:
+            # Crop to center square for consistent grid appearance
+            w, h = img.size
+            size = min(w, h)
+            left = (w - size) // 2
+            top = (h - size) // 2
+            img = img.crop((left, top, left + size, top + size))
         return img.copy()
 
 

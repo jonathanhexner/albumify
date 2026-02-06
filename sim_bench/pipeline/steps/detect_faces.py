@@ -3,6 +3,8 @@
 import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+from PIL import Image
+import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
 from sim_bench.pipeline.context import PipelineContext
@@ -10,6 +12,32 @@ from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.serializers import Serializers
 
 logger = logging.getLogger(__name__)
+
+
+def _get_faces_dir(image_path: Path) -> Path:
+    """Get the .faces directory for storing cropped faces."""
+    return image_path.parent / ".faces"
+
+
+def _get_face_crop_path(image_path: Path, face_index: int) -> Path:
+    """Get the path for a cropped face image."""
+    faces_dir = _get_faces_dir(image_path)
+    return faces_dir / f"{image_path.stem}_face_{face_index}.jpg"
+
+
+def _save_face_crop(face_image: np.ndarray, save_path: Path) -> bool:
+    """Save a cropped face image to disk."""
+    try:
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        # Convert numpy array to PIL Image and save
+        if face_image.dtype != np.uint8:
+            face_image = (face_image * 255).astype(np.uint8)
+        img = Image.fromarray(face_image)
+        img.save(save_path, "JPEG", quality=90)
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to save face crop to {save_path}: {e}")
+        return False
 
 
 @register_step
@@ -56,63 +84,77 @@ class DetectFacesStep(BaseStep):
             self._crop_service = FaceCropService(config={'face_pipeline': config})
         return self._crop_service
 
-    def _serialize_faces(self, cropped_faces) -> Dict[str, Any]:
-        """Convert CroppedFace objects to JSON-serializable dict."""
-        return {
-            'faces': [
-                {
-                    'face_index': f.face_index,
-                    'bbox': {
-                        'x': f.bbox.x,
-                        'y': f.bbox.y,
-                        'w': f.bbox.w,
-                        'h': f.bbox.h,
-                        'x_px': f.bbox.x_px,
-                        'y_px': f.bbox.y_px,
-                        'w_px': f.bbox.w_px,
-                        'h_px': f.bbox.h_px
-                    },
-                    'detection_confidence': f.detection_confidence,
-                    'face_ratio': f.face_ratio
-                }
-                for f in cropped_faces
-            ]
-        }
+    def _serialize_faces(self, cropped_faces, save_crops: bool = True) -> Dict[str, Any]:
+        """Convert CroppedFace objects to JSON-serializable dict and optionally save crops."""
+        faces_data = []
+        for f in cropped_faces:
+            # Determine crop path and save if requested
+            crop_path = _get_face_crop_path(f.original_path, f.face_index)
+            crop_path_str = None
+
+            if save_crops and f.image is not None:
+                if _save_face_crop(f.image, crop_path):
+                    crop_path_str = str(crop_path)
+
+            faces_data.append({
+                'face_index': f.face_index,
+                'bbox': {
+                    'x': f.bbox.x,
+                    'y': f.bbox.y,
+                    'w': f.bbox.w,
+                    'h': f.bbox.h,
+                    'x_px': f.bbox.x_px,
+                    'y_px': f.bbox.y_px,
+                    'w_px': f.bbox.w_px,
+                    'h_px': f.bbox.h_px
+                },
+                'detection_confidence': f.detection_confidence,
+                'face_ratio': f.face_ratio,
+                'crop_path': crop_path_str
+            })
+
+        return {'faces': faces_data}
 
     def _deserialize_faces(self, image_path: str, data: Dict[str, Any], service):
         """Reconstruct CroppedFace objects from cached JSON."""
         from sim_bench.face_pipeline.types import CroppedFace, BoundingBox
-        from PIL import Image
-        import numpy as np
-        
+
         faces = []
-        image = service._load_image(Path(image_path))
-        
+        image = None  # Lazy load only if needed
+
         for face_data in data['faces']:
-            bbox_data = face_data['bbox']
-            bbox = BoundingBox(
-                x=bbox_data['x'],
-                y=bbox_data['y'],
-                w=bbox_data['w'],
-                h=bbox_data['h'],
-                x_px=bbox_data['x_px'],
-                y_px=bbox_data['y_px'],
-                w_px=bbox_data['w_px'],
-                h_px=bbox_data['h_px']
-            )
-            
-            crop = service._crop_face(image, bbox, service._crop_padding)
-            
+            bbox = BoundingBox(**face_data['bbox'])
+            crop_path = Path(face_data['crop_path']) if face_data.get('crop_path') else \
+                        _get_face_crop_path(Path(image_path), face_data['face_index'])
+
+            # Load from saved crop, or crop from original and save
+            crop = self._load_or_create_crop(crop_path, image_path, bbox, service)
+            if image is None and crop is None:
+                image = service._load_image(Path(image_path))
+                crop = service._crop_face(image, bbox, service._crop_padding)
+                _save_face_crop(crop, crop_path)
+
             faces.append(CroppedFace(
                 original_path=Path(image_path),
                 face_index=face_data['face_index'],
                 image=crop,
                 bbox=bbox,
                 detection_confidence=face_data['detection_confidence'],
-                face_ratio=face_data['face_ratio']
+                face_ratio=face_data['face_ratio'],
+                crop_path=crop_path
             ))
-        
+
         return faces
+
+    def _load_or_create_crop(self, crop_path: Path, image_path: str, bbox, service):
+        """Load crop from disk if exists, otherwise return None."""
+        if not crop_path.exists():
+            return None
+        try:
+            return np.array(Image.open(crop_path))
+        except Exception as e:
+            logger.warning(f"Failed to load crop {crop_path}: {e}")
+            return None
 
     def _get_cache_config(
         self,

@@ -142,6 +142,9 @@ class CroppedFace:
     detection_confidence: float
     face_ratio: float  # Face area / image area
 
+    # Path to saved cropped face image (if saved to disk)
+    crop_path: Optional[Path] = None
+
     # Quality metrics (filled in by quality scorer)
     pose: Optional[PoseEstimate] = None
     eyes_open_score: Optional[float] = None
