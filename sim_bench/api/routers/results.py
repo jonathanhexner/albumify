@@ -85,6 +85,26 @@ def get_result_metrics(job_id: str, session: Session = Depends(get_session)):
     return metrics
 
 
+@router.get("/{job_id}/comparisons")
+def get_siamese_comparisons(job_id: str, session: Session = Depends(get_session)):
+    """Get Siamese/duplicate comparison log for debugging and visibility."""
+    service = ResultService(session)
+    comparisons = service.get_comparisons(job_id)
+    if comparisons is None:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return comparisons
+
+
+@router.get("/{job_id}/subclusters")
+def get_face_subclusters(job_id: str, session: Session = Depends(get_session)):
+    """Get face sub-clusters (grouped by scene and face identity)."""
+    service = ResultService(session)
+    subclusters = service.get_subclusters(job_id)
+    if subclusters is None:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return subclusters
+
+
 @router.post("/{job_id}/export", response_model=ExportResponse)
 def export_result(
     job_id: str,

@@ -230,11 +230,13 @@ def _render_cluster_section(
             images_to_show = group_images[:max_preview] if not show_all else group_images
 
             if images_to_show:
+                # Use more columns when showing all images
+                num_cols = min(6, len(images_to_show)) if show_all else min(4, len(images_to_show))
                 render_image_gallery(
                     images_to_show,
                     show_scores=True,
                     show_selection=True,
-                    columns=min(4, len(images_to_show)),
+                    columns=num_cols,
                 )
                 remaining = len(group_images) - len(images_to_show)
                 if remaining > 0:

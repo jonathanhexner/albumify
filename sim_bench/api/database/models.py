@@ -62,8 +62,10 @@ class PipelineResult(Base):
     num_selected = Column(Integer)
 
     scene_clusters = Column(JSON)
+    face_subclusters = Column(JSON)  # Sub-clusters by face identity within scenes
     selected_images = Column(JSON)
     image_metrics = Column(JSON)
+    siamese_comparisons = Column(JSON)  # Siamese/duplicate comparison log for debugging
 
     step_timings = Column(JSON)
     total_duration_ms = Column(Integer)

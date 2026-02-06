@@ -57,6 +57,10 @@ class PipelineContext:
     # Composite scores (keyed by image path string, computed during select_best)
     composite_scores: dict[str, float] = field(default_factory=dict)
 
+    # Siamese comparison log (list of comparison results for debugging/display)
+    # Each entry: {cluster_id, img1, img2, winner, confidence, comparison_type}
+    siamese_comparisons: list[dict] = field(default_factory=list)
+
     # Selection
     selected_images: list[str] = field(default_factory=list)
 

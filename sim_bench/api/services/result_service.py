@@ -254,6 +254,30 @@ class ResultService:
             'total_duration_ms': result.total_duration_ms or 0
         }
 
+    def get_comparisons(self, job_id: str) -> Optional[list]:
+        """Get Siamese/duplicate comparison log for a pipeline run."""
+        result = (
+            self._session.query(PipelineResult)
+            .filter(PipelineResult.run_id == job_id)
+            .first()
+        )
+        if not result:
+            return None
+
+        return result.siamese_comparisons or []
+
+    def get_subclusters(self, job_id: str) -> Optional[dict]:
+        """Get face sub-clusters for a pipeline run."""
+        result = (
+            self._session.query(PipelineResult)
+            .filter(PipelineResult.run_id == job_id)
+            .first()
+        )
+        if not result:
+            return None
+
+        return result.face_subclusters or {}
+
     def export_results(
         self,
         job_id: str,

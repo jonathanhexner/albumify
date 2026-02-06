@@ -47,24 +47,33 @@ class ClusterPeopleStep(BaseStep):
 
     def process(self, context: PipelineContext, config: dict) -> None:
         """Cluster faces by identity."""
-        if not context.all_faces:
-            context.report_progress("cluster_people", 1.0, "No faces to cluster")
-            return
-        
-        # Filter faces with embeddings
-        faces_with_embeddings = [f for f in context.all_faces if f.embedding is not None]
-        
+        # Collect all faces with embeddings from context.faces
+        # (context.faces is keyed by image path, each value is a list of Face objects)
+        faces_with_embeddings = []
+
+        for img_path, faces in context.faces.items():
+            embeddings_for_img = context.face_embeddings.get(img_path, [])
+            for i, face in enumerate(faces):
+                # Get corresponding embedding if available
+                if i < len(embeddings_for_img) and embeddings_for_img[i] is not None:
+                    face.embedding = embeddings_for_img[i]
+                    faces_with_embeddings.append(face)
+                elif hasattr(face, 'embedding') and face.embedding is not None:
+                    faces_with_embeddings.append(face)
+
         if not faces_with_embeddings:
-            context.report_progress("cluster_people", 1.0, "No face embeddings available")
+            context.report_progress("cluster_people", 1.0, "No faces with embeddings to cluster")
             return
-        
+
+        logger.info(f"Clustering {len(faces_with_embeddings)} faces with embeddings")
+
         if len(faces_with_embeddings) == 1:
             # Single face - assign to cluster 0
             faces_with_embeddings[0].cluster_id = 0
             context.people_clusters = {0: [faces_with_embeddings[0]]}
             context.report_progress("cluster_people", 1.0, "Single face detected (1 person)")
             return
-        
+
         # Prepare embeddings for clustering
         embeddings = np.array([f.embedding for f in faces_with_embeddings])
         

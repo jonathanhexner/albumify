@@ -257,7 +257,7 @@ class SelectBestStep(BaseStep):
         # Apply Siamese tiebreaker for top candidates if scores are close
         if siamese_model and len(scored_images) >= 2:
             scored_images = self._apply_siamese_tiebreaker(
-                scored_images, tiebreaker_threshold, siamese_model
+                context, scored_images, tiebreaker_threshold, siamese_model
             )
 
         # Smart selection logic
@@ -304,6 +304,7 @@ class SelectBestStep(BaseStep):
 
     def _apply_siamese_tiebreaker(
         self,
+        context: PipelineContext,
         scored_images: List[Tuple[str, float]],
         threshold: float,
         siamese_model
@@ -343,11 +344,26 @@ class SelectBestStep(BaseStep):
 
             result = siamese_model.compare_images(Path(path1), Path(path2))
             winner_idx = 0 if result['prediction'] == 1 else 1
+            winner_path = path1 if winner_idx == 0 else path2
+            confidence = result['confidence']
+
+            # Log comparison for visibility
+            context.siamese_comparisons.append({
+                'type': 'tiebreaker',
+                'img1': Path(path1).name,
+                'img2': Path(path2).name,
+                'img1_path': path1,
+                'img2_path': path2,
+                'winner': Path(winner_path).name,
+                'confidence': round(confidence, 3),
+                'score1': round(score1, 3),
+                'score2': round(score2, 3),
+            })
 
             if winner_idx == 1:
                 # Swap - second is better
                 reranked[0], reranked[1] = reranked[1], reranked[0]
-                logger.debug(f"Siamese: {Path(path2).name} beats {Path(path1).name} (conf={result['confidence']:.2f})")
+                logger.debug(f"Siamese: {Path(path2).name} beats {Path(path1).name} (conf={confidence:.2f})")
 
             # Rebuild full list with reranked top
             result_list = reranked + [x for x in scored_images if x not in candidates_to_compare]
@@ -374,18 +390,45 @@ class SelectBestStep(BaseStep):
         if siamese_model:
             try:
                 result = siamese_model.compare_images(Path(path1), Path(path2))
-                # If confidence is very high (>0.95), likely not duplicates
-                # If confidence is low (<0.6), they're very similar
-                if result['confidence'] < 0.6:
+                confidence = result['confidence']
+                is_duplicate = confidence < 0.6
+
+                # Log comparison for visibility
+                context.siamese_comparisons.append({
+                    'type': 'duplicate_check',
+                    'img1': Path(path1).name,
+                    'img2': Path(path2).name,
+                    'img1_path': path1,
+                    'img2_path': path2,
+                    'confidence': round(confidence, 3),
+                    'is_duplicate': is_duplicate,
+                    'method': 'siamese',
+                })
+
+                if is_duplicate:
                     logger.debug(f"Siamese duplicate check: {Path(path1).name} vs {Path(path2).name} "
-                                f"conf={result['confidence']:.2f} (likely duplicates)")
+                                f"conf={confidence:.2f} (likely duplicates)")
                     return True
                 return False
             except Exception as e:
                 logger.warning(f"Siamese duplicate check failed: {e}, falling back to embeddings")
 
         # Fall back to embedding similarity
-        return self._check_embedding_similarity(context, path1, path2, embedding_threshold)
+        is_dup = self._check_embedding_similarity(context, path1, path2, embedding_threshold)
+
+        # Log embedding-based comparison
+        context.siamese_comparisons.append({
+            'type': 'duplicate_check',
+            'img1': Path(path1).name,
+            'img2': Path(path2).name,
+            'img1_path': path1,
+            'img2_path': path2,
+            'is_duplicate': is_dup,
+            'method': 'embedding',
+            'threshold': embedding_threshold,
+        })
+
+        return is_dup
 
     def _check_embedding_similarity(
         self,

@@ -1,12 +1,30 @@
 """Metrics display components."""
 
+import io
+import base64
 import streamlit as st
 from pathlib import Path
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 import statistics
+from PIL import Image, ImageOps
 
 if TYPE_CHECKING:
     from app.streamlit.models import ImageInfo
+
+
+def _image_to_base64_thumbnail(image_path: Path, size: int = 60) -> Optional[str]:
+    """Load an image, resize to thumbnail, and return a base64 data URI."""
+    try:
+        with Image.open(image_path) as img:
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail((size, size))
+            img = img.convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=70)
+            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+            return f"data:image/jpeg;base64,{b64}"
+    except Exception:
+        return None
 
 
 def render_pipeline_metrics(result: Dict[str, Any], title: str = "Pipeline Results") -> None:
@@ -137,7 +155,7 @@ def render_metric_card(label: str, value: Any, delta: Optional[float] = None, de
 
 
 def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = None) -> None:
-    """Render a detailed per-image metrics table with CSV download."""
+    """Render a detailed per-image metrics table with thumbnails and CSV download."""
     import pandas as pd
     from app.streamlit.models import ImageInfo
 
@@ -159,9 +177,14 @@ def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = 
         best_eyes = img.face_eyes_scores[0] if img.face_eyes_scores else None
         best_smile = img.face_smile_scores[0] if img.face_smile_scores else None
 
+        # Generate thumbnail
+        thumb = _image_to_base64_thumbnail(Path(img.path))
+
         rows.append({
+            "Thumbnail": thumb,
             "Image": Path(img.path).name,
             "Status": status,
+            "Final": f"{img.composite_score:.2f}" if img.composite_score is not None else "N/A",
             "AVA": f"{img.ava_score:.1f}" if img.ava_score is not None else "N/A",
             "IQA": f"{img.iqa_score:.2f}" if img.iqa_score is not None else "N/A",
             "Sharpness": f"{img.sharpness:.2f}" if img.sharpness is not None else "N/A",
@@ -173,9 +196,22 @@ def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = 
         })
 
     df = pd.DataFrame(rows)
-    st.dataframe(df, use_container_width=True, height=400)
 
-    csv = df.to_csv(index=False)
+    # Configure column with image display
+    st.dataframe(
+        df,
+        column_config={
+            "Thumbnail": st.column_config.ImageColumn("Image", width="small"),
+            "Status": st.column_config.TextColumn("Status", width="small"),
+        },
+        use_container_width=True,
+        height=500,
+        hide_index=True,
+    )
+
+    # CSV export without thumbnails
+    csv_df = df.drop(columns=["Thumbnail"])
+    csv = csv_df.to_csv(index=False)
     st.download_button("Download CSV", csv, "image_metrics.csv", "text/csv")
 
 

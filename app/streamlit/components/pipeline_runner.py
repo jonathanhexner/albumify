@@ -21,6 +21,7 @@ DEFAULT_PIPELINE = [
     "extract_scene_embedding",
     "cluster_scenes",
     "extract_face_embeddings",
+    "cluster_people",
     "cluster_by_identity",
     "select_best",
 ]
@@ -46,6 +47,7 @@ STEP_DISPLAY_NAMES = {
     "extract_scene_embedding": "Extract Scene Features",
     "cluster_scenes": "Cluster Similar Scenes",
     "extract_face_embeddings": "Extract Face Features",
+    "cluster_people": "Identify People",
     "cluster_by_identity": "Cluster by Person",
     "select_best": "Select Best Photos",
 }
@@ -71,22 +73,59 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
             st.write(f"{i}. {STEP_DISPLAY_NAMES.get(step, step)}")
 
     with st.expander("Advanced Configuration", expanded=False):
+        st.markdown("**Quality Filtering**")
         col1, col2 = st.columns(2)
-
         with col1:
-            min_iqa = st.slider("Min IQA Score", 0.0, 1.0, 0.2, 0.05, key="config_min_iqa")
-            max_per_cluster = st.number_input("Max Images per Cluster", 1, 10, 2, key="config_max_per_cluster")
-
+            min_iqa = st.slider("Min IQA Score", 0.0, 1.0, 0.2, 0.05, key="config_min_iqa",
+                               help="Minimum technical image quality (0-1)")
         with col2:
-            min_score_threshold = st.slider("Min Score Threshold", 0.0, 1.0, 0.3, 0.05, key="config_min_score")
-            tiebreaker_threshold = st.slider("Tiebreaker Threshold", 0.01, 0.2, 0.05, 0.01, key="config_tiebreaker")
+            min_sharpness = st.slider("Min Sharpness", 0.0, 1.0, 0.1, 0.05, key="config_min_sharpness",
+                                     help="Minimum image sharpness (0-1)")
+
+        st.markdown("**Face Detection**")
+        col1, col2 = st.columns(2)
+        with col1:
+            detection_confidence = st.slider("Detection Confidence", 0.05, 0.5, 0.15, 0.05, key="config_det_conf",
+                                            help="Lower = catch more faces, higher = fewer false positives")
+        with col2:
+            min_face_ratio = st.slider("Min Face Size (%)", 0.1, 5.0, 0.5, 0.1, key="config_min_face",
+                                       help="Minimum face size as % of image area")
+
+        st.markdown("**Selection**")
+        col1, col2 = st.columns(2)
+        with col1:
+            max_per_cluster = st.number_input("Max Images per Cluster", 1, 10, 2, key="config_max_per_cluster",
+                                             help="Maximum photos to keep from each cluster")
+            min_score_threshold = st.slider("Min Score Threshold", 0.0, 1.0, 0.3, 0.05, key="config_min_score",
+                                           help="Minimum composite score to be selected")
+        with col2:
+            tiebreaker_threshold = st.slider("Tiebreaker Threshold", 0.01, 0.2, 0.05, 0.01, key="config_tiebreaker",
+                                            help="Use Siamese comparison when scores within this range")
+            max_score_gap = st.slider("Max Score Gap", 0.1, 0.5, 0.25, 0.05, key="config_max_gap",
+                                      help="Max quality gap allowed between #1 and #2 selection")
+
+        st.markdown("**Duplicate Detection**")
+        col1, col2 = st.columns(2)
+        with col1:
+            duplicate_threshold = st.slider("Duplicate Threshold", 0.80, 0.99, 0.95, 0.01, key="config_dup_thresh",
+                                           help="Embedding similarity above this = near-duplicate (rejected)")
+        with col2:
+            siamese_enabled = st.checkbox("Enable Siamese Comparison", value=True, key="config_siamese",
+                                         help="Use Siamese CNN for quality comparison and duplicate detection")
 
     config = {
-        "filter_quality": {"min_iqa_score": min_iqa, "min_sharpness": 0.1},
+        "filter_quality": {"min_iqa_score": min_iqa, "min_sharpness": min_sharpness},
+        "detect_faces": {
+            "detection_confidence": detection_confidence,
+            "min_face_ratio": min_face_ratio / 100.0,  # Convert from % to ratio
+        },
         "select_best": {
             "max_images_per_cluster": max_per_cluster,
             "min_score_threshold": min_score_threshold,
             "tiebreaker_threshold": tiebreaker_threshold,
+            "max_score_gap": max_score_gap,
+            "duplicate_threshold": duplicate_threshold,
+            "siamese": {"enabled": siamese_enabled},
         },
     }
 

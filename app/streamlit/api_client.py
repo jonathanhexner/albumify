@@ -326,6 +326,16 @@ class ApiClient:
         data = self._get(f"/api/v1/results/{job_id}/clusters")
         return [self._parse_cluster(c) for c in (data if isinstance(data, list) else [])]
 
+    def get_comparisons(self, job_id: str) -> List[Dict[str, Any]]:
+        """Get Siamese/duplicate comparison log for debugging."""
+        data = self._get(f"/api/v1/results/{job_id}/comparisons")
+        return data if isinstance(data, list) else []
+
+    def get_subclusters(self, job_id: str) -> Dict[str, Any]:
+        """Get face sub-clusters (grouped by scene and face identity)."""
+        data = self._get(f"/api/v1/results/{job_id}/subclusters")
+        return data if isinstance(data, dict) else {}
+
     # People operations
     def get_people(self, album_id: str, run_id: Optional[str] = None) -> List[Person]:
         """Get all detected people in album."""
@@ -463,12 +473,14 @@ class ApiClient:
 
     def _parse_person(self, data: Dict[str, Any]) -> Person:
         """Parse person from API response."""
+        # API returns thumbnail_image_path, map to representative_face
+        representative = data.get("representative_face") or data.get("thumbnail_image_path")
         return Person(
             person_id=data.get("person_id", data.get("id", "")),
             name=data.get("name"),
             face_count=data.get("face_count", 0),
             image_count=data.get("image_count", 0),
-            representative_face=data.get("representative_face"),
+            representative_face=representative,
             images=data.get("images", []),
         )
 

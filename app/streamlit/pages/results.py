@@ -1,7 +1,11 @@
 """Results page - Pipeline execution and results viewing."""
 
 import time
+import io
+import base64
+from pathlib import Path
 import streamlit as st
+from PIL import Image, ImageOps
 
 from app.streamlit.config import get_config
 from app.streamlit.session import get_session, add_notification, clear_pipeline_state
@@ -13,6 +17,21 @@ from app.streamlit.components.gallery import render_image_gallery, render_cluste
 from app.streamlit.components.metrics import render_pipeline_metrics, render_step_timings, render_image_metrics_table
 from app.streamlit.components.people_browser import render_people_summary_row
 from app.streamlit.components.export_panel import render_export_panel
+
+
+def _load_thumbnail(image_path: str, size: int = 100) -> str:
+    """Load image and return base64 thumbnail."""
+    try:
+        with Image.open(image_path) as img:
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail((size, size))
+            img = img.convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=70)
+            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+            return f"data:image/jpeg;base64,{b64}"
+    except Exception:
+        return ""
 
 
 def render_results_page() -> None:
@@ -37,7 +56,7 @@ def render_results_page() -> None:
         _render_running_pipeline()
         return
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Run Pipeline", "View Results", "Metrics Table", "Export"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Run Pipeline", "View Results", "Metrics Table", "Comparisons", "Sub-Clusters", "Export"])
 
     with tab1:
         job_id = render_pipeline_runner(album)
@@ -53,6 +72,12 @@ def render_results_page() -> None:
         _render_metrics_table_tab(album)
 
     with tab4:
+        _render_comparisons_tab(album)
+
+    with tab5:
+        _render_subclusters_tab(album)
+
+    with tab6:
         _render_export_tab(album)
 
 
@@ -172,7 +197,7 @@ def _render_image_views(job_id: str) -> None:
     else:
         clusters = client.get_clusters(job_id)
         st.write(f"**{len(clusters)}** clusters")
-        render_cluster_gallery(clusters, show_all_images=False)
+        render_cluster_gallery(clusters, show_all_images=True)
 
 
 def _render_metrics_table_tab(album: Album) -> None:
@@ -192,6 +217,158 @@ def _render_metrics_table_tab(album: Album) -> None:
     selected_paths = {img.path for img in selected}
 
     render_image_metrics_table(all_images, selected_paths)
+
+
+def _render_comparisons_tab(album: Album) -> None:
+    """Render Siamese/duplicate comparison log for debugging."""
+    client = get_client()
+    results = client.list_results(album.album_id)
+
+    if not results:
+        st.info("No pipeline results yet. Run the pipeline first.")
+        return
+
+    latest = results[0]
+    job_id = latest.get("job_id", latest.get("id", ""))
+
+    comparisons = client.get_comparisons(job_id)
+
+    if not comparisons:
+        st.info("No comparison data available. Run pipeline with Siamese enabled.")
+        return
+
+    st.write(f"**{len(comparisons)}** comparisons performed")
+
+    # Separate by type
+    tiebreakers = [c for c in comparisons if c.get('type') == 'tiebreaker']
+    duplicates = [c for c in comparisons if c.get('type') == 'duplicate_check']
+
+    if tiebreakers:
+        st.subheader(f"Tiebreaker Comparisons ({len(tiebreakers)})")
+        st.caption("When top images have similar scores, Siamese decides the winner")
+        for c in tiebreakers:
+            col1, col2, col3 = st.columns([1, 1, 1])
+            winner = c.get('winner', '?')
+            with col1:
+                thumb1 = _load_thumbnail(c.get('img1_path', ''))
+                if thumb1:
+                    st.image(thumb1, width=100)
+                score1 = c.get('score1', '?')
+                is_winner1 = winner == c['img1']
+                label1 = f"**{c['img1']}**" + (" ✓ WINNER" if is_winner1 else "")
+                st.markdown(label1)
+                st.caption(f"Score: {score1}")
+            with col2:
+                conf = c.get('confidence', 0)
+                st.markdown("**VS**")
+                st.metric("Confidence", f"{conf:.2f}" if isinstance(conf, float) else conf)
+            with col3:
+                thumb2 = _load_thumbnail(c.get('img2_path', ''))
+                if thumb2:
+                    st.image(thumb2, width=100)
+                score2 = c.get('score2', '?')
+                is_winner2 = winner == c['img2']
+                label2 = f"**{c['img2']}**" + (" ✓ WINNER" if is_winner2 else "")
+                st.markdown(label2)
+                st.caption(f"Score: {score2}")
+            st.divider()
+
+    if duplicates:
+        st.subheader(f"Duplicate Checks ({len(duplicates)})")
+        st.caption("Checking if #2 image is too similar to #1 (near-duplicate)")
+        for c in duplicates:
+            is_dup = c.get('is_duplicate', False)
+            method = c.get('method', 'unknown')
+            conf = c.get('confidence', c.get('threshold', '?'))
+
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col1:
+                thumb1 = _load_thumbnail(c.get('img1_path', ''))
+                if thumb1:
+                    st.image(thumb1, width=100)
+                st.markdown(f"**{c['img1']}**")
+            with col2:
+                if is_dup:
+                    st.error(f"DUPLICATE")
+                    st.caption(f"{method}, conf: {conf}")
+                else:
+                    st.success(f"Different")
+                    st.caption(f"{method}, conf: {conf}")
+            with col3:
+                thumb2 = _load_thumbnail(c.get('img2_path', ''))
+                if thumb2:
+                    st.image(thumb2, width=100)
+                st.markdown(f"**{c['img2']}**")
+            st.divider()
+
+
+def _render_subclusters_tab(album: Album) -> None:
+    """Render face sub-clusters within scene clusters."""
+    client = get_client()
+    results = client.list_results(album.album_id)
+
+    if not results:
+        st.info("No pipeline results yet. Run the pipeline first.")
+        return
+
+    latest = results[0]
+    job_id = latest.get("job_id", latest.get("id", ""))
+
+    subclusters = client.get_subclusters(job_id)
+
+    if not subclusters:
+        st.info("No sub-cluster data available. Ensure `cluster_by_identity` step ran.")
+        return
+
+    st.write(f"**{len(subclusters)}** scene clusters with face-based sub-clusters")
+    st.caption("Each scene cluster is split by unique face combinations (e.g., A+B, A-only, B-only, no faces)")
+
+    # Sort scene clusters by ID
+    sorted_scenes = sorted(subclusters.items(), key=lambda x: int(x[0]) if x[0].isdigit() else 0)
+
+    for scene_id, sub_dict in sorted_scenes:
+        if not sub_dict:
+            continue
+
+        with st.expander(f"Scene Cluster {scene_id} ({len(sub_dict)} sub-clusters)", expanded=False):
+            # Sort sub-clusters by face count descending
+            sorted_subs = sorted(
+                sub_dict.items(),
+                key=lambda x: int(x[1].get("face_count", 0) if isinstance(x[1].get("face_count"), (int, str)) else 0),
+                reverse=True
+            )
+
+            for sub_id, sub_info in sorted_subs:
+                face_count = sub_info.get("face_count", 0)
+                identity = sub_info.get("identity", "")
+                images = sub_info.get("images", [])
+                has_faces = sub_info.get("has_faces", False)
+
+                # Build sub-cluster header
+                if has_faces:
+                    header = f"👥 Sub-cluster {sub_id}: {face_count} face(s)"
+                    if identity:
+                        header += f" - Identity: {identity}"
+                else:
+                    header = f"📷 Sub-cluster {sub_id}: No faces"
+
+                st.markdown(f"**{header}** ({len(images)} images)")
+
+                if images:
+                    # Display thumbnails in columns
+                    cols = st.columns(min(len(images), 6))
+                    for i, img_path in enumerate(images[:6]):
+                        with cols[i % 6]:
+                            thumb = _load_thumbnail(img_path, size=120)
+                            if thumb:
+                                st.image(thumb, caption=Path(img_path).name, use_container_width=True)
+                            else:
+                                st.caption(Path(img_path).name)
+
+                    if len(images) > 6:
+                        st.caption(f"... and {len(images) - 6} more images")
+
+                st.divider()
 
 
 def _render_export_tab(album: Album) -> None:

@@ -31,7 +31,8 @@ DEFAULT_PIPELINE = [
     "extract_scene_embedding",
     "cluster_scenes",
     "extract_face_embeddings",
-    "cluster_by_identity",    # Sub-cluster by face identity + count
+    "cluster_people",         # Global face clustering by identity (for People tab)
+    "cluster_by_identity",    # Sub-cluster scenes by face identity + count
     "select_best"             # Smart selection with branching logic
 ]
 
@@ -163,6 +164,22 @@ class PipelineService:
             run.status = "completed"
             self._logger.info(f"Pipeline {job_id} completed successfully in {result.total_duration_ms}ms")
 
+            # Build serializable face_subclusters from context.face_clusters
+            face_subclusters = None
+            if job.context.face_clusters:
+                face_subclusters = {
+                    str(scene_id): {
+                        str(sub_id): {
+                            "face_count": sub.get("face_count", "0"),
+                            "images": sub.get("images", []),
+                            "has_faces": sub.get("has_faces", False),
+                            "identity": sub.get("identity", ""),
+                        }
+                        for sub_id, sub in subclusters.items()
+                    }
+                    for scene_id, subclusters in job.context.face_clusters.items()
+                }
+
             pipeline_result = PipelineResult(
                 id=str(uuid.uuid4()),
                 run_id=job_id,
@@ -171,11 +188,13 @@ class PipelineService:
                 num_clusters=len(job.context.scene_clusters),
                 num_selected=len(job.context.selected_images),
                 scene_clusters={k: v for k, v in job.context.scene_clusters.items()},
+                face_subclusters=face_subclusters,
                 selected_images=job.context.selected_images,
                 image_metrics={
                     path: self._build_image_metrics(job.context, path)
                     for path in [str(p) for p in job.context.image_paths]
                 },
+                siamese_comparisons=job.context.siamese_comparisons or [],
                 step_timings={r.step_name: r.duration_ms for r in result.step_results},
                 total_duration_ms=result.total_duration_ms
             )

@@ -243,3 +243,93 @@ This log helps:
 **Files**: `sim_bench/pipeline/steps/detect_faces.py`, `sim_bench/face_pipeline/crop_service.py`, `configs/pipeline.yaml`, `configs/global_config.yaml`
 **Change**: Lowered face detection confidence threshold from 0.5 to 0.3 across all config defaults and code defaults
 **Reason**: Threshold of 0.5 was causing false negatives (missing real faces); lowering to 0.3 catches more real faces while the existing min_face_ratio (2%) filter still rejects tiny artifacts
+
+### 2026-02-05 10:00:00
+**Files**: `sim_bench/api/services/pipeline_service.py`
+**Change**: Added `cluster_people` step to DEFAULT_PIPELINE (after `extract_face_embeddings`, before `cluster_by_identity`)
+**Reason**: People tab was empty because faces were extracted but never globally clustered by identity. Without `cluster_people`, `people_clusters` dict is empty, so no Person records were created.
+
+### 2026-02-05 10:01:00
+**Files**: `app/streamlit/pages/results.py`, `app/streamlit/components/gallery.py`
+**Change**: Changed `render_cluster_gallery(clusters, show_all_images=True)` and increased column count to 6 when showing all images
+**Reason**: Results view was only showing 4 images per cluster due to `show_all_images=False` and `max_preview=4` limit
+
+### 2026-02-05 10:02:00
+**Files**: `configs/pipeline.yaml`
+**Change**: Lowered `detection_confidence` from 0.3 to 0.2, lowered `min_face_ratio` from 0.02 to 0.01
+**Reason**: Still missing faces in many cases; more aggressive detection thresholds to catch smaller and less confident faces
+
+### 2026-02-05 11:00:00
+**Files**: `app/streamlit/components/pipeline_runner.py`
+**Change**: Added comprehensive UI controls for pipeline configuration:
+- Face Detection: detection_confidence slider, min_face_ratio slider
+- Selection: max_score_gap slider, duplicate_threshold slider, siamese_enabled checkbox
+- Added `cluster_people` to DEFAULT_PIPELINE and STEP_DISPLAY_NAMES
+**Reason**: Most pipeline parameters were only editable via YAML; now controllable from UI
+
+### 2026-02-05 11:01:00
+**Files**: `sim_bench/pipeline/context.py`, `sim_bench/pipeline/steps/select_best.py`
+**Change**: Added `siamese_comparisons` list field to PipelineContext; updated `_apply_siamese_tiebreaker` and `_check_near_duplicate` to log each comparison with type, images, winner, confidence, method
+**Reason**: Siamese comparisons were invisible; now stored for debugging and display
+
+### 2026-02-05 11:02:00
+**Files**: `sim_bench/api/database/models.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/services/result_service.py`, `sim_bench/api/routers/results.py`
+**Change**: Added `siamese_comparisons` JSON column to PipelineResult model, persist comparisons to DB, added `get_comparisons()` service method and `/comparisons` API endpoint
+**Reason**: Comparison log needs to be persisted and accessible via API
+
+### 2026-02-05 11:03:00
+**Files**: `app/streamlit/api_client.py`, `app/streamlit/pages/results.py`
+**Change**: Added `get_comparisons()` API client method; added "Comparisons" tab showing tiebreaker results (which image won) and duplicate checks (accepted/rejected)
+**Reason**: Users can now see exactly which Siamese comparisons were made and their outcomes
+
+### 2026-02-05 12:00:00
+**Files**: `sim_bench/pipeline/steps/cluster_people.py`
+**Change**: Rewrote `process()` to collect faces from `context.faces` and `context.face_embeddings` instead of requiring `context.all_faces` (which was never populated)
+**Reason**: People tab was empty because `cluster_people` required `all_faces` from `filter_best_faces` step which wasn't in the pipeline
+
+### 2026-02-05 12:01:00
+**Files**: `app/streamlit/pages/results.py`
+**Change**: Added thumbnails to Comparisons tab - both tiebreaker and duplicate check sections now show image thumbnails side by side
+**Reason**: User requested visual comparison of images in the comparisons view
+
+### 2026-02-05 12:02:00
+**Files**: `app/streamlit/components/metrics.py`
+**Change**: Added thumbnails to per-image metrics table, added "Final" (composite_score) column, uses `st.column_config.ImageColumn` for thumbnail display
+**Reason**: User requested thumbnails in metrics table for easier identification
+
+### 2026-02-05 12:03:00
+**Files**: `configs/pipeline.yaml`
+**Change**: Lowered `min_face_ratio` from 0.01 to 0.005 (0.5%), lowered `detection_confidence` from 0.2 to 0.15
+**Reason**: Still missing faces; allowing very small faces to be detected
+
+### 2026-02-05 14:00:00
+**Files**: `app/streamlit/api_client.py`
+**Change**: Fixed `_parse_person()` to map `thumbnail_image_path` to `representative_face` field; added `get_subclusters()` method
+**Reason**: API returns `thumbnail_image_path` but client model expected `representative_face`; also need API method for fetching face sub-clusters
+
+### 2026-02-05 14:01:00
+**Files**: `sim_bench/api/database/models.py`
+**Change**: Added `face_subclusters = Column(JSON)` to PipelineResult model
+**Reason**: Need to persist face-based sub-clusters (images grouped by face identity within each scene cluster)
+
+### 2026-02-05 14:02:00
+**Files**: `sim_bench/api/services/pipeline_service.py`
+**Change**: Added serialization of `context.face_clusters` to `face_subclusters` JSON in PipelineResult when saving completed pipeline
+**Reason**: Sub-clusters computed by `cluster_by_identity` step were not being persisted to database
+
+### 2026-02-05 14:03:00
+**Files**: `sim_bench/api/services/result_service.py`, `sim_bench/api/routers/results.py`
+**Change**: Added `get_subclusters(job_id)` service method and `GET /{job_id}/subclusters` API endpoint
+**Reason**: Need to expose face sub-clusters via REST API for frontend display
+
+### 2026-02-06 10:00:00
+**Files**: `app/streamlit/pages/results.py`
+**Change**: Added "Sub-Clusters" tab to results page showing face-based sub-clusters within each scene cluster
+**Reason**: User requested sub-clusters to be displayed - shows images grouped by unique face combinations (e.g., A+B, A-only, B-only, no faces)
+
+**Details**:
+- Added `_render_subclusters_tab()` function
+- Uses expandable sections for each scene cluster
+- Sub-clusters sorted by face count (descending)
+- Shows face count, identity signature, and thumbnail grid (up to 6 images)
+- Uses emoji indicators: 👥 for faces, 📷 for no-face clusters
