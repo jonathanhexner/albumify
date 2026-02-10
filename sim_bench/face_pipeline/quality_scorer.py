@@ -1,4 +1,15 @@
-"""Face quality scoring using pose, eyes, smile, and sharpness."""
+"""Face quality scoring using pose, eyes, smile, and sharpness.
+
+⚠️ DEPRECATED: This module is legacy code for MediaPipe-based face quality scoring.
+
+The active pipeline uses:
+- pipeline/scoring/quality_strategy.py - Image quality scoring (IQA + AVA + Siamese)
+- pipeline/scoring/person_penalty.py - Person/portrait penalties
+- select_best.py - Composite scoring (quality + penalty)
+
+This scorer is only used by legacy MediaPipe pipeline steps.
+See: docs/architecture/PIPELINE_ARCHITECTURE_CURRENT_STATE.md
+"""
 
 import logging
 from typing import Dict, Any, Tuple
@@ -16,7 +27,15 @@ logger = logging.getLogger(__name__)
 
 
 class FaceQualityScorer:
-    """Compute quality metrics for cropped faces."""
+    """
+    Compute quality metrics for cropped faces.
+    
+    ⚠️ DEPRECATED: This is legacy MediaPipe-based face quality scoring.
+    
+    The active pipeline uses modular scoring in select_best.py:
+    - ImageQualityStrategy (IQA + AVA + optional Siamese)
+    - PersonPenaltyComputer (portrait-specific penalties)
+    """
 
     def __init__(self, config: Dict[str, Any], pose_estimator: SixDRepNetEstimator = None):
         """

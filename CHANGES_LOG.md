@@ -6,6 +6,221 @@
 
 ---
 
+## 2026-02-10 03:00:00
+
+**Files**:
+- `sim_bench/api/services/people_service.py`
+- `app/streamlit/components/gallery.py`
+
+**Change**: Improved People feature error handling and debugging
+
+1. **people_service.py `get_person_images()`**:
+   - Added debug logging for face_instances count and thumbnail path
+   - Added validation to skip faces with empty image_path
+   - Added fallback: if no valid face_instances, use thumbnail_image_path
+
+2. **people_service.py `create_from_clusters()`**:
+   - Added validation to skip faces with invalid paths (empty, '.', 'None')
+   - Added warning logs when skipping invalid faces
+
+3. **gallery.py `render_image_card()`**:
+   - Improved error message: now shows filename when path is missing
+
+**Reason**: User reported "No image path" for all images when viewing a person's photos. The root cause is likely stale Person records created before path handling fixes were applied. Added validation and fallbacks to handle edge cases, plus logging to help diagnose issues.
+
+**Action Required**: Re-run the pipeline to regenerate Person records with correct face_instances data.
+
+---
+
+## 2026-02-10 02:00:00
+
+**Files**:
+- `sim_bench/pipeline/steps/cluster_people.py`
+- `app/streamlit/components/pipeline_runner.py`
+- `app/streamlit/components/people_browser.py`
+- `configs/pipeline.yaml`
+
+**Change**: Added HDBSCAN cluster merge epsilon to reduce over-segmentation
+
+1. **cluster_people.py**: Added `cluster_selection_epsilon` parameter
+   - Merges clusters within this distance of each other
+   - Higher value = more merging = fewer clusters
+   - Default: 0.3
+
+2. **pipeline_runner.py**: Added "Cluster Merge Distance" slider (0.0-0.8)
+   - Only shown when HDBSCAN method selected
+   - Also lowered min_cluster_size minimum to 1
+
+3. **people_browser.py**: Fixed deprecation warning
+   - Changed `use_column_width=True` to `use_container_width=True`
+
+**Reason**: User reported too many clusters (over-segmentation). The `cluster_selection_epsilon` parameter tells HDBSCAN to merge clusters that are close together, reducing fragmentation of the same person into multiple clusters.
+
+---
+
+## 2026-02-10 01:30:00
+
+**Files**:
+- `app/streamlit/components/pipeline_runner.py`
+- `app/streamlit/components/metrics.py`
+
+**Change**: Added min face size config and improved metrics table
+
+1. **pipeline_runner.py**: Added "Min Face Size (px)" slider (20-100, default 50)
+   - Controls minimum face size in pixels to be considered
+   - Applied to insightface_detect_faces, insightface_score_expression/eyes/pose
+
+2. **metrics.py**: Enhanced per-image metrics table with clearer body/face columns
+   - "Body" column: ✓ if body detected
+   - "Face" column: Face count
+   - "BodyPose": Body facing camera score
+   - "FacePose": Face frontal score
+   - Renamed "Sharpness" to "Sharp" for column width
+
+**Reason**: User requested min face size threshold control and clearer display of body vs face detection with their respective pose scores.
+
+---
+
+## 2026-02-10 01:00:00
+
+**Files**:
+- `sim_bench/api/services/pipeline_service.py`
+- `sim_bench/pipeline/scoring/person_penalty.py`
+- `sim_bench/pipeline/steps/cluster_by_identity.py`
+
+**Change**: Fixed face scores showing as None and improved multi-face handling
+
+1. **pipeline_service.py `_build_image_metrics()`**:
+   - Normalized paths for cache key lookups (forward slashes)
+   - Fixed InsightFace face score retrieval using correct face_index
+
+2. **person_penalty.py**:
+   - Normalized all paths for cache key lookups
+   - Changed from only looking at `face_0` to checking ALL faces
+   - Now uses WORST score across all faces (as user requested)
+   - Added `_get_face_count()` helper for both MediaPipe and InsightFace
+
+3. **cluster_by_identity.py**:
+   - Fixed to work with InsightFace faces (was only using MediaPipe `context.faces`)
+   - Normalized paths in face-to-person lookup
+   - Now checks both `context.faces` and `context.insightface_faces`
+
+**Reason**: User reported face Pose/Eyes/Smile scores all showing as None. Root cause was path format mismatch (backslashes vs forward slashes on Windows). Also fixed penalty computation to use worst score from all faces, not just first face.
+
+---
+
+## 2026-02-10 00:30:00
+
+**Files**:
+- `app/streamlit/api_client.py`
+- `app/streamlit/components/gallery.py`
+
+**Change**: Fixed People image viewing errors
+
+1. **api_client.py**: `_parse_image()` now handles both `path` and `image_path` keys
+   - The `get_person_images` API returns `image_path` but `_parse_image` was looking for `path`
+   - Now checks both keys: `data.get("path") or data.get("image_path", "")`
+
+2. **gallery.py**: Added error handling to thumbnail loading
+   - `_load_thumbnail_cached()` now returns None on error instead of crashing
+   - `_load_thumbnail()` handles None bytes gracefully
+   - `render_image_card()` checks for empty path before trying to load
+
+**Reason**: User got error when clicking on a photo in the People tab. Root cause: API endpoint returns `image_path` but parser expected `path`, resulting in empty path and file-not-found errors.
+
+---
+
+## 2026-02-10 00:15:00
+
+**Files**:
+- `sim_bench/pipeline/steps/cluster_people.py`
+- `app/streamlit/components/pipeline_runner.py`
+- `configs/pipeline.yaml`
+
+**Change**: Added HDBSCAN support for people clustering (now the default)
+
+1. **cluster_people.py**: Added HDBSCAN method alongside agglomerative
+   - HDBSCAN auto-determines optimal clusters based on density
+   - Handles noise (outlier faces not forced into clusters)
+   - Uses normalized embeddings (euclidean on normalized ≈ cosine distance)
+   - Logs noise point count
+
+2. **pipeline_runner.py**: Updated UI with method selector
+   - Dropdown to choose: "hdbscan" (default) or "agglomerative"
+   - HDBSCAN shows "Min Faces per Person" slider (2-5)
+   - Agglomerative shows "Identity Distance Threshold" slider (0.3-0.9)
+
+3. **pipeline.yaml**: Updated cluster_people config
+   - method: hdbscan (default)
+   - min_cluster_size: 2
+   - min_samples: 2
+
+**Reason**: User asked about intelligent threshold selection. HDBSCAN automatically finds natural clusters without requiring manual threshold tuning - it only needs `min_cluster_size` (minimum faces to form a "person").
+
+---
+
+## 2026-02-09 12:00:00
+
+**Files**:
+- `sim_bench/api/services/people_service.py`
+- `sim_bench/pipeline/steps/cluster_people.py`
+- `sim_bench/pipeline/steps/extract_face_embeddings.py`
+- `sim_bench/pipeline/steps/insightface_detect_faces.py`
+- `sim_bench/api/services/pipeline_service.py`
+
+**Change**: Fixed People feature data flow with multiple fixes:
+
+1. **BBox format handling in PeopleService**: Both `create_from_clusters()` and `_get_thumbnail_info()` now handle both dict-style and object-style bbox (InsightFace stores as dict, MediaPipe as objects)
+
+2. **Path normalization for cache keys**: Normalized paths to forward slashes across all steps to ensure consistent cache key lookup:
+   - `extract_face_embeddings._generate_cache_key()`: uses forward slashes
+   - `insightface_detect_faces._get_cache_config()`: normalizes paths
+   - `cluster_people._collect_faces_with_embeddings()`: normalizes paths when looking up embeddings
+
+3. **Enhanced logging**: Added detailed debug logging to trace face embedding storage and people cluster creation:
+   - `cluster_people`: Logs counts of faces found from each source (MediaPipe vs InsightFace), matched vs unmatched embeddings
+   - `extract_face_embeddings`: Logs number of embeddings stored with sample keys
+   - `pipeline_service`: Logs people cluster count and Person record creation
+
+**Reason**: User reported People tab is empty, Person column is empty. Investigation revealed:
+- Path format mismatch on Windows (backslash vs forward slash) caused face embeddings to not be found when looked up in `cluster_people` step
+- BBox stored as dict by InsightFace but `PeopleService` expected object with `.x`, `.y` attributes
+- No logging made it difficult to trace where the data flow broke
+
+---
+
+## 2026-02-08 10:30:00
+
+**Files**:
+- `sim_bench/pipeline/steps/detect_faces.py` (removed debug code)
+- Deleted `yolov8s-pose.pt` files (version mismatch)
+
+**Change**: Removed debug traceback logging; deleted old YOLO model files causing version mismatch
+
+**Reason**: MediaPipe error is FIXED (pipeline correctly uses InsightFace). YOLO error `'Conv' object has no attribute 'bn'` was caused by model files saved with different ultralytics version. Deleting them allows ultralytics to download fresh compatible versions.
+
+---
+
+## 2026-02-08 10:15:00
+
+**Files**: `sim_bench/pipeline/steps/detect_faces.py`
+
+**Change**: Added traceback logging to `_get_crop_service()` to debug why MediaPipe is being loaded
+
+**Reason**: Pipeline steps list does NOT include `detect_faces`, yet MediaPipe is still loading. Added stack trace logging to identify exactly which code path is calling `_get_crop_service()`. (Now removed after confirming MediaPipe is no longer called)
+
+---
+
+## 2026-02-08 10:00:00
+
+**Files**: `sim_bench/pipeline/executor.py`
+
+**Change**: Added logging to show resolved pipeline steps after dependency resolution
+
+**Reason**: Debugging MediaPipe error - need to verify which steps are actually being executed after `PipelineBuilder.build()` resolves dependencies. This will reveal if `detect_faces` step is being incorrectly added by dependency resolution.
+
+---
+
 ## 2026-02-03 16:30:00 ✅ COMPLETE
 
 **Files**: 
@@ -406,3 +621,416 @@ This log helps:
 **Details**:
 - Added conversion: `x = x_rel * img_w`, etc.
 - Padding calculation now works correctly with pixel values
+
+### 2026-02-06 13:00:00
+**Files**:
+- `sim_bench/pipeline/steps/select_best.py`
+- `app/streamlit/components/people_browser.py`
+- `configs/pipeline.yaml`
+
+**Change**: Fixed duplicate detection logic and added missing People page features
+
+**Reason**: Multiple issues reported:
+1. Duplicate detection was incorrectly using Siamese confidence instead of embedding similarity
+2. People page missing `enable_selection` parameter and `render_merge_dialog` function
+3. Name editing didn't show proper error messages
+4. Near-identical images being selected due to too-strict threshold
+
+**Details**:
+- Rewrote `_check_near_duplicate()` to use embedding similarity only (Siamese CNN compares quality, not similarity)
+- Added `_get_embedding_similarity()` helper method
+- Lowered duplicate threshold from 0.95 to 0.85 (more aggressive filtering)
+- Added `enable_selection` parameter to `render_people_grid()`
+- Added `render_merge_dialog()` function for merging people
+- Added `_add_to_merge_selection()` and `_remove_from_merge_selection()` helpers
+- Added error handling and messages to inline rename functionality
+
+### 2026-02-06 13:15:00
+**Files**:
+- `app/streamlit/components/gallery.py`
+- `app/streamlit/components/metrics.py`
+- `app/streamlit/pages/results.py`
+
+**Change**: Fixed ALL thumbnail functions to produce consistent square images
+
+**Reason**: Images were displaying at different sizes because `thumbnail()` only shrinks and maintains aspect ratio
+
+**Details**:
+- Fixed `_load_thumbnail` in gallery.py - crop to center square, resize to exact 300x300
+- Fixed `_image_to_base64_thumbnail` in gallery.py - crop to center square, resize to exact size
+- Fixed `_image_to_base64_thumbnail` in metrics.py - crop to center square, resize to exact size
+- Fixed `_load_thumbnail` in results.py - crop to center square, resize to exact size
+- All functions now: 1) crop to center square, 2) resize to exact requested size with LANCZOS
+
+### 2026-02-06 13:45:00
+**Files**:
+- `sim_bench/api/services/pipeline_service.py`
+- `configs/pipeline.yaml`
+
+**Change**: Switched default pipeline from MediaPipe to InsightFace
+
+**Reason**: User requested InsightFace as the default backend
+
+**Details**:
+- Updated `DEFAULT_PIPELINE` in pipeline_service.py to use InsightFace steps:
+  - `detect_persons` (YOLOv8-Pose)
+  - `insightface_detect_faces` (InsightFace SCRFD)
+  - `insightface_score_expression/eyes/pose`
+- Added `cluster_people` step (missing from original InsightFace config)
+- Updated `select_best` config with InsightFace scoring:
+  - `scoring_backend: insightface`
+  - `scoring_strategy: insightface_penalty`
+  - Penalty weights for body/face/eyes/smile/pose
+
+### 2026-02-06 14:00:00
+**Files**: `app/streamlit/components/gallery.py`
+
+**Change**: Fixed gallery image sizes with caching and fixed pixel width
+
+**Reason**: Images were still displaying at inconsistent sizes despite previous fixes
+
+**Details**:
+- Changed from `use_column_width=True` to `width=THUMBNAIL_SIZE` (200px)
+- Added `@st.cache_data` decorator for thumbnail caching (faster loading)
+- Thumbnails now stored as JPEG bytes in Streamlit cache
+- All images display at exactly 200x200 pixels (fits 4 per row)
+- Truncated long filenames to prevent layout issues
+
+### 2026-02-06 14:30:00
+**Files**:
+- `app/streamlit/components/gallery.py`
+- `app/streamlit/components/metrics.py`
+- `app/streamlit/models.py`
+- `app/streamlit/api_client.py`
+- `sim_bench/api/services/pipeline_service.py`
+
+**Change**: Added InsightFace metrics to Results view
+
+**Reason**: User requested new InsightFace metrics (person detection, body facing score) to be displayed
+
+**Details**:
+- Added `person_detected`, `body_facing_score`, `person_confidence` to ImageInfo model
+- Updated `_build_image_metrics()` to include InsightFace person detection data
+- Updated `_parse_image()` in API client to parse new fields
+- Updated `_render_face_info()` to show body facing score
+- Updated cluster score table to include Person and Body columns
+- Updated per-image metrics table to include InsightFace metrics
+
+### 2026-02-06 14:35:00
+**Files**: `app/streamlit/components/gallery.py`
+
+**Change**: Changed thumbnail resize to preserve aspect ratio
+
+**Reason**: User requested images not be cropped, just resized to fixed width
+
+**Details**:
+- Changed from square crop + resize to width-only resize
+- Thumbnails now 200px wide with proportional height
+- Full image content preserved (no cropping)
+
+### 2026-02-07 10:00:00
+**Files**: `notebooks/eda_yolo_insightface.ipynb` (created)
+
+**Change**: Created EDA notebook for YOLOv8 person detection and InsightFace face analysis
+
+**Reason**: User requested notebook to explore model outputs and experiment with detection results
+
+**Details**:
+- **Part 1: YOLOv8 Person Detection**
+  - Loads YOLOv8-Pose model (configurable size: n/s/m/l/x)
+  - Shows model outputs: bounding boxes, confidence, 17 COCO keypoints, body facing score
+  - Top 5 highest/lowest confidence detections
+  - Front-facing vs side-facing analysis
+  - Cell to run on specific user-selected image
+- **Part 2: InsightFace Face Analysis**
+  - Loads InsightFace buffalo_l model
+  - Shows outputs: bbox, confidence, 5-point landmarks, age, gender, pose angles
+  - Heuristic smile score from mouth/eye ratio
+  - 5 images with faces / 5 without
+  - 5 smiling / 5 not smiling
+  - Age/gender distribution charts
+  - Cell to run on specific image
+- **Part 3: Combined Analysis**
+  - Merges YOLOv8 + InsightFace results
+  - Categories: person+face, person-only, face-only, neither
+  - 5 person+face images, 5 person-no-face (back turned)
+  - 5 smiling persons, 5 not smiling
+  - Combined visualization on specific image
+- Dataset: `D:\Budapest2025_Google`
+- Helper functions for visualization with bounding boxes and keypoints
+
+---
+
+### 2026-02-07 09:00:00
+**Files**:
+- `sim_bench/pipeline/context.py`
+- `sim_bench/pipeline/steps/insightface_score_expression.py`
+- `sim_bench/pipeline/steps/insightface_score_eyes.py`
+- `sim_bench/pipeline/steps/insightface_score_pose.py`
+- `sim_bench/pipeline/scoring/strategy.py`
+- `sim_bench/pipeline/steps/extract_face_embeddings.py`
+
+**Change**: Fixed 4 bugs in InsightFace pipeline
+
+**Reason**: Loop logic bug caused face lookup to always return first face or None; missing context attributes caused AttributeError; scoring strategy assumed attributes existed without defensive checks; extract_face_embeddings had incomplete dependency list
+
+**Details**:
+1. **Bug 1 (CRITICAL) - Loop logic error**: Fixed `_find_face()` in 3 files (insightface_score_expression.py:91-93, insightface_score_eyes.py:91-93, insightface_score_pose.py:91-93). Changed from `return face if face_matches else None` (returns on first iteration!) to `if face.get('face_index') == face_index: return face` followed by `return None` outside loop.
+
+2. **Bug 2 (HIGH) - Missing context attributes**: Added `persons: dict[str, dict]` and `insightface_faces: dict[str, dict]` fields to PipelineContext dataclass in context.py (after line 32).
+
+3. **Bug 3 (HIGH) - Missing defensive checks**: Changed `context.persons.get()` and `context.insightface_faces.get()` to use `getattr(context, 'persons', {})` pattern in strategy.py at lines 77, 94, 100, 122. This prevents AttributeError when context doesn't have these attributes.
+
+4. **Bug 4 (MEDIUM) - Wrong dependency metadata**: Updated `depends_on` in extract_face_embeddings.py from `["detect_faces"]` to `["detect_faces", "insightface_detect_faces"]` so step runs after either MediaPipe or InsightFace face detection.
+
+---
+
+### 2026-02-07 11:30:00
+**Files**: `CLAUDE.md`
+
+**Change**: Improved CLAUDE.md for better clarity and reduced verbosity
+
+**Reason**: User ran `/init` command to improve the Claude Code guidance file
+
+**Details**:
+- Condensed project overview to bullet points
+- Consolidated common commands into single code block
+- Added concrete code example for creating new pipeline steps
+- Added table format for key entry points
+- Documented both pipelines (default + insightface)
+- Removed "Recent Updates" section (transient info that becomes stale)
+- Removed verbose module structure list (easily discoverable)
+- Removed redundant "Adding New Components" section (replaced with code example)
+- Added model weights location section
+- Streamlined debugging tips
+- Reduced overall length by ~40% while preserving essential information
+
+---
+
+### 2026-02-07 12:00:00
+**Files**: `docs/architecture/PIPELINE_CALL_CHAIN.md` (created)
+
+**Change**: Created comprehensive documentation explaining why MediaPipe is being called
+
+**Reason**: User encountered protobuf/MediaPipe compatibility error and wanted to understand the full call chain
+
+**Details**:
+- Traced complete call chain from user click → frontend → API → executor → step → MediaPipe
+- **Root cause identified**: Frontend `pipeline_runner.py:12-27` has outdated `DEFAULT_PIPELINE` using MediaPipe steps (`score_face_eyes`), while backend `pipeline_service.py:22-38` has updated InsightFace pipeline
+- Frontend sends its step list to backend, overriding backend's default
+- Documented both pipelines (MediaPipe vs InsightFace) with step comparisons
+- Explained dependency resolution and why `detect_faces` gets auto-added
+- Included ASCII diagrams showing the problem flow
+- Provided 3 fix options:
+  1. Update frontend DEFAULT_PIPELINE to use InsightFace steps (recommended)
+  2. Don't pass steps from frontend, let backend use its default
+  3. Downgrade protobuf (not recommended)
+
+---
+
+### 2026-02-08 12:30:00
+**Files**: `docs/architecture/CONFIG_SINGLE_SOURCE_OF_TRUTH_PLAN.md` (created)
+
+**Change**: Created comprehensive plan to make YAML config the single source of truth
+
+**Reason**: User identified that there are 3 conflicting sources for pipeline definition (YAML, frontend, backend) and wants a clean architecture
+
+**Details**:
+- **Problem**: Frontend hardcodes `DEFAULT_PIPELINE` (MediaPipe), backend has different `DEFAULT_PIPELINE` (InsightFace), YAML has yet another version
+- **Solution**: YAML → DB (on startup sync) → Frontend (fetches from API)
+- **5 Phases**:
+  1. Update YAML to current InsightFace pipeline
+  2. Improve config sync (sync YAML to DB on every startup, not just first run)
+  3. Remove hardcoded pipelines from frontend and backend
+  4. Add user settings persistence (save/load user preferences to DB)
+  5. Migration script for existing installations
+- **New DB columns**: `is_system`, `user_id`, `parent_profile_id` for ConfigProfile
+- **New API endpoints**: `GET/POST /config/user/{user_id}` for user settings
+- **Key principle**: User profiles store only OVERRIDES, not full config - they inherit from default and automatically get updates when YAML changes
+
+---
+
+### 2026-02-08 13:00:00
+**Files**:
+- `configs/pipeline.yaml`
+- `sim_bench/api/database/models.py`
+- `sim_bench/api/services/config_service.py`
+- `sim_bench/api/services/pipeline_service.py`
+- `sim_bench/api/routers/config.py`
+- `app/streamlit/api_client.py`
+- `app/streamlit/components/pipeline_runner.py`
+
+**Change**: Implemented "YAML as Single Source of Truth" for pipeline configuration
+
+**Reason**: Resolve the 3-source-of-truth problem where YAML, frontend, and backend all had different pipeline definitions
+
+**Details**:
+- **Phase 1**: Updated `pipeline.yaml` with `minimal_pipeline` option (InsightFace already set as default)
+- **Phase 2**:
+  - Added `is_system`, `user_id`, `parent_profile_id` columns to ConfigProfile model
+  - Updated `config_service.py` with `sync_default_profile()` that syncs YAML→DB on every startup
+  - Added `get_available_pipelines()` helper function
+  - Added user profile methods: `get_user_profile()`, `save_user_profile()`, `get_user_config()`, `delete_user_profile()`
+- **Phase 3**:
+  - Removed hardcoded `DEFAULT_PIPELINE` from `pipeline_service.py`
+  - Updated `start_pipeline()` to load steps from config service when not provided
+  - Removed hardcoded pipelines from `pipeline_runner.py`
+  - Frontend now fetches pipelines from API via `get_available_pipelines()`
+- **Phase 4**:
+  - Added API endpoints: `GET/POST/DELETE /config/user/{user_id}` and `GET /config/pipelines`
+  - Added API client methods: `get_available_pipelines()`, `get_user_config()`, `save_user_config()`
+  - Frontend loads saved user settings on page load
+  - Added "Save Settings" button to persist user preferences
+  - Config slider values now restore from saved settings
+
+**To apply**: Delete `sim_bench.db` and restart the API to create fresh database from YAML
+
+---
+
+### 2026-02-08 14:00:00
+**Files**:
+- `sim_bench/pipeline/steps/score_ava.py`
+- `sim_bench/pipeline/context.py`
+- `sim_bench/pipeline/scoring/strategy.py`
+- `sim_bench/pipeline/steps/insightface_score_pose.py`
+- `sim_bench/pipeline/steps/insightface_score_eyes.py`
+- `sim_bench/pipeline/steps/insightface_score_expression.py`
+- `sim_bench/pipeline/insightface_pipeline/face_cropper.py` (created)
+- `sim_bench/pipeline/insightface_pipeline/__init__.py`
+- `configs/pipeline.yaml`
+
+**Change**: Fixed face scoring (AVA, Pose, Eyes, Smile) to produce meaningful quality metrics
+
+**Reason**: Scoring steps were returning hardcoded 0.5 values or using inconsistent scales, making quality-based selection ineffective
+
+**Details**:
+
+1. **AVA Score Normalization**:
+   - Modified `score_ava.py:_store_results()` to divide scores by 10 before storing
+   - AVA model returns 1-10 scale, now normalized to 0-1 at storage time
+   - Removed redundant normalization from `context.py:get_image_score()` (line 104)
+   - Removed redundant normalization from `strategy.py:InsightFacePenaltyScoring.compute_score()` (line 60)
+   - Changed default fallback from `5.0 / 10.0` to `0.5` in strategy.py
+
+2. **Pose Scoring from InsightFace Landmarks**:
+   - Replaced stub `FacePoseScorer.compute_score()` in `insightface_score_pose.py`
+   - New algorithm computes frontal score from 5-point landmarks (left_eye, right_eye, nose)
+   - Calculates eye center, eye vector, and nose deviation from eye line
+   - Normalizes yaw by eye distance to get frontal score (1 = frontal, 0 = profile)
+   - Added `import numpy as np` for calculations
+
+3. **Face Cropping Utility**:
+   - Created `face_cropper.py` with `InsightFaceCropper` class
+   - Takes InsightFace bbox, applies configurable margin (default 30%), resizes to 256x256
+   - Handles EXIF rotation with `ImageOps.exif_transpose()`
+   - Exported from `__init__.py`
+
+4. **Eye Scoring via MediaPipe on Cropped Faces**:
+   - Replaced stub `EyeStateScorer.compute_score()` in `insightface_score_eyes.py`
+   - Uses `InsightFaceCropper` to get 256x256 face crop
+   - Runs MediaPipe Face Mesh on crop
+   - Calls existing `detect_eye_state()` from `portrait_analysis/eye_state.py`
+   - Normalizes EAR (Eye Aspect Ratio) to 0-1 score
+   - Added config parameters: `crop_margin`, `target_size`, `ear_threshold`
+   - Updated `_find_face()` to enrich face_data with `original_path`
+   - Removed unused `NeutralScorer` class
+
+5. **Smile Scoring via MediaPipe on Cropped Faces**:
+   - Replaced stub `ExpressionScorer.compute_score()` in `insightface_score_expression.py`
+   - Uses same `InsightFaceCropper` approach as eye scoring
+   - Runs MediaPipe Face Mesh on crop
+   - Calls existing `detect_smile()` from `portrait_analysis/smile_detection.py`
+   - Returns normalized smile score (already 0-1 from utility)
+   - Added config parameters: `crop_margin`, `target_size`, `width_threshold`
+   - Updated `_find_face()` to enrich face_data with `original_path`
+   - Removed unused `NeutralScorer` class
+
+6. **Pipeline Config Updates**:
+   - Updated `pipeline.yaml` with new config parameters for InsightFace scoring steps
+   - `insightface_score_expression`: crop_margin, target_size, width_threshold
+   - `insightface_score_eyes`: crop_margin, target_size, ear_threshold
+   - `insightface_score_pose`: simplified config (uses 5-point landmarks, no external model needed)
+
+---
+
+### 2026-02-09 15:00:00
+**Files**:
+- `requirements.txt`
+- `sim_bench/pipeline/utils/__init__.py` (created)
+- `sim_bench/pipeline/utils/image_cache.py` (created)
+- `sim_bench/pipeline/insightface_pipeline/face_analyzer.py`
+- `sim_bench/pipeline/insightface_pipeline/face_cropper.py`
+- `sim_bench/pipeline/steps/extract_face_embeddings.py`
+- `sim_bench/portrait_analysis/analyzer.py`
+- `sim_bench/face_pipeline/crop_service.py`
+
+**Change**: Fixed protobuf compatibility and created global image cache with EXIF normalization
+
+**Reason**: Two issues: (1) protobuf 6.x incompatible with MediaPipe causing `'MessageFactory' object has no attribute 'GetPrototype'` error, (2) EXIF transpose happening inconsistently causing bbox coordinate mismatches ("Coordinate 'right' is less than 'left'" warnings)
+
+**Details**:
+
+1. **Protobuf Version Fix**:
+   - Added `protobuf>=3.20,<4` to requirements.txt
+   - This version works with both MediaPipe and Streamlit
+
+2. **Global Image Cache** (`sim_bench/pipeline/utils/image_cache.py`):
+   - Created `ImageCache` singleton class with persistent disk cache
+   - Cache location: `~/.sim_bench/image_cache/`
+   - EXIF-first cache key strategy:
+     - If image has EXIF DateTimeOriginal: `SHA256(datetime + make + model + size)`
+     - Fallback: `SHA256(first_64KB + last_64KB + size)`
+   - Images normalized once (EXIF transposed, RGB converted) and cached as JPEG
+   - SQLite index for fast lookups
+   - API: `get()`, `get_pil()`, `get_dimensions()`, `clear()`, `evict()`, `get_stats()`
+
+3. **Updated Image Consumers**:
+   - `face_analyzer.py`: Use `get_image_cache().get()` instead of `Image.open()`
+   - `face_cropper.py`: Use `get_image_cache().get_pil()`, added bbox validation
+   - `extract_face_embeddings.py`: Use cache, added crop coordinate validation
+   - `portrait_analysis/analyzer.py`: Use cache in `_load_image()`
+   - `face_pipeline/crop_service.py`: Use cache in `_load_image()`
+
+4. **Benefits**:
+   - Consistent EXIF handling across all pipeline steps
+   - Bbox coordinates always match image orientation
+   - Performance: images normalized once, cached for reuse
+   - Shared across albums (same image = one cached copy)
+
+---
+
+### 2026-02-09 16:00:00
+**Files**:
+- `sim_bench/pipeline/steps/cluster_people.py`
+- `sim_bench/pipeline/scoring/quality_strategy.py`
+- `app/streamlit/pages/results.py`
+
+**Change**: Fixed People tab, Siamese comparisons logging, and UI clarity
+
+**Reason**: Multiple issues reported: People tab empty, no Siamese comparisons displayed, "All Filtered" confusing
+
+**Details**:
+
+1. **Fix cluster_people for InsightFace pipeline** (`cluster_people.py`):
+   - Root cause: Step only looked at `context.faces` (MediaPipe), not `context.insightface_faces` (InsightFace)
+   - Added `_collect_faces_with_embeddings()` method that works with both pipelines
+   - Created `FaceForClustering` dataclass for lightweight face representation
+   - Properly looks up embeddings using cache key format (`"path:face_N"`)
+   - Now `context.people_clusters` gets populated, Person records get created
+
+2. **Log Siamese comparisons from quality strategies** (`quality_strategy.py`):
+   - Root cause: `_apply_siamese_refinement()` and `_run_tournament()` didn't have access to `context`
+   - Updated `SiameseRefinementQuality._apply_siamese_refinement()` to accept `context` and log comparisons
+   - Updated `SiameseTournamentQuality._run_tournament()` to accept `context` and log comparisons
+   - Comparisons now logged to `context.siamese_comparisons` with type='refinement' or type='tournament'
+
+3. **Rename "All Filtered" to "All Processed"** (`results.py`):
+   - Changed view mode option from "All Filtered" to "All Processed"
+   - Updated description from "passed quality filter" to "processed by pipeline"
+   - Updated metric label to "All Processed"
+
+**Cascading effects**:
+- People tab will now show detected people
+- Person column in cluster view will be populated
+- Sub-clustering by identity will work properly
+- Comparisons tab will show Siamese refinement/tournament comparisons

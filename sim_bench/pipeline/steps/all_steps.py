@@ -18,9 +18,16 @@ from sim_bench.pipeline.steps.filter_quality import FilterQualityStep
 from sim_bench.pipeline.steps.filter_portraits import FilterPortraitsStep
 from sim_bench.pipeline.steps.filter_best_faces import FilterBestFacesStep
 
-# Face Detection & Embedding
+# Face Detection & Embedding (MediaPipe)
 from sim_bench.pipeline.steps.detect_faces import DetectFacesStep
 from sim_bench.pipeline.steps.extract_face_embeddings import ExtractFaceEmbeddingsStep
+
+# InsightFace Pipeline Steps
+from sim_bench.pipeline.steps.detect_persons import DetectPersonsStep
+from sim_bench.pipeline.steps.insightface_detect_faces import InsightFaceDetectFacesStep
+from sim_bench.pipeline.steps.insightface_score_expression import InsightFaceScoreExpressionStep
+from sim_bench.pipeline.steps.insightface_score_eyes import InsightFaceScoreEyesStep
+from sim_bench.pipeline.steps.insightface_score_pose import InsightFaceScorePoseStep
 
 # Scene Embedding & Clustering
 from sim_bench.pipeline.steps.extract_scene_embedding import ExtractSceneEmbeddingStep
@@ -52,6 +59,12 @@ __all__ = [
     # Face Detection & Embedding
     "DetectFacesStep",
     "ExtractFaceEmbeddingsStep",
+    # InsightFace Pipeline
+    "DetectPersonsStep",
+    "InsightFaceDetectFacesStep",
+    "InsightFaceScoreExpressionStep",
+    "InsightFaceScoreEyesStep",
+    "InsightFaceScorePoseStep",
     # Scene Embedding & Clustering
     "ExtractSceneEmbeddingStep",
     "ClusterScenesStep",

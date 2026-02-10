@@ -66,10 +66,32 @@ class PeopleService:
         if not person:
             return []
 
+        # Debug: log what we have
+        self._logger.debug(
+            f"Person {person_id}: face_instances={len(person.face_instances or [])}, "
+            f"thumbnail_image_path={person.thumbnail_image_path}"
+        )
+
         # Group face instances by image
         images_map = defaultdict(list)
         for face in person.face_instances or []:
-            images_map[face['image_path']].append(face)
+            img_path = face.get('image_path', '')
+            if img_path:
+                images_map[img_path].append(face)
+            else:
+                self._logger.warning(f"Face instance missing image_path: {face}")
+
+        # If no valid images found but we have thumbnail, use it as fallback
+        if not images_map and person.thumbnail_image_path:
+            self._logger.warning(
+                f"No face_instances with valid image_path for person {person_id}, "
+                f"using thumbnail as fallback"
+            )
+            images_map[person.thumbnail_image_path] = [{
+                'image_path': person.thumbnail_image_path,
+                'face_index': person.thumbnail_face_index or 0,
+                'bbox': person.thumbnail_bbox,
+            }]
 
         result = []
         for image_path, faces in images_map.items():
@@ -244,7 +266,14 @@ class PeopleService:
         if crop_path:
             return str(crop_path), None
         # Fall back to original image + bbox
-        bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h] if face.bbox else None
+        bbox = None
+        if face.bbox is not None:
+            # Handle both dict and object-style bbox
+            if isinstance(face.bbox, dict):
+                bbox = [face.bbox.get('x', 0), face.bbox.get('y', 0),
+                        face.bbox.get('w', 0), face.bbox.get('h', 0)]
+            else:
+                bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]
         return str(face.original_path), bbox
 
     def create_from_clusters(
@@ -276,17 +305,31 @@ class PeopleService:
             images = set()
 
             for face in faces:
+                # Get and validate image path
+                img_path = str(face.original_path) if face.original_path else None
+                if not img_path or img_path in ('', '.', 'None'):
+                    self._logger.warning(
+                        f"Skipping face with invalid path: {face.original_path} "
+                        f"(cluster {cluster_id}, face_index {face.face_index})"
+                    )
+                    continue
+
                 bbox = None
                 if face.bbox is not None:
-                    bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]
+                    # Handle both dict and object-style bbox
+                    if isinstance(face.bbox, dict):
+                        bbox = [face.bbox.get('x', 0), face.bbox.get('y', 0),
+                                face.bbox.get('w', 0), face.bbox.get('h', 0)]
+                    else:
+                        bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]
                 instance = {
-                    'image_path': str(face.original_path),
+                    'image_path': img_path,
                     'face_index': face.face_index,
                     'bbox': bbox,
-                    'score': getattr(face, 'quality', None) and face.quality.overall
+                    'score': getattr(face, 'quality', None) and face.quality.overall if hasattr(face, 'quality') else None
                 }
                 face_instances.append(instance)
-                images.add(str(face.original_path))
+                images.add(img_path)
 
             # Determine thumbnail - prefer saved crop_path over original image
             thumbnail_face = (people_thumbnails or {}).get(cluster_id) or (faces[0] if faces else None)

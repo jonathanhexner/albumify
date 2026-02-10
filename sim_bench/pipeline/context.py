@@ -31,6 +31,10 @@ class PipelineContext:
     face_smile_scores: dict[str, list[float]] = field(default_factory=dict)
     is_face_dominant: dict[str, bool] = field(default_factory=dict)
 
+    # InsightFace pipeline data
+    persons: dict[str, dict] = field(default_factory=dict)
+    insightface_faces: dict[str, dict] = field(default_factory=dict)
+
     # Embeddings
     scene_embeddings: dict[str, np.ndarray] = field(default_factory=dict)
     face_embeddings: dict[str, list[np.ndarray]] = field(default_factory=dict)
@@ -97,8 +101,8 @@ class PipelineContext:
             total_weight += weights["iqa"]
 
         if image_path in self.ava_scores and "ava" in weights:
-            ava_normalized = self.ava_scores[image_path] / 10.0
-            score += ava_normalized * weights["ava"]
+            # AVA scores are already normalized to 0-1 at storage time
+            score += self.ava_scores[image_path] * weights["ava"]
             total_weight += weights["ava"]
 
         if total_weight > 0:

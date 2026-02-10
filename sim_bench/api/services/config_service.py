@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -31,6 +32,16 @@ def get_default_config() -> dict:
     return load_yaml_config(DEFAULT_CONFIG_PATH)
 
 
+def get_available_pipelines() -> dict[str, list[str]]:
+    """Get all available pipeline definitions from YAML."""
+    config = get_default_config()
+    pipelines = {}
+    for key, value in config.items():
+        if key.endswith("_pipeline") and isinstance(value, list):
+            pipelines[key] = value
+    return pipelines
+
+
 class ConfigService:
     """Service for managing configuration profiles."""
 
@@ -39,25 +50,43 @@ class ConfigService:
         self._logger = logging.getLogger(__name__)
 
     def ensure_default_profile(self) -> ConfigProfile:
-        """Ensure the default profile exists, creating it from YAML if needed."""
+        """Ensure the default profile exists, creating or updating from YAML."""
+        return self.sync_default_profile()
+
+    def sync_default_profile(self) -> ConfigProfile:
+        """
+        Sync the default profile with pipeline.yaml.
+
+        Called on every API startup to ensure DB matches YAML.
+        User profiles are NOT affected - they store only overrides.
+        """
+        yaml_config = get_default_config()
+
         profile = self._session.query(ConfigProfile).filter(
             ConfigProfile.name == DEFAULT_PROFILE_NAME
         ).first()
 
         if profile is None:
+            # First run - create default profile
             self._logger.info("Creating default config profile from pipeline.yaml")
-            default_config = get_default_config()
             profile = ConfigProfile(
                 id=str(uuid.uuid4()),
                 name=DEFAULT_PROFILE_NAME,
-                description="Default configuration loaded from pipeline.yaml",
-                config=default_config,
-                is_default=True
+                description="System default (from pipeline.yaml)",
+                config=yaml_config,
+                is_default=True,
+                is_system=True,
             )
             self._session.add(profile)
-            self._session.commit()
             self._logger.info(f"Created default profile: {profile.id}")
+        else:
+            # Update existing - YAML takes precedence for system profiles
+            self._logger.info("Syncing default config profile from pipeline.yaml")
+            profile.config = yaml_config
+            profile.is_system = True
+            profile.updated_at = datetime.utcnow()
 
+        self._session.commit()
         return profile
 
     def list_profiles(self) -> list[ConfigProfile]:
@@ -205,3 +234,89 @@ class ConfigService:
             else:
                 result[key] = value
         return result
+
+    # =========================================================================
+    # User Profile Methods
+    # =========================================================================
+
+    def get_user_profile(self, user_id: str) -> Optional[ConfigProfile]:
+        """Get user's saved profile."""
+        return self._session.query(ConfigProfile).filter(
+            ConfigProfile.user_id == user_id
+        ).first()
+
+    def save_user_profile(
+        self,
+        user_id: str,
+        selected_pipeline: str = "default_pipeline",
+        config_overrides: dict = None,
+    ) -> ConfigProfile:
+        """
+        Save user's config preferences.
+
+        Creates a new profile or updates existing one.
+        Stores only the OVERRIDES, not the full config.
+        """
+        profile = self.get_user_profile(user_id)
+        default_profile = self.get_default_profile()
+
+        user_config = {
+            "_selected_pipeline": selected_pipeline,
+            "_overrides": config_overrides or {},
+        }
+
+        if profile is None:
+            profile = ConfigProfile(
+                id=str(uuid.uuid4()),
+                name=f"user_{user_id[:8]}",
+                description="User preferences",
+                user_id=user_id,
+                parent_profile_id=default_profile.id if default_profile else None,
+                is_system=False,
+                is_default=False,
+                config=user_config,
+            )
+            self._session.add(profile)
+            self._logger.info(f"Created user profile for {user_id[:8]}")
+        else:
+            profile.config = user_config
+            profile.updated_at = datetime.utcnow()
+            self._logger.info(f"Updated user profile for {user_id[:8]}")
+
+        self._session.commit()
+        return profile
+
+    def get_user_config(self, user_id: str) -> dict:
+        """
+        Get user's effective config (default + user overrides).
+
+        Returns the full merged config with user's pipeline selection.
+        """
+        default_config = self.get_default_profile().config.copy()
+        user_profile = self.get_user_profile(user_id)
+
+        if user_profile is None:
+            return {
+                "selected_pipeline": "default_pipeline",
+                "config": default_config,
+            }
+
+        selected_pipeline = user_profile.config.get("_selected_pipeline", "default_pipeline")
+        overrides = user_profile.config.get("_overrides", {})
+        merged_config = self._deep_merge(default_config, overrides)
+
+        return {
+            "selected_pipeline": selected_pipeline,
+            "config": merged_config,
+        }
+
+    def delete_user_profile(self, user_id: str) -> bool:
+        """Delete user's saved profile."""
+        profile = self.get_user_profile(user_id)
+        if profile is None:
+            return False
+
+        self._session.delete(profile)
+        self._session.commit()
+        self._logger.info(f"Deleted user profile for {user_id[:8]}")
+        return True

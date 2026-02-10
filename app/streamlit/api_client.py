@@ -190,6 +190,34 @@ class ApiClient:
         params = {"profile": profile} if profile else None
         return self._get("/api/v1/config/merged", params=params)
 
+    def get_available_pipelines(self) -> Dict[str, List[str]]:
+        """Get all available pipeline definitions from config."""
+        return self._get("/api/v1/config/pipelines")
+
+    def get_user_config(self, user_id: str) -> Dict[str, Any]:
+        """Get user's saved config, or default if none exists."""
+        return self._get(f"/api/v1/config/user/{user_id}")
+
+    def save_user_config(
+        self,
+        user_id: str,
+        selected_pipeline: str = "default_pipeline",
+        config_overrides: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Save user's config preferences."""
+        return self._post(
+            f"/api/v1/config/user/{user_id}",
+            json={
+                "selected_pipeline": selected_pipeline,
+                "config_overrides": config_overrides,
+            },
+        )
+
+    def delete_user_config(self, user_id: str) -> bool:
+        """Delete user's saved config (reset to defaults)."""
+        self._delete(f"/api/v1/config/user/{user_id}")
+        return True
+
     # Pipeline operations
     def start_pipeline(
         self,
@@ -430,9 +458,11 @@ class ApiClient:
 
     def _parse_image(self, data: Dict[str, Any]) -> ImageInfo:
         """Parse image from API response."""
+        # Handle both "path" and "image_path" keys (different endpoints use different names)
+        image_path = data.get("path") or data.get("image_path", "")
         return ImageInfo(
-            path=data.get("path", ""),
-            filename=data.get("filename", Path(data.get("path", "")).name),
+            path=image_path,
+            filename=data.get("filename", Path(image_path).name if image_path else ""),
             iqa_score=data.get("iqa_score"),
             ava_score=data.get("ava_score"),
             composite_score=data.get("composite_score"),
@@ -443,6 +473,10 @@ class ApiClient:
             face_pose_scores=data.get("face_pose_scores"),
             face_eyes_scores=data.get("face_eyes_scores"),
             face_smile_scores=data.get("face_smile_scores"),
+            # InsightFace metrics
+            person_detected=data.get("person_detected"),
+            body_facing_score=data.get("body_facing_score"),
+            person_confidence=data.get("person_confidence"),
         )
 
     def _parse_cluster(self, data: Dict[str, Any]) -> ClusterInfo:

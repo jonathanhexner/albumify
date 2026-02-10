@@ -13,11 +13,17 @@ if TYPE_CHECKING:
 
 
 def _image_to_base64_thumbnail(image_path: Path, size: int = 60) -> Optional[str]:
-    """Load an image, resize to thumbnail, and return a base64 data URI."""
+    """Load an image, resize to square thumbnail, and return a base64 data URI."""
     try:
         with Image.open(image_path) as img:
             img = ImageOps.exif_transpose(img)
-            img.thumbnail((size, size))
+            # Crop to center square
+            w, h = img.size
+            sq = min(w, h)
+            left, top = (w - sq) // 2, (h - sq) // 2
+            img = img.crop((left, top, left + sq, top + sq))
+            # Force exact size
+            img = img.resize((size, size), Image.Resampling.LANCZOS)
             img = img.convert("RGB")
             buf = io.BytesIO()
             img.save(buf, format="JPEG", quality=70)
@@ -180,20 +186,29 @@ def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = 
         # Generate thumbnail
         thumb = _image_to_base64_thumbnail(Path(img.path))
 
-        rows.append({
+        # Determine body/face detection status
+        has_body = img.person_detected if img.person_detected is not None else False
+        has_face = (img.face_count or 0) > 0
+
+        row = {
             "Thumbnail": thumb,
             "Image": Path(img.path).name,
             "Status": status,
             "Final": f"{img.composite_score:.2f}" if img.composite_score is not None else "N/A",
-            "AVA": f"{img.ava_score:.1f}" if img.ava_score is not None else "N/A",
+            "AVA": f"{img.ava_score:.2f}" if img.ava_score is not None else "N/A",
             "IQA": f"{img.iqa_score:.2f}" if img.iqa_score is not None else "N/A",
-            "Sharpness": f"{img.sharpness:.2f}" if img.sharpness is not None else "N/A",
-            "Faces": img.face_count or 0,
-            "Pose": f"{best_pose:.2f}" if best_pose is not None else "",
+            "Sharp": f"{img.sharpness:.2f}" if img.sharpness is not None else "N/A",
+            # Body/Face detection columns
+            "Body": "✓" if has_body else "",
+            "Face": f"{img.face_count}" if has_face else "",
+            "BodyPose": f"{img.body_facing_score:.2f}" if img.body_facing_score is not None else "",
+            "FacePose": f"{best_pose:.2f}" if best_pose is not None else "",
             "Eyes": f"{best_eyes:.2f}" if best_eyes is not None else "",
             "Smile": f"{best_smile:.2f}" if best_smile is not None else "",
             "Cluster": str(img.cluster_id) if img.cluster_id is not None else "-",
-        })
+        }
+
+        rows.append(row)
 
     df = pd.DataFrame(rows)
 
@@ -201,8 +216,13 @@ def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = 
     st.dataframe(
         df,
         column_config={
-            "Thumbnail": st.column_config.ImageColumn("Image", width="small"),
+            "Thumbnail": st.column_config.ImageColumn("Thumb", width="small"),
+            "Image": st.column_config.TextColumn("Image", width="medium"),
             "Status": st.column_config.TextColumn("Status", width="small"),
+            "Body": st.column_config.TextColumn("Body", width="small", help="Body detected"),
+            "Face": st.column_config.TextColumn("Faces", width="small", help="Face count"),
+            "BodyPose": st.column_config.TextColumn("BodyPose", width="small", help="Body facing camera score"),
+            "FacePose": st.column_config.TextColumn("FacePose", width="small", help="Face frontal score"),
         },
         use_container_width=True,
         height=500,

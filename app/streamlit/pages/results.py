@@ -20,11 +20,17 @@ from app.streamlit.components.export_panel import render_export_panel
 
 
 def _load_thumbnail(image_path: str, size: int = 100) -> str:
-    """Load image and return base64 thumbnail."""
+    """Load image and return base64 thumbnail (square, fixed size)."""
     try:
         with Image.open(image_path) as img:
             img = ImageOps.exif_transpose(img)
-            img.thumbnail((size, size))
+            # Crop to center square
+            w, h = img.size
+            sq = min(w, h)
+            left, top = (w - sq) // 2, (h - sq) // 2
+            img = img.crop((left, top, left + sq, top + sq))
+            # Force exact size
+            img = img.resize((size, size), Image.Resampling.LANCZOS)
             img = img.convert("RGB")
             buf = io.BytesIO()
             img.save(buf, format="JPEG", quality=70)
@@ -172,7 +178,7 @@ def _render_image_views(job_id: str) -> None:
     col1, col2, col3 = st.columns([2, 2, 1])
 
     with col1:
-        view_mode = st.radio("View Mode", ["Selected Only", "All Filtered", "By Cluster"], horizontal=True, key="results_view_mode")
+        view_mode = st.radio("View Mode", ["Selected Only", "All Processed", "By Cluster"], horizontal=True, key="results_view_mode")
 
     with col2:
         columns = st.slider("Columns", 2, 8, 4, key="gallery_cols")
@@ -189,9 +195,9 @@ def _render_image_views(job_id: str) -> None:
         st.write(f"**{len(images)}** selected images")
         render_image_gallery(images, show_scores=show_scores, columns=columns)
 
-    elif view_mode == "All Filtered":
+    elif view_mode == "All Processed":
         images = client.get_images(job_id)
-        st.write(f"**{len(images)}** images passed quality filter")
+        st.write(f"**{len(images)}** images processed by pipeline")
         render_image_gallery(images, show_scores=show_scores, columns=columns)
 
     else:
@@ -389,7 +395,7 @@ def _render_export_tab(album: Album) -> None:
     with col1:
         st.metric("Selected Images", num_selected)
     with col2:
-        st.metric("All Filtered", total_filtered)
+        st.metric("All Processed", total_filtered)
 
     st.divider()
 

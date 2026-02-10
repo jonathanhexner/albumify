@@ -1,4 +1,17 @@
-"""End-to-end face processing pipeline."""
+"""End-to-end face processing pipeline.
+
+⚠️ DEPRECATED: This module is legacy code and not used by the active pipeline.
+
+The API now uses modular InsightFace pipeline steps instead:
+- detect_persons (YOLOv8-Pose)
+- insightface_detect_faces (InsightFace SCRFD)
+- insightface_score_expression
+- insightface_score_eyes
+- insightface_score_pose
+- select_best (with composite scoring)
+
+See: docs/architecture/PIPELINE_ARCHITECTURE_CURRENT_STATE.md
+"""
 
 import logging
 from pathlib import Path
@@ -19,7 +32,19 @@ logger = logging.getLogger(__name__)
 
 
 class FacePipelineService:
-    """Complete face processing pipeline."""
+    """
+    Complete face processing pipeline.
+    
+    ⚠️ DEPRECATED: This is legacy code. The active pipeline uses modular
+    InsightFace steps instead of this all-in-one service.
+    
+    Use the modular pipeline steps:
+    - detect_persons
+    - insightface_detect_faces
+    - insightface_score_expression
+    - insightface_score_eyes
+    - insightface_score_pose
+    """
 
     def __init__(
         self,

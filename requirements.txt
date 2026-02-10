@@ -44,8 +44,12 @@ google-generativeai>=0.3.0  # For Gemini agent
 
 # Optional: Specialized models
 # deepface>=0.0.79  # For face detection/recognition
-# insightface>=0.7.3  # Alternative face detection backend
+insightface>=0.7.0  # Face detection and analysis (SCRFD, attributes)
+onnxruntime>=1.16.0  # InsightFace backend (CPU)
+onnxruntime-gpu>=1.16.0; platform_system != "Darwin"  # InsightFace backend (GPU, optional)
+ultralytics>=8.0.0  # YOLOv8-Pose for person detection
 mediapipe>=0.10.0  # Required for portrait analysis (album organization feature)
+protobuf>=3.20,<4  # Pin for MediaPipe compatibility (newer versions break it)
 sixdrepnet>=0.1.6  # Head pose estimation for face pipeline
 
 # Optional: Earth Mover's Distance (advanced)

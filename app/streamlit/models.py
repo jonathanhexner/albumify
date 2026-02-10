@@ -60,6 +60,10 @@ class ImageInfo:
     face_eyes_scores: Optional[List[float]] = None
     face_smile_scores: Optional[List[float]] = None
     thumbnail_url: Optional[str] = None
+    # InsightFace person detection metrics
+    person_detected: Optional[bool] = None
+    body_facing_score: Optional[float] = None
+    person_confidence: Optional[float] = None
 
 
 @dataclass

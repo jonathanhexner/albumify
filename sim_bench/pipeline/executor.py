@@ -1,10 +1,13 @@
 """Pipeline executor - runs pipeline steps in order."""
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Generator
 
 from sim_bench.pipeline.base import PipelineStep
+
+logger = logging.getLogger(__name__)
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.config import PipelineConfig
 from sim_bench.pipeline.registry import StepRegistry
@@ -67,6 +70,9 @@ class PipelineExecutor:
         context.on_progress = config.progress_callback
 
         steps = self._builder.build(step_names, auto_resolve=True)
+        resolved_names = [s.metadata.name for s in steps]
+        logger.info(f"Pipeline steps (after dependency resolution): {resolved_names}")
+
         result = PipelineResult(success=True)
         start_time = time.time()
 

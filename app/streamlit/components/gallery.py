@@ -14,23 +14,39 @@ from app.streamlit.models import ImageInfo, ClusterInfo
 from app.streamlit.config import get_config
 
 
-def _load_image_for_display(image_path: Path, make_square: bool = True) -> Image.Image:
-    """Load image with EXIF orientation correction and optional square crop.
+THUMBNAIL_WIDTH = 200  # Fixed width for gallery thumbnails (fits 4 per row)
 
-    Args:
-        image_path: Path to the image file
-        make_square: If True, crop to center square for consistent grid display
-    """
-    with Image.open(image_path) as img:
-        img = ImageOps.exif_transpose(img)
-        if make_square:
-            # Crop to center square for consistent grid appearance
+
+@st.cache_data(show_spinner=False)
+def _load_thumbnail_cached(image_path: str) -> Optional[bytes]:
+    """Load and cache thumbnail as JPEG bytes (preserves aspect ratio)."""
+    try:
+        with Image.open(image_path) as img:
+            img = ImageOps.exif_transpose(img)
+            # Resize to fixed width, maintain aspect ratio
             w, h = img.size
-            size = min(w, h)
-            left = (w - size) // 2
-            top = (h - size) // 2
-            img = img.crop((left, top, left + size, top + size))
-        return img.copy()
+            new_width = THUMBNAIL_WIDTH
+            new_height = int(h * (new_width / w))
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            img = img.convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            return buf.getvalue()
+    except Exception:
+        return None
+
+
+def _load_thumbnail(image_path: Path) -> Optional[Image.Image]:
+    """Load image thumbnail (fixed width, preserves aspect ratio)."""
+    try:
+        if not image_path or not image_path.exists():
+            return None
+        img_bytes = _load_thumbnail_cached(str(image_path))
+        if img_bytes is None:
+            return None
+        return Image.open(io.BytesIO(img_bytes))
+    except Exception:
+        return None
 
 
 def render_image_gallery(
@@ -56,12 +72,7 @@ def render_image_gallery(
 
     for i, image in enumerate(images):
         with cols[i % num_cols]:
-            render_image_card(
-                image,
-                show_scores=show_scores,
-                show_selection=show_selection,
-                on_click=on_image_click,
-            )
+            render_image_card(image, show_scores, show_selection, on_image_click)
 
 
 def render_image_card(
@@ -70,48 +81,73 @@ def render_image_card(
     show_selection: bool = True,
     on_click: Optional[Callable[[ImageInfo], None]] = None,
 ) -> None:
-    """Render a single image card."""
-    with st.container():
-        image_path = Path(image.path)
+    """Render a single image card with fixed-size thumbnail."""
+    if not image.path:
+        st.warning(f"No image path (filename: {image.filename or 'unknown'})")
+        return
 
-        if image_path.exists():
-            img = _load_image_for_display(image_path)
-            st.image(img, use_container_width=True)
-        else:
-            st.warning("Image not found")
+    image_path = Path(image.path)
 
-        st.caption(image.filename)
+    # Display thumbnail at fixed width
+    img = _load_thumbnail(image_path)
+    if img:
+        st.image(img, width=THUMBNAIL_WIDTH)
+    else:
+        st.warning(f"Image not found: {image_path.name}")
 
-        # Scores
-        if show_scores:
-            score_parts = []
-            if image.iqa_score is not None:
-                score_parts.append(f"IQA: {image.iqa_score:.2f}")
-            if image.ava_score is not None:
-                score_parts.append(f"AVA: {image.ava_score:.1f}")
-            if image.sharpness is not None:
-                score_parts.append(f"Sharp: {image.sharpness:.2f}")
-            if image.composite_score is not None:
-                score_parts.append(f"Score: {image.composite_score:.2f}")
-            if score_parts:
-                st.caption(" | ".join(score_parts))
+    st.caption(image.filename[:20] + "..." if len(image.filename) > 20 else image.filename)
 
-        if image.face_count and image.face_count > 0:
-            faces_label = "face" if image.face_count == 1 else "faces"
-            parts = [f"{image.face_count} {faces_label}"]
-            if image.face_eyes_scores:
-                eyes_open = image.face_eyes_scores[0] > 0.5
-                parts.append("eyes open" if eyes_open else "eyes closed")
-            if image.face_smile_scores:
-                smiling = image.face_smile_scores[0] > 0.5
-                parts.append("smiling" if smiling else "neutral")
-            st.caption(" | ".join(parts))
+    if show_scores:
+        _render_scores(image)
 
-        if show_selection and image.is_selected:
-            st.success("Selected")
+    if image.face_count and image.face_count > 0:
+        _render_face_info(image)
 
-        if on_click and st.button("View", key=f"view_{image.path}", use_container_width=True):
+    if show_selection and image.is_selected:
+        st.success("Selected")
+
+    if on_click:
+        if st.button("View", key=f"view_{image.path}"):
             on_click(image)
+
+
+def _render_scores(image: ImageInfo) -> None:
+    """Render score information."""
+    parts = []
+    if image.iqa_score is not None:
+        parts.append(f"IQA: {image.iqa_score:.2f}")
+    if image.ava_score is not None:
+        parts.append(f"AVA: {image.ava_score:.1f}")
+    if image.composite_score is not None:
+        parts.append(f"Score: {image.composite_score:.2f}")
+    if parts:
+        st.caption(" | ".join(parts))
+
+
+def _render_face_info(image: ImageInfo) -> None:
+    """Render face and person information."""
+    parts = []
+
+    # Person detection (InsightFace)
+    if image.person_detected is not None:
+        if image.person_detected:
+            body_score = image.body_facing_score or 0
+            parts.append(f"body: {body_score:.0%}")
+        else:
+            parts.append("no person")
+
+    # Face info
+    if image.face_count:
+        faces_label = "face" if image.face_count == 1 else "faces"
+        parts.append(f"{image.face_count} {faces_label}")
+
+    if image.face_eyes_scores and image.face_eyes_scores[0] is not None:
+        parts.append("eyes open" if image.face_eyes_scores[0] > 0.5 else "eyes closed")
+    if image.face_smile_scores and image.face_smile_scores[0] is not None:
+        parts.append("smiling" if image.face_smile_scores[0] > 0.5 else "neutral")
+
+    if parts:
+        st.caption(" | ".join(parts))
 
 
 def render_cluster_gallery(
@@ -133,29 +169,27 @@ def _group_images_by_people(
     images: List[ImageInfo],
     person_labels: Dict[str, List[str]],
 ) -> Dict[str, List[ImageInfo]]:
-    """Group images by their person combination.
-
-    Returns a dict mapping a display label (sorted person names joined)
-    to the list of images sharing that combination.  Images with no
-    person labels are grouped under "No identified people".
-    """
+    """Group images by their person combination."""
     groups: Dict[str, List[ImageInfo]] = defaultdict(list)
     for img in images:
         people = person_labels.get(img.path, [])
-        if people:
-            key = ", ".join(sorted(people))
-        else:
-            key = "No identified people"
+        key = ", ".join(sorted(people)) if people else "No identified people"
         groups[key].append(img)
     return dict(groups)
 
 
 def _image_to_base64_thumbnail(image_path: Path, size: int = 80) -> Optional[str]:
-    """Load an image, resize to thumbnail, and return a base64 data URI."""
+    """Load an image, resize to square thumbnail, and return a base64 data URI."""
     try:
         with Image.open(image_path) as img:
             img = ImageOps.exif_transpose(img)
-            img.thumbnail((size, size))
+            # Crop to center square
+            w, h = img.size
+            sq = min(w, h)
+            left, top = (w - sq) // 2, (h - sq) // 2
+            img = img.crop((left, top, left + sq, top + sq))
+            # Force exact size
+            img = img.resize((size, size), Image.Resampling.LANCZOS)
             img = img.convert("RGB")
             buf = io.BytesIO()
             img.save(buf, format="JPEG", quality=70)
@@ -172,31 +206,31 @@ def _render_cluster_score_table(cluster: ClusterInfo) -> None:
         thumb = _image_to_base64_thumbnail(Path(img.path))
         people = cluster.person_labels.get(img.path, [])
 
-        # Summarise face sub-scores as single representative values
-        pose = None
-        if img.face_pose_scores:
-            pose = round(img.face_pose_scores[0], 2)
-        eyes = None
-        if img.face_eyes_scores:
-            eyes = round(img.face_eyes_scores[0], 2)
-        smile = None
-        if img.face_smile_scores:
-            smile = round(img.face_smile_scores[0], 2)
+        pose = img.face_pose_scores[0] if img.face_pose_scores else None
+        eyes = img.face_eyes_scores[0] if img.face_eyes_scores else None
+        smile = img.face_smile_scores[0] if img.face_smile_scores else None
 
-        rows.append({
+        row = {
             "Thumbnail": thumb,
             "Image": img.filename,
             "Selected": img.is_selected,
-            "Final Score": round(img.composite_score, 3) if img.composite_score is not None else None,
-            "IQA": round(img.iqa_score, 3) if img.iqa_score is not None else None,
-            "AVA": round(img.ava_score, 2) if img.ava_score is not None else None,
-            "Sharpness": round(img.sharpness, 2) if img.sharpness is not None else None,
+            "Final Score": round(img.composite_score, 3) if img.composite_score else None,
+            "IQA": round(img.iqa_score, 3) if img.iqa_score else None,
+            "AVA": round(img.ava_score, 2) if img.ava_score else None,
             "Faces": img.face_count or 0,
-            "Pose": pose,
-            "Eyes": eyes,
-            "Smile": smile,
-            "People": ", ".join(people) if people else "",
-        })
+            "Pose": round(pose, 2) if pose else None,
+            "Eyes": round(eyes, 2) if eyes else None,
+            "Smile": round(smile, 2) if smile else None,
+        }
+
+        # Add InsightFace metrics if available
+        if img.person_detected is not None:
+            row["Person"] = "Yes" if img.person_detected else "No"
+        if img.body_facing_score is not None:
+            row["Body"] = round(img.body_facing_score, 2)
+
+        row["People"] = ", ".join(people) if people else ""
+        rows.append(row)
 
     if not rows:
         return
@@ -209,7 +243,6 @@ def _render_cluster_score_table(cluster: ClusterInfo) -> None:
             "Selected": st.column_config.CheckboxColumn("Selected", disabled=True),
         },
         hide_index=True,
-        use_container_width=True,
     )
 
 
@@ -228,10 +261,10 @@ def _render_cluster_section(
     header = f"Cluster {cluster.cluster_id} ({cluster.image_count} images, {cluster.selected_count} selected{face_info})"
 
     with st.expander(header, expanded=False):
-        if on_click and st.button("View Full Cluster", key=f"cluster_{cluster.cluster_id}"):
-            on_click(cluster)
+        if on_click:
+            if st.button("View Full Cluster", key=f"cluster_{cluster.cluster_id}"):
+                on_click(cluster)
 
-        # Group images by person combination when person_labels exist
         groups = _group_images_by_people(cluster.images, cluster.person_labels)
         multiple_groups = len(groups) > 1
 
@@ -239,24 +272,15 @@ def _render_cluster_section(
             if multiple_groups:
                 st.markdown(f"**{group_label}** ({len(group_images)} images)")
 
-            images_to_show = group_images[:max_preview] if not show_all else group_images
+            images_to_show = group_images if show_all else group_images[:max_preview]
 
             if images_to_show:
-                # Use more columns when showing all images
-                num_cols = min(6, len(images_to_show)) if show_all else min(4, len(images_to_show))
-                render_image_gallery(
-                    images_to_show,
-                    show_scores=True,
-                    show_selection=True,
-                    columns=num_cols,
-                )
+                num_cols = min(6 if show_all else 4, len(images_to_show))
+                render_image_gallery(images_to_show, show_scores=True, show_selection=True, columns=num_cols)
                 remaining = len(group_images) - len(images_to_show)
                 if remaining > 0:
                     st.caption(f"... and {remaining} more images")
-            else:
-                st.info("No images loaded for this cluster")
 
-        # Debug score table with thumbnails
         st.markdown("---")
         st.caption("Score Details")
         _render_cluster_score_table(cluster)
@@ -268,7 +292,6 @@ def render_image_comparison(images: List[ImageInfo], title: str = "Compare Image
         return
 
     st.subheader(title)
-
     num_images = min(len(images), 4)
     cols = st.columns(num_images)
 
@@ -276,11 +299,9 @@ def render_image_comparison(images: List[ImageInfo], title: str = "Compare Image
         with cols[i]:
             image_path = Path(image.path)
             if image_path.exists():
-                img = _load_image_for_display(image_path)
-                st.image(img, use_container_width=True)
-
-            st.caption(image.filename)
-
+                img = _load_thumbnail(image_path)
+                st.image(img, width=THUMBNAIL_WIDTH)
+            st.caption(image.filename[:20] + "..." if len(image.filename) > 20 else image.filename)
             if image.iqa_score is not None:
                 st.metric("IQA", f"{image.iqa_score:.2f}")
             if image.ava_score is not None:

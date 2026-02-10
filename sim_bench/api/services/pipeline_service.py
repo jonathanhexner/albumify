@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from sim_bench.api.database.models import Album, PipelineRun, PipelineResult
 from sim_bench.api.services.people_service import PeopleService
+from sim_bench.api.services.config_service import ConfigService
 from sim_bench.pipeline.cache_handler import UniversalCacheHandler
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.config import PipelineConfig
@@ -19,22 +20,7 @@ from sim_bench.pipeline.executor import PipelineExecutor
 from sim_bench.pipeline.registry import get_registry
 
 
-DEFAULT_PIPELINE = [
-    "discover_images",
-    "detect_faces",           # Early face detection
-    "score_iqa",
-    "score_ava",
-    "score_face_pose",        # Only for images with significant faces
-    "score_face_eyes",
-    "score_face_smile",
-    "filter_quality",
-    "extract_scene_embedding",
-    "cluster_scenes",
-    "extract_face_embeddings",
-    "cluster_people",         # Global face clustering by identity (for People tab)
-    "cluster_by_identity",    # Sub-cluster scenes by face identity + count
-    "select_best"             # Smart selection with branching logic
-]
+# No more hardcoded pipeline - loaded from config service
 
 
 @dataclass
@@ -74,11 +60,19 @@ class PipelineService:
         self,
         album_id: str,
         steps: list[str] = None,
+        pipeline_name: str = "default_pipeline",
         step_configs: dict[str, dict] = None,
         fail_fast: bool = True
     ) -> str:
         """
         Start a pipeline run.
+
+        Args:
+            album_id: Album to process
+            steps: Explicit step list (overrides pipeline_name if provided)
+            pipeline_name: Name of pipeline from config (e.g., "default_pipeline", "minimal_pipeline")
+            step_configs: Step configuration overrides
+            fail_fast: Stop on first error
 
         Returns job_id for tracking.
         """
@@ -89,8 +83,12 @@ class PipelineService:
             self._logger.error(f"Album not found: {album_id}")
             raise ValueError(f"Album not found: {album_id}")
 
+        # Load steps from config if not explicitly provided
         if steps is None:
-            steps = DEFAULT_PIPELINE
+            config_service = ConfigService(self._session)
+            config = config_service.get_default_profile().config
+            steps = config.get(pipeline_name, config.get("default_pipeline", []))
+            self._logger.info(f"Using pipeline '{pipeline_name}' with {len(steps)} steps")
 
         run_id = str(uuid.uuid4())
         self._logger.info(f"Created pipeline run {run_id} with steps: {steps}")
@@ -98,7 +96,7 @@ class PipelineService:
         run = PipelineRun(
             id=run_id,
             album_id=album_id,
-            pipeline_name="custom" if steps != DEFAULT_PIPELINE else "default",
+            pipeline_name=pipeline_name,
             steps=steps,
             step_configs=step_configs or {},
             fail_fast=fail_fast,
@@ -202,17 +200,21 @@ class PipelineService:
             self._session.add(pipeline_result)
 
             # Persist people records from face clustering results
+            self._logger.info(f"People clusters in context: {len(job.context.people_clusters)} clusters")
             if job.context.people_clusters:
                 try:
                     people_service = PeopleService(self._session)
-                    people_service.create_from_clusters(
+                    created = people_service.create_from_clusters(
                         album_id=job.album_id,
                         run_id=job_id,
                         people_clusters=job.context.people_clusters,
                         people_thumbnails=job.context.people_thumbnails or None
                     )
+                    self._logger.info(f"Created {len(created)} Person records")
                 except Exception as e:
-                    self._logger.warning(f"Failed to persist people records: {e}")
+                    self._logger.warning(f"Failed to persist people records: {e}", exc_info=True)
+            else:
+                self._logger.warning("No people_clusters found in context - skipping Person creation")
         else:
             run.status = "failed"
             run.error_message = result.error_message
@@ -232,6 +234,10 @@ class PipelineService:
         collects per-face values back into a list keyed by the image path
         so that they are persisted correctly in the database.
         """
+        # Normalize path for cache key lookups (steps use forward slashes)
+        path_normalized = path.replace('\\', '/')
+
+        # MediaPipe faces (if available)
         faces = context.faces.get(path, [])
 
         # Aggregate face scores by iterating over detected faces
@@ -239,7 +245,8 @@ class PipelineService:
         eyes_scores = []
         smile_scores = []
         for face in faces:
-            cache_key = f"{face.original_path}:face_{face.face_index}"
+            face_path = str(face.original_path).replace('\\', '/')
+            cache_key = f"{face_path}:face_{face.face_index}"
             pose = context.face_pose_scores.get(cache_key)
             if pose is not None:
                 pose_scores.append(pose)
@@ -250,17 +257,50 @@ class PipelineService:
             if smile is not None:
                 smile_scores.append(smile)
 
+        # InsightFace person detection (if available)
+        person_data = context.persons.get(path_normalized, {}) if hasattr(context, 'persons') and context.persons else {}
+        # Also try original path format
+        if not person_data:
+            person_data = context.persons.get(path, {}) if hasattr(context, 'persons') and context.persons else {}
+
+        # InsightFace faces (if available) - try both path formats
+        insightface_data = {}
+        if hasattr(context, 'insightface_faces') and context.insightface_faces:
+            insightface_data = context.insightface_faces.get(path_normalized, {})
+            if not insightface_data:
+                insightface_data = context.insightface_faces.get(path, {})
+        insightface_faces = insightface_data.get('faces', [])
+
+        # Get InsightFace face scores if MediaPipe faces not available
+        if not pose_scores and insightface_faces:
+            for face_info in insightface_faces:
+                face_index = face_info.get('face_index', 0)
+                cache_key = f"{path_normalized}:face_{face_index}"
+                pose = context.face_pose_scores.get(cache_key)
+                if pose is not None:
+                    pose_scores.append(pose)
+                eyes = context.face_eyes_scores.get(cache_key)
+                if eyes is not None:
+                    eyes_scores.append(eyes)
+                smile = context.face_smile_scores.get(cache_key)
+                if smile is not None:
+                    smile_scores.append(smile)
+
         return {
             "iqa_score": context.iqa_scores.get(path),
             "ava_score": context.ava_scores.get(path),
             "sharpness": context.sharpness_scores.get(path),
             "cluster_id": context.scene_cluster_labels.get(path),
-            "face_count": len(faces),
+            "face_count": len(faces) or len(insightface_faces),
             "face_pose_scores": pose_scores or None,
             "face_eyes_scores": eyes_scores or None,
             "face_smile_scores": smile_scores or None,
             "composite_score": context.composite_scores.get(path),
             "is_selected": path in context.selected_images,
+            # InsightFace-specific metrics
+            "person_detected": person_data.get('person_detected'),
+            "body_facing_score": person_data.get('body_facing_score'),
+            "person_confidence": person_data.get('confidence'),
         }
 
     def get_status(self, job_id: str) -> Optional[PipelineRun]:

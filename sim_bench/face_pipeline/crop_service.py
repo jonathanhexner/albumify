@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image
 
 from sim_bench.face_pipeline.types import CroppedFace, BoundingBox, MIN_FACE_RATIO
+from sim_bench.pipeline.utils.image_cache import get_image_cache
 
 logger = logging.getLogger(__name__)
 
@@ -50,12 +51,9 @@ class FaceCropService:
         logger.info("MediaPipe face detection loaded")
 
     def _load_image(self, image_path: Path) -> np.ndarray:
-        """Load image with EXIF orientation correction."""
-        with Image.open(image_path) as pil_img:
-            pil_img = ImageOps.exif_transpose(pil_img)
-            if pil_img.mode != 'RGB':
-                pil_img = pil_img.convert('RGB')
-            return np.array(pil_img)
+        """Load image with EXIF orientation correction (via global cache)."""
+        cache = get_image_cache()
+        return cache.get(image_path)
 
     def _detect_faces(self, image: np.ndarray) -> List[Dict[str, Any]]:
         """

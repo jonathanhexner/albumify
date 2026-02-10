@@ -1,4 +1,4 @@
-"""Select best step - smart selection with face vs non-face branching logic."""
+"""Select best step - composite scoring with quality and person penalties."""
 
 import logging
 from pathlib import Path
@@ -8,6 +8,14 @@ import numpy as np
 from sim_bench.pipeline.base import BaseStep, StepMetadata
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.registry import register_step
+from sim_bench.pipeline.scoring.quality_strategy import (
+    ImageQualityStrategyFactory,
+    ImageQualityStrategy,
+)
+from sim_bench.pipeline.scoring.person_penalty import (
+    PersonPenaltyFactory,
+    PersonPenaltyComputer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,29 +23,28 @@ logger = logging.getLogger(__name__)
 @register_step
 class SelectBestStep(BaseStep):
     """
-    Select best images from each cluster using smart branching logic.
+    Select best images from each cluster using composite scoring.
 
-    For face clusters:
-        - Use composite score: eyes_open + pose + smile + AVA
-        - Configurable weights
+    Scoring Model:
+        composite_score = image_quality_score + person_penalty
 
-    For non-face clusters:
-        - Use AVA score as primary
-        - Use Siamese CNN as tiebreaker when scores are close
+        image_quality_score: Technical/aesthetic quality (IQA + AVA + optional Siamese)
+        person_penalty: Portrait-specific penalties (0 to -0.7)
+            - No person: 0 penalty
+            - Person with issues: penalties for face occlusion, eyes closed, etc.
 
-    Smart selection rules:
-        - Always take #1
-        - Take #2 only if:
-            - Score above min threshold
-            - Not a near-duplicate of #1 (Siamese CNN check)
-            - Score gap not too large
+    Selection Rules:
+        1. Compute composite scores for all images
+        2. Filter images below min_threshold
+        3. Sort by composite score
+        4. Select best + dissimilar images (up to max_per_cluster)
     """
 
     def __init__(self):
         self._metadata = StepMetadata(
             name="select_best",
             display_name="Select Best Images",
-            description="Smart selection with branching logic for face vs non-face clusters.",
+            description="Composite scoring with image quality and person penalties.",
             category="selection",
             requires={"scene_clusters"},
             produces={"selected_images"},
@@ -56,34 +63,51 @@ class SelectBestStep(BaseStep):
                         "default": 0.4,
                         "description": "Minimum composite score to keep an image"
                     },
-                    "max_score_gap": {
+                    "dissimilarity_threshold": {
                         "type": "number",
-                        "default": 0.25,
-                        "description": "Maximum gap between #1 and #2 to keep #2"
+                        "default": 0.85,
+                        "description": "Embedding similarity threshold for dissimilar images"
                     },
-                    "tiebreaker_threshold": {
-                        "type": "number",
-                        "default": 0.05,
-                        "description": "Use Siamese tiebreaker if scores within this range"
-                    },
-                    "siamese_checkpoint": {
+                    "quality_strategy": {
                         "type": "string",
-                        "description": "Path to Siamese model checkpoint for comparison"
+                        "default": "siamese_refinement",
+                        "description": "Quality scoring strategy: weighted_average, siamese_refinement, siamese_tournament"
                     },
-                    "duplicate_similarity_threshold": {
-                        "type": "number",
-                        "default": 0.95,
-                        "description": "Embedding similarity threshold for near-duplicates"
-                    },
-                    "face_weights": {
+                    "quality_weights": {
                         "type": "object",
                         "properties": {
-                            "eyes_open": {"type": "number", "default": 0.30},
-                            "pose": {"type": "number", "default": 0.30},
-                            "smile": {"type": "number", "default": 0.20},
-                            "ava": {"type": "number", "default": 0.20}
+                            "iqa": {"type": "number", "default": 0.3},
+                            "ava": {"type": "number", "default": 0.7}
                         },
-                        "description": "Weights for face composite score"
+                        "description": "Weights for image quality score"
+                    },
+                    "siamese_refinement": {
+                        "type": "object",
+                        "properties": {
+                            "top_n": {"type": "integer", "default": 3},
+                            "boost_range": {"type": "number", "default": 0.1}
+                        },
+                        "description": "Config for Siamese refinement strategy"
+                    },
+                    "person_penalties": {
+                        "type": "object",
+                        "properties": {
+                            "face_occlusion": {"type": "number", "default": -0.3},
+                            "body_not_facing": {"type": "number", "default": -0.1},
+                            "eyes_closed": {"type": "number", "default": -0.15},
+                            "not_smiling": {"type": "number", "default": -0.05},
+                            "face_turned": {"type": "number", "default": -0.1},
+                            "max_penalty": {"type": "number", "default": -0.7}
+                        },
+                        "description": "Penalty values for portrait issues"
+                    },
+                    "siamese": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {"type": "boolean", "default": True},
+                            "checkpoint_path": {"type": "string"}
+                        },
+                        "description": "Siamese model config"
                     },
                     "use_face_subclusters": {
                         "type": "boolean",
@@ -100,6 +124,9 @@ class SelectBestStep(BaseStep):
         )
         self._siamese_model = None
         self._siamese_checkpoint = None
+        self._config = None
+        self._quality_strategy: Optional[ImageQualityStrategy] = None
+        self._penalty_computer: Optional[PersonPenaltyComputer] = None
 
     def _get_siamese_model(self, checkpoint_path: str):
         """Lazy load Siamese model."""
@@ -119,31 +146,60 @@ class SelectBestStep(BaseStep):
 
         return self._siamese_model
 
+    def _build_quality_config(self, config: dict, strategy_name: str) -> dict:
+        """Build quality strategy config from select_best config."""
+        quality_weights = config.get("quality_weights", {"iqa": 0.3, "ava": 0.7})
+        quality_config = {
+            "iqa_weight": quality_weights.get("iqa", 0.3),
+            "ava_weight": quality_weights.get("ava", 0.7),
+        }
+
+        strategy_is_refinement = strategy_name == "siamese_refinement"
+        if strategy_is_refinement:
+            refinement_config = config.get("siamese_refinement", {})
+            quality_config["top_n"] = refinement_config.get("top_n", 3)
+            quality_config["boost_range"] = refinement_config.get("boost_range", 0.1)
+
+        strategy_is_tournament = strategy_name == "siamese_tournament"
+        if strategy_is_tournament:
+            tournament_config = config.get("siamese_tournament", {})
+            quality_config["top_n"] = tournament_config.get("top_n", 4)
+            quality_config["base_weight"] = tournament_config.get("base_weight", 0.4)
+            quality_config["siamese_weight"] = tournament_config.get("siamese_weight", 0.6)
+
+        return quality_config
+
     def process(self, context: PipelineContext, config: dict) -> None:
-        """Select best images using smart branching logic."""
+        """Select best images using composite scoring."""
+        self._config = config
+
         max_per_cluster = config.get("max_images_per_cluster", 2)
-        min_score_threshold = config.get("min_score_threshold", 0.4)
-        max_score_gap = config.get("max_score_gap", 0.25)
-        siamese_config = config.get("siamese", {})
-        siamese_checkpoint = siamese_config.get("checkpoint_path") if siamese_config.get("enabled", False) else None
-        tiebreaker_threshold = siamese_config.get("tiebreaker_range", config.get("tiebreaker_threshold", 0.05))
-        duplicate_threshold = siamese_config.get("duplicate_threshold", config.get("duplicate_similarity_threshold", 0.95))
         use_face_subclusters = config.get("use_face_subclusters", True)
         include_noise = config.get("include_noise", True)
 
-        face_weights = config.get("face_weights", {
-            "eyes_open": 0.30,
-            "pose": 0.30,
-            "smile": 0.20,
-            "ava": 0.20
-        })
+        # Initialize quality strategy
+        quality_strategy_name = config.get("quality_strategy", "siamese_refinement")
+        quality_config = self._build_quality_config(config, quality_strategy_name)
+        self._quality_strategy = ImageQualityStrategyFactory.create(
+            quality_strategy_name, quality_config
+        )
 
-        # Load Siamese model if checkpoint provided
+        # Initialize person penalty computer
+        penalty_config = config.get("person_penalties", {})
+        self._penalty_computer = PersonPenaltyFactory.create(penalty_config)
+
+        # Load Siamese model if needed
+        siamese_config = config.get("siamese", {})
+        siamese_enabled = siamese_config.get("enabled", False)
+        siamese_checkpoint = siamese_config.get("checkpoint_path") if siamese_enabled else None
         siamese_model = self._get_siamese_model(siamese_checkpoint)
-        if siamese_model:
-            logger.info("Siamese CNN enabled for comparison and duplicate detection")
-        else:
-            logger.info("Siamese CNN not available, using embedding similarity")
+
+        strategy_requires_siamese = quality_strategy_name in ["siamese_refinement", "siamese_tournament"]
+        if strategy_requires_siamese and not siamese_model:
+            logger.warning(
+                f"Quality strategy '{quality_strategy_name}' requires Siamese model "
+                f"but model not loaded. Falling back to base quality only."
+            )
 
         selected = []
         total_clusters = 0
@@ -157,7 +213,6 @@ class SelectBestStep(BaseStep):
 
                 for subcluster_id, subcluster in subclusters.items():
                     total_clusters += 1
-                    has_faces = subcluster.get("has_faces", False)
                     images = subcluster.get("images", [])
 
                     if not images:
@@ -166,13 +221,7 @@ class SelectBestStep(BaseStep):
                     cluster_selected = self._select_from_cluster(
                         context=context,
                         image_paths=images,
-                        has_faces=has_faces,
                         max_per_cluster=max_per_cluster,
-                        min_score_threshold=min_score_threshold,
-                        max_score_gap=max_score_gap,
-                        tiebreaker_threshold=tiebreaker_threshold,
-                        duplicate_threshold=duplicate_threshold,
-                        face_weights=face_weights,
                         siamese_model=siamese_model
                     )
                     selected.extend(cluster_selected)
@@ -190,19 +239,10 @@ class SelectBestStep(BaseStep):
 
                 total_clusters += 1
 
-                # Determine if this cluster has faces
-                has_faces = self._cluster_has_faces(context, image_paths)
-
                 cluster_selected = self._select_from_cluster(
                     context=context,
                     image_paths=image_paths,
-                    has_faces=has_faces,
                     max_per_cluster=max_per_cluster,
-                    min_score_threshold=min_score_threshold,
-                    max_score_gap=max_score_gap,
-                    tiebreaker_threshold=tiebreaker_threshold,
-                    duplicate_threshold=duplicate_threshold,
-                    face_weights=face_weights,
                     siamese_model=siamese_model
                 )
                 selected.extend(cluster_selected)
@@ -225,82 +265,131 @@ class SelectBestStep(BaseStep):
         self,
         context: PipelineContext,
         image_paths: list[str],
-        has_faces: bool,
         max_per_cluster: int,
-        min_score_threshold: float,
-        max_score_gap: float,
-        tiebreaker_threshold: float,
-        duplicate_threshold: float,
-        face_weights: dict,
         siamese_model
     ) -> list[str]:
-        """Select best images from a single cluster."""
+        """Select best images from a single cluster using composite scoring."""
         if not image_paths:
             return []
 
-        # Score all images
-        if has_faces:
-            scored_images = self._score_face_cluster(context, image_paths, face_weights)
-        else:
-            scored_images = self._score_non_face_cluster(context, image_paths)
+        # Compute composite scores for all images
+        scored_images = self._compute_composite_scores(
+            context, image_paths, siamese_model
+        )
 
-        # Persist composite scores in context for database storage
+        # Persist scores in context
         for path, score in scored_images:
             context.composite_scores[path] = score
 
-        # Sort by score descending
-        scored_images.sort(key=lambda x: x[1], reverse=True)
+        # Filter by minimum threshold
+        min_threshold = self._config.get("min_score_threshold", 0.4)
+        filtered = [
+            (path, score) for path, score in scored_images if score >= min_threshold
+        ]
 
+        # Keep best one even if below threshold
+        no_images_above_threshold = len(filtered) == 0
+        if no_images_above_threshold and scored_images:
+            filtered = [max(scored_images, key=lambda x: x[1])]
+            logger.debug(
+                f"No images above threshold {min_threshold}, "
+                f"keeping best: {filtered[0][0]} (score={filtered[0][1]:.3f})"
+            )
+
+        # Sort by composite score
+        filtered.sort(key=lambda x: x[1], reverse=True)
+
+        # Select best + dissimilar images
+        selected = self._select_dissimilar(context, filtered, max_per_cluster)
+
+        return selected
+
+    def _compute_composite_scores(
+        self,
+        context: PipelineContext,
+        image_paths: List[str],
+        siamese_model: Optional[object],
+    ) -> List[Tuple[str, float]]:
+        """
+        Compute composite scores for all images.
+
+        composite_score = image_quality_score + person_penalty
+        """
+        scored = []
+
+        for image_path in image_paths:
+            quality_score = self._quality_strategy.compute_quality(
+                image_path, context, siamese_model, image_paths
+            )
+            penalty = self._penalty_computer.compute_penalty(image_path, context)
+            composite_score = quality_score + penalty
+
+            scored.append((image_path, composite_score))
+
+        return scored
+
+    def _select_dissimilar(
+        self,
+        context: PipelineContext,
+        scored_images: List[Tuple[str, float]],
+        max_per_cluster: int,
+    ) -> List[str]:
+        """
+        Select best + dissimilar images from scored list.
+
+        Selection strategy:
+        1. Always select #1 (best)
+        2. Select additional images that are sufficiently dissimilar
+        """
         if not scored_images:
             return []
 
-        # Apply Siamese tiebreaker for top candidates if scores are close
-        if siamese_model and len(scored_images) >= 2:
-            scored_images = self._apply_siamese_tiebreaker(
-                context, scored_images, tiebreaker_threshold, siamese_model
+        selected = []
+        dissimilarity_threshold = self._config.get("dissimilarity_threshold", 0.85)
+
+        # Always select best
+        best_path, best_score = scored_images[0]
+        selected.append(best_path)
+
+        # Select additional dissimilar images
+        for image_path, score in scored_images[1:]:
+            max_reached = len(selected) >= max_per_cluster
+            if max_reached:
+                break
+
+            is_dissimilar = self._check_dissimilar(
+                context, image_path, selected, dissimilarity_threshold
             )
 
-        # Smart selection logic
-        selected = []
-
-        # Always take #1 (if above threshold or we have only one)
-        best_path, best_score = scored_images[0]
-        if best_score >= min_score_threshold or len(scored_images) == 1:
-            selected.append(best_path)
-
-        # Consider #2 if we want more than one
-        if max_per_cluster > 1 and len(scored_images) > 1:
-            second_path, second_score = scored_images[1]
-
-            # Check smart rules
-            should_keep_second = True
-
-            # Rule 1: Score above threshold
-            if second_score < min_score_threshold:
-                should_keep_second = False
-                logger.debug(f"Rejecting {second_path}: score {second_score:.2f} below threshold {min_score_threshold}")
-
-            # Rule 2: Score gap not too large
-            if should_keep_second and best_score > 0:
-                gap = (best_score - second_score) / best_score
-                if gap > max_score_gap:
-                    should_keep_second = False
-                    logger.debug(f"Rejecting {second_path}: gap {gap:.2f} exceeds max {max_score_gap}")
-
-            # Rule 3: Near-duplicate check using Siamese or embeddings
-            if should_keep_second:
-                is_duplicate = self._check_near_duplicate(
-                    context, best_path, second_path,
-                    siamese_model, duplicate_threshold
+            if is_dissimilar:
+                selected.append(image_path)
+            else:
+                logger.debug(
+                    f"Skipping {image_path}: too similar to selected images"
                 )
-                if is_duplicate:
-                    should_keep_second = False
-                    logger.debug(f"Rejecting {second_path}: near-duplicate of {best_path}")
-
-            if should_keep_second:
-                selected.append(second_path)
 
         return selected
+
+    def _check_dissimilar(
+        self,
+        context: PipelineContext,
+        image_path: str,
+        selected_images: List[str],
+        threshold: float,
+    ) -> bool:
+        """Check if image is sufficiently dissimilar from all selected images."""
+        for selected_path in selected_images:
+            similarity = self._get_embedding_similarity(
+                context, image_path, selected_path
+            )
+
+            similarity_available = similarity is not None
+            if similarity_available:
+                too_similar = similarity >= threshold
+                if too_similar:
+                    return False
+
+        return True
 
     def _apply_siamese_tiebreaker(
         self,
@@ -382,177 +471,53 @@ class SelectBestStep(BaseStep):
         embedding_threshold: float
     ) -> bool:
         """
-        Check if two images are near-duplicates.
+        Check if two images are near-duplicates using embedding similarity.
 
-        Uses Siamese CNN if available, otherwise falls back to embedding similarity.
+        NOTE: Siamese CNN is NOT used for duplicate detection because it compares
+        image QUALITY (which is better), not image SIMILARITY (are they the same).
+        Low Siamese confidence means it can't tell which is better quality,
+        not that they are duplicates.
         """
-        # Try Siamese comparison first
-        if siamese_model:
-            try:
-                result = siamese_model.compare_images(Path(path1), Path(path2))
-                confidence = result['confidence']
-                is_duplicate = confidence < 0.6
+        # Always use embedding similarity for duplicate detection
+        similarity = self._get_embedding_similarity(context, path1, path2)
+        is_duplicate = similarity > embedding_threshold if similarity is not None else False
 
-                # Log comparison for visibility
-                context.siamese_comparisons.append({
-                    'type': 'duplicate_check',
-                    'img1': Path(path1).name,
-                    'img2': Path(path2).name,
-                    'img1_path': path1,
-                    'img2_path': path2,
-                    'confidence': round(confidence, 3),
-                    'is_duplicate': is_duplicate,
-                    'method': 'siamese',
-                })
-
-                if is_duplicate:
-                    logger.debug(f"Siamese duplicate check: {Path(path1).name} vs {Path(path2).name} "
-                                f"conf={confidence:.2f} (likely duplicates)")
-                    return True
-                return False
-            except Exception as e:
-                logger.warning(f"Siamese duplicate check failed: {e}, falling back to embeddings")
-
-        # Fall back to embedding similarity
-        is_dup = self._check_embedding_similarity(context, path1, path2, embedding_threshold)
-
-        # Log embedding-based comparison
+        # Log comparison for visibility
         context.siamese_comparisons.append({
             'type': 'duplicate_check',
             'img1': Path(path1).name,
             'img2': Path(path2).name,
             'img1_path': path1,
             'img2_path': path2,
-            'is_duplicate': is_dup,
+            'is_duplicate': is_duplicate,
             'method': 'embedding',
+            'similarity': round(similarity, 3) if similarity else None,
             'threshold': embedding_threshold,
         })
 
-        return is_dup
+        if is_duplicate:
+            logger.debug(f"Duplicate check: {Path(path1).name} vs {Path(path2).name} "
+                        f"similarity={similarity:.3f} > threshold={embedding_threshold}")
 
-    def _check_embedding_similarity(
+        return is_duplicate
+
+    def _get_embedding_similarity(
         self,
         context: PipelineContext,
         path1: str,
-        path2: str,
-        threshold: float
-    ) -> bool:
-        """Check near-duplicate using scene embedding cosine similarity."""
+        path2: str
+    ) -> Optional[float]:
+        """Get cosine similarity between scene embeddings."""
         emb1 = context.scene_embeddings.get(path1)
         emb2 = context.scene_embeddings.get(path2)
 
         if emb1 is None or emb2 is None:
-            return False
+            return None
 
-        # Cosine similarity
         norm1 = np.linalg.norm(emb1)
         norm2 = np.linalg.norm(emb2)
 
         if norm1 == 0 or norm2 == 0:
-            return False
+            return None
 
-        similarity = np.dot(emb1, emb2) / (norm1 * norm2)
-        return similarity > threshold
-
-    def _score_face_cluster(
-        self,
-        context: PipelineContext,
-        image_paths: list[str],
-        weights: dict
-    ) -> list[tuple[str, float]]:
-        """
-        Score images in a face cluster using composite score.
-
-        composite = w_eyes * eyes + w_pose * pose + w_smile * smile + w_ava * ava
-        """
-        scored = []
-
-        for path in image_paths:
-            # Get face scores for this image
-            # Scores may be keyed by path:face_N format or directly by path
-            eyes_scores = self._get_face_scores_for_image(context.face_eyes_scores, path)
-            pose_scores = self._get_face_scores_for_image(context.face_pose_scores, path)
-            smile_scores = self._get_face_scores_for_image(context.face_smile_scores, path)
-
-            # Average face scores (or default to 0.5 if not available)
-            eyes_avg = np.mean(eyes_scores) if eyes_scores else 0.5
-            pose_avg = np.mean(pose_scores) if pose_scores else 0.5
-            smile_avg = np.mean(smile_scores) if smile_scores else 0.5
-
-            # Get AVA score (normalize to 0-1 if needed)
-            ava_score = context.ava_scores.get(path, 5.0)
-            if ava_score > 1.0:  # AVA is typically 1-10 scale
-                ava_score = ava_score / 10.0
-
-            # Compute weighted composite
-            composite = (
-                weights.get("eyes_open", 0.30) * eyes_avg +
-                weights.get("pose", 0.30) * pose_avg +
-                weights.get("smile", 0.20) * smile_avg +
-                weights.get("ava", 0.20) * ava_score
-            )
-
-            scored.append((path, composite))
-
-        return scored
-
-    def _get_face_scores_for_image(
-        self,
-        scores_dict: dict,
-        image_path: str
-    ) -> list[float]:
-        """
-        Get face scores for an image.
-
-        Handles two formats:
-        1. {image_path: [list of scores]} - original format
-        2. {image_path:face_N: score} - cache key format
-        """
-        # Try direct lookup first
-        if image_path in scores_dict:
-            val = scores_dict[image_path]
-            if isinstance(val, list):
-                return val
-            return [val]
-
-        # Try cache key format (path:face_0, path:face_1, etc.)
-        scores = []
-        for key, val in scores_dict.items():
-            if key.startswith(f"{image_path}:face_"):
-                scores.append(val)
-
-        return scores
-
-    def _score_non_face_cluster(
-        self,
-        context: PipelineContext,
-        image_paths: list[str]
-    ) -> list[tuple[str, float]]:
-        """
-        Score images in a non-face cluster using AVA score.
-        """
-        scored = []
-
-        for path in image_paths:
-            # Primary: AVA score
-            ava_score = context.ava_scores.get(path, 5.0)
-            if ava_score > 1.0:  # AVA is typically 1-10 scale
-                ava_score = ava_score / 10.0
-
-            # Secondary: IQA score
-            iqa_score = context.iqa_scores.get(path, 0.5)
-
-            # Weighted combination (AVA primary)
-            score = 0.7 * ava_score + 0.3 * iqa_score
-
-            scored.append((path, score))
-
-        return scored
-
-    def _cluster_has_faces(self, context: PipelineContext, image_paths: list[str]) -> bool:
-        """Check if any image in the cluster has significant faces."""
-        for path in image_paths:
-            faces = context.faces.get(path, [])
-            if faces:
-                return True
-        return False
+        return float(np.dot(emb1, emb2) / (norm1 * norm2))

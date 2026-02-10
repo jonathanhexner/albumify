@@ -70,17 +70,11 @@ class MediaPipePortraitAnalyzer:
 
     def _load_image(self, image_path: Path) -> np.ndarray:
         """Load image, apply EXIF orientation, and convert to RGB."""
-        from PIL import Image, ImageOps
+        from sim_bench.pipeline.utils.image_cache import get_image_cache
 
-        # Use PIL to handle EXIF orientation correctly
-        with Image.open(image_path) as pil_img:
-            # Apply EXIF orientation (fixes rotation issues)
-            pil_img = ImageOps.exif_transpose(pil_img)
-            # Convert to RGB if needed
-            if pil_img.mode != 'RGB':
-                pil_img = pil_img.convert('RGB')
-            # Convert to numpy array
-            img = np.array(pil_img)
+        # Use global image cache for EXIF-normalized images
+        cache = get_image_cache()
+        img = cache.get(image_path)
 
         if img is None or img.size == 0:
             raise FileNotFoundError(f"Could not load image: {image_path}")

@@ -123,5 +123,6 @@ class ScoreAVAStep(BaseStep):
         results: Dict[str, float],
         config: dict
     ) -> None:
-        """Store AVA scores in context."""
-        context.ava_scores = results
+        """Store AVA scores in context, normalized to 0-1 scale."""
+        # AVA model returns 1-10 scale, normalize to 0-1 for consistency
+        context.ava_scores = {path: score / 10.0 for path, score in results.items()}

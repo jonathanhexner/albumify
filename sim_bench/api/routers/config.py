@@ -1,6 +1,8 @@
 """Config router - API endpoints for configuration profiles."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.orm import Session
 
 from sim_bench.api.database.session import get_session
@@ -10,9 +12,25 @@ from sim_bench.api.schemas.config import (
     ConfigProfileResponse,
     ConfigProfileListResponse,
 )
-from sim_bench.api.services.config_service import ConfigService, get_default_config
+from sim_bench.api.services.config_service import (
+    ConfigService,
+    get_default_config,
+    get_available_pipelines,
+)
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
+
+
+# Request/Response models for user config
+class UserConfigSaveRequest(BaseModel):
+    selected_pipeline: str = "default_pipeline"
+    config_overrides: Optional[dict] = None
+
+
+class UserConfigResponse(BaseModel):
+    user_id: str
+    selected_pipeline: str
+    config: dict
 
 
 @router.get("/defaults")
@@ -127,3 +145,59 @@ def get_merged_config(
     """Get merged configuration for a profile (or default if not specified)."""
     service = ConfigService(session)
     return service.get_merged_config(profile_name=profile)
+
+
+# =============================================================================
+# Pipeline Endpoints
+# =============================================================================
+
+@router.get("/pipelines")
+def list_pipelines():
+    """Get all available pipeline definitions from YAML."""
+    return get_available_pipelines()
+
+
+# =============================================================================
+# User Config Endpoints
+# =============================================================================
+
+@router.get("/user/{user_id}", response_model=UserConfigResponse)
+def get_user_config(user_id: str, session: Session = Depends(get_session)):
+    """Get user's saved config, or default if none exists."""
+    service = ConfigService(session)
+    result = service.get_user_config(user_id)
+    return UserConfigResponse(
+        user_id=user_id,
+        selected_pipeline=result["selected_pipeline"],
+        config=result["config"],
+    )
+
+
+@router.post("/user/{user_id}", response_model=UserConfigResponse)
+def save_user_config(
+    user_id: str,
+    request: UserConfigSaveRequest,
+    session: Session = Depends(get_session)
+):
+    """Save user's config preferences."""
+    service = ConfigService(session)
+    service.save_user_profile(
+        user_id=user_id,
+        selected_pipeline=request.selected_pipeline,
+        config_overrides=request.config_overrides,
+    )
+    # Return the merged config
+    result = service.get_user_config(user_id)
+    return UserConfigResponse(
+        user_id=user_id,
+        selected_pipeline=result["selected_pipeline"],
+        config=result["config"],
+    )
+
+
+@router.delete("/user/{user_id}")
+def delete_user_config(user_id: str, session: Session = Depends(get_session)):
+    """Delete user's saved config (reset to defaults)."""
+    service = ConfigService(session)
+    deleted = service.delete_user_profile(user_id)
+    return {"deleted": deleted, "user_id": user_id}

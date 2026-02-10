@@ -117,6 +117,9 @@ class ConfigProfile(Base):
     description = Column(String, nullable=True)
     config = Column(JSON, nullable=False)  # Full pipeline config dict
     is_default = Column(Boolean, default=False)  # Mark one as the default
+    is_system = Column(Boolean, default=False)  # True = managed by system (from YAML)
+    user_id = Column(String, nullable=True, index=True)  # For user-specific profiles
+    parent_profile_id = Column(String, ForeignKey("config_profiles.id"), nullable=True)  # Inheritance
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

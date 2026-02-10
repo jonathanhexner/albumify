@@ -28,11 +28,14 @@ def _build_face_to_person_lookup(people_clusters: dict) -> Dict[Tuple[str, int],
     Build a lookup from (image_path, face_index) -> person_id.
 
     Uses the global people_clusters from cluster_people step.
+    Normalizes paths to forward slashes for consistent lookups.
     """
     lookup = {}
     for person_id, faces in people_clusters.items():
         for face in faces:
-            key = (str(face.original_path), face.face_index)
+            # Normalize path to forward slashes
+            path = str(face.original_path).replace('\\', '/')
+            key = (path, face.face_index)
             lookup[key] = person_id
     return lookup
 
@@ -121,26 +124,51 @@ class ClusterByIdentityStep(BaseStep):
             by_face_count = defaultdict(list)
 
             for img_path in image_paths:
-                # Get significant faces for this image
+                # Normalize path for lookups
+                path_normalized = img_path.replace('\\', '/')
+
+                # Get significant faces for this image - check both MediaPipe and InsightFace
                 faces = context.faces.get(img_path, [])
                 significant_faces = [f for f in faces if self._is_face_significant(f, min_face_area_ratio)]
 
+                # Also check InsightFace faces
+                insightface_faces = []
+                if hasattr(context, 'insightface_faces') and context.insightface_faces:
+                    face_data = context.insightface_faces.get(path_normalized, {})
+                    if not face_data:
+                        face_data = context.insightface_faces.get(img_path, {})
+                    insightface_faces = face_data.get('faces', [])
+
+                # Use whichever has faces
+                num_faces = len(significant_faces) if significant_faces else len(insightface_faces)
+
                 if group_by_count:
-                    bucket = _get_face_count_bucket(len(significant_faces))
+                    bucket = _get_face_count_bucket(num_faces)
                 else:
                     bucket = "all"
 
                 # Look up person IDs for each face using global clustering
                 person_ids = []
+
+                # MediaPipe faces
                 for face in significant_faces:
-                    key = (str(face.original_path), face.face_index)
+                    face_path = str(face.original_path).replace('\\', '/')
+                    key = (face_path, face.face_index)
                     person_id = face_to_person.get(key)
                     if person_id is not None:
                         person_ids.append(person_id)
 
+                # InsightFace faces
+                for face_info in insightface_faces:
+                    face_index = face_info.get('face_index', 0)
+                    key = (path_normalized, face_index)
+                    person_id = face_to_person.get(key)
+                    if person_id is not None and person_id not in person_ids:
+                        person_ids.append(person_id)
+
                 by_face_count[bucket].append({
                     "path": img_path,
-                    "face_count": len(significant_faces),
+                    "face_count": num_faces,
                     "person_ids": person_ids
                 })
 
