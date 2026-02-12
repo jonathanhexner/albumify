@@ -6,6 +6,98 @@
 
 ---
 
+## 2026-02-11 01:00:00
+
+**Files**:
+- `sim_bench/pipeline/face_embedding/insightface_native.py`
+
+**Change**: Fix InsightFace native extractor to use recognition model directly instead of re-detecting faces
+
+**Critical Fix**:
+The extractor was calling `app.get()` (face detector) on pre-cropped face images. This failed because:
+- Face detectors expect full images with context
+- Tight crops of faces are hard to detect (face too close to edges)
+- Caused failures and zero-vector fallbacks
+
+**New Approach**:
+1. Extract recognition model directly from FaceAnalysis app
+2. Use `rec_model.get_feat()` directly on cropped faces (bypasses detection)
+3. Resize crops to 112x112 (expected input size for InsightFace recognition)
+4. Normalize embeddings manually
+5. Fallback to full detection if recognition model not found
+
+**Additional Fixes**:
+- Added dimension validation before accessing shape[2]
+- Added graceful handling for grayscale images (convert to BGR)
+- Added validation for None/empty images
+- Added better logging with face index for debugging
+
+**Reason**: User reported 500 errors. Root cause: we were passing already-cropped faces to a face detector, which failed. Now we use the recognition model directly on crops, which is what it's designed for.
+
+---
+
+## 2026-02-11 00:30:00
+
+**Files**:
+- `sim_bench/pipeline/face_embedding/insightface_native.py`
+
+**Change**: [SUPERSEDED BY 01:00:00] Initial bug fix attempt
+
+**Reason**: First attempt at fixing dimension checks, but missed the core issue of re-running detection on crops.
+
+---
+
+## 2026-02-11 00:00:00
+
+**Files**:
+- `sim_bench/pipeline/face_embedding/` (new package)
+  - `base.py` - Abstract base class for face embedding extractors
+  - `custom_arcface.py` - Custom ArcFace model extractor
+  - `insightface_native.py` - InsightFace native w600k_r50 extractor
+  - `factory.py` - Factory for creating extractors
+  - `__init__.py` - Package init
+- `sim_bench/pipeline/steps/extract_face_embeddings.py`
+- `configs/pipeline.yaml`
+- `configs/pipeline_custom_arcface.yaml` (backup)
+- `app/streamlit/components/pipeline_runner.py`
+
+**Change**: Add face embedding backend strategy pattern with InsightFace native support
+
+1. **New Strategy Pattern Architecture**:
+   - Created `face_embedding/` package with pluggable extractors
+   - `BaseFaceEmbeddingExtractor`: Abstract interface with `extract_batch()`, `extract_single()`, `embedding_dim`, `model_name`
+   - `CustomArcFaceExtractor`: Uses existing trained ArcFace model (arcface_resnet50.pt)
+   - `InsightFaceNativeExtractor`: Uses InsightFace's built-in w600k_r50 model
+   - `FaceEmbeddingExtractorFactory`: Creates extractors based on config backend
+
+2. **Updated extract_face_embeddings Step**:
+   - Refactored to use factory pattern instead of direct service calls
+   - `_get_extractor()`: Lazy loads extractor using factory
+   - `_get_cache_config()`: Uses `extractor.model_name` for cache key (enables separate caches per backend)
+   - `_process_uncached()`: Uses `extractor.extract_batch()` instead of direct service call
+   - Config schema supports `backend`, `checkpoint_path`, `device`, `model_name`
+
+3. **Configuration Updates**:
+   - `pipeline.yaml`: Added `backend: insightface` as default with inline documentation
+   - Backed up original config to `pipeline_custom_arcface.yaml`
+   - Default backend is `insightface` for better rotation invariance
+
+4. **UI Updates**:
+   - Added "Face Embedding" section in Advanced Configuration
+   - Backend selector: "insightface" (default) or "custom"
+   - Info display shows which model is active (InsightFace w600k_r50 or arcface_resnet50.pt)
+   - Config passed to pipeline includes full embedding configuration
+
+**Reason**: Custom ArcFace model lacks rotation invariance, causing poor clustering on rotated faces. InsightFace's built-in w600k_r50 is trained on 600K+ identities with extensive augmentation including rotation. Strategy pattern allows runtime selection between backends and easy future extensions (e.g., CLIP face embeddings).
+
+**Technical Details**:
+- Different backends use different cache keys (`arcface_custom` vs `arcface_insightface`)
+- Switching backends will recompute embeddings (cache miss by design)
+- InsightFace backend re-runs face detection on crops to extract embeddings
+- Both backends produce 512-dim normalized embeddings
+
+---
+
 ## 2026-02-10 03:00:00
 
 **Files**:
@@ -1034,3 +1126,48 @@ This log helps:
 - Person column in cluster view will be populated
 - Sub-clustering by identity will work properly
 - Comparisons tab will show Siamese refinement/tournament comparisons
+
+---
+
+### 2026-02-12 12:00:00
+**Files**:
+- `tests/pipeline/test_face_recognition_benchmark.py` (created)
+- `tests/pipeline/test_face_pipeline_e2e.py` (created)
+- `scripts/clear_face_embedding_cache.py` (created)
+- `scripts/check_bbox_format.py` (created)
+- `scripts/check_zero_vectors.py` (created)
+- `docs/FACE_RECOGNITION_FIX_PLAN.md` (created)
+
+**Change**: Diagnosed and fixed People tab showing all faces as one person
+
+**Root Cause**: 93.8% of cached face embeddings were zero vectors from a previous buggy code version. Zero vectors are identical, so HDBSCAN clustered them all into one person.
+
+**Investigation**:
+1. Database analysis showed 410/437 embeddings were zero vectors
+2. Created benchmark test with CASIA WebFace data - embedding model works correctly
+3. Created E2E test with Budapest 2025 data - actual pipeline steps work correctly
+4. Conclusion: Stale cached zero vectors were the problem, not current code
+
+**Fix**: Cleared face_embedding cache (437 entries) and people table (3 entries)
+
+**Tests Created**:
+- `test_face_recognition_benchmark.py`: Tests InsightFace embedding extraction on pre-cropped faces
+- `test_face_pipeline_e2e.py`: Tests actual pipeline steps (detection → embedding → clustering)
+
+**Action Required**: Re-run the pipeline on albums to regenerate embeddings and people clusters
+
+---
+
+### 2026-02-11 00:00:00
+**Files**: `CLAUDE.md`
+**Change**: Improved CLAUDE.md documentation with fixes and enhancements
+**Reason**: User ran `/init` command to review and improve the Claude Code guidance file
+
+**Details**:
+- Fixed typos: "implementign" → "implementing", "hot" → "how", "prepor" → "proper", "centralizedd" → "centralized", "unpreditable" → "unpredictable"
+- Added Python version requirement (3.10+)
+- Added services layer documentation to architecture section
+- Added pipeline data flow explanation (API → Executor → Steps → Context)
+- Added caching system documentation (UniversalCacheHandler, mtime tracking)
+- Added face embedding factory to factory pattern section
+- Improved code example for full imports
