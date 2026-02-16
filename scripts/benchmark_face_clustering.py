@@ -346,7 +346,8 @@ def run_clustering_methods(
     # Hybrid HDBSCAN+kNN (centroid-based)
     logger.info("Running Hybrid HDBSCAN+kNN (centroid) clustering...")
     hybrid_method = load_clustering_method(hybrid_config)
-    hybrid_labels, hybrid_stats = hybrid_method.cluster(embeddings)
+    # Collect debug data for detailed analysis in the comparison app
+    hybrid_labels, hybrid_stats = hybrid_method.cluster(embeddings, collect_debug_data=True)
     hybrid_labels_array = np.array(hybrid_labels)
     results['hybrid_knn'] = {
         'labels': hybrid_labels,

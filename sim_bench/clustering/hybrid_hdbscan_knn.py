@@ -14,8 +14,8 @@ Algorithm:
 """
 
 import logging
-from typing import Dict, Any, Tuple, Set
-from dataclasses import dataclass
+from typing import Dict, Any, Tuple, Set, List, Optional
+from dataclasses import dataclass, field
 import numpy as np
 from scipy.spatial.distance import cdist
 
@@ -32,6 +32,35 @@ class ClusterState:
     threshold: float
     exemplar_indices: np.ndarray
     exemplar_embeddings: np.ndarray
+    # d3 stats for debug/analysis
+    q1: float = 0.0
+    q3: float = 0.0
+    iqr: float = 0.0
+    raw_threshold: float = 0.0  # before clamping
+
+
+@dataclass
+class MergeDecision:
+    """Record of a merge decision between two clusters."""
+    cluster_a: int
+    cluster_b: int
+    threshold: float  # min(T_a, T_b)
+    n_pairs_within: int
+    exemplars_a_involved: int
+    exemplars_b_involved: int
+    min_distance: float
+    merged: bool
+    reason: str  # 'merged', 'not_enough_pairs', 'not_enough_distinct_a', 'not_enough_distinct_b'
+    # For detailed analysis: the cross-distance matrix
+    cross_distances: Optional[np.ndarray] = None
+
+
+@dataclass
+class AttachDecision:
+    """Record of an attachment decision for a noise point."""
+    face_idx: int
+    attached_to: Optional[int]
+    candidates: List[Dict[str, Any]] = field(default_factory=list)
 
 
 class HybridHDBSCANKNN(ClusteringMethod):
@@ -63,8 +92,21 @@ class HybridHDBSCANKNN(ClusteringMethod):
         # Iteration
         self.max_iterations = self.params.get('max_iterations', 10)
 
-    def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
-        """Run hybrid clustering."""
+    def cluster(
+        self,
+        features: np.ndarray,
+        collect_debug_data: bool = False
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """Run hybrid clustering.
+
+        Args:
+            features: Face embedding vectors (N x D)
+            collect_debug_data: If True, collect detailed decision logs for debugging
+
+        Returns:
+            labels: Cluster assignments (-1 for noise)
+            stats: Statistics dict, with debug data if collect_debug_data=True
+        """
         n_samples = len(features)
 
         if n_samples == 0:
@@ -83,6 +125,8 @@ class HybridHDBSCANKNN(ClusteringMethod):
         # Stage 2: Iterative merge + attach
         total_merges = 0
         total_attached = 0
+        all_merge_decisions: List[MergeDecision] = []
+        all_attach_decisions: List[AttachDecision] = []
 
         for iteration in range(self.max_iterations):
             # Compute cluster states (threshold + exemplars)
@@ -93,16 +137,22 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 break
 
             # Merge clusters
-            labels, n_merges = self._merge_clusters(labels, cluster_states, features_norm)
+            labels, n_merges, merge_decisions = self._merge_clusters(
+                labels, cluster_states, features_norm, collect_decisions=collect_debug_data
+            )
             total_merges += n_merges
+            all_merge_decisions.extend(merge_decisions)
 
             # Recompute states after merge
             if n_merges > 0:
                 cluster_states = self._compute_cluster_states(labels, features_norm)
 
             # Attach noise points
-            labels, n_attached = self._attach_noise(labels, cluster_states, features_norm)
+            labels, n_attached, attach_decisions = self._attach_noise(
+                labels, cluster_states, features_norm, collect_decisions=collect_debug_data
+            )
             total_attached += n_attached
+            all_attach_decisions.extend(attach_decisions)
 
             logger.info(f"  Iteration {iteration + 1}: {n_merges} merges, {n_attached} attached")
 
@@ -110,8 +160,15 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 logger.info(f"  Converged after {iteration + 1} iterations")
                 break
 
+        # Compute final cluster states for stats
+        final_cluster_states = self._compute_cluster_states(labels, features_norm)
+
         # Final stats
-        stats = self._compute_final_stats(labels, hdbscan_stats, total_merges, total_attached)
+        stats = self._compute_final_stats(
+            labels, features_norm, hdbscan_stats, total_merges, total_attached,
+            final_cluster_states, all_merge_decisions, all_attach_decisions,
+            collect_debug_data
+        )
         return labels, stats
 
     def _run_hdbscan(self, features: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
@@ -156,7 +213,11 @@ class HybridHDBSCANKNN(ClusteringMethod):
                     indices=indices,
                     threshold=self.threshold_floor,
                     exemplar_indices=indices,
-                    exemplar_embeddings=cluster_features
+                    exemplar_embeddings=cluster_features,
+                    q1=0.0,
+                    q3=0.0,
+                    iqr=0.0,
+                    raw_threshold=self.threshold_floor
                 )
                 continue
 
@@ -177,10 +238,10 @@ class HybridHDBSCANKNN(ClusteringMethod):
             # Tukey fence: T = Q3 + 1.5 × IQR
             q1, q3 = np.percentile(d3_values, [25, 75])
             iqr = q3 - q1
-            threshold = q3 + 1.5 * iqr
+            raw_threshold = q3 + 1.5 * iqr
 
             # Clamp to [floor, ceiling]
-            threshold = max(threshold, self.threshold_floor)
+            threshold = max(raw_threshold, self.threshold_floor)
             threshold = min(threshold, self.threshold_ceiling)
 
             # Select exemplars: faces with smallest d3 (most core-like)
@@ -193,7 +254,11 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 indices=indices,
                 threshold=float(threshold),
                 exemplar_indices=exemplar_global_indices,
-                exemplar_embeddings=features[exemplar_global_indices]
+                exemplar_embeddings=features[exemplar_global_indices],
+                q1=float(q1),
+                q3=float(q3),
+                iqr=float(iqr),
+                raw_threshold=float(raw_threshold)
             )
 
             logger.debug(f"  Cluster {label}: {n_faces} faces, Q3={q3:.3f}, IQR={iqr:.3f}, "
@@ -205,14 +270,16 @@ class HybridHDBSCANKNN(ClusteringMethod):
         self,
         labels: np.ndarray,
         cluster_states: Dict[int, ClusterState],
-        features: np.ndarray
-    ) -> Tuple[np.ndarray, int]:
+        features: np.ndarray,
+        collect_decisions: bool = False
+    ) -> Tuple[np.ndarray, int, List[MergeDecision]]:
         """Merge clusters if L≥3 cross-exemplar pairs ≤ min(T_A, T_B), ≥2 distinct each."""
         merged_labels = labels.copy()
         cluster_ids = sorted(cluster_states.keys())
+        merge_decisions: List[MergeDecision] = []
 
         if len(cluster_ids) <= 1:
-            return merged_labels, 0
+            return merged_labels, 0, merge_decisions
 
         # Union-find
         parent = {c: c for c in cluster_ids}
@@ -261,12 +328,36 @@ class HybridHDBSCANKNN(ClusteringMethod):
                             exemplars_a_involved.add(idx_a)
                             exemplars_b_involved.add(idx_b)
 
-                # Check merge conditions
-                should_merge = (
-                    len(pairs_within) >= self.merge_min_pairs and
-                    len(exemplars_a_involved) >= self.merge_min_distinct and
-                    len(exemplars_b_involved) >= self.merge_min_distinct
-                )
+                min_distance = float(np.min(cross_dists))
+
+                # Check merge conditions and determine reason
+                if len(pairs_within) < self.merge_min_pairs:
+                    should_merge = False
+                    reason = 'not_enough_pairs'
+                elif len(exemplars_a_involved) < self.merge_min_distinct:
+                    should_merge = False
+                    reason = 'not_enough_distinct_a'
+                elif len(exemplars_b_involved) < self.merge_min_distinct:
+                    should_merge = False
+                    reason = 'not_enough_distinct_b'
+                else:
+                    should_merge = True
+                    reason = 'merged'
+
+                # Collect decision for debugging
+                if collect_decisions:
+                    merge_decisions.append(MergeDecision(
+                        cluster_a=c1,
+                        cluster_b=c2,
+                        threshold=merge_threshold,
+                        n_pairs_within=len(pairs_within),
+                        exemplars_a_involved=len(exemplars_a_involved),
+                        exemplars_b_involved=len(exemplars_b_involved),
+                        min_distance=min_distance,
+                        merged=should_merge,
+                        reason=reason,
+                        cross_distances=cross_dists.copy()
+                    ))
 
                 if should_merge:
                     union(c1, c2)
@@ -287,20 +378,22 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 if lbl >= 0 and lbl in parent:
                     merged_labels[i] = label_mapping[find(lbl)]
 
-        return merged_labels, n_merges
+        return merged_labels, n_merges, merge_decisions
 
     def _attach_noise(
         self,
         labels: np.ndarray,
         cluster_states: Dict[int, ClusterState],
-        features: np.ndarray
-    ) -> Tuple[np.ndarray, int]:
+        features: np.ndarray,
+        collect_decisions: bool = False
+    ) -> Tuple[np.ndarray, int, List[AttachDecision]]:
         """Attach noise points if m≥2 exemplars within T (or all if cluster < 4)."""
         final_labels = labels.copy()
         noise_indices = np.where(labels == -1)[0]
+        attach_decisions: List[AttachDecision] = []
 
         if len(noise_indices) == 0 or len(cluster_states) == 0:
-            return final_labels, 0
+            return final_labels, 0, attach_decisions
 
         n_attached = 0
 
@@ -309,6 +402,7 @@ class HybridHDBSCANKNN(ClusteringMethod):
             best_cluster = None
             best_match_count = 0
             best_min_dist = float('inf')
+            candidates: List[Dict[str, Any]] = []
 
             for label, state in cluster_states.items():
                 # Compute distances to exemplars
@@ -327,8 +421,22 @@ class HybridHDBSCANKNN(ClusteringMethod):
                     # Normal: require at least m exemplars
                     required_matches = self.attach_min_exemplars
 
+                qualifies = within_threshold >= required_matches
+
+                # Collect candidate info for debugging
+                if collect_decisions:
+                    candidates.append({
+                        'cluster': int(label),
+                        'threshold': float(state.threshold),
+                        'matches': within_threshold,
+                        'required': required_matches,
+                        'min_dist': min_dist,
+                        'qualifies': qualifies,
+                        'exemplar_distances': distances.tolist()
+                    })
+
                 # Check if this cluster qualifies
-                if within_threshold >= required_matches:
+                if qualifies:
                     # Prefer more matches, then closer distance
                     if (within_threshold > best_match_count or
                         (within_threshold == best_match_count and min_dist < best_min_dist)):
@@ -340,14 +448,27 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 final_labels[noise_idx] = best_cluster
                 n_attached += 1
 
-        return final_labels, n_attached
+            # Record decision
+            if collect_decisions:
+                attach_decisions.append(AttachDecision(
+                    face_idx=int(noise_idx),
+                    attached_to=int(best_cluster) if best_cluster is not None else None,
+                    candidates=candidates
+                ))
+
+        return final_labels, n_attached, attach_decisions
 
     def _compute_final_stats(
         self,
         labels: np.ndarray,
+        features: np.ndarray,
         hdbscan_stats: Dict[str, Any],
         total_merges: int,
-        total_attached: int
+        total_attached: int,
+        final_cluster_states: Dict[int, ClusterState],
+        all_merge_decisions: List[MergeDecision],
+        all_attach_decisions: List[AttachDecision],
+        collect_debug_data: bool
     ) -> Dict[str, Any]:
         """Compute final statistics."""
         unique_labels = set(labels)
@@ -359,7 +480,7 @@ class HybridHDBSCANKNN(ClusteringMethod):
             if label >= 0:
                 cluster_sizes[int(label)] = int(np.sum(labels == label))
 
-        return {
+        stats = {
             'algorithm': 'hybrid_hdbscan_knn',
             'n_clusters': n_clusters,
             'n_noise': n_noise,
@@ -381,3 +502,56 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 'max_iterations': self.max_iterations,
             }
         }
+
+        # Add debug data if requested
+        if collect_debug_data:
+            # Cluster thresholds and d3 stats
+            cluster_thresholds = {}
+            cluster_exemplars = {}
+            cluster_d3_stats = {}
+
+            for label, state in final_cluster_states.items():
+                cluster_thresholds[int(label)] = state.threshold
+                cluster_exemplars[int(label)] = state.exemplar_indices.tolist()
+                cluster_d3_stats[int(label)] = {
+                    'q1': state.q1,
+                    'q3': state.q3,
+                    'iqr': state.iqr,
+                    'raw_threshold': state.raw_threshold,
+                    'clamped_threshold': state.threshold
+                }
+
+            # Convert merge decisions to dicts (without numpy arrays for JSON serialization)
+            merge_decisions_list = []
+            for md in all_merge_decisions:
+                merge_decisions_list.append({
+                    'cluster_a': md.cluster_a,
+                    'cluster_b': md.cluster_b,
+                    'threshold': md.threshold,
+                    'n_pairs_within': md.n_pairs_within,
+                    'exemplars_a_involved': md.exemplars_a_involved,
+                    'exemplars_b_involved': md.exemplars_b_involved,
+                    'min_distance': md.min_distance,
+                    'merged': md.merged,
+                    'reason': md.reason,
+                    'cross_distances': md.cross_distances.tolist() if md.cross_distances is not None else None
+                })
+
+            # Convert attach decisions to dicts
+            attach_decisions_list = []
+            for ad in all_attach_decisions:
+                attach_decisions_list.append({
+                    'face_idx': ad.face_idx,
+                    'attached_to': ad.attached_to,
+                    'candidates': ad.candidates
+                })
+
+            stats['debug'] = {
+                'cluster_thresholds': cluster_thresholds,
+                'cluster_exemplars': cluster_exemplars,
+                'cluster_d3_stats': cluster_d3_stats,
+                'merge_decisions': merge_decisions_list,
+                'attach_decisions': attach_decisions_list
+            }
+
+        return stats

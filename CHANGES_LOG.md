@@ -6,6 +6,38 @@
 
 ---
 
+## 2026-02-16
+
+**Files**:
+- `sim_bench/clustering/hybrid_hdbscan_knn.py`
+- `scripts/benchmark_face_clustering.py`
+- `app/face_clustering_comparison.py`
+
+**Change**: Added debug page for Hybrid kNN clustering analysis
+
+**Details**:
+1. Modified `HybridHDBSCANKNN` to return detailed decision data:
+   - Added `MergeDecision` and `AttachDecision` dataclasses
+   - Extended `ClusterState` with d3 stats (q1, q3, iqr, raw_threshold)
+   - `_merge_clusters()` now collects merge decision logs with cross-distance matrices
+   - `_attach_noise()` now collects attachment decision logs with candidate info
+   - New `collect_debug_data` parameter to enable debug data collection
+   - `_compute_final_stats()` includes debug section with all decision data
+
+2. Updated benchmark script to collect debug data for hybrid_knn method
+
+3. Added "Debug: Hybrid kNN" page to face_clustering_comparison.py with 6 sections:
+   - Cluster Overview: Full face grid (no truncation), d3 stats table, exemplar marking
+   - Inter-Cluster Distances: Heatmap of min distances, threshold comparison table
+   - Merge Decisions: Explorer showing why clusters did/didn't merge, cross-distance matrices
+   - Attachment Decisions: Explorer for noise point attachment decisions
+   - Parameter Tuning: Interactive sliders to re-run clustering with new parameters
+   - Face Distance Lookup: Tool to check embedding distance between any two faces
+
+**Reason**: User requested debug capabilities to understand why clusters didn't merge and to tune parameters interactively.
+
+---
+
 ## 2026-02-15 23:55:00
 
 **Files**:

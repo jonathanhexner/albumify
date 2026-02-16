@@ -264,7 +264,7 @@ def render_cluster_explorer(results_dir: Path, metadata: List[Dict],
 def create_distance_matrix_plot(dist_matrix: np.ndarray, face_indices: List[int]):
     """Create distance matrix heatmap."""
     import matplotlib.pyplot as plt
-    
+
     fig, ax = plt.subplots(figsize=(10, 8))
     im = ax.imshow(dist_matrix, cmap='viridis', aspect='auto')
     ax.set_xticks(range(len(face_indices)))
@@ -275,6 +275,622 @@ def create_distance_matrix_plot(dist_matrix: np.ndarray, face_indices: List[int]
     plt.colorbar(im, ax=ax, label='Distance')
     plt.tight_layout()
     return fig
+
+
+def create_inter_cluster_heatmap(
+    cluster_ids: List[int],
+    cluster_exemplars: Dict[int, List[int]],
+    all_embeddings: np.ndarray,
+    cluster_thresholds: Dict[int, float]
+):
+    """Create heatmap of minimum distances between cluster exemplars."""
+    import matplotlib.pyplot as plt
+
+    n = len(cluster_ids)
+    min_dist_matrix = np.zeros((n, n))
+
+    for i, c1 in enumerate(cluster_ids):
+        for j, c2 in enumerate(cluster_ids):
+            if i == j:
+                min_dist_matrix[i, j] = 0
+            elif i < j:
+                exemplars_a = cluster_exemplars.get(c1, [])
+                exemplars_b = cluster_exemplars.get(c2, [])
+                if exemplars_a and exemplars_b:
+                    emb_a = all_embeddings[exemplars_a]
+                    emb_b = all_embeddings[exemplars_b]
+                    dists = cdist(emb_a, emb_b, metric='euclidean')
+                    min_dist = float(np.min(dists))
+                    min_dist_matrix[i, j] = min_dist
+                    min_dist_matrix[j, i] = min_dist
+
+    fig, ax = plt.subplots(figsize=(12, 10))
+
+    # Create threshold-relative coloring
+    im = ax.imshow(min_dist_matrix, cmap='RdYlGn_r', aspect='auto', vmin=0.3, vmax=0.9)
+
+    ax.set_xticks(range(n))
+    ax.set_yticks(range(n))
+    ax.set_xticklabels([f"C{c}" for c in cluster_ids], rotation=90, fontsize=8)
+    ax.set_yticklabels([f"C{c}" for c in cluster_ids], fontsize=8)
+    ax.set_title("Inter-Cluster Minimum Distance (Exemplar-to-Exemplar)")
+
+    # Add text annotations
+    for i in range(n):
+        for j in range(n):
+            if i != j:
+                text = ax.text(j, i, f"{min_dist_matrix[i, j]:.2f}",
+                              ha="center", va="center", color="black", fontsize=6)
+
+    plt.colorbar(im, ax=ax, label='Min Distance')
+    plt.tight_layout()
+    return fig, min_dist_matrix
+
+
+def render_debug_hybrid_knn(
+    results_dir: Path,
+    metadata: List[Dict],
+    hybrid_knn_results: Dict[str, Any],
+    all_embeddings: np.ndarray
+):
+    """Render the debug page for Hybrid kNN clustering."""
+    st.header("🔧 Debug: Hybrid kNN")
+
+    stats = hybrid_knn_results.get('stats', {})
+    debug_data = stats.get('debug', {})
+    labels = hybrid_knn_results.get('labels', [])
+
+    if not debug_data:
+        st.warning("No debug data available. Re-run benchmark with latest code to generate debug data.")
+        st.info("Run: `python scripts/benchmark_face_clustering.py --album-path <path>`")
+        return
+
+    cluster_thresholds = debug_data.get('cluster_thresholds', {})
+    cluster_exemplars = debug_data.get('cluster_exemplars', {})
+    cluster_d3_stats = debug_data.get('cluster_d3_stats', {})
+    merge_decisions = debug_data.get('merge_decisions', [])
+    attach_decisions = debug_data.get('attach_decisions', [])
+
+    # Convert string keys to int (JSON serialization issue)
+    cluster_thresholds = {int(k): v for k, v in cluster_thresholds.items()}
+    cluster_exemplars = {int(k): v for k, v in cluster_exemplars.items()}
+    cluster_d3_stats = {int(k): v for k, v in cluster_d3_stats.items()}
+
+    # Group faces by cluster
+    clusters = defaultdict(list)
+    for idx, label in enumerate(labels):
+        if label != -1:
+            clusters[label].append(idx)
+
+    sorted_cluster_ids = sorted(clusters.keys(), key=lambda x: len(clusters[x]), reverse=True)
+
+    # Create tabs for different sections
+    tabs = st.tabs([
+        "📊 Cluster Overview",
+        "🌐 Inter-Cluster Distances",
+        "🔗 Merge Decisions",
+        "📎 Attachment Decisions",
+        "⚙️ Parameter Tuning",
+        "📏 Face Distance Lookup"
+    ])
+
+    # Section 1: Enhanced Cluster Overview
+    with tabs[0]:
+        render_debug_cluster_overview(
+            results_dir, clusters, cluster_thresholds, cluster_exemplars,
+            cluster_d3_stats, sorted_cluster_ids
+        )
+
+    # Section 2: Inter-Cluster Distance Heatmap
+    with tabs[1]:
+        render_debug_inter_cluster_distances(
+            sorted_cluster_ids, cluster_exemplars, all_embeddings,
+            cluster_thresholds, merge_decisions
+        )
+
+    # Section 3: Merge Decision Explorer
+    with tabs[2]:
+        render_debug_merge_decisions(
+            results_dir, merge_decisions, cluster_exemplars, all_embeddings,
+            cluster_thresholds, stats.get('params', {})
+        )
+
+    # Section 4: Attachment Decision Explorer
+    with tabs[3]:
+        render_debug_attach_decisions(
+            results_dir, attach_decisions, cluster_thresholds
+        )
+
+    # Section 5: Parameter Tuning
+    with tabs[4]:
+        render_debug_parameter_tuning(
+            all_embeddings, labels, stats.get('params', {})
+        )
+
+    # Section 6: Face Distance Lookup
+    with tabs[5]:
+        render_debug_face_distance_lookup(
+            results_dir, all_embeddings, labels, cluster_thresholds, len(metadata)
+        )
+
+
+def render_debug_cluster_overview(
+    results_dir: Path,
+    clusters: Dict[int, List[int]],
+    cluster_thresholds: Dict[int, float],
+    cluster_exemplars: Dict[int, List[int]],
+    cluster_d3_stats: Dict[int, Dict],
+    sorted_cluster_ids: List[int]
+):
+    """Section 1: Enhanced cluster overview with all faces (no truncation)."""
+    st.subheader("📊 Cluster Overview (Full)")
+
+    # Cluster summary table
+    table_data = []
+    for cid in sorted_cluster_ids:
+        d3_stats = cluster_d3_stats.get(cid, {})
+        table_data.append({
+            'Cluster': cid,
+            'Size': len(clusters[cid]),
+            'Threshold': f"{cluster_thresholds.get(cid, 0):.3f}",
+            'Q1': f"{d3_stats.get('q1', 0):.3f}",
+            'Q3': f"{d3_stats.get('q3', 0):.3f}",
+            'IQR': f"{d3_stats.get('iqr', 0):.3f}",
+            'Raw T': f"{d3_stats.get('raw_threshold', 0):.3f}",
+            'Exemplars': len(cluster_exemplars.get(cid, []))
+        })
+
+    df = pd.DataFrame(table_data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # Cluster selection for full view
+    selected_cluster = st.selectbox(
+        "Select cluster for full view",
+        sorted_cluster_ids,
+        format_func=lambda x: f"Cluster {x} ({len(clusters[x])} faces, T={cluster_thresholds.get(x, 0):.3f})"
+    )
+
+    if selected_cluster is not None:
+        face_indices = clusters[selected_cluster]
+        exemplar_set = set(cluster_exemplars.get(selected_cluster, []))
+
+        st.markdown(f"### Cluster {selected_cluster} - All {len(face_indices)} Faces")
+        st.caption(f"Threshold: {cluster_thresholds.get(selected_cluster, 0):.3f} | "
+                   f"Exemplars: {len(exemplar_set)} (shown with green border)")
+
+        # Show ALL faces in scrollable grid (no truncation)
+        cols_per_row = 12
+        for row_start in range(0, len(face_indices), cols_per_row):
+            row_indices = face_indices[row_start:row_start + cols_per_row]
+            cols = st.columns(cols_per_row)
+            for i, face_idx in enumerate(row_indices):
+                crop_path = get_face_crop_path(results_dir, face_idx)
+                if crop_path.exists():
+                    is_exemplar = face_idx in exemplar_set
+                    caption = f"#{face_idx}" + (" ⭐" if is_exemplar else "")
+                    with cols[i]:
+                        st.image(str(crop_path), caption=caption, use_container_width=True)
+
+
+def render_debug_inter_cluster_distances(
+    sorted_cluster_ids: List[int],
+    cluster_exemplars: Dict[int, List[int]],
+    all_embeddings: np.ndarray,
+    cluster_thresholds: Dict[int, float],
+    merge_decisions: List[Dict]
+):
+    """Section 2: Inter-cluster distance heatmap."""
+    st.subheader("🌐 Inter-Cluster Distance Matrix")
+
+    if len(sorted_cluster_ids) < 2:
+        st.info("Need at least 2 clusters for distance matrix")
+        return
+
+    # Create and display heatmap
+    fig, dist_matrix = create_inter_cluster_heatmap(
+        sorted_cluster_ids, cluster_exemplars, all_embeddings, cluster_thresholds
+    )
+    st.pyplot(fig)
+
+    # Distance table with merge threshold comparison
+    st.markdown("#### Distance vs Merge Threshold")
+    table_data = []
+    for i, c1 in enumerate(sorted_cluster_ids):
+        for j, c2 in enumerate(sorted_cluster_ids):
+            if i < j:
+                min_dist = dist_matrix[i, j]
+                t1 = cluster_thresholds.get(c1, 0.5)
+                t2 = cluster_thresholds.get(c2, 0.5)
+                merge_t = min(t1, t2)
+                could_merge = min_dist <= merge_t
+
+                table_data.append({
+                    'Cluster A': c1,
+                    'Cluster B': c2,
+                    'Min Dist': f"{min_dist:.3f}",
+                    'T_A': f"{t1:.3f}",
+                    'T_B': f"{t2:.3f}",
+                    'Merge T': f"{merge_t:.3f}",
+                    'Within T?': '✓' if could_merge else '✗'
+                })
+
+    df = pd.DataFrame(table_data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+
+def render_debug_merge_decisions(
+    results_dir: Path,
+    merge_decisions: List[Dict],
+    cluster_exemplars: Dict[int, List[int]],
+    all_embeddings: np.ndarray,
+    cluster_thresholds: Dict[int, float],
+    params: Dict[str, Any]
+):
+    """Section 3: Merge decision explorer."""
+    st.subheader("🔗 Merge Decision Explorer")
+
+    if not merge_decisions:
+        st.info("No merge decisions recorded")
+        return
+
+    # Summary stats
+    merged = [d for d in merge_decisions if d['merged']]
+    not_merged = [d for d in merge_decisions if not d['merged']]
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Pairs Evaluated", len(merge_decisions))
+    with col2:
+        st.metric("Merged", len(merged))
+    with col3:
+        st.metric("Not Merged", len(not_merged))
+
+    # Filter options
+    show_only = st.radio(
+        "Show decisions:",
+        ["All", "Merged Only", "Not Merged Only"],
+        horizontal=True
+    )
+
+    if show_only == "Merged Only":
+        decisions_to_show = merged
+    elif show_only == "Not Merged Only":
+        decisions_to_show = not_merged
+    else:
+        decisions_to_show = merge_decisions
+
+    # Sort by min_distance
+    decisions_to_show = sorted(decisions_to_show, key=lambda x: x['min_distance'])
+
+    # Display as table
+    table_data = []
+    for d in decisions_to_show:
+        table_data.append({
+            'Cluster A': d['cluster_a'],
+            'Cluster B': d['cluster_b'],
+            'Threshold': f"{d['threshold']:.3f}",
+            'Min Dist': f"{d['min_distance']:.3f}",
+            'Pairs ≤ T': d['n_pairs_within'],
+            'Req Pairs': params.get('merge_min_pairs', 3),
+            'Distinct A': d['exemplars_a_involved'],
+            'Distinct B': d['exemplars_b_involved'],
+            'Req Distinct': params.get('merge_min_distinct', 2),
+            'Merged?': '✓' if d['merged'] else '✗',
+            'Reason': d['reason']
+        })
+
+    df = pd.DataFrame(table_data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # Detailed view of selected pair
+    st.markdown("#### Detailed Pair Analysis")
+    if decisions_to_show:
+        pair_options = [
+            f"C{d['cluster_a']} ↔ C{d['cluster_b']} ({d['reason']})"
+            for d in decisions_to_show
+        ]
+        selected_idx = st.selectbox("Select pair to inspect", range(len(pair_options)),
+                                   format_func=lambda i: pair_options[i])
+
+        decision = decisions_to_show[selected_idx]
+
+        col1, col2 = st.columns(2)
+
+        # Show exemplars from each cluster
+        with col1:
+            st.markdown(f"**Cluster {decision['cluster_a']} Exemplars**")
+            exemplars_a = cluster_exemplars.get(decision['cluster_a'], [])
+            cols = st.columns(min(5, len(exemplars_a)))
+            for i, face_idx in enumerate(exemplars_a[:5]):
+                crop_path = get_face_crop_path(results_dir, face_idx)
+                if crop_path.exists():
+                    with cols[i]:
+                        st.image(str(crop_path), caption=f"#{face_idx}", use_container_width=True)
+
+        with col2:
+            st.markdown(f"**Cluster {decision['cluster_b']} Exemplars**")
+            exemplars_b = cluster_exemplars.get(decision['cluster_b'], [])
+            cols = st.columns(min(5, len(exemplars_b)))
+            for i, face_idx in enumerate(exemplars_b[:5]):
+                crop_path = get_face_crop_path(results_dir, face_idx)
+                if crop_path.exists():
+                    with cols[i]:
+                        st.image(str(crop_path), caption=f"#{face_idx}", use_container_width=True)
+
+        # Show cross-distance matrix if available
+        cross_dists = decision.get('cross_distances')
+        if cross_dists:
+            st.markdown("**Cross-Exemplar Distance Matrix**")
+            cross_dists = np.array(cross_dists)
+            threshold = decision['threshold']
+
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(figsize=(8, 6))
+            im = ax.imshow(cross_dists, cmap='RdYlGn_r', vmin=0.3, vmax=0.9)
+
+            # Annotate with values, highlight those within threshold
+            for i in range(cross_dists.shape[0]):
+                for j in range(cross_dists.shape[1]):
+                    val = cross_dists[i, j]
+                    color = 'green' if val <= threshold else 'black'
+                    weight = 'bold' if val <= threshold else 'normal'
+                    ax.text(j, i, f"{val:.2f}", ha="center", va="center",
+                           color=color, fontweight=weight, fontsize=9)
+
+            ax.set_xlabel(f"Cluster {decision['cluster_b']} Exemplars")
+            ax.set_ylabel(f"Cluster {decision['cluster_a']} Exemplars")
+            ax.set_title(f"Threshold: {threshold:.3f} | Pairs ≤ T: {decision['n_pairs_within']}")
+            plt.colorbar(im, ax=ax, label='Distance')
+            plt.tight_layout()
+            st.pyplot(fig)
+
+            st.markdown(f"**Why {'merged' if decision['merged'] else 'not merged'}:** {decision['reason']}")
+
+
+def render_debug_attach_decisions(
+    results_dir: Path,
+    attach_decisions: List[Dict],
+    cluster_thresholds: Dict[int, float]
+):
+    """Section 4: Attachment decision explorer."""
+    st.subheader("📎 Attachment Decision Explorer")
+
+    if not attach_decisions:
+        st.info("No attachment decisions recorded")
+        return
+
+    # Summary
+    attached = [d for d in attach_decisions if d['attached_to'] is not None]
+    not_attached = [d for d in attach_decisions if d['attached_to'] is None]
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Noise Points Evaluated", len(attach_decisions))
+    with col2:
+        st.metric("Attached", len(attached))
+    with col3:
+        st.metric("Remained Noise", len(not_attached))
+
+    # Filter
+    show_only = st.radio(
+        "Show decisions:",
+        ["All", "Attached Only", "Not Attached Only"],
+        horizontal=True,
+        key="attach_filter"
+    )
+
+    if show_only == "Attached Only":
+        decisions_to_show = attached
+    elif show_only == "Not Attached Only":
+        decisions_to_show = not_attached
+    else:
+        decisions_to_show = attach_decisions
+
+    if not decisions_to_show:
+        st.info("No decisions to show with current filter")
+        return
+
+    # Select a face to inspect
+    face_options = [f"Face #{d['face_idx']} → {d['attached_to'] if d['attached_to'] is not None else 'NOISE'}"
+                   for d in decisions_to_show]
+    selected_idx = st.selectbox("Select face to inspect", range(len(face_options)),
+                               format_func=lambda i: face_options[i])
+
+    decision = decisions_to_show[selected_idx]
+
+    # Show the face
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        crop_path = get_face_crop_path(results_dir, decision['face_idx'])
+        if crop_path.exists():
+            st.image(str(crop_path), caption=f"Face #{decision['face_idx']}", use_container_width=True)
+
+        if decision['attached_to'] is not None:
+            st.success(f"Attached to Cluster {decision['attached_to']}")
+        else:
+            st.error("Not attached (remained noise)")
+
+    # Show candidates
+    with col2:
+        st.markdown("**Candidates (all clusters considered):**")
+        candidates = decision.get('candidates', [])
+
+        if candidates:
+            table_data = []
+            for c in candidates:
+                table_data.append({
+                    'Cluster': c['cluster'],
+                    'Threshold': f"{c['threshold']:.3f}",
+                    'Matches': c['matches'],
+                    'Required': c['required'],
+                    'Min Dist': f"{c['min_dist']:.3f}",
+                    'Qualifies?': '✓' if c['qualifies'] else '✗'
+                })
+
+            df = pd.DataFrame(table_data)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No candidate information available")
+
+
+def render_debug_parameter_tuning(
+    all_embeddings: np.ndarray,
+    current_labels: List[int],
+    current_params: Dict[str, Any]
+):
+    """Section 5: Parameter tuning with re-run capability."""
+    st.subheader("⚙️ Parameter Tuning")
+
+    st.info("Adjust parameters and re-run clustering to see the effect.")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("**Threshold Parameters**")
+        threshold_floor = st.slider(
+            "Threshold Floor",
+            min_value=0.3, max_value=0.7,
+            value=float(current_params.get('threshold_floor', 0.5)),
+            step=0.05,
+            help="Minimum threshold for any cluster"
+        )
+        threshold_ceiling = st.slider(
+            "Threshold Ceiling",
+            min_value=0.5, max_value=1.2,
+            value=float(current_params.get('threshold_ceiling', 0.9)),
+            step=0.05,
+            help="Maximum threshold for any cluster"
+        )
+
+    with col2:
+        st.markdown("**Merge/Attach Parameters**")
+        merge_min_pairs = st.slider(
+            "Merge Min Pairs",
+            min_value=1, max_value=5,
+            value=int(current_params.get('merge_min_pairs', 3)),
+            help="Minimum cross-exemplar pairs within threshold to merge"
+        )
+        merge_min_distinct = st.slider(
+            "Merge Min Distinct",
+            min_value=1, max_value=3,
+            value=int(current_params.get('merge_min_distinct', 2)),
+            help="Minimum distinct exemplars from each cluster involved"
+        )
+        attach_min_exemplars = st.slider(
+            "Attach Min Exemplars",
+            min_value=1, max_value=3,
+            value=int(current_params.get('attach_min_exemplars', 2)),
+            help="Minimum exemplars within threshold to attach noise point"
+        )
+
+    if st.button("🔄 Re-run Clustering with New Parameters", type="primary"):
+        with st.spinner("Running clustering..."):
+            from sim_bench.clustering.hybrid_hdbscan_knn import HybridHDBSCANKNN
+
+            new_config = {
+                'method': 'hybrid_hdbscan_knn',
+                'params': {
+                    'min_cluster_size': current_params.get('min_cluster_size', 2),
+                    'min_samples': current_params.get('min_samples', 2),
+                    'cluster_selection_epsilon': current_params.get('cluster_selection_epsilon', 0.3),
+                    'knn_k': current_params.get('knn_k', 3),
+                    'threshold_floor': threshold_floor,
+                    'threshold_ceiling': threshold_ceiling,
+                    'max_exemplars': current_params.get('max_exemplars', 10),
+                    'attach_min_exemplars': attach_min_exemplars,
+                    'merge_min_pairs': merge_min_pairs,
+                    'merge_min_distinct': merge_min_distinct,
+                    'max_iterations': current_params.get('max_iterations', 10),
+                }
+            }
+
+            clusterer = HybridHDBSCANKNN(new_config)
+            new_labels, new_stats = clusterer.cluster(all_embeddings, collect_debug_data=True)
+
+        # Compare results
+        st.markdown("### Results Comparison")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**Original**")
+            original_clusters = len(set(l for l in current_labels if l >= 0))
+            original_noise = sum(1 for l in current_labels if l == -1)
+            st.metric("Clusters", original_clusters)
+            st.metric("Noise", original_noise)
+
+        with col2:
+            st.markdown("**New Parameters**")
+            st.metric("Clusters", new_stats['n_clusters'],
+                     delta=new_stats['n_clusters'] - original_clusters)
+            st.metric("Noise", new_stats['n_noise'],
+                     delta=new_stats['n_noise'] - original_noise)
+            st.metric("Merges", new_stats['total_merges'])
+            st.metric("Attached", new_stats['total_attached'])
+
+
+def render_debug_face_distance_lookup(
+    results_dir: Path,
+    all_embeddings: np.ndarray,
+    labels: List[int],
+    cluster_thresholds: Dict[int, float],
+    n_faces: int
+):
+    """Section 6: Face distance lookup tool."""
+    st.subheader("📏 Face Distance Lookup")
+
+    st.info("Select two faces to see the embedding distance between them.")
+
+    col1, col2, col3 = st.columns([1, 1, 2])
+
+    with col1:
+        face_a = st.number_input("Face A Index", min_value=0, max_value=n_faces-1, value=0)
+        crop_path_a = get_face_crop_path(results_dir, face_a)
+        if crop_path_a.exists():
+            st.image(str(crop_path_a), caption=f"Face #{face_a}", use_container_width=True)
+        label_a = labels[face_a] if face_a < len(labels) else -1
+        st.caption(f"Cluster: {label_a}")
+
+    with col2:
+        face_b = st.number_input("Face B Index", min_value=0, max_value=n_faces-1, value=1)
+        crop_path_b = get_face_crop_path(results_dir, face_b)
+        if crop_path_b.exists():
+            st.image(str(crop_path_b), caption=f"Face #{face_b}", use_container_width=True)
+        label_b = labels[face_b] if face_b < len(labels) else -1
+        st.caption(f"Cluster: {label_b}")
+
+    with col3:
+        if face_a < len(all_embeddings) and face_b < len(all_embeddings):
+            emb_a = all_embeddings[face_a]
+            emb_b = all_embeddings[face_b]
+
+            # Euclidean distance (what the algorithm uses)
+            euclidean_dist = float(np.linalg.norm(emb_a - emb_b))
+            # Cosine distance for reference
+            cosine_dist = float(1 - np.dot(emb_a, emb_b) / (np.linalg.norm(emb_a) * np.linalg.norm(emb_b)))
+
+            st.markdown("### Distance Metrics")
+            st.metric("Euclidean Distance", f"{euclidean_dist:.4f}")
+            st.metric("Cosine Distance", f"{cosine_dist:.4f}")
+
+            # Threshold comparison
+            st.markdown("### Threshold Comparison")
+
+            if label_a >= 0:
+                t_a = cluster_thresholds.get(label_a, 0.5)
+                within_a = euclidean_dist <= t_a
+                st.write(f"Cluster {label_a} threshold: {t_a:.3f} → {'✓ Within' if within_a else '✗ Outside'}")
+
+            if label_b >= 0:
+                t_b = cluster_thresholds.get(label_b, 0.5)
+                within_b = euclidean_dist <= t_b
+                st.write(f"Cluster {label_b} threshold: {t_b:.3f} → {'✓ Within' if within_b else '✗ Outside'}")
+
+            if label_a >= 0 and label_b >= 0 and label_a != label_b:
+                merge_t = min(cluster_thresholds.get(label_a, 0.5), cluster_thresholds.get(label_b, 0.5))
+                would_contribute = euclidean_dist <= merge_t
+                st.write(f"Merge threshold (min): {merge_t:.3f} → {'✓ Would contribute to merge' if would_contribute else '✗ Too far'}")
+        else:
+            st.warning("Invalid face indices")
 
 
 def main():
@@ -305,7 +921,8 @@ def main():
     # Page selection
     page = st.sidebar.radio(
         "Select View",
-        ["📊 Overview & Comparison", "🔍 HDBSCAN Explorer", "🔍 Hybrid kNN Explorer", "🔍 Hybrid Closest Explorer"]
+        ["📊 Overview & Comparison", "🔍 HDBSCAN Explorer", "🔍 Hybrid kNN Explorer",
+         "🔍 Hybrid Closest Explorer", "🔧 Debug: Hybrid kNN"]
     )
     
     metadata = results['face_metadata']
@@ -383,6 +1000,14 @@ def main():
         else:
             render_cluster_explorer(results_dir, metadata, methods['hybrid_closest']['labels'],
                                    "Hybrid Closest-Face", all_embeddings)
+
+    elif page == "🔧 Debug: Hybrid kNN":
+        if all_embeddings is None:
+            st.error("⚠️ Embeddings not available. Re-run benchmark to include embeddings.")
+        elif 'hybrid_knn' not in methods:
+            st.error("⚠️ Hybrid kNN results not in this benchmark.")
+        else:
+            render_debug_hybrid_knn(results_dir, metadata, methods['hybrid_knn'], all_embeddings)
 
 
 if __name__ == "__main__":
