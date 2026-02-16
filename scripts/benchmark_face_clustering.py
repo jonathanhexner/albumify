@@ -16,7 +16,6 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import yaml
-import shutil
 
 import numpy as np
 from PIL import Image, ImageOps

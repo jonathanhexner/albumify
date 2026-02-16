@@ -63,15 +63,20 @@ class HierarchicalClusterer(ClusteringMethod):
     def cluster(
         self,
         features_level1: np.ndarray,
-        features_level2: np.ndarray = None
+        features_level2: np.ndarray = None,
+        collect_debug_data: bool = False
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
         Perform hierarchical clustering.
+
+        Note: This method signature differs from base class (takes two feature arrays).
+        The base class signature is: cluster(features, collect_debug_data=False)
 
         Args:
             features_level1: Features for first-level clustering [n_samples, dim1]
             features_level2: Features for second-level clustering [n_samples, dim2]
                            If None, uses same features as level 1
+            collect_debug_data: If True, collect debug data (passed to sub-clusterers)
 
         Returns:
             labels: Hierarchical cluster labels (level1_id * 1000 + level2_id)

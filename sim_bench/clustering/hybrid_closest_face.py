@@ -36,8 +36,17 @@ class HybridHDBSCANClosestFace(ClusteringMethod):
         self.attach_threshold = self.params.get('attach_threshold', 0.40)
         self.attach_relaxation = self.params.get('attach_relaxation', 1.2)
     
-    def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
-        """Run hybrid clustering with closest-face matching."""
+    def cluster(
+        self,
+        features: np.ndarray,
+        collect_debug_data: bool = False
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """Run hybrid clustering with closest-face matching.
+
+        Args:
+            features: Face embedding vectors (N x D)
+            collect_debug_data: If True, collect debug data (not implemented for this method)
+        """
         n_samples = len(features)
         
         if n_samples == 0:

@@ -18,13 +18,18 @@ class DBSCANClusterer(ClusteringMethod):
         self.eps = self.params.get('eps', 0.3)
         self.min_samples = self.params.get('min_samples', 4)
     
-    def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
+    def cluster(
+        self,
+        features: np.ndarray,
+        collect_debug_data: bool = False
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
         Cluster features using DBSCAN.
-        
+
         Args:
             features: Feature matrix [n_samples, n_features]
-            
+            collect_debug_data: If True, collect debug data (not used by DBSCAN)
+
         Returns:
             labels: Cluster labels (-1 for noise)
             stats: Dictionary with clustering statistics

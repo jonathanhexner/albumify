@@ -18,13 +18,18 @@ class KMeansClusterer(ClusteringMethod):
         self.n_init = self.params.get('n_init', 10)
         self.random_state = self.params.get('random_state', 42)
     
-    def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
+    def cluster(
+        self,
+        features: np.ndarray,
+        collect_debug_data: bool = False
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
         Cluster features using KMeans.
-        
+
         Args:
             features: Feature matrix [n_samples, n_features]
-            
+            collect_debug_data: If True, collect debug data (not used by KMeans)
+
         Returns:
             labels: Cluster labels
             stats: Dictionary with clustering statistics

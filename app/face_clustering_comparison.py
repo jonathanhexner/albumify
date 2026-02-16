@@ -17,6 +17,7 @@ from PIL import Image, ImageDraw
 from collections import defaultdict
 from scipy.spatial.distance import cdist
 import pandas as pd
+import matplotlib.pyplot as plt
 
 st.set_page_config(
     page_title="Face Clustering Comparison",
@@ -263,8 +264,6 @@ def render_cluster_explorer(results_dir: Path, metadata: List[Dict],
 
 def create_distance_matrix_plot(dist_matrix: np.ndarray, face_indices: List[int]):
     """Create distance matrix heatmap."""
-    import matplotlib.pyplot as plt
-
     fig, ax = plt.subplots(figsize=(10, 8))
     im = ax.imshow(dist_matrix, cmap='viridis', aspect='auto')
     ax.set_xticks(range(len(face_indices)))
@@ -284,8 +283,6 @@ def create_inter_cluster_heatmap(
     cluster_thresholds: Dict[int, float]
 ):
     """Create heatmap of minimum distances between cluster exemplars."""
-    import matplotlib.pyplot as plt
-
     n = len(cluster_ids)
     min_dist_matrix = np.zeros((n, n))
 
@@ -613,6 +610,75 @@ def render_debug_inter_cluster_distances(
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 
+def _render_cross_distance_heatmap(decision: Dict):
+    """Render cross-distance matrix heatmap for a merge decision."""
+    cross_dists = decision.get('cross_distances')
+    if not cross_dists:
+        return
+
+    st.markdown("**Cross-Exemplar Distance Matrix**")
+    cross_dists = np.array(cross_dists)
+    threshold = decision['threshold']
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(cross_dists, cmap='RdYlGn_r', vmin=0.3, vmax=0.9)
+
+    # Annotate with values, highlight those within threshold
+    for i in range(cross_dists.shape[0]):
+        for j in range(cross_dists.shape[1]):
+            val = cross_dists[i, j]
+            color = 'green' if val <= threshold else 'black'
+            weight = 'bold' if val <= threshold else 'normal'
+            ax.text(j, i, f"{val:.2f}", ha="center", va="center",
+                   color=color, fontweight=weight, fontsize=9)
+
+    ax.set_xlabel(f"Cluster {decision['cluster_b']} Exemplars")
+    ax.set_ylabel(f"Cluster {decision['cluster_a']} Exemplars")
+    ax.set_title(f"Threshold: {threshold:.3f} | Pairs ≤ T: {decision['n_pairs_within']}")
+    plt.colorbar(im, ax=ax, label='Distance')
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.markdown(f"**Why {'merged' if decision['merged'] else 'not merged'}:** {decision['reason']}")
+
+
+def _render_cluster_exemplars(results_dir: Path, cluster_id: int, exemplar_indices: List[int]):
+    """Render exemplar faces for a cluster."""
+    st.markdown(f"**Cluster {cluster_id} Exemplars**")
+    if not exemplar_indices:
+        st.caption("No exemplars")
+        return
+
+    cols = st.columns(min(5, len(exemplar_indices)))
+    for i, face_idx in enumerate(exemplar_indices[:5]):
+        crop_path = get_face_crop_path(results_dir, face_idx)
+        if crop_path.exists():
+            with cols[i]:
+                st.image(str(crop_path), caption=f"#{face_idx}", use_container_width=True)
+
+
+def _render_merge_decisions_table(decisions: List[Dict], params: Dict[str, Any]):
+    """Render merge decisions as a table."""
+    table_data = []
+    for d in decisions:
+        table_data.append({
+            'Cluster A': d['cluster_a'],
+            'Cluster B': d['cluster_b'],
+            'Threshold': f"{d['threshold']:.3f}",
+            'Min Dist': f"{d['min_distance']:.3f}",
+            'Pairs ≤ T': d['n_pairs_within'],
+            'Req Pairs': params.get('merge_min_pairs', 3),
+            'Distinct A': d['exemplars_a_involved'],
+            'Distinct B': d['exemplars_b_involved'],
+            'Req Distinct': params.get('merge_min_distinct', 2),
+            'Merged?': '✓' if d['merged'] else '✗',
+            'Reason': d['reason']
+        })
+
+    df = pd.DataFrame(table_data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+
 def render_debug_merge_decisions(
     results_dir: Path,
     merge_decisions: List[Dict],
@@ -672,25 +738,8 @@ def render_debug_merge_decisions(
     # Sort by min_distance
     decisions_to_show = sorted(decisions_to_show, key=lambda x: x['min_distance'])
 
-    # Display as table
-    table_data = []
-    for d in decisions_to_show:
-        table_data.append({
-            'Cluster A': d['cluster_a'],
-            'Cluster B': d['cluster_b'],
-            'Threshold': f"{d['threshold']:.3f}",
-            'Min Dist': f"{d['min_distance']:.3f}",
-            'Pairs ≤ T': d['n_pairs_within'],
-            'Req Pairs': params.get('merge_min_pairs', 3),
-            'Distinct A': d['exemplars_a_involved'],
-            'Distinct B': d['exemplars_b_involved'],
-            'Req Distinct': params.get('merge_min_distinct', 2),
-            'Merged?': '✓' if d['merged'] else '✗',
-            'Reason': d['reason']
-        })
-
-    df = pd.DataFrame(table_data)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    # Render decisions table
+    _render_merge_decisions_table(decisions_to_show, params)
 
     # Detailed view of selected pair
     st.markdown("#### Detailed Pair Analysis")
@@ -706,55 +755,19 @@ def render_debug_merge_decisions(
 
         col1, col2 = st.columns(2)
 
-        # Show exemplars from each cluster
         with col1:
-            st.markdown(f"**Cluster {decision['cluster_a']} Exemplars**")
-            exemplars_a = cluster_exemplars.get(decision['cluster_a'], [])
-            cols = st.columns(min(5, len(exemplars_a)))
-            for i, face_idx in enumerate(exemplars_a[:5]):
-                crop_path = get_face_crop_path(results_dir, face_idx)
-                if crop_path.exists():
-                    with cols[i]:
-                        st.image(str(crop_path), caption=f"#{face_idx}", use_container_width=True)
+            _render_cluster_exemplars(
+                results_dir, decision['cluster_a'],
+                cluster_exemplars.get(decision['cluster_a'], [])
+            )
 
         with col2:
-            st.markdown(f"**Cluster {decision['cluster_b']} Exemplars**")
-            exemplars_b = cluster_exemplars.get(decision['cluster_b'], [])
-            cols = st.columns(min(5, len(exemplars_b)))
-            for i, face_idx in enumerate(exemplars_b[:5]):
-                crop_path = get_face_crop_path(results_dir, face_idx)
-                if crop_path.exists():
-                    with cols[i]:
-                        st.image(str(crop_path), caption=f"#{face_idx}", use_container_width=True)
+            _render_cluster_exemplars(
+                results_dir, decision['cluster_b'],
+                cluster_exemplars.get(decision['cluster_b'], [])
+            )
 
-        # Show cross-distance matrix if available
-        cross_dists = decision.get('cross_distances')
-        if cross_dists:
-            st.markdown("**Cross-Exemplar Distance Matrix**")
-            cross_dists = np.array(cross_dists)
-            threshold = decision['threshold']
-
-            import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(figsize=(8, 6))
-            im = ax.imshow(cross_dists, cmap='RdYlGn_r', vmin=0.3, vmax=0.9)
-
-            # Annotate with values, highlight those within threshold
-            for i in range(cross_dists.shape[0]):
-                for j in range(cross_dists.shape[1]):
-                    val = cross_dists[i, j]
-                    color = 'green' if val <= threshold else 'black'
-                    weight = 'bold' if val <= threshold else 'normal'
-                    ax.text(j, i, f"{val:.2f}", ha="center", va="center",
-                           color=color, fontweight=weight, fontsize=9)
-
-            ax.set_xlabel(f"Cluster {decision['cluster_b']} Exemplars")
-            ax.set_ylabel(f"Cluster {decision['cluster_a']} Exemplars")
-            ax.set_title(f"Threshold: {threshold:.3f} | Pairs ≤ T: {decision['n_pairs_within']}")
-            plt.colorbar(im, ax=ax, label='Distance')
-            plt.tight_layout()
-            st.pyplot(fig)
-
-            st.markdown(f"**Why {'merged' if decision['merged'] else 'not merged'}:** {decision['reason']}")
+        _render_cross_distance_heatmap(decision)
 
 
 def render_debug_attach_decisions(

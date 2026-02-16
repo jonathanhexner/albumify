@@ -106,6 +106,9 @@ class HybridHDBSCANKNN(ClusteringMethod):
         Returns:
             labels: Cluster assignments (-1 for noise)
             stats: Statistics dict, with debug data if collect_debug_data=True
+
+        Raises:
+            ValueError: If features contain NaN/Inf values or zero vectors
         """
         n_samples = len(features)
 
@@ -114,6 +117,9 @@ class HybridHDBSCANKNN(ClusteringMethod):
 
         if n_samples == 1:
             return np.array([0]), {'n_clusters': 1, 'n_noise': 0}
+
+        # Input validation
+        features = self._validate_features(features)
 
         # Normalize for cosine distance
         features_norm = self.normalize_features(features)
@@ -170,6 +176,58 @@ class HybridHDBSCANKNN(ClusteringMethod):
             collect_debug_data
         )
         return labels, stats
+
+    def _validate_features(self, features: np.ndarray) -> np.ndarray:
+        """Validate input features and handle edge cases.
+
+        Args:
+            features: Feature matrix [n_samples, n_features]
+
+        Returns:
+            Validated features (may have some rows removed)
+
+        Raises:
+            ValueError: If features contain NaN/Inf or all zero vectors
+        """
+        # Check for NaN/Inf
+        if np.any(np.isnan(features)):
+            nan_count = np.sum(np.isnan(features).any(axis=1))
+            raise ValueError(
+                f"Features contain {nan_count} rows with NaN values. "
+                "Check embedding extraction for corrupted data."
+            )
+
+        if np.any(np.isinf(features)):
+            inf_count = np.sum(np.isinf(features).any(axis=1))
+            raise ValueError(
+                f"Features contain {inf_count} rows with Inf values. "
+                "Check embedding extraction for overflow."
+            )
+
+        # Check for zero vectors (would cause NaN after normalization)
+        norms = np.linalg.norm(features, axis=1)
+        zero_mask = norms < 1e-10
+        zero_count = np.sum(zero_mask)
+
+        if zero_count > 0:
+            logger.warning(
+                f"Found {zero_count} zero-vector embeddings. "
+                "These may be cached from a previous bug - consider clearing cache."
+            )
+            if zero_count == len(features):
+                raise ValueError(
+                    "All embeddings are zero vectors. "
+                    "Clear face embedding cache and re-run pipeline."
+                )
+
+        # Check dimensions
+        if features.ndim != 2:
+            raise ValueError(
+                f"Features must be 2D array [n_samples, n_features], "
+                f"got shape {features.shape}"
+            )
+
+        return features
 
     def _run_hdbscan(self, features: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
         """Run HDBSCAN to get initial clusters."""

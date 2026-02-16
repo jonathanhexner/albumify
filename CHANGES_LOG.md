@@ -6,6 +6,34 @@
 
 ---
 
+## 2026-02-16 (Code Review Fixes)
+
+**Files**:
+- `sim_bench/clustering/base.py` - Added collect_debug_data to base class signature
+- `sim_bench/clustering/dbscan.py` - Updated signature
+- `sim_bench/clustering/hdbscan.py` - Updated signature
+- `sim_bench/clustering/kmeans.py` - Updated signature
+- `sim_bench/clustering/hierarchical.py` - Updated signature
+- `sim_bench/clustering/hybrid_closest_face.py` - Updated signature
+- `sim_bench/clustering/hybrid_hdbscan_knn.py` - Added input validation
+- `configs/clustering_benchmark.yaml` - Fixed parameter names
+- `scripts/benchmark_face_clustering.py` - Removed unused import
+- `app/face_clustering_comparison.py` - Refactored large function, consolidated imports
+- `tests/clustering/test_hybrid_hdbscan_knn.py` - NEW: Unit tests
+
+**Changes**:
+1. Fixed API consistency - added collect_debug_data parameter to base class and all implementations
+2. Fixed config parameter name mismatches (merge_min_links → merge_min_pairs, etc.)
+3. Added input validation for NaN/Inf/zero vectors in embeddings
+4. Added comprehensive unit tests for hybrid clustering
+5. Refactored render_debug_merge_decisions into smaller helper functions
+6. Consolidated matplotlib imports at module level
+7. Removed unused shutil import
+
+**Reason**: Expert SW architect review identified these issues
+
+---
+
 ## 2026-02-16
 
 **Files**:

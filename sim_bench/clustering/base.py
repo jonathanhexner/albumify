@@ -29,15 +29,25 @@ class ClusteringMethod(ABC):
         self.output_config = config.get('output', {})
     
     @abstractmethod
-    def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
+    def cluster(
+        self,
+        features: np.ndarray,
+        collect_debug_data: bool = False
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
         Cluster features.
-        
+
         Args:
             features: Feature matrix [n_samples, n_features]
-            
+            collect_debug_data: If True, collect detailed decision logs for debugging.
+                When enabled, stats dict will include a 'debug' key with:
+                - cluster_thresholds: dict mapping cluster_id → threshold
+                - cluster_exemplars: dict mapping cluster_id → exemplar indices
+                - merge_decisions: list of merge decision records
+                - attach_decisions: list of attachment decision records
+
         Returns:
-            labels: Cluster labels
+            labels: Cluster labels (-1 for noise points)
             stats: Dictionary with clustering statistics
         """
         pass

@@ -16,18 +16,32 @@ hdbscan:
     cluster_selection_epsilon: 0.3
     metric: cosine
 
-# Hybrid HDBSCAN+kNN Method (Centroid-based)
+# Hybrid HDBSCAN+kNN Method (Exemplar-based with Tukey fence thresholds)
 hybrid_knn:
   algorithm: hybrid_hdbscan_knn
   params:
+    # HDBSCAN initial clustering
     min_cluster_size: 3
     min_samples: 2
     cluster_selection_epsilon: 0.35
-    knn_k: 5
-    merge_min_links: 1
-    merge_distance_ceiling: 0.50
-    singleton_attach_threshold: 0.45
-    singleton_knn_k: 2
+
+    # Threshold computation (Tukey fence: T = Q3(d3) + 1.5*IQR, clamped to [floor, ceiling])
+    knn_k: 3                    # k for d_k neighbor distance computation
+    threshold_floor: 0.50       # Minimum threshold for any cluster
+    threshold_ceiling: 0.90     # Maximum threshold for any cluster
+
+    # Exemplar selection
+    max_exemplars: 10           # Max exemplars per cluster (faces with smallest d3)
+
+    # Merge criteria (clusters merge if enough cross-exemplar pairs are close)
+    merge_min_pairs: 3          # Min exemplar pairs within threshold to merge
+    merge_min_distinct: 2       # Min distinct exemplars from each cluster involved
+
+    # Attachment criteria (noise points attach if close to enough exemplars)
+    attach_min_exemplars: 2     # Min exemplars within threshold to attach
+
+    # Iteration control
+    max_iterations: 10          # Max merge+attach iterations
 
 # Hybrid Closest-Face Method (NEW - allows intra-person variation)
 hybrid_closest:

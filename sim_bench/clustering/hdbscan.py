@@ -21,13 +21,18 @@ class HDBSCANClusterer(ClusteringMethod):
         self.cluster_selection_epsilon = self.params.get('cluster_selection_epsilon', 0.0)
         self.cluster_selection_method = self.params.get('cluster_selection_method', 'eom')
     
-    def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, Dict[str, Any]]:
+    def cluster(
+        self,
+        features: np.ndarray,
+        collect_debug_data: bool = False
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
         Cluster features using HDBSCAN.
-        
+
         Args:
             features: Feature matrix [n_samples, n_features]
-            
+            collect_debug_data: If True, collect debug data (not used by HDBSCAN)
+
         Returns:
             labels: Cluster labels (-1 for noise)
             stats: Dictionary with clustering statistics
