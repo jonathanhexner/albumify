@@ -328,78 +328,159 @@ def render_algorithm_explanation():
     """Render expandable algorithm explanation."""
     with st.expander("📖 How the Hybrid HDBSCAN+kNN Algorithm Works", expanded=False):
         st.markdown("""
-### Overview
+### The Core Problem
 
-The Hybrid HDBSCAN+kNN algorithm combines density-based clustering (HDBSCAN) with
-local cohesion analysis to improve face clustering accuracy. It works in two stages:
+Face embeddings are 512-dimensional vectors. Similar faces have small distances between them
+(typically 0.3-0.5), while different people have larger distances (0.7+). But there's no
+single "magic threshold" that works for everyone - some people have very consistent faces
+(tight cluster), others vary a lot due to lighting, angle, expression (loose cluster).
 
----
-
-### Stage 1: Initial Clustering (HDBSCAN)
-
-HDBSCAN identifies dense regions of faces in embedding space. Faces that don't
-belong to any dense region are marked as **noise** (label = -1).
+**The threshold T solves this**: each cluster gets its OWN threshold based on how tight or
+loose its faces are.
 
 ---
 
-### Stage 2: Iterative Refinement
+### What is the Threshold T?
 
-For each cluster, we compute:
+**T = "the maximum distance a face can be from the cluster and still belong to it"**
 
-1. **d3 values**: For each face, the distance to its 3rd nearest neighbor within the cluster.
-   - Faces with small d3 are "core" faces (well-connected)
-   - Faces with large d3 are "peripheral" (loosely connected)
+Each cluster calculates its own T based on how spread out its faces are:
 
-2. **Threshold T** (Tukey Fence): `T = Q3(d3) + 1.5 × IQR(d3)`
-   - Q3 = 75th percentile of d3 values
-   - IQR = Q3 - Q1 (interquartile range)
-   - Clamped to [floor, ceiling] (default: [0.50, 0.90])
-   - **Meaning**: T defines how far a face can be from cluster members and still "belong"
+```
+Example: Cluster with 8 faces of "Alice"
+┌─────────────────────────────────────────────────┐
+│  For each face, measure distance to 3rd nearest │
+│  neighbor (d3) - this shows how "central" it is │
+│                                                 │
+│  Face 1: d3 = 0.32  (very central)              │
+│  Face 2: d3 = 0.35                              │
+│  Face 3: d3 = 0.38                              │
+│  Face 4: d3 = 0.40                              │
+│  Face 5: d3 = 0.42                              │
+│  Face 6: d3 = 0.45                              │
+│  Face 7: d3 = 0.48                              │
+│  Face 8: d3 = 0.55  (peripheral)                │
+│                                                 │
+│  Q1 (25th percentile) = 0.36                    │
+│  Q3 (75th percentile) = 0.47                    │
+│  IQR = Q3 - Q1 = 0.11                           │
+│                                                 │
+│  T = Q3 + 1.5 × IQR = 0.47 + 0.165 = 0.635      │
+│  Clamped to floor (0.50) → T = 0.635            │
+└─────────────────────────────────────────────────┘
+```
 
-3. **Exemplars**: Top 10 faces with smallest d3 (most core-like faces)
-   - Exemplars represent the cluster's "identity"
-   - Used for merge and attach decisions
-
----
-
-### Merge Decision
-
-Two clusters A and B are merged if:
-- **Threshold**: Use `min(T_A, T_B)` (more conservative)
-- **Pairs**: At least `merge_min_pairs` (default: 3) exemplar pairs have distance ≤ threshold
-- **Diversity**: At least `merge_min_distinct` (default: 2) distinct exemplars from EACH cluster are involved
-
-**Why these rules?** Requiring multiple pairs from distinct exemplars prevents merging
-based on a single outlier match. The stricter cluster's threshold is used to avoid
-accidentally merging tight clusters with loose ones.
-
----
-
-### Attach Decision
-
-A noise point is attached to a cluster if:
-- At least `attach_min_exemplars` (default: 2) exemplars are within the cluster's threshold T
-- If multiple clusters qualify, choose the one with the most matches (then closest distance)
+**Interpretation**: For this cluster, any face within distance 0.635 of the exemplars
+could potentially belong to Alice.
 
 ---
 
-### Key Parameters
+### Why d3 (3rd nearest neighbor)?
 
-| Parameter | Default | Effect |
-|-----------|---------|--------|
-| `threshold_floor` | 0.50 | Minimum T for any cluster (prevents over-merging) |
-| `threshold_ceiling` | 0.90 | Maximum T for any cluster (prevents under-merging) |
-| `merge_min_pairs` | 3 | Required exemplar pairs within threshold to merge |
-| `merge_min_distinct` | 2 | Required distinct exemplars per cluster for merge |
-| `attach_min_exemplars` | 2 | Required exemplar matches to attach noise point |
+We use the 3rd nearest neighbor instead of the closest because:
+- 1st nearest could be a near-duplicate (same photo twice)
+- 3rd nearest is more stable and representative
+- Faces with small d3 have MULTIPLE faces nearby = they're "core" members
+- Faces with large d3 are on the periphery
+
+---
+
+### Why Tukey Fence (Q3 + 1.5×IQR)?
+
+This is a standard statistical method for outlier detection (same as box plot whiskers):
+- It adapts to the cluster's natural spread
+- Tight clusters → small T (strict matching)
+- Loose clusters → larger T (allows variation)
+- The 1.5× multiplier is the standard "mild outlier" threshold
+
+---
+
+### Clamping (Floor and Ceiling)
+
+The raw T is clamped to prevent extreme values:
+
+| Clamp | Default | Why |
+|-------|---------|-----|
+| **Floor** | 0.50 | Prevents T from being too small. Even a tight cluster shouldn't refuse faces at distance 0.45 - they're clearly the same person. |
+| **Ceiling** | 0.90 | Prevents T from being too large. A very loose cluster shouldn't accept faces at distance 0.95 - that's probably a different person. |
+
+---
+
+### Exemplars: The Cluster's Representatives
+
+For each cluster, we pick the top 10 faces with **smallest d3** (most central/core faces).
+These "exemplars" represent the cluster's identity and are used for:
+- **Merge decisions**: Compare exemplars between clusters
+- **Attach decisions**: Check if noise points are close to exemplars
+
+Why not use all faces? Exemplars are more reliable - peripheral faces might be edge cases.
+
+---
+
+### Merge Decision: Should Two Clusters Combine?
+
+Two clusters merge if their exemplars are close enough:
+
+```
+Cluster A (T=0.55)     Cluster B (T=0.62)
+   [5 exemplars]          [5 exemplars]
+
+   Merge threshold = min(0.55, 0.62) = 0.55
+   (use the stricter cluster's threshold)
+
+   Cross-distance matrix:
+              B1    B2    B3    B4    B5
+         ┌─────────────────────────────────┐
+   A1    │ 0.48  0.52  0.71  0.65  0.58   │
+   A2    │ 0.51  0.49  0.68  0.62  0.55   │
+   A3    │ 0.72  0.69  0.45  0.53  0.67   │
+   A4    │ 0.68  0.65  0.52  0.48  0.63   │
+   A5    │ 0.61  0.58  0.64  0.59  0.54   │
+         └─────────────────────────────────┘
+
+   Pairs ≤ 0.55: (A1,B1), (A1,B2), (A2,B2), (A3,B3), (A4,B4), (A5,B5) = 6 pairs
+   Distinct A exemplars involved: A1, A2, A3, A4, A5 = 5
+   Distinct B exemplars involved: B1, B2, B3, B4, B5 = 5
+
+   Requirements: ≥3 pairs, ≥2 distinct from each → ✓ MERGE
+```
+
+---
+
+### Attach Decision: Should a Noise Point Join a Cluster?
+
+A noise point (face not assigned by HDBSCAN) attaches if close to enough exemplars:
+
+```
+Noise face X:
+   Distance to Cluster A exemplars: [0.48, 0.52, 0.61, 0.72, 0.58]
+   Cluster A threshold: T = 0.55
+   Exemplars within T: 2 (the 0.48 and 0.52)
+
+   Requirement: ≥2 exemplars within T → ✓ ATTACH to A
+```
+
+---
+
+### Key Parameters Summary
+
+| Parameter | Default | What It Controls |
+|-----------|---------|------------------|
+| `threshold_floor` | 0.50 | Min T - prevents clusters from being too exclusive |
+| `threshold_ceiling` | 0.90 | Max T - prevents clusters from being too inclusive |
+| `merge_min_pairs` | 3 | How many exemplar pairs must be close to merge |
+| `merge_min_distinct` | 2 | How many different exemplars must be involved |
+| `attach_min_exemplars` | 2 | How many exemplars a noise face must be close to |
 
 ---
 
 ### Debugging Tips
 
-- **Clusters not merging?** Check the Merge Decisions tab to see which criterion failed
-- **Wrong face attached?** Check Attachment Decisions to see which clusters qualified
-- **Threshold too tight/loose?** Use Parameter Tuning to experiment with floor/ceiling
+- **Clusters not merging?** Check Merge Decisions tab → see which criterion failed
+- **Wrong face attached?** Check Attachment Decisions → see which clusters qualified
+- **All thresholds at floor/ceiling?** Your data may be unusually tight/loose
+- **Want more merging?** Lower `merge_min_pairs` or `threshold_floor`
+- **Want less merging?** Raise `merge_min_pairs` or `threshold_floor`
         """)
 
 
