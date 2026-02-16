@@ -327,6 +327,85 @@ def create_inter_cluster_heatmap(
     return fig, min_dist_matrix
 
 
+def render_algorithm_explanation():
+    """Render expandable algorithm explanation."""
+    with st.expander("📖 How the Hybrid HDBSCAN+kNN Algorithm Works", expanded=False):
+        st.markdown("""
+### Overview
+
+The Hybrid HDBSCAN+kNN algorithm combines density-based clustering (HDBSCAN) with
+local cohesion analysis to improve face clustering accuracy. It works in two stages:
+
+---
+
+### Stage 1: Initial Clustering (HDBSCAN)
+
+HDBSCAN identifies dense regions of faces in embedding space. Faces that don't
+belong to any dense region are marked as **noise** (label = -1).
+
+---
+
+### Stage 2: Iterative Refinement
+
+For each cluster, we compute:
+
+1. **d3 values**: For each face, the distance to its 3rd nearest neighbor within the cluster.
+   - Faces with small d3 are "core" faces (well-connected)
+   - Faces with large d3 are "peripheral" (loosely connected)
+
+2. **Threshold T** (Tukey Fence): `T = Q3(d3) + 1.5 × IQR(d3)`
+   - Q3 = 75th percentile of d3 values
+   - IQR = Q3 - Q1 (interquartile range)
+   - Clamped to [floor, ceiling] (default: [0.50, 0.90])
+   - **Meaning**: T defines how far a face can be from cluster members and still "belong"
+
+3. **Exemplars**: Top 10 faces with smallest d3 (most core-like faces)
+   - Exemplars represent the cluster's "identity"
+   - Used for merge and attach decisions
+
+---
+
+### Merge Decision
+
+Two clusters A and B are merged if:
+- **Threshold**: Use `min(T_A, T_B)` (more conservative)
+- **Pairs**: At least `merge_min_pairs` (default: 3) exemplar pairs have distance ≤ threshold
+- **Diversity**: At least `merge_min_distinct` (default: 2) distinct exemplars from EACH cluster are involved
+
+**Why these rules?** Requiring multiple pairs from distinct exemplars prevents merging
+based on a single outlier match. The stricter cluster's threshold is used to avoid
+accidentally merging tight clusters with loose ones.
+
+---
+
+### Attach Decision
+
+A noise point is attached to a cluster if:
+- At least `attach_min_exemplars` (default: 2) exemplars are within the cluster's threshold T
+- If multiple clusters qualify, choose the one with the most matches (then closest distance)
+
+---
+
+### Key Parameters
+
+| Parameter | Default | Effect |
+|-----------|---------|--------|
+| `threshold_floor` | 0.50 | Minimum T for any cluster (prevents over-merging) |
+| `threshold_ceiling` | 0.90 | Maximum T for any cluster (prevents under-merging) |
+| `merge_min_pairs` | 3 | Required exemplar pairs within threshold to merge |
+| `merge_min_distinct` | 2 | Required distinct exemplars per cluster for merge |
+| `attach_min_exemplars` | 2 | Required exemplar matches to attach noise point |
+
+---
+
+### Debugging Tips
+
+- **Clusters not merging?** Check the Merge Decisions tab to see which criterion failed
+- **Wrong face attached?** Check Attachment Decisions to see which clusters qualified
+- **Threshold too tight/loose?** Use Parameter Tuning to experiment with floor/ceiling
+        """)
+
+
 def render_debug_hybrid_knn(
     results_dir: Path,
     metadata: List[Dict],
@@ -335,6 +414,9 @@ def render_debug_hybrid_knn(
 ):
     """Render the debug page for Hybrid kNN clustering."""
     st.header("🔧 Debug: Hybrid kNN")
+
+    # Show algorithm explanation at the top
+    render_algorithm_explanation()
 
     stats = hybrid_knn_results.get('stats', {})
     debug_data = stats.get('debug', {})
@@ -425,6 +507,12 @@ def render_debug_cluster_overview(
     """Section 1: Enhanced cluster overview with all faces (no truncation)."""
     st.subheader("📊 Cluster Overview (Full)")
 
+    st.caption("""
+    **What this shows:** Each cluster's computed threshold (T), the d3 statistics used to calculate it,
+    and all faces in the cluster. Exemplars (faces with smallest d3 = most "core-like") are marked with ⭐.
+    The threshold T determines how far a face can be from cluster members and still be considered part of the cluster.
+    """)
+
     # Cluster summary table
     table_data = []
     for cid in sorted_cluster_ids:
@@ -482,6 +570,13 @@ def render_debug_inter_cluster_distances(
     """Section 2: Inter-cluster distance heatmap."""
     st.subheader("🌐 Inter-Cluster Distance Matrix")
 
+    st.caption("""
+    **What this shows:** The minimum embedding distance between each pair of clusters (using exemplar faces only).
+    Green = close clusters that might merge. Red = distant clusters.
+    The table below compares each pair's distance against their merge threshold (min of both T values).
+    If min_distance ≤ merge_threshold, the pair *could* merge (but also needs enough exemplar pairs - see Merge Decisions tab).
+    """)
+
     if len(sorted_cluster_ids) < 2:
         st.info("Need at least 2 clusters for distance matrix")
         return
@@ -528,6 +623,21 @@ def render_debug_merge_decisions(
 ):
     """Section 3: Merge decision explorer."""
     st.subheader("🔗 Merge Decision Explorer")
+
+    st.caption("""
+    **What this shows:** Every cluster pair that was evaluated for merging, and why it did or didn't merge.
+
+    **Merge criteria** (ALL must be satisfied):
+    1. At least `merge_min_pairs` exemplar pairs must have distance ≤ min(T_A, T_B)
+    2. At least `merge_min_distinct` distinct exemplars from cluster A must be involved
+    3. At least `merge_min_distinct` distinct exemplars from cluster B must be involved
+
+    **Reason codes:**
+    - `merged`: All criteria met, clusters were merged
+    - `not_enough_pairs`: Too few exemplar pairs within threshold
+    - `not_enough_distinct_a`: Not enough distinct exemplars from cluster A
+    - `not_enough_distinct_b`: Not enough distinct exemplars from cluster B
+    """)
 
     if not merge_decisions:
         st.info("No merge decisions recorded")
@@ -655,6 +765,17 @@ def render_debug_attach_decisions(
     """Section 4: Attachment decision explorer."""
     st.subheader("📎 Attachment Decision Explorer")
 
+    st.caption("""
+    **What this shows:** How noise points (faces not assigned by HDBSCAN) were evaluated for attachment to existing clusters.
+
+    **Attachment criteria:**
+    - The noise face must be within threshold T of at least `attach_min_exemplars` exemplars from a cluster
+    - If multiple clusters qualify, the one with the most matches wins (ties broken by closest distance)
+    - For small clusters (< attach_min_exemplars faces), only 1 match is required
+
+    Select a face to see which clusters it was considered for and why it attached (or didn't).
+    """)
+
     if not attach_decisions:
         st.info("No attachment decisions recorded")
         return
@@ -741,7 +862,17 @@ def render_debug_parameter_tuning(
     """Section 5: Parameter tuning with re-run capability."""
     st.subheader("⚙️ Parameter Tuning")
 
-    st.info("Adjust parameters and re-run clustering to see the effect.")
+    st.caption("""
+    **What this does:** Lets you experiment with different parameter values and immediately see the effect on clustering.
+
+    **Tips:**
+    - **Too many clusters?** Lower `threshold_floor` or `merge_min_pairs` to encourage more merging
+    - **Clusters too large (mixing identities)?** Raise `threshold_floor` or `merge_min_pairs`
+    - **Noise points not attaching?** Lower `attach_min_exemplars` to 1
+    - **Wrong faces attaching?** Raise `attach_min_exemplars` to 3
+
+    Changes here are temporary - they don't modify the saved benchmark results.
+    """)
 
     col1, col2 = st.columns(2)
 
@@ -838,7 +969,15 @@ def render_debug_face_distance_lookup(
     """Section 6: Face distance lookup tool."""
     st.subheader("📏 Face Distance Lookup")
 
-    st.info("Select two faces to see the embedding distance between them.")
+    st.caption("""
+    **What this does:** Shows the embedding distance between any two faces and whether that distance
+    is within the relevant cluster thresholds.
+
+    **Use cases:**
+    - "Why aren't these two faces in the same cluster?" → Check if distance > threshold
+    - "Why did this face attach to cluster X instead of Y?" → Compare distances to each cluster's threshold
+    - "Are these two faces the same person?" → Low distance (< 0.5) suggests same identity
+    """)
 
     col1, col2, col3 = st.columns([1, 1, 2])
 
