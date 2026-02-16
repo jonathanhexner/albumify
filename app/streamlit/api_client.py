@@ -4,6 +4,7 @@ import time
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Callable
+from urllib.parse import quote
 
 import requests
 
@@ -19,6 +20,12 @@ from .models import (
     StepResult,
     ApiResponse,
     ExportOptions,
+    FaceInfo,
+    PersonDistance,
+    BorderlineFace,
+    PersonSummary,
+    FaceAction,
+    BatchChangeResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -439,6 +446,120 @@ class ApiClient:
         )
         return data
 
+    # Face Management operations
+    def get_faces(
+        self,
+        album_id: str,
+        run_id: str,
+        status: Optional[List[str]] = None
+    ) -> List[FaceInfo]:
+        """Get all faces for a pipeline run."""
+        params = {}
+        if status:
+            params["status"] = ",".join(status)
+
+        data = self._get(f"/api/v1/albums/{album_id}/runs/{run_id}/faces", params=params)
+        return [self._parse_face_info(f) for f in (data if isinstance(data, list) else [])]
+
+    def get_borderline_faces(
+        self,
+        album_id: str,
+        run_id: str,
+        limit: int = 10
+    ) -> List[BorderlineFace]:
+        """Get faces needing user decision."""
+        data = self._get(
+            f"/api/v1/albums/{album_id}/runs/{run_id}/faces/needs-help",
+            params={"limit": limit}
+        )
+        return [self._parse_borderline_face(f) for f in (data if isinstance(data, list) else [])]
+
+    def get_face_distances(
+        self,
+        album_id: str,
+        run_id: str,
+        face_key: str
+    ) -> List[PersonDistance]:
+        """Get distances from face to all people."""
+        encoded_key = quote(face_key, safe='')
+        data = self._get(
+            f"/api/v1/albums/{album_id}/runs/{run_id}/faces/{encoded_key}/distances"
+        )
+        return [self._parse_person_distance(d) for d in (data if isinstance(data, list) else [])]
+
+    def get_people_summary(
+        self,
+        album_id: str,
+        run_id: str
+    ) -> List[PersonSummary]:
+        """Get summary of all people."""
+        data = self._get(f"/api/v1/albums/{album_id}/runs/{run_id}/faces/people")
+        return [self._parse_person_summary(p) for p in (data if isinstance(data, list) else [])]
+
+    def apply_face_action(
+        self,
+        album_id: str,
+        run_id: str,
+        action: FaceAction
+    ) -> FaceInfo:
+        """Apply single face action (live mode)."""
+        encoded_key = quote(action.face_key, safe='')
+        data = self._post(
+            f"/api/v1/albums/{album_id}/runs/{run_id}/faces/{encoded_key}/action",
+            json={
+                "face_key": action.face_key,
+                "action": action.action,
+                "target_person_id": action.target_person_id,
+                "new_person_name": action.new_person_name,
+            }
+        )
+        return self._parse_face_info(data)
+
+    def apply_batch_changes(
+        self,
+        album_id: str,
+        run_id: str,
+        changes: List[FaceAction],
+        recluster: bool = True
+    ) -> BatchChangeResponse:
+        """Apply multiple face changes (batch mode)."""
+        data = self._post(
+            f"/api/v1/albums/{album_id}/runs/{run_id}/faces/batch",
+            json={
+                "changes": [
+                    {
+                        "face_key": c.face_key,
+                        "action": c.action,
+                        "target_person_id": c.target_person_id,
+                        "new_person_name": c.new_person_name,
+                    }
+                    for c in changes
+                ],
+                "recluster": recluster,
+            }
+        )
+        return BatchChangeResponse(
+            applied_count=data.get("applied_count", 0),
+            failed_count=data.get("failed_count", 0),
+            failures=data.get("failures", []),
+            auto_assigned_count=data.get("auto_assigned_count", 0),
+            new_unassigned_count=data.get("new_unassigned_count", 0),
+        )
+
+    def create_new_person(
+        self,
+        album_id: str,
+        run_id: str,
+        name: str,
+        face_keys: List[str]
+    ) -> PersonSummary:
+        """Create a new person from selected faces."""
+        data = self._post(
+            f"/api/v1/albums/{album_id}/runs/{run_id}/faces/person",
+            params={"name": name, "face_keys": face_keys}
+        )
+        return self._parse_person_summary(data)
+
     # Parsing helpers
     def _parse_album(self, data: Dict[str, Any]) -> Album:
         """Parse album from API response."""
@@ -477,6 +598,15 @@ class ApiClient:
             person_detected=data.get("person_detected"),
             body_facing_score=data.get("body_facing_score"),
             person_confidence=data.get("person_confidence"),
+            # Face filtering metrics
+            filter_stats=data.get("filter_stats"),
+            filter_scores=data.get("filter_scores"),
+            # Frontal scoring metrics
+            frontal_stats=data.get("frontal_stats"),
+            frontal_scores=data.get("frontal_scores"),
+            best_frontal_score=data.get("best_frontal_score"),
+            best_centrality=data.get("best_centrality"),
+            roll_angles=data.get("roll_angles"),
         )
 
     def _parse_cluster(self, data: Dict[str, Any]) -> ClusterInfo:
@@ -517,6 +647,61 @@ class ApiClient:
             representative_face=representative,
             thumbnail_bbox=data.get("thumbnail_bbox"),
             images=data.get("images", []),
+        )
+
+    def _parse_face_info(self, data: Dict[str, Any]) -> FaceInfo:
+        """Parse face info from API response."""
+        return FaceInfo(
+            face_key=data.get("face_key", ""),
+            image_path=data.get("image_path", ""),
+            face_index=data.get("face_index", 0),
+            thumbnail_base64=data.get("thumbnail_base64"),
+            bbox=data.get("bbox"),
+            status=data.get("status", "unassigned"),
+            person_id=data.get("person_id"),
+            person_name=data.get("person_name"),
+            assignment_method=data.get("assignment_method"),
+            assignment_confidence=data.get("assignment_confidence"),
+            frontal_score=data.get("frontal_score"),
+            centroid_distance=data.get("centroid_distance"),
+            exemplar_matches=data.get("exemplar_matches"),
+        )
+
+    def _parse_person_distance(self, data: Dict[str, Any]) -> PersonDistance:
+        """Parse person distance from API response."""
+        return PersonDistance(
+            person_id=data.get("person_id", ""),
+            person_name=data.get("person_name", ""),
+            thumbnail_base64=data.get("thumbnail_base64"),
+            centroid_distance=data.get("centroid_distance", 0.0),
+            exemplar_matches=data.get("exemplar_matches", 0),
+            min_exemplar_distance=data.get("min_exemplar_distance", 0.0),
+            would_attach=data.get("would_attach", False),
+        )
+
+    def _parse_borderline_face(self, data: Dict[str, Any]) -> BorderlineFace:
+        """Parse borderline face from API response."""
+        face_data = data.get("face", {})
+        return BorderlineFace(
+            face=self._parse_face_info(face_data),
+            closest_person_id=data.get("closest_person_id", ""),
+            closest_person_name=data.get("closest_person_name", ""),
+            closest_person_thumbnail=data.get("closest_person_thumbnail"),
+            distance=data.get("distance", 0.0),
+            uncertainty_score=data.get("uncertainty_score", 0.0),
+            attach_threshold=data.get("attach_threshold", 0.38),
+            reject_threshold=data.get("reject_threshold", 0.45),
+        )
+
+    def _parse_person_summary(self, data: Dict[str, Any]) -> PersonSummary:
+        """Parse person summary from API response."""
+        return PersonSummary(
+            person_id=data.get("person_id", ""),
+            name=data.get("name", ""),
+            thumbnail_base64=data.get("thumbnail_base64"),
+            face_count=data.get("face_count", 0),
+            exemplar_count=data.get("exemplar_count", 0),
+            cluster_tightness=data.get("cluster_tightness"),
         )
 
 

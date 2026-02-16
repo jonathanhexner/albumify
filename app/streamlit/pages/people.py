@@ -56,9 +56,15 @@ def _render_no_people_state() -> None:
     3. Come back here to browse people
     """)
 
-    if st.button("Go to Results", type="primary"):
-        st.session_state.current_page = "results"
-        st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Go to Results", type="primary"):
+            st.session_state.current_page = "results"
+            st.rerun()
+    with col2:
+        if st.button("Debug Face Analysis"):
+            st.session_state.current_page = "debug"
+            st.rerun()
 
 
 def _render_people_grid_view(people: List[Person], album: Album) -> None:
@@ -77,6 +83,30 @@ def _render_people_grid_view(people: List[Person], album: Album) -> None:
     with col4:
         manage_mode = st.checkbox("Manage", value=st.session_state.get("manage_mode", False), key="manage_mode_toggle", help="Enable to merge multiple people")
         st.session_state.manage_mode = manage_mode
+
+    # Debug summary expander
+    with st.expander("Face Filtering Summary", expanded=False):
+        st.markdown("""
+        **How faces are filtered for clustering:**
+
+        1. **Basic filters** (`filter_faces` step): Remove small/low-confidence faces
+           - Confidence >= 0.5, BBox ratio >= 0.02, Relative size >= 0.3
+
+        2. **Frontal filters** (`score_face_frontal` step): Mark non-frontal as non-clusterable
+           - Frontal score >= 0.4 (from eye/bbox ratio + asymmetry)
+
+        3. **Embedding extraction**: Only clusterable faces get embeddings
+
+        4. **Clustering**: Groups faces by embedding similarity (HDBSCAN)
+        """)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(f"**Clustered faces**: {total_faces}")
+        with col2:
+            if st.button("Open Debug Page", key="open_debug_from_people"):
+                st.session_state.current_page = "debug"
+                st.rerun()
 
     st.divider()
 

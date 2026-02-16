@@ -190,6 +190,21 @@ def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = 
         has_body = img.person_detected if img.person_detected is not None else False
         has_face = (img.face_count or 0) > 0
 
+        # Face filtering stats
+        filter_stats = getattr(img, 'filter_stats', None) or {}
+        faces_passed = filter_stats.get('passed', img.face_count or 0)
+        faces_filtered = filter_stats.get('filtered', 0)
+
+        # Frontal scoring
+        best_frontal = getattr(img, 'best_frontal_score', None)
+        best_centrality = getattr(img, 'best_centrality', None)
+        roll_angles = getattr(img, 'roll_angles', None) or []
+        best_roll = roll_angles[0] if roll_angles else None
+
+        # Clusterable count from frontal stats
+        frontal_stats = getattr(img, 'frontal_stats', None) or {}
+        clusterable_count = frontal_stats.get('clusterable', faces_passed)
+
         row = {
             "Thumbnail": thumb,
             "Image": Path(img.path).name,
@@ -199,13 +214,17 @@ def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = 
             "IQA": f"{img.iqa_score:.2f}" if img.iqa_score is not None else "N/A",
             "Sharp": f"{img.sharpness:.2f}" if img.sharpness is not None else "N/A",
             # Body/Face detection columns
-            "Body": "✓" if has_body else "",
-            "Face": f"{img.face_count}" if has_face else "",
+            "Body": "Y" if has_body else "",
+            "Faces": f"{faces_passed}/{img.face_count}" if faces_filtered > 0 else (f"{img.face_count}" if has_face else ""),
+            "Frontal": f"{best_frontal:.2f}" if best_frontal is not None else "",
+            "Central": f"{best_centrality:.2f}" if best_centrality is not None else "",
+            "Roll": f"{best_roll:.1f}" if best_roll is not None else "",
+            "Cluster": f"{clusterable_count}" if clusterable_count else "",
             "BodyPose": f"{img.body_facing_score:.2f}" if img.body_facing_score is not None else "",
             "FacePose": f"{best_pose:.2f}" if best_pose is not None else "",
             "Eyes": f"{best_eyes:.2f}" if best_eyes is not None else "",
             "Smile": f"{best_smile:.2f}" if best_smile is not None else "",
-            "Cluster": str(img.cluster_id) if img.cluster_id is not None else "-",
+            "SceneCluster": str(img.cluster_id) if img.cluster_id is not None else "-",
         }
 
         rows.append(row)
@@ -220,9 +239,14 @@ def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = 
             "Image": st.column_config.TextColumn("Image", width="medium"),
             "Status": st.column_config.TextColumn("Status", width="small"),
             "Body": st.column_config.TextColumn("Body", width="small", help="Body detected"),
-            "Face": st.column_config.TextColumn("Faces", width="small", help="Face count"),
+            "Faces": st.column_config.TextColumn("Faces", width="small", help="Passed/Total faces"),
+            "Frontal": st.column_config.TextColumn("Frontal", width="small", help="Best frontal score (0-1)"),
+            "Central": st.column_config.TextColumn("Central", width="small", help="Best centrality score (0-1)"),
+            "Roll": st.column_config.TextColumn("Roll", width="small", help="Roll angle in degrees"),
+            "Cluster": st.column_config.TextColumn("Cluster", width="small", help="Clusterable face count"),
             "BodyPose": st.column_config.TextColumn("BodyPose", width="small", help="Body facing camera score"),
-            "FacePose": st.column_config.TextColumn("FacePose", width="small", help="Face frontal score"),
+            "FacePose": st.column_config.TextColumn("FacePose", width="small", help="Face pose score"),
+            "SceneCluster": st.column_config.TextColumn("Scene", width="small", help="Scene cluster ID"),
         },
         use_container_width=True,
         height=500,

@@ -281,7 +281,8 @@ class PeopleService:
         album_id: str,
         run_id: str,
         people_clusters: dict,
-        people_thumbnails: dict = None
+        people_thumbnails: dict = None,
+        attachment_decisions: dict = None
     ) -> list[Person]:
         """Create Person records from pipeline clustering results.
 
@@ -290,11 +291,13 @@ class PeopleService:
             run_id: Pipeline run ID
             people_clusters: Dict mapping cluster_id to list of Face objects
             people_thumbnails: Optional dict mapping cluster_id to best face
+            attachment_decisions: Optional dict mapping face_key to attachment info
 
         Returns:
             List of created Person records
         """
         created = []
+        attachment_decisions = attachment_decisions or {}
 
         for cluster_id, faces in people_clusters.items():
             if not faces:
@@ -322,11 +325,20 @@ class PeopleService:
                                 face.bbox.get('w', 0), face.bbox.get('h', 0)]
                     else:
                         bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]
+
+                # Look up assignment method from attachment_decisions
+                face_key = f"{img_path.replace(chr(92), '/')}:face_{face.face_index}"
+                decision = attachment_decisions.get(face_key, {})
+                assignment_method = decision.get('method', 'core')
+                assignment_confidence = decision.get('confidence', 1.0)
+
                 instance = {
                     'image_path': img_path,
                     'face_index': face.face_index,
                     'bbox': bbox,
-                    'score': getattr(face, 'quality', None) and face.quality.overall if hasattr(face, 'quality') else None
+                    'score': getattr(face, 'quality', None) and face.quality.overall if hasattr(face, 'quality') else None,
+                    'assignment_method': assignment_method,
+                    'assignment_confidence': assignment_confidence
                 }
                 face_instances.append(instance)
                 images.add(img_path)

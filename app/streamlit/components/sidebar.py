@@ -63,6 +63,8 @@ def _render_navigation(on_page_change: Optional[Callable[[str], None]] = None) -
         ("Albums", "albums", "📁"),
         ("Results", "results", "📊"),
         ("People", "people", "👥"),
+        ("Faces", "faces", "🎭"),
+        ("Debug", "debug", "🔍"),
     ]
 
     current_page = st.session_state.get("current_page", "home")

@@ -123,6 +123,7 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
     saved_detect = saved_config.get("detect_persons", {})
     saved_insightface = saved_config.get("insightface_detect_faces", {})
     saved_cluster_people = saved_config.get("cluster_people", {})
+    saved_embedding = saved_config.get("extract_face_embeddings", {})
 
     with st.expander("Advanced Configuration", expanded=False):
         st.markdown("**Quality Filtering**")
@@ -158,6 +159,20 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
                 step=10, key="config_min_face_size",
                 help="Minimum face size in pixels to be considered (smaller faces ignored)"
             )
+
+        st.markdown("**Face Embedding**")
+        col1, col2 = st.columns(2)
+        with col1:
+            embedding_backend = st.selectbox(
+                "Embedding Model",
+                options=["insightface", "custom"],
+                index=0 if saved_embedding.get("backend", "insightface") == "insightface" else 1,
+                key="config_embedding_backend",
+                help="InsightFace: built-in model (rotation invariant). Custom: your trained ArcFace."
+            )
+        with col2:
+            backend_info = "InsightFace w600k_r50" if embedding_backend == "insightface" else "arcface_resnet50.pt"
+            st.info(f"Using: {backend_info}")
 
         st.markdown("**Selection**")
         col1, col2 = st.columns(2)
@@ -248,6 +263,13 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
         # Person detection config
         "detect_persons": {
             "confidence_threshold": detection_confidence,
+        },
+        # Face embedding extraction config
+        "extract_face_embeddings": {
+            "backend": embedding_backend,
+            "checkpoint_path": "models/album_app/arcface_resnet50.pt",
+            "device": "cpu",
+            "model_name": "buffalo_l",
         },
         # People clustering config (global identity clustering for People tab)
         "cluster_people": {

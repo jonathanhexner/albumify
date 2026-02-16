@@ -21,6 +21,8 @@ class Album(Base):
 
     pipeline_runs = relationship("PipelineRun", back_populates="album", cascade="all, delete-orphan")
     people = relationship("Person", back_populates="album", cascade="all, delete-orphan")
+    events = relationship("UserEvent", back_populates="album", cascade="all, delete-orphan")
+    face_overrides = relationship("FaceOverride", back_populates="album", cascade="all, delete-orphan")
 
 
 class PipelineRun(Base):
@@ -47,6 +49,8 @@ class PipelineRun(Base):
     album = relationship("Album", back_populates="pipeline_runs")
     result = relationship("PipelineResult", back_populates="run", uselist=False, cascade="all, delete-orphan")
     people = relationship("Person", back_populates="run", cascade="all, delete-orphan")
+    events = relationship("UserEvent", back_populates="run", cascade="all, delete-orphan")
+    face_overrides = relationship("FaceOverride", back_populates="run", cascade="all, delete-orphan")
 
 
 class PipelineResult(Base):
@@ -101,6 +105,7 @@ class Person(Base):
 
     album = relationship("Album", back_populates="people")
     run = relationship("PipelineRun", back_populates="people")
+    face_overrides = relationship("FaceOverride", back_populates="person")
 
     __table_args__ = (
         Index('idx_person_album', 'album_id'),
@@ -147,4 +152,69 @@ class UniversalCache(Base):
     __table_args__ = (
         Index('idx_universal_lookup', 'image_path', 'feature_type', 'model_name'),
         UniqueConstraint('image_path', 'feature_type', 'model_name', name='uq_universal_cache_key'),
+    )
+
+
+class UserEvent(Base):
+    """Generic event tracking for user actions, feedback, AI requests."""
+    __tablename__ = "user_events"
+
+    id = Column(String, primary_key=True)
+    album_id = Column(String, ForeignKey("albums.id"), nullable=True)
+    run_id = Column(String, ForeignKey("pipeline_runs.id"), nullable=True)
+
+    event_type = Column(String, nullable=False)
+    event_data = Column(JSON, nullable=False)
+
+    status = Column(String, default="completed")
+    result = Column(JSON, nullable=True)
+    error = Column(String, nullable=True)
+
+    source = Column(String, default="user")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    is_undone = Column(Boolean, default=False)
+    undone_by_id = Column(String, ForeignKey("user_events.id"), nullable=True)
+
+    album = relationship("Album", back_populates="events")
+    run = relationship("PipelineRun", back_populates="events")
+
+    __table_args__ = (
+        Index('idx_event_album', 'album_id'),
+        Index('idx_event_run', 'run_id'),
+        Index('idx_event_type', 'event_type'),
+    )
+
+
+class FaceOverride(Base):
+    """Persistent face classification overrides from user corrections."""
+    __tablename__ = "face_overrides"
+
+    id = Column(String, primary_key=True)
+    album_id = Column(String, ForeignKey("albums.id"), nullable=False)
+    run_id = Column(String, ForeignKey("pipeline_runs.id"), nullable=True)
+
+    # Face identifier: "image_path:face_N"
+    face_key = Column(String, nullable=False)
+
+    # Classification status
+    status = Column(String, nullable=False)  # "assigned", "untagged", "not_a_face"
+    person_id = Column(String, ForeignKey("people.id"), nullable=True)
+
+    # For "not_a_face" - store embedding for similarity rejection
+    embedding = Column(JSON, nullable=True)
+
+    # Audit
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(String, default="user")
+
+    # Relationships
+    album = relationship("Album", back_populates="face_overrides")
+    run = relationship("PipelineRun", back_populates="face_overrides")
+    person = relationship("Person", back_populates="face_overrides")
+
+    __table_args__ = (
+        Index('idx_face_override_album_face', 'album_id', 'face_key'),
+        Index('idx_face_override_status', 'status'),
+        UniqueConstraint('album_id', 'face_key', name='uq_face_override_album_face'),
     )

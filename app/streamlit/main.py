@@ -22,6 +22,8 @@ from app.streamlit.pages.home import render_home_page
 from app.streamlit.pages.albums import render_albums_page
 from app.streamlit.pages.results import render_results_page
 from app.streamlit.pages.people import render_people_page
+from app.streamlit.pages.face_management import render_face_management_page
+from app.streamlit.pages.debug import render_debug_page
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -106,7 +108,14 @@ def render_app() -> None:
     render_sidebar()
 
     page = st.session_state.current_page
-    pages = {"home": render_home_page, "albums": render_albums_page, "results": render_results_page, "people": render_people_page}
+    pages = {
+        "home": render_home_page,
+        "albums": render_albums_page,
+        "results": render_results_page,
+        "people": render_people_page,
+        "faces": render_face_management_page,
+        "debug": render_debug_page,
+    }
     pages.get(page, render_home_page)()
 
 

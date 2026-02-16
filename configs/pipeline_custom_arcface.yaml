@@ -1,0 +1,213 @@
+# =============================================================================
+# Pipeline Configuration
+# =============================================================================
+# Controls the photo selection pipeline: face detection, scoring, clustering,
+# and smart image selection.
+#
+# This file is loaded as the "default" config profile on API startup.
+# Users can create custom profiles that override these values.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Pipeline Steps (default sequence)
+# -----------------------------------------------------------------------------
+# ACTIVE: InsightFace pipeline (used by API by default)
+default_pipeline:
+  - discover_images
+  - score_iqa
+  - score_ava
+  - detect_persons              # YOLOv8-Pose for person detection
+  - insightface_detect_faces    # InsightFace SCRFD for face detection
+  - insightface_score_expression # Expression scoring
+  - insightface_score_eyes       # Eye state scoring
+  - insightface_score_pose       # Face pose scoring
+  - filter_quality
+  - extract_scene_embedding
+  - cluster_scenes
+  - extract_face_embeddings
+  - cluster_people              # Global face clustering by identity
+  - cluster_by_identity         # Sub-cluster scenes by identity
+  - select_best                 # Smart selection with composite scoring
+
+# MINIMAL: No face detection (fast, scene-only)
+minimal_pipeline:
+  - discover_images
+  - score_iqa
+  - score_ava
+  - filter_quality
+  - extract_scene_embedding
+  - cluster_scenes
+  - select_best
+
+# LEGACY: MediaPipe pipeline (kept for compatibility)
+mediapipe_pipeline:
+  - discover_images
+  - detect_faces               # MediaPipe face detection
+  - score_iqa
+  - score_ava
+  - score_face_pose            # MediaPipe pose scoring
+  - score_face_eyes            # MediaPipe eye scoring
+  - score_face_smile           # MediaPipe smile scoring
+  - filter_quality
+  - extract_scene_embedding
+  - cluster_scenes
+  - extract_face_embeddings
+  - cluster_by_identity
+  - select_best
+
+# -----------------------------------------------------------------------------
+# Step Configurations
+# -----------------------------------------------------------------------------
+# Each key is a step name. Values are passed to that step's process() method.
+
+# Face Detection (detect_faces)
+detect_faces:
+  min_face_ratio: 0.005        # Face must cover at least 0.5% of image (very small faces allowed)
+  detection_confidence: 0.15    # MediaPipe confidence threshold (aggressive detection)
+  crop_padding: 0.2            # 20% padding around face crop
+
+# Face Pose Scoring (score_face_pose)
+score_face_pose:
+  device: cpu                  # Device for SixDRepNet (cpu, cuda, mps)
+  max_yaw: 75                  # Beyond this = reject (back of head)
+  max_pitch: 45                # Extreme up/down angle
+  max_roll: 30                 # Extreme head tilt
+  frontal_range: 15            # 0-15° = fully frontal (score 1.0)
+
+# Eye State Scoring (score_face_eyes)
+score_face_eyes:
+  # Uses MediaPipe EAR (Eye Aspect Ratio) internally
+  open_threshold: 0.2          # EAR above this = eyes open
+
+# Smile Scoring (score_face_smile)
+score_face_smile:
+  width_threshold: 0.15        # Mouth width ratio threshold for smile detection
+
+# IQA Scoring (score_iqa)
+score_iqa: {}
+
+# AVA Scoring (score_ava)
+score_ava:
+  checkpoint_path: models/album_app/ava_resnet50.pt
+
+# Quality Filtering (filter_quality)
+filter_quality:
+  min_iqa_score: 0.3           # Minimum technical quality (0-1)
+  min_sharpness: 0.2           # Minimum sharpness (0-1)
+
+# Scene Embedding (extract_scene_embedding)
+extract_scene_embedding:
+  model: dinov2                # Options: dinov2, openclip, resnet50
+  device: cpu                  # Options: cpu, cuda, mps
+
+# Scene Clustering (cluster_scenes)
+cluster_scenes:
+  method: hdbscan              # Options: hdbscan, dbscan, kmeans
+  min_cluster_size: 2          # Minimum images per cluster
+  min_samples: 2               # HDBSCAN parameter
+
+# Face Embedding (extract_face_embeddings)
+extract_face_embeddings:
+  checkpoint_path: models/album_app/arcface_resnet50.pt
+  device: cpu
+
+# People Clustering (cluster_people) - Global identity clustering for People tab
+cluster_people:
+  method: hdbscan              # Options: hdbscan (recommended), agglomerative
+  min_cluster_size: 2          # Minimum faces to form a person (HDBSCAN)
+  min_samples: 2               # Core point definition (HDBSCAN)
+  cluster_selection_epsilon: 0.3  # Merge clusters within this distance (higher = fewer clusters)
+  distance_threshold: 0.5      # For agglomerative method only
+
+# Identity Sub-Clustering (cluster_by_identity) - Split scene clusters by identity
+cluster_by_identity:
+  distance_threshold: 0.6      # ArcFace distance for same person
+  method: agglomerative        # Clustering method
+
+# Selection (select_best)
+# NEW DESIGN: composite_score = image_quality_score + person_penalty
+select_best:
+  max_images_per_cluster: 2    # Maximum images per cluster
+  min_score_threshold: 0.4     # Minimum composite score to keep image
+  dissimilarity_threshold: 0.85 # Embedding similarity threshold for dissimilar selection
+
+  # Image quality scoring strategy
+  quality_strategy: siamese_refinement  # Options: weighted_average, siamese_refinement, siamese_tournament
+  
+  # Quality weights for IQA and AVA
+  quality_weights:
+    iqa: 0.3
+    ava: 0.7
+
+  # Siamese refinement config (applies if quality_strategy = siamese_refinement)
+  siamese_refinement:
+    top_n: 3                   # Refine top N candidates with Siamese
+    boost_range: 0.1           # ±10% boost/penalty from Siamese
+
+  # Siamese tournament config (applies if quality_strategy = siamese_tournament)
+  siamese_tournament:
+    top_n: 4                   # Run tournament among top N candidates
+    base_weight: 0.4           # Weight for base quality (IQA+AVA)
+    siamese_weight: 0.6        # Weight for Siamese tournament score
+
+  # Person penalties (additive, 0 = no penalty)
+  person_penalties:
+    face_occlusion: -0.3       # Person present but no face detected
+    body_not_facing: -0.1      # Body not facing camera
+    eyes_closed: -0.15         # Eyes closed
+    not_smiling: -0.05         # Not smiling
+    face_turned: -0.1          # Face turned away
+    max_penalty: -0.7          # Cap total penalty at this value
+    # Thresholds for applying penalties
+    body_facing_threshold: 0.5 # Below this = body not facing
+    eyes_threshold: 0.5        # Below this = eyes closed
+    smile_threshold: 0.5       # Below this = not smiling
+    pose_threshold: 0.5        # Below this = face turned
+
+  # Siamese model config
+  siamese:
+    enabled: true
+    checkpoint_path: models/album_app/siamese_comparison_model.pt
+
+  # Clustering options
+  use_face_subclusters: true   # Use identity-based subclusters
+  include_noise: true          # Include noise cluster (-1)
+
+# -----------------------------------------------------------------------------
+# InsightFace Pipeline Step Configurations
+# -----------------------------------------------------------------------------
+
+# Person Detection (YOLOv8-Pose)
+detect_persons:
+  model_size: small  # Options: nano, small, medium
+  confidence_threshold: 0.25
+  device: cpu  # Options: cpu, cuda, mps
+  keypoint_confidence_threshold: 0.5
+  orientation_strategy: shoulder_hip
+
+# InsightFace Face Detection (SCRFD)
+insightface_detect_faces:
+  model_name: buffalo_l  # InsightFace model pack
+  detection_threshold: 0.5
+  device: cpu  # Options: cpu, cuda
+  associate_to_person: true
+
+# InsightFace Expression Scoring (uses MediaPipe on cropped faces)
+insightface_score_expression:
+  min_face_size: 50  # Skip faces smaller than this (pixels)
+  min_confidence: 0.5
+  crop_margin: 0.3  # Face crop margin (0.2-0.4)
+  target_size: 256  # Resize crop to NxN pixels
+  width_threshold: 0.15  # Mouth width ratio threshold for smile detection
+
+# InsightFace Eye Scoring (uses MediaPipe on cropped faces)
+insightface_score_eyes:
+  min_face_size: 50
+  min_confidence: 0.5
+  crop_margin: 0.3  # Face crop margin (0.2-0.4)
+  target_size: 256  # Resize crop to NxN pixels
+  ear_threshold: 0.2  # Eye aspect ratio threshold for open/closed
+
+# InsightFace Pose Scoring (uses 5-point landmarks)
+insightface_score_pose:
+  device: cpu

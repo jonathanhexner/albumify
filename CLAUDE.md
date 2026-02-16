@@ -3,6 +3,9 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## General
+- Always aim to learn from your failures. For any significant bug, please be sure to prodce a failure reports in a few lines and summarize a recommendation to docs\LEARNINGS.md.
+Log learnings in up to 3-5 lines with date according to order.
+- For every significant implemenation and plannding step always review learnings, and ensure we're not reapeating errors from the past.
 - Unless otherwise instructed, produce plans for approval prior to implementing code changes.
 - Consider how to test newly added features. Use tests/ folder.
 - In any rejection or replan, consider what needs to be changed in CLAUDE.md for future improvement, and propose making changes.
@@ -15,6 +18,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Avoid excessive Try/Except. Keep it only for extreme cases where output is unpredictable.
 - Avoid excessive If statements. Prefer using strategy or factory pattern.
 - Avoid usage of prints, prefer usage of proper logging. Make sure we support logging injection for centralized logging.
+
+
+## Verification
+- Avoid half baked code. Always verify you understand what you're being asked and that the code comlies with the request. 
+- When in doubt always ask questions to verify you understand the request.
 
 
 ## ⚠️ IMPORTANT: Change Tracking

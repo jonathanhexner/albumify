@@ -17,6 +17,10 @@ from sim_bench.pipeline.steps.score_face_smile import ScoreFaceSmileStep
 from sim_bench.pipeline.steps.filter_quality import FilterQualityStep
 from sim_bench.pipeline.steps.filter_portraits import FilterPortraitsStep
 from sim_bench.pipeline.steps.filter_best_faces import FilterBestFacesStep
+from sim_bench.pipeline.steps.filter_faces import FilterFacesStep
+
+# Face Analysis
+from sim_bench.pipeline.steps.score_face_frontal import ScoreFaceFrontalStep
 
 # Face Detection & Embedding (MediaPipe)
 from sim_bench.pipeline.steps.detect_faces import DetectFacesStep
@@ -35,6 +39,7 @@ from sim_bench.pipeline.steps.cluster_scenes import ClusterScenesStep
 
 # People Clustering
 from sim_bench.pipeline.steps.cluster_people import ClusterPeopleStep
+from sim_bench.pipeline.steps.identity_refinement import IdentityRefinementStep
 from sim_bench.pipeline.steps.cluster_by_identity import ClusterByIdentityStep
 
 # Selection
@@ -56,6 +61,9 @@ __all__ = [
     "FilterQualityStep",
     "FilterPortraitsStep",
     "FilterBestFacesStep",
+    "FilterFacesStep",
+    # Face Analysis
+    "ScoreFaceFrontalStep",
     # Face Detection & Embedding
     "DetectFacesStep",
     "ExtractFaceEmbeddingsStep",
@@ -70,6 +78,7 @@ __all__ = [
     "ClusterScenesStep",
     # People Clustering
     "ClusterPeopleStep",
+    "IdentityRefinementStep",
     "ClusterByIdentityStep",
     # Selection
     "SelectBestStep",

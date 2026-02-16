@@ -18,11 +18,14 @@ class PersonPenaltyConfig:
         eyes_closed: float = -0.15,
         not_smiling: float = -0.05,
         face_turned: float = -0.1,
+        frontal_penalty_weight: float = 0.3,
         max_penalty: float = -0.7,
         body_facing_threshold: float = 0.5,
         eyes_threshold: float = 0.5,
         smile_threshold: float = 0.5,
         pose_threshold: float = 0.5,
+        frontal_threshold: float = 0.6,
+        use_centrality_weighting: bool = True,
     ):
         """
         Initialize penalty configuration.
@@ -33,22 +36,28 @@ class PersonPenaltyConfig:
             eyes_closed: Penalty for eyes closed
             not_smiling: Penalty for not smiling
             face_turned: Penalty for face turned away
+            frontal_penalty_weight: Weight for non-frontal face penalty
             max_penalty: Maximum cumulative penalty cap
             body_facing_threshold: Threshold for body facing (below = penalty)
             eyes_threshold: Threshold for eyes open (below = penalty)
             smile_threshold: Threshold for smiling (below = penalty)
             pose_threshold: Threshold for face pose (below = penalty)
+            frontal_threshold: Threshold for frontal score (below = penalty)
+            use_centrality_weighting: Whether to weight frontal penalty by centrality
         """
         self.face_occlusion = face_occlusion
         self.body_not_facing = body_not_facing
         self.eyes_closed = eyes_closed
         self.not_smiling = not_smiling
         self.face_turned = face_turned
+        self.frontal_penalty_weight = frontal_penalty_weight
         self.max_penalty = max_penalty
         self.body_facing_threshold = body_facing_threshold
         self.eyes_threshold = eyes_threshold
         self.smile_threshold = smile_threshold
         self.pose_threshold = pose_threshold
+        self.frontal_threshold = frontal_threshold
+        self.use_centrality_weighting = use_centrality_weighting
 
 
 class PersonPenaltyComputer:
@@ -69,6 +78,7 @@ class PersonPenaltyComputer:
             f"eyes={config.eyes_closed}, "
             f"smile={config.not_smiling}, "
             f"pose={config.face_turned}, "
+            f"frontal={config.frontal_penalty_weight}, "
             f"max_penalty={config.max_penalty}"
         )
 
@@ -144,6 +154,7 @@ class PersonPenaltyComputer:
         total_penalty += self._compute_eyes_penalty(image_path, context)
         total_penalty += self._compute_smile_penalty(image_path, context)
         total_penalty += self._compute_pose_penalty(image_path, context)
+        total_penalty += self._compute_frontal_penalty(image_path, context)
 
         return total_penalty
 
@@ -218,6 +229,60 @@ class PersonPenaltyComputer:
         penalty = self.config.face_turned if face_turned else 0.0
         return penalty
 
+    def _compute_frontal_penalty(
+        self, image_path: str, context: PipelineContext
+    ) -> float:
+        """Compute penalty for non-frontal faces based on frontal_score.
+
+        Uses the BEST frontal score across all faces that passed filtering.
+        Penalty is weighted by centrality (more central faces matter more).
+        """
+        path_normalized = image_path.replace('\\', '/')
+
+        # Get InsightFace faces with frontal scores
+        if not hasattr(context, 'insightface_faces') or not context.insightface_faces:
+            return 0.0
+
+        face_data = context.insightface_faces.get(path_normalized, {})
+        if not face_data:
+            face_data = context.insightface_faces.get(image_path, {})
+
+        faces = face_data.get('faces', [])
+        if not faces:
+            return 0.0
+
+        # Find the best frontal score among faces that passed filtering
+        best_frontal_score = 0.0
+        best_centrality = 0.0
+
+        for face in faces:
+            # Skip faces that didn't pass filtering
+            if not face.get('filter_passed', True):
+                continue
+
+            frontal_score = face.get('frontal_score', 1.0)
+            centrality = face.get('centrality', 0.5)
+
+            # Track the best frontal score
+            if frontal_score > best_frontal_score:
+                best_frontal_score = frontal_score
+                best_centrality = centrality
+
+        # No penalty if we have good frontal faces
+        if best_frontal_score >= self.config.frontal_threshold:
+            return 0.0
+
+        # Compute penalty: higher when frontal_score is low
+        # penalty = (1 - frontal_score) * weight
+        frontal_deficit = 1.0 - best_frontal_score
+        penalty = -frontal_deficit * self.config.frontal_penalty_weight
+
+        # Optionally weight by centrality (central faces matter more)
+        if self.config.use_centrality_weighting:
+            penalty = penalty * best_centrality
+
+        return penalty
+
 
 class PersonPenaltyFactory:
     """Factory for creating person penalty computer."""
@@ -239,11 +304,14 @@ class PersonPenaltyFactory:
             eyes_closed=config.get("eyes_closed", -0.15),
             not_smiling=config.get("not_smiling", -0.05),
             face_turned=config.get("face_turned", -0.1),
+            frontal_penalty_weight=config.get("frontal_penalty_weight", 0.3),
             max_penalty=config.get("max_penalty", -0.7),
             body_facing_threshold=config.get("body_facing_threshold", 0.5),
             eyes_threshold=config.get("eyes_threshold", 0.5),
             smile_threshold=config.get("smile_threshold", 0.5),
             pose_threshold=config.get("pose_threshold", 0.5),
+            frontal_threshold=config.get("frontal_threshold", 0.6),
+            use_centrality_weighting=config.get("use_centrality_weighting", True),
         )
 
         computer = PersonPenaltyComputer(penalty_config)

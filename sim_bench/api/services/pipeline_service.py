@@ -200,15 +200,19 @@ class PipelineService:
             self._session.add(pipeline_result)
 
             # Persist people records from face clustering results
-            self._logger.info(f"People clusters in context: {len(job.context.people_clusters)} clusters")
-            if job.context.people_clusters:
+            # Prefer refined clusters from identity_refinement step if available
+            people_clusters = job.context.refined_people_clusters or job.context.people_clusters
+            cluster_source = "refined" if job.context.refined_people_clusters else "original"
+            self._logger.info(f"People clusters in context: {len(people_clusters)} clusters (source: {cluster_source})")
+            if people_clusters:
                 try:
                     people_service = PeopleService(self._session)
                     created = people_service.create_from_clusters(
                         album_id=job.album_id,
                         run_id=job_id,
-                        people_clusters=job.context.people_clusters,
-                        people_thumbnails=job.context.people_thumbnails or None
+                        people_clusters=people_clusters,
+                        people_thumbnails=job.context.people_thumbnails or None,
+                        attachment_decisions=job.context.attachment_decisions or None
                     )
                     self._logger.info(f"Created {len(created)} Person records")
                 except Exception as e:
@@ -286,6 +290,55 @@ class PipelineService:
                 if smile is not None:
                     smile_scores.append(smile)
 
+        # Extract face filtering and frontal scores from InsightFace faces
+        filter_stats = insightface_data.get('filter_stats', {})
+        frontal_stats = insightface_data.get('frontal_stats', {})
+
+        # Get best frontal score, roll angle, and centrality from all faces
+        best_frontal_score = None
+        best_centrality = None
+        roll_angles = []
+        filter_scores_list = []
+        frontal_scores_list = []
+
+        for face_info in insightface_faces:
+            # Filter scores
+            filter_scores = face_info.get('filter_scores', {})
+            if filter_scores:
+                filter_scores_list.append({
+                    'face_index': face_info.get('face_index', 0),
+                    'confidence': filter_scores.get('confidence'),
+                    'bbox_ratio': filter_scores.get('bbox_ratio'),
+                    'relative_size': filter_scores.get('relative_size'),
+                    'eye_ratio': filter_scores.get('eye_ratio'),
+                    'filter_passed': face_info.get('filter_passed', True),
+                })
+
+            # Frontal scores (only for faces that passed filtering)
+            if face_info.get('filter_passed', True):
+                frontal_score = face_info.get('frontal_score')
+                if frontal_score is not None:
+                    frontal_scores_data = face_info.get('frontal_scores', {})
+                    frontal_scores_list.append({
+                        'face_index': face_info.get('face_index', 0),
+                        'frontal_score': frontal_score,
+                        'eye_bbox_ratio': frontal_scores_data.get('eye_bbox_ratio'),
+                        'asymmetry': frontal_scores_data.get('asymmetry'),
+                        'is_clusterable': face_info.get('is_clusterable', True),
+                    })
+
+                    if best_frontal_score is None or frontal_score > best_frontal_score:
+                        best_frontal_score = frontal_score
+
+                centrality = face_info.get('centrality')
+                if centrality is not None:
+                    if best_centrality is None or centrality > best_centrality:
+                        best_centrality = centrality
+
+                roll_angle = face_info.get('roll_angle')
+                if roll_angle is not None:
+                    roll_angles.append(roll_angle)
+
         return {
             "iqa_score": context.iqa_scores.get(path),
             "ava_score": context.ava_scores.get(path),
@@ -301,6 +354,15 @@ class PipelineService:
             "person_detected": person_data.get('person_detected'),
             "body_facing_score": person_data.get('body_facing_score'),
             "person_confidence": person_data.get('confidence'),
+            # Face filtering metrics
+            "filter_stats": filter_stats or None,
+            "filter_scores": filter_scores_list or None,
+            # Frontal scoring metrics
+            "frontal_stats": frontal_stats or None,
+            "frontal_scores": frontal_scores_list or None,
+            "best_frontal_score": best_frontal_score,
+            "best_centrality": best_centrality,
+            "roll_angles": roll_angles or None,
         }
 
     def get_status(self, job_id: str) -> Optional[PipelineRun]:

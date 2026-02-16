@@ -101,11 +101,13 @@ class ClusterByIdentityStep(BaseStep):
             return
 
         # Build lookup from (image_path, face_index) -> person_id
-        # This uses the global clustering from cluster_people step
+        # Prefer refined clusters from identity_refinement step if available
         face_to_person = {}
-        if context.people_clusters:
-            face_to_person = _build_face_to_person_lookup(context.people_clusters)
-            logger.info(f"Built face-to-person lookup with {len(face_to_person)} entries")
+        people_clusters = context.refined_people_clusters or context.people_clusters
+        if people_clusters:
+            face_to_person = _build_face_to_person_lookup(people_clusters)
+            source = "refined" if context.refined_people_clusters else "original"
+            logger.info(f"Built face-to-person lookup with {len(face_to_person)} entries (source: {source})")
         else:
             logger.warning("No people_clusters available - identity grouping will be limited")
 

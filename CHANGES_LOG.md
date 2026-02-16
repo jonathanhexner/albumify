@@ -6,6 +6,586 @@
 
 ---
 
+## 2026-02-15 23:55:00
+
+**Files**:
+- `scripts/benchmark_face_clustering.py`
+
+**Change**: CRITICAL BUG FIX #2 - Missing EXIF rotation when saving face crops
+
+**Reason**: User reported Face 83 crop showed non-face content, but bbox visualization showed correct face. Investigation revealed crops were being taken from un-rotated images while bbox coordinates were relative to EXIF-rotated images.
+
+**The Bug**:
+- InsightFace detects faces on correctly-oriented images (respects EXIF rotation)
+- Bbox coordinates stored relative to rotated dimensions  
+- `save_single_face_crop()` opened images WITHOUT `ImageOps.exif_transpose()`
+- Cropped from wrong location in portrait/rotated photos
+- Result: Random image regions saved as "face crops"
+
+**The Fix**:
+```python
+# Before (WRONG):
+img = Image.open(image_path)
+
+# After (CORRECT):
+img = ImageOps.exif_transpose(Image.open(image_path))
+```
+
+**Impact**: ALL crops from portrait/rotated images were wrong. Explains why:
+- High-confidence "faces" showed non-face content
+- Embeddings were confused (trained on actual faces, got random textures)
+- Clustering was grouping random image regions
+
+**Testing**: MUST re-run benchmark to regenerate all face crops.
+
+---
+
+## 2026-02-15 23:45:00
+
+**Files**:
+- `scripts/benchmark_face_clustering.py`
+
+**Change**: CRITICAL BUG FIX - Face crop index misalignment
+
+**Reason**: User reported images showing no faces despite high confidence and low distances to other faces. Investigation revealed a fatal index mapping bug.
+
+**The Bug**:
+When saving face crops, some faces were skipped due to invalid bboxes (e.g., 236/254 saved). However:
+1. Crop filenames used the original metadata index (with gaps: face_0000, face_0002, face_0003, ...)
+2. Clustering and metadata still referenced all 254 faces
+3. Streamlit loaded `face_0002.jpg` thinking it was metadata[2], but it was actually metadata[3]'s crop!
+
+**The Fix**:
+1. `save_face_crops()` now uses a sequential counter for saved crops (face_0000, face_0001, face_0002, ...)
+2. Returns list of successfully saved indices
+3. Metadata and embeddings are filtered to match saved crops before clustering
+4. Result: Perfect 1:1 alignment between metadata index, crop filename, and clustering labels
+
+**Testing**: Must re-run benchmark to regenerate properly aligned data.
+
+---
+
+## 2026-02-15 23:10:00
+
+**Files**:
+- `scripts/benchmark_face_clustering.py` (major update)
+- `app/face_clustering_comparison.py` (complete rewrite)
+
+**Change**: Enhanced clustering benchmark and comparison UI with detailed exploration
+
+**Reason**: User feedback identified several issues:
+1. Face crops weren't aligned (despite embeddings being aligned)
+2. Difficult to compare methods due to misaligned cluster numbers
+3. Need detailed cluster exploration with metrics, landmarks, and distance analysis
+
+**Details**:
+
+**Benchmark Script (`scripts/benchmark_face_clustering.py`)**:
+1. **Face crop alignment**: Added `align_crop_by_roll()` to rotate saved face crops by roll angle (same alignment as embeddings)
+2. **Enhanced metadata collection**: Now includes `roll_angle`, `pitch_angle`, `yaw_angle`, `frontal_score`, `eye_bbox_ratio`, `asymmetry_ratio`
+3. **Cluster statistics**: Added `calculate_cluster_statistics()` to compute:
+   - Intra-cluster distances (min/max/mean/std using cosine distance)
+   - Nearest external face distance for each cluster
+4. **Embeddings export**: Save embeddings to `.npy` file for use in Streamlit distance matrix calculations
+5. Added `cv2` import for image rotation
+
+**Streamlit App (`app/face_clustering_comparison.py`)**:
+1. **Overview page** with side-by-side:
+   - Cluster statistics tables showing intra-cluster distances and nearest external distances
+   - Cluster galleries with filtering (min size, max clusters shown)
+2. **Detailed cluster explorer** for each method with:
+   - Face thumbnails with 5-point landmarks overlaid
+   - Face quality metrics table (confidence, frontal score, pose angles, eye/width ratio, asymmetry)
+   - Intra-cluster distance matrix heatmap (requires embeddings)
+   - 5 nearest faces outside the cluster with distances
+3. **Better UI organization**: Clear page navigation, method separation, expandable clusters
+4. **Embeddings loading**: Loads `.npy` embeddings file for distance calculations
+
+**Testing**:
+- Both files pass linting
+- Ready for re-run of benchmark to test all new features
+
+---
+
+## 2026-02-15 18:00:00
+
+**Files**:
+- `scripts/benchmark_face_clustering.py`
+
+**Change**: Added file-based logging and fixed numpy.bool_ serialization
+
+**Reason**: Logs were only going to stdout, making post-execution debugging difficult. JSON serialization was failing on numpy boolean types.
+
+**Details**:
+1. Added `setup_logging()` function to write logs to both console and `results/face_clustering_benchmark/logs/benchmark_TIMESTAMP.log`
+2. Extended `NumpyTypeConverter` to handle `np.bool_` types (in addition to integers, floats, and arrays)
+3. Logging now captures all pipeline and clustering operations for debugging
+
+---
+
+## 2026-02-15 01:20:00
+
+**Files**:
+- `sim_bench/clustering/hybrid_hdbscan_knn.py` (created)
+- `sim_bench/clustering/base.py` (modified)
+- `scripts/benchmark_face_clustering.py` (created)
+- `app/face_clustering_comparison.py` (created)
+- `configs/clustering_benchmark.yaml` (created)
+
+**Change**: Implemented Hybrid HDBSCAN+kNN Face Clustering with Benchmark and Comparison Tools
+
+**Reason**: Address face clustering issues where correct faces were not being clustered together
+
+**Details**:
+1. **Hybrid Clustering Algorithm** (`hybrid_hdbscan_knn.py`):
+   - Stage 1: HDBSCAN for dense identity cores
+   - Stage 2: Build cluster-level kNN graph between centroids
+   - Stage 3: Merge clusters with mutual kNN links, ≥2 cross-links, and distance checks
+   - Stage 4: Attach singletons to nearest clusters or create singleton clusters
+   - Configurable parameters: knn_k, merge_min_links, merge_distance_ceiling, singleton_attach_threshold
+
+2. **Clustering Factory Update** (`base.py`):
+   - Added `hybrid_hdbscan_knn` to clustering method registry
+   - Enables loading via `load_clustering_method({'algorithm': 'hybrid_hdbscan_knn', ...})`
+
+3. **Benchmark Script** (`benchmark_face_clustering.py`):
+   - Runs full pipeline on album to extract face embeddings (with filtering)
+   - Executes both HDBSCAN and Hybrid methods on same face data
+   - Saves face crops (112x112) for visualization
+   - Outputs JSON results with labels, statistics, and merge details
+   - Generates `results/face_clustering_benchmark/` directory structure
+
+4. **Streamlit Comparison App** (`face_clustering_comparison.py`):
+   - Side-by-side visual comparison of clustering methods
+   - Metrics table: clusters, noise/singletons, avg/min/max sizes
+   - Cluster gallery with face crops in grid layout
+   - Merge details view showing hybrid algorithm decisions
+   - Filtering: min cluster size, show/hide singletons
+   - Sorting: by size or ID
+
+5. **Configuration** (`clustering_benchmark.yaml`):
+   - HDBSCAN config matching current pipeline defaults
+   - Hybrid kNN config with recommended parameter values
+   - Pipeline steps for face extraction with filtering
+   - Output directory and face crop settings
+
+**Usage**:
+```bash
+# Run benchmark
+python scripts/benchmark_face_clustering.py --album-path D:\Budapest2025_Google
+
+# View results
+streamlit run app/face_clustering_comparison.py
+```
+
+---
+
+## 2026-02-14 15:30:00
+
+**Files**:
+- `app/streamlit/pages/face_management.py` (created)
+- `app/streamlit/main.py` (modified)
+- `app/streamlit/components/sidebar.py` (modified)
+
+**Change**: Implemented Phase 2 Frontend Foundation for Face Management
+
+**Reason**: Second phase of Face Management UI implementation - creating the main page and navigation
+
+**Details**:
+1. **Face Management Page** (`pages/face_management.py`):
+   - Full page with 4 tabs: "Needs Help", "All Faces", "People", "Pending Changes"
+   - **Needs Help Tab**: Shows borderline faces needing user decision with confirm/reassign/skip buttons
+   - **All Faces Tab**: Grid/list view of all faces with status filtering, selection checkboxes
+   - **People Tab**: Shows all detected people with expandable details, exemplar counts, rename option
+   - **Pending Changes Tab**: Batch mode control, change list with undo/reorder, apply all button
+   - Batch/live mode toggle with automatic change application in live mode
+   - Session state management for pending changes, selections, and mode
+   - Helper functions for action descriptions, change management
+
+2. **Navigation Updates** (`sidebar.py`):
+   - Added "Faces" page to navigation (icon: 🎭)
+   - Positioned between "People" and "Debug"
+
+3. **Main App Updates** (`main.py`):
+   - Added import for `render_face_management_page`
+   - Added "faces" route to pages dictionary
+
+---
+
+## 2026-02-14 14:00:00
+
+**Files**:
+- `sim_bench/api/database/models.py` (modified)
+- `sim_bench/api/schemas/face.py` (created)
+- `sim_bench/api/services/face_service.py` (created)
+- `sim_bench/api/routers/faces.py` (created)
+- `sim_bench/api/main.py` (modified)
+
+**Change**: Implemented Phase 1 Backend Foundation for Face Management
+
+**Reason**: First phase of Face Management UI implementation
+
+**Details**:
+1. **FaceOverride Model** (models.py):
+   - New model to persist user face corrections
+   - Fields: face_key, status, person_id, embedding (for "not_a_face" learning)
+   - Relationships to Album, PipelineRun, Person
+   - Indexes for fast lookup
+
+2. **Face Schemas** (schemas/face.py):
+   - FaceInfo: Complete face information with status, assignment, quality metrics
+   - PersonDistance: Distance from face to person with exemplar matches
+   - BorderlineFace: Face in uncertainty zone for "Needs Help" wizard
+   - PersonSummary: Person overview for listing
+   - FaceAction: Single action request (assign/unassign/untag/not_a_face)
+   - BatchChangeRequest/Response: Batch operations
+
+3. **FaceService** (services/face_service.py):
+   - get_all_faces(): List faces with status and assignments
+   - get_face_distances(): Compute distances to all people
+   - get_borderline_faces(): Find faces needing user decision
+   - get_people_summary(): List people with counts
+   - apply_batch_changes(): Apply multiple changes with optional recluster
+   - create_person(): Create new person from faces
+   - Helper methods for embeddings, thumbnails, overrides
+
+4. **Faces Router** (routers/faces.py):
+   - GET /faces: List faces with optional status filter
+   - GET /faces/needs-help: Get borderline faces
+   - GET /faces/people: Get people summary
+   - GET /faces/{face_key}: Get single face
+   - GET /faces/{face_key}/distances: Get distances to people
+   - POST /faces/{face_key}/action: Apply single action
+   - POST /faces/batch: Apply batch changes
+   - POST /faces/person: Create new person
+
+---
+
+## 2026-02-14 12:00:00
+
+**Files**:
+- `docs/FACE_MANAGEMENT_MODULES.md` (created)
+
+**Change**: Created detailed module specifications for Face Management feature
+
+**Reason**: User requested clear plans for each individual module
+
+**Details**:
+- 14 modules documented with complete specifications
+- Each module includes: Purpose, File location, Dependencies, Interface, Implementation steps, Test cases
+- Backend modules: FaceOverride Model, Face Schemas, FaceService, Faces Router
+- Frontend modules: Page, FaceCard, FaceGrid, ActionMenu, NeedsHelpWizard, PendingChangesPanel, PersonDetail, FaceDetailSheet, Toasts
+- API Client extensions documented
+- Dependency graph showing implementation order
+- Effort estimates for each module (S/M/L)
+
+---
+
+## 2026-02-14 11:00:00
+
+**Files**:
+- `docs/FACE_MANAGEMENT_UI_PLAN.md` (created)
+
+**Change**: Created comprehensive UI/UX implementation plan for Face Management page
+
+**Reason**: User requested a detailed plan before implementing the Face Management UI
+
+**Details**:
+- 7 implementation phases with 25+ tasks
+- Backend: New FaceOverride model, FaceService, faces router
+- Frontend: 10 new components (FaceCard, ActionMenu, NeedsHelpWizard, etc.)
+- State management design with batch/live modes
+- Testing strategy (unit, integration, manual)
+- Accessibility requirements
+- Open questions documented
+
+---
+
+## 2026-02-14 10:00:00
+
+**Files**:
+- `sim_bench/api/database/models.py`
+- `sim_bench/pipeline/steps/attachment_strategies.py` (created)
+- `sim_bench/pipeline/steps/identity_refinement.py` (created)
+- `sim_bench/pipeline/context.py`
+- `sim_bench/pipeline/steps/cluster_by_identity.py`
+- `sim_bench/api/services/people_service.py`
+- `sim_bench/api/services/event_service.py` (created)
+- `sim_bench/api/routers/events.py` (created)
+- `sim_bench/pipeline/steps/all_steps.py`
+- `configs/pipeline.yaml`
+- `tests/pipeline/steps/test_attachment_strategies.py` (created)
+- `tests/pipeline/steps/test_identity_refinement.py` (created)
+
+**Change**: Implemented Identity Refinement system for improved face clustering quality
+
+**Reason**: HDBSCAN assigns noise faces (cluster_id=-1) which were incorrectly grouped as a single Person. Same-person faces sometimes have borderline distances (~0.45) due to hairstyle/expression variations. Need post-processing to refine cluster assignments.
+
+**Details**:
+
+1. **UserEvent Model** (`models.py`):
+   - Generic event tracking table for user actions, feedback, AI requests
+   - Fields: event_type, event_data (JSON), status, result, source, is_undone, undone_by_id
+   - Supports undo capability via is_undone flag and undone_by_id reference
+
+2. **Attachment Strategies** (`attachment_strategies.py`):
+   - Factory pattern with 3 strategies: CentroidStrategy, ExemplarStrategy, HybridStrategy
+   - ClusterInfo dataclass holds centroid and exemplar embeddings
+   - AttachmentResult dataclass with attached, cluster_id, confidence, distances
+   - Thresholds: centroid_threshold=0.38, exemplar_threshold=0.40, reject_threshold=0.45
+   - Multi-exemplar matching: `>= max(2, ceil(0.3*K))` with small cluster special case
+
+3. **Identity Refinement Step** (`identity_refinement.py`):
+   - Separates noise cluster (-1) from core clusters
+   - Selects K exemplars per cluster using quality_diverse method
+   - Computes normalized centroids from embeddings
+   - Attempts attachment using configurable strategy (hybrid default)
+   - Applies stored user overrides (attach, split, reassign, create)
+   - Outputs: refined_people_clusters, unassigned_faces, cluster_exemplars, cluster_centroids, attachment_decisions
+
+4. **Pipeline Context Updates** (`context.py`):
+   - Added fields: refined_people_clusters, unassigned_faces, cluster_exemplars, cluster_centroids, attachment_decisions, user_overrides
+
+5. **Downstream Integration**:
+   - `cluster_by_identity.py`: Uses refined_people_clusters if available
+   - `people_service.py`: Tracks assignment_method (core, auto_attached, user_assigned) and assignment_confidence
+
+6. **Event Service** (`event_service.py`):
+   - record_event(): Persists user actions to database
+   - undo_event(): Marks event as undone, optionally replays inverse
+   - apply_face_override(): Creates face_assign events
+
+7. **Events API** (`events.py`):
+   - POST /events: Record new event
+   - POST /events/{id}/undo: Undo specific event
+   - GET /events: List events with filtering
+   - POST /events/face-assign: Shortcut for face assignment
+
+8. **Configuration** (`pipeline.yaml`):
+   - Added identity_refinement to default_pipeline after cluster_people
+   - Full config section with all thresholds and options
+
+9. **Tests**:
+   - `test_attachment_strategies.py`: Tests for all 3 strategies, cosine distance, factory
+   - `test_identity_refinement.py`: Tests for noise separation, face key generation, centroid computation, exemplar selection, disabled pass-through, integration tests
+
+---
+
+## 2026-02-13 16:30:00
+
+**Files**:
+- `sim_bench/pipeline/steps/extract_face_embeddings.py`
+
+**Change**: Fixed critical bug - extract_face_embeddings now depends on score_face_frontal
+
+**Details**:
+- Changed `depends_on=["insightface_detect_faces"]` to `depends_on=["score_face_frontal"]`
+- Without this fix, the topological sort could run embedding extraction BEFORE filtering steps
+- This caused all faces to get embeddings (filter_passed and is_clusterable fields didn't exist yet)
+- Now the dependency chain is: `insightface_detect_faces` → `filter_faces` → `score_face_frontal` → `extract_face_embeddings` → `cluster_people`
+
+**Reason**: Root cause of why face filtering wasn't being applied to clustering
+
+---
+
+## 2026-02-13 16:00:00
+
+**Files**:
+- `app/streamlit/pages/debug.py` (NEW)
+- `app/streamlit/main.py`
+- `app/streamlit/components/sidebar.py`
+- `app/streamlit/pages/people.py`
+- `sim_bench/pipeline/steps/filter_faces.py`
+- `sim_bench/pipeline/steps/score_face_frontal.py`
+- `sim_bench/pipeline/steps/extract_face_embeddings.py`
+
+**Change**: Added Debug page and verbose logging for face filtering
+
+**Details**:
+1. **New Debug Page** (`/debug`):
+   - Face scores table showing all filter/frontal metrics per face
+   - Filtering explanation with thresholds
+   - Image detail view with per-face metrics
+   - Config knobs (read-only for now)
+   - Accessible from sidebar navigation
+
+2. **Verbose Logging**:
+   - `filter_faces`: Logs total/passed/failed counts, failures by criterion, sample scores
+   - `score_face_frontal`: Logs frontal score distribution, clusterable counts, samples
+   - `extract_face_embeddings`: Logs total faces, selected for embedding, skipped counts
+
+3. **People Page Enhancement**:
+   - Added "Face Filtering Summary" expander explaining the pipeline
+   - Added button to open Debug page
+   - Added Debug button in no-people state
+
+**Reason**: User requested debug tools to verify face filtering is applied and understand clustering results
+
+---
+
+## 2026-02-13 14:30:00
+
+**Files**:
+- `sim_bench/pipeline/steps/filter_faces.py` (NEW)
+- `sim_bench/pipeline/steps/score_face_frontal.py` (NEW)
+- `sim_bench/pipeline/steps/extract_face_embeddings.py`
+- `sim_bench/pipeline/steps/all_steps.py`
+- `sim_bench/pipeline/scoring/person_penalty.py`
+- `sim_bench/api/services/pipeline_service.py`
+- `app/streamlit/models.py`
+- `app/streamlit/api_client.py`
+- `app/streamlit/components/metrics.py`
+- `configs/pipeline.yaml`
+- `docs/FACE_FILTERING_PLAN.md`
+
+**Change**: Implemented face filtering and frontal scoring pipeline
+
+**Details**:
+1. **filter_faces step**: Removes small/low-confidence faces
+   - Filters by: min_confidence (0.5), min_bbox_ratio (0.02), min_relative_size (0.3), min_eye_ratio (0.01)
+   - Marks faces with `filter_passed`, `filter_scores`, `filter_reason`
+   - Keeps all faces but marks which passed (for debugging)
+
+2. **score_face_frontal step**: Computes frontal score and marks clusterable faces
+   - Frontal score from: eye_bbox_ratio + asymmetry_score
+   - Computes roll_angle from eye landmarks
+   - Computes centrality (distance from image center)
+   - Marks `is_clusterable` based on frontal_score threshold (0.4)
+
+3. **extract_face_embeddings**: Modified for roll alignment and filtering
+   - Skips non-clusterable faces (`filter_passed=False` or `is_clusterable=False`)
+   - Applies roll alignment to face crops before embedding extraction
+
+4. **person_penalty**: Added frontal penalty
+   - New `frontal_penalty_weight` config (0.3)
+   - Penalty = (1 - best_frontal_score) * weight * centrality
+   - Only applies if best_frontal_score < frontal_threshold (0.6)
+
+5. **UI updates**: Display new scores in metrics table
+   - Faces column shows "passed/total"
+   - New columns: Frontal, Central, Roll, Clusterable
+
+6. **pipeline.yaml**: Added new steps to default_pipeline
+   - filter_faces runs after insightface_detect_faces
+   - score_face_frontal runs after filter_faces
+
+**Reason**: Improve face clustering quality by filtering small/unreliable faces and excluding non-frontal faces from clustering
+
+**Note**: Delete database (`~/.sim_bench/sim_bench.db`) before testing to clear stale cache
+
+---
+
+## 2026-02-12 21:20:00
+
+**Files**:
+- `notebooks/debug_face_analysis.ipynb`
+
+**Change**: Added filtered high-quality face visualizations section
+
+**Details**:
+- New section "Filtered High-Quality Faces" placed before distance matrix
+- Shows only faces passing all quality checks: Size OK (≥70px), Frontal (eye/width ≥0.20), Symmetric (asymmetry <1.8)
+- Two visualizations:
+  1. Cropped faces with landmarks (filtered)
+  2. Embedding distance matrix (filtered)
+- Faces labeled with "(HQ)" to indicate high-quality
+- Helps focus analysis on reliable face detections
+
+**Reason**: User requested filtered visualizations to analyze only high-quality faces that meet all criteria
+
+---
+
+## 2026-02-12 21:15:00
+
+**Files**:
+- `notebooks/debug_face_analysis.ipynb`
+
+**Change**: Added EXIF rotation handling for proper image orientation
+
+**Details**:
+- Added `ImageOps` to PIL imports
+- Applied `ImageOps.exif_transpose()` after all `Image.open()` calls
+- Ensures smartphone photos with EXIF rotation metadata display correctly
+- Updated 3 image loading locations: full visualization, cropped faces, metrics calculation
+
+**Reason**: User requested proper image rotation handling to display images in correct orientation
+
+---
+
+## 2026-02-12 21:10:00
+
+**Files**:
+- `notebooks/debug_face_analysis.ipynb`
+
+**Change**: Added face_width/image_width ratio to Face Metrics Summary
+
+**Details**:
+- Added "Face/Img" column showing face_width / image_width ratio
+- Shows what portion of image width the face occupies (0.0-1.0)
+- Helps identify close-up vs distant faces
+- Image dimensions loaded once per image for efficiency
+
+**Reason**: User requested face width to image width ratio for face scale analysis
+
+---
+
+## 2026-02-12 21:00:00
+
+**Files**:
+- `notebooks/debug_face_analysis.ipynb`
+
+**Change**: Enhanced Face Metrics Summary with derived quality metrics
+
+**Details**:
+Added InsightFace-based quality heuristics to metrics table:
+- Inter-eye distance (pixels)
+- Eye/Width ratio (inter_eye / bbox_width) - frontal face indicator (>0.20 = frontal)
+- Asymmetry ratio (max nose-to-eye / min nose-to-eye) - symmetry indicator (<1.8 = symmetric)
+- Quality flags: Frontal?, Symmetric?, Size OK? (✓/✗)
+- Thresholds: eye/width >= 0.20 (frontal), asymmetry < 1.8 (symmetric), width >= 70px (size)
+
+**Reason**: User requested additional derived metrics from landmarks to assess face quality and profile detection
+
+---
+
+## 2026-02-12 20:45:00
+
+**Files**:
+- `notebooks/debug_face_analysis.ipynb`
+
+**Change**: Added cropped face visualization section with landmarks
+
+**Details**:
+- Shows cropped faces in rows (one row per image, up to 4 faces per row)
+- Landmarks overlaid on cropped faces
+- 20% padding around face bounding boxes
+- Each face labeled with image name and face number
+- Placed before Face Metrics Summary section
+
+**Reason**: User requested separate cropped face visualization to better see landmark positions on individual faces
+
+---
+
+## 2026-02-12 20:30:00
+
+**Files**:
+- `notebooks/debug_face_analysis.ipynb` (created)
+
+**Change**: Created face analysis debug notebook for visualizing face detection results from database
+
+**Details**:
+- Queries `universal_cache` table for face detections, landmarks, and embeddings
+- Queries `pipeline_results` table for face scores (pose, eyes, smile)
+- Visualizes faces with bounding boxes and 5-point landmarks overlay
+- Displays face metrics summary table
+- Calculates and visualizes embedding distance matrix
+- Database path: `Path.home() / '.sim_bench' / 'sim_bench.db'`
+- Uses numpy deserialization for embeddings (not pickle)
+
+**Reason**: User requested debugging notebook to analyze face detection results for specific images, with no try/except blocks and minimal logging
+
+---
+
 ## 2026-02-11 01:00:00
 
 **Files**:
@@ -1155,6 +1735,39 @@ This log helps:
 - `test_face_pipeline_e2e.py`: Tests actual pipeline steps (detection → embedding → clustering)
 
 **Action Required**: Re-run the pipeline on albums to regenerate embeddings and people clusters
+
+---
+
+### 2026-02-16 01:35:00
+**Files**:
+- `sim_bench/clustering/hybrid_hdbscan_knn.py` (complete rewrite)
+- `sim_bench/clustering/hybrid_closest_face.py` (bug fix)
+
+**Change**: Simplified face clustering algorithm to use median + 2×IQR threshold
+
+**Reason**: Previous complex algorithm with exemplars, minimum pairs, and distinct exemplar requirements was too restrictive (0 merges, 0 attachments). User requested simpler, statistically grounded approach.
+
+**New Algorithm**:
+1. HDBSCAN → initial clusters
+2. For each cluster, compute T = median(K-NN distances) + 2×IQR
+3. Iteratively:
+   - Merge: if closest inter-cluster pair ≤ min(T_a, T_b)
+   - Attach: noise point → cluster if closest face ≤ T
+4. Repeat until no changes
+
+**Parameters**:
+- `knn_k`: 3 (neighbors for local cohesion)
+- `iqr_multiplier`: 2.0
+- `threshold_floor`: 0.3 (minimum threshold)
+- `max_iterations`: 10
+
+**Benchmark Results** (Budapest2025_Google, 254 faces):
+- HDBSCAN baseline: 24 clusters, 83 noise
+- **New algorithm: 5 clusters, 0 noise** (14 merges, 93 attached)
+- Old hybrid_closest: 112 clusters, 0 noise (0 merges, no attachment)
+
+**Bug Fix** (`hybrid_closest_face.py`):
+- Added missing `merge_threshold` and `attach_threshold` attributes to `__init__`
 
 ---
 

@@ -58,6 +58,16 @@ class PipelineContext:
     people_thumbnails: dict[int, Any] = field(default_factory=dict)
     people_best_images: dict[int, dict] = field(default_factory=dict)
 
+    # Identity refinement outputs
+    refined_people_clusters: dict[int, list] = field(default_factory=dict)
+    unassigned_faces: list = field(default_factory=list)
+    cluster_exemplars: dict[int, list] = field(default_factory=dict)
+    cluster_centroids: dict[int, np.ndarray] = field(default_factory=dict)
+    attachment_decisions: dict[str, dict] = field(default_factory=dict)
+
+    # User overrides (loaded from DB before refinement)
+    user_overrides: list = field(default_factory=list)
+
     # Composite scores (keyed by image path string, computed during select_best)
     composite_scores: dict[str, float] = field(default_factory=dict)
 

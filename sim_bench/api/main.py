@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from sim_bench.api.database.session import init_db, get_session
-from sim_bench.api.routers import albums, pipeline, steps, websocket, people, results, config
+from sim_bench.api.routers import albums, pipeline, steps, websocket, people, results, config, events, faces
 from sim_bench.api.logging import setup_logging, get_logger
 from sim_bench.api.services.config_service import ConfigService
 
@@ -33,6 +33,8 @@ app.include_router(websocket.router)
 app.include_router(people.router)
 app.include_router(results.router)
 app.include_router(config.router)
+app.include_router(events.router)
+app.include_router(faces.router)
 
 
 @app.on_event("startup")

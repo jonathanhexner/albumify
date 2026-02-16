@@ -1,0 +1,63 @@
+# Face Clustering Benchmark Configuration
+# Compares HDBSCAN vs Hybrid HDBSCAN+kNN clustering methods
+
+# Output settings
+output:
+  results_dir: results/face_clustering_benchmark
+  save_face_crops: true
+  crop_size: 112  # Standard face recognition size
+
+# HDBSCAN Method (Current default)
+hdbscan:
+  algorithm: hdbscan
+  params:
+    min_cluster_size: 2
+    min_samples: 2
+    cluster_selection_epsilon: 0.3
+    metric: cosine
+
+# Hybrid HDBSCAN+kNN Method (Centroid-based)
+hybrid_knn:
+  algorithm: hybrid_hdbscan_knn
+  params:
+    min_cluster_size: 3
+    min_samples: 2
+    cluster_selection_epsilon: 0.35
+    knn_k: 5
+    merge_min_links: 1
+    merge_distance_ceiling: 0.50
+    singleton_attach_threshold: 0.45
+    singleton_knn_k: 2
+
+# Hybrid Closest-Face Method (NEW - allows intra-person variation)
+hybrid_closest:
+  algorithm: hybrid_closest_face
+  params:
+    min_cluster_size: 3
+    min_samples: 2
+    cluster_selection_epsilon: 0.35
+    merge_threshold: 0.35  # Merge if faces this close
+    merge_min_close_pairs: 2  # Need 2+ close pairs
+    attach_threshold: 0.38  # Attach if close to any face
+
+# Pipeline settings for face extraction
+pipeline:
+  steps:
+    - discover_images
+    - detect_persons
+    - insightface_detect_faces
+    - filter_faces
+    - extract_face_embeddings
+  
+  # Filter faces configuration (same as main pipeline)
+  filter_faces:
+    min_confidence: 0.5
+    min_bbox_ratio: 0.02
+    min_relative_size: 0.3
+    min_eye_ratio: 0.01
+  
+  # Face embedding configuration
+  extract_face_embeddings:
+    backend: insightface
+    model_name: buffalo_l
+    device: cpu

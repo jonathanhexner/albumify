@@ -338,9 +338,18 @@ def _render_subclusters_tab(album: Album) -> None:
 
         with st.expander(f"Scene Cluster {scene_id} ({len(sub_dict)} sub-clusters)", expanded=False):
             # Sort sub-clusters by face count descending
+            def parse_face_count(val):
+                if isinstance(val, int):
+                    return val
+                if isinstance(val, str):
+                    # Handle strings like "3+" by stripping non-numeric chars
+                    cleaned = ''.join(c for c in val if c.isdigit())
+                    return int(cleaned) if cleaned else 0
+                return 0
+
             sorted_subs = sorted(
                 sub_dict.items(),
-                key=lambda x: int(x[1].get("face_count", 0) if isinstance(x[1].get("face_count"), (int, str)) else 0),
+                key=lambda x: parse_face_count(x[1].get("face_count", 0)),
                 reverse=True
             )
 

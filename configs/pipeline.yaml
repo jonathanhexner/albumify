@@ -18,16 +18,19 @@ default_pipeline:
   - score_ava
   - detect_persons              # YOLOv8-Pose for person detection
   - insightface_detect_faces    # InsightFace SCRFD for face detection
+  - filter_faces                # Filter small/low-confidence faces
+  - score_face_frontal          # Compute frontal score, roll angle, centrality
   - insightface_score_expression # Expression scoring
   - insightface_score_eyes       # Eye state scoring
   - insightface_score_pose       # Face pose scoring
   - filter_quality
   - extract_scene_embedding
   - cluster_scenes
-  - extract_face_embeddings
+  - extract_face_embeddings     # Skips non-clusterable, applies roll alignment
   - cluster_people              # Global face clustering by identity
+  - identity_refinement         # Refine clusters with exemplar-based attachment
   - cluster_by_identity         # Sub-cluster scenes by identity
-  - select_best                 # Smart selection with composite scoring
+  - select_best                 # Smart selection with composite scoring (incl. frontal penalty)
 
 # MINIMAL: No face detection (fast, scene-only)
 minimal_pipeline:
@@ -108,8 +111,20 @@ cluster_scenes:
 
 # Face Embedding (extract_face_embeddings)
 extract_face_embeddings:
-  checkpoint_path: models/album_app/arcface_resnet50.pt
+  backend: insightface        # Options: "custom", "insightface"
+  checkpoint_path: models/album_app/arcface_resnet50.pt  # For custom backend
   device: cpu
+  model_name: buffalo_l       # For insightface backend
+  
+  # Backend comparison:
+  # custom:
+  #   - Uses checkpoint_path
+  #   - Your trained ArcFace model
+  #
+  # insightface:
+  #   - Uses buffalo_l's built-in w600k_r50
+  #   - Better rotation invariance
+  #   - Trained on 600K+ identities
 
 # People Clustering (cluster_people) - Global identity clustering for People tab
 cluster_people:
@@ -118,6 +133,31 @@ cluster_people:
   min_samples: 2               # Core point definition (HDBSCAN)
   cluster_selection_epsilon: 0.3  # Merge clusters within this distance (higher = fewer clusters)
   distance_threshold: 0.5      # For agglomerative method only
+
+# Identity Refinement (identity_refinement) - Post-clustering refinement
+identity_refinement:
+  enabled: true
+
+  # Attachment thresholds
+  centroid_threshold: 0.38      # Max distance to centroid for attachment
+  exemplar_threshold: 0.40      # Max distance to exemplar for counting as match
+  reject_threshold: 0.45        # If best distance > this, never attach
+
+  # Exemplar selection
+  exemplars_per_cluster: 5      # K: number of exemplars to select per cluster
+  exemplar_min_frontal_score: 0.6  # Stricter quality filter for exemplars
+  exemplar_selection_method: "quality_diverse"  # quality, diverse, quality_diverse
+
+  # Attachment strategy
+  attachment_strategy: "hybrid"  # centroid, exemplar, hybrid
+
+  # Small cluster handling
+  small_cluster_threshold: 3    # Clusters with <= N faces get relaxed requirements
+  small_cluster_min_matches: 1  # Min exemplar matches for small clusters
+
+  # Output control
+  preserve_original_clusters: true  # Keep original people_clusters unchanged
+  apply_user_overrides: true    # Apply stored user corrections
 
 # Identity Sub-Clustering (cluster_by_identity) - Split scene clusters by identity
 cluster_by_identity:
@@ -157,12 +197,15 @@ select_best:
     eyes_closed: -0.15         # Eyes closed
     not_smiling: -0.05         # Not smiling
     face_turned: -0.1          # Face turned away
+    frontal_penalty_weight: 0.3 # Weight for non-frontal face penalty
     max_penalty: -0.7          # Cap total penalty at this value
     # Thresholds for applying penalties
     body_facing_threshold: 0.5 # Below this = body not facing
     eyes_threshold: 0.5        # Below this = eyes closed
     smile_threshold: 0.5       # Below this = not smiling
     pose_threshold: 0.5        # Below this = face turned
+    frontal_threshold: 0.6     # Below this = non-frontal penalty
+    use_centrality_weighting: true # Weight frontal penalty by face centrality
 
   # Siamese model config
   siamese:
@@ -211,3 +254,16 @@ insightface_score_eyes:
 # InsightFace Pose Scoring (uses 5-point landmarks)
 insightface_score_pose:
   device: cpu
+
+# Face Filtering (filter_faces) - Remove small/low-confidence faces
+filter_faces:
+  min_confidence: 0.5           # Minimum detection confidence
+  min_bbox_ratio: 0.02          # Minimum bbox_width / image_width
+  min_relative_size: 0.3        # Minimum bbox_width / max_bbox_width in image
+  min_eye_ratio: 0.01           # Minimum inter_eye_distance / image_width
+
+# Face Frontal Scoring (score_face_frontal) - Compute frontal score, centrality, roll
+score_face_frontal:
+  min_frontal_score: 0.4        # Faces below this are marked non-clusterable
+  min_eye_bbox_ratio: 0.20      # Inter-eye / bbox width (below = profile)
+  max_asymmetry: 1.8            # Nose-eye asymmetry (above = profile)
