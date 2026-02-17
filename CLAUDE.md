@@ -3,25 +3,61 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## General
-- Always aim to learn from your failures. For any significant bug, please be sure to prodce a failure reports in a few lines and summarize a recommendation to docs\LEARNINGS.md.
+- Always aim to learn from your failures. For any significant bug, please be sure to produce a failure report in a few lines and summarize a recommendation to docs\LEARNINGS.md.
 Log learnings in up to 3-5 lines with date according to order.
-- For every significant implemenation and plannding step always review learnings, and ensure we're not reapeating errors from the past.
-- Unless otherwise instructed, produce plans for approval prior to implementing code changes.
-- Consider how to test newly added features. Use tests/ folder.
+- For every significant implementation and planning step always review learnings, and ensure we're not repeating errors from the past.
+- Unless otherwise instructed, produce plans for approval prior to implementing code changes that are non-trivial (affecting architecture, data flow, configuration, or cross-module behavior).
+Small isolated fixes may be implemented directly.
+- No feature is considered complete without:
+	- Unit test (if applicable)
+	- Or explicit justification why test is not require. Use tests/ folder.
 - In any rejection or replan, consider what needs to be changed in CLAUDE.md for future improvement, and propose making changes.
 - Break down plans into small individual work items. Create a TODO list from them.
 - Always update the TODOs plan after each step.
+- When in doubt ask clarifying questions.
+
+## Architecture Discipline Rule
+
+If architectural changes are approved and implemented, update docs/architecture.md to reflect the new state.
+Architecture.md must represent the current true system architecture.
+
+For any feature that affects:
+- System architecture - compare agains architecture.md to know if the architeture has changed.
+- Data flow
+- Model behavior
+- Configuration schema
+- Cross-module interfaces
+- Memory strategy
+- Training/validation logic
+
+Claude must:
+
+1. Provide a structured design breakdown including:
+   - Requirement. If a feature introduces a new functional or non-functional requirement, append it to requirements.md with date and short description.
+   - Objective
+   - Constraints
+   - Integration points
+   - Data flow
+   - Edge cases
+   - Risks and trade-offs
+
+2. Wait for explicit approval before writing implementation code.
+
+If ambiguity exists, ask clarifying questions instead of assuming.
+
 
 ## Coding
+- Python 3.10+ required. Use type hints consistently.
 - `__init__.py` files should be kept empty.
 - Never use local or relative imports. Always use full imports (e.g., `from sim_bench.pipeline.base import BaseStep`).
 - Avoid excessive Try/Except. Keep it only for extreme cases where output is unpredictable.
 - Avoid excessive If statements. Prefer using strategy or factory pattern.
 - Avoid usage of prints, prefer usage of proper logging. Make sure we support logging injection for centralized logging.
+- **Protobuf compatibility**: Use `protobuf>=3.20,<4` (MediaPipe requires this version range).
 
 
 ## Verification
-- Avoid half baked code. Always verify you understand what you're being asked and that the code comlies with the request. 
+- Avoid half baked code. Always verify you understand what you're being asked and that the code complies with the request.
 - When in doubt always ask questions to verify you understand the request.
 
 
@@ -138,10 +174,23 @@ Then import in `sim_bench/pipeline/steps/all_steps.py` and add to `configs/pipel
 ### Face Recognition Pipeline
 Key steps for face clustering:
 1. `insightface_detect_faces` - Detect faces, store bbox in `context.insightface_faces`
-2. `extract_face_embeddings` - Crop faces using bbox, extract 512-dim embeddings via InsightFace
-3. `cluster_people` - HDBSCAN clustering on normalized embeddings → `context.people_clusters`
+2. `filter_faces` - Remove small/low-confidence faces (marks `filter_passed`)
+3. `score_face_frontal` - Compute frontal score, marks `is_clusterable`
+4. `extract_face_embeddings` - Crop faces using bbox, extract 512-dim embeddings via InsightFace
+5. `cluster_people` - HDBSCAN clustering on normalized embeddings → `context.people_clusters`
+6. `identity_refinement` (optional) - Attach noise faces to clusters, apply user overrides
+
+**Face Embedding Backend**: Configured in `pipeline.yaml` under `extract_face_embeddings.backend`:
+- `insightface` (default): Uses InsightFace's w600k_r50 model (better rotation invariance)
+- `custom`: Uses trained `arcface_resnet50.pt` model
 
 **Important**: Embeddings are cached by `(image_path, face_index)`. If embeddings become corrupted (zero vectors), clear the cache and re-run.
+
+### Image Cache System
+All pipeline steps use a global image cache (`sim_bench/pipeline/utils/image_cache.py`) that:
+- Normalizes EXIF rotation once (prevents bbox coordinate mismatches)
+- Stores images in `~/.sim_bench/image_cache/`
+- Uses content-based cache keys (EXIF datetime + device info, or file hash fallback)
 
 ### Caching System
 Steps can cache computed features to SQLite (`UniversalCache` table) with mtime tracking:
@@ -154,8 +203,16 @@ Steps can cache computed features to SQLite (`UniversalCache` table) with mtime 
 - **Datasets**: `sim_bench.datasets.base.load_dataset(name, config)` - ukbench, holidays, phototriage, flatdir
 - **Metrics**: `sim_bench.metrics.factory.MetricFactory` - auto-discovers BaseMetric subclasses
 - **Distances**: `sim_bench.distances.base.create_distance_strategy(config)` - cosine, euclidean, chi_square
-- **Clustering**: `sim_bench.clustering.base.load_clustering_method(config)` - HDBSCAN, KMeans, hierarchical
+- **Clustering**: `sim_bench.clustering.base.load_clustering_method(config)` - HDBSCAN, KMeans, hierarchical, hybrid_hdbscan_knn, hybrid_closest_face
 - **Face Embeddings**: `sim_bench.pipeline.face_embedding.factory.FaceEmbeddingExtractorFactory` - CustomArcFace or InsightFaceNative
+
+### Hybrid Face Clustering
+For better clustering results, use `hybrid_hdbscan_knn` algorithm:
+1. HDBSCAN creates initial dense clusters
+2. Computes per-cluster threshold: T = median(K-NN distances) + 2×IQR
+3. Iteratively merges clusters where closest pair ≤ min(T_a, T_b)
+4. Attaches noise points to nearest cluster if ≤ threshold
+5. Key params: `knn_k=3`, `iqr_multiplier=2.0`, `threshold_floor=0.3`
 
 ### Configuration
 All behavior is YAML-configured in `configs/`:
@@ -198,6 +255,10 @@ Tables: `albums`, `pipeline_runs`, `pipeline_results`, `universal_cache`, `peopl
 ### Useful Debug Scripts
 - `scripts/check_zero_vectors.py` - Analyze face embeddings for zero vectors
 - `scripts/clear_face_embedding_cache.py` - Clear stale face embedding cache
+- `scripts/benchmark_face_clustering.py` - Benchmark HDBSCAN vs Hybrid clustering methods
+- `scripts/check_bbox_format.py` - Verify bbox coordinate format (dict vs object)
+- `scripts/test_filter_steps.py` - Test face filtering pipeline steps
+- `app/face_clustering_comparison.py` - Streamlit app for visual clustering comparison
 
 ---
 
