@@ -25,10 +25,11 @@ hybrid_knn:
     min_samples: 2
     cluster_selection_epsilon: 0.35
 
-    # Threshold computation (Tukey fence: T = Q3(d3) + 1.5*IQR, clamped to [floor, ceiling])
-    knn_k: 3                    # k for d_k neighbor distance computation
+    # Threshold computation (T = median(exemplar pairwise dists) + iqr_multiplier*IQR)
+    knn_k: 3                    # k for d_k neighbor distance (used to select exemplars)
+    iqr_multiplier: 2.0         # IQR multiplier for threshold (2.0 more permissive than 1.5)
     threshold_floor: 0.50       # Minimum threshold for any cluster
-    threshold_ceiling: 0.90     # Maximum threshold for any cluster
+    threshold_ceiling: 1.50     # Maximum threshold (let IQR multiplier do most of the work)
 
     # Exemplar selection
     max_exemplars: 10           # Max exemplars per cluster (faces with smallest d3)
@@ -43,16 +44,30 @@ hybrid_knn:
     # Iteration control
     max_iterations: 10          # Max merge+attach iterations
 
-# Hybrid Closest-Face Method (NEW - allows intra-person variation)
+# Hybrid Closest-Face Method (Cross-cluster d3 matching - checks all faces)
 hybrid_closest:
   algorithm: hybrid_closest_face
   params:
+    # HDBSCAN initial clustering
     min_cluster_size: 3
     min_samples: 2
     cluster_selection_epsilon: 0.35
-    merge_threshold: 0.35  # Merge if faces this close
-    merge_min_close_pairs: 2  # Need 2+ close pairs
-    attach_threshold: 0.38  # Attach if close to any face
+    
+    # Threshold computation (T = median(d3) + iqr_multiplier*IQR for all faces in cluster)
+    knn_k: 3                    # k for d_k neighbor distance computation
+    iqr_multiplier: 2.5         # IQR multiplier for threshold (more permissive for cross-cluster d3)
+    threshold_floor: 0.30       # Minimum threshold for any cluster
+    threshold_ceiling: 1.50     # Maximum threshold (let IQR multiplier do most of the work)
+    
+    # Exemplar selection (for early exit optimization)
+    max_exemplars: 10           # Max exemplars per cluster (used for early exit check)
+    
+    # Merge criteria (clusters merge if faces fit other cluster's d3 threshold)
+    merge_min_faces: 2          # Min faces with cross-cluster d3 <= threshold to merge
+    early_exit_multiplier: 2.0  # Skip merge check if min_exemplar_dist > this * max(T_A, T_B)
+    
+    # Attachment criteria
+    attach_min_neighbors: 1     # Min neighbors within threshold to attach (not used currently)
 
 # Pipeline settings for face extraction
 pipeline:

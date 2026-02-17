@@ -5,8 +5,8 @@ Algorithm:
 1. HDBSCAN → initial clusters
 2. For each cluster:
    - Compute d3 (distance to 3rd nearest neighbor) for each face
-   - T = Q3(d3) + 1.5×IQR(d3), clamped to [0.30, 0.45]
    - Select E=10 exemplars (faces with smallest d3)
+   - T = median(exemplar pairwise distances) + iqr_multiplier×IQR, clamped to [floor, ceiling]
 3. Iteratively:
    a. Attach: unassigned face → cluster if m≥2 exemplars within T
    b. Merge: clusters if L≥3 cross-exemplar pairs ≤ min(T_A, T_B), ≥2 distinct each
@@ -76,6 +76,7 @@ class HybridHDBSCANKNN(ClusteringMethod):
 
         # Local cohesion parameters
         self.knn_k = self.params.get('knn_k', 3)
+        self.iqr_multiplier = self.params.get('iqr_multiplier', 2.0)
         self.threshold_floor = self.params.get('threshold_floor', 0.50)
         self.threshold_ceiling = self.params.get('threshold_ceiling', 0.90)
 
@@ -253,7 +254,8 @@ class HybridHDBSCANKNN(ClusteringMethod):
         labels: np.ndarray,
         features: np.ndarray
     ) -> Dict[int, ClusterState]:
-        """Compute threshold and exemplars for each cluster using d3 and Tukey fence."""
+        """Compute threshold and exemplars for each cluster using exemplar pairwise distances."""
+        from scipy.spatial.distance import pdist
         cluster_states = {}
 
         for label in set(labels):
@@ -288,39 +290,46 @@ class HybridHDBSCANKNN(ClusteringMethod):
 
             for i in range(n_faces):
                 sorted_dists = np.sort(distances[i])[1:k + 1]  # Exclude self
-                # Use the k-th neighbor distance (d3 when k=3)
                 d3_values.append(sorted_dists[-1] if len(sorted_dists) > 0 else 0)
 
             d3_values = np.array(d3_values)
-
-            # Tukey fence: T = Q3 + 1.5 × IQR
-            q1, q3 = np.percentile(d3_values, [25, 75])
-            iqr = q3 - q1
-            raw_threshold = q3 + 1.5 * iqr
-
-            # Clamp to [floor, ceiling]
-            threshold = max(raw_threshold, self.threshold_floor)
-            threshold = min(threshold, self.threshold_ceiling)
 
             # Select exemplars: faces with smallest d3 (most core-like)
             n_exemplars = min(self.max_exemplars, n_faces)
             exemplar_local_indices = np.argsort(d3_values)[:n_exemplars]
             exemplar_global_indices = indices[exemplar_local_indices]
+            exemplar_embeddings = features[exemplar_global_indices]
+
+            # Compute threshold from exemplar pairwise distances
+            if len(exemplar_embeddings) < 2:
+                raw_threshold = self.threshold_floor
+                q1 = q3 = iqr = median_dist = 0.0
+            else:
+                exemplar_dists = pdist(exemplar_embeddings, metric='euclidean')
+                median_dist = np.median(exemplar_dists)
+                q1, q3 = np.percentile(exemplar_dists, [25, 75])
+                iqr = q3 - q1
+                raw_threshold = median_dist + self.iqr_multiplier * iqr
+
+            # Clamp to [floor, ceiling]
+            threshold = max(raw_threshold, self.threshold_floor)
+            threshold = min(threshold, self.threshold_ceiling)
 
             cluster_states[label] = ClusterState(
                 label=label,
                 indices=indices,
                 threshold=float(threshold),
                 exemplar_indices=exemplar_global_indices,
-                exemplar_embeddings=features[exemplar_global_indices],
+                exemplar_embeddings=exemplar_embeddings,
                 q1=float(q1),
                 q3=float(q3),
                 iqr=float(iqr),
                 raw_threshold=float(raw_threshold)
             )
 
-            logger.debug(f"  Cluster {label}: {n_faces} faces, Q3={q3:.3f}, IQR={iqr:.3f}, "
-                        f"T={threshold:.3f}, {len(exemplar_global_indices)} exemplars")
+            logger.debug(f"  Cluster {label}: {n_faces} faces, {len(exemplar_global_indices)} exemplars, "
+                        f"median_dist={median_dist:.3f} (Q1={q1:.3f}, Q3={q3:.3f}, IQR={iqr:.3f}), "
+                        f"T={threshold:.3f}")
 
         return cluster_states
 
@@ -551,6 +560,7 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 'min_samples': self.min_samples,
                 'cluster_selection_epsilon': self.cluster_selection_epsilon,
                 'knn_k': self.knn_k,
+                'iqr_multiplier': self.iqr_multiplier,
                 'threshold_floor': self.threshold_floor,
                 'threshold_ceiling': self.threshold_ceiling,
                 'max_exemplars': self.max_exemplars,

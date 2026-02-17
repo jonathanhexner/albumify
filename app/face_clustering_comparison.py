@@ -80,8 +80,12 @@ def compute_distance_matrix(face_indices: List[int], all_embeddings: np.ndarray)
 
 
 def find_nearest_external_faces(cluster_indices: List[int], all_embeddings: np.ndarray, 
-                                labels: np.ndarray, k: int = 5) -> List[tuple]:
-    """Find k nearest faces outside the cluster."""
+                                labels: np.ndarray, k: int = 10) -> List[tuple]:
+    """Find k nearest faces outside the cluster with their cluster labels.
+    
+    Returns:
+        List of (face_idx, distance, cluster_label) tuples
+    """
     cluster_label = labels[cluster_indices[0]]
     cluster_embeddings = all_embeddings[cluster_indices]
     external_mask = labels != cluster_label
@@ -91,6 +95,7 @@ def find_nearest_external_faces(cluster_indices: List[int], all_embeddings: np.n
     
     external_indices = np.where(external_mask)[0]
     external_embeddings = all_embeddings[external_indices]
+    external_labels = labels[external_indices]
     
     # Compute distances to all external faces
     distances = cdist(cluster_embeddings, external_embeddings, metric='cosine')
@@ -98,7 +103,7 @@ def find_nearest_external_faces(cluster_indices: List[int], all_embeddings: np.n
     
     # Get top k nearest
     nearest_k_indices = np.argsort(min_distances)[:k]
-    results = [(int(external_indices[i]), float(min_distances[i])) for i in nearest_k_indices]
+    results = [(int(external_indices[i]), float(min_distances[i]), int(external_labels[i])) for i in nearest_k_indices]
     
     return results
 
@@ -247,16 +252,16 @@ def render_cluster_explorer(results_dir: Path, metadata: List[Dict],
         st.info("Only 1 face in cluster - no distance matrix")
     
     # Section 4: Nearest external faces
-    st.markdown("#### 5 Nearest Faces Outside Cluster")
+    st.markdown("#### 10 Nearest Faces Outside Cluster")
     nearest_external = find_nearest_external_faces(face_indices, all_embeddings, 
-                                                   np.array(labels), k=5)
+                                                   np.array(labels), k=10)
     if nearest_external:
-        cols = st.columns(5)
-        for i, (ext_idx, dist) in enumerate(nearest_external):
+        cols = st.columns(10)
+        for i, (ext_idx, dist, ext_cluster) in enumerate(nearest_external):
             crop_path = get_face_crop_path(results_dir, ext_idx)
             if crop_path.exists():
                 with cols[i]:
-                    st.image(str(crop_path), caption=f"#{ext_idx}\nDist: {dist:.3f}", 
+                    st.image(str(crop_path), caption=f"#{ext_idx}\nDist: {dist:.3f}\nCluster: {ext_cluster}", 
                             use_container_width=True)
     else:
         st.info("No external faces found")
@@ -1155,7 +1160,7 @@ def main():
     page = st.sidebar.radio(
         "Select View",
         ["📊 Overview & Comparison", "🔍 HDBSCAN Explorer", "🔍 Hybrid kNN Explorer",
-         "🔍 Hybrid Closest Explorer", "🔧 Debug: Hybrid kNN"]
+         "🔍 Hybrid Closest Explorer", "🔧 Debug: Hybrid kNN", "🔧 Debug: Hybrid Closest"]
     )
     
     metadata = results['face_metadata']
@@ -1241,6 +1246,15 @@ def main():
             st.error("⚠️ Hybrid kNN results not in this benchmark.")
         else:
             render_debug_hybrid_knn(results_dir, metadata, methods['hybrid_knn'], all_embeddings)
+    
+    elif page == "🔧 Debug: Hybrid Closest":
+        if all_embeddings is None:
+            st.error("⚠️ Embeddings not available. Re-run benchmark to include embeddings.")
+        elif 'hybrid_closest' not in methods:
+            st.error("⚠️ Hybrid Closest results not in this benchmark.")
+        else:
+            from app.debug_hybrid_closest import render_debug_hybrid_closest
+            render_debug_hybrid_closest(results_dir, metadata, methods['hybrid_closest'], all_embeddings)
 
 
 if __name__ == "__main__":
