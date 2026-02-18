@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## General
-- Always aim to learn from your failures. For any significant bug, please be sure to produce a failure report in a few lines and summarize a recommendation to docs\LEARNINGS.md.
+- Always aim to learn from your failures. For any significant bug, please be sure to produce a failure report in a few lines and summarize a recommendation to docs/LEARNINGS.md.
 Log learnings in up to 3-5 lines with date according to order.
 - For every significant implementation and planning step always review learnings, and ensure we're not repeating errors from the past.
 - Unless otherwise instructed, produce plans for approval prior to implementing code changes that are non-trivial (affecting architecture, data flow, configuration, or cross-module behavior).
@@ -22,7 +22,7 @@ If architectural changes are approved and implemented, update docs/architecture.
 Architecture.md must represent the current true system architecture.
 
 For any feature that affects:
-- System architecture - compare agains architecture.md to know if the architeture has changed.
+- System architecture - compare against docs/architecture.md to know if the architecture has changed.
 - Data flow
 - Model behavior
 - Configuration schema
@@ -33,7 +33,7 @@ For any feature that affects:
 Claude must:
 
 1. Provide a structured design breakdown including:
-   - Requirement. If a feature introduces a new functional or non-functional requirement, append it to requirements.md with date and short description.
+   - Requirement. If a feature introduces a new functional or non-functional requirement, append it to docs/requirements.md with date and short description.
    - Objective
    - Constraints
    - Integration points
@@ -56,10 +56,21 @@ If ambiguity exists, ask clarifying questions instead of assuming.
 - **Protobuf compatibility**: Use `protobuf>=3.20,<4` (MediaPipe requires this version range).
 
 
+## Windows Development Notes
+- Use forward slashes in code paths (`docs/LEARNINGS.md`) even on Windows
+- Run tests via `python -m pytest` to ensure proper module resolution
+- Database path `~/.sim_bench/` resolves to `%USERPROFILE%\.sim_bench\`
+
+
 ## Verification
 - Avoid half baked code. Always verify you understand what you're being asked and that the code complies with the request.
 - When in doubt always ask questions to verify you understand the request.
 
+Bug Discipline - For every non-trivial bug 
+1. Identify: Root cause - Why it wasn’t caught earlier? 
+2. Add a prevention mechanism: Test, Validation, Assertion, Architectural constraint
+3. Log concise learning in docs/LEARNINGS.md.
+Never fix symptoms without addressing systemic cause.
 
 ## ⚠️ IMPORTANT: Change Tracking
 
@@ -88,6 +99,8 @@ sim-bench is a Python 3.10+ framework for image similarity benchmarking and imag
 - **Quality assessment**: Siamese networks and AVA aesthetic models
 - **Face recognition**: ArcFace embeddings, pose estimation, expression scoring
 - **Album organization**: Multi-step pipeline with Streamlit frontend + FastAPI backend
+
+For detailed usage, benchmarking results, and dataset configuration, see [README.md](README.md).
 
 ## Common Commands
 

@@ -6,6 +6,58 @@
 
 ---
 
+## 2026-02-17 11:00:00
+
+**Files**:
+- `app/face_clustering_debug/__init__.py` (created)
+- `app/face_clustering_debug/models/__init__.py` (created)
+- `app/face_clustering_debug/models/schemas.py` (created)
+- `app/face_clustering_debug/services/__init__.py` (created)
+- `app/face_clustering_debug/services/protocols.py` (created)
+- `app/face_clustering_debug/components/__init__.py` (created)
+- `app/face_clustering_debug/pages/__init__.py` (created)
+- `docs/face_clustering_debug_app/REQUIREMENTS.md` (created)
+- `docs/face_clustering_debug_app/ARCHITECTURE.md` (created)
+- `docs/face_clustering_debug_app/TASKS.md` (created)
+
+**Change**: Phase 1 of Face Clustering Debug App - Setup & Models
+
+**Reason**: Complete rewrite of face clustering debug app with proper modularity and SOLID principles
+
+**Details**:
+1. Created folder structure: `app/face_clustering_debug/` with pages/, components/, services/, models/ subdirs
+2. Implemented data models (schemas.py - 83 lines):
+   - FaceInfo: face metadata including landmarks and pose
+   - ClusterInfo: cluster with threshold stats
+   - MergeDecision: merge decision record
+   - AttachDecision: attachment decision record
+   - ClusteringResult: complete result container
+3. Defined DataLoaderProtocol interface (protocols.py - 65 lines)
+4. Created requirements, architecture, and task breakdown documentation
+
+---
+
+## 2026-02-17 10:00:00
+
+**Files**:
+- `docs/FACIAL_CLUSTERING_DEBUG.md`
+- `sim_bench/clustering/hybrid_hdbscan_knn.py`
+
+**Change**: Fixed documentation inaccuracies in face clustering debug guide
+
+**Reason**: Review found discrepancies between documentation and actual code implementation
+
+**Details**:
+1. Fixed threshold formula for `hybrid_hdbscan_knn`: was incorrectly documented as `Q3(d3) + 1.5×IQR`, actual is `median(exemplar_pairwise) + 2.0×IQR`
+2. Fixed parameter defaults: `iqr_multiplier` is 2.0 (not 1.5), `threshold_ceiling` for hybrid_closest_face is 0.90 (not 1.50)
+3. Added Quick Reference table at top of document
+4. Added missing parameters: `attach_min_neighbors`, `max_iterations`, `iqr_multiplier`
+5. Updated "Units Mismatch" section to "Design Note: Consistent Units" (both algorithms use consistent units)
+6. Fixed algorithm comparison table to reflect actual differences
+7. Also fixed docstring in `hybrid_hdbscan_knn.py` to match implementation
+
+---
+
 ## 2026-02-16 (Code Review Fixes)
 
 **Files**:
@@ -1828,6 +1880,29 @@ This log helps:
 
 **Bug Fix** (`hybrid_closest_face.py`):
 - Added missing `merge_threshold` and `attach_threshold` attributes to `__init__`
+
+---
+
+### 2026-02-18 00:00:00
+**Files**:
+- `CLAUDE.md` (modified)
+- `docs/LEARNINGS.md` (created)
+- `docs/architecture.md` (created)
+- `docs/requirements.md` (created)
+
+**Change**: Improved CLAUDE.md and created missing documentation files
+
+**Reason**: User ran `/init` command to improve the Claude Code guidance file
+
+**Details**:
+- Fixed typos in CLAUDE.md: "agains" → "against", "architeture" → "architecture"
+- Fixed path separator: `docs\LEARNINGS.md` → `docs/LEARNINGS.md`
+- Added full paths to referenced docs: `architecture.md` → `docs/architecture.md`, `requirements.md` → `docs/requirements.md`
+- Added "Windows Development Notes" section with path and testing guidance
+- Added reference to README.md for detailed benchmarking information
+- Created `docs/LEARNINGS.md` - template for bug learnings log
+- Created `docs/architecture.md` - system architecture documentation
+- Created `docs/requirements.md` - requirements tracking log
 
 ---
 
