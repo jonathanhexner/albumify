@@ -321,53 +321,63 @@ def calculate_cluster_statistics(embeddings: np.ndarray, labels: np.ndarray) -> 
     return cluster_stats
 
 
+def run_clustering_method(
+    method_name: str,
+    method_config: Dict[str, Any],
+    embeddings: np.ndarray
+) -> Dict[str, Any]:
+    """Run a single clustering method and return results with statistics."""
+    logger.info(f"Running {method_name} clustering...")
+
+    method = load_clustering_method(method_config)
+
+    # Collect debug data for hybrid methods
+    collect_debug = method_config.get('algorithm', '').startswith('hybrid')
+    labels, stats = method.cluster(embeddings, collect_debug_data=collect_debug)
+    labels_array = np.array(labels)
+
+    result = {
+        'labels': labels,
+        'stats': stats,
+        'cluster_stats': calculate_cluster_statistics(embeddings, labels_array)
+    }
+
+    n_clusters = stats.get('n_clusters', len(set(labels)) - (1 if -1 in labels else 0))
+    n_noise = stats.get('n_noise', 0)
+    noise_info = f", noise={n_noise}" if n_noise > 0 else ""
+    logger.info(f"{method_name}: {n_clusters} clusters{noise_info}")
+
+    return result
+
+
 def run_clustering_methods(
     embeddings: np.ndarray,
-    hdbscan_config: Dict[str, Any],
-    hybrid_config: Dict[str, Any],
-    closest_config: Dict[str, Any]
+    method_configs: Dict[str, Dict[str, Any]]
 ) -> Dict[str, Dict[str, Any]]:
     """Run all clustering methods and return results with statistics."""
     results = {}
-    
-    # HDBSCAN
-    logger.info("Running HDBSCAN clustering...")
-    hdbscan_method = load_clustering_method(hdbscan_config)
-    hdbscan_labels, hdbscan_stats = hdbscan_method.cluster(embeddings)
-    hdbscan_labels_array = np.array(hdbscan_labels)
-    results['hdbscan'] = {
-        'labels': hdbscan_labels,
-        'stats': hdbscan_stats,
-        'cluster_stats': calculate_cluster_statistics(embeddings, hdbscan_labels_array)
-    }
-    logger.info(f"HDBSCAN: {hdbscan_stats['n_clusters']} clusters")
-    
-    # Hybrid HDBSCAN+kNN (centroid-based)
-    logger.info("Running Hybrid HDBSCAN+kNN (centroid) clustering...")
-    hybrid_method = load_clustering_method(hybrid_config)
-    # Collect debug data for detailed analysis in the comparison app
-    hybrid_labels, hybrid_stats = hybrid_method.cluster(embeddings, collect_debug_data=True)
-    hybrid_labels_array = np.array(hybrid_labels)
-    results['hybrid_knn'] = {
-        'labels': hybrid_labels,
-        'stats': hybrid_stats,
-        'cluster_stats': calculate_cluster_statistics(embeddings, hybrid_labels_array)
-    }
-    logger.info(f"Hybrid kNN: {hybrid_stats['n_clusters']} clusters")
-    
-    # Hybrid Closest-Face
-    logger.info("Running Hybrid Closest-Face clustering...")
-    closest_method = load_clustering_method(closest_config)
-    closest_labels, closest_stats = closest_method.cluster(embeddings)
-    closest_labels_array = np.array(closest_labels)
-    results['hybrid_closest'] = {
-        'labels': closest_labels,
-        'stats': closest_stats,
-        'cluster_stats': calculate_cluster_statistics(embeddings, closest_labels_array)
-    }
-    logger.info(f"Hybrid Closest: {closest_stats['n_clusters']} clusters")
-    
+
+    for method_name, method_config in method_configs.items():
+        results[method_name] = run_clustering_method(method_name, method_config, embeddings)
+
     return results
+
+
+def get_clustering_methods_from_config(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Extract all clustering method configs from the benchmark config.
+
+    A method config is any top-level key that has an 'algorithm' field.
+    """
+    methods = {}
+    excluded_keys = {'output', 'pipeline'}
+
+    for key, value in config.items():
+        if key in excluded_keys:
+            continue
+        if isinstance(value, dict) and 'algorithm' in value:
+            methods[key] = value
+
+    return methods
 
 
 @dataclass
@@ -563,14 +573,12 @@ def main():
     # Step 4: Save filtered embeddings (matching metadata)
     embeddings_file = save_embeddings(filtered_embeddings, output_dir)
     
-    # Step 5: Run clustering methods on filtered data
-    results = run_clustering_methods(
-        filtered_embeddings,
-        config['hdbscan'],
-        config['hybrid_knn'],
-        config['hybrid_closest']
-    )
-    
+    # Step 5: Get all clustering methods from config and run them
+    method_configs = get_clustering_methods_from_config(config)
+    logger.info(f"Found {len(method_configs)} clustering methods: {list(method_configs.keys())}")
+
+    results = run_clustering_methods(filtered_embeddings, method_configs)
+
     # Step 6: Save results
     benchmark_data = BenchmarkData(
         timestamp=datetime.now().isoformat(),
@@ -581,25 +589,32 @@ def main():
         embeddings_file=embeddings_file.name  # Just the filename
     )
     results_file = save_benchmark_results(benchmark_data, output_dir)
-    
+
     # Print summary
     logger.info("=" * 70)
     logger.info("BENCHMARK COMPLETE")
     logger.info("=" * 70)
-    logger.info(f"Total faces: {len(metadata)}")
+    logger.info(f"Total faces: {len(filtered_metadata)}")
     logger.info("")
-    logger.info("HDBSCAN:")
-    logger.info(f"  Clusters: {results['hdbscan']['stats']['n_clusters']}")
-    if 'n_noise' in results['hdbscan']['stats']:
-        logger.info(f"  Noise: {results['hdbscan']['stats']['n_noise']}")
-    logger.info("")
-    logger.info("Hybrid HDBSCAN+kNN:")
-    logger.info(f"  Clusters: {results['hybrid_knn']['stats']['n_clusters']}")
-    if 'merges' in results['hybrid_knn']['stats']:
-        logger.info(f"  Merges: {results['hybrid_knn']['stats']['merges']['n_merges']}")
-    if 'singletons' in results['hybrid_knn']['stats']:
-        logger.info(f"  Attached: {results['hybrid_knn']['stats']['singletons']['n_attached']}")
-        logger.info(f"  Singletons: {results['hybrid_knn']['stats']['singletons']['n_singletons']}")
+
+    for method_name, method_result in results.items():
+        stats = method_result['stats']
+        n_clusters = stats.get('n_clusters', 0)
+        n_noise = stats.get('n_noise', 0)
+        n_singletons = stats.get('n_singletons', 0)
+
+        logger.info(f"{method_name}:")
+        logger.info(f"  Clusters: {n_clusters}")
+        if n_noise > 0:
+            logger.info(f"  Noise: {n_noise}")
+        if n_singletons > 0:
+            logger.info(f"  Singletons: {n_singletons}")
+        if 'n_edges' in stats:
+            logger.info(f"  Edges: {stats['n_edges']}")
+        if 'merges' in stats:
+            logger.info(f"  Merges: {stats['merges'].get('n_merges', 0)}")
+        logger.info("")
+
     logger.info("=" * 70)
     logger.info(f"Results: {results_file}")
     logger.info(f"To view results, run: streamlit run app/face_clustering_comparison.py")

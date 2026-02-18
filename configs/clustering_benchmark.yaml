@@ -1,5 +1,5 @@
 # Face Clustering Benchmark Configuration
-# Compares HDBSCAN vs Hybrid HDBSCAN+kNN clustering methods
+# Compares multiple face clustering methods
 
 # Output settings
 output:
@@ -25,11 +25,13 @@ hybrid_knn:
     min_samples: 2
     cluster_selection_epsilon: 0.35
 
-    # Threshold computation (T = median(exemplar pairwise dists) + iqr_multiplier*IQR)
+    # Threshold computation (T = p-th percentile of exemplar pairwise dists)
+    # Using a direct percentile avoids high-variance (noisy) clusters getting
+    # amplified thresholds via median+k*IQR — prevents "black hole" absorption.
     knn_k: 3                    # k for d_k neighbor distance (used to select exemplars)
-    iqr_multiplier: 2.0         # IQR multiplier for threshold (2.0 more permissive than 1.5)
+    threshold_percentile: 90    # Percentile of exemplar pairwise distances to use as raw T
     threshold_floor: 0.50       # Minimum threshold for any cluster
-    threshold_ceiling: 1.50     # Maximum threshold (let IQR multiplier do most of the work)
+    threshold_ceiling: 0.90     # Maximum threshold (Euclidean on L2-norm; cosine-equiv ~0.405)
 
     # Exemplar selection
     max_exemplars: 10           # Max exemplars per cluster (faces with smallest d3)
@@ -53,11 +55,11 @@ hybrid_closest:
     min_samples: 2
     cluster_selection_epsilon: 0.35
     
-    # Threshold computation (T = median(d3) + iqr_multiplier*IQR for all faces in cluster)
+    # Threshold computation (T = percentile(d3_values, threshold_percentile))
     knn_k: 3                    # k for d_k neighbor distance computation
-    iqr_multiplier: 2.5         # IQR multiplier for threshold (more permissive for cross-cluster d3)
+    threshold_percentile: 90    # Percentile of per-face d3 values for threshold
     threshold_floor: 0.30       # Minimum threshold for any cluster
-    threshold_ceiling: 1.50     # Maximum threshold (let IQR multiplier do most of the work)
+    threshold_ceiling: 0.90     # Maximum threshold (Euclidean on L2-norm; cosine-equiv ~0.405)
     
     # Exemplar selection (for early exit optimization)
     max_exemplars: 10           # Max exemplars per cluster (used for early exit check)
@@ -68,6 +70,44 @@ hybrid_closest:
     
     # Attachment criteria
     attach_min_neighbors: 1     # Min neighbors within threshold to attach (not used currently)
+
+# HDBSCAN with PCA dimensionality reduction
+hdbscan_pca_128:
+  algorithm: hdbscan_pca
+  params:
+    pca_components: 128         # Reduce 512-dim embeddings to 128-dim
+    min_cluster_size: 2
+    min_samples: 2
+    cluster_selection_epsilon: 0.3
+    metric: cosine
+
+hdbscan_pca_256:
+  algorithm: hdbscan_pca
+  params:
+    pca_components: 256         # Reduce 512-dim embeddings to 256-dim
+    min_cluster_size: 2
+    min_samples: 2
+    cluster_selection_epsilon: 0.3
+    metric: cosine
+
+# Mutual KNN clustering (graph-based connected components)
+mutual_knn_k10_t70:
+  algorithm: mutual_knn
+  params:
+    k: 10                       # Number of nearest neighbors
+    similarity_threshold: 0.70  # Minimum cosine similarity for edge
+
+mutual_knn_k10_t65:
+  algorithm: mutual_knn
+  params:
+    k: 10
+    similarity_threshold: 0.65  # Lower threshold = more edges = fewer clusters
+
+mutual_knn_k5_t70:
+  algorithm: mutual_knn
+  params:
+    k: 5                        # Fewer neighbors = stricter mutual requirement
+    similarity_threshold: 0.70
 
 # Pipeline settings for face extraction
 pipeline:

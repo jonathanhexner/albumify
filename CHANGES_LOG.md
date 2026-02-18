@@ -6,6 +6,35 @@
 
 ---
 
+## 2026-02-19 11:00:00
+
+**Files**:
+- `configs/clustering_benchmark.yaml` (modified)
+- `scripts/benchmark_face_clustering.py` (modified)
+
+**Change**: Added new clustering methods to benchmark config and made benchmark script dynamic
+
+**Reason**: User requested ability to benchmark the new hdbscan_pca and mutual_knn methods
+
+**Details**:
+
+1. **Updated benchmark config** (`clustering_benchmark.yaml`):
+   - Added `hdbscan_pca_128`: HDBSCAN with 128-dim PCA
+   - Added `hdbscan_pca_256`: HDBSCAN with 256-dim PCA
+   - Added `mutual_knn_k10_t70`: Mutual KNN with k=10, threshold=0.70
+   - Added `mutual_knn_k10_t65`: Mutual KNN with k=10, threshold=0.65
+   - Added `mutual_knn_k5_t70`: Mutual KNN with k=5, threshold=0.70
+   - Total: 8 clustering methods now available for benchmarking
+
+2. **Made benchmark script dynamic** (`benchmark_face_clustering.py`):
+   - Added `get_clustering_methods_from_config()` to auto-discover methods from YAML
+   - Updated `run_clustering_methods()` to accept dict of method configs
+   - Added `run_clustering_method()` for running a single method
+   - Summary now dynamically prints stats for all methods
+   - No more hardcoded method names
+
+---
+
 ## 2026-02-19 10:00:00
 
 **Files**:
