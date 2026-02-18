@@ -193,15 +193,28 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
             st.info("Using new composite scoring: quality score + person penalties")
 
         st.markdown("**People Clustering**")
+        clustering_methods = ["hdbscan", "hdbscan_pca", "mutual_knn", "agglomerative"]
+        saved_method = saved_cluster_people.get("method", "hdbscan")
+        method_index = clustering_methods.index(saved_method) if saved_method in clustering_methods else 0
+
         col1, col2 = st.columns(2)
         with col1:
             people_method = st.selectbox(
                 "Clustering Method",
-                options=["hdbscan", "agglomerative"],
-                index=0 if saved_cluster_people.get("method", "hdbscan") == "hdbscan" else 1,
+                options=clustering_methods,
+                index=method_index,
                 key="config_people_method",
-                help="HDBSCAN: auto-determines clusters. Agglomerative: uses distance threshold."
+                help="HDBSCAN: density-based. HDBSCAN+PCA: with dim reduction. Mutual KNN: graph-based. Agglomerative: hierarchical."
             )
+
+        # Initialize defaults
+        people_min_cluster_size = 2
+        people_distance_threshold = 0.5
+        cluster_merge_epsilon = 0.3
+        pca_components = 128
+        knn_k = 10
+        knn_similarity_threshold = 0.70
+
         with col2:
             if people_method == "hdbscan":
                 people_min_cluster_size = st.slider(
@@ -210,17 +223,29 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
                     key="config_people_min_cluster",
                     help="Minimum face occurrences to form a person cluster"
                 )
-                people_distance_threshold = 0.5  # Not used for HDBSCAN
-            else:
+            elif people_method == "hdbscan_pca":
+                people_min_cluster_size = st.slider(
+                    "Min Faces per Person", 1, 5,
+                    value=int(saved_cluster_people.get("min_cluster_size", 2)),
+                    key="config_people_min_cluster_pca",
+                    help="Minimum face occurrences to form a person cluster"
+                )
+            elif people_method == "mutual_knn":
+                knn_k = st.slider(
+                    "KNN Neighbors (k)", 3, 20,
+                    value=int(saved_cluster_people.get("k", 10)),
+                    key="config_knn_k",
+                    help="Number of nearest neighbors to consider"
+                )
+            else:  # agglomerative
                 people_distance_threshold = st.slider(
                     "Identity Distance Threshold", 0.3, 0.9,
                     value=float(saved_cluster_people.get("distance_threshold", 0.5)),
                     step=0.05, key="config_people_dist",
                     help="Lower = stricter (more clusters), Higher = lenient (fewer clusters)"
                 )
-                people_min_cluster_size = 2  # Not used for agglomerative
 
-        # HDBSCAN merge epsilon - key for reducing over-segmentation
+        # Method-specific additional parameters
         if people_method == "hdbscan":
             cluster_merge_epsilon = st.slider(
                 "Cluster Merge Distance", 0.0, 0.8,
@@ -228,8 +253,32 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
                 step=0.05, key="config_cluster_epsilon",
                 help="Higher = merge more clusters = fewer people (reduces over-segmentation)"
             )
-        else:
-            cluster_merge_epsilon = 0.3
+        elif people_method == "hdbscan_pca":
+            col1, col2 = st.columns(2)
+            with col1:
+                pca_components = st.selectbox(
+                    "PCA Dimensions",
+                    options=[64, 128, 256],
+                    index=1 if saved_cluster_people.get("pca_components", 128) == 128 else (
+                        0 if saved_cluster_people.get("pca_components", 128) == 64 else 2
+                    ),
+                    key="config_pca_components",
+                    help="Reduce embeddings to this many dimensions before clustering"
+                )
+            with col2:
+                cluster_merge_epsilon = st.slider(
+                    "Cluster Merge Distance", 0.0, 0.8,
+                    value=float(saved_cluster_people.get("cluster_selection_epsilon", 0.3)),
+                    step=0.05, key="config_cluster_epsilon_pca",
+                    help="Higher = merge more clusters = fewer people"
+                )
+        elif people_method == "mutual_knn":
+            knn_similarity_threshold = st.slider(
+                "Similarity Threshold", 0.50, 0.90,
+                value=float(saved_cluster_people.get("similarity_threshold", 0.70)),
+                step=0.05, key="config_knn_sim_threshold",
+                help="Minimum cosine similarity to create edge between faces"
+            )
 
         st.markdown("**Image Similarity & Quality**")
         col1, col2 = st.columns(2)
@@ -278,6 +327,11 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
             "min_samples": people_min_cluster_size,
             "distance_threshold": people_distance_threshold,
             "cluster_selection_epsilon": cluster_merge_epsilon,
+            # HDBSCAN+PCA specific
+            "pca_components": pca_components,
+            # Mutual KNN specific
+            "k": knn_k,
+            "similarity_threshold": knn_similarity_threshold,
         },
         # Identity sub-clustering config (within scene clusters)
         "cluster_by_identity": {

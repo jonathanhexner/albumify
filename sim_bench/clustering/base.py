@@ -164,6 +164,8 @@ def load_clustering_method(config: Dict[str, Any]) -> ClusteringMethod:
     from sim_bench.clustering.hierarchical import HierarchicalClusterer
     from sim_bench.clustering.hybrid_hdbscan_knn import HybridHDBSCANKNN
     from sim_bench.clustering.hybrid_closest_face import HybridHDBSCANClosestFace
+    from sim_bench.clustering.hdbscan_pca import HDBSCANPCAClusterer
+    from sim_bench.clustering.mutual_knn import MutualKNNClusterer
 
     algorithm = config.get('algorithm', 'dbscan').lower()
 
@@ -175,6 +177,8 @@ def load_clustering_method(config: Dict[str, Any]) -> ClusteringMethod:
         'hierarchical': HierarchicalClusterer,
         'hybrid_hdbscan_knn': HybridHDBSCANKNN,
         'hybrid_closest_face': HybridHDBSCANClosestFace,
+        'hdbscan_pca': HDBSCANPCAClusterer,
+        'mutual_knn': MutualKNNClusterer,
     }
     
     if algorithm not in clustering_registry:

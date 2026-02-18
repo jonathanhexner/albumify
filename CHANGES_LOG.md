@@ -6,6 +6,55 @@
 
 ---
 
+## 2026-02-19 10:00:00
+
+**Files**:
+- `sim_bench/clustering/hdbscan_pca.py` (created)
+- `sim_bench/clustering/mutual_knn.py` (created)
+- `sim_bench/clustering/base.py` (modified)
+- `sim_bench/pipeline/steps/cluster_people.py` (modified)
+- `app/streamlit/components/pipeline_runner.py` (modified)
+- `tests/clustering/test_mutual_knn.py` (created)
+
+**Change**: Added two new face clustering algorithms: HDBSCAN+PCA and Mutual KNN
+
+**Reason**: User requested additional clustering methods to improve face clustering quality
+
+**Details**:
+
+1. **HDBSCAN+PCA** (`hdbscan_pca.py`):
+   - Applies PCA dimensionality reduction before HDBSCAN clustering
+   - Configurable PCA dimensions: 64, 128 (default), 256
+   - Reduces noise in high-dimensional embeddings
+   - All standard HDBSCAN parameters supported
+
+2. **Mutual KNN** (`mutual_knn.py`):
+   - L2-normalizes embeddings
+   - Computes cosine similarity matrix: S = E @ E.T
+   - Finds top-k neighbors for each embedding (default k=10)
+   - Builds mutual-KNN graph: edge (i,j) iff j in top-k(i) AND i in top-k(j) AND S[i,j] >= threshold
+   - Runs connected components (scipy.sparse.csgraph)
+   - Default similarity_threshold=0.70
+   - No FAISS, no PCA, no HDBSCAN - pure numpy + scipy
+
+3. **Factory Registration** (`base.py`):
+   - Added `hdbscan_pca` and `mutual_knn` to clustering registry
+
+4. **Pipeline Integration** (`cluster_people.py`):
+   - Added support for both new methods in cluster_people step
+   - Proper config parameter passing to clustering factory
+
+5. **UI Controls** (`pipeline_runner.py`):
+   - Added method selector with all 4 options: hdbscan, hdbscan_pca, mutual_knn, agglomerative
+   - Added PCA dimensions dropdown (64/128/256) for hdbscan_pca
+   - Added KNN k slider (3-20) and similarity threshold slider (0.50-0.90) for mutual_knn
+
+6. **Tests** (`test_mutual_knn.py`):
+   - Unit tests for both new clustering methods
+   - Edge cases: empty input, single sample, high threshold
+
+---
+
 ## 2026-02-17 11:00:00
 
 **Files**:

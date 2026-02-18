@@ -153,31 +153,60 @@ class ClusterPeopleStep(BaseStep):
 
         # Run clustering
         method = config.get("method", "hdbscan")
+        context.report_progress("cluster_people", 0.5, f"Running {method} clustering")
 
         if method == "hdbscan":
             import hdbscan
 
             min_cluster_size = config.get("min_cluster_size", 2)
             min_samples = config.get("min_samples", min_cluster_size)
-            # cluster_selection_epsilon: merge clusters within this distance
-            # Higher = more merging = fewer clusters (reduces over-segmentation)
             cluster_selection_epsilon = config.get("cluster_selection_epsilon", 0.3)
-
-            context.report_progress("cluster_people", 0.5, "Running HDBSCAN clustering")
 
             clusterer = hdbscan.HDBSCAN(
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
-                metric='euclidean',  # On normalized vectors, euclidean ≈ cosine
-                cluster_selection_method='eom',  # Excess of Mass (better for varying density)
-                cluster_selection_epsilon=cluster_selection_epsilon,  # Merge nearby clusters
+                metric='euclidean',
+                cluster_selection_method='eom',
+                cluster_selection_epsilon=cluster_selection_epsilon,
             )
             labels = clusterer.fit_predict(embeddings_normalized)
 
-            # Count noise points (label -1)
             noise_count = np.sum(labels == -1)
             num_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-            logger.info(f"HDBSCAN: {num_clusters} clusters, {noise_count} noise points, epsilon={cluster_selection_epsilon}")
+            logger.info(f"HDBSCAN: {num_clusters} clusters, {noise_count} noise points")
+
+        elif method == "hdbscan_pca":
+            from sim_bench.clustering.base import load_clustering_method
+
+            clustering_config = {
+                'algorithm': 'hdbscan_pca',
+                'params': {
+                    'pca_components': config.get('pca_components', 128),
+                    'metric': 'cosine',
+                    'min_cluster_size': config.get('min_cluster_size', 2),
+                    'min_samples': config.get('min_samples', 2),
+                    'cluster_selection_epsilon': config.get('cluster_selection_epsilon', 0.3),
+                }
+            }
+            clusterer = load_clustering_method(clustering_config)
+            labels, stats = clusterer.cluster(embeddings)
+            logger.info(f"HDBSCAN+PCA: {stats['n_clusters']} clusters, {stats.get('n_noise', 0)} noise, "
+                       f"PCA dim={stats['params']['pca_components']}")
+
+        elif method == "mutual_knn":
+            from sim_bench.clustering.base import load_clustering_method
+
+            clustering_config = {
+                'algorithm': 'mutual_knn',
+                'params': {
+                    'k': config.get('k', 10),
+                    'similarity_threshold': config.get('similarity_threshold', 0.70),
+                }
+            }
+            clusterer = load_clustering_method(clustering_config)
+            labels, stats = clusterer.cluster(embeddings)
+            logger.info(f"Mutual KNN: {stats['n_clusters']} clusters, {stats['n_edges']} edges, "
+                       f"k={stats['params']['k']}, threshold={stats['params']['similarity_threshold']}")
 
         elif method == "agglomerative":
             from sklearn.cluster import AgglomerativeClustering
@@ -199,10 +228,12 @@ class ClusterPeopleStep(BaseStep):
                     linkage='average'
                 )
 
-            context.report_progress("cluster_people", 0.5, "Running agglomerative clustering")
             labels = clustering.fit_predict(embeddings)
+            logger.info(f"Agglomerative: {len(set(labels))} clusters")
+
         else:
-            raise ValueError(f"Unknown clustering method: {method}")
+            raise ValueError(f"Unknown clustering method: {method}. "
+                           f"Available: hdbscan, hdbscan_pca, mutual_knn, agglomerative")
         
         # Assign cluster IDs to faces
         for face, label in zip(faces_with_embeddings, labels):
