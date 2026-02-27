@@ -39,6 +39,7 @@ from face_cluster import (
     FaceRecord,
     GraphResult,
     ClusterResult,
+    FeatureComputer,
 )
 
 logger = logging.getLogger(__name__)
@@ -281,16 +282,18 @@ def compute_cluster_stats(
     cluster_result: ClusterResult,
     distance_matrix: np.ndarray,
     faces: List[FaceRecord],
-    core_indices: List[int]
+    core_indices: List[int],
+    feature_computer: FeatureComputer
 ) -> Dict[int, Dict[str, Any]]:
     """
-    Compute statistics for each cluster.
+    Compute statistics for each cluster using FeatureComputer.
 
     Args:
         cluster_result: Clustering result
         distance_matrix: Pairwise distance matrix
         faces: All faces
         core_indices: Core face indices
+        feature_computer: FeatureComputer instance
 
     Returns:
         Dict mapping cluster_id to stats dict with keys:
@@ -298,44 +301,28 @@ def compute_cluster_stats(
             - T_A: P90 of exemplar pairwise distances
             - mean_blur: mean blur score
             - face_ids: list of face IDs in cluster
+            - frontal_frac: fraction of frontal faces (V2)
+            - mean_yaw: mean yaw angle (V2)
+            - mean_pitch: mean pitch angle (V2)
     """
     logger.info("Computing cluster statistics...")
 
     cluster_stats = {}
 
     for cluster_id, cluster_nodes in cluster_result.clusters.items():
-        # Get face IDs
-        face_ids = [faces[core_indices[n]].face_id for n in cluster_nodes]
+        # Get exemplars
+        exemplar_nodes = cluster_result.exemplars.get(cluster_id, [])
 
-        # Compute diameter (max pairwise distance)
-        if len(cluster_nodes) > 1:
-            cluster_dists = distance_matrix[np.ix_(cluster_nodes, cluster_nodes)]
-            diameter = float(cluster_dists.max())
-        else:
-            diameter = 0.0
+        # Compute stats using FeatureComputer
+        stats = feature_computer.compute_cluster_stats(
+            cluster_nodes=cluster_nodes,
+            exemplar_nodes=exemplar_nodes,
+            distance_matrix=distance_matrix,
+            face_records=faces,
+            core_indices=core_indices
+        )
 
-        # Compute T_A (P90 of exemplar pairwise distances)
-        T_A = 0.0
-        if cluster_id in cluster_result.exemplars:
-            exemplar_nodes = cluster_result.exemplars[cluster_id]
-            if len(exemplar_nodes) > 1:
-                exemplar_dists = distance_matrix[np.ix_(exemplar_nodes, exemplar_nodes)]
-                # Get upper triangle (exclude diagonal and duplicates)
-                exemplar_dists_flat = exemplar_dists[np.triu_indices_from(exemplar_dists, k=1)]
-                if len(exemplar_dists_flat) > 0:
-                    T_A = float(np.percentile(exemplar_dists_flat, 90))
-
-        # Compute mean blur
-        cluster_face_indices = [core_indices[n] for n in cluster_nodes]
-        blur_scores = [faces[i].blur_score for i in cluster_face_indices]
-        mean_blur = float(np.mean(blur_scores))
-
-        cluster_stats[cluster_id] = {
-            'diameter': diameter,
-            'T_A': T_A,
-            'mean_blur': mean_blur,
-            'face_ids': face_ids,
-        }
+        cluster_stats[cluster_id] = stats
 
     # Compute T_global (median of all T_A values)
     T_A_values = [stats['T_A'] for stats in cluster_stats.values() if stats['T_A'] > 0]
@@ -401,23 +388,21 @@ def compute_pair_features(
     cluster_result: ClusterResult,
     distance_matrix: np.ndarray,
     cluster_stats: Dict[int, Dict[str, Any]],
-    T_global: float
+    T_global: float,
+    feature_computer: FeatureComputer
 ) -> Dict[str, float]:
     """
-    Compute all 12 features for a cluster pair.
+    Compute all features for a cluster pair using FeatureComputer.
 
-    Features:
-    1. min_exemplar_dist: Min distance between exemplars
-    2. p10_cross_dist: 10th percentile of cross-cluster distances
-    3. p50_cross_dist: 50th percentile (median) of cross-cluster distances
-    4. support_fraction: Fraction of cross pairs below threshold (0.35)
-    5. diameter_ratio: max(dia_a, dia_b) / min(dia_a, dia_b)
-    6. cluster_size_min: min(size_a, size_b)
-    7. cluster_size_ratio: max(size_a, size_b) / min(size_a, size_b)
-    8. T_A: Threshold for cluster A
-    9. T_B: Threshold for cluster B
-    10. T_local: MAX(T_A, T_B)
-    11. T_global: Global median threshold
+    V1 Features (12):
+    - min_exemplar_dist, p10_cross_dist, p50_cross_dist, support_fraction
+    - diameter_ratio, cluster_size_min, cluster_size_ratio
+    - T_A, T_B, T_local, T_global
+
+    V2 Features (17 = V1 + 5 new):
+    - frontal_frac_A, frontal_frac_B
+    - pose_diff (Euclidean distance of mean yaw/pitch)
+    - min_exemplar_dist_x_pose, p50_cross_dist_x_pose (interaction terms)
 
     Args:
         cluster_id_a: First cluster ID
@@ -426,69 +411,23 @@ def compute_pair_features(
         distance_matrix: Pairwise distance matrix
         cluster_stats: Pre-computed cluster statistics
         T_global: Global threshold
+        feature_computer: FeatureComputer instance
 
     Returns:
         Dict of feature name -> value
     """
-    # Get cluster nodes
-    nodes_a = cluster_result.clusters[cluster_id_a]
-    nodes_b = cluster_result.clusters[cluster_id_b]
+    # Compute features using FeatureComputer
+    features_obj = feature_computer.compute_pair_features(
+        cluster_id_a=cluster_id_a,
+        cluster_id_b=cluster_id_b,
+        cluster_result=cluster_result,
+        distance_matrix=distance_matrix,
+        cluster_stats=cluster_stats,
+        T_global=T_global
+    )
 
-    # Get exemplars
-    exemplars_a = cluster_result.exemplars.get(cluster_id_a, nodes_a)
-    exemplars_b = cluster_result.exemplars.get(cluster_id_b, nodes_b)
-
-    # 1. min_exemplar_dist
-    exemplar_dists = distance_matrix[np.ix_(exemplars_a, exemplars_b)]
-    min_exemplar_dist = float(exemplar_dists.min())
-
-    # Get all cross-cluster distances
-    cross_dists = distance_matrix[np.ix_(nodes_a, nodes_b)].flatten()
-
-    # 2-3. p10, p50 cross distances
-    p10_cross_dist = float(np.percentile(cross_dists, 10))
-    p50_cross_dist = float(np.percentile(cross_dists, 50))
-
-    # 4. support_fraction (fraction below threshold 0.35)
-    support_threshold = 0.35
-    support_fraction = float(np.mean(cross_dists < support_threshold))
-
-    # 5. diameter_ratio
-    dia_a = cluster_stats[cluster_id_a]['diameter']
-    dia_b = cluster_stats[cluster_id_b]['diameter']
-    if dia_a > 0 and dia_b > 0:
-        diameter_ratio = max(dia_a, dia_b) / min(dia_a, dia_b)
-    else:
-        diameter_ratio = 1.0
-
-    # 6-7. cluster size features
-    size_a = len(nodes_a)
-    size_b = len(nodes_b)
-    cluster_size_min = min(size_a, size_b)
-    cluster_size_ratio = max(size_a, size_b) / min(size_a, size_b)
-
-    # 8-11. threshold features
-    T_A = cluster_stats[cluster_id_a]['T_A']
-    T_B = cluster_stats[cluster_id_b]['T_A']
-    T_local = max(T_A, T_B)
-
-    features = {
-        'cluster_id_1': cluster_id_a,
-        'cluster_id_2': cluster_id_b,
-        'min_exemplar_dist': min_exemplar_dist,
-        'p10_cross_dist': p10_cross_dist,
-        'p50_cross_dist': p50_cross_dist,
-        'support_fraction': support_fraction,
-        'diameter_ratio': diameter_ratio,
-        'cluster_size_min': cluster_size_min,
-        'cluster_size_ratio': cluster_size_ratio,
-        'T_A': T_A,
-        'T_B': T_B,
-        'T_local': T_local,
-        'T_global': T_global,
-    }
-
-    return features
+    # Convert to dict (automatically excludes None values)
+    return features_obj.to_dict()
 
 
 def export_csvs(
@@ -556,7 +495,7 @@ def export_csvs(
         exemplar_face_ids = [faces[core_indices[n]].face_id for n in exemplar_nodes]
         face_ids = cluster_stats[cluster_id]['face_ids']
 
-        clusters_data.append({
+        row = {
             'cluster_id': cluster_id,
             'cluster_size': len(cluster_nodes),
             'exemplar_ids': ','.join(map(str, exemplar_face_ids)),
@@ -564,7 +503,15 @@ def export_csvs(
             'T_A': cluster_stats[cluster_id]['T_A'],
             'mean_blur': cluster_stats[cluster_id]['mean_blur'],
             'face_ids': ','.join(map(str, face_ids)),
-        })
+        }
+
+        # Add V2 features if available
+        if cluster_stats[cluster_id].get('frontal_frac') is not None:
+            row['frontal_frac'] = cluster_stats[cluster_id]['frontal_frac']
+            row['mean_yaw'] = cluster_stats[cluster_id]['mean_yaw']
+            row['mean_pitch'] = cluster_stats[cluster_id]['mean_pitch']
+
+        clusters_data.append(row)
 
     clusters_df = pd.DataFrame(clusters_data)
     clusters_path = output_dir / 'clusters.csv'
@@ -699,6 +646,15 @@ def main():
         help='Max min_exemplar_dist for candidate pairs (default: 0.45)'
     )
 
+    # Feature engineering
+    parser.add_argument(
+        '--feature-version',
+        type=int,
+        default=2,
+        choices=[1, 2],
+        help='Feature set version: 1=12 features (no pose), 2=17 features (with pose) (default: 2)'
+    )
+
     args = parser.parse_args()
 
     # Validate embeddings path exists
@@ -737,6 +693,14 @@ def main():
     )
 
     try:
+        # Initialize feature computer
+        feature_computer = FeatureComputer(
+            support_threshold=0.35,
+            frontal_threshold=15.0,
+            feature_version=args.feature_version
+        )
+        logger.info(f"Using feature version {args.feature_version} ({len(feature_computer.get_feature_names())} features)")
+
         # Load embeddings and metadata
         faces, crops_dir = load_embeddings_and_metadata(
             args.embeddings,
@@ -755,7 +719,8 @@ def main():
             cluster_result,
             distance_matrix,
             faces,
-            core_indices
+            core_indices,
+            feature_computer
         )
 
         # Generate candidate pairs
@@ -775,7 +740,8 @@ def main():
                 cluster_result,
                 distance_matrix,
                 cluster_stats,
-                T_global
+                T_global,
+                feature_computer
             )
             pair_features.append(features)
 

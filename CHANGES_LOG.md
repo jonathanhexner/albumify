@@ -6,6 +6,26 @@
 
 ---
 
+### 2026-02-27 13:02:00
+**Files**: `scripts/export_clustering_data.py`
+**Change**: Integrated FeatureComputer to use V2 features (16 total)
+**Reason**: Add pose-based features for better merge prediction with logistic regression
+
+**Changes**:
+- Updated compute_cluster_stats() to use FeatureComputer.compute_cluster_stats()
+- Updated compute_pair_features() to use FeatureComputer.compute_pair_features()
+- Added --feature-version CLI argument (1=11 features, 2=16 features, default=2)
+- Export clusters.csv now includes frontal_frac, mean_yaw, mean_pitch (V2 only)
+- Export candidate_pairs.csv now includes 5 additional V2 features
+
+**V2 Features Added**:
+- frontal_frac_A/B: fraction of frontal faces per cluster
+- pose_diff: Euclidean distance of mean (yaw, pitch)
+- min_exemplar_dist_x_pose: distance * (1 + pose_diff/90)
+- p50_cross_dist_x_pose: distance * (1 + pose_diff/90)
+
+**Tested**: Successfully exported with V2 features (16 columns in candidate_pairs.csv)
+
 ### 2026-02-27 11:30:00
 **Files**: `notebooks/export_clustering_data.ipynb`
 **Change**: Created interactive notebook version of clustering export
