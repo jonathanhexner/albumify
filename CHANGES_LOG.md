@@ -6,6 +6,11 @@
 
 ---
 
+### 2026-02-27 13:15:00
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Created Streamlit app for manual cluster labeling (Phase 2)
+**Reason**: Enable users to assign corrected_identity to clusters for ML training
+
 ### 2026-02-27 13:02:00
 **Files**: `scripts/export_clustering_data.py`
 **Change**: Integrated FeatureComputer to use V2 features (16 total)
