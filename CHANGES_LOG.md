@@ -6,6 +6,21 @@
 
 ---
 
+### 2026-02-27 11:30:00
+**Files**: `notebooks/export_clustering_data.ipynb`
+**Change**: Created interactive notebook version of clustering export
+**Reason**: Provide both CLI script (batch processing) and notebook (exploration) for data export
+
+**Features**:
+- Step-by-step pipeline with visualizations (blur distribution, T_A distribution, diameter distribution, feature correlations)
+- Config cell for easy parameter editing
+- Quality gating with pose estimation (optional)
+- Cluster statistics computation and visualization
+- Candidate pair generation with distance distribution plots
+- Feature computation with correlation matrix
+- CSV export with summary
+- Same output as CLI script, but interactive for exploration
+
 ### 2026-02-27 11:26:00
 **Files**: `scripts/export_clustering_data.py`, `docs/PLAN_ML_CLUSTER_MERGING.md`, `docs/FEATURE_REQUESTS.md`
 **Change**: Created Phase 1 of ML-based cluster merging pipeline - export script
