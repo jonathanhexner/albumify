@@ -1,0 +1,792 @@
+"""
+Export face clustering data for ML training.
+
+Runs mutual kNN clustering pipeline and exports:
+1. faces.csv - one row per face with metadata
+2. clusters.csv - one row per cluster with statistics
+3. candidate_pairs.csv - cluster pair features for merge candidates
+
+Usage:
+    python scripts/export_clustering_data.py \
+        --embeddings results/face_clustering_benchmark/embeddings_*.npy \
+        --output results/face_clustering_training/dataset1 \
+        --k 5 \
+        --distance-threshold 0.35 \
+        --candidate-threshold 0.45
+"""
+
+import argparse
+import json
+import logging
+from pathlib import Path
+from datetime import datetime
+from typing import Dict, List, Tuple, Any, Optional
+import sys
+
+import numpy as np
+import pandas as pd
+from PIL import Image
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from face_cluster import (
+    PipelineConfig,
+    QualityGater,
+    KNNGraphBuilder,
+    ConnectedComponentsClusterer,
+    D10ExemplarSelector,
+    FaceRecord,
+    GraphResult,
+    ClusterResult,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def setup_logging(output_dir: Path):
+    """Configure logging to both console and file."""
+    log_dir = output_dir / 'logs'
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    log_file = log_dir / f'export_{timestamp}.log'
+
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+
+    # File handler
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+
+    logger.info(f"Logging to: {log_file}")
+    return log_file
+
+
+def get_face_crop(face_idx: int, crops_dir: Path) -> Optional[np.ndarray]:
+    """Load face crop image from benchmark results."""
+    for pattern in [f"face_{face_idx:04d}_aligned.jpg", f"face_{face_idx:04d}.jpg"]:
+        crop_path = crops_dir / pattern
+        if crop_path.exists():
+            return np.array(Image.open(crop_path))
+    return None
+
+
+def load_embeddings_and_metadata(
+    embeddings_path: Path,
+    estimate_pose: bool = True,
+    device: str = 'cpu'
+) -> Tuple[List[FaceRecord], Path]:
+    """
+    Load pre-computed embeddings and metadata from benchmark results.
+
+    Args:
+        embeddings_path: Path to embeddings_*.npy file
+        estimate_pose: Whether to compute pose from face crops (requires sixdrepnet)
+        device: Device for pose estimation ('cpu' or 'cuda')
+
+    Returns:
+        faces: List of FaceRecord objects
+        crops_dir: Directory containing face crop images
+    """
+    logger.info(f"Loading embeddings from: {embeddings_path}")
+
+    # Load embeddings
+    embeddings = np.load(embeddings_path)
+    logger.info(f"Loaded {embeddings.shape[0]} embeddings")
+
+    # Load metadata JSON
+    json_file = embeddings_path.parent / embeddings_path.name.replace("embeddings_", "benchmark_").replace(".npy", ".json")
+    if json_file.exists():
+        with open(json_file) as f:
+            benchmark_data = json.load(f)
+        face_metadata = benchmark_data.get('face_metadata', [])
+        logger.info(f"Loaded metadata for {len(face_metadata)} faces")
+
+        if len(face_metadata) != len(embeddings):
+            logger.warning(f"Metadata count ({len(face_metadata)}) != embeddings count ({len(embeddings)})")
+            face_metadata = []
+    else:
+        logger.warning(f"Metadata file not found: {json_file.name}")
+        face_metadata = []
+
+    # Normalize embeddings
+    embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+    # Create FaceRecord objects
+    faces = []
+    crops_dir = embeddings_path.parent / "face_crops"
+
+    for i in range(len(embeddings)):
+        aligned_face = get_face_crop(i, crops_dir)
+
+        # Use metadata if available
+        if i < len(face_metadata):
+            meta = face_metadata[i]
+            image_id = Path(meta['image_path']).name
+            image_path = meta['image_path']
+            face_index = meta['face_index']
+            bbox = (
+                meta['bbox']['x_px'],
+                meta['bbox']['y_px'],
+                meta['bbox']['w_px'],
+                meta['bbox']['h_px']
+            )
+        else:
+            image_id = f"face_{i:04d}"
+            image_path = None
+            face_index = None
+            bbox = (0.0, 0.0, 112.0, 112.0)
+
+        face = FaceRecord(
+            face_id=i,
+            image_id=image_id,
+            bbox=bbox,
+            aligned_face=aligned_face,
+            embedding=embeddings[i],
+            embedding_normalized=embeddings[i],
+            pose=(0.0, 0.0, 0.0),  # Will be computed if estimate_pose=True
+            blur_score=100.0,      # Will be computed in quality gating
+            area=bbox[2] * bbox[3] if isinstance(bbox, tuple) else 12544.0,
+            is_core=False,
+            image_path=image_path,
+            face_index=face_index
+        )
+        faces.append(face)
+
+    logger.info(f"Created {len(faces)} FaceRecord objects")
+    logger.info(f"Face crops loaded: {sum(1 for f in faces if f.aligned_face is not None)} / {len(faces)}")
+
+    # Show unique source images
+    if face_metadata:
+        unique_images = len(set(Path(m['image_path']).name for m in face_metadata))
+        logger.info(f"From {unique_images} unique source images")
+
+    return faces, crops_dir
+
+
+def run_clustering_pipeline(
+    faces: List[FaceRecord],
+    config: PipelineConfig,
+    estimate_pose: bool = True
+) -> Tuple[List[int], GraphResult, ClusterResult, np.ndarray]:
+    """
+    Run clustering pipeline: quality gating → kNN graph → connected components → exemplars.
+
+    Args:
+        faces: List of FaceRecord objects
+        config: Pipeline configuration
+        estimate_pose: Whether to compute pose from face crops
+
+    Returns:
+        core_indices: Indices of faces that passed quality gating
+        graph_result: kNN graph result
+        cluster_result: Clustering result with exemplars
+        distance_matrix: Pairwise distance matrix for core faces
+    """
+    logger.info("Running clustering pipeline...")
+
+    # Stage 1: Quality gating
+    logger.info("Stage 1: Quality gating")
+    gater = QualityGater(
+        config,
+        use_pose_estimation=estimate_pose,
+        device='cpu'
+    )
+
+    # Compute blur scores
+    faces = gater.compute_blur_scores(faces)
+
+    # Optionally compute pose
+    if estimate_pose:
+        logger.info("Computing pose from face crops (this may take a while)...")
+        faces = gater.compute_pose_scores(faces)
+        poses_computed = sum(1 for f in faces if f.pose is not None and f.pose != (0.0, 0.0, 0.0))
+        logger.info(f"Pose computed for {poses_computed}/{len(faces)} faces")
+
+    # Filter by blur + pose
+    core_indices = []
+    holdout_indices = []
+
+    for i, face in enumerate(faces):
+        passes_blur = face.blur_score >= config.blur_min
+        passes_pose = True
+
+        if estimate_pose and face.pose is not None:
+            yaw, pitch, roll = face.pose
+            passes_pose = (
+                abs(yaw) <= config.yaw_max and
+                abs(pitch) <= config.pitch_max and
+                abs(roll) <= config.roll_max
+            )
+
+        if passes_blur and passes_pose:
+            core_indices.append(i)
+            face.is_core = True
+        else:
+            holdout_indices.append(i)
+            face.is_core = False
+
+    logger.info(f"Quality gating results: core={len(core_indices)}, holdout={len(holdout_indices)}")
+
+    if len(core_indices) == 0:
+        raise ValueError("No faces passed quality gating!")
+
+    # Stage 2: Build distance matrix
+    logger.info("Stage 2: Building distance matrix")
+    graph_builder = KNNGraphBuilder(config)
+    distance_matrix = graph_builder.build_distance_matrix(faces, core_indices)
+    logger.info(f"Distance matrix shape: {distance_matrix.shape}")
+
+    # Stage 3: Build mutual kNN graph
+    logger.info("Stage 3: Building mutual kNN graph")
+    graph_result = graph_builder.build_mutual_knn_graph(
+        distance_matrix,
+        config.K,
+        config.distance_threshold
+    )
+    logger.info(f"Graph: {graph_result.G.number_of_nodes()} nodes, {graph_result.G.number_of_edges()} edges")
+
+    # Stage 4: Connected components clustering
+    logger.info("Stage 4: Connected components clustering")
+    clusterer = ConnectedComponentsClusterer(config)
+    cluster_result = clusterer.cluster(graph_result, core_indices)
+    logger.info(f"Clustering: {cluster_result.n_clusters} clusters, {cluster_result.n_noise} noise")
+
+    # Stage 5: Exemplar selection
+    logger.info("Stage 5: D10 exemplar selection")
+    exemplar_selector = D10ExemplarSelector(config)
+    cluster_result = exemplar_selector.select_exemplars(cluster_result, graph_result)
+
+    total_exemplars = sum(len(exs) for exs in cluster_result.exemplars.values())
+    logger.info(f"Selected {total_exemplars} exemplars across {len(cluster_result.exemplars)} clusters")
+
+    return core_indices, graph_result, cluster_result, distance_matrix
+
+
+def compute_cluster_stats(
+    cluster_result: ClusterResult,
+    distance_matrix: np.ndarray,
+    faces: List[FaceRecord],
+    core_indices: List[int]
+) -> Dict[int, Dict[str, Any]]:
+    """
+    Compute statistics for each cluster.
+
+    Args:
+        cluster_result: Clustering result
+        distance_matrix: Pairwise distance matrix
+        faces: All faces
+        core_indices: Core face indices
+
+    Returns:
+        Dict mapping cluster_id to stats dict with keys:
+            - diameter: max pairwise distance within cluster
+            - T_A: P90 of exemplar pairwise distances
+            - mean_blur: mean blur score
+            - face_ids: list of face IDs in cluster
+    """
+    logger.info("Computing cluster statistics...")
+
+    cluster_stats = {}
+
+    for cluster_id, cluster_nodes in cluster_result.clusters.items():
+        # Get face IDs
+        face_ids = [faces[core_indices[n]].face_id for n in cluster_nodes]
+
+        # Compute diameter (max pairwise distance)
+        if len(cluster_nodes) > 1:
+            cluster_dists = distance_matrix[np.ix_(cluster_nodes, cluster_nodes)]
+            diameter = float(cluster_dists.max())
+        else:
+            diameter = 0.0
+
+        # Compute T_A (P90 of exemplar pairwise distances)
+        T_A = 0.0
+        if cluster_id in cluster_result.exemplars:
+            exemplar_nodes = cluster_result.exemplars[cluster_id]
+            if len(exemplar_nodes) > 1:
+                exemplar_dists = distance_matrix[np.ix_(exemplar_nodes, exemplar_nodes)]
+                # Get upper triangle (exclude diagonal and duplicates)
+                exemplar_dists_flat = exemplar_dists[np.triu_indices_from(exemplar_dists, k=1)]
+                if len(exemplar_dists_flat) > 0:
+                    T_A = float(np.percentile(exemplar_dists_flat, 90))
+
+        # Compute mean blur
+        cluster_face_indices = [core_indices[n] for n in cluster_nodes]
+        blur_scores = [faces[i].blur_score for i in cluster_face_indices]
+        mean_blur = float(np.mean(blur_scores))
+
+        cluster_stats[cluster_id] = {
+            'diameter': diameter,
+            'T_A': T_A,
+            'mean_blur': mean_blur,
+            'face_ids': face_ids,
+        }
+
+    # Compute T_global (median of all T_A values)
+    T_A_values = [stats['T_A'] for stats in cluster_stats.values() if stats['T_A'] > 0]
+    T_global = float(np.median(T_A_values)) if len(T_A_values) > 0 else 0.0
+
+    logger.info(f"Cluster stats: T_global={T_global:.3f}")
+
+    return cluster_stats, T_global
+
+
+def generate_candidate_pairs(
+    cluster_result: ClusterResult,
+    distance_matrix: np.ndarray,
+    candidate_threshold: float = 0.45
+) -> List[Tuple[int, int, float]]:
+    """
+    Generate candidate cluster pairs filtered by exemplar distance.
+
+    Args:
+        cluster_result: Clustering result with exemplars
+        distance_matrix: Pairwise distance matrix
+        candidate_threshold: Max min_exemplar_dist for candidates
+
+    Returns:
+        List of (cluster_id_1, cluster_id_2, min_exemplar_dist) sorted by distance
+    """
+    logger.info(f"Generating candidate pairs (threshold={candidate_threshold})...")
+
+    candidates = []
+    cluster_ids = sorted(cluster_result.clusters.keys())
+
+    for i, cluster_id_a in enumerate(cluster_ids):
+        for cluster_id_b in cluster_ids[i+1:]:
+            # Get exemplars
+            exemplars_a = cluster_result.exemplars.get(
+                cluster_id_a,
+                cluster_result.clusters[cluster_id_a]  # Use all if no exemplars
+            )
+            exemplars_b = cluster_result.exemplars.get(
+                cluster_id_b,
+                cluster_result.clusters[cluster_id_b]
+            )
+
+            # Compute min exemplar distance
+            exemplar_dists = distance_matrix[np.ix_(exemplars_a, exemplars_b)]
+            min_exemplar_dist = float(exemplar_dists.min())
+
+            # Filter by threshold
+            if min_exemplar_dist < candidate_threshold:
+                candidates.append((cluster_id_a, cluster_id_b, min_exemplar_dist))
+
+    # Sort by distance (ascending)
+    candidates.sort(key=lambda x: x[2])
+
+    logger.info(f"Found {len(candidates)} candidate pairs (from {len(cluster_ids)} clusters)")
+
+    return candidates
+
+
+def compute_pair_features(
+    cluster_id_a: int,
+    cluster_id_b: int,
+    cluster_result: ClusterResult,
+    distance_matrix: np.ndarray,
+    cluster_stats: Dict[int, Dict[str, Any]],
+    T_global: float
+) -> Dict[str, float]:
+    """
+    Compute all 12 features for a cluster pair.
+
+    Features:
+    1. min_exemplar_dist: Min distance between exemplars
+    2. p10_cross_dist: 10th percentile of cross-cluster distances
+    3. p50_cross_dist: 50th percentile (median) of cross-cluster distances
+    4. support_fraction: Fraction of cross pairs below threshold (0.35)
+    5. diameter_ratio: max(dia_a, dia_b) / min(dia_a, dia_b)
+    6. cluster_size_min: min(size_a, size_b)
+    7. cluster_size_ratio: max(size_a, size_b) / min(size_a, size_b)
+    8. T_A: Threshold for cluster A
+    9. T_B: Threshold for cluster B
+    10. T_local: MAX(T_A, T_B)
+    11. T_global: Global median threshold
+
+    Args:
+        cluster_id_a: First cluster ID
+        cluster_id_b: Second cluster ID
+        cluster_result: Clustering result
+        distance_matrix: Pairwise distance matrix
+        cluster_stats: Pre-computed cluster statistics
+        T_global: Global threshold
+
+    Returns:
+        Dict of feature name -> value
+    """
+    # Get cluster nodes
+    nodes_a = cluster_result.clusters[cluster_id_a]
+    nodes_b = cluster_result.clusters[cluster_id_b]
+
+    # Get exemplars
+    exemplars_a = cluster_result.exemplars.get(cluster_id_a, nodes_a)
+    exemplars_b = cluster_result.exemplars.get(cluster_id_b, nodes_b)
+
+    # 1. min_exemplar_dist
+    exemplar_dists = distance_matrix[np.ix_(exemplars_a, exemplars_b)]
+    min_exemplar_dist = float(exemplar_dists.min())
+
+    # Get all cross-cluster distances
+    cross_dists = distance_matrix[np.ix_(nodes_a, nodes_b)].flatten()
+
+    # 2-3. p10, p50 cross distances
+    p10_cross_dist = float(np.percentile(cross_dists, 10))
+    p50_cross_dist = float(np.percentile(cross_dists, 50))
+
+    # 4. support_fraction (fraction below threshold 0.35)
+    support_threshold = 0.35
+    support_fraction = float(np.mean(cross_dists < support_threshold))
+
+    # 5. diameter_ratio
+    dia_a = cluster_stats[cluster_id_a]['diameter']
+    dia_b = cluster_stats[cluster_id_b]['diameter']
+    if dia_a > 0 and dia_b > 0:
+        diameter_ratio = max(dia_a, dia_b) / min(dia_a, dia_b)
+    else:
+        diameter_ratio = 1.0
+
+    # 6-7. cluster size features
+    size_a = len(nodes_a)
+    size_b = len(nodes_b)
+    cluster_size_min = min(size_a, size_b)
+    cluster_size_ratio = max(size_a, size_b) / min(size_a, size_b)
+
+    # 8-11. threshold features
+    T_A = cluster_stats[cluster_id_a]['T_A']
+    T_B = cluster_stats[cluster_id_b]['T_A']
+    T_local = max(T_A, T_B)
+
+    features = {
+        'cluster_id_1': cluster_id_a,
+        'cluster_id_2': cluster_id_b,
+        'min_exemplar_dist': min_exemplar_dist,
+        'p10_cross_dist': p10_cross_dist,
+        'p50_cross_dist': p50_cross_dist,
+        'support_fraction': support_fraction,
+        'diameter_ratio': diameter_ratio,
+        'cluster_size_min': cluster_size_min,
+        'cluster_size_ratio': cluster_size_ratio,
+        'T_A': T_A,
+        'T_B': T_B,
+        'T_local': T_local,
+        'T_global': T_global,
+    }
+
+    return features
+
+
+def export_csvs(
+    faces: List[FaceRecord],
+    core_indices: List[int],
+    cluster_result: ClusterResult,
+    cluster_stats: Dict[int, Dict[str, Any]],
+    pair_features: List[Dict[str, float]],
+    output_dir: Path
+):
+    """
+    Export 3 CSV files: faces, clusters, candidate_pairs.
+
+    Args:
+        faces: All faces
+        core_indices: Core face indices
+        cluster_result: Clustering result
+        cluster_stats: Cluster statistics
+        pair_features: List of feature dicts for each pair
+        output_dir: Output directory
+    """
+    logger.info(f"Exporting CSVs to: {output_dir}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. faces.csv
+    # Build reverse mapping: face_id -> cluster_id
+    face_to_cluster = {}
+    for cid, cluster_nodes in cluster_result.clusters.items():
+        for node_idx in cluster_nodes:
+            face_idx = core_indices[node_idx]
+            face_to_cluster[face_idx] = cid
+
+    faces_data = []
+    for i, face in enumerate(faces):
+        yaw, pitch, roll = face.pose if face.pose else (None, None, None)
+
+        # Look up cluster ID (-1 for noise/holdout)
+        cluster_id = face_to_cluster.get(i, -1)
+
+        faces_data.append({
+            'face_id': face.face_id,
+            'image_path': face.image_path or '',
+            'cluster_id': cluster_id,
+            'bbox_x': face.bbox[0],
+            'bbox_y': face.bbox[1],
+            'bbox_w': face.bbox[2],
+            'bbox_h': face.bbox[3],
+            'blur_score': face.blur_score,
+            'pose_yaw': yaw,
+            'pose_pitch': pitch,
+            'pose_roll': roll,
+            'is_core': face.is_core,
+            'embedding_index': face.face_id,
+        })
+
+    faces_df = pd.DataFrame(faces_data)
+    faces_path = output_dir / 'faces.csv'
+    faces_df.to_csv(faces_path, index=False)
+    logger.info(f"Exported {len(faces_df)} faces to: {faces_path}")
+
+    # 2. clusters.csv
+    clusters_data = []
+    for cluster_id, cluster_nodes in cluster_result.clusters.items():
+        exemplar_nodes = cluster_result.exemplars.get(cluster_id, [])
+        exemplar_face_ids = [faces[core_indices[n]].face_id for n in exemplar_nodes]
+        face_ids = cluster_stats[cluster_id]['face_ids']
+
+        clusters_data.append({
+            'cluster_id': cluster_id,
+            'cluster_size': len(cluster_nodes),
+            'exemplar_ids': ','.join(map(str, exemplar_face_ids)),
+            'diameter': cluster_stats[cluster_id]['diameter'],
+            'T_A': cluster_stats[cluster_id]['T_A'],
+            'mean_blur': cluster_stats[cluster_id]['mean_blur'],
+            'face_ids': ','.join(map(str, face_ids)),
+        })
+
+    clusters_df = pd.DataFrame(clusters_data)
+    clusters_path = output_dir / 'clusters.csv'
+    clusters_df.to_csv(clusters_path, index=False)
+    logger.info(f"Exported {len(clusters_df)} clusters to: {clusters_path}")
+
+    # 3. candidate_pairs.csv
+    pairs_df = pd.DataFrame(pair_features)
+    pairs_path = output_dir / 'candidate_pairs.csv'
+    pairs_df.to_csv(pairs_path, index=False)
+    logger.info(f"Exported {len(pairs_df)} candidate pairs to: {pairs_path}")
+
+    # Export summary
+    summary = {
+        'timestamp': datetime.now().isoformat(),
+        'n_faces': len(faces),
+        'n_core': len(core_indices),
+        'n_holdout': len(faces) - len(core_indices),
+        'n_clusters': cluster_result.n_clusters,
+        'n_noise': cluster_result.n_noise,
+        'n_candidate_pairs': len(pair_features),
+        'files': {
+            'faces': faces_path.name,
+            'clusters': clusters_path.name,
+            'pairs': pairs_path.name,
+        }
+    }
+
+    summary_path = output_dir / 'export_summary.json'
+    with open(summary_path, 'w') as f:
+        json.dump(summary, f, indent=2)
+    logger.info(f"Exported summary to: {summary_path}")
+
+    logger.info(f"\nExport complete! Files:")
+    logger.info(f"  - {faces_path}")
+    logger.info(f"  - {clusters_path}")
+    logger.info(f"  - {pairs_path}")
+    logger.info(f"  - {summary_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Export face clustering data for ML training',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__
+    )
+
+    # Required arguments
+    parser.add_argument(
+        '--embeddings',
+        type=Path,
+        required=True,
+        help='Path to embeddings_*.npy file (from benchmark results)'
+    )
+    parser.add_argument(
+        '--output',
+        type=Path,
+        required=True,
+        help='Output directory for CSV files'
+    )
+
+    # Clustering parameters
+    parser.add_argument(
+        '--k',
+        type=int,
+        default=5,
+        help='Number of nearest neighbors for mutual kNN (default: 5)'
+    )
+    parser.add_argument(
+        '--distance-threshold',
+        type=float,
+        default=0.35,
+        help='Max cosine distance for kNN edge creation (default: 0.35)'
+    )
+    parser.add_argument(
+        '--min-cluster-size',
+        type=int,
+        default=2,
+        help='Minimum cluster size (default: 2)'
+    )
+
+    # Quality gating parameters
+    parser.add_argument(
+        '--blur-min',
+        type=float,
+        default=50.0,
+        help='Min blur score (Laplacian variance, default: 50.0)'
+    )
+    parser.add_argument(
+        '--yaw-max',
+        type=float,
+        default=30.0,
+        help='Max absolute yaw angle in degrees (default: 30.0)'
+    )
+    parser.add_argument(
+        '--pitch-max',
+        type=float,
+        default=25.0,
+        help='Max absolute pitch angle in degrees (default: 25.0)'
+    )
+    parser.add_argument(
+        '--roll-max',
+        type=float,
+        default=25.0,
+        help='Max absolute roll angle in degrees (default: 25.0)'
+    )
+    parser.add_argument(
+        '--no-pose',
+        action='store_true',
+        help='Skip pose estimation (faster but less accurate filtering)'
+    )
+
+    # Exemplar parameters
+    parser.add_argument(
+        '--d10-k',
+        type=int,
+        default=3,
+        help='K for d10 computation (default: 3)'
+    )
+    parser.add_argument(
+        '--exemplar-threshold',
+        type=float,
+        default=0.35,
+        help='Max d10 to be exemplar candidate (default: 0.35)'
+    )
+
+    # Candidate pair filtering
+    parser.add_argument(
+        '--candidate-threshold',
+        type=float,
+        default=0.45,
+        help='Max min_exemplar_dist for candidate pairs (default: 0.45)'
+    )
+
+    args = parser.parse_args()
+
+    # Setup logging
+    setup_logging(args.output)
+
+    logger.info("="*60)
+    logger.info("Face Clustering Data Export")
+    logger.info("="*60)
+    logger.info(f"Embeddings: {args.embeddings}")
+    logger.info(f"Output: {args.output}")
+    logger.info(f"Config: K={args.k}, distance_threshold={args.distance_threshold}")
+
+    # Create pipeline config
+    config = PipelineConfig(
+        K=args.k,
+        distance_threshold=args.distance_threshold,
+        min_cluster_size=args.min_cluster_size,
+        yaw_max=args.yaw_max,
+        pitch_max=args.pitch_max,
+        roll_max=args.roll_max,
+        blur_min=args.blur_min,
+        d10_k=args.d10_k,
+        exemplars_d10_threshold=args.exemplar_threshold,
+        N_exemplars_max=10,
+        exemplar_suppression_radius=0.2,
+    )
+
+    try:
+        # Load embeddings and metadata
+        faces, crops_dir = load_embeddings_and_metadata(
+            args.embeddings,
+            estimate_pose=not args.no_pose
+        )
+
+        # Run clustering pipeline
+        core_indices, graph_result, cluster_result, distance_matrix = run_clustering_pipeline(
+            faces,
+            config,
+            estimate_pose=not args.no_pose
+        )
+
+        # Compute cluster statistics
+        cluster_stats, T_global = compute_cluster_stats(
+            cluster_result,
+            distance_matrix,
+            faces,
+            core_indices
+        )
+
+        # Generate candidate pairs
+        candidates = generate_candidate_pairs(
+            cluster_result,
+            distance_matrix,
+            args.candidate_threshold
+        )
+
+        # Compute features for each pair
+        logger.info("Computing features for candidate pairs...")
+        pair_features = []
+        for cluster_id_a, cluster_id_b, _ in candidates:
+            features = compute_pair_features(
+                cluster_id_a,
+                cluster_id_b,
+                cluster_result,
+                distance_matrix,
+                cluster_stats,
+                T_global
+            )
+            pair_features.append(features)
+
+        # Export CSVs
+        export_csvs(
+            faces,
+            core_indices,
+            cluster_result,
+            cluster_stats,
+            pair_features,
+            args.output
+        )
+
+        logger.info("\n" + "="*60)
+        logger.info("Export completed successfully!")
+        logger.info("="*60)
+
+    except Exception as e:
+        logger.error(f"Export failed: {e}", exc_info=True)
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

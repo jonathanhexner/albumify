@@ -6,6 +6,957 @@
 
 ---
 
+### 2026-02-27 11:26:00
+**Files**: `scripts/export_clustering_data.py`, `docs/PLAN_ML_CLUSTER_MERGING.md`, `docs/FEATURE_REQUESTS.md`
+**Change**: Created Phase 1 of ML-based cluster merging pipeline - export script
+**Reason**: Replace heuristic cluster merging with logistic regression model trained on labeled data
+
+**Implementation**:
+- Created `scripts/export_clustering_data.py` with CLI interface
+- Runs clustering pipeline: quality gating → kNN graph → connected components → exemplar selection
+- Exports 3 CSVs:
+  - `faces.csv` - one row per face with metadata (face_id, image_path, cluster_id, bbox, blur_score, pose, is_core)
+  - `clusters.csv` - one row per cluster with stats (cluster_id, size, exemplar_ids, diameter, T_A, mean_blur, face_ids)
+  - `candidate_pairs.csv` - cluster pair features (12 features: min_exemplar_dist, p10/p50_cross_dist, support_fraction, diameter_ratio, cluster sizes, T_A/T_B/T_local/T_global)
+- Tested on sample dataset (254 faces → 39 clusters → 39 candidate pairs)
+- All features computed correctly, no NaN values
+
+**Next Steps**: Phase 2 (Streamlit labeling interface), Phase 3 (training script), Phase 4 (deployment)
+
+---
+
+### 2026-02-26 06:00:00
+**Files**: `docs/KNN_CLUSTERING_PIPELINE.md`, `docs/MERGE_CRITERIA_EXPLAINED.md`
+**Change**: Added tables and comprehensive failure analysis to documentation
+**Reason**: User questions about failure patterns and Min_Dist vs Exemplar_Dist. Enhanced docs with:
+
+**1. Summary Tables** - Quick reference for all criteria:
+- Criterion name, what it checks, parameters, defaults, recommendations
+- Failure patterns and what they mean
+- Min_Dist vs Exemplar_Dist comparison
+
+**2. Understanding Failures** - Detailed analysis:
+- Table showing failure patterns (Exemplar only, Support only, Multiple, etc.)
+- When each pattern is a problem vs working correctly
+- Example: "Exemplar + Support + Diameter" = genuinely different clusters (DON'T merge)
+
+**3. Why Changing Alpha Won't Always Help**:
+- Table showing T_merge at different alpha values
+- Example: clusters (3, 6) with exemplar_dist=0.413
+  - Even with alpha=0 (100% global): T_merge=0.307 < 0.413 → still fails
+  - Conclusion: These ARE different clusters (tight internally, far apart)
+
+**4. Min_Dist vs Exemplar_Dist**:
+| Metric | Definition | Used In | Purpose |
+|--------|------------|---------|---------|
+| Min_Dist | ANY two faces | Close Clusters | Geometric proximity |
+| Exemplar_Dist | Exemplars only | Merge Decisions | Robust merge decisions |
+
+**Example**: Pair (4, 23) has Min_Dist=0.278 but Exemplar_Dist=0.520
+- NOT in Merge Decisions (exemplar_dist > 0.45)
+- Shows outliers close, but cores far apart (correct behavior)
+
+**5. Troubleshooting Decision Tree** - Step-by-step debugging guide
+
+Documentation now answers: "Why aren't these merging?" with clear, tabular explanations.
+
+### 2026-02-26 05:30:00
+**Files**: `face_cluster/merge.py`
+**Change**: Fixed merge_margin=0 to actually disable margin check
+**Reason**: User correctly identified that even with merge_margin=0, the margin check was still enforcing "B must be THE CLOSEST cluster to all of A's exemplars".
+
+**The Problem**:
+```python
+if dist_to_b + 0.0 > dist:  # Still requires B to be closest!
+    return False
+```
+
+Even with margin=0, the check required B to be the absolute closest cluster for every exemplar in A. This is too strict - we already have exemplar distance, support, and diameter checks.
+
+**The Fix**: Added early return when margin=0:
+```python
+def _check_margin(...):
+    if self.config.merge_margin == 0.0:
+        return True  # Disable check entirely
+    # ... rest of check
+```
+
+Now `MERGE_MARGIN=0` truly disables the margin criterion, relying on the other 3 criteria.
+
+### 2026-02-26 05:00:00
+**Files**: `docs/KNN_CLUSTERING_PIPELINE.md` (new), `docs/MERGE_CRITERIA_EXPLAINED.md` (updated), `notebooks/debug_knn_graph_clustering.ipynb`
+**Change**: Complete pipeline documentation for production use
+**Reason**: User requested full pipeline documentation (not just merge criteria) to translate notebook to production code. Created comprehensive guide:
+
+**docs/KNN_CLUSTERING_PIPELINE.md** - Complete pipeline documentation:
+- Overview with pipeline diagram
+- Each stage explained in detail (A through F4)
+- All parameters documented with defaults
+- Complete production code example
+- ClusterSnapshot analysis/debugging guide
+- Troubleshooting section
+
+**Margin Criterion Clarified** - Added concrete example:
+```
+Exemplar X from cluster A:
+  Distance to B: 0.233
+  Distance to C: 0.240
+
+Check (merge_margin=0.05):
+  0.233 + 0.05 = 0.283
+  Is 0.283 < 0.240? NO → FAIL
+
+Reason: C is within margin (0.007 gap)
+```
+
+**Margin is distance to SECOND-CLOSEST cluster** - Must be ≥ merge_margin larger than distance to proposed merge partner.
+
+**Notebook updated**: Added `MERGE_MARGIN=0.0` parameter with comment pointing to docs
+
+**Purpose**: Team can now implement production pipeline from docs without notebook.
+
+### 2026-02-26 04:00:00
+**Files**: `face_cluster/analysis.py`, `notebooks/debug_knn_graph_clustering.ipynb`
+**Change**: Simplified merge analysis - clean DataFrames, explanation in notebook
+**Reason**: User feedback - too many prints, code bloated and hard to maintain. Refactored to:
+
+**1. Clean Code** - Removed verbose prints, simplified logic:
+- New method: `get_merge_decisions_df()` returns DataFrame (no side effects)
+- New method: `get_close_clusters_df()` returns DataFrame
+- `plot_decision_boundaries()` calls `get_merge_decisions_df()` and displays
+- `plot_close_clusters()` calls `get_close_clusters_df()` and displays
+- Fewer if statements, cleaner structure
+
+**2. Explanation in Notebook** - Not in code:
+- Added markdown cell before Stage F2 with:
+  - 4 merge criteria
+  - Adaptive threshold formula
+  - DataFrame column explanations
+- Code stays simple and maintainable
+
+**3. Merge Decisions DataFrame**:
+```
+C1 C2 Size1 Size2 Exemplar_Dist  T_A  T_B T_local T_global T_merge  Gap Merged Failed
+0  1   3     2     0.35          0.25 0.30 0.30   0.27     0.291   0.059 False  Exemplar
+2  3   2     2     0.32          0.28 0.26 0.28   0.27     0.277   0.043 False  Exemplar, Support
+```
+Shows exactly why each pair didn't merge.
+
+**4. Close Clusters DataFrame**:
+```
+C1 C2 Size1 Size2 Min_Dist T_merge   Gap
+1  3   2     2     0.026   0.291    -0.265  (would merge)
+0  1   3     2     0.048   0.291    -0.243  (would merge)
+```
+Negative Gap = would merge if criteria passed.
+
+**Result**: Clean, maintainable code + clear DataFrames + explanation in notebook where it belongs!
+
+### 2026-02-26 03:00:00
+**Files**: `face_cluster/types.py`, `face_cluster/analysis.py` (new), `face_cluster/merge.py`, `face_cluster/__init__.py`, `notebooks/debug_knn_graph_clustering.ipynb`, `test_clustersnapshot_workflow.py` (new)
+**Change**: Added unified ClusterSnapshot for analysis and filename traceability
+**Reason**: User correctly identified that passing around multiple variables (faces, core_indices, cluster_result, graph_result) is messy and makes analysis difficult. Implemented and **tested** comprehensive solution:
+
+**1. Filename Traceability** - Added to FaceRecord:
+- `image_path: Optional[str]` - Full path to source image
+- `face_index: Optional[int]` - Which face in that image (0, 1, 2...)
+- Notebook now loads metadata JSON and populates with actual filenames (e.g., "20250822_112331.jpg")
+- 274 faces from 104 unique images properly tracked
+
+**2. ClusterSnapshot Class** (face_cluster/analysis.py):
+Unified data structure for cluster analysis at any stage:
+- Contains: faces, core_indices, labels, distance_matrix, clusters, stats, exemplars
+- Decision metadata: cluster_thresholds, merge_candidates (for sensitivity analysis)
+- Standard analyses built-in:
+  - `plot_overview()` - Top K clusters with N faces each, shows source images
+  - `plot_close_clusters()` - Clusters nearly merged (sensitivity to threshold)
+  - `plot_widest_clusters()` - Distance distribution for widest clusters (quality check)
+  - `plot_decision_boundaries()` - Per-cluster thresholds vs merge candidates
+  - `compare_with()` - Before/after comparison (e.g., pre/post merge)
+  - `get_source_images()` - Unique source images per cluster
+  - `print_cluster_sources()` - Image breakdown (helps spot bad merges)
+- Factory method: `ClusterSnapshot.from_result()` creates from ClusterResult
+- Properties: n_clusters, n_noise, n_core, n_total
+
+**3. Merge Decision Metadata** - Updated ConservativeMerger:
+- Stores `last_thresholds` (per-cluster adaptive thresholds)
+- Stores `last_candidates` (all proposed merges with evidence)
+- Enables sensitivity analysis: "How close were we to merging clusters X and Y?"
+
+**4. Updated Notebook Workflow** - Now clean and consistent:
+```python
+# After initial clustering
+snapshot_initial = ClusterSnapshot.from_result(
+    cluster_result, faces, core_indices, distance_matrix,
+    stage="initial_clustering", config=config
+)
+snapshot_initial.print_summary()
+snapshot_initial.plot_overview()
+snapshot_initial.plot_widest_clusters(top_k=3)
+
+# After merge
+snapshot_merged = ClusterSnapshot.from_result(
+    ..., cluster_thresholds=merger.last_thresholds,
+    merge_candidates=merger.last_candidates
+)
+snapshot_merged.plot_decision_boundaries()  # Why these merges happened
+snapshot_merged.plot_close_clusters(top_k=5)  # Sensitivity analysis
+snapshot_merged.compare_with(snapshot_initial)  # What changed
+```
+
+**Benefits**:
+- Single data structure replaces passing around 4+ variables
+- Consistent analysis at any stage (initial, merge, split, final)
+- Full traceability: cluster → faces → source images → filenames
+- Sensitivity analysis: decision boundaries, close clusters, widest clusters
+- Easy before/after comparison
+- Standard analyses work identically across all stages
+
+This makes the library much more usable for exploratory analysis and the notebook much cleaner!
+
+**Testing** - Created `test_clustersnapshot_workflow.py` to verify:
+- ✓ Metadata JSON loading with actual filenames (274 faces from 104 images)
+- ✓ FaceRecord creation with image_path and face_index fields
+- ✓ ClusterSnapshot.from_result() factory method
+- ✓ Properties: n_clusters, n_noise, n_core, n_total
+- ✓ get_source_images() and print_cluster_sources() methods
+- ✓ Full clustering workflow (20 faces → 5 clusters + 4 noise)
+- ✓ Merge workflow with decision metadata (last_thresholds, last_candidates)
+- ✓ compare_with() before/after comparison
+- All tests passed successfully!
+
+### 2026-02-26 02:15:00
+**Files**: `test_notebook_execution.py` (new)
+**Change**: Created comprehensive test script to verify notebook execution
+**Reason**: User asked "does the notebook run without errore?" - Created test_notebook_execution.py to verify all pipeline components work:
+- ✓ All imports (face_cluster module + viz functions)
+- ✓ Config creation with merge parameters
+- ✓ FaceRecord creation with embeddings and aligned faces
+- ✓ Quality gating (blur scores + core set selection)
+- ✓ Full pipeline flow: distance matrix → mutual kNN graph → clustering → exemplar selection → conservative merge
+- ✓ Existing embeddings loading (found 274 embeddings + face crops)
+- All tests passed successfully!
+**Note**: SixDRepNet pose estimation is optional (requires `pip install sixdrepnet`). Without it, notebook runs with blur-only quality filtering.
+
+### 2026-02-24 22:45:00
+**Files**: `face_cluster/config.py`, `face_cluster/merge.py`
+**Change**: Implemented hybrid global/local adaptive thresholds for merging
+**Reason**: User correctly pointed out hard thresholds don't adapt to data. Implemented elegant solution:
+- **Per-cluster thresholds**: T_i = P90 of exemplar pairwise distances (captures cluster-specific scale)
+- **Global threshold**: T_global = median([T_1, ..., T_n]) (dataset-wide context)
+- **Hybrid formula**: T_merge = α × max(T_A, T_B) + (1-α) × T_global
+  - Uses MAX not MIN (allows merging across different density regions)
+  - α=0.7 default (70% local, 30% global)
+  - Prevents both over-fragmentation (local) and over-merging (global)
+- **Adaptive diameter**: max_allowed = max(diam_A, diam_B) × expansion_factor (default 1.5)
+- **Config params**: merge_use_adaptive_threshold, merge_exemplar_percentile, merge_threshold_alpha, merge_diameter_expansion_factor
+- Thresholds recomputed after each merge (stays adaptive throughout iterations)
+Much more robust across different datasets, lighting conditions, and embedding spaces!
+
+### 2026-02-24 22:30:00
+**Files**: `face_cluster/config.py`, `face_cluster/merge.py`, `face_cluster/__init__.py`, `notebooks/debug_knn_graph_clustering.ipynb`
+**Change**: Added Stage F2 - Conservative Merge with multi-evidence approach
+**Reason**: User requested merge functionality to reduce over-fragmentation from connected components. Implemented:
+- `ConservativeMerger` class in face_cluster/merge.py with multi-evidence criteria:
+  - (A) Exemplar agreement: min exemplar distance ≤ threshold
+  - (B) Support count: sufficient cross-cluster pairs below threshold
+  - (C) Margin vs next best: prevent ambiguous chain merges
+  - (D) Post-merge diameter: safety valve against over-wide clusters
+- New config parameters: merge_enabled, merge_candidate_threshold, merge_exemplar_threshold, merge_pair_threshold, merge_support_min, merge_support_frac, merge_margin, post_merge_diameter_max
+- Stage F2 cell in notebook (runs after exemplar selection, before splitting)
+- Iterative merging: proposes candidates → evaluates all evidence → merges best pair → repeat
+Now pipeline is: Detect → Quality gate → Graph → Cluster → Exemplars → Merge → Split → Attach
+
+### 2026-02-24 22:20:00
+**Files**: `notebooks/debug_knn_graph_clustering.ipynb`
+**Change**: Added autoreload for development to imports cell
+**Reason**: User got TypeError because Jupyter cached old module version. Added `%load_ext autoreload` and `%autoreload 2` to imports cell to automatically reload changed modules without kernel restart.
+
+### 2026-02-24 22:15:00
+**Files**: `face_cluster/quality.py`, `notebooks/debug_knn_graph_clustering.ipynb`
+**Change**: Added SixDRepNet pose estimation for existing embeddings
+**Reason**: User correctly pointed out we should use facial orientation filtering even with existing embeddings. Integrated:
+- `PoseEstimator` class in quality.py using SixDRepNet (from sim_bench.face_pipeline.pose_estimator)
+- `compute_pose_scores()` method in QualityGater to estimate yaw/pitch/roll from face crops
+- Config toggle: `ESTIMATE_POSE_FROM_CROPS = True/False` in notebook
+- Stage A0 now:
+  - Computes blur scores from face crops (always)
+  - Optionally computes pose from face crops using SixDRepNet (if enabled)
+  - Filters by blur AND pose (if available): abs(yaw) <= yaw_max, abs(pitch) <= pitch_max, abs(roll) <= roll_max
+  - Shows distribution of yaw/pitch/roll angles
+Now properly uses ALL quality assessment methods (blur + pose) even with existing embeddings.
+
+### 2026-02-24 22:00:00
+**Files**: `notebooks/debug_knn_graph_clustering.ipynb`
+**Change**: Fixed quality gating for existing embeddings - now uses blur filtering
+**Reason**: User correctly pointed out we should use quality assessment even with existing embeddings. Changed Stage A0 to:
+- Compute blur scores from aligned face crops (using QualityGater.compute_blur_scores())
+- Filter faces: core if blur >= BLUR_MIN, holdout if below
+- Show blur score distribution (min/median/max)
+- For new images: use full quality gating (blur + pose + per-image filtering)
+- For existing embeddings: use blur-only filtering (no pose data available)
+Now properly leverages the framework's quality assessment instead of skipping it.
+
+### 2026-02-24 21:45:00
+**Files**: `notebooks/debug_knn_graph_clustering.ipynb`
+**Change**: Added dual-mode support - load existing embeddings OR detect from new images
+**Reason**: User pointed out notebook couldn't load face crops from benchmark results. Added:
+- Config toggle: `USE_EXISTING_EMBEDDINGS = True/False`
+- `get_face_crop()` helper function to load from results/face_clustering_benchmark/face_crops/
+- Stage A now supports both paths:
+  - Option A: Load pre-computed embeddings + face crops (fast, no InsightFace)
+  - Option B: Run InsightFace on new images (requires installation)
+- All 274 benchmark faces treated as core set when loading existing
+- Handles large datasets (>100 faces) by sampling for visualizations
+
+### 2026-02-24 21:30:00
+**Files**: `test_face_cluster.py`, `test_face_cluster_clustering.py`, `notebooks/test_knn_with_existing_embeddings.ipynb`, `check_benchmark_data.py`
+**Change**: Added verification tests for face_cluster library
+**Reason**: User requested verification that the library actually runs. Created:
+- `test_face_cluster.py`: Basic functionality test with mock data
+- `test_face_cluster_clustering.py`: Clustering verification with synthetic 3-cluster data (passes)
+- `notebooks/test_knn_with_existing_embeddings.ipynb`: Test notebook using pre-computed embeddings from benchmark results (274 faces)
+- `check_benchmark_data.py`: Utility to inspect benchmark data
+All tests pass successfully. Library is verified working.
+
+### 2026-02-24 21:00:00
+**Files**: `face_cluster/__init__.py`, `face_cluster/types.py`, `face_cluster/config.py`, `face_cluster/embedding.py`, `face_cluster/quality.py`, `face_cluster/knn_graph.py`, `face_cluster/clustering.py`, `face_cluster/exemplars.py`, `face_cluster/attach.py`, `face_cluster/viz.py`, `notebooks/debug_knn_graph_clustering.ipynb`, `docs/FEATURE_REQUESTS.md`
+**Change**: Created comprehensive KNN graph clustering library and debug notebook
+**Reason**: User requested face clustering pipeline for small batches (10-20 faces) with high precision and interpretability. Implemented:
+- **face_cluster/** module with 10 files:
+  - types.py: Dataclasses (FaceRecord, GraphResult, ClusterResult)
+  - config.py: PipelineConfig with all hyperparameters
+  - embedding.py: InsightFace wrapper for detection + embeddings
+  - quality.py: QualityGater for pose/blur filtering + core/holdout split
+  - knn_graph.py: KNNGraphBuilder for mutual kNN graph construction
+  - clustering.py: ConnectedComponentsClusterer with optional splitting
+  - exemplars.py: D10ExemplarSelector using d10 density metric
+  - attach.py: HoldoutAttacher with vote+margin strategy
+  - viz.py: Visualization helpers (heatmaps, graphs, face grids)
+- **notebooks/debug_knn_graph_clustering.ipynb**: Step-by-step notebook with:
+  - Config cell for easy hyperparameter tuning
+  - 8 stages (A-G) with visualizations
+  - Manual intervention points (override core set, edit edge list)
+  - Export results to JSON
+- Logged feature request in docs/FEATURE_REQUESTS.md
+
+---
+
+### 2026-02-23 18:15:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Added UMAP-based clustering exploration section
+**Reason**: User wants to cluster in UMAP 2D space (where clusters are visible) using KMeans, then analyze with existing tools. Added:
+- `cluster_in_umap_space()` - Computes UMAP, runs KMeans, visualizes with centroids
+- 4 new cells for UMAP cluster analysis:
+  - Statistics table (with exemplars and thresholds)
+  - Face galleries
+  - Cluster pair comparison
+  - Threshold analysis
+Now can compare UMAP-based clustering vs HDBSCAN in original space.
+
+### 2026-02-23 18:10:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Added PCA dimensionality reduction option (128/256 dims)
+**Reason**: User observed UMAP shows clear clusters but HDBSCAN over-merges in 512-dim space. Added PCA preprocessing options to configs:
+- PCA-128: 94% variance, 22 clusters (prevents over-merging!)
+- PCA-256: 99.93% variance, 18 clusters (middle ground)
+- No PCA: 8 clusters with massive 161-face cluster (over-merged)
+PCA helps by reducing noise dimensions and making distances more meaningful.
+
+### 2026-02-23 18:05:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Added exemplar statistics to main table
+**Reason**: User requested exemplar distances and thresholds in the table. Updated `compute_all_cluster_stats()` to include:
+- `n_ex` - number of exemplars
+- `ex_min`, `ex_med`, `ex_p90`, `ex_max` - exemplar pairwise distances
+- `t_med_iqr` - threshold using median + 1.5×IQR (original idea)
+- `t_d3_p90` - threshold using all-faces d3 P90
+- `t_ex_p90` - threshold using exemplar pairwise P90 (hybrid algorithm)
+Now table shows all three threshold methods side-by-side for comparison.
+
+### 2026-02-23 18:00:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Added exemplar-based threshold analysis
+**Reason**: User asked about exemplar distances and merge/split criteria from hybrid algorithm. Added `analyze_exemplar_threshold()` function that:
+- Selects top-10 exemplars (smallest d3 values)
+- Computes exemplar pairwise distances
+- Compares 3 threshold methods: exemplar P90 (hybrid algo), all-faces P90, median+1.5×IQR
+- Shows exemplar faces
+This reveals what the hybrid algorithm actually uses for merge decisions.
+
+### 2026-02-23 17:50:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Restored all missing functions and visualization cells
+**Reason**: User correctly pointed out I removed important sections. Added back:
+- `visualize_umap()` - UMAP visualization of clusters
+- `show_clusters()` - Face galleries for largest clusters
+- `show_cluster_pair()` - Compare two clusters with faces and distance distributions
+- `show_cluster_threshold_analysis()` - Detailed threshold analysis with plots
+Now has 9 cells total with all functionality preserved.
+
+### 2026-02-23 17:45:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Rewrote notebook from scratch with correct cell types, executed and verified
+**Reason**: Cell 0 was incorrectly marked as markdown causing NameError. Completely rewrote, tested with jupyter nbconvert --execute, confirmed all 5 cells run successfully and produce correct table output.
+
+### 2026-02-23 17:40:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Fixed dtype mismatch for HDBSCAN (added .astype(np.float64))
+**Reason**: HDBSCAN requires float64 but distance matrix was float32, causing ValueError. Verified working - produces clean table with 8 clusters from 274 faces.
+
+### 2026-02-23 17:35:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Fixed data paths to use correct results directory
+**Reason**: Notebook was loading from wrong path. Fixed to use `../results/face_clustering_benchmark/` with glob to load most recent embeddings file. Face crops also load from same directory.
+
+### 2026-02-23 17:30:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Complete rewrite to clean, minimal notebook (5 cells)
+**Reason**: User requested cleanup - too messy and unmanageable with excessive prints. New version:
+- Minimal prints, all output via pandas DataFrames
+- Single function `compute_all_cluster_stats()` returns table for all clusters
+- Table columns: cluster, n, d3_min/p10/med/p90/max, pw_min/p10/med/p90/max, t_med_iqr, t_p90
+- 5 cells total: load → functions → test configs → show table → optional faces
+- Removed duplicate cells and verbose output
+
+### 2026-02-23 17:15:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Added `show_all_clusters_table()` function and demonstration cell
+**Reason**: User requested table view with statistics for all cluster IDs. Table shows:
+- d3 statistics (min, P10, median, P90, max, IQR)
+- Pairwise distance statistics (min, P10, median, P90, max, IQR)
+- Both threshold methods (median+1.5×IQR vs P90)
+Added markdown cell explaining column names.
+
+### 2026-02-23 17:00:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Added comprehensive inner cluster distance statistics
+**Reason**: User requested detailed statistics. Now shows for both d3 and pairwise distances:
+- Min, Max, P10, P90, Median, IQR
+- Plots with P10/P90 lines on pairwise histogram
+
+### 2026-02-23 16:50:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Added threshold calculation functions
+**Reason**: User asked how thresholds are calculated. Added `compute_cluster_stats()` and `show_cluster_threshold_analysis()`
+
+### 2026-02-23 16:40:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Complete reorganization with utility functions and epsilon explanation
+**Reason**: User requested simpler organization and epsilon clarification. New structure:
+- Utility functions: `visualize_umap()`, `show_clusters()`, `show_cluster_pair()`
+- Test 4 HDBSCAN configs (explained epsilon: higher = fewer clusters)
+- Simple interface: change `selected_idx` to switch configs
+- Optional hybrid algorithm comparison at end
+
+---
+
+### 2026-02-23 16:20:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Added UMAP visualization and interactive 2-cluster debugger
+**Reason**: User requested visual cluster inspection. Added:
+- UMAP plot colored by cluster labels
+- Interactive 2-cluster debug: shows faces, distances, histograms, and heatmap side-by-side
+- Set CLUSTER_A and CLUSTER_B to compare any two clusters
+
+### 2026-02-23 16:10:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Added explanatory markdown cells throughout notebook
+**Reason**: User needed clarification on results. Added 5 markdown sections explaining phases, thresholds (t_original vs t_current), distance plots, and decision logic.
+
+### 2026-02-23 16:00:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Rewrote notebook from scratch with face visualization
+**Reason**: File became corrupted. Clean rewrite with 7 core cells + explanations + visualizations.
+
+### 2026-02-23 15:45:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb`
+**Change**: Fixed IndexError when looking up singleton clusters
+**Reason**: `find_close_pairs` was trying to look up thresholds for singleton clusters (size=1) that were skipped in `compute_stats`. Now filters to only include clusters with size >= 2.
+
+### 2026-02-23 15:30:00
+**Files**: `notebooks/debug_hybrid_simple.ipynb` (NEW)
+**Change**: Created concise debugging notebook for hybrid clustering algorithms
+**Reason**: User needs simple tool (max 150 lines) to understand why hybrid HDBSCAN algorithms produce poor results despite clear UMAP clusters. Notebook helps debug threshold computation and merge decisions.
+**Features**:
+- Compare threshold methods: median + k×IQR (original idea) vs percentile (current)
+- Analyze specific cluster pairs (why didn't they merge?)
+- Find closest cluster pairs with merge predictions
+- Test simplified merge algorithm
+
+---
+
+## 2026-02-21 (Feature: Mutual KNN Two-Stage Clustering)
+
+**Files**:
+- `sim_bench/clustering/pruning_strategies.py` (NEW)
+- `sim_bench/clustering/mutual_knn_two_stage.py` (NEW)
+- `sim_bench/clustering/distance_utils.py` (modified - added cluster debug utilities)
+- `sim_bench/clustering/base.py` (modified - registered new algorithm)
+- `configs/clustering_benchmark.yaml` (modified - added 3 config variants)
+- `tests/clustering/test_mutual_knn_two_stage.py` (NEW)
+
+**Change**: Implemented two-stage mutual kNN clustering with pluggable pruning strategy
+
+**Details**:
+Two-stage algorithm separates graph construction from membership validation:
+
+**Stage 1**: Build mutual kNN graph (no/loose threshold) → connected components = initial clusters
+
+**Stage 2**: Iterative refinement loop:
+1. Prune: For each sample, validate membership using pruning strategy
+2. Reassign: Unassigned samples try to join valid clusters
+3. Repeat until convergence or max iterations
+
+**Pruning Strategy (RedundantSupportStrategy)**:
+Sample stays in cluster if:
+- Base condition: closest_dist ≤ α·X (X=0.45, α=1.1 → max 0.495)
+- AND one of:
+  - Redundant support: ≥m neighbors within β·X (m=2, β=1.05)
+  - Separation: margin to next-best cluster ≥ δ (δ=0.15)
+
+**New modules**:
+- `pruning_strategies.py`: PruningStrategy ABC + RedundantSupportStrategy
+- `mutual_knn_two_stage.py`: MutualKNNTwoStageClusterer
+- `distance_utils.py`: Added closest_distance_to_cluster(), all_cluster_distances(), support_count(), separation_margin()
+
+**Debug data stored**: Raw distance_matrix + cluster_members for frontend analysis
+
+**Benchmark results (274 faces)**:
+| Method | Clusters | Noise | Top sizes |
+|--------|----------|-------|-----------|
+| mutual_knn_two_stage | 36 | 27 | 75, 52, 25, 18, 16 |
+| mutual_knn_two_stage_strict | 33 | 59 | 61, 50, 19, 16, 16 |
+| mutual_knn_two_stage_loose | 23 | 9 | 156, 35, 27, 19, 6 |
+| hdbscan | 8 | 23 | 161, 40, 27, 7, 6 |
+| mutual_knn (original) | 139 | 0 | 46, 22, 15, 14, 9 |
+
+**Reason**: User requested two-stage clustering that first builds kNN graph clusters, then prunes weak connections with controllable strategy allowing larger distances if multiple neighbors support membership or clear separation from other clusters.
+
+---
+
+## 2026-02-20 (Feature: kNN Split for HDBSCAN Variants)
+
+**Files**:
+- `sim_bench/clustering/hybrid_hdbscan_knn.py` (modified)
+- `sim_bench/clustering/hybrid_closest_face.py` (modified)
+- `scripts/cluster_knn_components.py` (NEW)
+- `scripts/benchmark_hdbscan_split.py` (NEW)
+
+**Change**: Added post-clustering split functionality using kNN connected components
+
+**Details**:
+The HDBSCAN variants were over-merging faces into large clusters. Added a new Stage 3 (split) phase:
+
+1. For each cluster >= `split_min_cluster_size` (default: 10):
+   - Build kNN graph (k = `split_k` neighbors per face)
+   - Prune edges where cosine_similarity < `split_threshold`
+   - Find connected components in pruned graph
+   - If multiple components exist, split into separate clusters
+
+2. New parameters added to both hybrid methods:
+   - `split_enabled`: Enable/disable split phase (default: True)
+   - `split_threshold`: Cosine similarity threshold (default: 0.65)
+   - `split_min_cluster_size`: Min size to consider splitting (default: 10)
+   - `split_k`: K neighbors for kNN graph (default: 20)
+
+3. New scripts:
+   - `cluster_knn_components.py`: Standalone kNN + connected components clustering
+   - `benchmark_hdbscan_split.py`: Compare HDBSCAN variants with different split thresholds
+
+**Reason**: User reported HDBSCAN variants over-merging ~161 faces into one cluster. The kNN connected components approach ensures faces only stay clustered if connected by strong similarity paths.
+
+---
+
+## 2026-02-20 (Feature: Embedding Analysis Tools)
+
+**Files**:
+- `scripts/face_distance_report.py` (NEW)
+- `scripts/debug_face_distances.py` (NEW)
+- `app/face_clustering_debug/pages/embedding_analysis.py` (NEW)
+- `app/face_clustering_debug/main.py` (modified)
+- `app/face_clustering_debug/components/face_grid.py` (modified - key_prefix param)
+- `app/face_clustering_debug/pages/parameter_tuning.py` (modified)
+- `app/face_clustering_debug/pages/overview.py` (modified)
+
+**Change**: Added embedding analysis tools for diagnosing clustering issues
+
+**Details**:
+1. **face_distance_report.py**: Generates HTML diagnostic report comparing two groups of faces
+   - Shows face thumbnails, distance histograms, overlap analysis
+   - Identifies problematic pairs with high intra-group distances
+2. **Embedding Analysis tab**: New tab in face clustering debug app with:
+   - Global UMAP visualization colored by cluster/confidence/frontal score
+   - Per-cluster UMAP to identify sub-groups
+   - Distance comparison tool for same/different person analysis
+   - HDBSCAN condensed tree visualization
+3. **Fixed duplicate key error**: Added `key_prefix` parameter to `render_face_grid`
+
+---
+
+## 2026-02-20 (Fix: Face Alignment Margin, Landmark Swap Bug, and Debug App)
+
+**Files**:
+- `sim_bench/pipeline/steps/align_faces.py` (modified)
+- `scripts/benchmark_face_clustering.py` (modified)
+- `app/face_clustering_debug/services/db_loader.py` (modified)
+- `app/face_clustering_debug/services/file_loader.py` (modified)
+- `tests/pipeline/test_face_orientation_detection.py` (modified)
+
+**Change**: Fixed generous crop margin calculation, removed incorrect landmark swapping, fixed debug app
+
+**Reason**: User reported pixel smearing artifacts and incorrect alignment in aligned faces.
+
+**Root Causes Identified**:
+1. `crop_face_generous` was computing margin from landmark span (~114px) instead of bbox (~302px)
+2. **Critical Bug**: After rotation, landmarks were being swapped (`[1,0,2,4,3]`), but this was WRONG. Landmark labels (L_eye, R_eye) refer to the PERSON's left/right eye, not image position. The affine transform handles this correctly without swapping.
+
+**Details**:
+1. **crop_face_generous**: Added `bbox` parameter, handles both `x_px/y_px` and `x/y` formats
+2. **rotate_image_and_landmarks**: REMOVED incorrect landmark swap after rotation
+3. **align_face_with_orientation**: Updated to accept and pass bbox parameter
+4. **benchmark script**: Now passes bbox dict to alignment functions
+5. **db_loader.py**: Uses `align_face_with_orientation` with orientation detection
+6. **file_loader.py**: Looks for `face_XXXX_aligned.jpg` (new format)
+
+---
+
+## 2026-02-19 (Refactor: Face Alignment Pipeline - SIGHTING-001)
+
+**Files**:
+- `sim_bench/pipeline/steps/detect_face_orientation.py` (NEW)
+- `sim_bench/pipeline/steps/align_faces.py` (NEW)
+- `sim_bench/pipeline/steps/validate_alignment.py` (NEW)
+- `sim_bench/pipeline/steps/crop_faces.py` (NEW)
+- `sim_bench/pipeline/steps/extract_face_embeddings.py` (REWRITTEN - single responsibility)
+- `sim_bench/pipeline/steps/all_steps.py` (modified)
+- `configs/pipeline.yaml` (modified)
+- `tests/pipeline/test_face_orientation_detection.py` (NEW)
+- `tests/pipeline/test_face_alignment.py` (NEW)
+- `tests/pipeline/steps/test_extract_face_embeddings.py` (REWRITTEN)
+- `docs/SIGHTINGS.md` (modified)
+
+**Change**: Implemented single-responsibility face alignment architecture to fix upside-down face detection
+
+**Reason**: SIGHTING-001 - Face #118 was upside-down but only rotated 6° instead of 180°. Root cause: `compute_roll_angle()` only measures eye-line tilt, not face orientation.
+
+**Details**:
+1. **detect_face_orientation step**: Analyzes 5-point landmarks to detect 0°/90°/180°/270° rotation needed
+   - Checks vertical relationships (eyes above nose, nose above mouth)
+   - Stores `orientation_angle` in face_info
+
+2. **align_faces step**: Applies orientation correction + 5-point affine alignment
+   - Pre-rotates image by detected orientation
+   - Transforms landmarks to rotated coordinates
+   - Stores aligned crops in `context.aligned_faces`
+
+3. **validate_alignment step**: Verifies alignment worked correctly
+   - Runs face detection on aligned crops
+   - Checks landmarks are near expected positions
+
+4. **crop_faces step**: Simple bbox cropping without alignment (for debug)
+
+5. **extract_face_embeddings**: REWRITTEN with true single responsibility
+   - Requires `aligned_faces` from `align_faces` step
+   - No fallbacks, no "backward compatibility" - deterministic flow
+   - Just reads aligned faces and extracts embeddings
+
+6. **Unit tests**: 40 tests total
+   - 15 tests for orientation detection (including Face #118 regression)
+   - 16 tests for alignment
+   - 9 tests for extract_face_embeddings (updated for new architecture)
+
+---
+
+## 2026-02-19 (Feature: Three-Version Face Debug Panel)
+
+**Files**:
+- `app/face_clustering_debug/services/protocols.py` (modified)
+- `app/face_clustering_debug/services/file_loader.py` (modified)
+- `app/face_clustering_debug/services/db_loader.py` (modified)
+- `app/face_clustering_debug/components/face_detail.py` (modified)
+- `app/face_clustering_debug/pages/overview.py` (modified)
+
+**Change**: Added comprehensive debug panel showing all three versions of each face
+
+**Reason**: User requested ability to easily debug face detection/alignment pipeline without extra effort
+
+**Details**:
+- Added new protocol methods:
+  - `get_face_crop()` - 5-point aligned face (existing)
+  - `get_face_crop_raw()` - bbox crop only, no alignment (NEW)
+  - `get_original_image_with_bbox()` - full image with bbox/landmarks drawn (NEW)
+- New `render_face_debug_panel()` component shows all three side-by-side:
+  1. **Original + BBox**: Source image with green bbox and colored landmark dots
+  2. **Raw Crop**: Bbox-only crop with no rotation/alignment
+  3. **Aligned Crop**: 5-point affine aligned to ArcFace template
+- Updated gallery to show debug panel when clicking 🔍 on any face
+- Each version shows appropriate landmarks for that stage of the pipeline
+
+---
+
+## 2026-02-19 (Fix: Landmark-Face Alignment Mismatch)
+
+**Files**:
+- `app/face_clustering_debug/components/face_detail.py` (modified)
+- `app/face_clustering_debug/pages/overview.py` (modified)
+
+**Change**: Fixed landmark positions not matching aligned face crops
+
+**Reason**: When 5-point alignment is used, the face is transformed to ArcFace reference template positions. The original landmarks (pre-alignment) don't match the aligned crop.
+
+**Details**:
+- Added `_ARCFACE_REF_LANDMARKS_NORMALIZED` constant (the target positions for 5-point alignment)
+- `render_face_detail()` now uses reference landmarks by default (since crops are 5-point aligned)
+- Added `use_aligned_landmarks` parameter to optionally use original landmarks
+- Updated Explorer tab to use reference landmarks for its face display
+- Landmarks should now overlay correctly on aligned face crops
+
+**Note**: If you have old cached face crops (pre-5-point alignment), they may still show misalignment. Re-run the benchmark to regenerate crops with proper alignment.
+
+---
+
+## 2026-02-19 (Fix: Face Detail Integration)
+
+**Files**:
+- `app/face_clustering_debug/pages/overview.py` (modified)
+- `app/face_clustering_debug/services/file_loader.py` (modified)
+- `app/face_clustering_debug/services/db_loader.py` (modified)
+
+**Change**: Fixed face detail view integration and landmark display
+
+**Reason**: User couldn't see filename, landmarks in the gallery view
+
+**Details**:
+- Updated overview gallery to use `render_face_grid` component (with 🔍 inspect button)
+- Added session state for persistent face selection
+- Click 🔍 on any face to see detail panel with landmarks, filename, metrics
+- Fixed landmark coordinate normalization:
+  - Landmarks from InsightFace are in pixel coords
+  - Now normalized to 0-1 range relative to face bbox for display
+- Updated db_loader.get_face_crop() to use 5-point alignment when landmarks available
+
+---
+
+## 2026-02-19 (Sprint 10 Complete)
+
+**Files**:
+- `app/face_clustering_debug/components/algorithm_explanation.py` (rewritten)
+- `app/face_clustering_debug/pages/merge_decisions.py` (modified)
+- `app/face_clustering_debug/pages/attach_decisions.py` (modified)
+- `app/face_clustering_debug/pages/overview.py` (modified)
+
+**Change**: Dynamic algorithm explanation using clustering method metadata
+
+**Reason**: Sprint 10 - Show actual doc_explanation and decision_parameters from clustering methods
+
+**Details**:
+- `render_algorithm_explanation()` now accepts algorithm and params arguments
+- Dynamically loads clustering method using `load_clustering_method()`
+- Displays `doc_explanation` from the actual clustering class
+- Shows `decision_parameters` table with current vs default values
+- Added `render_decision_summary()` for compact per-decision displays
+- Updated merge_decisions, attach_decisions, and overview pages to pass algorithm/params
+- Falls back to general guide if algorithm not found
+
+---
+
+## 2026-02-19 (Sprint 9 Complete)
+
+**Files**:
+- `sim_bench/pipeline/utils/face_alignment.py` (modified)
+- `sim_bench/pipeline/steps/extract_face_embeddings.py` (modified)
+
+**Change**: Implemented 5-point face alignment using ArcFace reference template
+
+**Reason**: Sprint 9 - Replace 2-point (eye-only) roll rotation with proper 5-point affine transform
+
+**Details**:
+- Added `align_face_5point()` function using cv2.estimateAffinePartial2D
+- ArcFace reference template (112x112) scaled to target size (256)
+- Uses all 5 landmarks: left_eye, right_eye, nose, left_mouth, right_mouth
+- Falls back to roll-angle alignment if 5-point fails or landmarks unavailable
+- Added `compute_alignment_quality()` for debugging transform quality
+- Similarity transform normalizes position, scale, and rotation in one step
+
+**Impact**: Face crops will be properly aligned regardless of head tilt. Cached embeddings may need clearing if alignment-sensitive.
+
+---
+
+## 2026-02-19 (Sprint 8 Complete)
+
+**Files**:
+- `app/face_clustering_debug/components/face_detail.py` (modified)
+
+**Change**: Enhanced face detail view with full metadata
+
+**Reason**: Sprint 8 - Show landmarks with labels, filename, path, all metrics
+
+**Details**:
+- Landmarks now labeled: LE (left eye), RE (right eye), N (nose), LM/RM (mouth)
+- File info section: filename, full path, copyable code block
+- Face metrics: confidence, frontal_score, eye_bbox_ratio, pose angles
+- Bbox coordinates displayed
+- Landmark legend in expandable section
+
+---
+
+## 2026-02-19 (Sprint 7 Complete)
+
+**Files**:
+- `app/face_clustering_debug/components/face_grid.py` (modified)
+
+**Change**: Added image filename to face grid captions
+
+**Reason**: Sprint 7 - Show filename for easier debugging of specific faces
+
+**Details**:
+- Caption now shows `⭐#42 IMG_1234` format (star for exemplars, index, truncated filename)
+- Added `_truncate_filename()` helper to keep captions readable
+- Extracts filename from `face.image_path` using `Path.stem`
+
+---
+
+## 2026-02-19 (Sprints 5-6 Complete)
+
+**Files**:
+- `sim_bench/clustering/hybrid_hdbscan_knn_Tcore2all.py` (modified)
+- `sim_bench/clustering/hybrid_hdbscan_knn_merge_twotier.py` (modified)
+- `sim_bench/clustering/hybrid_hdbscan_knn_attach_strong1.py` (modified)
+- `sim_bench/clustering/mutual_knn.py` (modified)
+- `sim_bench/clustering/dbscan.py` (modified)
+- `sim_bench/clustering/kmeans.py` (modified)
+- `sim_bench/clustering/hierarchical.py` (modified)
+
+**Change**: Added documentation attributes to all remaining clustering methods
+
+**Reason**: Sprints 5-6 - Complete clustering algorithm documentation
+
+**Details**:
+- Sprint 5: Tcore2all, merge_twotier, attach_strong1 variants documented
+- Sprint 6: mutual_knn, dbscan, kmeans, hierarchical documented
+- All 10 clustering methods now have doc_explanation and decision_parameters
+
+---
+
+## 2026-02-19 (Sprint 4 Complete)
+
+**Files**:
+- `sim_bench/clustering/hybrid_closest_face.py` (modified)
+
+**Change**: Added documentation attributes to HybridHDBSCANClosestFace
+
+**Reason**: Sprint 4 - Document hybrid_closest_face decision parameters (d3_cross, merge_min_faces, NOT min_dist)
+
+**Details**:
+- Added `doc_explanation`: 6-line explanation of face-based (not exemplar) merge decisions
+- Added `decision_parameters`: 7 parameters (merge_min_faces, merge_threshold_multiplier, d3_cross role)
+- Updated `_compute_stats()` to populate `last_run_info`
+
+---
+
+## 2026-02-19 (Sprint 3 Complete)
+
+**Files**:
+- `sim_bench/clustering/hybrid_hdbscan_knn.py` (modified)
+
+**Change**: Added documentation attributes to HybridHDBSCANKNN
+
+**Reason**: Sprint 3 - Document hybrid_hdbscan_knn decision parameters
+
+**Details**:
+- Added `doc_explanation`: 6-line explanation of exemplar-based merge/attach
+- Added `decision_parameters`: 7 parameters (threshold_floor/ceiling, merge_min_pairs, attach_min_exemplars, etc.)
+- Updated `_compute_final_stats()` to populate `last_run_info`
+
+---
+
+## 2026-02-19 (Sprint 2 Complete)
+
+**Files**:
+- `sim_bench/clustering/hdbscan.py` (modified)
+
+**Change**: Added documentation attributes to HDBSCANClusterer
+
+**Reason**: Sprint 2 - Document HDBSCAN decision parameters
+
+**Details**:
+- Added `doc_explanation`: 6-line explanation of density-based clustering
+- Added `decision_parameters`: min_cluster_size, min_samples, cluster_selection_epsilon, cluster_selection_method
+- Updated `cluster()` to populate `last_run_info` with runtime values
+
+---
+
+## 2026-02-19 (Sprint 1 Complete)
+
+**Files**:
+- `sim_bench/clustering/base.py` (modified)
+
+**Change**: Added documentation attributes to ClusteringMethod base class
+
+**Reason**: Sprint 1 - Foundation for clustering algorithm documentation
+
+**Details**:
+- Added `doc_explanation` class attribute (5-6 line algorithm explanation)
+- Added `decision_parameters` class attribute (dict of param metadata)
+- Added `last_run_info` instance attribute (stores thresholds from last run)
+- Added `get_decision_info()` method (returns structured info for UI)
+
+---
+
+## 2026-02-19 (Sprint Plans)
+
+**Files**:
+- `docs/SPRINT_PLANS_CLUSTERING_DEBUG.md` (created)
+- `docs/FEATURE_REQUESTS.md` (modified)
+
+**Change**: Created sprint plans for clustering algorithm documentation and face debug improvements
+
+**Reason**: User requested structured documentation for clustering algorithms with decision parameters, plus face gallery improvements
+
+**Details**:
+- 10 sprints covering: base class, all clustering algorithms, face grid filename, face detail view, 5-point alignment, decision UI
+- Each clustering method will have `doc_explanation` and `decision_parameters` attributes
+- Face alignment to use proper 5-point affine transform instead of 2-point rotation
+
+---
+
+## 2026-02-19 (HEIC Support)
+
+**Files**:
+- `sim_bench/pipeline/utils/image_cache.py` (modified)
+- `sim_bench/image_quality_models/siamese_model_wrapper.py` (modified)
+- `requirements.txt` (modified)
+
+**Change**: Added HEIC/HEIF image format support
+
+**Reason**: Pipeline failed with `PIL.UnidentifiedImageError` on .heic files from iPhone
+
+**Details**:
+1. Added `pillow-heif>=0.16` to requirements.txt
+2. Registered HEIC opener in image_cache.py (central image loading)
+3. Updated siamese_model_wrapper.py to use ImageCache instead of direct Image.open()
+
+---
+
+## 2026-02-19
+
+**Files**:
+- `README.md` (modified)
+- `CLAUDE.md` (modified)
+- `docs/FEATURE_REQUESTS.md` (created)
+
+**Change**: Improved documentation organization
+
+**Reason**: User requested moving app documentation to README.md and improving CLAUDE.md
+
+**Details**:
+1. **README.md**: Expanded "Streamlit Apps" section to "Applications" with all 5 apps (album, photo_organization, photo_analysis, face_clustering_debug, face_clustering_comparison)
+2. **CLAUDE.md**: Simplified app commands to reference README.md, added clustering test commands
+3. **Created docs/FEATURE_REQUESTS.md**: Missing file referenced in CLAUDE.md General section
+
+---
+
 ## 2026-02-19 11:00:00
 
 **Files**:
@@ -1997,3 +2948,171 @@ This log helps:
 - Added caching system documentation (UniversalCacheHandler, mtime tracking)
 - Added face embedding factory to factory pattern section
 - Improved code example for full imports
+
+---
+
+### 2026-02-19 00:00:00
+**Files**: `sim_bench/clustering/distance_utils.py` (new), `sim_bench/clustering/hybrid_hdbscan_knn.py`, `sim_bench/clustering/hybrid_closest_face.py`, `sim_bench/clustering/hdbscan.py`, `sim_bench/clustering/hdbscan_pca.py`
+**Change**: Switched all facial clustering algorithms from Euclidean distance to cosine distance
+**Reason**: User requested consistent use of cosine distance (1 - cosine_similarity) instead of Euclidean distance on normalized vectors
+
+**Details**:
+- Created `distance_utils.py` with shared cosine distance functions:
+  - `cosine_distance_matrix(X, Y)` - distance matrix between two sets
+  - `cosine_distance_pairwise(X)` - condensed pairwise distances (like pdist)
+  - `cosine_distance_to_set(x, Y)` - single vector to set distances
+- Updated HDBSCAN calls to use `metric='precomputed'` with cosine distance matrix
+- Recalibrated thresholds using formula: t_c = (t_e²) / 2
+  - hybrid_hdbscan_knn: floor 0.50→0.125, ceiling 0.90→0.405
+  - hybrid_closest_face: floor 0.30→0.045, ceiling 0.90→0.405
+- All distance values clipped to [0, 2] for numeric safety
+
+**Additional fix (same change set)**:
+- Updated `cluster_selection_epsilon` from 0.3 to 0.045 in hybrid methods (same conversion formula)
+
+---
+
+### 2026-02-19 01:00:00
+**Files**: `sim_bench/clustering/hybrid_hdbscan_knn_Tcore2all.py` (new), `sim_bench/clustering/hybrid_hdbscan_knn_merge_twotier.py` (new), `sim_bench/clustering/base.py`
+**Change**: Added two new clustering algorithm variants
+**Reason**: User requested variants to reduce pose-mode splits in face clustering
+
+**Details**:
+- `hybrid_hdbscan_knn_tcore2all`: Computes threshold T from exemplar→all-faces distances instead of exemplar↔exemplar pairwise. Uses 95th percentile. Captures pose spread better.
+- `hybrid_hdbscan_knn_merge_twotier`: Adds secondary merge rule - if ≥5 pairs pass <= max(T_A, T_B), merge even when primary rule fails. Helps merge when one cluster has tighter T.
+- Both registered in clustering factory
+
+---
+
+### 2026-02-19 01:30:00
+**Files**: `sim_bench/clustering/hybrid_hdbscan_knn_attach_strong1.py` (new), `sim_bench/clustering/base.py`
+**Change**: Added strong single-exemplar attachment variant
+**Reason**: Reduce leftover noise fragments that would form tiny clusters
+
+**Details**:
+- `hybrid_hdbscan_knn_attach_strong1`: Adds secondary attach rule
+  - Primary (unchanged): noise joins if ≥2 exemplars within T
+  - Secondary (new): noise joins if 1 exemplar within 0.8×T (stricter threshold)
+- New param: `attach_strong1_multiplier` (default: 0.8)
+- Prioritizes primary matches over strong1 matches when choosing cluster
+
+---
+
+### 2026-02-19 02:00:00
+**Files**: `configs/clustering_benchmark.yaml`
+**Change**: Updated benchmark config with cosine distance thresholds and new variants
+**Reason**: Align config with code changes and add new algorithm variants to benchmark
+
+**Details**:
+- Updated all `cluster_selection_epsilon` from 0.3/0.35 to 0.045 (cosine distance)
+- Updated `threshold_floor`/`threshold_ceiling` to cosine distance values
+- Added three new variants:
+  - `hybrid_knn_tcore2all`: Threshold from exemplar→all-faces (95th percentile)
+  - `hybrid_knn_merge_twotier`: Two-tier merge with secondary max(T) rule
+  - `hybrid_knn_attach_strong1`: Strong single-exemplar attachment (0.8×T)
+
+### 2026-02-19 10:10:13
+**Files**: `sim_bench/clustering/hybrid_closest_face.py`, `app/face_clustering_debug/services/clustering_runner.py`, `app/face_clustering_debug/models/schemas.py`
+**Change**: Fixed hybrid_closest debug output - added d3_cross values per face, separate fits_a/fits_b counts, merge_threshold_multiplier parameter
+**Reason**: Debug app was showing misleading MinDist (exemplar distance) instead of the actual d3_cross values used for merge decisions
+
+### 2026-02-19 10:20:04
+**Files**: `app/face_clustering_debug/services/clustering_runner.py`, `app/face_clustering_debug/services/file_loader.py`, `app/face_clustering_debug/main.py`, `app/face_clustering_debug/components/decision_card.py`, `app/face_clustering_debug/components/algorithm_explanation.py`
+**Change**: Added 3 new clustering variants to Parameter Tuning, added error handling to prevent blank pages, updated merge decision UI for hybrid_closest_face d3_cross values, added method comparison documentation
+**Reason**: Complete debug app improvements - show actual merge criteria, document algorithm differences, improve error visibility
+
+### 2026-02-27 10:00:00
+**Files**: 
+- `face_cluster/config.py`
+- `face_cluster/merge.py`
+- `face_cluster/analysis.py`
+- `docs/FACE_CLUSTERING_COMPLETE_GUIDE.md`
+- `notebooks/analyze_merge_decisions.ipynb` (NEW)
+
+**Change**: Added `merge_global_percentile` parameter to control global threshold percentile
+
+**Reason**: User requested ability to experiment with global threshold calculation (previously hardcoded to median)
+
+**What changed**:
+
+1. **New parameter** `merge_global_percentile` (default 50):
+   - 25 = more conservative (use P25 of cluster thresholds)
+   - 50 = median (default, previous behavior)
+   - 75 = more permissive (use P75, allows more merging)
+   - 90 = very permissive
+
+2. **Updated `_compute_global_threshold()`**:
+   - Changed from `np.median()` to `np.percentile(values, config.merge_global_percentile)`
+   - Allows experimentation with different global threshold strategies
+
+3. **Updated analysis.py**:
+   - `get_close_clusters_df()` uses configurable percentile
+   - `get_merge_decisions_df()` uses configurable percentile
+   - `plot_decision_boundaries()` shows "P50" or "P75" labels instead of just "median"
+
+4. **Created tutorial notebook** `notebooks/analyze_merge_decisions.ipynb`:
+   - Shows how to see failed merge criteria in DataFrame
+   - Shows how to create ClusterSnapshot after merging
+   - Shows how to access distance matrix
+   - Shows how to experiment with different global percentiles
+   - Includes code examples for all common analysis tasks
+
+5. **Updated documentation**:
+   - Added `merge_global_percentile` to configuration table
+   - Updated adaptive threshold formula to show percentile is configurable
+   - Added section on experimenting with global threshold values
+
+**Why this helps**:
+- T_global now configurable: can make it more conservative (P25) or permissive (P75)
+- Formula: T_merge = α × MAX(T_A, T_B) + (1-α) × percentile(all cluster thresholds)
+- Higher percentiles → higher T_global → more lenient merging
+- Lower percentiles → lower T_global → more conservative merging
+
+**Example impact**:
+If cluster thresholds are [0.20, 0.25, 0.30, 0.35, 0.40]:
+- P25 = 0.25 (conservative)
+- P50 = 0.30 (median, default)
+- P75 = 0.35 (permissive)
+
+For pair with T_local=0.25, alpha=0.7:
+- With P25: T_merge = 0.7×0.25 + 0.3×0.25 = 0.250
+- With P50: T_merge = 0.7×0.25 + 0.3×0.30 = 0.265
+- With P75: T_merge = 0.7×0.25 + 0.3×0.35 = 0.280
+
+Higher global percentile → more pairs pass exemplar distance check → more merging.
+
+
+### 2026-02-27 10:30:00
+**Files**: 
+- `face_cluster/analysis.py`
+- `docs/LEARNINGS.md`
+
+**Change**: Added `get_cluster_distances()` method to ClusterSnapshot
+
+**Reason**: User said merge_decisions_df was "useless" - they needed cluster-to-cluster distance matrix, not just failure criteria
+
+**What the method does**:
+Returns DataFrame with ALL cluster pairs showing:
+- `Exemplar_Dist`: Min distance between exemplars (used for merge proposal threshold 0.45)
+- `Min_Dist`: Min distance between any two faces
+- `Mean_Dist`: Mean distance across all face pairs
+- `Max_Dist`: Max distance between any two faces
+
+**Why this is better**:
+- Shows WHY pairs weren't even proposed (e.g., "Exemplar_Dist=0.52 > 0.45")
+- merge_decisions_df only shows already-proposed candidates
+- Missing info: pairs with exemplar_dist > 0.45 never appear in merge_decisions
+
+**Usage**:
+```python
+df = snapshot.get_cluster_distances()
+print(df.head(20))  # Sorted by Exemplar_Dist
+
+# Why didn't (4, 23) merge?
+row = df[(df['C1']==4) & (df['C2']==23)].iloc[0]
+if row['Exemplar_Dist'] > 0.45:
+    print("Not proposed - exemplar distance too large")
+```
+
+**Learning added**: For "why didn't X happen?" provide input data (distances) first, decision logic (criteria) second.
+
