@@ -701,6 +701,16 @@ def main():
 
     args = parser.parse_args()
 
+    # Validate embeddings path exists
+    if not args.embeddings.exists():
+        print(f"\nERROR: Embeddings file not found: {args.embeddings}")
+        print(f"\nYou must first prepare embeddings using:")
+        print(f"  python scripts/prepare_embeddings.py \\")
+        print(f"    --images <your_image_directory> \\")
+        print(f"    --output <output_directory>")
+        print(f"\nThis will create embeddings_*.npy file that you can use here.")
+        sys.exit(1)
+
     # Setup logging
     setup_logging(args.output)
 
