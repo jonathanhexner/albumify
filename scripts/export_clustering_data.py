@@ -137,14 +137,21 @@ def load_embeddings_and_metadata(
         # Use metadata if available
         if i < len(face_metadata):
             meta = face_metadata[i]
-            image_id = Path(meta['image_path']).name
-            image_path = meta['image_path']
-            face_index = meta['face_index']
+            # Handle None image_path
+            if meta.get('image_path') is not None:
+                image_id = Path(meta['image_path']).name
+                image_path = meta['image_path']
+            else:
+                image_id = f"face_{i:04d}"
+                image_path = None
+
+            face_index = meta.get('face_index')
+            bbox_data = meta.get('bbox', {})
             bbox = (
-                meta['bbox']['x_px'],
-                meta['bbox']['y_px'],
-                meta['bbox']['w_px'],
-                meta['bbox']['h_px']
+                bbox_data.get('x_px', 0.0),
+                bbox_data.get('y_px', 0.0),
+                bbox_data.get('w_px', 112.0),
+                bbox_data.get('h_px', 112.0)
             )
         else:
             image_id = f"face_{i:04d}"
