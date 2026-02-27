@@ -180,8 +180,10 @@ def load_embeddings_and_metadata(
 
     # Show unique source images
     if face_metadata:
-        unique_images = len(set(Path(m['image_path']).name for m in face_metadata))
-        logger.info(f"From {unique_images} unique source images")
+        unique_paths = [m.get('image_path') for m in face_metadata if m.get('image_path') is not None]
+        if unique_paths:
+            unique_images = len(set(Path(p).name for p in unique_paths))
+            logger.info(f"From {unique_images} unique source images")
 
     return faces, crops_dir
 
