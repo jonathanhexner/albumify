@@ -2,9 +2,712 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
-**Format**: Each entry includes date/time (ISO 8601), files modified, change description, and reason.
+## Format Guidelines
+
+Each entry should include:
+- **Timestamp**: ISO 8601 format (YYYY-MM-DD HH:MM:SS)
+- **Category**: [FEATURE], [BUGFIX], [REFACTOR], [DOCS], [TEST], [CONFIG], [PERF]
+- **Files**: List all modified files
+- **Change**: Brief description (1-2 sentences)
+- **Reason**: Why this change was needed
+
+### Optional Sections (for complex changes)
+- **Root Cause**: What caused the issue (for bugfixes)
+- **Details**: Implementation notes, step-by-step changes
+- **Verification**: How the fix was tested
+- **Lesson**: What was learned (also add to docs/LEARNINGS.md)
+
+### Detail Level Guidelines
+- **Simple fixes**: 3-5 lines max (just timestamp, category, files, change, reason)
+- **Complex features/refactors**: Include Details section (under 20 lines preferred)
+- **Critical bugs**: Include Root Cause, Details, Verification, Lesson
+- **Multiple unrelated changes**: Create separate entries
+
+### Archiving Policy
+- Entries older than 3 months are moved to `archive/CHANGES_YYYY-MM.md`
+- Main log stays focused on recent work
+- All history is preserved in archive
 
 ---
+
+<!-- Add new entries below this line, newest first -->
+
+### 2026-03-23 [BUGFIX]
+**Files**: `scripts/benchmark_face_clustering.py`
+**Change**: Fixed SIGHTING-006 - crop filenames now use metadata index instead of saved_count
+**Reason**: Prevented systematic offset when early faces fail validation
+
+**Root Cause**:
+Line 341 used `saved_count` (incremental counter) for crop filenames instead of metadata index `i`.
+When first N faces failed validation, all subsequent faces were saved with -N offset in filenames.
+
+**Fix**:
+```python
+# Line 341: Changed from
+if save_single_face_crop(face_meta, saved_count, config):
+
+# To
+if save_single_face_crop(face_meta, i, config):
+```
+
+**Impact**:
+- ✅ Crop filenames now match metadata indices
+- ✅ Alignment preserved: metadata[N] ←→ embeddings[N] ←→ face_N.jpg
+- ⚠️ Gaps in filenames possible (e.g., no face_0000.jpg if face 0 failed)
+- ✅ Validation catches any future regressions
+
+**Verification**:
+- All tests pass: `pytest tests/test_crop_validation.py`
+- Validation function detects if bug reoccurs
+- SIGHTING-006 marked as RESOLVED
+
+**Lesson**: Never use loop counters for file identifiers that reference array positions. Use stable indices from source data.
+
+---
+
+### 2026-03-23 [FEATURE]
+**Files**: `scripts/benchmark_face_clustering.py`
+**Change**: Added validation function to detect crop filename misalignment
+**Reason**: Prevent SIGHTING-006 bug from occurring in future runs
+
+**Details**:
+- Added `validate_crop_filenames()` function (60 lines)
+- Validates after `save_face_crops()` at line 659
+- Checks three conditions:
+  1. Expected crop files exist for all saved_indices
+  2. Number of actual crop files matches saved_indices length
+  3. Detects sequential numbering bug (crops 0,1,2... but metadata 2,3,4...)
+- Raises `ValueError` with clear error message if validation fails
+
+**Example error message**:
+```
+DETECTED BUG: Crop files are sequential [0..724] but first saved metadata
+index is 2. This indicates saved_count was used instead of metadata index!
+```
+
+**Prevention**: Catches the exact bug from SIGHTING-006 immediately after crop saving, before corrupted data can be saved to files.
+
+---
+
+### 2026-03-23 [DOCS]
+**Files**:
+- `docs/SIGHTINGS.md` (SIGHTING-006 updated to ROOT CAUSE IDENTIFIED)
+- `scripts/debug_sighting_006/trace_crop_save_logic.py` (new)
+- `scripts/debug_sighting_006/verify_crop_metadata_consistency.py` (new)
+- `scripts/debug_sighting_006/README.md` (updated)
+
+**Change**: Deep root cause analysis for SIGHTING-006 - identified exact bug location
+
+**Reason**: User requested deep investigation into why first 2 faces are missing and where the bug originates
+
+**Root Cause Identified**:
+- **Location**: `scripts/benchmark_face_clustering.py:340`
+- **Bug**: Uses `saved_count` (incremental counter) for crop filenames instead of `face_id` from metadata
+- **Pattern**: When first N faces fail validation → all subsequent faces saved with -N offset
+- **Why +2**: First 2 faces in dataset failed validation (invalid bbox or missing landmarks)
+- **Impact**: `stored[569]` contains embedding from `face_0569.jpg` which actually holds metadata[571]'s face
+
+**Additional Debug Tools Created**:
+1. `trace_crop_save_logic.py` - Simulates save logic to identify which faces were skipped
+2. `verify_crop_metadata_consistency.py` - Checks alignment between crops/metadata/embeddings
+
+**Fix Options**:
+1. Use `face_meta['face_id']` for filenames (RECOMMENDED)
+2. Pre-filter invalid faces from metadata before saving
+3. Use metadata index `i` directly (creates gaps but preserves alignment)
+
+**Prevention**:
+- Add assertion: crop filenames must match metadata face_ids
+- Never use loop counters for filenames that reference external data
+- Add test: `test_crop_filename_matches_metadata_face_id()`
+
+---
+
+### 2026-03-23 [REFACTOR]
+**Files**:
+- `scripts/debug_sighting_006/` (new directory)
+- `scripts/debug_sighting_006/run_debug.py` (main entry point)
+- `scripts/debug_sighting_006/debugger.py` (debugger class)
+- `scripts/debug_sighting_006/hypothesis_tests.py` (6 test methods)
+- `scripts/debug_sighting_006/helpers.py` (utilities)
+- `scripts/debug_sighting_006/reporting.py` (report formatting)
+- `scripts/debug_sighting_006/models.py` (data classes)
+- `scripts/debug_sighting_006/README.md` (documentation)
+- `scripts/debug_sighting_006/debug_embeddings_comparison.ipynb` (moved from notebooks/)
+
+**Change**: Created modular debug framework for SIGHTING-006 with systematic hypothesis testing
+
+**Reason**: Interactive notebook debugging was inefficient. Needed systematic approach to test multiple hypotheses about face crop +2 offset issue.
+
+**Details**:
+- **Design**: One method per hypothesis, clear pass/fail verdicts, actionable recommendations
+- **6 Hypothesis Tests**:
+  - H1: Gap in crop files (face_0000, face_0001 missing)
+  - H2: String vs numeric sorting mismatch
+  - H3: Metadata array index mismatch
+  - H4: Embedding extraction order mismatch
+  - H5: Staleness check (old crop set)
+  - H6: Offset pattern verification (systematic vs sporadic)
+- **Modular Structure**: ~100 lines per file, easy to extend with new tests
+- **Output**: Structured report with evidence, conclusions, and next steps
+
+**Usage**:
+```bash
+python -m scripts.debug_sighting_006.run_debug \
+    --crops results/Google_Germany/face_crops \
+    --stored-embeddings "results/Google_Germany/embeddings_2026-*.npy" \
+    --fresh-embeddings "results/Google_Germany/embeddings_FRESH_*.npy" \
+    --stored-metadata "results/Google_Germany/embeddings_metadata_2026-*.json" \
+    --fresh-metadata "results/Google_Germany/embeddings_metadata_FRESH_*.json"
+```
+
+---
+
+### 2026-03-20 [DOCS]
+**Files**: `docs/SIGHTINGS.md`
+**Change**: Updated SIGHTING-006 with complete debugging steps
+**Reason**: Document investigation progress for +2 offset issue
+
+**Debugging Summary**:
+- Compared 3 extraction methods → Fresh ≈ Pipeline (proves code correct)
+- Searched all 727 faces → found systematic +2 offset pattern
+- Verified across 6 test faces → stored[N] = fresh[N+2] confirmed
+- Status: IN PROGRESS, checking crop file existence
+
+---
+
+### 2026-03-20 [TEST]
+**Files**: `tests/test_face_crop_integrity.py`
+**Change**: Created verification method for face crop filename alignment
+**Reason**: Prevention for SIGHTING-006 - ensures crop filenames match actual face identities
+
+**Method**: `verify_crop_metadata_alignment()` extracts fresh embeddings from crops and compares to stored embeddings to detect mismatches.
+
+**Usage**: `python tests/test_face_crop_integrity.py <crops_dir> <embeddings.npy> <metadata.json>`
+
+---
+
+### 2026-03-20 [DOCS]
+**Files**: `docs/SIGHTINGS.md`
+**Change**: Filed SIGHTING-006 for face crop filename mismatch
+**Reason**: Discovered +2 offset between crop filenames and face IDs
+
+**Root Cause**: `benchmark_face_clustering.py` uses `saved_count` for filenames but `metadata[i]` for content, causing mismatch when early faces fail to save.
+
+**Impact**: All regenerated embeddings have wrong face_id mappings.
+
+---
+
+### 2026-03-20 [FEATURE]
+**Files**: `notebooks/debug_embeddings_comparison.ipynb`, `EMBEDDING_EXTRACTION_CODE_PATH.md`
+**Change**: Created minimal embedding comparison notebook + index mismatch test
+**Reason**: Large mismatch between fresh and stored embeddings
+
+**Notebook**: 9 cells, discovered systematic +2 offset (stored[N] = fresh[N+2])
+
+---
+
+### 2026-03-20 [BUGFIX]
+**Files**: `notebooks/debug_embeddings_simple.ipynb`
+**Change**: Fixed KeyError when loading stored embeddings with None face_index values
+**Reason**: `.get('face_index', i)` returns None when key exists but value is None, not the fallback value
+
+**Root Cause**: When `face_index` is explicitly `None` in metadata, `dict.get('face_index', fallback)` returns `None`, not `fallback`. This created a dict with single key `None` instead of numeric face IDs.
+
+**Fix**: Changed to `i if meta.get('face_index') is None else meta.get('face_index')` to properly handle None values.
+
+---
+
+### 2026-03-20 [FEATURE]
+**Files**: `notebooks/debug_embeddings_simple.ipynb`
+**Change**: Created simple notebook to compare fresh vs stored face embeddings
+**Reason**: User needed thin, interactive tool to debug embedding mismatches - existing notebook was too complex with execution errors
+
+**Details**:
+- Loads stored embeddings from .npy file
+- Extracts fresh embeddings from face crops using InsightFaceEmbedder
+- Compares cosine distances between test faces (569 and its 5 neighbors)
+- Shows visual comparison of face images
+- Simple 6-cell notebook, easy to debug step-by-step
+
+---
+
+### 2026-03-15 00:15:00 [REFACTOR]
+**Files**: `face_cluster/embedding.py`, `scripts/regenerate_embeddings_from_crops.py`, `CLAUDE.md`
+**Change**: Consolidated face embedding extraction logic and documented regeneration workflow
+**Reason**: Eliminate code duplication between embedding scripts and provide clear guidance for handling corrupted embeddings
+
+**Details**:
+1. **face_cluster/embedding.py**: `get_embedding()` method already exists for single-image extraction (lines 162-184)
+2. **regenerate_embeddings_from_crops.py**: Already uses shared `InsightFaceEmbedder` class (line 148)
+3. **CLAUDE.md**: Added new section "Regenerating Corrupted Face Embeddings" with:
+   - Verification steps using notebook
+   - Regeneration workflow with correct command syntax
+   - Cleanup and re-export steps
+   - Common causes and prevention guidelines
+
+**Why this matters**:
+- User discovered stored embeddings were backwards/corrupted (faces 569-577 closer than 569-573)
+- Need clear workflow to regenerate embeddings when mismatches occur
+- Prevents future embedding corruption by documenting metadata requirements
+
+---
+
+### 2026-03-14 23:45:00 [FEATURE]
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Enhanced Pre-Cluster Analysis to show exemplar-specific distances for debugging transitive closure
+**Reason**: User needs to see which specific exemplars each face relates to, and distance to exemplars from OTHER clusters (not just any face)
+
+**Details**:
+1. **Now computes**: Distance to EACH exemplar in same cluster (not just min distance)
+2. **Now computes**: Distance to nearest EXEMPLAR from different clusters (was computing distance to ANY face)
+3. **New display**: Expandable rows showing:
+   - All exemplars in THIS cluster with distances
+   - Closest external exemplar (cluster ID + exemplar ID + distance)
+   - Warning when face is closer to external exemplar than own cluster
+   - kNN graph connectivity (neighbors in/out, bridge score)
+
+**Why this helps**:
+- Identifies faces that don't belong: closer to different cluster's exemplars
+- Shows transitive closure bridges: faces with many external neighbors
+- Answers: "Why is this face in cluster 3 instead of cluster 7?"
+
+---
+
+### 2026-03-14 23:35:00 [BUGFIX]
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Fixed "can only convert an array of size 1 to a Python scalar" error when loading embeddings
+**Reason**: Code expected embeddings file to be a dict, but benchmark_face_clustering.py saves it as plain numpy array
+
+**Root Cause**:
+- `benchmark_face_clustering.py` saves embeddings as plain (N, 512) numpy array
+- App was calling `.item()` expecting a dict with 'embeddings' and 'face_ids' keys
+- `.item()` only works on scalar or 0-d arrays, not 2D arrays
+
+**Fix**:
+- Detect format: check if plain array or dict-wrapped object
+- Plain array: match embeddings to face_ids by index from faces_df
+- Dict format: use legacy loading (for backward compatibility)
+- Both formats now supported
+
+---
+
+### 2026-03-14 23:30:00 [BUGFIX]
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Fixed export_summary.json not found error in Pre-Cluster Analysis
+**Reason**: Line 687 was incorrectly overwriting export_dir to crops_dir.parent, causing wrong path lookup
+
+**Root Cause**:
+- User loads from `results\Google_Germany\clustering_export`
+- App correctly sets `export_dir` from user input
+- Line 687 overwrote `export_dir = crops_dir.parent`
+- This changed export_dir from `clustering_export` to `Google_Germany` (parent)
+- export_summary.json lookup failed at wrong location
+
+**Fix**: Removed line 687 - export_dir is already in scope from user input, no need to reassign it
+
+---
+
+### 2026-03-14 23:15:00 [REFACTOR]
+**Files**: `CHANGES_LOG.md`, `CLAUDE.md`, `archive/README.md`
+**Change**: Improved CHANGES_LOG.md structure with category tags, detail guidelines, and archiving policy
+**Reason**: File reached 3,607 lines and needed better organization for long-term maintainability
+
+**Details**:
+1. **Updated header**: Added comprehensive format guidelines with category tags, detail level guidance, and archiving policy
+2. **Added category tags**: Tagged 14 most recent entries with [FEATURE], [BUGFIX], [REFACTOR], [DOCS] categories
+3. **Updated CLAUDE.md**: Documented new category system and archiving policy in Change Tracking section
+4. **Created archive/ directory**: Set up structure for future archiving (entries >3 months old)
+
+**Category System**:
+- [FEATURE] - New functionality
+- [BUGFIX] - Fixing incorrect behavior
+- [REFACTOR] - Code restructuring
+- [DOCS] - Documentation updates
+- [TEST] - Test changes
+- [CONFIG] - Configuration changes
+- [PERF] - Performance improvements
+
+**Benefits**:
+- Easier to scan for specific types of changes
+- Clear guidelines prevent entries from becoming too verbose
+- Archiving strategy prevents file from growing indefinitely
+- All history preserved in archive directory
+
+---
+
+### 2026-03-08 00:45:00 [BUGFIX]
+**Files**: `notebooks/verify_face_embeddings.ipynb` (cell 13 type fix)
+**Change**: Fixed cell 13 from MARKDOWN to CODE cell type
+**Reason**: Cell 13 was markdown instead of code, so `rec_model` was never defined, causing NameError in cell 14
+
+**Root Cause**:
+- User kept getting `NameError: name 'rec_model' is not defined`
+- Cell 13 had correct code but wrong cell type (markdown vs code)
+- Markdown cells display code as text, don't execute it
+
+**Fix**:
+- Changed cell 13 to code type using NotebookEdit
+- Converted cell 15 (old broken approach) to markdown for reference
+- Created standalone test script that verified the approach works (6/6 embeddings extracted)
+
+**Lesson**: Should have tested notebook execution from the start instead of iterating with user
+
+### 2026-03-08 00:30:00 [BUGFIX]
+**Files**: `notebooks/verify_face_embeddings.ipynb` (cells 13, 14)
+**Change**: Fixed InsightFace to work with face crops instead of full images
+**Reason**: `app.get()` runs face detection first, which fails on cropped faces. User got "No face detected" errors.
+
+**Root Cause**:
+- InsightFace `FaceAnalysis.get()` expects full images and runs detection
+- Notebook has already-cropped face images from `face_crops_dir`
+- Detector can't find faces in tight crops (no context)
+
+**Fix**:
+- Cell 13: Load recognition model directly with `model_zoo.get_model()` instead of `FaceAnalysis`
+- Cell 14: Use `rec_model.get_feat()` directly on resized crops (112x112)
+- Skip detection entirely, work directly with cropped/aligned faces
+- Convert RGB→BGR and normalize embeddings
+
+**Note**: This matches how benchmark_face_clustering.py works - it uses pre-cropped faces
+
+### 2026-03-08 00:15:00 [BUGFIX]
+**Files**: `notebooks/verify_face_embeddings.ipynb` (cells 6, 8, 16)
+**Change**: Fixed multiple errors in notebook
+**Reason**:
+1. Cell 6: ValueError on `.item()` - embeddings file is 2D array, not dict
+2. Cells 8, 16: ValueError on f-string formatting - can't use conditionals inside format specifiers
+
+**Root Cause**:
+- `benchmark_face_clustering.py` saves embeddings as plain array, not dict
+- Benchmark JSON has `face_index=None` for all faces (data issue)
+- Invalid f-string syntax: `{knn_dist:.6f if knn_dist else 'N/A'}` not allowed
+
+**Fix**:
+- Cell 6: Load as array, handle None face_index with fallback to array position
+- Cells 8, 16: Pre-format conditional strings before using in f-string
+
+**Verification**: Tested all cells have valid Python syntax
+
+### 2026-03-06 09:00:00 [FEATURE]
+**Files**: `notebooks/verify_face_embeddings.ipynb`
+**Change**: Created Jupyter notebook to independently verify embeddings and distances
+**Reason**: User reported results that don't make sense - need independent verification of embeddings and distance calculations
+
+**Notebook Features**:
+1. **Load Reference Data**: Stored embeddings and kNN graph
+2. **Display Face Images**: Visual inspection of test faces (569, 577, 573, 553, 550, 545)
+3. **Extract Fresh Embeddings**: Re-compute embeddings from scratch using InsightFace
+4. **Calculate Distances**: Compare fresh vs stored vs kNN distances
+5. **Visual Comparison**: Plot embedding vectors to see differences
+6. **Verdict System**: Automatic detection of mismatches
+
+**What It Detects**:
+- Fresh ≠ Stored (diff > 0.01): Different model/preprocessing
+- Stored ≠ kNN (diff > 0.001): Distance calculation mismatch
+- Embedding vector differences: Face ID mismatch or model drift
+
+**Usage**:
+```bash
+jupyter notebook notebooks/verify_face_embeddings.ipynb
+```
+
+Run all cells to see comprehensive comparison and identify source of mismatch.
+
+---
+
+### 2026-03-06 08:30:00 [FEATURE]
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Added extensive embeddings loading debug info and KNN neighbor display
+**Reason**: User unable to load embeddings + requested KNN visualization
+
+**Embeddings Loading Debug**:
+- Added step-by-step debug messages showing:
+  - Export directory path
+  - export_summary.json location
+  - Embeddings source path from JSON
+  - All 3 path resolution attempts
+  - Final found/not found status
+- Shows traceback on exception
+- Helps diagnose path resolution issues on different systems
+
+**KNN Neighbor Display**:
+- Added expandable section under each face: "🔗 K-Nearest Neighbors for Face X"
+- Shows all K=5 nearest neighbors in grid with:
+  - Neighbor face image (80x80)
+  - Face ID
+  - Distance to this face
+  - Cluster membership: ✅ Same cluster | ❌ Different cluster (shows which)
+- Helps understand:
+  - Why face is in this cluster (neighbors pulled it in via kNN graph)
+  - Which faces are bridges (neighbors in different clusters)
+  - Transitive closure paths (Face A → B → C chain)
+
+---
+
+### 2026-03-06 08:00:00 [FEATURE]
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Added metric explanations, exemplar distance matrix, UMAP visualization, and fixed embeddings loading
+**Reason**: User requested clarification of metrics and deeper exemplar analysis
+
+**Fixes**:
+- Fixed embeddings path resolution (try multiple strategies: absolute, relative to project root, relative to export dir)
+- Added success/error messages for embeddings loading with traceback
+- Show embeddings file name when successfully loaded
+
+**New Features**:
+
+**1. Metric Explanations Expander** (❓)
+- Collapsible section explaining ALL metrics with formulas
+- Outlier Score formula and interpretation
+- Bridge % calculation and meaning (0% = strong belonging, 100% = transitive bridge)
+- Neighbors In/Out explanation (K=5 nearest neighbors split)
+- Distance to Exemplar/Centroid interpretation
+- Closest External Cluster meaning
+- Diameter definition
+
+**2. Exemplar Distance Matrix**
+- Pairwise distance table between all exemplars
+- Shows if exemplars are coherent (low distances) or mixed (high distances)
+- Automatic analysis:
+  - Error if max exemplar distance > 0.5 ("Cluster likely contains different people")
+  - Warning if max exemplar distance > 0.4 ("Cluster may be mixed")
+- Helps validate exemplar quality
+
+**3. UMAP 2D Visualization** (requires `umap-learn` and `plotly`)
+- Projects all cluster faces into 2D space
+- Color-coded by outlier score (red = high outlier)
+- Exemplars marked with ⭐ gold stars
+- Interactive hover shows face ID and metrics
+- Reveals: distinct subgroups, spatial outliers, exemplar positioning
+- Caption explains what to look for
+
+**Dependencies**:
+- Optional: `umap-learn` and `plotly` for UMAP visualization
+- Gracefully degrades if not installed (shows install message)
+
+---
+
+### 2026-03-06 07:15:00 [FEATURE]
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Comprehensive Pre-Cluster Analysis diagnostics implementation
+**Reason**: User requested deep exploration tools to understand incorrect pre-clusters and transitive closure problems
+
+**New Features**:
+
+**Section A: Cluster Overview**
+- Metrics: Size, Diameter (with tooltip), # Exemplars, View All button
+
+**Section B: Cluster Exemplars**
+- Visual display of exemplar faces (up to 6)
+- Helps understand cluster's "core identity"
+
+**Section C: Diameter Analysis**
+- Shows the face pair that creates maximum distance
+- Visual comparison of the two most distant faces
+- Alert if distance > 0.5 (likely different people)
+
+**Section D: Face-Level Diagnostics**
+Enhanced metrics table with 7 columns:
+1. **Face Image** (80x80 uniform)
+2. **Face ID + Status** (✅ Core / ⚠️ Boundary / ❌ Outlier)
+3. **Outlier Score + Bridge %** (% of neighbors outside cluster)
+4. **Distance to Exemplar + Centroid** (how far from cluster core)
+5. **Neighbors In/Out** (kNN connectivity)
+6. **Closest External Cluster** (which other pre-cluster is this face close to + distance, 🎯 if < 0.35)
+7. **Deep Dive button**
+
+**Key Diagnostics**:
+- `dist_to_nearest_exemplar`: How far from cluster's representative faces
+- `dist_to_centroid`: Average distance to all cluster members
+- `closest_external_cluster`: Alternative cluster assignment (helps answer "should this be in pre-cluster 7 instead?")
+- `bridge_score`: % of kNN neighbors outside cluster (identifies transitive bridges)
+
+**Implementation**:
+- Loads embeddings from export_summary.json source path
+- Computes pairwise distances for diameter analysis
+- Cosine distance metric for all embedding comparisons
+- Graceful degradation if embeddings unavailable (shows warning, kNN metrics still work)
+
+---
+
+### 2026-03-06 06:45:00 [BUGFIX]
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Fixed TypeError with pandas Styler.hide() and clarified Pre-Cluster Analysis purpose
+**Reason**: Pandas version compatibility + user confusion about what data is being shown
+
+**Fixes**:
+- Fixed TypeError: Styler.hide() doesn't accept 'columns' parameter - use drop() before styling instead
+- Fixed styling logic to use row index lookups from full dataframe
+
+**UI Clarifications**:
+- Added info box at top explaining: "Initial clusters BEFORE any merging"
+- Changed all labels to say "Pre-cluster" or "Pre-merge cluster"
+- Added explanatory text: "Why this matters" and "What to look for"
+- Section headers now explicitly say "(Initial Clustering - BEFORE Merging)"
+- Face metrics caption explains these are from initial clustering stage
+
+### 2026-03-06 06:00:00 [REFACTOR]
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Redesigned Pre-Cluster Analysis tab to be data-driven with summary tables
+**Reason**: User feedback - original design was not analytical enough, had usability issues
+
+**Fixes**:
+- Fixed ValueError: face_id formatting - convert float to int before using :04d format
+- All face images now uniform size (100x100 pixels)
+- Added "View All" button to see all faces in pre-cluster
+
+**New Design**:
+- Section 1: Pre-Cluster Summary Table (all clusters with key statistics)
+  - Columns: Cluster ID, Size, Diameter, # Outliers, Avg Outlier Score, Coherence
+  - Red highlighting for problematic clusters (diameter > 0.5 or avg outlier > 0.25)
+- Section 2: Detailed Face Analysis (select cluster from dropdown)
+  - Face metrics table with uniform-sized images
+  - Columns: Image (100x100), Face ID, Outlier Score, Avg Neighbor Dist, Neighbors In/Out, Deep Dive button
+  - Sorted by outlier score (highest first)
+
+**Outlier Detection**:
+- Formula: `outlier_score = avg_neighbor_dist × (1 - neighbors_in_cluster / total_neighbors)`
+- Status: ✅ Core (<0.2), ⚠️ Boundary (0.2-0.3), ❌ Outlier (>0.3)
+
+---
+
+### 2026-03-06 05:00:00 [FEATURE]
+**Files**: `scripts/export_clustering_data.py`, `app/face_clustering_labeling.py`
+**Change**: Implemented complete Pre-Cluster Analysis system with kNN graph diagnostics
+**Reason**: SIGHTING-005 investigation - need to understand WHY faces are incorrectly clustered in initial stage.
+
+**Export Script Changes**:
+- Added export_knn_graph() function to capture K-nearest neighbors for each face
+- Saves knn_graph.json with: K neighbors + distances, mutual kNN edge list, graph stats
+- Exports exact graph structure used for clustering
+
+**UI Changes - New Tab: "Pre-Cluster Analysis"**:
+- Step 1: Select pre-cluster (sorted by size, shows diameter)
+- Step 2: Cluster statistics (size, diameter, coherence score)
+- Step 3: Face list sorted by outlier score (✅ Core / ⚠️ Boundary / ❌ Outlier)
+- Each face shows: neighbors in/out of cluster, outlier score, deep dive button
+
+**Deep Dive Modal** (click 🔍 on any face):
+- Section A: K-nearest neighbors with images (shows which neighbors are in same/different clusters)
+- Section B: Alternative cluster assignments (which other clusters is this face close to?)
+- Visual comparison to understand "should this face be in cluster 3 or cluster 7?"
+
+**Outlier Detection Heuristic**:
+outlier_score = avg_neighbor_dist × (1 - fraction_neighbors_in_cluster)
+High score = face is far from neighbors OR most neighbors are in different clusters
+
+Now user can explore pre-clusters 3 and 6 to understand transitive closure problem.
+
+### 2026-03-06 04:00:00 [DOCS]
+**Files**: `docs/SIGHTINGS.md`, `docs/LEARNINGS.md`
+**Change**: Filed SIGHTING-005 for mixed pre-clusters and added learnings about transitive closure
+**Reason**: Merge analysis revealed real problem is in initial clustering (pre-clusters already have mixed people), not merge stage. Transitive closure in kNN graphs: Face B bridges Person 1 (A-B) and Person 2 (B-C) causing wrong clustering. Documented in sighting with investigation plan: build pre-cluster explorer to understand WHY incorrect faces are connected (kNN neighbors, graph paths, alternative assignments). Added learnings: (1) kNN transitive closure problem, (2) validate each pipeline stage, don't assume later stages are the issue.
+
+### 2026-03-06 03:30:00 [BUGFIX]
+**Files**: `app/face_clustering_labeling.py`, `docs/SIGHTINGS.md`
+**Change**: Fixed Merge Analysis UI to show only actual merges (not all valid candidates)
+**Reason**: SIGHTING-004 investigation revealed UI was filtering by action='merged' (1,454 valid candidates) instead of actually_merged=True (48 actual merges). Root cause: confusing terminology - "merged" meant "could merge", not "did merge". Same cluster pairs appeared 40+ times as valid candidates across iterations before finally being chosen. Fixed UI to filter by actually_merged=True and deduplicate rejected attempts. Now shows correct 48 merges instead of 1,454 candidates. Resolved SIGHTING-004.
+
+### 2026-03-06 03:00:00
+**Files**: `docs/SIGHTINGS.md`, `scripts/debug_merge_duplicates.py`, `app/face_clustering_labeling.py`
+**Change**: Filed SIGHTING-004 for duplicate merge issue and fixed missing original pre-cluster display
+**Reason**: User observed: (1) Same cluster pairs merging multiple times - doesn't make sense, (2) Original pre-cluster not shown. Filed sighting with diagnostic script to investigate why 1,454 "merged" entries for only 48 actual merges. Hypothesis: logging all evaluated candidates vs actual merges, need to filter by actually_merged=True. Fixed UI to show original pre-cluster faces before merge history.
+
+### 2026-03-06 02:30:00 [REFACTOR]
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Completely redesigned Merge Analysis tab with cluster-centric view
+**Reason**: User feedback that flat table of 6,196 decisions was unusable. New design: (1) Step 1: Select cluster to debug from dropdown, (2) Step 2: Show formation history - which pre-merge clusters merged into it, chronologically sorted with expandable details, (3) Step 3: Show rejected merge attempts, (4) Each merge shows face thumbnails with "View All" button to see complete pre-merge cluster. Now you can understand "how did cluster 0 get so big?" in 3 clicks instead of scrolling through thousands of rows.
+
+### 2026-03-06 02:00:00
+**Files**: `docs/SIGHTINGS.md`, `scripts/debug_export_issue.py`
+**Change**: Filed SIGHTING-003 for pre_merge_cluster_id column issue and created debug script
+**Reason**: After multiple fix attempts, column still not appearing in faces.csv. Following proper debug discipline: file sighting, gather diagnostic information systematically before attempting more fixes. Debug script checks: file existence, CSV columns, export summary, merge decisions, logs. Will reveal whether merge is disabled, pre_merge_result is None, or export_csvs logic has a bug.
+
+### 2026-03-06 01:30:00
+**Files**: `scripts/export_clustering_data.py`, `app/face_clustering_labeling.py`
+**Change**: Fixed pre_merge_cluster_id column not being added to faces.csv
+**Reason**: Column was being added after initial save, causing timing issues. Moved pre_merge_cluster_id computation to happen during faces_data construction (before first save). Also added safety check in UI to detect incomplete diagnostic data and show helpful error message with what's missing.
+
+### 2026-03-06 01:00:00 [FEATURE]
+**Files**: `face_cluster/merge.py`, `scripts/export_clustering_data.py`, `app/face_clustering_labeling.py`
+**Change**: Implemented complete pre/post merge diagnostics system with 3 new tabs in labeling app
+**Reason**: User needs to understand clustering issues: over-merging, under-merging, and mixed clusters. Implemented full diagnostic pipeline:
+
+**Phase 1 - Export Script** (`scripts/export_clustering_data.py`):
+1. Capture pre-merge clustering state before merge stage
+2. Modified run_clustering_pipeline() to return pre_merge_result and merge_log
+3. Export 3 new files: pre_merge_clusters.csv, merge_decisions.csv, cluster_lineage.json
+4. Add pre_merge_cluster_id column to faces.csv for tracking
+
+**Phase 2 - Merge Logging** (`face_cluster/merge.py`):
+1. Added merge_clusters_with_logging() method returning (result, merge_log)
+2. Added _merge_clusters_internal() for internal implementation
+3. Added _find_best_merge_with_decisions() logging all candidates (merged + rejected)
+4. Decision log includes: iteration, cluster IDs, sizes, distances, thresholds, all evidence checks, rejection reasons
+
+**Phase 3 - UI Tabs** (`app/face_clustering_labeling.py`):
+1. Tab 1 - Label Clusters (existing interface, unchanged)
+2. Tab 2 - Merge Analysis: Filter decisions by action/distance, inspect individual decisions with face previews
+3. Tab 3 - Pre/Post Comparison: Show cluster lineage, which pre-merge clusters merged into each post-merge cluster
+4. Auto-detects diagnostic files, shows warning if not available
+
+Now user can analyze: which clusters merged (and why), which were rejected (and why), and see before/after state for every cluster.
+
+### 2026-03-05 00:30:00
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Added "View All" button to expand clusters and see all faces in modal dialog
+**Reason**: User requested ability to view all images in a cluster, not just first 20. Implemented using @st.dialog decorator to show all faces in pop-up modal. Changes: (1) Modified get_cluster_face_images() to accept max_faces=None for unlimited loading, (2) Added show_all_cluster_faces() dialog function, (3) Added "View All" button in cluster header, (4) Added caption when cluster has more than 20 faces indicating preview mode
+
+### 2026-03-05 00:00:00
+**Files**: `CLAUDE.md`
+**Change**: Enhanced CLAUDE.md with improvements based on recent project activity
+**Reason**: User requested `/init` analysis. Added: (1) Pattern recognition in On Init Checklist, (2) Metadata storage best practice, (3) Face embedding backend selection guide with inline cache clear command, (4) Database maintenance commands section, (5) ML training workflow documentation (Phase 1-3), (6) Expanded face_cluster module documentation, (7) Additional common issues from recent learnings, (8) Updated debug scripts list with accurate descriptions
+
+### 2026-03-01 01:20:00
+**Files**: `docs/ML_CLUSTER_MERGING_WORKFLOW.md`
+**Change**: Created comprehensive workflow guide for ML cluster merging pipeline
+**Reason**: Document complete step-by-step process including troubleshooting for common issues (TypeError with None image_path, clustering mismatches, face crops not found)
+
+### 2026-03-01 01:12:00
+**Files**: `face_cluster/embedding.py`
+**Change**: Fixed InsightFaceEmbedder to set image_path and face_index in FaceRecord objects
+**Reason**: Root cause of TypeError - metadata had null values because FaceRecord creation didn't include these fields. Added image_path=str(image_path) and face_index=face_idx to fix.
+
+### 2026-02-28 19:25:00
+**Files**: `docs/LEARNINGS.md`
+**Change**: Added learning about comparing outputs on identical inputs before declaring mismatches
+**Reason**: Document lesson from SIGHTING-002 investigation - comparing different input data led to false alarm about broken scripts
+
+### 2026-02-28 19:20:00
+**Files**: `docs/SIGHTINGS.md`
+**Change**: Updated SIGHTING-002 with root cause and resolution - scripts produce identical results on same input
+**Reason**: Close sighting after verification that export script is correct, issue was comparing different input files
+
+### 2026-02-28 19:15:00
+**Files**: `scripts/compare_notebook_vs_export.py`
+**Change**: Created comparison script for validating notebook vs export script on same embeddings
+**Reason**: Provide clean way to verify export script produces identical results to notebook when using same input
+
+### 2026-02-28 19:10:00
+**Files**: `scripts/compare_clustering_results.py`
+**Change**: Fixed IndexError when comparing datasets with different face IDs - handle missing IDs gracefully
+**Reason**: Comparison script crashed when trying to look up face IDs that only exist in one dataset
+
+### 2026-02-28 19:00:00
+**Files**: `scripts/export_from_notebook_logic.py`
+**Change**: Created export script that exactly replicates notebook cell code
+**Reason**: Provide validation reference by extracting exact working code from debug_knn_graph_clustering.ipynb notebook
+
+### 2026-02-28 18:45:00
+**Files**: `docs/SIGHTINGS.md`
+**Change**: Opened SIGHTING-002 documenting apparent mismatch between notebook and export script clustering results
+**Reason**: Track investigation into why export script produces different results than notebook (45% face mismatch)
+
+### 2026-02-28 10:30:00
+**Files**: `CLAUDE.md`
+**Change**: Added documentation for face_cluster/ module, expanded database schema section, added SQL command for clearing face embeddings
+**Reason**: Improve onboarding for new Claude instances by documenting the standalone face clustering module and providing clearer database structure reference
 
 ### 2026-02-27 13:15:00
 **Files**: `app/face_clustering_labeling.py`
@@ -3156,3 +3859,79 @@ if row['Exemplar_Dist'] > 0.45:
 
 **Learning added**: For "why didn't X happen?" provide input data (distances) first, decision logic (criteria) second.
 
+
+### 2026-02-27 14:45:00
+**Files**: `app/face_clustering_labeling.py`
+**Change**: Fixed face crops directory path resolution for training exports
+**Reason**: App couldn't find face_crops when export_dir was in results/training/ subdirectory
+
+**Changes**:
+- Added check for 'training' in export_dir path to look in parallel directory
+- e.g., results/training/Budapest2025_Google → results/Budapest2025_Google/face_crops
+- Added informative error messages showing all checked paths
+- Display crops_dir path in sidebar when found
+
+### 2026-02-27 14:50:00
+**Files**: `scripts/export_clustering_data.py`
+**Change**: Added ConservativeMerger stage (Stage 6) to clustering pipeline
+**Reason**: Export script was missing merge procedure that exists in debug notebook
+
+**Changes**:
+- Imported ConservativeMerger from face_cluster
+- Added Stage 6 after exemplar selection to run merge if config.merge_enabled=True
+- Added CLI arguments: --merge-enabled/--no-merge, --merge-use-adaptive, --merge-threshold-alpha, --merge-margin, --merge-global-percentile
+- Updated PipelineConfig creation to include merge parameters
+- Log reports: initial clusters → merged clusters → count of merges
+- Default: merge_enabled=True (can disable with --no-merge)
+
+**Impact**: Exported clusters will now be post-merge (fewer, higher quality clusters), reducing number of candidate pairs for labeling
+
+### 2026-02-27 16:20:00
+**Files**: `scripts/export_clustering_data.py`, `app/face_clustering_labeling.py`
+**Change**: FIXED face_crops path resolution by storing embeddings_dir in export_summary.json
+**Reason**: Previous heuristic-based path guessing failed when export dir name != source dir name
+
+**Root Cause**: 
+- Export dir: `results/training/Budapest2025_Google_merged` 
+- Face crops: `results/Budapest2025_Google/face_crops`
+- Names don't match! Path guessing by removing "_merged" suffix is fragile.
+
+**Proper Solution**:
+1. Export script now saves `embeddings_dir` in export_summary.json
+2. Streamlit app reads this field FIRST before trying fallback paths
+3. No more guessing - direct lookup from metadata
+
+**Changes**:
+- export_csvs() now takes embeddings_path parameter
+- export_summary.json has new fields: embeddings_source, embeddings_dir
+- Streamlit app checks export_summary.json first (most reliable)
+- Clear error message if old export format (tells user to re-export)
+
+**Testing**: Verified with Budapest dataset - face_crops found successfully via embeddings_dir
+
+**Learning**: Store metadata paths instead of guessing - see docs/LEARNINGS.md
+
+### 2026-02-27 16:27:00
+**Files**: `scripts/export_clustering_data.py`
+**Change**: Made --output parameter optional with auto-generated default
+**Reason**: Remove degree of freedom that caused path mismatch
+
+**Change**: 
+- --output is now optional (was required)
+- Default: `<embeddings_dir>/clustering_export/`
+- Example: embeddings in `results/Budapest/` → output to `results/Budapest/clustering_export/`
+
+**Benefits**:
+- Everything co-located (embeddings, face_crops, exports in same parent dir)
+- No path mismatch possible
+- Simpler UX (one less required parameter)
+- Can still override with --output if needed
+
+**Usage**:
+```bash
+# Simple (recommended)
+python scripts/export_clustering_data.py --embeddings results/Budapest/embeddings_*.npy
+
+# With custom output (if needed)
+python scripts/export_clustering_data.py --embeddings results/Budapest/embeddings_*.npy --output custom/path
+```

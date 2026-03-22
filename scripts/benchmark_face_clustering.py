@@ -11,6 +11,7 @@ Usage:
 import argparse
 import json
 import logging
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
@@ -26,6 +27,13 @@ from sim_bench.pipeline.executor import PipelineExecutor
 from sim_bench.pipeline.config import PipelineConfig
 from sim_bench.pipeline.registry import get_registry
 from sim_bench.clustering.base import load_clustering_method
+from sim_bench.pipeline.steps.detect_face_orientation import detect_face_orientation
+from sim_bench.pipeline.steps.align_faces import (
+    rotate_image_and_landmarks,
+    align_face_with_orientation,
+    crop_face_generous,
+)
+from sim_bench.pipeline.utils.face_alignment import ARCFACE_REF_POINTS_112
 
 # Import all steps to register them
 import sim_bench.pipeline.steps.all_steps  # noqa: F401
@@ -181,86 +189,249 @@ def compute_crop_coordinates(x_px: int, y_px: int, w_px: int, h_px: int,
     return left, top, right, bottom
 
 
-def align_crop_by_roll(crop_img: Image.Image, roll_angle: float, threshold: float = 5.0) -> Image.Image:
-    """Rotate crop to align face (eyes horizontal)."""
-    if abs(roll_angle) < threshold:
-        return crop_img
-    
-    # Convert PIL to numpy for rotation
-    crop_np = np.array(crop_img)
-    h, w = crop_np.shape[:2]
-    center = (w // 2, h // 2)
-    
-    # Rotate to counter the roll
-    rotation_matrix = cv2.getRotationMatrix2D(center, roll_angle, 1.0)
-    aligned = cv2.warpAffine(
-        crop_np,
-        rotation_matrix,
-        (w, h),
-        flags=cv2.INTER_LINEAR,
-        borderMode=cv2.BORDER_REPLICATE
-    )
-    
-    return Image.fromarray(aligned)
+def draw_landmarks_cv2(image: np.ndarray, landmarks: List, radius: int = 3) -> np.ndarray:
+    """Draw landmarks on image (BGR format)."""
+    img = image.copy()
+    colors = [(0, 255, 0), (0, 255, 0), (255, 0, 0), (0, 0, 255), (0, 0, 255)]
+    labels = ['L_eye', 'R_eye', 'Nose', 'L_mouth', 'R_mouth']
+    for pt, color, label in zip(landmarks[:5], colors, labels):
+        x, y = int(pt[0]), int(pt[1])
+        cv2.circle(img, (x, y), radius, color, -1)
+        cv2.putText(img, label, (x + 3, y - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color, 1)
+    return img
 
 
 def save_single_face_crop(face_meta: Dict[str, Any], index: int, config: CropConfig) -> bool:
-    """Save a single face crop with roll alignment. Returns True if successful."""
+    """Save face crops with full debug artifacts. Returns True if successful."""
     image_path = Path(face_meta['image_path'])
-    
+
     bbox = face_meta['bbox']
     x_px = int(bbox.get('x_px', 0))
     y_px = int(bbox.get('y_px', 0))
     w_px = int(bbox.get('w_px', 0))
     h_px = int(bbox.get('h_px', 0))
-    
+    landmarks = face_meta.get('landmarks', [])
+
     if not is_valid_bbox(w_px, h_px):
         return False
-    
-    # CRITICAL: Apply EXIF rotation before cropping
-    # Bbox coordinates are relative to the correctly-oriented image
-    img = ImageOps.exif_transpose(Image.open(image_path))
+
+    # Load image with EXIF correction
+    img_pil = ImageOps.exif_transpose(Image.open(image_path))
+    img_np = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+
+    # Output prefix
+    prefix = f'face_{index:04d}'
+    crops_dir = config.output_dir / 'face_crops'
+
+    # === 1. RAW CROP (bbox only) ===
     pad = int(min(w_px, h_px) * config.padding_ratio)
     left, top, right, bottom = compute_crop_coordinates(
-        x_px, y_px, w_px, h_px, img.width, img.height, pad
+        x_px, y_px, w_px, h_px, img_pil.width, img_pil.height, pad
     )
-    
+
     if not is_valid_crop_coords(left, top, right, bottom):
         return False
-    
-    face_crop = img.crop((left, top, right, bottom))
-    
-    # Apply roll alignment
-    roll_angle = face_meta.get('roll_angle', 0.0)
-    face_crop = align_crop_by_roll(face_crop, roll_angle)
-    
-    face_crop = face_crop.resize((config.crop_size, config.crop_size), Image.Resampling.LANCZOS)
-    
-    crop_path = config.output_dir / 'face_crops' / f'face_{index:04d}.jpg'
-    face_crop.save(crop_path, quality=95)
+
+    raw_crop = img_np[top:bottom, left:right].copy()
+    cv2.imwrite(str(crops_dir / f'{prefix}_raw.jpg'), raw_crop)
+
+    # === 2. RAW CROP + LANDMARKS ===
+    if landmarks and len(landmarks) >= 5:
+        # Transform landmarks to crop coordinates
+        crop_landmarks = [[pt[0] - left, pt[1] - top] for pt in landmarks[:5]]
+        raw_with_lm = draw_landmarks_cv2(raw_crop, crop_landmarks)
+        cv2.imwrite(str(crops_dir / f'{prefix}_raw_landmarks.jpg'), raw_with_lm)
+
+    # === 3. DETECT ORIENTATION ===
+    orientation = 0
+    if landmarks and len(landmarks) >= 5:
+        orientation = detect_face_orientation(landmarks)
+
+    # === 4. TWO-STAGE ALIGNMENT ===
+    # Stage 1: Generous crop (50% margin for rotation room)
+    generous_crop = None
+    generous_landmarks = landmarks
+    rotated_crop = None
+    rotated_landmarks = landmarks
+    aligned = None
+
+    # Build bbox dict for margin calculation
+    bbox = {'x': x_px, 'y': y_px, 'w': w_px, 'h': h_px}
+
+    if landmarks and len(landmarks) >= 5:
+        generous_crop, generous_landmarks = crop_face_generous(img_np, landmarks, margin=0.5, bbox=bbox)
+
+        if generous_crop is not None:
+            # Save generous crop
+            generous_with_lm = draw_landmarks_cv2(generous_crop.copy(), generous_landmarks)
+            cv2.putText(generous_with_lm, "Stage1: 50% margin", (5, 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+            cv2.imwrite(str(crops_dir / f'{prefix}_stage1_generous.jpg'), generous_with_lm)
+
+            # Stage 2: Rotate if needed
+            if orientation != 0:
+                rotated_crop, rotated_landmarks = rotate_image_and_landmarks(
+                    generous_crop, generous_landmarks, orientation
+                )
+                rotated_with_lm = draw_landmarks_cv2(rotated_crop.copy(), rotated_landmarks)
+                cv2.putText(rotated_with_lm, f"Stage2: {orientation}deg rotation", (5, 20),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                cv2.imwrite(str(crops_dir / f'{prefix}_stage2_rotated.jpg'), rotated_with_lm)
+            else:
+                rotated_crop = generous_crop
+                rotated_landmarks = generous_landmarks
+
+            # Stage 3: 5-point affine alignment (with bbox for proper margin)
+            aligned = align_face_with_orientation(
+                img_np, landmarks, orientation, target_size=config.crop_size, bbox=bbox
+            )
+
+    if aligned is not None:
+        cv2.imwrite(str(crops_dir / f'{prefix}_aligned.jpg'), aligned)
+
+        # === 5. ALIGNED + REFERENCE LANDMARKS ===
+        scale = config.crop_size / 112.0
+        ref_landmarks = (ARCFACE_REF_POINTS_112 * scale).tolist()
+        aligned_with_lm = draw_landmarks_cv2(aligned, ref_landmarks, radius=4)
+        cv2.putText(aligned_with_lm, f"orient={orientation}", (5, 15),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
+        cv2.imwrite(str(crops_dir / f'{prefix}_aligned_landmarks.jpg'), aligned_with_lm)
+
+    # === 6. INFO FILE ===
+    info_path = crops_dir / f'{prefix}_info.txt'
+    with open(info_path, 'w') as f:
+        f.write(f"Image: {image_path}\n")
+        f.write(f"Face Index (global): {index}\n")
+        f.write(f"BBox: x={x_px}, y={y_px}, w={w_px}, h={h_px}\n")
+        f.write(f"Confidence: {face_meta.get('confidence', 0):.3f}\n")
+        f.write(f"Roll Angle: {face_meta.get('roll_angle', 0):.2f}\n")
+        f.write(f"Orientation Detected: {orientation}°\n")
+        f.write(f"\n=== PIPELINE STAGES ===\n")
+        f.write(f"Stage 1: Generous crop (50% margin)\n")
+        f.write(f"Stage 2: Rotate by {orientation}°\n")
+        f.write(f"Stage 3: 5-point affine to {config.crop_size}x{config.crop_size}\n")
+        f.write(f"\n=== LANDMARKS ===\n")
+        f.write(f"Original (full image coords):\n")
+        for pt, label in zip(landmarks[:5], ['L_eye', 'R_eye', 'Nose', 'L_mouth', 'R_mouth']):
+            f.write(f"  {label}: ({pt[0]:.1f}, {pt[1]:.1f})\n")
+        if generous_crop is not None:
+            f.write(f"\nAfter Stage 1 (generous crop coords):\n")
+            for pt, label in zip(generous_landmarks[:5], ['L_eye', 'R_eye', 'Nose', 'L_mouth', 'R_mouth']):
+                f.write(f"  {label}: ({pt[0]:.1f}, {pt[1]:.1f})\n")
+        if orientation != 0 and rotated_crop is not None:
+            f.write(f"\nAfter Stage 2 ({orientation}° rotation):\n")
+            for pt, label in zip(rotated_landmarks[:5], ['L_eye', 'R_eye', 'Nose', 'L_mouth', 'R_mouth']):
+                f.write(f"  {label}: ({pt[0]:.1f}, {pt[1]:.1f})\n")
+
     return True
 
 
 def save_face_crops(metadata: List[Dict[str, Any]], config: CropConfig) -> List[int]:
-    """Save face crops for visualization. Returns list of successfully saved indices."""
+    """Save face crops with full debug artifacts. Returns list of successfully saved indices."""
     crops_dir = config.output_dir / 'face_crops'
     crops_dir.mkdir(parents=True, exist_ok=True)
-    
-    logger.info(f"Saving {len(metadata)} face crops...")
-    
+
+    logger.info(f"Saving {len(metadata)} face crops with debug artifacts...")
+
     saved_indices = []
-    saved_count = 0
-    
+    orientation_counts = {0: 0, 90: 0, 180: 0, 270: 0}
+
     for i, face_meta in enumerate(metadata):
-        if save_single_face_crop(face_meta, saved_count, config):
+        # FIX for SIGHTING-006: Use metadata index i (not saved_count) for filename
+        # This ensures crop filename matches metadata position even when some faces fail
+        if save_single_face_crop(face_meta, i, config):
             saved_indices.append(i)
-            saved_count += 1
-    
-    logger.info(f"Face crops saved: {saved_count}/{len(metadata)}")
-    if saved_count < len(metadata):
-        logger.warning(f"Skipped {len(metadata) - saved_count} faces due to invalid crops")
+            # Count orientations
+            landmarks = face_meta.get('landmarks', [])
+            if landmarks and len(landmarks) >= 5:
+                orient = detect_face_orientation(landmarks)
+                orientation_counts[orient] = orientation_counts.get(orient, 0) + 1
+
+    logger.info(f"Face crops saved: {len(saved_indices)}/{len(metadata)}")
+    logger.info(f"Orientations: 0°={orientation_counts[0]}, 90°={orientation_counts[90]}, "
+                f"180°={orientation_counts[180]}, 270°={orientation_counts[270]}")
+
+    if len(saved_indices) < len(metadata):
+        logger.warning(f"Skipped {len(metadata) - len(saved_indices)} faces due to invalid crops")
     
     return saved_indices
+
+
+def validate_crop_filenames(
+    metadata: List[Dict[str, Any]],
+    saved_indices: List[int],
+    crops_dir: Path
+) -> None:
+    """Validate that crop filenames match metadata indices.
+
+    This catches the bug where saved_count is used instead of metadata index.
+
+    Args:
+        metadata: Full metadata array
+        saved_indices: Indices of successfully saved faces
+        crops_dir: Directory containing face crops
+
+    Raises:
+        ValueError: If validation fails (filename mismatch detected)
+    """
+    logger.info("Validating crop filename alignment...")
+
+    errors = []
+
+    # Check 1: For each saved face, verify filename matches metadata index
+    for meta_idx in saved_indices:
+        expected_file = crops_dir / f"face_{meta_idx:04d}_aligned.jpg"
+
+        if not expected_file.exists():
+            errors.append(
+                f"  - metadata[{meta_idx}] was saved but expected file "
+                f"{expected_file.name} doesn't exist"
+            )
+
+    # Check 2: Count actual crop files
+    actual_crops = list(crops_dir.glob("face_*_aligned.jpg"))
+
+    if len(actual_crops) != len(saved_indices):
+        errors.append(
+            f"  - Found {len(actual_crops)} crop files but saved_indices has "
+            f"{len(saved_indices)} entries"
+        )
+
+    # Check 3: Detect sequential numbering (indicates saved_count bug)
+    if actual_crops:
+        # Get numeric IDs from filenames
+        crop_ids = []
+        for crop_file in actual_crops:
+            match = re.search(r'face_(\d+)_aligned', crop_file.name)
+            if match:
+                crop_ids.append(int(match.group(1)))
+
+        crop_ids_sorted = sorted(crop_ids)
+
+        # If crops are 0,1,2,3... but saved_indices are 2,3,4,5...
+        # then we have the saved_count bug
+        if crop_ids_sorted == list(range(len(crop_ids_sorted))):
+            # Sequential from 0 - could be the bug
+            if saved_indices and saved_indices[0] != 0:
+                errors.append(
+                    f"  - DETECTED BUG: Crop files are sequential [0..{len(crop_ids_sorted)-1}] "
+                    f"but first saved metadata index is {saved_indices[0]}. "
+                    f"This indicates saved_count was used instead of metadata index!"
+                )
+
+    if errors:
+        logger.error("Crop filename validation FAILED:")
+        for error in errors:
+            logger.error(error)
+
+        # Include detailed errors in exception message
+        error_details = "\n".join(errors)
+        raise ValueError(
+            f"Crop filename validation failed:\n{error_details}\n\n"
+            "This usually means saved_count was used for filenames instead of metadata index."
+        )
+
+    logger.info(f"✓ Validation passed: {len(saved_indices)} crop filenames match metadata indices")
 
 
 def calculate_cluster_statistics(embeddings: np.ndarray, labels: np.ndarray) -> List[Dict[str, Any]]:
@@ -560,7 +731,10 @@ def main():
         crop_size=config['output'].get('crop_size', 112)
     )
     saved_indices = save_face_crops(metadata, crop_config)
-    
+
+    # Validate crop filenames match metadata indices
+    validate_crop_filenames(metadata, saved_indices, crop_config.output_dir / 'face_crops')
+
     # Filter to only faces with valid crops
     if len(saved_indices) < len(metadata):
         logger.info(f"Filtering data to {len(saved_indices)} faces with valid crops")
