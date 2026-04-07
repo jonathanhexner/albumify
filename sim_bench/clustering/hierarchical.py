@@ -31,6 +31,40 @@ class HierarchicalClusterer(ClusteringMethod):
     First clusters at coarse level, then refines within each cluster.
     """
 
+    doc_explanation = """
+Two-level hierarchical clustering: first cluster coarsely (e.g., by scene),
+then refine within each coarse cluster (e.g., by person within scene).
+
+Level 1 uses one clustering method (e.g., DBSCAN on scene embeddings).
+Level 2 runs a different method within each L1 cluster (e.g., HDBSCAN on faces).
+
+Decision: Controlled by the child clustering methods at each level.
+Final labels are hierarchical: (L1_cluster, L2_subcluster).
+"""
+
+    decision_parameters = {
+        "level1_config": {
+            "description": "Clustering config for coarse level",
+            "default": {},
+            "decision_role": "Controls L1 clustering (algorithm, params)"
+        },
+        "level2_config": {
+            "description": "Clustering config for fine level within each L1 cluster",
+            "default": {},
+            "decision_role": "Controls L2 clustering (algorithm, params)"
+        },
+        "level1_features": {
+            "description": "Feature type for level 1",
+            "default": "dinov2",
+            "decision_role": "Scene embeddings for coarse grouping"
+        },
+        "level2_features": {
+            "description": "Feature type for level 2",
+            "default": "face_embeddings",
+            "decision_role": "Face embeddings for identity refinement"
+        },
+    }
+
     def __init__(self, config: Dict[str, Any]):
         """
         Initialize hierarchical clusterer.

@@ -1,0 +1,82 @@
+# Face Clustering Export Pipeline Configuration
+#
+# This pipeline runs face detection, clustering, and exports results
+# for manual labeling in the Streamlit app.
+#
+# Usage:
+#   python scripts/run_face_clustering_pipeline.py \
+#       --album /path/to/photos \
+#       --output results/my_album \
+#       --config configs/face_clustering_export.yaml
+
+pipeline:
+  name: "face_clustering_export"
+  description: "Detect faces, cluster by identity, export for labeling"
+
+  steps:
+    - discover_images
+    - insightface_detect_faces
+    - filter_faces
+    - extract_face_embeddings
+    - cluster_people
+    - export_for_labeling
+
+# Step-specific configurations
+step_configs:
+
+  discover_images:
+    extensions: ['.jpg', '.jpeg', '.png', '.heic', '.HEIC']
+    recursive: true
+
+  insightface_detect_faces:
+    model_name: 'buffalo_l'
+    det_size: [640, 640]
+    device: 'cpu'
+
+  filter_faces:
+    # Quality filters - adjust to be more/less strict
+    min_confidence: 0.5
+    min_bbox_ratio: 0.02      # Minimum face size (2% of image)
+    min_relative_size: 0.3    # Relative to largest face in image
+    min_eye_ratio: 0.01       # Minimum eye size
+
+  extract_face_embeddings:
+    backend: 'insightface'     # Use InsightFace embeddings (rotation-invariant)
+    model_name: 'buffalo_l'
+    device: 'cpu'
+
+  cluster_people:
+    # Clustering algorithm
+    method: 'hybrid_hdbscan_knn'
+
+    # HDBSCAN parameters
+    min_cluster_size: 2
+    min_samples: 2
+    cluster_selection_epsilon: 0.0
+    cluster_selection_method: 'eom'
+
+    # Hybrid kNN parameters (for hybrid_hdbscan_knn)
+    knn_k: 5
+    distance_threshold: 0.35
+    iqr_multiplier: 2.0
+    threshold_floor: 0.3
+
+    # Merge/attach settings
+    enable_merge: true
+    enable_attach: true
+
+  export_for_labeling:
+    # Output directory will be set via --output CLI argument
+    output_dir: null
+
+# Global configuration
+config:
+  # Cache settings
+  cache_enabled: true
+  cache_dir: "~/.sim_bench/cache"
+
+  # Logging
+  log_level: "INFO"
+
+  # Progress reporting
+  progress_enabled: true

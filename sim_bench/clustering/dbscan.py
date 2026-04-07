@@ -9,7 +9,37 @@ from sim_bench.clustering.base import ClusteringMethod
 
 class DBSCANClusterer(ClusteringMethod):
     """DBSCAN clustering implementation."""
-    
+
+    doc_explanation = """
+DBSCAN finds dense regions separated by sparse regions.
+A point is a core point if it has >= min_samples neighbors within distance eps.
+Clusters form by connecting core points within eps of each other.
+
+Decision: Point becomes noise (-1) if it's not a core point and not within
+eps of any core point. Border points (within eps of core but not core themselves)
+join the nearest core point's cluster.
+
+Sensitive to eps: too small = many noise, too large = single cluster.
+"""
+
+    decision_parameters = {
+        "eps": {
+            "description": "Maximum distance between neighbors",
+            "default": 0.3,
+            "decision_role": "Core points need min_samples within this distance"
+        },
+        "min_samples": {
+            "description": "Minimum neighbors to be a core point",
+            "default": 4,
+            "decision_role": "Point is core if neighbors within eps >= this"
+        },
+        "metric": {
+            "description": "Distance metric",
+            "default": "cosine",
+            "decision_role": "How distance is computed (cosine recommended for embeddings)"
+        },
+    }
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         

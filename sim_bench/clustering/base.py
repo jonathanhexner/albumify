@@ -14,12 +14,25 @@ logger = logging.getLogger(__name__)
 
 
 class ClusteringMethod(ABC):
-    """Abstract base class for all clustering methods."""
-    
+    """Abstract base class for all clustering methods.
+
+    Subclasses should define:
+        doc_explanation: 5-6 line explanation of how the algorithm works,
+            focusing on what parameters drive clustering decisions.
+        decision_parameters: Dict mapping parameter names to their metadata:
+            {param_name: {description, default, decision_role}}
+    """
+
+    # Override in subclasses: 5-6 line explanation of algorithm
+    doc_explanation: str = "No documentation available for this clustering method."
+
+    # Override in subclasses: {param_name: {description, default, decision_role}}
+    decision_parameters: Dict[str, Dict[str, Any]] = {}
+
     def __init__(self, config: Dict[str, Any]):
         """
         Initialize clustering method with configuration.
-        
+
         Args:
             config: Clustering configuration dictionary
         """
@@ -27,6 +40,9 @@ class ClusteringMethod(ABC):
         self.algorithm = config.get('algorithm', 'unknown')
         self.params = config.get('params', {})
         self.output_config = config.get('output', {})
+
+        # Stores info from the last clustering run (thresholds, decisions, etc.)
+        self.last_run_info: Dict[str, Any] = {}
     
     @abstractmethod
     def cluster(
@@ -55,17 +71,44 @@ class ClusteringMethod(ABC):
     def normalize_features(self, features: np.ndarray) -> np.ndarray:
         """
         L2-normalize feature vectors (for cosine distance).
-        
+
         Args:
             features: Feature matrix [n_samples, n_features]
-            
+
         Returns:
             Normalized feature matrix
         """
         norms = np.linalg.norm(features, axis=1, keepdims=True)
         norms = np.maximum(norms, 1e-10)  # Avoid division by zero
         return features / norms
-    
+
+    def get_decision_info(self) -> Dict[str, Any]:
+        """
+        Get structured info about the algorithm for UI display.
+
+        Returns:
+            Dict with:
+                - algorithm: Algorithm name
+                - doc_explanation: How the algorithm works (5-6 lines)
+                - decision_parameters: Parameter metadata with current values
+                - last_run_info: Thresholds and decisions from last run
+        """
+        # Build parameter info with current values
+        params_with_values = {}
+        for param_name, param_meta in self.decision_parameters.items():
+            current_value = self.params.get(param_name, param_meta.get('default'))
+            params_with_values[param_name] = {
+                **param_meta,
+                'current_value': current_value,
+            }
+
+        return {
+            'algorithm': self.algorithm,
+            'doc_explanation': self.doc_explanation,
+            'decision_parameters': params_with_values,
+            'last_run_info': self.last_run_info,
+        }
+
     def save_results(
         self,
         output_dir: Path,
@@ -148,13 +191,13 @@ class ClusteringMethod(ABC):
 def load_clustering_method(config: Dict[str, Any]) -> ClusteringMethod:
     """
     Factory function to load a clustering method by algorithm name.
-    
+
     Args:
         config: Clustering configuration dictionary with 'algorithm' key
-        
+
     Returns:
         Instantiated clustering method object
-        
+
     Raises:
         ValueError: If algorithm is not recognized
     """
@@ -164,12 +207,15 @@ def load_clustering_method(config: Dict[str, Any]) -> ClusteringMethod:
     from sim_bench.clustering.hierarchical import HierarchicalClusterer
     from sim_bench.clustering.hybrid_hdbscan_knn import HybridHDBSCANKNN
     from sim_bench.clustering.hybrid_closest_face import HybridHDBSCANClosestFace
-    from sim_bench.clustering.hdbscan_pca import HDBSCANPCAClusterer
     from sim_bench.clustering.mutual_knn import MutualKNNClusterer
+    from sim_bench.clustering.mutual_knn_two_stage import MutualKNNTwoStageClusterer
+    from sim_bench.clustering.hybrid_hdbscan_knn_Tcore2all import HybridHDBSCANKNNTcore2all
+    from sim_bench.clustering.hybrid_hdbscan_knn_merge_twotier import HybridHDBSCANKNNMergeTwotier
+    from sim_bench.clustering.hybrid_hdbscan_knn_attach_strong1 import HybridHDBSCANKNNAttachStrong1
 
     algorithm = config.get('algorithm', 'dbscan').lower()
 
-    # Method registry
+    # Method registry - PCA is now a param (pca_dim) on hdbscan/hybrid methods, not a separate algorithm
     clustering_registry = {
         'dbscan': DBSCANClusterer,
         'kmeans': KMeansClusterer,
@@ -177,8 +223,11 @@ def load_clustering_method(config: Dict[str, Any]) -> ClusteringMethod:
         'hierarchical': HierarchicalClusterer,
         'hybrid_hdbscan_knn': HybridHDBSCANKNN,
         'hybrid_closest_face': HybridHDBSCANClosestFace,
-        'hdbscan_pca': HDBSCANPCAClusterer,
         'mutual_knn': MutualKNNClusterer,
+        'mutual_knn_two_stage': MutualKNNTwoStageClusterer,
+        'hybrid_hdbscan_knn_tcore2all': HybridHDBSCANKNNTcore2all,
+        'hybrid_hdbscan_knn_merge_twotier': HybridHDBSCANKNNMergeTwotier,
+        'hybrid_hdbscan_knn_attach_strong1': HybridHDBSCANKNNAttachStrong1,
     }
     
     if algorithm not in clustering_registry:

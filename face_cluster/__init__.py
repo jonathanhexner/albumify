@@ -14,6 +14,7 @@ from face_cluster.merge import ConservativeMerger
 from face_cluster.attach import HoldoutAttacher
 from face_cluster.analysis import ClusterSnapshot
 from face_cluster.features import FeatureComputer, ClusterPairFeatures
+from face_cluster.pipeline import FaceClusteringPipeline, PipelineResult, PipelineStageError
 
 __all__ = [
     'FaceRecord',
@@ -30,4 +31,7 @@ __all__ = [
     'ClusterSnapshot',
     'FeatureComputer',
     'ClusterPairFeatures',
+    'FaceClusteringPipeline',
+    'PipelineResult',
+    'PipelineStageError',
 ]

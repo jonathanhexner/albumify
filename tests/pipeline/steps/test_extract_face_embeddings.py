@@ -1,4 +1,7 @@
-"""Tests for extract_face_embeddings step with InsightFace support."""
+"""Tests for extract_face_embeddings step.
+
+This step requires pre-aligned faces from align_faces step.
+"""
 
 import pytest
 import numpy as np
@@ -23,9 +26,17 @@ def temp_image():
 
 
 @pytest.fixture
-def context_with_insightface_faces(temp_image):
-    """Create a context with InsightFace face data."""
+def aligned_face_crop():
+    """Create a 256x256 aligned face crop."""
+    return np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
+
+
+@pytest.fixture
+def context_with_aligned_faces(temp_image, aligned_face_crop):
+    """Create a context with aligned faces from align_faces step."""
     context = PipelineContext(source_directory=Path(tempfile.gettempdir()))
+
+    # Face metadata from insightface_detect_faces
     context.insightface_faces = {
         temp_image: {
             'faces': [
@@ -36,7 +47,8 @@ def context_with_insightface_faces(temp_image):
                         'x_px': 128, 'y_px': 96, 'w_px': 192, 'h_px': 192
                     },
                     'confidence': 0.95,
-                    'landmarks': [[0, 0]] * 5,
+                    'filter_passed': True,
+                    'is_clusterable': True,
                 },
                 {
                     'face_index': 1,
@@ -45,89 +57,92 @@ def context_with_insightface_faces(temp_image):
                         'x_px': 320, 'y_px': 96, 'w_px': 128, 'h_px': 144
                     },
                     'confidence': 0.87,
-                    'landmarks': [[0, 0]] * 5,
+                    'filter_passed': True,
+                    'is_clusterable': True,
                 }
             ]
         }
     }
+
+    # Aligned faces from align_faces step
+    context.aligned_faces = {
+        f"{temp_image}:face_0": aligned_face_crop.copy(),
+        f"{temp_image}:face_1": aligned_face_crop.copy(),
+    }
+
     return context
 
 
 @pytest.fixture
-def context_with_invalid_faces(temp_image):
-    """Create a context with some invalid InsightFace face data."""
+def context_with_filtered_faces(temp_image, aligned_face_crop):
+    """Create a context with some filtered faces."""
     context = PipelineContext(source_directory=Path(tempfile.gettempdir()))
+
     context.insightface_faces = {
         temp_image: {
             'faces': [
-                # Valid face
                 {
                     'face_index': 0,
-                    'bbox': {
-                        'x': 0.2, 'y': 0.2, 'w': 0.3, 'h': 0.4,
-                        'x_px': 128, 'y_px': 96, 'w_px': 192, 'h_px': 192
-                    },
+                    'bbox': {'x_px': 128, 'y_px': 96, 'w_px': 192, 'h_px': 192},
                     'confidence': 0.95,
+                    'filter_passed': True,
+                    'is_clusterable': True,
                 },
-                # Invalid: zero width
                 {
                     'face_index': 1,
-                    'bbox': {
-                        'x': 0.5, 'y': 0.2, 'w': 0, 'h': 0.3,
-                        'x_px': 320, 'y_px': 96, 'w_px': 0, 'h_px': 144
-                    },
+                    'bbox': {'x_px': 320, 'y_px': 96, 'w_px': 128, 'h_px': 144},
                     'confidence': 0.87,
+                    'filter_passed': False,  # Filtered out
+                    'is_clusterable': True,
                 },
-                # Invalid: zero height
                 {
                     'face_index': 2,
-                    'bbox': {
-                        'x': 0.5, 'y': 0.2, 'w': 0.2, 'h': 0,
-                        'x_px': 320, 'y_px': 96, 'w_px': 128, 'h_px': 0
-                    },
+                    'bbox': {'x_px': 400, 'y_px': 96, 'w_px': 100, 'h_px': 100},
                     'confidence': 0.80,
+                    'filter_passed': True,
+                    'is_clusterable': False,  # Not clusterable
                 },
-            ]
-        },
-        # Non-existent image
-        '/nonexistent/image.jpg': {
-            'faces': [
-                {
-                    'face_index': 0,
-                    'bbox': {
-                        'x': 0.2, 'y': 0.2, 'w': 0.3, 'h': 0.4,
-                        'x_px': 128, 'y_px': 96, 'w_px': 192, 'h_px': 192
-                    },
-                    'confidence': 0.95,
-                }
             ]
         }
     }
+
+    # Only face_0 has alignment (others were filtered before align_faces)
+    context.aligned_faces = {
+        f"{temp_image}:face_0": aligned_face_crop.copy(),
+    }
+
     return context
 
 
 class TestExtractFaceEmbeddingsStep:
     """Tests for ExtractFaceEmbeddingsStep."""
 
-    def test_get_all_faces_from_insightface(self, context_with_insightface_faces):
-        """Test that InsightFace faces are correctly converted."""
+    def test_step_metadata(self):
+        """Test step metadata is correct."""
         step = ExtractFaceEmbeddingsStep()
-        faces = step._get_all_faces(context_with_insightface_faces)
+
+        assert step._metadata.name == "extract_face_embeddings"
+        assert "aligned_faces" in step._metadata.requires
+        assert "align_faces" in step._metadata.depends_on
+
+    def test_get_all_faces_from_aligned(self, context_with_aligned_faces):
+        """Test that aligned faces are correctly retrieved."""
+        step = ExtractFaceEmbeddingsStep()
+        faces = step._get_all_faces(context_with_aligned_faces)
 
         assert len(faces) == 2
         assert faces[0].face_index == 0
         assert faces[1].face_index == 1
         assert faces[0].image is not None
         assert faces[1].image is not None
-        assert faces[0].detection_confidence == 0.95
-        assert faces[1].detection_confidence == 0.87
+        assert faces[0].image.shape == (256, 256, 3)
 
-    def test_get_all_faces_skips_invalid_bbox(self, context_with_invalid_faces):
-        """Test that faces with invalid bbox are skipped."""
+    def test_get_all_faces_skips_filtered(self, context_with_filtered_faces):
+        """Test that filtered faces are skipped."""
         step = ExtractFaceEmbeddingsStep()
-        faces = step._get_all_faces(context_with_invalid_faces)
+        faces = step._get_all_faces(context_with_filtered_faces)
 
-        # Should only have 1 valid face (skipped: 2 invalid bbox + 1 nonexistent image)
+        # Only face_0 should be included (face_1 filtered, face_2 not clusterable)
         assert len(faces) == 1
         assert faces[0].face_index == 0
 
@@ -139,29 +154,23 @@ class TestExtractFaceEmbeddingsStep:
 
         assert faces == []
 
-    def test_get_all_faces_no_insightface_data(self):
-        """Test with context that has no InsightFace data."""
+    def test_get_all_faces_no_aligned_faces(self, temp_image):
+        """Test with context that has no aligned_faces."""
         context = PipelineContext(source_directory=Path(tempfile.gettempdir()))
-        context.faces = {}  # MediaPipe format, but empty
+        context.insightface_faces = {
+            temp_image: {'faces': [{'face_index': 0, 'confidence': 0.9}]}
+        }
+        # No aligned_faces - align_faces step didn't run
+
         step = ExtractFaceEmbeddingsStep()
         faces = step._get_all_faces(context)
 
         assert faces == []
 
-    def test_face_image_is_rgb_array(self, context_with_insightface_faces):
-        """Test that cropped face images are RGB numpy arrays."""
-        step = ExtractFaceEmbeddingsStep()
-        faces = step._get_all_faces(context_with_insightface_faces)
-
-        for face in faces:
-            assert isinstance(face.image, np.ndarray)
-            assert len(face.image.shape) == 3  # H x W x C
-            assert face.image.shape[2] == 3  # RGB
-
-    def test_generate_cache_key(self, context_with_insightface_faces):
+    def test_generate_cache_key(self, context_with_aligned_faces):
         """Test cache key generation."""
         step = ExtractFaceEmbeddingsStep()
-        faces = step._get_all_faces(context_with_insightface_faces)
+        faces = step._get_all_faces(context_with_aligned_faces)
 
         key0 = step._generate_cache_key(faces[0])
         key1 = step._generate_cache_key(faces[1])
@@ -175,49 +184,45 @@ class TestExtractFaceEmbeddingsStep:
         context = PipelineContext(source_directory=Path(tempfile.gettempdir()))
         step = ExtractFaceEmbeddingsStep()
 
-        config = step._get_cache_config(context, {'checkpoint_path': 'model.pt'})
+        config = step._get_cache_config(context, {'backend': 'insightface'})
         assert config is None
 
-    def test_get_cache_config_with_faces(self, context_with_insightface_faces):
+    def test_get_cache_config_with_faces(self, context_with_aligned_faces):
         """Test cache config with valid faces."""
         step = ExtractFaceEmbeddingsStep()
 
         config = step._get_cache_config(
-            context_with_insightface_faces,
-            {'checkpoint_path': 'model.pt'}
+            context_with_aligned_faces,
+            {'backend': 'insightface'}
         )
 
         assert config is not None
         assert config['feature_type'] == 'face_embedding'
-        assert config['model_name'] == 'arcface'
+        assert 'insightface' in config['model_name']
         assert len(config['items']) == 2
 
 
 class TestExtractFaceEmbeddingsIntegration:
-    """Integration tests (require model checkpoint)."""
+    """Integration tests (require model)."""
 
-    @pytest.mark.skipif(
-        not Path('models/album_app/arcface_resnet50.pt').exists(),
-        reason='ArcFace model not found'
-    )
-    def test_full_extraction_pipeline(self, context_with_insightface_faces):
-        """Test full face embedding extraction with real model."""
+    def test_full_extraction_pipeline(self, context_with_aligned_faces):
+        """Test full face embedding extraction."""
         step = ExtractFaceEmbeddingsStep()
 
         config = {
-            'checkpoint_path': 'models/album_app/arcface_resnet50.pt',
+            'backend': 'insightface',
             'device': 'cpu'
         }
 
         # Run the step
-        step.process(context_with_insightface_faces, config)
+        step.process(context_with_aligned_faces, config)
 
         # Check embeddings were stored
-        assert hasattr(context_with_insightface_faces, 'face_embeddings')
-        assert len(context_with_insightface_faces.face_embeddings) == 2
+        assert hasattr(context_with_aligned_faces, 'face_embeddings')
+        assert len(context_with_aligned_faces.face_embeddings) == 2
 
-        # Check embedding shape (ArcFace typically produces 512-dim vectors)
-        for key, embedding in context_with_insightface_faces.face_embeddings.items():
+        # Check embedding shape (ArcFace produces 512-dim vectors)
+        for key, embedding in context_with_aligned_faces.face_embeddings.items():
             assert isinstance(embedding, np.ndarray)
             assert len(embedding.shape) == 1
-            assert embedding.shape[0] > 0  # Has dimensions
+            assert embedding.shape[0] == 512

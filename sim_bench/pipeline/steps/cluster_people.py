@@ -42,8 +42,8 @@ class ClusterPeopleStep(BaseStep):
                 "properties": {
                     "method": {
                         "type": "string",
-                        "enum": ["agglomerative"],
-                        "default": "agglomerative",
+                        "enum": ["hdbscan", "hdbscan_pca", "hybrid_hdbscan_knn", "mutual_knn", "agglomerative"],
+                        "default": "hybrid_hdbscan_knn",
                         "description": "Clustering algorithm"
                     },
                     "distance_threshold": {
@@ -192,6 +192,30 @@ class ClusterPeopleStep(BaseStep):
             labels, stats = clusterer.cluster(embeddings)
             logger.info(f"HDBSCAN+PCA: {stats['n_clusters']} clusters, {stats.get('n_noise', 0)} noise, "
                        f"PCA dim={stats['params']['pca_components']}")
+
+        elif method == "hybrid_hdbscan_knn":
+            from sim_bench.clustering.base import load_clustering_method
+
+            clustering_config = {
+                'algorithm': 'hybrid_hdbscan_knn',
+                'params': {
+                    'min_cluster_size': config.get('min_cluster_size', 2),
+                    'min_samples': config.get('min_samples', 2),
+                    'cluster_selection_epsilon': config.get('cluster_selection_epsilon', 0.045),
+                    'knn_k': config.get('knn_k', 3),
+                    'threshold_floor': config.get('threshold_floor', 0.125),
+                    'threshold_ceiling': config.get('threshold_ceiling', 0.405),
+                    'max_exemplars': config.get('max_exemplars', 10),
+                    'attach_min_exemplars': config.get('attach_min_exemplars', 2),
+                    'merge_min_pairs': config.get('merge_min_pairs', 3),
+                }
+            }
+            clusterer = load_clustering_method(clustering_config)
+            labels, stats = clusterer.cluster(embeddings)
+            logger.info(
+                f"HybridHDBSCANKNN: {stats['n_clusters']} clusters, "
+                f"{stats.get('n_noise', 0)} noise"
+            )
 
         elif method == "mutual_knn":
             from sim_bench.clustering.base import load_clustering_method

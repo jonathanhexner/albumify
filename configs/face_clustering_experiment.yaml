@@ -1,0 +1,94 @@
+# Face Clustering Experimentation Pipeline
+# Uses face_cluster/ module for iterative algorithm development
+
+pipeline:
+  name: "face_clustering_experiment"
+  description: "Pipeline for face clustering experimentation and ML training"
+
+  steps:
+    - discover_images
+    - insightface_detect_faces
+    - align_faces
+    - extract_face_embeddings
+    - filter_quality_gate
+    - build_knn_graph
+    - cluster_connected_components
+    - select_exemplars
+    - compute_debug_distances
+    - export_for_labeling
+
+step_configs:
+  # Image Discovery
+  discover_images:
+    extensions:
+      - ".jpg"
+      - ".jpeg"
+      - ".png"
+      - ".heic"
+      - ".HEIC"
+    recursive: true
+
+  # Face Detection (InsightFace)
+  insightface_detect_faces:
+    model_name: 'buffalo_l'
+    det_size: [640, 640]
+    conf_threshold: 0.5
+
+  # Face Alignment
+  align_faces:
+    target_size: 112
+    use_insightface_alignment: true
+
+  # Face Embedding Extraction
+  extract_face_embeddings:
+    backend: 'insightface'  # Use InsightFace native embeddings (recommended)
+    model_name: 'buffalo_l'
+    normalize: true
+    verify_norm: true
+
+  # Quality Gate Filtering
+  filter_quality_gate:
+    yaw_max: 45.0           # Max absolute yaw angle (degrees)
+    pitch_max: 30.0         # Max absolute pitch angle (degrees)
+    roll_max: 30.0          # Max absolute roll angle (degrees)
+    blur_min: 100.0         # Min blur score (Laplacian variance)
+    min_face_area: null     # Min face area in pixels (optional)
+    max_faces_per_image_core: 10  # Max faces per image for core set
+    use_pose_estimation: false    # Use SixDRepNet pose estimation (requires pip install sixdrepnet)
+
+  # Build KNN Graph
+  build_knn_graph:
+    K: 5                    # Number of nearest neighbors
+    distance_threshold: 0.35  # Max distance for creating edges (cosine distance)
+
+  # Cluster Connected Components
+  cluster_connected_components:
+    min_cluster_size: 2     # Min cluster size (smaller = noise)
+    split_enabled: false    # Enable cluster splitting (Phase 2 feature)
+
+  # Select Exemplars
+  select_exemplars:
+    d10_k: 10              # K for d10 density metric (distance to Kth neighbor)
+    exemplars_d10_threshold: 0.25  # Max d10 value for exemplar candidates
+    exemplar_suppression_radius: 0.15  # Min distance between selected exemplars
+    N_exemplars_max: 5     # Max number of exemplars per cluster
+
+  # Compute Debug Distances
+  compute_debug_distances:
+    n_closest_within: 5    # Number of closest within-cluster neighbors
+    n_furthest_within: 5   # Number of furthest within-cluster neighbors
+    n_closest_cross: 5     # Number of closest cross-cluster neighbors
+
+  # Export for Labeling
+  export_for_labeling:
+    output_dir: null       # Set via CLI argument (required)
+
+# Phase 2 Configuration (not implemented yet)
+# iterative_split_merge:
+#   max_iterations: 10
+#   split:
+#     diameter_threshold: 0.60
+#     K: 3
+#     distance_threshold: 0.30
+#   merge:
+#     exemplar_threshold: 0.35

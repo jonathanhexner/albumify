@@ -226,3 +226,9 @@ tests/*.pyc
 # Temporary/junk files
 *.stackdump
 nul
+
+# Pipeline run outputs (large data/embeddings)
+results/
+
+# Model weight files
+*.pt

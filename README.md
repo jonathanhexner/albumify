@@ -105,7 +105,17 @@ python -m sim_bench.training.train_ava_resnet \
 - Config-driven training with YAML files
 - Support for differential learning rates
 
-### Streamlit Apps
+### Applications
+
+**Album App (Main UI with FastAPI backend):**
+```bash
+# Terminal 1: Start backend
+python -m uvicorn sim_bench.api.main:app --reload --port 8000
+
+# Terminal 2: Start frontend
+streamlit run app/streamlit/main.py
+```
+Full-featured album viewer with pipeline execution, face clustering, people management, and results visualization.
 
 **Photo Organization (AI Agent):**
 ```bash
@@ -118,6 +128,18 @@ Organize photos by events, people, landmarks, and quality through natural langua
 streamlit run app/photo_analysis/main.py
 ```
 Generate HTML reports with CLIP tags, face detection, and landmark recognition.
+
+**Face Clustering Debug:**
+```bash
+streamlit run app/face_clustering_debug/main.py
+```
+Debug and tune face clustering parameters, visualize merge/attach decisions, compare algorithms.
+
+**Face Clustering Comparison:**
+```bash
+streamlit run app/face_clustering_comparison.py
+```
+Side-by-side visual comparison of different clustering methods.
 
 See `app/README.md` for details.
 
@@ -137,12 +159,12 @@ See `app/README.md` for details.
 git clone <repository-url>
 cd sim-bench
 
-# Create virtual environment
+# Create virtual environment (project uses .venv/ folder)
 python -m venv .venv
 
 # Activate virtual environment
 # Windows:
-.\.venv\Scripts\activate
+.venv\Scripts\activate
 # Linux/Mac:
 source .venv/bin/activate
 

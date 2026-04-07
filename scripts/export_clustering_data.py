@@ -36,6 +36,7 @@ from face_cluster import (
     KNNGraphBuilder,
     ConnectedComponentsClusterer,
     D10ExemplarSelector,
+    ConservativeMerger,
     FaceRecord,
     GraphResult,
     ClusterResult,
@@ -192,9 +193,9 @@ def run_clustering_pipeline(
     faces: List[FaceRecord],
     config: PipelineConfig,
     estimate_pose: bool = True
-) -> Tuple[List[int], GraphResult, ClusterResult, np.ndarray]:
+) -> Tuple[List[int], GraphResult, ClusterResult, np.ndarray, ClusterResult, List[Dict]]:
     """
-    Run clustering pipeline: quality gating → kNN graph → connected components → exemplars.
+    Run clustering pipeline: quality gating → kNN graph → connected components → exemplars → merge.
 
     Args:
         faces: List of FaceRecord objects
@@ -204,8 +205,10 @@ def run_clustering_pipeline(
     Returns:
         core_indices: Indices of faces that passed quality gating
         graph_result: kNN graph result
-        cluster_result: Clustering result with exemplars
+        cluster_result: Clustering result with exemplars (post-merge)
         distance_matrix: Pairwise distance matrix for core faces
+        pre_merge_result: Clustering result before merge (None if merge disabled)
+        merge_log: List of merge decision dicts
     """
     logger.info("Running clustering pipeline...")
 
@@ -284,7 +287,112 @@ def run_clustering_pipeline(
     total_exemplars = sum(len(exs) for exs in cluster_result.exemplars.values())
     logger.info(f"Selected {total_exemplars} exemplars across {len(cluster_result.exemplars)} clusters")
 
-    return core_indices, graph_result, cluster_result, distance_matrix
+    # Stage 6: Conservative merge (if enabled)
+    merge_log = []
+    pre_merge_result = None
+
+    if config.merge_enabled:
+        logger.info("Stage 6: Conservative merge")
+        initial_clusters = cluster_result.n_clusters
+
+        # Save pre-merge state
+        pre_merge_result = cluster_result
+
+        # Merge with logging
+        merger = ConservativeMerger(config)
+        cluster_result, merge_log = merger.merge_clusters_with_logging(cluster_result, graph_result)
+        logger.info(f"Merging: {initial_clusters} → {cluster_result.n_clusters} clusters (merged {initial_clusters - cluster_result.n_clusters})")
+        logger.info(f"Logged {len(merge_log)} merge decisions")
+    else:
+        logger.info("Stage 6: Skipping merge (disabled in config)")
+
+    return core_indices, graph_result, cluster_result, distance_matrix, pre_merge_result, merge_log
+
+
+def export_knn_graph(
+    graph_result: GraphResult,
+    faces: List[FaceRecord],
+    core_indices: List[int],
+    config: PipelineConfig,
+    output_dir: Path
+):
+    """
+    Export kNN graph structure for diagnostics.
+
+    Saves:
+    - Each face's K nearest neighbors (IDs and distances)
+    - Edge list (mutual kNN connections)
+    - Graph statistics
+
+    Args:
+        graph_result: kNN graph result
+        faces: All faces
+        core_indices: Core face indices
+        config: Pipeline config
+        output_dir: Output directory
+    """
+    logger.info("Exporting kNN graph structure...")
+
+    distance_matrix = graph_result.distance_matrix
+    G = graph_result.G
+
+    # 1. For each face, find K nearest neighbors (in full dataset, not just graph)
+    knn_data = []
+    for i, node_idx in enumerate(core_indices):
+        face_id = faces[node_idx].face_id
+
+        # Get distances to all other core faces
+        distances = distance_matrix[i, :]
+
+        # Find K nearest (excluding self)
+        k_nearest_indices = np.argsort(distances)[1:config.K+1]  # Skip first (self)
+        k_nearest_face_ids = [faces[core_indices[idx]].face_id for idx in k_nearest_indices]
+        k_nearest_distances = [float(distances[idx]) for idx in k_nearest_indices]
+
+        knn_data.append({
+            'face_id': face_id,
+            'k_nearest_ids': k_nearest_face_ids,
+            'k_nearest_distances': k_nearest_distances
+        })
+
+    # 2. Extract edge list from graph (mutual kNN edges that passed threshold)
+    edges = []
+    for edge in G.edges():
+        node_a, node_b = edge
+        face_a_id = faces[core_indices[node_a]].face_id
+        face_b_id = faces[core_indices[node_b]].face_id
+        distance = distance_matrix[node_a, node_b]
+
+        edges.append({
+            'face_a': face_a_id,
+            'face_b': face_b_id,
+            'distance': float(distance)
+        })
+
+    # 3. Save as JSON
+    knn_graph_data = {
+        'config': {
+            'K': config.K,
+            'distance_threshold': config.distance_threshold,
+        },
+        'statistics': {
+            'n_nodes': G.number_of_nodes(),
+            'n_edges': G.number_of_edges(),
+            'n_core_faces': len(core_indices)
+        },
+        'knn_neighbors': knn_data,
+        'edges': edges
+    }
+
+    knn_path = output_dir / 'knn_graph.json'
+    with open(knn_path, 'w') as f:
+        json.dump(knn_graph_data, f, indent=2)
+
+    logger.info(f"Exported kNN graph to: {knn_path}")
+    logger.info(f"  - {len(knn_data)} faces with K={config.K} neighbors each")
+    logger.info(f"  - {len(edges)} mutual kNN edges")
+
+    return knn_path
 
 
 def compute_cluster_stats(
@@ -445,41 +553,57 @@ def export_csvs(
     cluster_result: ClusterResult,
     cluster_stats: Dict[int, Dict[str, Any]],
     pair_features: List[Dict[str, float]],
-    output_dir: Path
+    output_dir: Path,
+    embeddings_path: Path,
+    pre_merge_result: ClusterResult = None,
+    merge_log: List[Dict] = None
 ):
     """
-    Export 3 CSV files: faces, clusters, candidate_pairs.
+    Export CSV files: faces, clusters, candidate_pairs, and optionally pre-merge data.
 
     Args:
         faces: All faces
         core_indices: Core face indices
-        cluster_result: Clustering result
+        cluster_result: Clustering result (post-merge)
         cluster_stats: Cluster statistics
         pair_features: List of feature dicts for each pair
         output_dir: Output directory
+        embeddings_path: Path to source embeddings file (for face_crops lookup)
+        pre_merge_result: Clustering result before merge (optional)
+        merge_log: List of merge decision dicts (optional)
     """
     logger.info(f"Exporting CSVs to: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. faces.csv
-    # Build reverse mapping: face_id -> cluster_id
+    # Build reverse mapping: face_id -> cluster_id (post-merge)
     face_to_cluster = {}
     for cid, cluster_nodes in cluster_result.clusters.items():
         for node_idx in cluster_nodes:
             face_idx = core_indices[node_idx]
             face_to_cluster[face_idx] = cid
 
+    # Build pre-merge mapping if available
+    pre_face_to_cluster = {}
+    if pre_merge_result is not None:
+        for cid, cluster_nodes in pre_merge_result.clusters.items():
+            for node_idx in cluster_nodes:
+                face_idx = core_indices[node_idx]
+                pre_face_to_cluster[face_idx] = cid
+
     faces_data = []
     for i, face in enumerate(faces):
         yaw, pitch, roll = face.pose if face.pose else (None, None, None)
 
-        # Look up cluster ID (-1 for noise/holdout)
+        # Look up cluster IDs (-1 for noise/holdout)
         cluster_id = face_to_cluster.get(i, -1)
+        pre_merge_cluster_id = pre_face_to_cluster.get(i, -1) if pre_merge_result is not None else -1
 
         faces_data.append({
             'face_id': face.face_id,
             'image_path': face.image_path or '',
             'cluster_id': cluster_id,
+            'pre_merge_cluster_id': pre_merge_cluster_id,
             'bbox_x': face.bbox[0],
             'bbox_y': face.bbox[1],
             'bbox_w': face.bbox[2],
@@ -536,6 +660,8 @@ def export_csvs(
     # Export summary
     summary = {
         'timestamp': datetime.now().isoformat(),
+        'embeddings_source': str(embeddings_path),  # Store source path for face_crops lookup
+        'embeddings_dir': str(embeddings_path.parent),  # Directory containing embeddings and face_crops
         'n_faces': len(faces),
         'n_core': len(core_indices),
         'n_holdout': len(faces) - len(core_indices),
@@ -549,6 +675,72 @@ def export_csvs(
         }
     }
 
+    # 4. pre_merge_clusters.csv (if available)
+    if pre_merge_result is not None:
+        logger.info("Exporting pre-merge clustering state...")
+
+        # Save pre-merge cluster statistics
+        pre_merge_clusters_data = []
+        for cluster_id, cluster_nodes in pre_merge_result.clusters.items():
+            # Get diameter from pre-computed stats
+            diameter = pre_merge_result.cluster_stats.get(cluster_id, {}).get('diameter', 0.0)
+
+            exemplar_nodes = pre_merge_result.exemplars.get(cluster_id, [])
+            exemplar_face_ids = [faces[core_indices[n]].face_id for n in exemplar_nodes]
+            face_ids = [faces[core_indices[n]].face_id for n in cluster_nodes]
+
+            pre_merge_clusters_data.append({
+                'cluster_id': cluster_id,
+                'cluster_size': len(cluster_nodes),
+                'diameter': diameter,
+                'exemplar_ids': ','.join(map(str, exemplar_face_ids)),
+                'face_ids': ','.join(map(str, face_ids)),
+            })
+
+        pre_merge_clusters_df = pd.DataFrame(pre_merge_clusters_data)
+        pre_merge_path = output_dir / 'pre_merge_clusters.csv'
+        pre_merge_clusters_df.to_csv(pre_merge_path, index=False)
+        logger.info(f"Exported {len(pre_merge_clusters_df)} pre-merge clusters to: {pre_merge_path}")
+
+        summary['files']['pre_merge_clusters'] = pre_merge_path.name
+
+    # 5. merge_decisions.csv (if available)
+    if merge_log is not None and len(merge_log) > 0:
+        merge_decisions_df = pd.DataFrame(merge_log)
+        merge_decisions_path = output_dir / 'merge_decisions.csv'
+        merge_decisions_df.to_csv(merge_decisions_path, index=False)
+        logger.info(f"Exported {len(merge_decisions_df)} merge decisions to: {merge_decisions_path}")
+
+        summary['files']['merge_decisions'] = merge_decisions_path.name
+
+    # 6. cluster_lineage.json (if we have pre-merge data)
+    if pre_merge_result is not None:
+        logger.info("Computing cluster lineage (pre-merge → post-merge)...")
+
+        lineage = {}
+        for face_id in range(len(faces)):
+            pre_cluster = pre_face_to_cluster.get(face_id, -1)
+            post_cluster = face_to_cluster.get(face_id, -1)
+
+            if post_cluster != -1:  # Only track clustered faces
+                if post_cluster not in lineage:
+                    lineage[post_cluster] = set()
+                if pre_cluster != -1:
+                    lineage[post_cluster].add(int(pre_cluster))
+
+        # Convert sets to lists for JSON
+        lineage_json = {k: sorted(list(v)) for k, v in lineage.items()}
+
+        lineage_path = output_dir / 'cluster_lineage.json'
+        with open(lineage_path, 'w') as f:
+            json.dump(lineage_json, f, indent=2)
+        logger.info(f"Exported cluster lineage to: {lineage_path}")
+
+        summary['files']['cluster_lineage'] = lineage_path.name
+
+    # Add knn_graph to summary
+    summary['files']['knn_graph'] = 'knn_graph.json'
+
     summary_path = output_dir / 'export_summary.json'
     with open(summary_path, 'w') as f:
         json.dump(summary, f, indent=2)
@@ -558,6 +750,11 @@ def export_csvs(
     logger.info(f"  - {faces_path}")
     logger.info(f"  - {clusters_path}")
     logger.info(f"  - {pairs_path}")
+    if pre_merge_result is not None:
+        logger.info(f"  - {pre_merge_path}")
+        logger.info(f"  - {lineage_path}")
+    if merge_log:
+        logger.info(f"  - {merge_decisions_path}")
     logger.info(f"  - {summary_path}")
 
 
@@ -578,8 +775,9 @@ def main():
     parser.add_argument(
         '--output',
         type=Path,
-        required=True,
-        help='Output directory for CSV files'
+        required=False,
+        default=None,
+        help='Output directory for CSV files (default: auto-generated in same dir as embeddings)'
     )
 
     # Clustering parameters
@@ -647,6 +845,39 @@ def main():
         help='Max d10 to be exemplar candidate (default: 0.35)'
     )
 
+    # Merge parameters
+    parser.add_argument(
+        '--no-merge',
+        dest='merge_enabled',
+        action='store_false',
+        default=True,
+        help='Disable conservative cluster merging (default: enabled)'
+    )
+    parser.add_argument(
+        '--merge-use-adaptive',
+        action='store_true',
+        default=True,
+        help='Use adaptive per-cluster thresholds for merging (default: True)'
+    )
+    parser.add_argument(
+        '--merge-threshold-alpha',
+        type=float,
+        default=0.7,
+        help='Weight for local vs global threshold (default: 0.7 = 70%% local + 30%% global)'
+    )
+    parser.add_argument(
+        '--merge-margin',
+        type=float,
+        default=0.0,
+        help='Margin for clear best check in merging (default: 0.0 = disabled)'
+    )
+    parser.add_argument(
+        '--merge-global-percentile',
+        type=int,
+        default=75,
+        help='Percentile for global threshold computation (default: 75)'
+    )
+
     # Candidate pair filtering
     parser.add_argument(
         '--candidate-threshold',
@@ -676,6 +907,12 @@ def main():
         print(f"\nThis will create embeddings_*.npy file that you can use here.")
         sys.exit(1)
 
+    # Auto-generate output path if not specified
+    if args.output is None:
+        # Save in same directory as embeddings: <embeddings_dir>/clustering_export/
+        args.output = args.embeddings.parent / 'clustering_export'
+        print(f"Output directory not specified, using: {args.output}")
+
     # Setup logging
     setup_logging(args.output)
 
@@ -699,6 +936,12 @@ def main():
         exemplars_d10_threshold=args.exemplar_threshold,
         N_exemplars_max=10,
         exemplar_suppression_radius=0.2,
+        # Merge parameters
+        merge_enabled=args.merge_enabled,
+        merge_use_adaptive_threshold=args.merge_use_adaptive,
+        merge_threshold_alpha=args.merge_threshold_alpha,
+        merge_margin=args.merge_margin,
+        merge_global_percentile=args.merge_global_percentile,
     )
 
     try:
@@ -717,7 +960,7 @@ def main():
         )
 
         # Run clustering pipeline
-        core_indices, graph_result, cluster_result, distance_matrix = run_clustering_pipeline(
+        core_indices, graph_result, cluster_result, distance_matrix, pre_merge_result, merge_log = run_clustering_pipeline(
             faces,
             config,
             estimate_pose=not args.no_pose
@@ -754,6 +997,15 @@ def main():
             )
             pair_features.append(features)
 
+        # Export kNN graph structure for diagnostics
+        knn_graph_path = export_knn_graph(
+            graph_result,
+            faces,
+            core_indices,
+            config,
+            args.output
+        )
+
         # Export CSVs
         export_csvs(
             faces,
@@ -761,7 +1013,10 @@ def main():
             cluster_result,
             cluster_stats,
             pair_features,
-            args.output
+            args.output,
+            args.embeddings,
+            pre_merge_result,
+            merge_log
         )
 
         logger.info("\n" + "="*60)

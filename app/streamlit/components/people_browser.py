@@ -107,27 +107,28 @@ def render_person_card(person: Person, album_id: Optional[str] = None) -> bool:
     return st.button("View", key=f"view_{person.person_id}")
 
 
-def _render_person_thumbnail(person: Person) -> None:
-    """Render person's face thumbnail."""
+def _load_face_thumbnail(person: Person) -> Optional[Image.Image]:
+    """Load and return person's face thumbnail as a PIL Image, or None on failure."""
     if not person.representative_face:
-        _render_placeholder()
-        return
-
+        return None
     face_path = Path(person.representative_face)
     if not face_path.exists():
-        _render_placeholder()
-        return
-
+        return None
     try:
-        img = Image.open(face_path)
-        img = ImageOps.exif_transpose(img)
-
-        # Crop to face region if bbox available
+        img = ImageOps.exif_transpose(Image.open(face_path))
         if person.thumbnail_bbox and len(person.thumbnail_bbox) == 4:
             img = _crop_face(img, person.thumbnail_bbox)
-
-        st.image(img, use_container_width=True)
+        return img
     except Exception:
+        return None
+
+
+def _render_person_thumbnail(person: Person) -> None:
+    """Render person's face thumbnail."""
+    img = _load_face_thumbnail(person)
+    if img:
+        st.image(img, use_container_width=True)
+    else:
         _render_placeholder()
 
 
@@ -250,8 +251,9 @@ def render_people_summary_row(people: List[Person]) -> None:
 
     for i, person in enumerate(people[:8]):
         with cols[i]:
-            if person.representative_face and Path(person.representative_face).exists():
-                st.image(person.representative_face, width=50)
+            img = _load_face_thumbnail(person)
+            if img:
+                st.image(img, width=50)
             else:
                 st.write("👤")
             st.caption((person.name or f"#{i+1}")[:10])

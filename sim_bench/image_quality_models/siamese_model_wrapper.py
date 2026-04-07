@@ -6,11 +6,11 @@ from typing import Dict
 
 import torch
 import torch.nn.functional as F
-from PIL import Image
 
 from sim_bench.image_quality_models.base_model import BaseQualityModel
 from sim_bench.models.siamese_cnn_ranker import SiameseCNNRanker
 from sim_bench.datasets.transform_factory import create_transform, FixScaleCrop
+from sim_bench.pipeline.utils.image_cache import get_image_cache
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +51,13 @@ class SiameseQualityModel(BaseQualityModel):
     def compare_images(self, image1_path: Path, image2_path: Path) -> Dict:
         """
         Native pairwise comparison.
-        
+
         Returns prediction where 1 = img1 better, 0 = img2 better.
         """
-        img1 = Image.open(image1_path).convert('RGB')
-        img2 = Image.open(image2_path).convert('RGB')
-        
+        cache = get_image_cache()
+        img1 = cache.get_pil(image1_path)
+        img2 = cache.get_pil(image2_path)
+
         img1_t = self.transform(img1).unsqueeze(0).to(self.device)
         img2_t = self.transform(img2).unsqueeze(0).to(self.device)
         

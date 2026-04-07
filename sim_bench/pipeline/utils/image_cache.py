@@ -19,6 +19,10 @@ from typing import Optional, Tuple
 import numpy as np
 from PIL import Image, ImageOps
 from PIL.ExifTags import TAGS
+from pillow_heif import register_heif_opener
+
+# Register HEIC/HEIF support for PIL
+register_heif_opener()
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,20 @@
+crop_filename,person_id,person_name,note
+20240816_150903_face_0.jpg,4,z,
+20240816_150903_face_1.jpg,2,n,
+20240816_150903_face_2.jpg,1,j,
+20240816_150903_face_3.jpg,3,s,
+20240816_150903_face_4.jpg,-1,low_quality,exclude from testing
+20240816_150905_face_0.jpg,3,s,
+20240816_150905_face_1.jpg,4,z,
+20240816_150905_face_2.jpg,2,n,
+20240816_150905_face_3.jpg,1,j,
+20240817_110347_face_0.jpg,1,j,
+20240817_110347_face_1.jpg,2,n,
+20240817_110347_face_2.jpg,3,s,
+20240817_110348_face_0.jpg,1,j,
+20240817_110348_face_1.jpg,3,s,
+20240817_110348_face_2.jpg,2,n,
+20240818_121446_face_0.jpg,1,j,
+20240818_121446_face_1.jpg,3,s,
+20240818_121446_face_2.jpg,2,n,
+20240818_121446_face_3.jpg,-2,not_person,exclude from testing

@@ -20,13 +20,15 @@ default_pipeline:
   - insightface_detect_faces    # InsightFace SCRFD for face detection
   - filter_faces                # Filter small/low-confidence faces
   - score_face_frontal          # Compute frontal score, roll angle, centrality
+  - detect_face_orientation     # NEW: Detect 0°/90°/180°/270° face orientation
+  - align_faces                 # NEW: Apply orientation + 5-point alignment
   - insightface_score_expression # Expression scoring
   - insightface_score_eyes       # Eye state scoring
   - insightface_score_pose       # Face pose scoring
   - filter_quality
   - extract_scene_embedding
   - cluster_scenes
-  - extract_face_embeddings     # Skips non-clusterable, applies roll alignment
+  - extract_face_embeddings     # Uses pre-aligned faces from align_faces step
   - cluster_people              # Global face clustering by identity
   - identity_refinement         # Refine clusters with exemplar-based attachment
   - cluster_by_identity         # Sub-cluster scenes by identity
@@ -128,11 +130,18 @@ extract_face_embeddings:
 
 # People Clustering (cluster_people) - Global identity clustering for People tab
 cluster_people:
-  method: hdbscan              # Options: hdbscan (recommended), agglomerative
-  min_cluster_size: 2          # Minimum faces to form a person (HDBSCAN)
-  min_samples: 2               # Core point definition (HDBSCAN)
-  cluster_selection_epsilon: 0.3  # Merge clusters within this distance (higher = fewer clusters)
-  distance_threshold: 0.5      # For agglomerative method only
+  method: hybrid_hdbscan_knn   # Options: hybrid_hdbscan_knn, hdbscan, hdbscan_pca, mutual_knn, agglomerative
+  # HDBSCAN base parameters
+  min_cluster_size: 2
+  min_samples: 2
+  cluster_selection_epsilon: 0.045  # Cosine distance space (≈ 0.3 Euclidean on normalised)
+  # Hybrid local-cohesion parameters
+  knn_k: 3                     # Neighbours used for d3 threshold estimation
+  threshold_floor: 0.125       # Min per-cluster merge/attach threshold
+  threshold_ceiling: 0.405     # Max per-cluster merge/attach threshold
+  max_exemplars: 10            # Exemplars selected per cluster
+  attach_min_exemplars: 2      # Min exemplar matches to attach a noise point
+  merge_min_pairs: 3           # Min cross-exemplar pairs to trigger merge
 
 # Identity Refinement (identity_refinement) - Post-clustering refinement
 identity_refinement:
@@ -267,3 +276,29 @@ score_face_frontal:
   min_frontal_score: 0.4        # Faces below this are marked non-clusterable
   min_eye_bbox_ratio: 0.20      # Inter-eye / bbox width (below = profile)
   max_asymmetry: 1.8            # Nose-eye asymmetry (above = profile)
+
+# Face Orientation Detection (detect_face_orientation)
+# Determines if face needs 0°/90°/180°/270° rotation to be upright
+detect_face_orientation:
+  log_orientations: true        # Log non-zero orientations for debugging
+
+# Face Alignment (align_faces)
+# Applies orientation correction + 5-point affine alignment
+align_faces:
+  target_size: 256              # Output aligned face size
+  skip_filtered: true           # Skip faces with filter_passed=False
+
+# Face Alignment Validation (validate_alignment)
+# Optional step to verify alignment quality
+validate_alignment:
+  error_threshold: 15.0         # Max landmark error in pixels
+  validate_sample: true         # Only validate a sample (faster)
+  sample_size: 10               # Number of faces to validate
+  target_size: 256
+
+# Raw Face Cropping (crop_faces)
+# Simple bbox cropping without alignment (for debug comparison)
+crop_faces:
+  margin: 0.2                   # Margin around bbox
+  target_size: 256
+  skip_filtered: false          # Include filtered faces for debugging

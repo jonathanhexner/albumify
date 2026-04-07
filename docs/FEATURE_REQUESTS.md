@@ -6,6 +6,66 @@ This file tracks feature requests from users. Claude should scan this on init to
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-04-07: History tab, Run tab stage plan, Nearest Clusters thumbnails
+**Status**: Done
+**Description**: (1) output_folder in History table, (2) live stage execution plan in Run tab, (3) exemplar thumbnails + Go button in Nearest Clusters
+**Notes**: Germany_7 confirmed as first fully clean run — all 7 stages tracked, status=complete, all output files present. Main bugs cleared.
+
+### 2026-04-07: Clustering Debug — Mapping Tables, Validation, Worked Example
+**Status**: Done
+**Description**:
+1. Run clustering validation test on Germany_run_5 — check cross-cluster proximity
+2. Add clear face-to-cluster and face-to-source-image mapping tables in the app
+3. Add worked algorithm example showing concrete edge construction from actual run data
+
+**Implementation**:
+- Validation: 975 cross-cluster pairs under dist 0.2 identified, two merge groups found (9 clusters / 5 clusters). Not an index bug — merge stage was disabled.
+- Mapping tables: Three expandable tables in Run Overview tab (Face->Cluster, Face->Source Image, Cluster->Faces)
+- Worked example: Interactive section in Run Overview — user picks a cluster, sees step-by-step pairwise distances, kNN, mutual edges, and component formation with face crops.
+
+---
+
+### 2026-04-01: Face Clustering — Cohesive Tested Sub-Package with Streamlit Integration
+**Status**: Open
+**Description**:
+Replace the disconnected collection of face-clustering scripts with a single, tested `face_cluster` sub-package that owns the entire cycle from raw images to labeled clusters. Triggered by SIGHTING-008.
+
+**Requirements**:
+1. `face_cluster/pipeline.py` — `FaceClusteringPipeline` class with `run(image_dir, output_dir, config, on_progress=None)` as the single public entrypoint
+2. `face_cluster/crops.py` — save aligned crops + `crop_manifest.json` (currently missing, referenced in RECOVERY_PLAN.md)
+3. `face_cluster/export.py` — produce `faces.csv`, `clusters.csv`, `export_summary.json` (currently missing)
+4. Fix quality gating: graceful degradation when SixDRepNet unavailable (pose filter optional, not fatal)
+5. Single unified Streamlit app with pipeline runner tab (progress bars, per-stage status), cluster browser tab (labeling), debug tab — replacing the two separate apps
+6. Full A-to-Z test suite in `tests/face_clustering/`:
+   - Per-stage unit tests (quality gate, kNN graph, clustering, crops, export)
+   - E2E test on `test_data/face_clustering/source_images/` (15 images, expect ≥3 clusters)
+   - Streamlit app tests using `streamlit.testing.v1.AppTest`
+7. Archive `scripts/export_clustering_data.py` — replace with thin `scripts/run_face_clustering.py` that calls `FaceClusteringPipeline`
+
+**Non-negotiable constraints**:
+- `face_cluster/` = pure algorithms only, no file I/O except `crops.py` and `export.py`
+- No test uses real album paths — synthetic fixtures only (except the designated E2E test)
+- Every stage writes output before next stage starts (resumable)
+- No feature considered complete without passing test
+
+---
+
+### 2026-03-24: Face Clustering — Clean Architecture & Full Traceability
+**Status**: Open
+**Description**:
+Establish a clean, tested face clustering pipeline with clear component boundaries and full lineage
+(image_path → bbox → embedding → crop → cluster_id). Each stage is independently testable.
+
+**Components**:
+1. `face_cluster/crops.py` — save aligned crops + crop_manifest.json
+2. `face_cluster/export.py` — produce faces.csv, clusters.csv, export_summary.json
+3. `scripts/run_face_clustering.py` — single orchestration script (replaces benchmark + export scripts)
+4. `tests/face_clustering/` — per-stage tests + E2E test (synthetic fixtures only)
+5. `face_cluster/types.py` — make `image_path` non-optional on FaceRecord
+6. Archive all one-off debug scripts and notebooks
+
+**Spec**: `RECOVERY_PLAN.md`
+
 ### 2026-02-27: ML-Based Cluster Merging Pipeline
 **Status**: Open
 **Description**:

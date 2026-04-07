@@ -24,6 +24,30 @@ logger = logging.getLogger(__name__)
 class MutualKNNClusterer(ClusteringMethod):
     """Mutual KNN clustering using connected components."""
 
+    doc_explanation = """
+Mutual KNN builds a graph where edges connect mutually close faces.
+Edge (i,j) exists if j is in i's top-k neighbors AND i is in j's top-k neighbors
+AND similarity(i,j) >= threshold. Clusters are connected components.
+
+Decision: Two faces cluster together if they're mutual k-nearest neighbors
+with similarity above threshold. No noise concept - all faces get a cluster.
+
+Simple and interpretable but sensitive to k and threshold choices.
+"""
+
+    decision_parameters = {
+        "k": {
+            "description": "Number of nearest neighbors to consider",
+            "default": 10,
+            "decision_role": "Edge requires mutual top-k relationship"
+        },
+        "similarity_threshold": {
+            "description": "Minimum cosine similarity for edge creation",
+            "default": 0.70,
+            "decision_role": "Edge requires similarity >= this (cosine, so 0.7 = close)"
+        },
+    }
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
 

@@ -1,6 +1,8 @@
 """
 HDBSCAN clustering with PCA dimensionality reduction.
 Reduces embedding dimensions before clustering for better performance.
+
+Distance metric: Cosine distance = 1 - cosine_similarity, clipped to [0, 2].
 """
 
 import numpy as np
@@ -8,6 +10,7 @@ from typing import Dict, Any, Tuple
 import logging
 
 from sim_bench.clustering.base import ClusteringMethod
+from sim_bench.clustering.distance_utils import cosine_distance_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +77,16 @@ class HDBSCANPCAClusterer(ClusteringMethod):
 
         logger.info(f"PCA variance explained: {variance_explained:.2%}")
 
-        # Normalize for cosine distance
-        processed_features = reduced_features
-        actual_metric = self.metric
-
+        # Handle distance metric
         if self.metric == 'cosine':
-            processed_features = self.normalize_features(reduced_features)
-            actual_metric = 'euclidean'
+            # Normalize and compute precomputed cosine distance matrix
+            normalized_features = self.normalize_features(reduced_features)
+            dist_matrix = cosine_distance_matrix(normalized_features)
+            actual_metric = 'precomputed'
+            cluster_input = dist_matrix
+        else:
+            actual_metric = self.metric
+            cluster_input = reduced_features
 
         # Build HDBSCAN kwargs
         kwargs = {
@@ -95,7 +101,7 @@ class HDBSCANPCAClusterer(ClusteringMethod):
 
         # Cluster
         clusterer = hdbscan.HDBSCAN(**kwargs)
-        labels = clusterer.fit_predict(processed_features)
+        labels = clusterer.fit_predict(cluster_input)
 
         # Compute statistics
         stats = self._compute_stats(labels, clusterer, pca_dim, variance_explained)

@@ -6,6 +6,7 @@ opencv-contrib-python>=4.8,<4.10
 opencv-python==4.11.0.86
 
 Pillow>=10.2
+pillow-heif>=0.16  # HEIC/HEIF image format support
 tqdm>=4.66
 PyYAML>=6.0
 pandas>=2.0
@@ -20,6 +21,8 @@ open-clip-torch>=2.20  # For OpenCLIP method
 # Optional: Visualization and analysis
 matplotlib>=3.8
 seaborn>=0.13
+umap-learn>=0.5  # UMAP dimensionality reduction for embedding visualization
+plotly>=5.18      # Interactive scatter plots for UMAP in Streamlit
 fivecentplots>=0.5.4  # Advanced box plots for multi-experiment comparison
 Jinja2>=3.1  # HTML gallery generation for clustering
 

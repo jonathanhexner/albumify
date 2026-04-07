@@ -13,25 +13,24 @@ hdbscan:
   params:
     min_cluster_size: 2
     min_samples: 2
-    cluster_selection_epsilon: 0.3
+    cluster_selection_epsilon: 0.045  # Cosine distance (was 0.3 Euclidean)
     metric: cosine
 
-# Hybrid HDBSCAN+kNN Method (Exemplar-based with Tukey fence thresholds)
+# Hybrid HDBSCAN+kNN Method (Exemplar-based with percentile thresholds)
+# Distance metric: Cosine distance = 1 - cosine_similarity
 hybrid_knn:
   algorithm: hybrid_hdbscan_knn
   params:
     # HDBSCAN initial clustering
     min_cluster_size: 3
     min_samples: 2
-    cluster_selection_epsilon: 0.35
+    cluster_selection_epsilon: 0.045  # Cosine distance (was 0.35 Euclidean)
 
     # Threshold computation (T = p-th percentile of exemplar pairwise dists)
-    # Using a direct percentile avoids high-variance (noisy) clusters getting
-    # amplified thresholds via median+k*IQR — prevents "black hole" absorption.
     knn_k: 3                    # k for d_k neighbor distance (used to select exemplars)
     threshold_percentile: 90    # Percentile of exemplar pairwise distances to use as raw T
-    threshold_floor: 0.50       # Minimum threshold for any cluster
-    threshold_ceiling: 0.90     # Maximum threshold (Euclidean on L2-norm; cosine-equiv ~0.405)
+    threshold_floor: 0.125      # Cosine distance (was 0.50 Euclidean)
+    threshold_ceiling: 0.405    # Cosine distance (was 0.90 Euclidean)
 
     # Exemplar selection
     max_exemplars: 10           # Max exemplars per cluster (faces with smallest d3)
@@ -47,48 +46,90 @@ hybrid_knn:
     max_iterations: 10          # Max merge+attach iterations
 
 # Hybrid Closest-Face Method (Cross-cluster d3 matching - checks all faces)
+# Distance metric: Cosine distance = 1 - cosine_similarity
 hybrid_closest:
   algorithm: hybrid_closest_face
   params:
     # HDBSCAN initial clustering
     min_cluster_size: 3
     min_samples: 2
-    cluster_selection_epsilon: 0.35
-    
+    cluster_selection_epsilon: 0.045  # Cosine distance (was 0.35 Euclidean)
+
     # Threshold computation (T = percentile(d3_values, threshold_percentile))
     knn_k: 3                    # k for d_k neighbor distance computation
     threshold_percentile: 90    # Percentile of per-face d3 values for threshold
-    threshold_floor: 0.30       # Minimum threshold for any cluster
-    threshold_ceiling: 0.90     # Maximum threshold (Euclidean on L2-norm; cosine-equiv ~0.405)
-    
+    threshold_floor: 0.045      # Cosine distance (was 0.30 Euclidean)
+    threshold_ceiling: 0.405    # Cosine distance (was 0.90 Euclidean)
+
     # Exemplar selection (for early exit optimization)
     max_exemplars: 10           # Max exemplars per cluster (used for early exit check)
-    
+
     # Merge criteria (clusters merge if faces fit other cluster's d3 threshold)
     merge_min_faces: 2          # Min faces with cross-cluster d3 <= threshold to merge
     early_exit_multiplier: 2.0  # Skip merge check if min_exemplar_dist > this * max(T_A, T_B)
-    
+
     # Attachment criteria
-    attach_min_neighbors: 1     # Min neighbors within threshold to attach (not used currently)
+    attach_min_neighbors: 1     # Min neighbors within threshold to attach
 
-# HDBSCAN with PCA dimensionality reduction
-hdbscan_pca_128:
-  algorithm: hdbscan_pca
-  params:
-    pca_components: 128         # Reduce 512-dim embeddings to 128-dim
-    min_cluster_size: 2
-    min_samples: 2
-    cluster_selection_epsilon: 0.3
-    metric: cosine
+# --------------------------------------------------------------------------
+# NEW VARIANTS (Feb 2026)
+# --------------------------------------------------------------------------
 
-hdbscan_pca_256:
-  algorithm: hdbscan_pca
+# Tcore2all: Threshold from exemplar→all-faces instead of exemplar↔exemplar
+# Captures pose spread better, reduces over-splitting
+hybrid_knn_tcore2all:
+  algorithm: hybrid_hdbscan_knn_tcore2all
   params:
-    pca_components: 256         # Reduce 512-dim embeddings to 256-dim
-    min_cluster_size: 2
+    min_cluster_size: 3
     min_samples: 2
-    cluster_selection_epsilon: 0.3
-    metric: cosine
+    cluster_selection_epsilon: 0.045
+    knn_k: 3
+    threshold_percentile: 95    # Higher percentile for wider exemplar→all distribution
+    threshold_floor: 0.125
+    threshold_ceiling: 0.405
+    max_exemplars: 10
+    merge_min_pairs: 3
+    merge_min_distinct: 2
+    attach_min_exemplars: 2
+    max_iterations: 10
+
+# Two-tier merge: Secondary merge rule with max(T_A, T_B) and more pairs
+# Helps merge pose-mode splits when one cluster has tighter threshold
+hybrid_knn_merge_twotier:
+  algorithm: hybrid_hdbscan_knn_merge_twotier
+  params:
+    min_cluster_size: 3
+    min_samples: 2
+    cluster_selection_epsilon: 0.045
+    knn_k: 3
+    threshold_percentile: 90
+    threshold_floor: 0.125
+    threshold_ceiling: 0.405
+    max_exemplars: 10
+    merge_min_pairs: 3          # Primary: ≥3 pairs at min(T_A, T_B)
+    merge_secondary_min_pairs: 5  # Secondary: ≥5 pairs at max(T_A, T_B)
+    merge_min_distinct: 2
+    attach_min_exemplars: 2
+    max_iterations: 10
+
+# Strong1 attach: Single exemplar within stricter threshold can attach noise
+# Reduces leftover fragments that would form tiny clusters
+hybrid_knn_attach_strong1:
+  algorithm: hybrid_hdbscan_knn_attach_strong1
+  params:
+    min_cluster_size: 3
+    min_samples: 2
+    cluster_selection_epsilon: 0.045
+    knn_k: 3
+    threshold_percentile: 90
+    threshold_floor: 0.125
+    threshold_ceiling: 0.405
+    max_exemplars: 10
+    merge_min_pairs: 3
+    merge_min_distinct: 2
+    attach_min_exemplars: 2     # Primary: ≥2 exemplars within T
+    attach_strong1_multiplier: 0.8  # Secondary: 1 exemplar within 0.8*T
+    max_iterations: 10
 
 # Mutual KNN clustering (graph-based connected components)
 mutual_knn_k10_t70:
@@ -108,6 +149,49 @@ mutual_knn_k5_t70:
   params:
     k: 5                        # Fewer neighbors = stricter mutual requirement
     similarity_threshold: 0.70
+
+# Two-Stage Mutual KNN (kNN graph → iterative prune/reassign)
+# Uses redundant support + separation margin for membership validation
+mutual_knn_two_stage:
+  algorithm: mutual_knn_two_stage
+  params:
+    k: 10                       # kNN neighbors for initial graph
+    initial_threshold: null     # No initial threshold (or set loose, e.g., 0.8)
+    base_threshold: 0.45        # Base distance threshold (X)
+    relaxation_alpha: 1.1       # Allow up to 1.1*X = 0.495 distance
+    support_beta: 1.05          # Support radius = 1.05*X = 0.4725
+    min_support: 2              # Require >= 2 neighbors for support path
+    separation_delta: 0.15      # Or require 0.15 separation margin
+    max_iterations: 10
+    convergence_threshold: 0
+
+# Two-Stage with stricter thresholds
+mutual_knn_two_stage_strict:
+  algorithm: mutual_knn_two_stage
+  params:
+    k: 10
+    initial_threshold: null
+    base_threshold: 0.40        # Stricter base threshold
+    relaxation_alpha: 1.05      # Less relaxation
+    support_beta: 1.0           # Support radius = base threshold
+    min_support: 3              # Require more support
+    separation_delta: 0.20      # Larger separation margin
+    max_iterations: 10
+    convergence_threshold: 0
+
+# Two-Stage with looser thresholds (fewer, larger clusters)
+mutual_knn_two_stage_loose:
+  algorithm: mutual_knn_two_stage
+  params:
+    k: 15                       # More neighbors
+    initial_threshold: null
+    base_threshold: 0.50        # Looser threshold
+    relaxation_alpha: 1.15      # More relaxation
+    support_beta: 1.1           # Larger support radius
+    min_support: 2
+    separation_delta: 0.10      # Smaller separation required
+    max_iterations: 10
+    convergence_threshold: 0
 
 # Pipeline settings for face extraction
 pipeline:

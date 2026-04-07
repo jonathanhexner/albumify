@@ -2,24 +2,32 @@
 Hybrid HDBSCAN + Local Cohesion clustering for face identity recognition.
 
 Algorithm:
-1. HDBSCAN → initial clusters
+1. HDBSCAN → initial clusters + noise points
 2. For each cluster:
    - Compute d3 (distance to 3rd nearest neighbor) for each face
-   - Select E=10 exemplars (faces with smallest d3)
-   - T = median(exemplar pairwise distances) + iqr_multiplier×IQR, clamped to [floor, ceiling]
+   - Select E=10 exemplars (faces with smallest d3, most central)
+   - Compute pairwise distances between exemplars
+   - T = median(exemplar_pairwise) + iqr_multiplier×IQR, clamped to [floor, ceiling]
 3. Iteratively:
-   a. Attach: unassigned face → cluster if m≥2 exemplars within T
-   b. Merge: clusters if L≥3 cross-exemplar pairs ≤ min(T_A, T_B), ≥2 distinct each
+   a. Merge: clusters if ≥3 cross-exemplar pairs ≤ min(T_A, T_B), with ≥2 distinct exemplars each
+   b. Attach: unassigned face → cluster if ≥2 exemplars within T
 4. Repeat until no changes
+
+Distance metric: Cosine distance = 1 - cosine_similarity, clipped to [0, 2].
+Thresholds are calibrated for cosine distance (not Euclidean).
 """
 
 import logging
 from typing import Dict, Any, Tuple, Set, List, Optional
 from dataclasses import dataclass, field
 import numpy as np
-from scipy.spatial.distance import cdist
 
 from sim_bench.clustering.base import ClusteringMethod
+from sim_bench.clustering.distance_utils import (
+    cosine_distance_matrix,
+    cosine_distance_pairwise,
+    cosine_distance_to_set,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,15 +52,18 @@ class MergeDecision:
     """Record of a merge decision between two clusters."""
     cluster_a: int
     cluster_b: int
-    threshold: float  # min(T_a, T_b)
+    threshold: float        # threshold that triggered/blocked the decision
+    threshold_a: float      # T of cluster A
+    threshold_b: float      # T of cluster B
     n_pairs_within: int
     exemplars_a_involved: int
     exemplars_b_involved: int
     min_distance: float
     merged: bool
-    reason: str  # 'merged', 'not_enough_pairs', 'not_enough_distinct_a', 'not_enough_distinct_b'
-    # For detailed analysis: the cross-distance matrix
+    reason: str
     cross_distances: Optional[np.ndarray] = None
+    min_dists_a: Optional[List[float]] = None   # per A-exemplar: min dist to any B-exemplar
+    min_dists_b: Optional[List[float]] = None   # per B-exemplar: min dist to any A-exemplar
 
 
 @dataclass
@@ -63,22 +74,112 @@ class AttachDecision:
     candidates: List[Dict[str, Any]] = field(default_factory=list)
 
 
+@dataclass
+class SplitDecision:
+    """Record of a split decision for a cluster."""
+    cluster_id: int
+    original_size: int
+    n_components: int
+    component_sizes: List[int]
+    split: bool
+    reason: str
+
+
 class HybridHDBSCANKNN(ClusteringMethod):
     """Hybrid HDBSCAN + Local Cohesion clustering using Tukey fence threshold."""
+
+    doc_explanation = """
+HDBSCAN creates initial clusters, then iteratively merges and attaches using exemplar distances.
+Per-cluster threshold T = percentile(exemplar_pairwise_distances), clamped to [floor, ceiling].
+
+Merge Decision: Clusters A and B merge if >=merge_min_pairs exemplar pairs have distance
+<= min(T_A, T_B), with >=merge_min_distinct exemplars involved from each side.
+
+Attach Decision: A noise face attaches to a cluster if >=attach_min_exemplars exemplars
+are within that cluster's threshold T.
+
+Split Decision (post-processing): Large clusters are checked for internal connectivity using
+kNN graph + threshold pruning. If a cluster has multiple disconnected components after pruning
+edges below split_threshold, it gets split into separate clusters.
+"""
+
+    decision_parameters = {
+        "threshold_floor": {
+            "description": "Minimum allowed threshold T",
+            "default": 0.125,
+            "decision_role": "T cannot go below this; prevents over-splitting tight clusters"
+        },
+        "threshold_ceiling": {
+            "description": "Maximum allowed threshold T",
+            "default": 0.405,
+            "decision_role": "T cannot exceed this; prevents loose clusters from over-merging"
+        },
+        "threshold_percentile": {
+            "description": "Percentile of exemplar pairwise distances for T",
+            "default": 90,
+            "decision_role": "T = percentile(exemplar_dists, this); higher = looser threshold"
+        },
+        "merge_min_pairs": {
+            "description": "Minimum exemplar pairs within T to merge clusters",
+            "default": 3,
+            "decision_role": "Merge if cross_pairs_within_T >= this"
+        },
+        "merge_min_distinct": {
+            "description": "Minimum distinct exemplars from each side",
+            "default": 2,
+            "decision_role": "Both clusters must contribute >= this many exemplars to merge"
+        },
+        "attach_min_exemplars": {
+            "description": "Minimum exemplars within T to attach a noise face",
+            "default": 2,
+            "decision_role": "Noise attaches if >= this many cluster exemplars within T"
+        },
+        "knn_k": {
+            "description": "K for computing d3 (k-th nearest neighbor distance)",
+            "default": 3,
+            "decision_role": "Faces with smallest d3 become exemplars (most central)"
+        },
+        "split_enabled": {
+            "description": "Enable post-split using kNN connected components",
+            "default": True,
+            "decision_role": "If True, large clusters are checked for internal connectivity"
+        },
+        "split_threshold": {
+            "description": "Cosine similarity threshold for split edges (1 - cosine_distance)",
+            "default": 0.65,
+            "decision_role": "Edges below this similarity are pruned; lower = more aggressive splitting"
+        },
+        "split_min_cluster_size": {
+            "description": "Minimum cluster size to consider for splitting",
+            "default": 10,
+            "decision_role": "Only clusters with >= this many faces are checked for splitting"
+        },
+        "split_k": {
+            "description": "K neighbors for kNN graph in split phase",
+            "default": 20,
+            "decision_role": "Each face connects to k nearest neighbors before pruning"
+        },
+    }
 
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
 
+        # PCA dimensionality reduction (None = disabled)
+        self.pca_dim = self.params.get('pca_dim', None)
+
         # HDBSCAN parameters
+        # cluster_selection_epsilon in cosine distance space (was 0.3 Euclidean → 0.045 cosine)
         self.min_cluster_size = self.params.get('min_cluster_size', 2)
         self.min_samples = self.params.get('min_samples', 2)
-        self.cluster_selection_epsilon = self.params.get('cluster_selection_epsilon', 0.3)
+        self.cluster_selection_epsilon = self.params.get('cluster_selection_epsilon', 0.045)
 
         # Local cohesion parameters
+        # Thresholds calibrated for cosine distance (1 - cosine_similarity)
+        # Converted from Euclidean thresholds using: t_c = (t_e²) / 2
         self.knn_k = self.params.get('knn_k', 3)
-        self.iqr_multiplier = self.params.get('iqr_multiplier', 2.0)
-        self.threshold_floor = self.params.get('threshold_floor', 0.50)
-        self.threshold_ceiling = self.params.get('threshold_ceiling', 0.90)
+        self.threshold_percentile = self.params.get('threshold_percentile', 90)
+        self.threshold_floor = self.params.get('threshold_floor', 0.125)  # was 0.50 Euclidean
+        self.threshold_ceiling = self.params.get('threshold_ceiling', 0.405)  # was 0.90 Euclidean
 
         # Exemplar parameters
         self.max_exemplars = self.params.get('max_exemplars', 10)
@@ -92,6 +193,34 @@ class HybridHDBSCANKNN(ClusteringMethod):
 
         # Iteration
         self.max_iterations = self.params.get('max_iterations', 10)
+
+        # Post-split parameters (kNN connected components)
+        self.split_enabled = self.params.get('split_enabled', True)
+        self.split_threshold = self.params.get('split_threshold', 0.65)
+        self.split_min_cluster_size = self.params.get('split_min_cluster_size', 10)
+        self.split_k = self.params.get('split_k', 20)
+
+    def _apply_pca(self, features: np.ndarray) -> Tuple[np.ndarray, Optional[Dict[str, Any]]]:
+        """Apply PCA dimensionality reduction if configured."""
+        if self.pca_dim is None:
+            return features, None
+
+        from sklearn.decomposition import PCA
+
+        n_samples, n_features = features.shape
+        pca_dim = min(self.pca_dim, n_samples, n_features)
+
+        if pca_dim >= n_features:
+            logger.debug(f"PCA skipped: pca_dim={pca_dim} >= n_features={n_features}")
+            return features, None
+
+        logger.info(f"Applying PCA: {n_features}D -> {pca_dim}D for {n_samples} samples")
+        pca = PCA(n_components=pca_dim)
+        reduced = pca.fit_transform(features)
+        variance_explained = float(np.sum(pca.explained_variance_ratio_))
+        logger.info(f"PCA variance explained: {variance_explained:.2%}")
+
+        return reduced, {'pca_dim': pca_dim, 'variance_explained': variance_explained}
 
     def cluster(
         self,
@@ -118,6 +247,9 @@ class HybridHDBSCANKNN(ClusteringMethod):
 
         if n_samples == 1:
             return np.array([0]), {'n_clusters': 1, 'n_noise': 0}
+
+        # Apply PCA if configured (before validation/normalization)
+        features, pca_stats = self._apply_pca(features)
 
         # Input validation
         features = self._validate_features(features)
@@ -167,14 +299,28 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 logger.info(f"  Converged after {iteration + 1} iterations")
                 break
 
+        # Stage 3: Split loosely-connected clusters using kNN connected components
+        all_split_decisions: List[SplitDecision] = []
+        total_splits = 0
+
+        if self.split_enabled:
+            logger.info(f"Stage 3: Split check (threshold={self.split_threshold}, k={self.split_k})")
+            labels, total_splits, all_split_decisions = self._split_clusters(
+                labels, features_norm, collect_decisions=collect_debug_data
+            )
+            if total_splits > 0:
+                logger.info(f"  Split {total_splits} clusters")
+            else:
+                logger.info(f"  No clusters split")
+
         # Compute final cluster states for stats
         final_cluster_states = self._compute_cluster_states(labels, features_norm)
 
         # Final stats
         stats = self._compute_final_stats(
-            labels, features_norm, hdbscan_stats, total_merges, total_attached,
-            final_cluster_states, all_merge_decisions, all_attach_decisions,
-            collect_debug_data
+            labels, features_norm, hdbscan_stats, total_merges, total_attached, total_splits,
+            final_cluster_states, all_merge_decisions, all_attach_decisions, all_split_decisions,
+            collect_debug_data, pca_stats
         )
         return labels, stats
 
@@ -234,14 +380,17 @@ class HybridHDBSCANKNN(ClusteringMethod):
         """Run HDBSCAN to get initial clusters."""
         import hdbscan
 
+        # Compute precomputed cosine distance matrix
+        dist_matrix = cosine_distance_matrix(features)
+
         clusterer = hdbscan.HDBSCAN(
             min_cluster_size=self.min_cluster_size,
             min_samples=self.min_samples,
-            metric='euclidean',
+            metric='precomputed',
             cluster_selection_method='eom',
             cluster_selection_epsilon=self.cluster_selection_epsilon,
         )
-        labels = clusterer.fit_predict(features)
+        labels = clusterer.fit_predict(dist_matrix)
 
         n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
         n_noise = int(np.sum(labels == -1))
@@ -255,7 +404,6 @@ class HybridHDBSCANKNN(ClusteringMethod):
         features: np.ndarray
     ) -> Dict[int, ClusterState]:
         """Compute threshold and exemplars for each cluster using exemplar pairwise distances."""
-        from scipy.spatial.distance import pdist
         cluster_states = {}
 
         for label in set(labels):
@@ -281,8 +429,8 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 )
                 continue
 
-            # Compute pairwise distances
-            distances = cdist(cluster_features, cluster_features, metric='euclidean')
+            # Compute pairwise cosine distances
+            distances = cosine_distance_matrix(cluster_features)
 
             # For each face, compute d3 (distance to 3rd nearest neighbor)
             k = min(self.knn_k, n_faces - 1)
@@ -300,16 +448,17 @@ class HybridHDBSCANKNN(ClusteringMethod):
             exemplar_global_indices = indices[exemplar_local_indices]
             exemplar_embeddings = features[exemplar_global_indices]
 
-            # Compute threshold from exemplar pairwise distances
+            # Compute threshold from exemplar pairwise distances.
+            # Use a direct percentile rather than median+k*IQR to avoid high-variance
+            # clusters (noisy buckets) getting amplified thresholds that act as black holes.
             if len(exemplar_embeddings) < 2:
                 raw_threshold = self.threshold_floor
-                q1 = q3 = iqr = median_dist = 0.0
+                q1 = q3 = iqr = 0.0
             else:
-                exemplar_dists = pdist(exemplar_embeddings, metric='euclidean')
-                median_dist = np.median(exemplar_dists)
+                exemplar_dists = cosine_distance_pairwise(exemplar_embeddings)
                 q1, q3 = np.percentile(exemplar_dists, [25, 75])
                 iqr = q3 - q1
-                raw_threshold = median_dist + self.iqr_multiplier * iqr
+                raw_threshold = float(np.percentile(exemplar_dists, self.threshold_percentile))
 
             # Clamp to [floor, ceiling]
             threshold = max(raw_threshold, self.threshold_floor)
@@ -328,10 +477,42 @@ class HybridHDBSCANKNN(ClusteringMethod):
             )
 
             logger.debug(f"  Cluster {label}: {n_faces} faces, {len(exemplar_global_indices)} exemplars, "
-                        f"median_dist={median_dist:.3f} (Q1={q1:.3f}, Q3={q3:.3f}, IQR={iqr:.3f}), "
-                        f"T={threshold:.3f}")
+                        f"Q{self.threshold_percentile}={raw_threshold:.3f} "
+                        f"(Q1={q1:.3f}, Q3={q3:.3f}, IQR={iqr:.3f}), T={threshold:.3f}")
 
         return cluster_states
+
+    def _check_merge(
+        self,
+        cross_dists: np.ndarray,
+        t_a: float,
+        t_b: float,
+    ) -> Tuple[bool, str, float]:
+        """Bidirectional merge check.
+
+        Returns (should_merge, reason, threshold_used).
+        Tries T_A first ("B fits A"), then T_B ("A fits B").
+        """
+        last_reason = 'not_enough_pairs'
+        for threshold, direction in ((t_a, 'b_fits_a'), (t_b, 'a_fits_b')):
+            pairs_within: Set[Tuple[int, int]] = set()
+            involved_a: Set[int] = set()
+            involved_b: Set[int] = set()
+            for ia in range(cross_dists.shape[0]):
+                for ib in range(cross_dists.shape[1]):
+                    if cross_dists[ia, ib] <= threshold:
+                        pairs_within.add((ia, ib))
+                        involved_a.add(ia)
+                        involved_b.add(ib)
+            if len(pairs_within) < self.merge_min_pairs:
+                last_reason = 'not_enough_pairs'
+            elif len(involved_a) < self.merge_min_distinct:
+                last_reason = 'not_enough_distinct_a'
+            elif len(involved_b) < self.merge_min_distinct:
+                last_reason = 'not_enough_distinct_b'
+            else:
+                return True, f'merged_{direction}', threshold
+        return False, last_reason, min(t_a, t_b)
 
     def _merge_clusters(
         self,
@@ -340,7 +521,14 @@ class HybridHDBSCANKNN(ClusteringMethod):
         features: np.ndarray,
         collect_decisions: bool = False
     ) -> Tuple[np.ndarray, int, List[MergeDecision]]:
-        """Merge clusters if L≥3 cross-exemplar pairs ≤ min(T_A, T_B), ≥2 distinct each."""
+        """Merge clusters using bidirectional threshold check.
+
+        A pair merges if EITHER direction satisfies the criteria:
+          - "B fits A": ≥merge_min_pairs cross-pairs ≤ T_A, ≥merge_min_distinct from each side
+          - "A fits B": ≥merge_min_pairs cross-pairs ≤ T_B, ≥merge_min_distinct from each side
+
+        This prevents tight clusters (small T) from never merging due to min(T_A, T_B).
+        """
         merged_labels = labels.copy()
         cluster_ids = sorted(cluster_states.keys())
         merge_decisions: List[MergeDecision] = []
@@ -348,7 +536,6 @@ class HybridHDBSCANKNN(ClusteringMethod):
         if len(cluster_ids) <= 1:
             return merged_labels, 0, merge_decisions
 
-        # Union-find
         parent = {c: c for c in cluster_ids}
 
         def find(x):
@@ -373,65 +560,40 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 state_a = cluster_states[c1]
                 state_b = cluster_states[c2]
 
-                # Compute cross-distances between exemplars
-                cross_dists = cdist(
+                cross_dists = cosine_distance_matrix(
                     state_a.exemplar_embeddings,
                     state_b.exemplar_embeddings,
-                    metric='euclidean'
+                )
+                min_distance = float(np.min(cross_dists))
+                min_dists_a = np.min(cross_dists, axis=1).tolist()   # per A-exemplar
+                min_dists_b = np.min(cross_dists, axis=0).tolist()   # per B-exemplar
+
+                should_merge, reason, threshold_used = self._check_merge(
+                    cross_dists, state_a.threshold, state_b.threshold
                 )
 
-                # Merge threshold = min of both
-                merge_threshold = min(state_a.threshold, state_b.threshold)
-
-                # Count pairs within threshold
-                pairs_within: Set[Tuple[int, int]] = set()
-                exemplars_a_involved: Set[int] = set()
-                exemplars_b_involved: Set[int] = set()
-
-                for idx_a in range(len(state_a.exemplar_indices)):
-                    for idx_b in range(len(state_b.exemplar_indices)):
-                        if cross_dists[idx_a, idx_b] <= merge_threshold:
-                            pairs_within.add((idx_a, idx_b))
-                            exemplars_a_involved.add(idx_a)
-                            exemplars_b_involved.add(idx_b)
-
-                min_distance = float(np.min(cross_dists))
-
-                # Check merge conditions and determine reason
-                if len(pairs_within) < self.merge_min_pairs:
-                    should_merge = False
-                    reason = 'not_enough_pairs'
-                elif len(exemplars_a_involved) < self.merge_min_distinct:
-                    should_merge = False
-                    reason = 'not_enough_distinct_a'
-                elif len(exemplars_b_involved) < self.merge_min_distinct:
-                    should_merge = False
-                    reason = 'not_enough_distinct_b'
-                else:
-                    should_merge = True
-                    reason = 'merged'
-
-                # Collect decision for debugging
                 if collect_decisions:
                     merge_decisions.append(MergeDecision(
                         cluster_a=c1,
                         cluster_b=c2,
-                        threshold=merge_threshold,
-                        n_pairs_within=len(pairs_within),
-                        exemplars_a_involved=len(exemplars_a_involved),
-                        exemplars_b_involved=len(exemplars_b_involved),
+                        threshold=threshold_used,
+                        threshold_a=state_a.threshold,
+                        threshold_b=state_b.threshold,
+                        n_pairs_within=0,
+                        exemplars_a_involved=0,
+                        exemplars_b_involved=0,
                         min_distance=min_distance,
                         merged=should_merge,
                         reason=reason,
-                        cross_distances=cross_dists.copy()
+                        cross_distances=cross_dists.copy(),
+                        min_dists_a=min_dists_a,
+                        min_dists_b=min_dists_b,
                     ))
 
                 if should_merge:
                     union(c1, c2)
                     n_merges += 1
-                    logger.debug(f"  Merge {c1}+{c2}: {len(pairs_within)} pairs, "
-                                f"{len(exemplars_a_involved)}/{len(exemplars_b_involved)} distinct, "
-                                f"T={merge_threshold:.3f}")
+                    logger.debug(f"  Merge {c1}+{c2}: T={threshold_used:.3f} ({reason})")
 
         # Apply merges
         if n_merges > 0:
@@ -472,8 +634,8 @@ class HybridHDBSCANKNN(ClusteringMethod):
             candidates: List[Dict[str, Any]] = []
 
             for label, state in cluster_states.items():
-                # Compute distances to exemplars
-                distances = cdist(noise_embedding, state.exemplar_embeddings, metric='euclidean')[0]
+                # Compute cosine distances to exemplars
+                distances = cosine_distance_to_set(noise_embedding, state.exemplar_embeddings)
 
                 # Count exemplars within threshold
                 within_threshold = int(np.sum(distances <= state.threshold))
@@ -525,6 +687,152 @@ class HybridHDBSCANKNN(ClusteringMethod):
 
         return final_labels, n_attached, attach_decisions
 
+    def _split_clusters(
+        self,
+        labels: np.ndarray,
+        features: np.ndarray,
+        collect_decisions: bool = False
+    ) -> Tuple[np.ndarray, int, List[SplitDecision]]:
+        """Split loosely-connected clusters using kNN + threshold connected components.
+
+        For each cluster >= split_min_cluster_size:
+        1. Build kNN graph (k = split_k neighbors per face)
+        2. Prune edges where cosine_similarity < split_threshold
+        3. Find connected components
+        4. If multiple components, split into separate clusters
+
+        Returns:
+            new_labels: Updated cluster labels
+            n_splits: Number of clusters that were split
+            split_decisions: List of split decisions for debugging
+        """
+        from collections import defaultdict
+
+        new_labels = labels.copy()
+        split_decisions: List[SplitDecision] = []
+
+        if not self.split_enabled:
+            return new_labels, 0, split_decisions
+
+        # Get current max label for assigning new cluster IDs
+        max_label = max(labels) if len(labels) > 0 else -1
+        next_label = max_label + 1
+
+        unique_labels = set(labels) - {-1}
+        n_splits = 0
+
+        for cluster_label in sorted(unique_labels):
+            cluster_mask = labels == cluster_label
+            cluster_indices = np.where(cluster_mask)[0]
+            cluster_size = len(cluster_indices)
+
+            # Skip small clusters
+            if cluster_size < self.split_min_cluster_size:
+                if collect_decisions:
+                    split_decisions.append(SplitDecision(
+                        cluster_id=int(cluster_label),
+                        original_size=cluster_size,
+                        n_components=1,
+                        component_sizes=[cluster_size],
+                        split=False,
+                        reason=f"size {cluster_size} < min {self.split_min_cluster_size}"
+                    ))
+                continue
+
+            cluster_features = features[cluster_indices]
+
+            # Build kNN graph within cluster
+            # Use cosine similarity (1 - cosine_distance)
+            sim_matrix = 1.0 - cosine_distance_matrix(cluster_features)
+
+            # Build adjacency with pruning
+            k = min(self.split_k, cluster_size - 1)
+            adjacency = defaultdict(set)
+
+            for i in range(cluster_size):
+                # Get k nearest neighbors (excluding self)
+                sims = sim_matrix[i].copy()
+                sims[i] = -np.inf  # Exclude self
+                top_k = np.argsort(sims)[-k:]
+
+                for j in top_k:
+                    # Only keep edge if similarity >= threshold
+                    if sims[j] >= self.split_threshold:
+                        adjacency[i].add(j)
+                        adjacency[j].add(i)
+
+            # Find connected components using BFS
+            visited = set()
+            components = []
+
+            for start in range(cluster_size):
+                if start in visited:
+                    continue
+
+                component = []
+                queue = [start]
+
+                while queue:
+                    node = queue.pop(0)
+                    if node in visited:
+                        continue
+                    visited.add(node)
+                    component.append(node)
+
+                    for neighbor in adjacency.get(node, []):
+                        if neighbor not in visited:
+                            queue.append(neighbor)
+
+                components.append(component)
+
+            # Check if we should split
+            n_components = len(components)
+            component_sizes = sorted([len(c) for c in components], reverse=True)
+
+            if n_components > 1:
+                # Split! Assign new labels to components
+                # Keep the largest component with original label
+                components_sorted = sorted(components, key=len, reverse=True)
+
+                for comp_idx, component in enumerate(components_sorted):
+                    if comp_idx == 0:
+                        # Keep original label for largest component
+                        assigned_label = cluster_label
+                    else:
+                        # Assign new label
+                        assigned_label = next_label
+                        next_label += 1
+
+                    for local_idx in component:
+                        global_idx = cluster_indices[local_idx]
+                        new_labels[global_idx] = assigned_label
+
+                n_splits += 1
+                logger.info(f"  Split cluster {cluster_label} ({cluster_size} faces) "
+                           f"into {n_components} components: {component_sizes}")
+
+                if collect_decisions:
+                    split_decisions.append(SplitDecision(
+                        cluster_id=int(cluster_label),
+                        original_size=cluster_size,
+                        n_components=n_components,
+                        component_sizes=component_sizes,
+                        split=True,
+                        reason=f"found {n_components} disconnected components"
+                    ))
+            else:
+                if collect_decisions:
+                    split_decisions.append(SplitDecision(
+                        cluster_id=int(cluster_label),
+                        original_size=cluster_size,
+                        n_components=1,
+                        component_sizes=[cluster_size],
+                        split=False,
+                        reason="single connected component"
+                    ))
+
+        return new_labels, n_splits, split_decisions
+
     def _compute_final_stats(
         self,
         labels: np.ndarray,
@@ -532,10 +840,13 @@ class HybridHDBSCANKNN(ClusteringMethod):
         hdbscan_stats: Dict[str, Any],
         total_merges: int,
         total_attached: int,
+        total_splits: int,
         final_cluster_states: Dict[int, ClusterState],
         all_merge_decisions: List[MergeDecision],
         all_attach_decisions: List[AttachDecision],
-        collect_debug_data: bool
+        all_split_decisions: List[SplitDecision],
+        collect_debug_data: bool,
+        pca_stats: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Compute final statistics."""
         unique_labels = set(labels)
@@ -555,12 +866,14 @@ class HybridHDBSCANKNN(ClusteringMethod):
             'hdbscan': hdbscan_stats,
             'total_merges': total_merges,
             'total_attached': total_attached,
+            'total_splits': total_splits,
             'params': {
+                'pca_dim': self.pca_dim,
                 'min_cluster_size': self.min_cluster_size,
                 'min_samples': self.min_samples,
                 'cluster_selection_epsilon': self.cluster_selection_epsilon,
                 'knn_k': self.knn_k,
-                'iqr_multiplier': self.iqr_multiplier,
+                'threshold_percentile': self.threshold_percentile,
                 'threshold_floor': self.threshold_floor,
                 'threshold_ceiling': self.threshold_ceiling,
                 'max_exemplars': self.max_exemplars,
@@ -568,8 +881,15 @@ class HybridHDBSCANKNN(ClusteringMethod):
                 'merge_min_pairs': self.merge_min_pairs,
                 'merge_min_distinct': self.merge_min_distinct,
                 'max_iterations': self.max_iterations,
+                'split_enabled': self.split_enabled,
+                'split_threshold': self.split_threshold,
+                'split_min_cluster_size': self.split_min_cluster_size,
+                'split_k': self.split_k,
             }
         }
+
+        if pca_stats:
+            stats['pca'] = pca_stats
 
         # Add debug data if requested
         if collect_debug_data:
@@ -596,13 +916,17 @@ class HybridHDBSCANKNN(ClusteringMethod):
                     'cluster_a': md.cluster_a,
                     'cluster_b': md.cluster_b,
                     'threshold': md.threshold,
+                    'threshold_a': md.threshold_a,
+                    'threshold_b': md.threshold_b,
                     'n_pairs_within': md.n_pairs_within,
                     'exemplars_a_involved': md.exemplars_a_involved,
                     'exemplars_b_involved': md.exemplars_b_involved,
                     'min_distance': md.min_distance,
                     'merged': md.merged,
                     'reason': md.reason,
-                    'cross_distances': md.cross_distances.tolist() if md.cross_distances is not None else None
+                    'cross_distances': md.cross_distances.tolist() if md.cross_distances is not None else None,
+                    'min_dists_a': md.min_dists_a,
+                    'min_dists_b': md.min_dists_b,
                 })
 
             # Convert attach decisions to dicts
@@ -614,12 +938,44 @@ class HybridHDBSCANKNN(ClusteringMethod):
                     'candidates': ad.candidates
                 })
 
+            # Convert split decisions to dicts
+            split_decisions_list = []
+            for sd in all_split_decisions:
+                split_decisions_list.append({
+                    'cluster_id': sd.cluster_id,
+                    'original_size': sd.original_size,
+                    'n_components': sd.n_components,
+                    'component_sizes': sd.component_sizes,
+                    'split': sd.split,
+                    'reason': sd.reason
+                })
+
             stats['debug'] = {
                 'cluster_thresholds': cluster_thresholds,
                 'cluster_exemplars': cluster_exemplars,
                 'cluster_d3_stats': cluster_d3_stats,
                 'merge_decisions': merge_decisions_list,
-                'attach_decisions': attach_decisions_list
+                'attach_decisions': attach_decisions_list,
+                'split_decisions': split_decisions_list
             }
+
+        # Store last run info for UI display
+        cluster_thresholds_summary = {
+            int(label): state.threshold
+            for label, state in final_cluster_states.items()
+        }
+        self.last_run_info = {
+            'n_clusters': n_clusters,
+            'n_noise': n_noise,
+            'total_merges': total_merges,
+            'total_attached': total_attached,
+            'total_splits': total_splits,
+            'threshold_floor': self.threshold_floor,
+            'threshold_ceiling': self.threshold_ceiling,
+            'merge_min_pairs': self.merge_min_pairs,
+            'attach_min_exemplars': self.attach_min_exemplars,
+            'split_threshold': self.split_threshold,
+            'cluster_thresholds': cluster_thresholds_summary,
+        }
 
         return stats

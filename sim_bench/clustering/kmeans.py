@@ -9,7 +9,31 @@ from sim_bench.clustering.base import ClusteringMethod
 
 class KMeansClusterer(ClusteringMethod):
     """KMeans clustering implementation."""
-    
+
+    doc_explanation = """
+KMeans partitions data into exactly k clusters by minimizing within-cluster variance.
+Each point belongs to the cluster with the nearest centroid (mean).
+
+Decision: Every point gets assigned to its nearest centroid. No noise concept.
+Requires specifying n_clusters upfront, which is the main limitation for
+face clustering where the number of people is unknown.
+
+Best for known k; not recommended for open-ended face clustering.
+"""
+
+    decision_parameters = {
+        "n_clusters": {
+            "description": "Number of clusters to create",
+            "default": 10,
+            "decision_role": "Exactly this many clusters will be created"
+        },
+        "n_init": {
+            "description": "Number of random initializations",
+            "default": 10,
+            "decision_role": "Best of n_init runs is kept (stability)"
+        },
+    }
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         
