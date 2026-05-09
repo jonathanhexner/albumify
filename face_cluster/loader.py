@@ -33,20 +33,106 @@ logger = logging.getLogger(__name__)
 def load_pipeline_result(run_dir: Path) -> PipelineResult:
     """Reconstruct a PipelineResult from a completed run directory.
 
-    Tries SQLite DB first (face_clustering.db), falls back to CSV/numpy files.
+    spec-030 transitional ordering:
+      1. Prefer the v4 layout at <run_dir>/_v4/ via RunStore (full-fidelity,
+         single-owner storage; this is the target architecture).
+      2. Fall back to the legacy DB / CSV layout for runs that pre-date Phase 1.
+
+    The legacy fall-backs disappear in Phase 5; until then they are needed so
+    existing runs on disk keep opening.
     """
     run_dir = Path(run_dir)
-    db_path = run_dir / "face_clustering.db"
 
+    v4_dir = run_dir / "_v4"
+    if (v4_dir / "face_clustering.db").exists():
+        try:
+            result = _load_via_run_store(run_dir, v4_dir)
+            logger.info(f"Loaded run via RunStore (v4): {v4_dir}")
+            return result
+        except Exception as e:
+            logger.warning(f"v4 load failed, falling back to legacy: {e}", exc_info=True)
+
+    db_path = run_dir / "face_clustering.db"
     if db_path.exists():
         try:
             result = _load_from_db(run_dir, db_path)
-            logger.info(f"Loaded run from DB: {db_path}")
+            logger.info(f"Loaded run from legacy DB: {db_path}")
             return result
         except Exception as e:
-            logger.warning(f"Failed to load from DB, falling back to CSVs: {e}")
+            logger.warning(f"Legacy DB load failed, falling back to CSVs: {e}")
 
     return _load_from_csvs(run_dir)
+
+
+def _load_via_run_store(run_dir: Path, v4_dir: Path) -> PipelineResult:
+    """Translate a RunStore (v4 layout) into a PipelineResult.
+
+    PipelineResult is the legacy in-memory container the rest of the codebase
+    consumes; until Phase 4 collapses the layout we keep producing it from
+    whichever store is canonical for the run.
+    """
+    from dataclasses import asdict
+    from face_cluster.run_store import RunStore
+
+    store = RunStore(v4_dir)
+    meta = store.metadata()
+
+    faces = store.faces()
+    base_cr = store.clusters("base")
+    # Match legacy semantics: merged_cluster_result is non-None whenever the
+    # merge stage ran, even if zero merges executed.  `clusters("final")`
+    # collapses to base when iteration_count()=0, which is exactly what we want.
+    merge_enabled = bool((meta.config or {}).get("merge_enabled"))
+    final_cr = store.clusters("final") if merge_enabled else None
+
+    # MergeDecisionRow → plain dict so existing UI code (merge_view._parse_merge_log)
+    # keeps working unchanged.  Phase 4 will type the consumer end too.
+    merge_log = [asdict(row) for row in store.merge_log()]
+
+    # Reconstruct the merge_metadata blob the legacy UI looks at by stitching the
+    # two JSON columns back together (this is what the writer absorbed in Phase 1).
+    merge_metadata: dict = {}
+    if meta.merge_thresholds:
+        merge_metadata.update(meta.merge_thresholds)
+    if meta.merge_iter_summary:
+        merge_metadata.update(meta.merge_iter_summary)
+    if meta.config:
+        merge_metadata["config"] = meta.config
+
+    summary = {
+        "run_id": meta.run_id,
+        "source_album": meta.source_album,
+        "config": meta.config,
+        "n_images": meta.n_images,
+        "n_faces": meta.n_faces,
+        "n_core": meta.n_core,
+        "n_clusters": meta.n_clusters_base,
+        "n_clusters_merged": meta.n_clusters_final,
+        "n_noise": base_cr.n_noise,
+        "producer": meta.producer,
+    }
+
+    # User-approval decisions remain a separate sidecar file at the run root —
+    # not part of the v4 layout.  Read independently if present.
+    merge_decisions = None
+    decisions_path = run_dir / "merge_decisions.json"
+    if decisions_path.exists():
+        try:
+            with open(decisions_path, encoding="utf-8") as fh:
+                merge_decisions = json.load(fh)
+        except Exception:
+            pass
+
+    return PipelineResult(
+        faces=faces,
+        cluster_result=base_cr,
+        output_dir=run_dir,
+        summary=summary,
+        merged_cluster_result=final_cr,
+        merge_log=merge_log,
+        merge_metadata=merge_metadata or None,
+        merge_decisions=merge_decisions,
+    )
 
 
 def _load_from_db(run_dir: Path, db_path: Path) -> PipelineResult:

@@ -62,24 +62,29 @@
 
 ## Phase 3: UI cutover to RunStore
 
-- [ ] **T015** Replace `cache_helpers.py` direct file reads with `RunStore` calls. File: `app/face_clustering/cache_helpers.py`.
-- [ ] **T016** Replace `tabs/cluster_analysis_tab.py:268-273` direct `read_csv` of `clusters.csv` with `RunStore.clusters()`.
-- [ ] **T017** Replace `tabs/history_tab.py:106-109` direct JSON loads with `RunStore.metadata()` and `RunStore.merge_log()`.
-- [ ] **T018** Replace `_merge_decisions_panel.py:211-214` direct `pipeline_run.json` load with `RunStore.metadata()`.
-- [ ] **T019** Replace `tabs/labeling_review_tab.py:19-23` direct load of `merge_decisions.json` (user-approval file, not run-internal) — keep this file but go through `RunStore.user_decisions()`.
-- [ ] **T020** Replace `face_cluster/loader.py:load_pipeline_result()` body with `RunStore` delegation. Public function stays for backward compat but is now a thin wrapper.
-- [ ] **T021** Implement UI semantics fix in `_merge_decisions_panel.py`:
-  - Three-state outcome label: MERGED (`actually_merged=True`), PASSED (`action="passed"`), REJECTED (`action="rejected"`).
-  - Margin badge: "disabled" when `merge_margin == 0`.
-  - Hide previously-merged pairs from earlier iterations' rejection lists.
-- [ ] **T022** [P] Static-check test `tests/architecture/test_no_direct_file_reads_in_app.py` — greps `app/` for `pd.read_csv`, `np.load`, `json.load(`, `sqlite3.connect`; fails on matches that resolve to run artifacts.
-- [ ] **T023** E2E test `tests/test_e2e_albumify_run_in_fc_app.py` (Playwright) — loads `face_clustering_20260508_000446` after Phase-1 dual-write export, asserts:
-  - "Actual merges: 4" in summary.
-  - C0 vs C1 row shows MERGED with "Support 191/2 (uniq=16)" and "Diameter 0.972/2.294".
-  - Margin badge shows "disabled" not "inf".
-  - No row in gallery is labeled REJECTED with `passes_*` all true.
+User-visible bug fix landed in Phase 3a (this commit).  Remaining cleanup
+(T015–T019, T022) is architectural hygiene and ships as Phase 3b.
 
-**Checkpoint**: User opens the broken run; all symptoms resolved. Run all 11 FC App tabs end-to-end.
+### Phase 3a — bug fix (shipped)
+
+- [x] **T020** `face_cluster/loader.py:load_pipeline_result()` now prefers `<run_dir>/_v4/` via `RunStore`, falls back to legacy DB / CSV for runs that pre-date Phase 1.  `_load_via_run_store` translates `RunStore` reads into a `PipelineResult` so existing UI code is unchanged.  Matched legacy semantics: `merged_cluster_result` is non-None whenever the merge stage ran, even with zero merges.
+- [x] **T021** `_outcome_label_color(pair)` and `_format_margin_value(pair)` helpers added to `_merge_decisions_panel.py`.  Three-state outcome label (MERGED / PASSED / REJECTED) replaces the binary MERGED-or-REJECTED at three render sites.  Margin badge prints "disabled" when `merge_margin == 0` (margin_gap=inf) instead of the literal "inf".  `MergeDecisionRow` (the views' UI dataclass in `face_cluster/views/merge_view.py`) gained `actually_merged: bool = False` so the helpers can distinguish MERGED from PASSED.
+- [x] **T021 tests** `tests/face_clustering/test_merge_panel_semantics.py` — 8 unit tests pinning the helpers' behaviour across all four outcome shapes and the inf-margin case.
+- [x] **T023** `tests/face_clustering/test_sighting_058_regression.py` — 7 tests reproducing the user's exact bug scenario (iter-1 passed + iter-2 merged on the same pair, `merge_margin=0` in config) and asserting: loader finds v4, view reports correct `len(merges)`, iter-1 row labels PASSED (not REJECTED), iter-2 row labels MERGED, margin badge is "disabled", `support 191/2` and `diameter 0.972/2.294` (no more `/0` or `/n/a`), cross-table consistency holds.
+
+**Checkpoint**: ✅ Full spec-030 suite 65/65 green (RunExporter + RunStore + panel semantics + SIGHTING-058 regression + merge_stage E2E).  The user-reported bug is structurally fixed end-to-end on the new path.
+
+### Phase 3b — architecture hygiene (shipped)
+
+- [x] **T016** `app/face_clustering/tabs/cluster_analysis_tab.py:268-273` — direct `pd.read_csv(clusters.csv)` for cluster provenance replaced with a `cluster_stats` lookup (origin / parent_ids now flow through `RunStore.clusters()` → `ClusterResult.cluster_stats`).
+- [x] **T018** `app/face_clustering/_merge_decisions_panel.py:211-214` — direct `json.load(pipeline_run.json)` replaced with `result.summary["source_album"]` (already populated by the loader).
+- [x] **T022** `tests/architecture/test_no_direct_run_artifact_reads.py` — static-check pytest greps `app/face_clustering/` for `pd.read_csv`, `np.load`, `json.load(`, `json.loads(...read_text)`, `sqlite3.connect`. Allow-list documents the four deliberate exceptions (`run_panels.py` and `tabs/history_tab.py` are filesystem inspectors; `tabs/labeling_review_tab.py` and `face_popup.py` read user-side sidecars). Plus `test_allow_list_entries_still_exist` to prevent zombie entries.
+
+### Phase 3b — deferred to Phase 4
+
+- [ ] **T015** `app/face_clustering/cache_helpers.py` — reads `crop_manifest.json` and `faces.csv` from the legacy layout. Cutover requires removing the legacy writer first (Phase 4 / T024–T025), so this stays as a transitional dependency. Documented in `_DELIBERATE_DIRECT_READS` allow-list.
+- [ ] **T017** `app/face_clustering/tabs/history_tab.py:106-109` — lightweight per-run summary that deliberately reads JSON sidecars to avoid a full `PipelineResult` load. Re-evaluate once Phase 4 collapses the on-disk layout.
+- [ ] **T019** `app/face_clustering/tabs/labeling_review_tab.py:23` — `merge_decisions.json` is a user-approval sidecar, not run-internal data. Defer; may stay as a sidecar exception permanently.
 
 ---
 

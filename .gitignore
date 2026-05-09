@@ -230,5 +230,9 @@ nul
 # Pipeline run outputs (large data/embeddings)
 results/
 
+# Scratch output dir for scripts/e2e_smoke_phase3.py — durable evidence
+# is copied into specs/<NNN>-<feature>/post_refactor_screens/ instead.
+e2e_screens/
+
 # Model weight files
 *.pt

@@ -320,8 +320,8 @@ class RunStore:
 
         with self._connect() as conn:
             cluster_rows = conn.execute(
-                "SELECT cluster_id, size, diameter, avg_intra_dist FROM clusters "
-                "WHERE iteration = ? ORDER BY cluster_id",
+                "SELECT cluster_id, size, diameter, avg_intra_dist, origin, parent_ids "
+                "FROM clusters WHERE iteration = ? ORDER BY cluster_id",
                 (iter_num,),
             ).fetchall()
             assign_rows = conn.execute(
@@ -355,14 +355,19 @@ class RunStore:
             if r["is_exemplar"]:
                 exemplars.setdefault(cid, []).append(idx)
 
-        cluster_stats = {
-            row["cluster_id"]: {
+        cluster_stats = {}
+        for row in cluster_rows:
+            try:
+                parents = json.loads(row["parent_ids"]) if row["parent_ids"] else []
+            except (TypeError, ValueError):
+                parents = []
+            cluster_stats[row["cluster_id"]] = {
                 "diameter": row["diameter"],
                 "mean_dist": row["avg_intra_dist"],
                 "size": row["size"],
+                "origin": row["origin"],
+                "parent_ids": parents,
             }
-            for row in cluster_rows
-        }
         return ClusterResult(
             labels=labels,
             clusters=clusters,

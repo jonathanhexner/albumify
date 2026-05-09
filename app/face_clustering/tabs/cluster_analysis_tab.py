@@ -1,6 +1,7 @@
 """Tab 5: Cluster Analysis — per-cluster drill-down."""
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
@@ -265,12 +266,18 @@ def render_cluster_analysis_tab():
     c3.metric("Avg intra-dist", f"{view.avg_intra_dist:.3f}")
     c4.metric("Exemplars",      len(view.exemplar_face_ids))
     c5.metric("Outliers",       len(view.outlier_face_ids))
-    clusters_csv = result.output_dir / "clusters.csv"
-    if clusters_csv.exists():
-        clusters_df = pd.read_csv(clusters_csv)
-        match       = clusters_df[clusters_df["cluster_id"] == selected]
-        if not match.empty:
-            _render_cluster_provenance(match.iloc[0], result.merge_log)
+    # Provenance comes from the in-memory cluster_stats (populated by the loader
+    # from DB.clusters.origin / parent_ids in v4 runs, or from clusters.csv on
+    # legacy runs).  No direct file read here.
+    final_cr = result.merged_cluster_result or result.cluster_result
+    stats = (final_cr.cluster_stats or {}).get(selected) if final_cr else None
+    if stats and stats.get("origin"):
+        provenance_row = pd.Series({
+            "cluster_id": selected,
+            "origin": stats.get("origin"),
+            "parent_cluster_ids": json.dumps(stats.get("parent_ids", [])),
+        })
+        _render_cluster_provenance(provenance_row, result.merge_log)
     if view.split_signal:
         st.warning("Split signal — bimodal distance distribution. This cluster may contain two people.")
     st.subheader("Exemplars (d10 — most central)")

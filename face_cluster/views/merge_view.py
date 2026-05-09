@@ -58,6 +58,10 @@ class MergeDecisionRow:
     ml_pred: Optional[int] = None     # ML class prediction: 1=merge, 0=reject
     # Iteration this entry was evaluated in (0 = unknown / old log format)
     iteration: int = 0
+    # spec-030: True only for the iteration's executed winner.  Distinguishes
+    # MERGED (actually_merged=True) from PASSED (action="passed",
+    # actually_merged=False, passed all gates but lost the iteration tie-break).
+    actually_merged: bool = False
 
 
 @dataclass
@@ -268,6 +272,7 @@ def _parse_merge_log(
             passes_cross=entry.get("passes_cross"),
             unique_support=entry.get("unique_support"),
             iteration=int(entry.get("iteration", 0)),
+            actually_merged=bool(entry.get("actually_merged", False)),
         )
         if entry.get("actually_merged"):
             merges.append(row)

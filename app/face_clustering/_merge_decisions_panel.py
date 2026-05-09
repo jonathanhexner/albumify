@@ -207,11 +207,9 @@ def _save_merge_features_if_available(decisions, result, run_id, timestamp, sour
     df["timestamp"]       = timestamp
     df["feature_version"] = FEATURE_VERSION
     save_merge_features(df, result.output_dir)
-    album_path = None
-    run_json_path = result.output_dir / "pipeline_run.json"
-    if run_json_path.exists():
-        with open(run_json_path, encoding="utf-8") as fh:
-            album_path = json.load(fh).get("source_album")
+    # source_album already lives in result.summary (populated by the loader from
+    # pipeline_run.json or DB run_metadata) — no need to re-read disk here.
+    album_path = (result.summary or {}).get("source_album")
     exemplars  = result.cluster_result.exemplars
     feat_cols  = [c for c in df.columns
                   if c not in ("cluster_a", "cluster_b", "label", "run_id", "timestamp", "feature_version")]
@@ -533,9 +531,10 @@ def _render_grouped_merge_gallery(view: MergeAnalysisView, result: PipelineResul
                         pair_header = (f"C{pair.cluster_a} vs C{pair.cluster_b}  dist={pair.exemplar_dist:.3f}"
                                        f"  :{_pcolor}[[{outcome_label}: {_pct}%]]{pair_dec_label}")
                     else:
+                        h_label, h_color = _outcome_label_color(pair)
                         pair_header = (f"C{pair.cluster_a} vs C{pair.cluster_b}  dist={pair.exemplar_dist:.3f}"
                                        f"  gates={pair.n_gates_passed}/4"
-                                       f"  :{('green' if pair.action == 'merged' else 'red')}[{outcome_label}]"
+                                       f"  :{h_color}[{h_label}]"
                                        f"{pair_dec_label}")
                     with st.expander(pair_header, expanded=False):
                         _render_pair_crops(pair, result)
@@ -594,6 +593,38 @@ def _crop_for_face_local(fid, result):
     return _crop_for_face(fid, result.output_dir)
 
 
+def _outcome_label_color(pair) -> tuple:
+    """Three-state outcome derived from the algorithm's verdict (spec-030 Phase 3).
+
+      MERGED   — the iteration's executed winner (actually_merged=True)
+      PASSED   — passed all gates but lost the iteration tie-break (action="passed")
+      REJECTED — failed at least one gate (action="rejected")
+
+    Returns (label, streamlit_color_name).
+    """
+    if getattr(pair, "actually_merged", False):
+        return "MERGED", "green"
+    action = getattr(pair, "action", "") or ""
+    if action == "passed":
+        return "PASSED", "orange"
+    return "REJECTED", "red"
+
+
+def _format_margin_value(pair) -> str:
+    """Margin gate display.
+
+    The Margin gate is disabled when `merge_margin == 0` in config; the merger
+    then returns `worst_gap = float("inf")`.  Render that as "disabled" rather
+    than the literal string "inf" which has burned reviewers reading the UI.
+    """
+    g = getattr(pair, "margin_gap", None)
+    if g is None:
+        return "n/a"
+    if isinstance(g, float) and (g == float("inf") or g == float("-inf")):
+        return "disabled"
+    return f"{g:.3f}"
+
+
 def _render_gate_badges(pair):
     gate_cols = st.columns(4)
     # Exemplar badge — show cross-dist when available
@@ -611,8 +642,7 @@ def _render_gate_badges(pair):
         ("Exemplar", pair.passes_exemplar, exemplar_val, exemplar_delta),
         ("Support",  pair.passes_support, support_val,
          pair.support - pair.required_support),
-        ("Margin",   pair.passes_margin,
-         f"{pair.margin_gap:.3f}" if pair.margin_gap is not None else "n/a", None),
+        ("Margin",   pair.passes_margin, _format_margin_value(pair), None),
         ("Diameter", pair.passes_diameter,
          f"{pair.post_diameter:.3f}/{pair.max_allowed_diameter:.3f}" if pair.max_allowed_diameter else f"{pair.post_diameter:.3f}/n/a",
          pair.post_diameter - pair.max_allowed_diameter if pair.max_allowed_diameter else None),
@@ -671,12 +701,11 @@ def _render_iteration_grouped_gallery(view: MergeAnalysisView, result: PipelineR
             for i, d in enumerate(all_iter_rows):
                 key              = (min(d.cluster_a, d.cluster_b), max(d.cluster_a, d.cluster_b))
                 current_decision = decisions.get(key, "")
-                outcome_label    = "MERGED" if d.action == "merged" else "REJECTED"
+                outcome_label, color = _outcome_label_color(d)
                 decision_label   = (
                     " | decision: **approve**" if current_decision == "approve" else
                     " | decision: **reject**"  if current_decision == "reject"  else ""
                 )
-                color   = "green" if d.action == "merged" else "red"
                 cross_part = f"  |  cross={d.p25_cross_dist:.3f}" if d.p25_cross_dist is not None else ""
                 pair_hdr = (
                     f"C{d.cluster_a} ({d.cluster_a_size}) vs C{d.cluster_b} ({d.cluster_b_size})"
@@ -791,7 +820,7 @@ def _render_flat_merge_gallery(view: MergeAnalysisView, result: PipelineResult):
     for i, d in enumerate(page_rows):
         key              = (min(d.cluster_a, d.cluster_b), max(d.cluster_a, d.cluster_b))
         current_decision = decisions.get(key, "")
-        outcome_label    = "MERGED" if d.action == "merged" else "REJECTED"
+        outcome_label, color = _outcome_label_color(d)
         decision_label   = (
             " | decision: **approve**" if current_decision == "approve" else
             " | decision: **reject**"  if current_decision == "reject"  else ""
@@ -804,7 +833,7 @@ def _render_flat_merge_gallery(view: MergeAnalysisView, result: PipelineResult):
             f"C{d.cluster_a} ({d.cluster_a_size}) vs C{d.cluster_b} ({d.cluster_b_size})"
             f"  |  p25_ex={d.exemplar_dist:.3f}{cross_part}"
             f"  |  gates={d.n_gates_passed}/4"
-            f"  |  :{('green' if d.action == 'merged' else 'red')}[{outcome_label}]"
+            f"  |  :{color}[{outcome_label}]"
             f"{iter_badge}{multi_iter_note}{decision_label}"
         )
         global_i = page * _GALLERY_PAGE_SIZE + i
