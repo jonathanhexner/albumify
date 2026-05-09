@@ -15,6 +15,7 @@ from PIL import Image, ImageOps
 
 from face_cluster.export import export_results, export_merged_results
 from face_cluster.result_db import write_results_db
+from face_cluster.run_exporter import RunExporter
 from sim_bench.pipeline.context import PipelineContext
 
 logger = logging.getLogger(__name__)
@@ -110,6 +111,29 @@ def export_for_analysis(face_records, base_cluster_result, merged_cluster_result
     (output_dir / "pipeline_run.json").write_text(
         json.dumps(run_info, indent=2, default=str), encoding="utf-8"
     )
+
+    # spec-030 Phase 1 — dual-write the v4 layout to a parallel subdir alongside
+    # the legacy artifacts above.  Albumify and the FC App go through the same
+    # RunExporter so v4 layouts are byte-identical regardless of producer.
+    try:
+        RunExporter(output_dir / "_v4").export(
+            faces=face_records,
+            base_cluster_result=base_cluster_result,
+            merged_cluster_result=merged_cluster_result,
+            core_indices=core_indices,
+            merge_log=merge_log,
+            merge_metadata=merge_metadata,
+            config=fc_cfg,
+            source_album=album_name,
+            producer="albumify",
+            run_id=timestamp,
+            started_at=run_info["started_at"],
+            finished_at=run_info["finished_at"],
+            crop_source_dir=output_dir / "crops",
+        )
+    except Exception as e:
+        logger.warning(f"v4 dual-write failed (non-fatal during Phase 1): {e}",
+                       exc_info=True)
 
     # Store export path on context for UI deep-link
     context.fc_export_dir = str(output_dir)

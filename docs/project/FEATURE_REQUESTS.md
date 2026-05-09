@@ -6,6 +6,15 @@ This file tracks feature requests from users. Claude should scan this on init to
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-05-09: Storage Ownership Refactor — RunStore / RunExporter (spec-030)
+**Status**: SPEC READY
+**Requested by**: User, 2026-05-09 (during diagnosis of SIGHTING-058)
+**Spec**: `specs/030-storage-ownership-refactor/spec.md`
+**Resolves**: SIGHTING-058
+**Architecture audit**: `specs/030-storage-ownership-refactor/architecture_audit.html`
+**Description**:
+Eliminate face-clustering storage duplication. Today 6 logical information types are written to 21 storage locations across 14 files per run; the DB `merge_decisions` table has 12 columns while `merge_log.json` has 17 fields, causing data loss for Albumify-produced runs. Replace four scattered modules (`loader.py`, `export.py`, `result_db.py`, `face_cluster_export.py`) with two: `RunExporter` (single writer used by both apps, byte-identical layouts) and `RunStore` (single reader, no fallback chains, fail-loud on missing artifacts). Run directory becomes exactly 5 artifacts: `face_clustering.db`, `embeddings.npy`, `embedding_face_ids.npy`, `pipeline_run.json`, `crops/`. DB schema becomes the contract — full 17-field `merge_decisions`, `embeddings` table removed (lives in npy only), `run_metadata` absorbs the deleted JSON files. UI gains three-state outcome label (MERGED/PASSED/REJECTED) and "disabled" margin badge. 5-phase rollout: ship writer alongside legacy → ship reader alongside legacy → cut UI over → stop writing legacy → migrate old runs and delete dead code.
+
 ### 2026-05-01: Trip Detection — Geographic & Temporal Event Clustering
 **Status**: SPEC READY
 **Requested by**: User, 2026-05-01

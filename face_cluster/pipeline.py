@@ -805,6 +805,7 @@ class FaceClusteringPipeline:
     def _export(self, ctx: _RunContext) -> dict:
         """Snapshot graph-local results, remap to face indices, write all output files."""
         from face_cluster.export import export_results, export_merged_results
+        from face_cluster.run_exporter import RunExporter
 
         ctx.progress("export", 0.0, "Preparing export...")
 
@@ -835,6 +836,40 @@ class FaceClusteringPipeline:
                 core_indices=ctx.core_indices,
                 merge_metadata=ctx.merge_metadata,
             )
+
+        # spec-030 Phase 1 — dual-write the v4 layout to a parallel subdir.
+        # Legacy artifacts above stay in place; the loader still uses them.
+        # In Phase 4 the legacy writes go away and RunExporter takes the run root.
+        ctx.progress("export", 0.9, "Writing v4 layout (dual-write)...")
+        try:
+            mode = ctx.run_record.get("mode", "pipeline_run")
+            producer = "remerge" if mode == "remerge" else "fc_app"
+            parent_run_id = None
+            source_run = ctx.run_record.get("source_run")
+            if source_run:
+                parent_run_id = Path(source_run).name
+
+            RunExporter(ctx.output_dir / "_v4").export(
+                faces=ctx.faces,
+                base_cluster_result=cluster_snap,
+                merged_cluster_result=merged_snap,
+                core_indices=ctx.core_indices,
+                merge_log=ctx.merge_log or [],
+                merge_metadata=ctx.merge_metadata,
+                config=ctx.config,
+                source_album=str(ctx.image_dir),
+                producer=producer,
+                run_id=ctx.run_record["run_id"],
+                started_at=ctx.run_record["started_at"],
+                finished_at=ctx.run_record.get("finished_at") or datetime.now().isoformat(),
+                parent_run_id=parent_run_id,
+                crop_source_dir=ctx.output_dir / "crops",
+            )
+        except Exception as e:
+            # Phase 1 is additive — failure to write the parallel layout must not
+            # break the legacy export.  Log and continue.
+            logger.warning(f"v4 dual-write failed (non-fatal during Phase 1): {e}",
+                           exc_info=True)
 
         ctx.progress("export", 1.0, "Export complete")
         return {}

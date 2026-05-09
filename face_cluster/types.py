@@ -1,6 +1,6 @@
 """Dataclasses for face clustering pipeline."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Optional, Dict, List, Tuple
 import numpy as np
@@ -81,6 +81,67 @@ class FaceRecord:
     rejection_reason: Optional[str] = None
     det_score: Optional[float] = None
     d10_score: Optional[float] = None
+
+
+@dataclass
+class MergeDecisionRow:
+    """One row of the merge log: evidence + verdict for a single (cluster_a, cluster_b)
+    pair evaluated in a single iteration of ConservativeMerger.
+
+    This is the contract between the merger (which produces these as dicts), the writer
+    (which persists them), and the reader / UI (which renders them). Every field in the
+    in-memory dict has a typed field here; nothing is dropped on the way to disk.
+
+    Field count must equal the keys produced by `merge.py:_select_best_merge` plus
+    `actually_merged` (added after winner selection). spec-030 / SIGHTING-058.
+    """
+    # Identity (5)
+    iteration: int
+    cluster_a: int
+    cluster_b: int
+    cluster_a_size: int
+    cluster_b_size: int
+
+    # Distance / threshold evidence (7)
+    exemplar_dist: float
+    threshold_used: float
+    T_a: Optional[float]
+    T_b: Optional[float]
+    T_global: Optional[float]
+    p25_cross_dist: Optional[float]
+    passes_cross: Optional[bool]
+
+    # Support gate (3)
+    support: int
+    unique_support: Optional[int]
+    required_support: int
+
+    # Diameter gate (2)
+    post_diameter: float
+    max_allowed_diameter: float
+
+    # Margin gate (4)
+    margin_gap: float                  # may be float('inf') when gate disabled
+    margin_dist_to_b: float
+    margin_competitor_dist: float
+    margin_competitor_id: int          # -1 when no competitor
+
+    # Per-gate verdicts (4)
+    passes_exemplar: bool
+    passes_support: bool
+    passes_margin: bool
+    passes_diameter: bool
+
+    # Outcome (3)
+    action: str                        # "merged" | "passed" | "rejected"
+    actually_merged: bool              # True only for the iteration's executed winner
+    rejection_reason: Optional[str]
+
+    @classmethod
+    def field_names(cls) -> Tuple[str, ...]:
+        """Canonical ordered field name tuple. Used by writer/reader for column ordering
+        and by strict-write to validate input dicts contain exactly these keys."""
+        return tuple(f.name for f in fields(cls))
 
 
 @dataclass

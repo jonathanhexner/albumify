@@ -493,6 +493,11 @@ class ConservativeMerger:
                 valid_merges.append((cluster_id_a, cluster_id_b, evidence))
 
         if len(valid_merges) == 0:
+            # Terminal iteration: no winner this round, but every row still needs
+            # actually_merged=False to satisfy the merge_log row contract
+            # (MergeDecisionRow.field_names — spec-030 / SIGHTING-058).
+            for decision in all_decisions:
+                decision['actually_merged'] = False
             return None, all_decisions
 
         # Select best merge (smallest exemplar distance)

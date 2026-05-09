@@ -31,6 +31,43 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-058: Albumify-produced face clustering runs render with broken merge values in FC App
+**Status**: SPEC READY (spec-030)
+**Severity**: Critical
+**Reported**: 2026-05-09
+**Persona**: Senior SW Architect
+**Spec**: `specs/030-storage-ownership-refactor/`
+**Architecture audit**: `specs/030-storage-ownership-refactor/architecture_audit.html`
+
+**Problem Description**:
+On run `face_clustering_20260508_000446`, the FC App's Merge Analysis tab shows nonsense values for pair C0 vs C1: `gates=4/4 REJECTED`, `Support 191/0`, `Margin: inf`, `Diameter 0.972/n/a`, and "Actual merges: 0" — even though `run_metadata` on disk records 4 merges actually executed (14 → 10 clusters).
+
+**Root Cause** (after architecture audit):
+Six logical information types are written to 21 storage locations across 14 files per run. The DB `merge_decisions` table has 12 columns; `merge_log.json` has 28 fields per row. The loader prefers DB when present; Albumify writes both, FC App writes JSON only. Result: Albumify-produced runs feed the loader the lossy DB copy, which is missing `actually_merged`, `required_support`, `max_allowed_diameter`, `cluster_a_size`, `cluster_b_size`, `unique_support`, `T_a/T_b/T_global`, `p25_cross_dist`, and three `margin_*` fields. The UI prints defaults (`0`, `None`, `n/a`) for those fields and treats the missing `actually_merged` as falsy → all 4 actual merges are misclassified as REJECTED candidates.
+
+Compounding factors:
+- `face_cluster/loader.py` has 9 separate `if x.exists()` fallback branches.
+- UI components in `app/face_clustering/` bypass the loader and `pd.read_csv` files directly.
+- `face_cluster/export.py:193-196` renames `clusters.csv` → `clusters_stage_base.csv` mid-export and writes a new `clusters.csv` with different semantics.
+- Margin gate disabled (`merge_margin=0`) renders as literal "inf" because no display contract for the disabled state.
+
+**Symptoms**:
+- "C0 vs C1 4/4 REJECTED" with all four gate badges green.
+- "Support 191/0??", "Diameter 0.972/n/a", "Margin: inf".
+- "Actual merges: 0" despite 4 merges on disk.
+- Bug only appears on runs created by Albumify (mode `main_app_export`); FC-App-created runs render correctly because they don't write the lossy DB.
+
+**Resolution**:
+Spec-030 — eliminate duplication at the source rather than patching the reader. Single `RunExporter` writer used by both apps, single `RunStore` reader used by all consumers, full-fidelity DB schema (all 17 merge_decisions fields), no fallback chains. Legacy artifacts (`merge_log.json`, `merge_metadata.json`, `crop_manifest.json`, `export_summary.json`, `faces_merged.csv`, `clusters_merged.csv`, `clusters_stage_base.csv`, DB embeddings BLOB column) deleted. UI semantics fix: three-state outcome label (MERGED/PASSED/REJECTED), margin badge "disabled" when 0.
+
+**Findings (preliminary, will move to LEARNINGS.md on resolution)**:
+- Duplication is the disease, schema mismatch is the symptom.
+- `if x.exists()` fallback chains are unrecoverable design debt.
+- One owner per fact; pick the store that fits the data shape.
+- Single writer + single reader interface turns layout changes into refactors instead of archaeology.
+
+---
+
 ### SIGHTING-057: ConservativeMerger logs ALL passing candidates as "merged" instead of only the executed one
 **Status**: RESOLVED
 **Severity**: Critical

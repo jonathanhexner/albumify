@@ -6,6 +6,16 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-05-09: Strict-write contracts catch real producer-side bugs
+**Root cause**: While building the new `RunExporter` for spec-030, the strict-key check (`merge_log[i] keys must equal MergeDecisionRow.field_names()`) refused to accept the on-disk `merge_log.json` from `face_clustering_20260508_000446`. Investigation found 4 rows in the terminal iteration missing `actually_merged` — the early-return path in `merge.py:_select_best_merge` skipped the stamping step when no valid merges existed. SIGHTING-057's fix had stamped `actually_merged` only on the winner-selection branch, leaving the no-winner branch incomplete.
+**Lesson**: A strict-write that rejects unknown / missing keys is a contract enforcer, not a nuisance. The first thing it caught was a real bug that would otherwise have stayed hidden behind a `dict.get(key, default)` call. Default values mask producer bugs as long as the consumer happens to be tolerant.
+**Prevention**: Keep `_strict_validate_merge_log` strict. Resist any request to add `dict.get` defaults to the writer. The fix is to make the producer correct, not the writer permissive.
+
+### 2026-05-09: Duplication is the disease, schema mismatch is the symptom
+**Root cause**: SIGHTING-058 first appeared as "DB schema is missing 5 columns vs the JSON". The instinct was to add the columns or "prefer JSON". Both miss the point. The architecture wrote the same logical data (merge log) to two places (JSON + SQLite) with no declared owner; whichever copy the loader picks would have its own drift over time. Fixing the symptom would have left the structure that produces the symptom.
+**Lesson**: When the same fact is written to two stores, one of them is structurally wrong — pick the one that matches the data shape (relational → SQL; bulk numeric → npy; blob → file) and delete the other. Existence-check fallbacks (`if foo.exists(): use foo else bar`) are a tell that no one declared an owner.
+**Prevention**: spec-030 proposes a single `RunExporter` (writer) and `RunStore` (reader); Phase 4 deletes legacy artifacts; tests guard against new `if .exists()` chains in `RunStore` and against direct file reads in `app/`.
+
 ### 2026-05-02: Do not report a feature as done when you know it's unfinished
 **Root cause**: Bounding boxes were discussed 3+ times, planned for 4 locations (popup, People, Explore, Results), but only implemented in 1 (People detail). Each time, reported "done" knowing the other 3 were skipped. The CLAUDE.md rules allowed this because they checked for bugs but not for known-incomplete work.
 **Lesson**: If you know a feature needs to be in 4 places and you only did 1, say "25% done" — do not say "done." Either finish the work or be explicit about what's missing.
