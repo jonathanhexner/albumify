@@ -107,41 +107,20 @@ python -m sim_bench.training.train_ava_resnet \
 
 ### Applications
 
-**Album App (Main UI with FastAPI backend):**
+**Albumify (Main UI):** Requires backend + frontend in two terminals.
 ```bash
-# Terminal 1: Start backend
-python -m uvicorn sim_bench.api.main:app --reload --port 8000
-
-# Terminal 2: Start frontend
-streamlit run app/streamlit/main.py
+.venv/Scripts/python -m uvicorn sim_bench.api.main:app --reload --port 8000
+.venv/Scripts/streamlit run app/streamlit/main.py
 ```
-Full-featured album viewer with pipeline execution, face clustering, people management, and results visualization.
 
-**Photo Organization (AI Agent):**
+**Face Clustering App:** Standalone 11-tab app for clustering, merge analysis, recluster, ML training.
 ```bash
-streamlit run app/photo_organization/main.py
+.venv/Scripts/streamlit run app/face_clustering/main.py
 ```
-Organize photos by events, people, landmarks, and quality through natural language.
 
-**Photo Analysis (Batch Processing):**
-```bash
-streamlit run app/photo_analysis/main.py
-```
-Generate HTML reports with CLIP tags, face detection, and landmark recognition.
+The two apps are connected: Albumify exports face clustering artifacts that the Face Clustering App can load via deep-link for detailed analysis and parameter tuning.
 
-**Face Clustering Debug:**
-```bash
-streamlit run app/face_clustering_debug/main.py
-```
-Debug and tune face clustering parameters, visualize merge/attach decisions, compare algorithms.
-
-**Face Clustering Comparison:**
-```bash
-streamlit run app/face_clustering_comparison.py
-```
-Side-by-side visual comparison of different clustering methods.
-
-See `app/README.md` for details.
+See `docs/APPS.md` for all apps.
 
 ## Installation & Setup
 
@@ -630,32 +609,31 @@ sim-bench/
 - open-clip-torch>=2.20  # For OpenCLIP method
 - matplotlib>=3.8  # For visualization (if needed)
 
-## 📚 Documentation
+## Documentation
 
-### 📖 Comprehensive Guides
-- **[Dataset Documentation](docs/DATASETS.md)** - Detailed information about UKBench and INRIA Holidays datasets
-- **[DINOv2 & OpenCLIP Guide](docs/DINOV2_AND_OPENCLIP.md)** - 🆕 New state-of-the-art feature extractors
-- **[Sample Images Guide](samples/README.md)** - Understanding the included sample images and how to use them
+### System Architecture & Onboarding
+- **[System Architecture & Onboarding](docs/architecture/system_onboarding.html)** - Interactive HTML guide covering the full system: architecture diagrams, database schemas (main DB + per-run face clustering DB), pipeline engine, face cluster library, frontend apps, end-to-end data flow, and developer setup. Start here if you are new to the project.
+- **[Architecture Overview](docs/architecture/overview.md)** - High-level architecture overview (text)
 
-### 🔍 Quick References
-- **Sample Images**: `samples/` - Representative images from both datasets for immediate testing
-- **Configuration**: `configs/` - YAML files for datasets, methods, and run settings
-- **Results**: `outputs/` - All evaluation results with timestamps and summaries
-- **Documentation**: `docs/` - Detailed guides and references
+### Guides
+- **[Apps Guide](docs/guides/APPS.md)** - All Streamlit apps and how to start them
+- **[Testing Rules](docs/guides/TESTING_RULES.md)** - Test naming conventions and anti-patterns
+- **[Troubleshooting](docs/guides/TROUBLESHOOTING.md)** - Common problems and solutions
 
-### 🎯 Getting Started Paths
+### Reference
+- **[Face Clustering Algorithm](docs/reference/face_clustering.md)** - kNN + connected components + conservative merge
+- **[Merge Criteria Reference](docs/reference/merge_criteria_reference.md)** - 4-gate merge algorithm details
+- **[Pipeline Configuration](configs/pipeline.yaml)** - All step definitions and parameters
 
-1. **Quick Test**: Use sample images to test the framework immediately
-   ```bash
-   python -m sim_bench.cli --methods deep --datasets ukbench
-   ```
+### Project Tracking
+- **[Sightings](docs/project/SIGHTINGS.md)** - Bug reports and investigations
+- **[Learnings](docs/project/LEARNINGS.md)** - Lessons learned from bugs
+- **[Feature Requests](docs/project/FEATURE_REQUESTS.md)** - Requested features with status
 
-2. **Full Evaluation**: Download complete datasets and run comprehensive benchmarks
-   ```bash
-   python -m sim_bench.cli --methods chi_square,emd,deep --datasets ukbench,holidays
-   ```
-
-3. **Custom Dataset**: Add your own dataset following the factory pattern (see Extension section)
+### Benchmarking
+- **[Dataset Documentation](docs/DATASETS.md)** - UKBench and INRIA Holidays datasets
+- **[DINOv2 & OpenCLIP Guide](docs/DINOV2_AND_OPENCLIP.md)** - State-of-the-art feature extractors
+- **[Sample Images Guide](samples/README.md)** - Included sample images for testing
 
 ## License
 

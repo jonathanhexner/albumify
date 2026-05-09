@@ -5,3 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 python_classes = ["ut_*", "Test*"]
 python_functions = ["test_*"]
+addopts = "-m 'not e2e'"
+markers = [
+    "e2e: browser-based end-to-end tests requiring a running Streamlit server (excluded from default run)",
+]

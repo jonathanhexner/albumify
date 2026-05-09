@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlbumApp — Dataset / Run / Album Mock</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0d1117;
+  --bg-base: #161b22;
+  --bg-surface: #1c2333;
+  --bg-raised: #242d3d;
+  --bg-input: #0d1117;
+  --border: #30363d;
+  --border-focus: #e94560;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --accent: #e94560;
+  --accent-dim: #c73e54;
+  --success: #3fb950;
+  --success-dim: rgba(63,185,80,.15);
+  --warning: #d29922;
+  --warning-dim: rgba(210,153,34,.15);
+  --danger: #f85149;
+  --danger-dim: rgba(248,81,73,.15);
+  --info: #58a6ff;
+  --info-dim: rgba(88,166,255,.12);
+  --teal: #4ecca3;
+  --teal-dim: rgba(78,204,163,.12);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 2px 8px rgba(0,0,0,.3);
+  --font-display: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --transition: .18s ease;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-display);background:var(--bg-deep);color:var(--text-primary);overflow-x:hidden;font-size:14px;line-height:1.5}
+::selection{background:var(--accent);color:#fff}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ─── Layout ─── */
+.app{display:flex;min-height:100vh}
+.sidebar{width:220px;background:var(--bg-base);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50}
+.main{margin-left:220px;flex:1;padding:28px 36px;min-height:100vh}
+
+/* ─── Sidebar ─── */
+.sidebar-brand{padding:20px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-brand .logo{width:28px;height:28px;background:var(--accent);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff}
+.sidebar-brand span{font-weight:600;font-size:15px;letter-spacing:-.3px}
+.sidebar-nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text-secondary);font-size:13px;font-weight:500;transition:var(--transition);border:1px solid transparent;user-select:none}
+.nav-item:hover{background:var(--bg-raised);color:var(--text-primary)}
+.nav-item.active{background:var(--accent);color:#fff;border-color:transparent;font-weight:600}
+.nav-item .icon{width:18px;text-align:center;font-size:15px;opacity:.8}
+.nav-item.active .icon{opacity:1}
+.sidebar-dataset{padding:14px;border-top:1px solid var(--border)}
+.sidebar-dataset label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;display:block}
+.sidebar-dataset select{width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:7px 10px;border-radius:var(--radius-sm);font-size:12px;font-family:var(--font-display)}
+.sidebar-status{padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--success)}
+
+/* ─── Page structure ─── */
+.page{display:none}
+.page.active{display:block;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.page-title{font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px}
+.page-subtitle{font-size:13px;color:var(--text-secondary);margin-bottom:20px}
+
+/* ─── Shared components ─── */
+.btn{border:none;padding:8px 16px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:500;font-family:var(--font-display);transition:var(--transition);display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-dim)}
+.btn-secondary{background:var(--bg-raised);color:var(--text-secondary);border:1px solid var(--border)}.btn-secondary:hover{border-color:var(--accent);color:var(--text-primary)}
+.btn-ghost{background:transparent;color:var(--text-secondary);padding:6px 10px;font-size:12px}.btn-ghost:hover{color:var(--accent)}
+.btn-danger{background:var(--danger-dim);color:var(--danger);border:1px solid transparent}.btn-danger:hover{border-color:var(--danger)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{padding:6px 8px;font-size:14px}
+.chip{display:inline-block;padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);color:var(--text-secondary);transition:var(--transition);font-weight:500}
+.chip:hover{border-color:var(--accent);color:var(--text-primary)}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge-success{background:var(--success-dim);color:var(--success)}
+.badge-danger{background:var(--danger-dim);color:var(--danger)}
+.badge-warning{background:var(--warning-dim);color:var(--warning)}
+.badge-info{background:var(--info-dim);color:var(--info)}
+.card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:18px;transition:var(--transition)}
+.card:hover{border-color:var(--border-focus)}
+.divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+.metrics{display:grid;gap:12px;margin-bottom:20px}
+.metric{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;text-align:center}
+.metric .value{font-size:26px;font-weight:700;font-family:var(--font-mono);color:var(--accent)}
+.metric .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.metric .delta{font-size:11px;color:var(--success);margin-top:2px}
+
+/* ─── Select / Input ─── */
+.form-select,.form-input{background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-display);transition:var(--transition);width:100%}
+.form-select:focus,.form-input:focus{outline:none;border-color:var(--accent)}
+.form-row{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.form-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:block}
+
+/* ─── Table ─── */
+.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.tbl th{text-align:left;padding:10px 12px;color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--bg-base);position:sticky;top:0}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--border)}
+.tbl tr:hover td{background:var(--bg-raised)}
+.tbl-wrapper{border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+
+/* ─── Tabs ─── */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tab{padding:9px 16px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;transition:var(--transition);user-select:none}
+.tab:hover{color:var(--text-primary)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+/* ─── Dataset cards ─── */
+.dataset-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px;transition:var(--transition);overflow:hidden}
+.dataset-card:hover{border-color:var(--border-focus)}
+.dataset-header{padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer}
+.dataset-icon{width:40px;height:40px;background:var(--bg-raised);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.dataset-info{flex:1}
+.dataset-info h3{font-size:15px;font-weight:600;letter-spacing:-.2px}
+.dataset-info .meta{font-size:12px;color:var(--text-muted);margin-top:2px;font-family:var(--font-mono)}
+.dataset-stats{display:flex;gap:16px;font-size:12px;color:var(--text-secondary)}
+.dataset-stats span{display:flex;align-items:center;gap:4px}
+.dataset-actions{display:flex;gap:4px}
+.dataset-runs{border-top:1px solid var(--border);background:var(--bg-base);display:none;padding:4px}
+.dataset-card.expanded .dataset-runs{display:block}
+.dataset-card.expanded{border-color:var(--accent)}
+
+/* ─── Config grid ─── */
+.config-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px}
+.config-section{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px}
+.config-section h4{font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;font-weight:600}
+.param{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px}
+.param label{color:var(--text-secondary)}
+.param .val{color:var(--text-primary);font-weight:500;font-family:var(--font-mono);font-size:12px}
+.param input[type=range]{width:90px;accent-color:var(--accent);height:4px}
+.param input[type=checkbox]{accent-color:var(--accent)}
+
+/* ─── Profile bar ─── */
+.profile-bar{display:flex;gap:8px;align-items:center;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:14px}
+.profile-bar .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
+
+/* ─── Photo grid ─── */
+.photo-grid{display:flex;flex-wrap:wrap;gap:5px}
+.photo{position:relative;border-radius:var(--radius-sm);overflow:hidden;cursor:pointer;transition:transform var(--transition)}
+.photo:hover{transform:scale(1.03);z-index:2}
+.photo .ph{display:flex;align-items:center;justify-content:center;background:var(--bg-raised);font-size:10px;color:var(--text-muted);font-family:var(--font-mono)}
+.photo .score-badge{position:absolute;top:4px;right:4px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px}
+.photo .hover-info{position:absolute;bottom:0;left:0;right:0;padding:5px 7px;background:linear-gradient(transparent,rgba(0,0,0,.8));opacity:0;transition:opacity var(--transition);font-size:10px}
+.photo:hover .hover-info{opacity:1}
+
+/* ─── People avatars ─── */
+.avatar-grid{display:flex;flex-wrap:wrap;gap:16px}
+.avatar{text-align:center;cursor:pointer;width:88px}
+.avatar .circle{width:68px;height:68px;border-radius:50%;margin:0 auto 6px;overflow:hidden;border:2.5px solid transparent;transition:var(--transition);background:var(--bg-raised);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--text-muted)}
+.avatar:hover .circle{border-color:var(--accent)}
+.avatar .name{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.avatar .ct{font-size:10px;color:var(--text-muted)}
+
+/* ─── Needs help card ─── */
+.help-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 14px;display:flex;gap:12px;align-items:center;margin-bottom:8px;transition:var(--transition)}
+.help-card:hover{border-color:var(--accent)}
+.help-card .face{width:46px;height:46px;border-radius:50%;background:var(--bg-raised);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--text-muted)}
+.help-card .info{flex:1;font-size:13px}
+.help-card .info .sub{font-size:11px;color:var(--text-muted);margin-top:1px}
+.help-card .btns{display:flex;gap:4px}
+.btn-yes{background:var(--success-dim);color:var(--success);border:1px solid transparent;padding:5px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:500}.btn-yes:hover{border-color:var(--success)}
+.btn-no{background:var(--danger-dim);color:var(--danger);border:1px solid transparent;padding:5px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:500}.btn-no:hover{border-color:var(--danger)}
+.btn-skip{background:var(--bg-raised);color:var(--text-muted);border:1px solid var(--border);padding:5px 12px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px}.btn-skip:hover{color:var(--text-primary)}
+
+/* ─── Deep link ─── */
+.deep-link{background:linear-gradient(135deg,var(--bg-surface),var(--bg-raised));border:1px solid var(--border);border-radius:var(--radius-md);padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:var(--transition);margin-bottom:16px}
+.deep-link:hover{border-color:var(--accent)}
+.deep-link .icon{font-size:24px}
+.deep-link .text{flex:1}
+.deep-link .text h4{font-size:14px;font-weight:600}
+.deep-link .text p{font-size:12px;color:var(--text-muted);margin-top:2px}
+.deep-link .arrow{color:var(--accent);font-size:18px}
+
+/* ─── Modal ─── */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;width:520px;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal h3{font-size:17px;font-weight:700;margin-bottom:16px;letter-spacing:-.3px}
+.modal .close{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer}
+
+/* ─── Cache breakdown ─── */
+.cache-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.cache-item:last-child{border:none}
+.cache-item .cache-type{flex:1;font-size:13px}
+.cache-item .cache-size{font-size:12px;color:var(--text-muted);font-family:var(--font-mono);width:80px;text-align:right}
+.cache-bar{width:120px;height:6px;background:var(--bg-deep);border-radius:3px;overflow:hidden}
+.cache-bar .fill{height:100%;border-radius:3px}
+
+/* ─── Merge section ─── */
+.merge-section{background:var(--bg-surface);border:1px solid var(--accent);border-left:3px solid var(--accent);border-radius:var(--radius-md);padding:16px;margin-bottom:16px}
+.merge-section h4{font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;font-weight:600}
+.merge-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+
+/* ─── Person detail ─── */
+.person-detail{background:var(--bg-surface);border:1px solid var(--accent);border-left:3px solid var(--accent);border-radius:var(--radius-md);padding:18px;margin:14px 0}
+.person-header{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.person-header .big-avatar{width:50px;height:50px;border-radius:50%;background:var(--bg-raised);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--text-muted);flex-shrink:0}
+.person-header .info h3{font-size:16px;font-weight:600}
+.person-header .info .meta{font-size:12px;color:var(--text-muted)}
+.bbox-demo{position:relative;display:inline-block;background:var(--bg-raised);border-radius:var(--radius-sm);overflow:hidden}
+.bbox-demo .bbox{position:absolute;border:2px solid;border-radius:2px}
+.bbox-demo .bbox-label{position:absolute;top:-13px;left:0;font-size:8px;padding:1px 4px;border-radius:2px;font-family:var(--font-mono);font-weight:600}
+
+/* ─── Run selector ─── */
+.selector-row{display:flex;gap:12px;align-items:flex-end;margin-bottom:18px}
+.selector-group{display:flex;flex-direction:column;gap:4px}
+.selector-group label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══════ SIDEBAR ═══════ -->
+<div class="sidebar">
+  <div class="sidebar-brand"><div class="logo">A</div><span>AlbumApp</span></div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" onclick="showPage('datasets')"><span class="icon">&#9776;</span>Datasets</div>
+    <div class="nav-item" onclick="showPage('configure')"><span class="icon">&#9881;</span>Configure &amp; Run</div>
+    <div class="nav-item" onclick="showPage('results')"><span class="icon">&#9733;</span>Results</div>
+    <div class="nav-item" onclick="showPage('people')"><span class="icon">&#9787;</span>People &amp; Faces</div>
+    <div class="nav-item" onclick="showPage('explore')"><span class="icon">&#9906;</span>Explore</div>
+    <div class="nav-item" onclick="showPage('export')"><span class="icon">&#8599;</span>Export</div>
+  </nav>
+  <div class="sidebar-status"><div class="status-dot"></div>API Connected</div>
+  <div class="sidebar-dataset">
+    <label>Active Dataset</label>
+    <select class="form-select"><option>Austria 2024 (428 imgs)</option><option>Budapest 2025 (122 imgs)</option></select>
+  </div>
+</div>
+
+<!-- ═══════ PAGE: DATASETS ═══════ -->
+<div class="page active" id="page-datasets">
+<div class="main">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div><div class="page-title">Datasets</div><div class="page-subtitle">Source photo folders and their pipeline runs</div></div>
+    <button class="btn btn-primary" onclick="showModal('add-dataset')">+ Add Dataset</button>
+  </div>
+
+  <!-- Dataset 1 -->
+  <div class="dataset-card expanded" onclick="this.classList.toggle('expanded')">
+    <div class="dataset-header">
+      <div class="dataset-icon">&#128247;</div>
+      <div class="dataset-info">
+        <h3>Austria 2024</h3>
+        <div class="meta">D:\Photos\Austria_2024\</div>
+      </div>
+      <div class="dataset-stats">
+        <span>&#128444; 428 images</span>
+        <span>&#9654; 3 runs</span>
+        <span>&#128197; Apr 28, 2026</span>
+      </div>
+      <div class="dataset-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-ghost btn-sm">Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showModal('cache-mgmt')">Cache</button>
+        <button class="btn btn-ghost btn-sm btn-danger" style="background:transparent">Delete</button>
+      </div>
+    </div>
+    <div class="dataset-runs" onclick="event.stopPropagation()">
+      <div class="tbl-wrapper">
+      <table class="tbl">
+        <thead><tr><th>#</th><th>Date</th><th>Config</th><th>People</th><th>Selected</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-family:var(--font-mono)">3</td>
+            <td>Apr 30 16:50</td>
+            <td style="font-family:var(--font-mono);font-size:12px">face_cluster_knn K=5 merge=on</td>
+            <td>12</td><td>156</td>
+            <td><span class="badge badge-success">completed</span></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="showPage('results')">View</button><button class="btn btn-ghost btn-sm" onclick="showPage('configure')">Load Config</button><button class="btn btn-ghost btn-sm">Rename</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)">Delete</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--font-mono)">2</td>
+            <td>Apr 30 13:10</td>
+            <td style="font-family:var(--font-mono);font-size:12px">face_cluster_knn K=5 (blur bug)</td>
+            <td>1</td><td>0</td>
+            <td><span class="badge badge-danger">failed</span></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="showPage('results')">View</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)">Delete</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--font-mono)">1</td>
+            <td>Apr 29 11:22</td>
+            <td style="font-family:var(--font-mono);font-size:12px">hdbscan eps=0.3</td>
+            <td>8</td><td>95</td>
+            <td><span class="badge badge-success">completed</span></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="showPage('results')">View</button><button class="btn btn-ghost btn-sm" onclick="showPage('configure')">Load Config</button><button class="btn btn-ghost btn-sm">Rename</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)">Delete</button></td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dataset 2 -->
+  <div class="dataset-card" onclick="this.classList.toggle('expanded')">
+    <div class="dataset-header">
+      <div class="dataset-icon">&#128247;</div>
+      <div class="dataset-info">
+        <h3>Budapest 2025</h3>
+        <div class="meta">D:\Photos\Budapest_2025\</div>
+      </div>
+      <div class="dataset-stats">
+        <span>&#128444; 122 images</span>
+        <span>&#9654; 1 run</span>
+        <span>&#128197; Apr 29, 2026</span>
+      </div>
+      <div class="dataset-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-ghost btn-sm">Edit</button>
+        <button class="btn btn-ghost btn-sm">Cache</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger)">Delete</button>
+      </div>
+    </div>
+    <div class="dataset-runs" onclick="event.stopPropagation()">
+      <div class="tbl-wrapper">
+      <table class="tbl">
+        <thead><tr><th>#</th><th>Date</th><th>Config</th><th>People</th><th>Selected</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Apr 29 14:30</td><td style="font-family:var(--font-mono);font-size:12px">face_cluster_knn K=5</td><td>10</td><td>35</td><td><span class="badge badge-success">completed</span></td><td><button class="btn btn-ghost btn-sm" onclick="showPage('results')">View</button></td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════ PAGE: CONFIGURE & RUN ═══════ -->
+<div class="page" id="page-configure">
+<div class="main">
+  <div class="page-title">Configure &amp; Run</div>
+  <div class="page-subtitle">Set pipeline parameters and start a new run</div>
+
+  <div class="selector-row">
+    <div class="selector-group"><label>Dataset</label><select class="form-select" style="width:280px"><option>Austria 2024 (428 images)</option><option>Budapest 2025 (122 images)</option></select></div>
+    <div style="display:flex;gap:6px">
+      <div class="chip active">Full (InsightFace)</div>
+      <div class="chip">Minimal</div>
+      <div class="chip">Legacy</div>
+    </div>
+  </div>
+
+  <div class="profile-bar">
+    <span class="label">Profile</span>
+    <select class="form-select" style="width:160px"><option>(none)</option><option>Austria_defaults</option><option>strict_merge</option></select>
+    <button class="btn btn-secondary btn-sm">Load</button>
+    <div style="flex:1"></div>
+    <input class="form-input" placeholder="profile name" style="width:140px">
+    <button class="btn btn-secondary btn-sm">Save</button>
+    <button class="btn btn-secondary btn-sm">Default</button>
+  </div>
+
+  <div class="config-grid">
+    <div class="config-section">
+      <h4>Detection &amp; Quality</h4>
+      <div class="param"><label>Detection Confidence</label><input type="range" min="5" max="50" value="25"><span class="val">0.25</span></div>
+      <div class="param"><label>Min Face Size (px)</label><input type="range" min="20" max="100" value="50"><span class="val">50</span></div>
+      <div class="param"><label>Min IQA Score</label><input type="range" min="0" max="100" value="20"><span class="val">0.20</span></div>
+      <div class="param"><label>Min Sharpness</label><input type="range" min="0" max="100" value="10"><span class="val">0.10</span></div>
+      <div class="param"><label>Embedding Model</label><span class="val">InsightFace</span></div>
+    </div>
+    <div class="config-section">
+      <h4>Face Clustering</h4>
+      <div class="param"><label>Method</label><span class="val">face_cluster_knn</span></div>
+      <div class="param"><label>K (neighbors)</label><input type="range" min="1" max="100" value="5"><span class="val">5</span></div>
+      <div class="param"><label>Distance Threshold</label><input type="range" min="1" max="100" value="35"><span class="val">0.35</span></div>
+      <div class="param"><label>Min Cluster Size</label><input type="range" min="1" max="20" value="2"><span class="val">2</span></div>
+      <div class="param"><label>Merge</label><span class="val"><input type="checkbox" checked> On</span></div>
+      <div class="param"><label>Attach Holdouts</label><span class="val"><input type="checkbox"> Off</span></div>
+      <div class="param"><label>Export for Analysis</label><span class="val"><input type="checkbox" checked> On</span></div>
+    </div>
+    <div class="config-section">
+      <h4>Selection</h4>
+      <div class="param"><label>Max per Cluster</label><span class="val">2</span></div>
+      <div class="param"><label>Min Score</label><input type="range" min="0" max="100" value="40"><span class="val">0.40</span></div>
+      <div class="param"><label>Dissimilarity</label><input type="range" min="80" max="95" value="85"><span class="val">0.85</span></div>
+      <div class="param"><label>Siamese Refinement</label><span class="val"><input type="checkbox" checked> On</span></div>
+    </div>
+  </div>
+
+  <div class="merge-section">
+    <h4>Merge Parameters <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(visible because Merge is enabled)</span></h4>
+    <div class="merge-grid">
+      <div><div class="param"><label>Candidate Thresh</label><span class="val">0.45</span></div><div class="param"><label>Exemplar Thresh</label><span class="val">0.35</span></div><div class="param"><label>Adaptive</label><span class="val">Off</span></div></div>
+      <div><div class="param"><label>Cross-dist Gate</label><span class="val" style="color:var(--success)">On</span></div><div class="param"><label>Cross Threshold</label><span class="val">0.40</span></div><div class="param"><label>Cross Max Size</label><span class="val">5</span></div></div>
+      <div><div class="param"><label>Support Frac</label><span class="val">0.30</span></div><div class="param"><label>Support Min</label><span class="val">2</span></div><div class="param"><label>Unique Support</label><span class="val">Off</span></div></div>
+      <div><div class="param"><label>Merge Margin</label><span class="val">0.05</span></div><div class="param"><label>Diameter Exp.</label><span class="val">1.50</span></div></div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:28px">
+    <button class="btn btn-primary" style="padding:10px 28px">Run Pipeline</button>
+    <button class="btn btn-secondary">Save Settings</button>
+    <span style="font-size:12px;color:var(--text-muted)">15 steps &middot; ~25s estimated</span>
+  </div>
+
+  <hr class="divider">
+  <h3 style="font-size:15px;font-weight:600;margin-bottom:12px">Run History</h3>
+  <div class="tbl-wrapper">
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Date</th><th>Config</th><th>People</th><th>Selected</th><th>Duration</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      <tr><td>3</td><td>Apr 30 16:50</td><td style="font-family:var(--font-mono);font-size:12px">K=5 merge=on</td><td>12</td><td>156</td><td>23.4s</td><td><span class="badge badge-success">completed</span></td><td><button class="btn btn-ghost btn-sm" onclick="showPage('results')">View</button><button class="btn btn-ghost btn-sm">Load Config</button></td></tr>
+      <tr><td>2</td><td>Apr 30 13:10</td><td style="font-family:var(--font-mono);font-size:12px">K=5 (blur bug)</td><td>1</td><td>0</td><td>18.2s</td><td><span class="badge badge-danger">failed</span></td><td><button class="btn btn-ghost btn-sm" onclick="showPage('results')">View</button></td></tr>
+      <tr><td>1</td><td>Apr 29 11:22</td><td style="font-family:var(--font-mono);font-size:12px">hdbscan eps=0.3</td><td>8</td><td>95</td><td>15.1s</td><td><span class="badge badge-success">completed</span></td><td><button class="btn btn-ghost btn-sm" onclick="showPage('results')">View</button><button class="btn btn-ghost btn-sm">Load Config</button></td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+</div>
+
+<!-- ═══════ PAGE: RESULTS ═══════ -->
+<div class="page" id="page-results">
+<div class="main">
+  <div class="page-title">Results</div>
+  <div class="selector-row">
+    <div class="selector-group"><label>Dataset</label><select class="form-select" style="width:220px"><option>Austria 2024</option></select></div>
+    <div class="selector-group"><label>Run</label><select class="form-select" style="width:380px"><option>Run #3 — Apr 30 16:50 — 156 selected (K=5, merge=on)</option><option>Run #1 — Apr 29 11:22 — 95 selected (hdbscan)</option></select></div>
+  </div>
+
+  <div class="metrics" style="grid-template-columns:repeat(5,1fr)">
+    <div class="metric"><div class="value">428</div><div class="label">Total Images</div></div>
+    <div class="metric"><div class="value">392</div><div class="label">After Filtering</div><div class="delta">-8.4%</div></div>
+    <div class="metric"><div class="value">12</div><div class="label">People Found</div></div>
+    <div class="metric"><div class="value">156</div><div class="label">Selected</div><div class="delta">36.4%</div></div>
+    <div class="metric"><div class="value">23.4s</div><div class="label">Duration</div></div>
+  </div>
+
+  <div class="deep-link" onclick="showPage('explore')">
+    <div class="icon">&#128269;</div>
+    <div class="text"><h4>Open in Face Clustering App</h4><p>Analyze merges, recluster, train ML model &middot; results/Austria_2024/face_clustering_20260430/</p></div>
+    <div class="arrow">&rarr;</div>
+  </div>
+
+  <div style="display:flex;gap:6px;margin-bottom:16px">
+    <div class="chip active">All (392)</div>
+    <div class="chip">Selected (156)</div>
+    <div class="chip">Rejected (236)</div>
+    <div class="chip">By Person</div>
+  </div>
+
+  <div class="photo-grid">
+    <div class="photo" style="width:160px;height:120px"><div class="ph" style="width:100%;height:100%">IMG_0142.jpg</div><div class="score-badge" style="background:var(--success-dim);color:var(--success)">0.87</div><div class="hover-info"><span style="color:var(--teal)">IQA:0.82</span> &middot; 2 faces &middot; Cluster 3</div></div>
+    <div class="photo" style="width:120px;height:120px"><div class="ph" style="width:100%;height:100%">IMG_0143.jpg</div><div class="score-badge" style="background:var(--success-dim);color:var(--success)">0.82</div></div>
+    <div class="photo" style="width:180px;height:120px"><div class="ph" style="width:100%;height:100%">IMG_0144.jpg</div><div class="score-badge" style="background:var(--danger-dim);color:var(--danger)">Rejected</div><div class="hover-info"><span style="color:var(--danger)">IQA:0.15</span> &middot; Below threshold</div></div>
+    <div class="photo" style="width:120px;height:120px"><div class="ph" style="width:100%;height:100%">IMG_0145.jpg</div><div class="score-badge" style="background:var(--success-dim);color:var(--success)">0.91</div></div>
+    <div class="photo" style="width:150px;height:120px"><div class="ph" style="width:100%;height:100%">IMG_0146.jpg</div><div class="score-badge" style="background:var(--success-dim);color:var(--success)">0.79</div></div>
+    <div class="photo" style="width:120px;height:120px"><div class="ph" style="width:100%;height:100%">IMG_0098.jpg</div><div class="score-badge" style="background:var(--danger-dim);color:var(--danger)">Duplicate</div></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════ PAGE: PEOPLE & FACES ═══════ -->
+<div class="page" id="page-people">
+<div class="main">
+  <div class="page-title">People &amp; Faces</div>
+  <div class="selector-row">
+    <div class="selector-group"><label>Dataset</label><select class="form-select" style="width:220px"><option>Austria 2024</option></select></div>
+    <div class="selector-group"><label>Run</label><select class="form-select" style="width:360px"><option>Run #3 — Apr 30 — 12 people, 156 selected</option></select></div>
+  </div>
+
+  <div class="metrics" style="grid-template-columns:repeat(5,1fr)">
+    <div class="metric"><div class="value">12</div><div class="label">People</div></div>
+    <div class="metric"><div class="value">7</div><div class="label">Named</div></div>
+    <div class="metric"><div class="value">5</div><div class="label">Unnamed</div></div>
+    <div class="metric"><div class="value">428</div><div class="label">Total Faces</div></div>
+    <div class="metric"><div class="value">5</div><div class="label">Needs Help</div></div>
+  </div>
+
+  <h3 style="font-size:15px;font-weight:600;margin-bottom:10px">Named People</h3>
+  <div class="avatar-grid" style="margin-bottom:20px">
+    <div class="avatar"><div class="circle">JH</div><div class="name">Jonathan</div><div class="ct">89 faces</div></div>
+    <div class="avatar"><div class="circle">SK</div><div class="name">Sarah</div><div class="ct">52 faces</div></div>
+    <div class="avatar"><div class="circle">MK</div><div class="name">Michael</div><div class="ct">34 faces</div></div>
+    <div class="avatar"><div class="circle">LH</div><div class="name">Lisa</div><div class="ct">28 faces</div></div>
+    <div class="avatar"><div class="circle">TW</div><div class="name">Thomas</div><div class="ct">22 faces</div></div>
+    <div class="avatar"><div class="circle">AK</div><div class="name">Anna</div><div class="ct">18 faces</div></div>
+    <div class="avatar"><div class="circle">DM</div><div class="name">David</div><div class="ct">12 faces</div></div>
+  </div>
+
+  <!-- Person detail -->
+  <div class="person-detail">
+    <div class="person-header">
+      <div class="big-avatar">JH</div>
+      <div class="info"><h3>Jonathan</h3><div class="meta">89 faces across 67 photos &middot; Cluster 0</div></div>
+      <div style="margin-left:auto;display:flex;gap:4px"><button class="btn btn-secondary btn-sm">Rename</button><button class="btn btn-secondary btn-sm">Split</button><button class="btn btn-secondary btn-sm">Merge With...</button></div>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Face crops with bounding boxes:</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <div class="bbox-demo" style="width:90px;height:90px"><div class="ph" style="width:90px;height:90px">IMG_0142</div><div class="bbox" style="border-color:var(--teal);top:12px;left:20px;width:40px;height:50px"></div><div class="bbox-label" style="background:var(--teal);color:#000;top:0;left:20px">Jonathan</div><div class="bbox" style="border-color:var(--text-muted);top:15px;right:8px;width:25px;height:32px"></div></div>
+      <div class="bbox-demo" style="width:90px;height:90px"><div class="ph" style="width:90px;height:90px">IMG_0156</div><div class="bbox" style="border-color:var(--teal);top:10px;left:24px;width:42px;height:52px"></div></div>
+      <div class="bbox-demo" style="width:90px;height:90px"><div class="ph" style="width:90px;height:90px">IMG_0189</div><div class="bbox" style="border-color:var(--teal);top:8px;left:18px;width:48px;height:58px"></div></div>
+      <div class="bbox-demo" style="width:90px;height:90px"><div class="ph" style="width:90px;height:90px">IMG_0201</div><div class="bbox" style="border-color:var(--teal);top:14px;left:22px;width:38px;height:46px"></div></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:6px"><span style="color:var(--teal)">&#9632;</span> This person &middot; <span style="color:var(--text-muted)">&#9632;</span> Other faces</div>
+  </div>
+
+  <hr class="divider">
+
+  <h3 style="font-size:15px;font-weight:600;margin-bottom:10px">Unnamed <span style="font-size:12px;color:var(--text-muted);font-weight:400">(5 clusters)</span></h3>
+  <div class="avatar-grid" style="margin-bottom:20px">
+    <div class="avatar"><div class="circle" style="font-size:14px">?</div><div class="name" style="color:var(--text-muted);font-style:italic">Cluster 8</div><div class="ct">15 faces</div></div>
+    <div class="avatar"><div class="circle" style="font-size:14px">?</div><div class="name" style="color:var(--text-muted);font-style:italic">Cluster 9</div><div class="ct">8 faces</div></div>
+    <div class="avatar"><div class="circle" style="font-size:14px">?</div><div class="name" style="color:var(--text-muted);font-style:italic">Cluster 10</div><div class="ct">5 faces</div></div>
+  </div>
+
+  <hr class="divider">
+
+  <h3 style="font-size:15px;font-weight:600;margin-bottom:10px">Needs Help <span class="badge badge-danger" style="font-size:11px;vertical-align:middle">5</span></h3>
+  <div class="help-card"><div class="face">?</div><div class="info"><strong>Looks like Jonathan</strong><div class="sub">Distance: 0.31 &middot; Confidence: borderline</div></div><div class="btns"><button class="btn-yes">Yes</button><button class="btn-no">No</button><button class="btn-skip">Skip</button></div></div>
+  <div class="help-card"><div class="face">?</div><div class="info"><strong>Looks like Sarah</strong><div class="sub">Distance: 0.38 &middot; Confidence: borderline</div></div><div class="btns"><button class="btn-yes">Yes</button><button class="btn-no">No</button><button class="btn-skip">Skip</button></div></div>
+  <div class="help-card"><div class="face">?</div><div class="info"><strong>No close match found</strong><div class="sub">Nearest: Cluster 8 (dist: 0.52)</div></div><div class="btns"><button class="btn btn-secondary btn-sm">Assign...</button><button class="btn-skip">Skip</button></div></div>
+</div>
+</div>
+
+<!-- ═══════ PAGE: EXPLORE ═══════ -->
+<div class="page" id="page-explore">
+<div class="main">
+  <div class="page-title">Explore</div>
+  <div class="page-subtitle">Per-step pipeline decisions — what happened and why</div>
+  <div class="selector-row">
+    <div class="selector-group"><label>Dataset</label><select class="form-select" style="width:220px"><option>Austria 2024</option></select></div>
+    <div class="selector-group"><label>Run</label><select class="form-select" style="width:360px"><option>Run #3 — Apr 30 16:50 — 156 selected</option></select></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showExploreTab(this,'etab-quality')">Image Quality</div>
+    <div class="tab" onclick="showExploreTab(this,'etab-person')">Person Detection</div>
+    <div class="tab" onclick="showExploreTab(this,'etab-face')">Face Detection</div>
+    <div class="tab" onclick="showExploreTab(this,'etab-scene')">Scene Clustering</div>
+    <div class="tab" onclick="showExploreTab(this,'etab-fcluster')">Face Clustering</div>
+    <div class="tab" onclick="showExploreTab(this,'etab-selection')">Selection</div>
+  </div>
+
+  <!-- Image Quality tab -->
+  <div class="etab" id="etab-quality">
+    <div class="metrics" style="grid-template-columns:repeat(4,1fr)">
+      <div class="metric"><div class="value">392</div><div class="label">Passed</div></div>
+      <div class="metric"><div class="value" style="color:var(--danger)">36</div><div class="label">Rejected</div></div>
+      <div class="metric"><div class="value">0.20</div><div class="label">IQA Threshold</div></div>
+      <div class="metric"><div class="value">0.10</div><div class="label">Sharpness Threshold</div></div>
+    </div>
+    <div class="tbl-wrapper">
+    <table class="tbl">
+      <thead><tr><th>Image</th><th>Decision</th><th>Reason</th><th>IQA</th><th>Sharpness</th></tr></thead>
+      <tbody>
+        <tr><td style="font-family:var(--font-mono)">IMG_0045.jpg</td><td><span class="badge badge-danger">rejected</span></td><td>IQA 0.08 &lt; threshold 0.20</td><td style="color:var(--danger)">0.08</td><td>0.32</td></tr>
+        <tr><td style="font-family:var(--font-mono)">IMG_0112.jpg</td><td><span class="badge badge-danger">rejected</span></td><td>Sharpness 0.04 &lt; threshold 0.10</td><td>0.45</td><td style="color:var(--danger)">0.04</td></tr>
+        <tr><td style="font-family:var(--font-mono)">IMG_0178.jpg</td><td><span class="badge badge-danger">rejected</span></td><td>IQA 0.12 &lt; 0.20 AND sharpness 0.06 &lt; 0.10</td><td style="color:var(--danger)">0.12</td><td style="color:var(--danger)">0.06</td></tr>
+        <tr><td style="font-family:var(--font-mono)">IMG_0142.jpg</td><td><span class="badge badge-success">passed</span></td><td>Passed (IQA 0.82, sharpness 0.75)</td><td>0.82</td><td>0.75</td></tr>
+        <tr><td style="font-family:var(--font-mono)">IMG_0143.jpg</td><td><span class="badge badge-success">passed</span></td><td>Passed (IQA 0.78, sharpness 0.61)</td><td>0.78</td><td>0.61</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- Selection tab -->
+  <div class="etab" id="etab-selection" style="display:none">
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr)">
+      <div class="metric"><div class="value" style="color:var(--success)">156</div><div class="label">Selected</div></div>
+      <div class="metric"><div class="value">4</div><div class="label">Rejected (in cluster)</div></div>
+      <div class="metric"><div class="value" style="color:var(--danger)">232</div><div class="label">Filtered (no cluster)</div></div>
+    </div>
+    <div class="tbl-wrapper">
+    <table class="tbl">
+      <thead><tr><th>Image</th><th>Cluster</th><th>Composite</th><th>Status</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td style="font-family:var(--font-mono)">IMG_0142.jpg</td><td>3</td><td style="color:var(--success)">0.87</td><td><span class="badge badge-success">selected</span></td><td>Best in cluster (score 0.87)</td></tr>
+        <tr><td style="font-family:var(--font-mono)">IMG_0143.jpg</td><td>3</td><td style="color:var(--success)">0.82</td><td><span class="badge badge-success">selected</span></td><td>Rank 2 in cluster (score 0.82)</td></tr>
+        <tr><td style="font-family:var(--font-mono)">IMG_0144.jpg</td><td>3</td><td>0.63</td><td><span class="badge badge-danger">rejected</span></td><td>Outranked (rank 3/5, score 0.63)</td></tr>
+        <tr><td style="font-family:var(--font-mono)">IMG_0098.jpg</td><td>5</td><td style="color:var(--success)">0.81</td><td><span class="badge badge-danger">rejected</span></td><td>Duplicate of IMG_0097 (sim 0.92)</td></tr>
+        <tr><td style="font-family:var(--font-mono)">IMG_0045.jpg</td><td>--</td><td style="color:var(--danger)">0.21</td><td><span class="badge badge-danger">filtered</span></td><td>IQA 0.08 &lt; threshold 0.20</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- Placeholder tabs -->
+  <div class="etab" id="etab-person" style="display:none"><div class="metrics" style="grid-template-columns:repeat(3,1fr)"><div class="metric"><div class="value">380</div><div class="label">Person Detected</div></div><div class="metric"><div class="value">48</div><div class="label">No Person</div></div><div class="metric"><div class="value" style="color:var(--text-muted)">0</div><div class="label">Unknown</div></div></div><p style="color:var(--text-muted)">Per-image detection table with confidence scores...</p></div>
+  <div class="etab" id="etab-face" style="display:none"><div class="metrics" style="grid-template-columns:repeat(3,1fr)"><div class="metric"><div class="value">612</div><div class="label">Total Faces</div></div><div class="metric"><div class="value">380</div><div class="label">Images with Faces</div></div><div class="metric"><div class="value">1.6</div><div class="label">Avg Faces/Image</div></div></div><p style="color:var(--text-muted)">Per-face scoring table with pose, eyes, expression...</p></div>
+  <div class="etab" id="etab-scene" style="display:none"><div class="metrics" style="grid-template-columns:repeat(4,1fr)"><div class="metric"><div class="value">24</div><div class="label">Clusters</div></div><div class="metric"><div class="value">16.3</div><div class="label">Avg Size</div></div><div class="metric"><div class="value">42</div><div class="label">Largest</div></div><div class="metric"><div class="value">2</div><div class="label">Smallest</div></div></div><p style="color:var(--text-muted)">Cluster assignment table...</p></div>
+  <div class="etab" id="etab-fcluster" style="display:none">
+    <div class="deep-link"><div class="icon">&#128269;</div><div class="text"><h4>Open in Face Clustering App</h4><p>Full 11-tab analysis: merge decisions, label verification, ML training</p></div><div class="arrow">&rarr;</div></div>
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr)"><div class="metric"><div class="value">12</div><div class="label">People</div></div><div class="metric"><div class="value">7</div><div class="label">Named</div></div><div class="metric"><div class="value">428</div><div class="label">Total Faces</div></div></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════ PAGE: EXPORT ═══════ -->
+<div class="page" id="page-export">
+<div class="main">
+  <div class="page-title">Export</div>
+  <div class="selector-row">
+    <div class="selector-group"><label>Dataset</label><select class="form-select" style="width:220px"><option>Austria 2024</option></select></div>
+    <div class="selector-group"><label>Run</label><select class="form-select" style="width:360px"><option>Run #3 — 156 selected</option><option>Run #1 — 95 selected</option></select></div>
+  </div>
+
+  <div class="metrics" style="grid-template-columns:1fr 1fr">
+    <div class="metric"><div class="value">156</div><div class="label">Selected Images</div></div>
+    <div class="metric"><div class="value">392</div><div class="label">All Processed</div></div>
+  </div>
+
+  <div class="card" style="max-width:600px">
+    <h3 style="font-size:15px;font-weight:600;margin-bottom:14px">Export Options</h3>
+    <div class="form-row"><label class="form-label" style="width:120px">Include</label><select class="form-select" style="width:240px"><option>Selected Only (156)</option><option>All Processed (392)</option></select></div>
+    <div class="form-row"><label class="form-label" style="width:120px">Organize by</label><select class="form-select" style="width:240px"><option>Flat</option><option>By Cluster</option><option>By Person</option></select></div>
+    <div class="form-row"><label class="form-label" style="width:120px">Copy Mode</label><select class="form-select" style="width:240px"><option>Copy</option><option>Symlink</option><option>Move</option></select></div>
+    <div class="form-row"><label class="form-label" style="width:120px">Output Path</label><input class="form-input" style="width:240px" value="D:\exports\Austria_2024"></div>
+    <div style="margin-top:16px"><button class="btn btn-primary" style="padding:10px 32px">Export</button></div>
+  </div>
+</div>
+</div>
+
+</div><!-- /app -->
+
+<!-- ═══════ MODAL: Add Dataset ═══════ -->
+<div class="modal-overlay" id="add-dataset">
+<div class="modal">
+  <h3>Add Dataset</h3>
+  <div style="margin-bottom:14px"><label class="form-label">Source Folder</label><input class="form-input" placeholder="D:\Photos\MyTrip\"></div>
+  <div style="margin-bottom:14px"><label class="form-label">Dataset Name</label><input class="form-input" placeholder="My Trip 2024"></div>
+  <div style="margin-bottom:14px;padding:12px;background:var(--bg-base);border-radius:var(--radius-sm);font-size:12px;color:var(--text-muted)">The folder will be scanned for images (jpg, png, heic). Source files are never modified.</div>
+  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-secondary" onclick="hideModal('add-dataset')">Cancel</button><button class="btn btn-primary" onclick="hideModal('add-dataset')">Add Dataset</button></div>
+</div>
+</div>
+
+<!-- ═══════ MODAL: Cache Management ═══════ -->
+<div class="modal-overlay" id="cache-mgmt">
+<div class="modal">
+  <h3>Cache — Austria 2024</h3>
+  <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Cached features are shared across runs on this dataset. Clearing forces recomputation on next run.</p>
+  <div class="cache-item"><div class="cache-type">Face Embeddings <span style="color:var(--text-muted);font-size:11px">(428 images)</span></div><div class="cache-bar"><div class="fill" style="width:60%;background:var(--accent)"></div></div><div class="cache-size">12.4 MB</div><button class="btn btn-ghost btn-sm" style="color:var(--danger)">Clear</button></div>
+  <div class="cache-item"><div class="cache-type">Face Detections <span style="color:var(--text-muted);font-size:11px">(428 images)</span></div><div class="cache-bar"><div class="fill" style="width:30%;background:var(--info)"></div></div><div class="cache-size">3.2 MB</div><button class="btn btn-ghost btn-sm" style="color:var(--danger)">Clear</button></div>
+  <div class="cache-item"><div class="cache-type">IQA Scores <span style="color:var(--text-muted);font-size:11px">(428 images)</span></div><div class="cache-bar"><div class="fill" style="width:5%;background:var(--success)"></div></div><div class="cache-size">0.1 MB</div><button class="btn btn-ghost btn-sm" style="color:var(--danger)">Clear</button></div>
+  <div class="cache-item"><div class="cache-type">Scene Embeddings <span style="color:var(--text-muted);font-size:11px">(428 images)</span></div><div class="cache-bar"><div class="fill" style="width:45%;background:var(--warning)"></div></div><div class="cache-size">8.7 MB</div><button class="btn btn-ghost btn-sm" style="color:var(--danger)">Clear</button></div>
+  <hr class="divider" style="margin:12px 0">
+  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600">Total: 24.4 MB</span><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="hideModal('cache-mgmt')">Close</button><button class="btn btn-danger" onclick="hideModal('cache-mgmt')">Clear All</button></div></div>
+</div>
+</div>
+
+<script>
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  event.target.closest('.nav-item')?.classList.add('active');
+}
+function showModal(id){document.getElementById(id).classList.add('show')}
+function hideModal(id){document.getElementById(id).classList.remove('show')}
+function showExploreTab(el,id){
+  document.querySelectorAll('.etab').forEach(t=>t.style.display='none');
+  document.getElementById(id).style.display='block';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('show')});
+});
+</script>
+</body>
+</html>

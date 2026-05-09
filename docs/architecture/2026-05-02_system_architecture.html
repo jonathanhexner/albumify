@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Albumify — System Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0d1117;--base:#161b22;--surface:#1c2333;--raised:#242d3d;
+  --border:#30363d;--glow:#e94560;--teal:#3fb950;--info:#58a6ff;
+  --warn:#d29922;--txt:#c9d1d9;--dim:#6e7681;--bright:#e6edf3;
+  --mono:'IBM Plex Mono',monospace;--display:'Syne',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--void);color:var(--txt);font-family:var(--mono);font-size:13px;line-height:1.6;overflow-x:hidden}
+::selection{background:var(--glow);color:#fff}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ─── NAV ─── */
+nav{position:fixed;top:0;left:0;right:0;z-index:99;background:var(--base);border-bottom:1px solid var(--border);display:flex;align-items:center;height:48px;padding:0 24px;gap:24px;backdrop-filter:blur(12px)}
+nav .brand{font-family:var(--display);font-weight:800;font-size:18px;color:var(--glow);letter-spacing:-1px}
+nav a{color:var(--dim);text-decoration:none;font-size:12px;font-weight:500;transition:.2s;padding:4px 0;border-bottom:2px solid transparent}
+nav a:hover,nav a.active{color:var(--bright);border-color:var(--glow)}
+nav .spacer{flex:1}
+nav .ver{font-size:11px;color:var(--dim)}
+
+/* ─── LAYOUT ─── */
+.wrap{max-width:1280px;margin:0 auto;padding:72px 32px 64px}
+section{margin-bottom:64px;opacity:0;animation:rise .6s ease forwards}
+@keyframes rise{to{opacity:1;transform:translateY(0)}}
+section:nth-child(1){animation-delay:.1s;transform:translateY(20px)}
+section:nth-child(2){animation-delay:.2s;transform:translateY(20px)}
+section:nth-child(3){animation-delay:.3s;transform:translateY(20px)}
+section:nth-child(4){animation-delay:.4s;transform:translateY(20px)}
+section:nth-child(5){animation-delay:.5s;transform:translateY(20px)}
+section:nth-child(6){animation-delay:.6s;transform:translateY(20px)}
+h2{font-family:var(--display);font-size:28px;font-weight:700;color:var(--bright);margin-bottom:8px;letter-spacing:-.5px}
+h3{font-family:var(--display);font-size:18px;font-weight:600;color:var(--bright);margin:20px 0 10px}
+.subtitle{color:var(--dim);font-size:12px;margin-bottom:24px}
+hr{border:none;border-top:1px solid var(--border);margin:48px 0}
+
+/* ─── SYSTEM OVERVIEW ─── */
+.sys-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.proc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;cursor:pointer;transition:.25s;position:relative;overflow:hidden}
+.proc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:8px 8px 0 0}
+.proc:nth-child(1)::before{background:var(--glow)}
+.proc:nth-child(2)::before{background:var(--info)}
+.proc:nth-child(3)::before{background:var(--teal)}
+.proc:hover{border-color:var(--glow);transform:translateY(-2px);box-shadow:0 8px 24px rgba(233,69,96,.1)}
+.proc .port{font-size:11px;color:var(--glow);font-weight:600;float:right;background:rgba(233,69,96,.1);padding:2px 8px;border-radius:4px}
+.proc h4{font-family:var(--display);font-size:15px;color:var(--bright);margin-bottom:6px}
+.proc p{color:var(--dim);font-size:11px;line-height:1.5}
+.proc .files{margin-top:10px;font-size:11px;color:var(--dim);border-top:1px solid var(--border);padding-top:8px}
+.proc .files code{color:var(--info);font-size:11px}
+
+/* ─── PIPELINE FLOW ─── */
+.pipeline{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:16px 0}
+.step{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;transition:.2s;position:relative;white-space:nowrap}
+.step:hover{border-color:var(--glow);background:var(--raised);z-index:2}
+.step.cat-detect{border-left:3px solid var(--info)}
+.step.cat-score{border-left:3px solid var(--warn)}
+.step.cat-filter{border-left:3px solid var(--glow)}
+.step.cat-embed{border-left:3px solid #a371f7}
+.step.cat-cluster{border-left:3px solid var(--teal)}
+.step.cat-select{border-left:3px solid #f0883e}
+.arrow{color:var(--dim);font-size:14px;flex-shrink:0}
+.step-detail{display:none;background:var(--raised);border:1px solid var(--glow);border-radius:8px;padding:16px;margin-top:12px;font-size:12px;animation:fadeIn .2s}
+.step-detail.show{display:block}
+.step-detail .field{display:flex;gap:8px;margin-bottom:4px}
+.step-detail .field .k{color:var(--dim);min-width:100px}
+.step-detail .field .v{color:var(--bright)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.legend{display:flex;gap:16px;margin:16px 0;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+.legend-item .swatch{width:12px;height:12px;border-radius:2px;border:1px solid var(--border)}
+
+/* ─── DATA MODEL ─── */
+.model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.entity{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:.2s}
+.entity:hover{border-color:var(--glow)}
+.entity h4{font-size:13px;color:var(--bright);font-family:var(--display);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.entity h4 .dot{width:8px;height:8px;border-radius:50%}
+.entity .cols{font-size:11px;color:var(--dim);line-height:1.8}
+.entity .cols .pk{color:var(--glow)}
+.entity .cols .fk{color:var(--info)}
+.entity .cols .json{color:var(--warn)}
+
+/* ─── API ─── */
+.api-group{margin-bottom:16px}
+.api-group h4{font-size:13px;color:var(--info);margin-bottom:8px;font-family:var(--display)}
+.endpoint{display:grid;grid-template-columns:60px 1fr 1fr;gap:8px;padding:5px 0;border-bottom:1px solid rgba(48,54,61,.5);font-size:12px;align-items:center}
+.endpoint:last-child{border:none}
+.method{font-weight:600;font-size:11px;padding:2px 6px;border-radius:3px;text-align:center}
+.method.get{background:rgba(63,185,80,.15);color:var(--teal)}
+.method.post{background:rgba(88,166,255,.15);color:var(--info)}
+.method.patch{background:rgba(210,153,34,.15);color:var(--warn)}
+.method.delete{background:rgba(233,69,96,.15);color:var(--glow)}
+.path{color:var(--bright);font-family:var(--mono)}
+.desc{color:var(--dim)}
+
+/* ─── PAGES ─── */
+.pages-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pg{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;transition:.2s}
+.pg:hover{border-color:var(--glow)}
+.pg h4{font-size:13px;color:var(--bright);font-family:var(--display);margin-bottom:4px}
+.pg .file{font-size:11px;color:var(--info);margin-bottom:6px}
+.pg p{font-size:11px;color:var(--dim);line-height:1.5}
+
+/* ─── DATA FLOW ─── */
+.flow{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px}
+.flow h4{font-size:14px;color:var(--bright);font-family:var(--display);margin-bottom:12px}
+.flow-steps{counter-reset:flowstep}
+.flow-step{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid rgba(48,54,61,.3);font-size:12px;align-items:flex-start}
+.flow-step:last-child{border:none}
+.flow-step::before{counter-increment:flowstep;content:counter(flowstep);background:var(--glow);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;margin-top:1px}
+.flow-step code{background:var(--raised);padding:1px 6px;border-radius:3px;color:var(--info);font-size:11px}
+.flow-step .component{color:var(--teal);font-weight:500}
+
+/* ─── FC INTEGRATION ─── */
+.export-files{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin:12px 0}
+.export-file{background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px}
+.export-file .fname{color:var(--bright);font-weight:500}
+.export-file .fdesc{color:var(--dim);font-size:10px;margin-top:2px}
+
+/* ─── CACHE ─── */
+.cache-table{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+.cache-table th{text-align:left;padding:8px;color:var(--dim);border-bottom:1px solid var(--border);font-weight:600;font-size:11px;text-transform:uppercase}
+.cache-table td{padding:8px;border-bottom:1px solid rgba(48,54,61,.3)}
+.cache-table .yes{color:var(--teal)}
+.cache-table .no{color:var(--glow)}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">Albumify</span>
+  <a href="#overview" class="active">Overview</a>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#datamodel">Data Model</a>
+  <a href="#api">API</a>
+  <a href="#pages">Frontend</a>
+  <a href="#fcapp">FC Integration</a>
+  <a href="#cache">Cache</a>
+  <span class="spacer"></span>
+  <span class="ver">Architecture Doc v1 — 2026-05-02</span>
+</nav>
+
+<div class="wrap">
+
+<!-- ════════ SECTION: OVERVIEW ════════ -->
+<section id="overview">
+  <h2>System Overview</h2>
+  <p class="subtitle">Three processes, one database, shared configuration</p>
+
+  <div class="sys-grid">
+    <div class="proc">
+      <span class="port">:8000</span>
+      <h4>FastAPI Backend</h4>
+      <p>REST API + WebSocket. Pipeline execution, data persistence, feature caching. SQLite via SQLAlchemy.</p>
+      <div class="files">
+        <code>sim_bench/api/main.py</code><br>
+        <code>sim_bench/api/routers/</code> — 8 routers<br>
+        <code>sim_bench/api/services/</code> — 5 services<br>
+        <code>sim_bench/api/database/</code> — models + session
+      </div>
+    </div>
+    <div class="proc">
+      <span class="port">:8501</span>
+      <h4>Albumify (Main App)</h4>
+      <p>Streamlit frontend. 7 pages: Home, Albums, Configure &amp; Run, Results, People &amp; Faces, Explore, Export.</p>
+      <div class="files">
+        <code>app/streamlit/main.py</code><br>
+        <code>app/streamlit/pages/</code> — 7 pages<br>
+        <code>app/streamlit/components/</code> — gallery, popup, bbox, people_browser, pipeline_runner
+      </div>
+    </div>
+    <div class="proc">
+      <span class="port">:8502</span>
+      <h4>Face Clustering App</h4>
+      <p>Standalone Streamlit app. 11 tabs for deep face clustering analysis, merge decisions, ML training.</p>
+      <div class="files">
+        <code>app/face_clustering/main.py</code><br>
+        <code>app/face_clustering/tabs/</code> — 11 tabs<br>
+        <code>face_cluster/</code> — algorithms<br>
+        Shared: <code>ProfileStore</code>, <code>merge_controls</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SECTION: PIPELINE ════════ -->
+<section id="pipeline">
+  <h2>Pipeline Flow</h2>
+  <p class="subtitle">16 steps executed sequentially. Each reads/writes PipelineContext and emits StepDecision records.</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="swatch" style="background:var(--info)"></div>Detection</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--warn)"></div>Scoring</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--glow)"></div>Filtering</div>
+    <div class="legend-item"><div class="swatch" style="background:#a371f7"></div>Embedding</div>
+    <div class="legend-item"><div class="swatch" style="background:var(--teal)"></div>Clustering</div>
+    <div class="legend-item"><div class="swatch" style="background:#f0883e"></div>Selection</div>
+  </div>
+
+  <div class="pipeline" id="pipeline-flow">
+    <div class="step cat-detect" onclick="showStep(this,'Discovers all images in source directory','discover_images','image_paths','—')">discover_images</div><span class="arrow">→</span>
+    <div class="step cat-detect" onclick="showStep(this,'YOLOv8-Pose person detection','detect_persons','image_paths','persons{path→bbox,conf,body_facing}')">detect_persons</div><span class="arrow">→</span>
+    <div class="step cat-detect" onclick="showStep(this,'InsightFace SCRFD face detection','insightface_detect_faces','image_paths, persons','insightface_faces{path→faces[bbox,landmarks,conf]}')">detect_faces</div><span class="arrow">→</span>
+    <div class="step cat-score" onclick="showStep(this,'Smile detection via MediaPipe mesh','score_expression','insightface_faces','face_smile_scores')">score_expression</div><span class="arrow">→</span>
+    <div class="step cat-score" onclick="showStep(this,'Eye Aspect Ratio scoring','score_eyes','insightface_faces','face_eyes_scores')">score_eyes</div><span class="arrow">→</span>
+    <div class="step cat-score" onclick="showStep(this,'Frontal score from landmarks','score_pose','insightface_faces','face_pose_scores')">score_pose</div><span class="arrow">→</span>
+    <div class="step cat-score" onclick="showStep(this,'MUSIQ image quality assessment','score_iqa','image_paths','iqa_scores')">score_iqa</div><span class="arrow">→</span>
+    <div class="step cat-score" onclick="showStep(this,'AVA aesthetic scoring','score_ava','image_paths','ava_scores')">score_ava</div><span class="arrow">→</span>
+    <div class="step cat-filter" onclick="showStep(this,'Filter by IQA + sharpness thresholds','filter_quality','iqa_scores, sharpness_scores','quality_passed, active_images')">filter_quality</div><span class="arrow">→</span>
+    <div class="step cat-embed" onclick="showStep(this,'DINOv2/ResNet scene features','extract_scene_embedding','active_images','scene_embeddings')">scene_embed</div><span class="arrow">→</span>
+    <div class="step cat-cluster" onclick="showStep(this,'HDBSCAN scene grouping','cluster_scenes','scene_embeddings','scene_clusters, scene_cluster_labels')">cluster_scenes</div><span class="arrow">→</span>
+    <div class="step cat-embed" onclick="showStep(this,'ArcFace/InsightFace face embeddings','extract_face_embeddings','insightface_faces','face_embeddings')">face_embed</div><span class="arrow">→</span>
+    <div class="step cat-cluster" onclick="showStep(this,'Mutual kNN + merge (face_cluster_knn)','cluster_people','face_embeddings','people_clusters, fc_export_dir')">cluster_people</div><span class="arrow">→</span>
+    <div class="step cat-cluster" onclick="showStep(this,'Exemplar-based face attachment','identity_refinement','people_clusters','refined_people_clusters')">id_refine</div><span class="arrow">→</span>
+    <div class="step cat-cluster" onclick="showStep(this,'Sub-cluster scenes by face identity','cluster_by_identity','scene_clusters, people_clusters','face_clusters')">cluster_by_id</div><span class="arrow">→</span>
+    <div class="step cat-select" onclick="showStep(this,'Composite scoring + dissimilarity selection','select_best','scene_clusters, composite_scores','selected_images')">select_best</div>
+  </div>
+
+  <div class="step-detail" id="step-info">
+    <div class="field"><span class="k">Step:</span><span class="v" id="si-name">—</span></div>
+    <div class="field"><span class="k">Description:</span><span class="v" id="si-desc">Click a step above</span></div>
+    <div class="field"><span class="k">Reads:</span><span class="v" id="si-reads">—</span></div>
+    <div class="field"><span class="k">Writes:</span><span class="v" id="si-writes">—</span></div>
+    <div class="field"><span class="k">StepDecision:</span><span class="v">Yes — emits per-item decision with reason, config_used, metrics</span></div>
+  </div>
+
+  <h3>Face Clustering Sub-Pipeline (inside cluster_people)</h3>
+  <p class="subtitle">When method=face_cluster_knn, delegates to face_cluster/ algorithms</p>
+  <div class="pipeline">
+    <div class="step cat-filter">quality_gate<br><span style="font-size:10px;color:var(--dim)">blur/pose disabled</span></div><span class="arrow">→</span>
+    <div class="step cat-cluster">KNNGraphBuilder<br><span style="font-size:10px;color:var(--dim)">mutual kNN, K=5</span></div><span class="arrow">→</span>
+    <div class="step cat-cluster">ConnectedComponents<br><span style="font-size:10px;color:var(--dim)">graph → clusters</span></div><span class="arrow">→</span>
+    <div class="step cat-cluster">D10Exemplars<br><span style="font-size:10px;color:var(--dim)">ranking + suppression</span></div><span class="arrow">→</span>
+    <div class="step cat-cluster" style="border-color:var(--glow)">ConservativeMerger<br><span style="font-size:10px;color:var(--dim)">4-gate: A∨B∧C∧D</span></div><span class="arrow">→</span>
+    <div class="step cat-embed">export<br><span style="font-size:10px;color:var(--dim)">crops + CSVs</span></div>
+  </div>
+</section>
+
+<!-- ════════ SECTION: DATA MODEL ════════ -->
+<section id="datamodel">
+  <h2>Data Model</h2>
+  <p class="subtitle">SQLite database at ~/.sim_bench/sim_bench.db</p>
+
+  <div class="model-grid">
+    <div class="entity">
+      <h4><div class="dot" style="background:var(--info)"></div>Album</h4>
+      <div class="cols">
+        <span class="pk">id</span> (UUID PK)<br>
+        name, <code>source_path</code><br>
+        image_count, created_at<br>
+        → has many PipelineRuns
+      </div>
+    </div>
+    <div class="entity">
+      <h4><div class="dot" style="background:var(--teal)"></div>PipelineRun</h4>
+      <div class="cols">
+        <span class="pk">id</span> (UUID PK)<br>
+        <span class="fk">album_id</span> (FK → Album)<br>
+        pipeline_name, steps, status<br>
+        <span class="json">step_configs</span> (JSON)<br>
+        created_at, started_at, completed_at
+      </div>
+    </div>
+    <div class="entity">
+      <h4><div class="dot" style="background:var(--glow)"></div>PipelineResult</h4>
+      <div class="cols">
+        <span class="pk">id</span> (UUID PK)<br>
+        <span class="fk">run_id</span> (FK → PipelineRun)<br>
+        total_images, num_selected<br>
+        <span class="json">image_metrics</span> (JSON)<br>
+        <span class="json">step_decisions</span> (JSON)<br>
+        <span class="json">scene_clusters</span> (JSON)<br>
+        <span class="json">selected_images</span> (JSON)<br>
+        fc_export_dir
+      </div>
+    </div>
+    <div class="entity">
+      <h4><div class="dot" style="background:#a371f7"></div>Person</h4>
+      <div class="cols">
+        <span class="pk">id</span> (UUID PK)<br>
+        <span class="fk">album_id</span>, <span class="fk">run_id</span><br>
+        person_index, name<br>
+        <span class="json">face_instances</span> (JSON)<br>
+        face_count, image_count<br>
+        thumbnail_image_path, thumbnail_bbox
+      </div>
+    </div>
+    <div class="entity">
+      <h4><div class="dot" style="background:var(--warn)"></div>UniversalCache</h4>
+      <div class="cols">
+        <span class="pk">id</span> (auto PK)<br>
+        image_path, feature_type<br>
+        model_name, model_version<br>
+        <code>data_blob</code> (bytes)<br>
+        Shared across runs
+      </div>
+    </div>
+    <div class="entity">
+      <h4><div class="dot" style="background:var(--dim)"></div>ConfigProfile</h4>
+      <div class="cols">
+        <span class="pk">id</span> (UUID PK)<br>
+        name, description<br>
+        <span class="json">config</span> (JSON)<br>
+        is_default, user_id
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SECTION: API ════════ -->
+<section id="api">
+  <h2>API Endpoints</h2>
+  <p class="subtitle">FastAPI at :8000 — routers in sim_bench/api/routers/</p>
+
+  <div class="api-group">
+    <h4>Albums</h4>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/api/v1/albums/</span><span class="desc">Create album from source directory</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/albums/</span><span class="desc">List all albums</span></div>
+    <div class="endpoint"><span class="method delete">DELETE</span><span class="path">/api/v1/albums/{id}</span><span class="desc">Delete album + cascade</span></div>
+  </div>
+  <div class="api-group">
+    <h4>Pipeline</h4>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/api/v1/pipeline/run</span><span class="desc">Start pipeline (album_id, config, profile)</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/pipeline/{job_id}</span><span class="desc">Poll status + progress</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/pipeline/{job_id}/result</span><span class="desc">Get completed result</span></div>
+  </div>
+  <div class="api-group">
+    <h4>Results</h4>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/results/</span><span class="desc">List results (includes step_decisions)</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/results/{id}/images</span><span class="desc">Per-image metrics + filter_scores[].bbox</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/results/{id}/clusters</span><span class="desc">Scene cluster list</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/api/v1/results/{id}/export</span><span class="desc">Export selected images</span></div>
+  </div>
+  <div class="api-group">
+    <h4>People &amp; Faces</h4>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/people/{album_id}</span><span class="desc">List people (person_index for display)</span></div>
+    <div class="endpoint"><span class="method patch">PATCH</span><span class="path">/api/v1/people/{album_id}/{id}</span><span class="desc">Rename person</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/api/v1/people/{album_id}/merge</span><span class="desc">Merge people</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/albums/{id}/runs/{rid}/faces</span><span class="desc">List faces (paginated, limit=200)</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/v1/.../faces/needs-help</span><span class="desc">Borderline faces (limit=10)</span></div>
+  </div>
+</section>
+
+<!-- ════════ SECTION: FRONTEND ════════ -->
+<section id="pages">
+  <h2>Frontend Pages</h2>
+  <p class="subtitle">Albumify main app — 7 pages, sidebar navigation, .streamlit/config.toml disables auto-nav</p>
+
+  <div class="pages-grid">
+    <div class="pg">
+      <h4>Configure &amp; Run</h4>
+      <div class="file">pages/configure.py + components/pipeline_runner.py</div>
+      <p>Flat 3-column config grid (no expanders). ProfileStore shared with FC app (~/.sim_bench/profiles/). Run history table. Pipeline progress.</p>
+    </div>
+    <div class="pg">
+      <h4>Results</h4>
+      <div class="file">pages/results.py</div>
+      <p>Metrics row. Deep-link card to FC app (fc_export_dir). Photo gallery with Detail buttons → image popup. Step timings.</p>
+    </div>
+    <div class="pg">
+      <h4>People &amp; Faces</h4>
+      <div class="file">pages/people_faces.py</div>
+      <p>Named/Unnamed/Needs Help/Flagged sections. Person detail with face bounding box on representative image. Merged People + Face Management.</p>
+    </div>
+    <div class="pg">
+      <h4>Explore</h4>
+      <div class="file">pages/explore.py</div>
+      <p>6 tabs: Image Quality, Person Detection, Face Detection, Scene Clustering, Face Clustering, Selection. Shows StepDecision records with thumbnails. Paginated (20/page).</p>
+    </div>
+    <div class="pg">
+      <h4>Export</h4>
+      <div class="file">pages/export_page.py</div>
+      <p>Export selected/all images. Organize by cluster/person. Copy/symlink/move modes.</p>
+    </div>
+    <div class="pg">
+      <h4>Image Detail Popup</h4>
+      <div class="file">components/image_popup.py</div>
+      <p>@st.dialog triggered from any image. Shows: image with face bboxes, quality scores, filter/selection decisions, cluster info, per-face scores. Data preloaded (no API call).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SECTION: FC APP ════════ -->
+<section id="fcapp">
+  <h2>Face Clustering App Integration</h2>
+  <p class="subtitle">Main app exports artifacts → FC app loads via ?load_run=&lt;path&gt;</p>
+
+  <div class="flow">
+    <h4>Export Flow (main app → disk)</h4>
+    <div class="flow-steps">
+      <div class="flow-step"><code>cluster_people</code> step saves <span class="component">base_cluster_result</span> (deepcopy before merge)</div>
+      <div class="flow-step"><code>_generate_crops_from_bboxes()</code> creates 112x112 face JPEGs from source images + bboxes</div>
+      <div class="flow-step"><code>export_results()</code> writes faces.csv, clusters.csv using <span class="component">base</span> clusters</div>
+      <div class="flow-step"><code>export_merged_results()</code> writes faces_merged.csv, clusters_merged.csv using <span class="component">merged</span> clusters (when merges occurred)</div>
+      <div class="flow-step">merge_log.json serialized with <code>_numpy_safe</code> (floats, not strings)</div>
+      <div class="flow-step"><code>fc_export_dir</code> stored in PipelineResult for deep-link</div>
+    </div>
+  </div>
+
+  <h3>Export Directory Contents</h3>
+  <div class="export-files">
+    <div class="export-file"><div class="fname">faces.csv</div><div class="fdesc">Base (pre-merge) cluster assignments</div></div>
+    <div class="export-file"><div class="fname">clusters.csv</div><div class="fdesc">Base cluster metadata + exemplars</div></div>
+    <div class="export-file"><div class="fname">faces_merged.csv</div><div class="fdesc">Post-merge assignments (if merges)</div></div>
+    <div class="export-file"><div class="fname">clusters_merged.csv</div><div class="fdesc">Post-merge cluster metadata</div></div>
+    <div class="export-file"><div class="fname">embeddings.npy</div><div class="fdesc">Float32 n×512 L2-normalized</div></div>
+    <div class="export-file"><div class="fname">crops/</div><div class="fdesc">112x112 face crop JPEGs</div></div>
+    <div class="export-file"><div class="fname">crop_manifest.json</div><div class="fdesc">face_id → crop path</div></div>
+    <div class="export-file"><div class="fname">merge_log.json</div><div class="fdesc">Per-pair merge decisions (float types)</div></div>
+    <div class="export-file"><div class="fname">pipeline_run.json</div><div class="fdesc">Config, summary, stages{merge:done}</div></div>
+  </div>
+
+  <div class="flow">
+    <h4>Load Flow (FC app ← disk)</h4>
+    <div class="flow-steps">
+      <div class="flow-step">FC app reads <code>?load_run=&lt;path&gt;</code> query param</div>
+      <div class="flow-step"><code>load_pipeline_result(path)</code> reads CSVs + embeddings → builds PipelineResult</div>
+      <div class="flow-step">Sets <code>st.session_state.pipeline_result</code> with output_dir = path</div>
+      <div class="flow-step">Tabs use <code>_crop_for_face(face_id, result.output_dir)</code> → reads crop_manifest.json → opens JPEG</div>
+      <div class="flow-step">Merge Analysis uses base cluster exemplars to show face thumbnails per merge pair</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SECTION: CACHE ════════ -->
+<section id="cache">
+  <h2>Cache Architecture</h2>
+  <p class="subtitle">UniversalCache table — shared across runs, keyed by (image_path, feature_type, model_name)</p>
+
+  <table class="cache-table">
+    <thead><tr><th>Feature</th><th>Cached?</th><th>Key</th><th>Recompute Trigger</th></tr></thead>
+    <tbody>
+      <tr><td>Face detections</td><td class="yes">Yes</td><td>(path, insightface_detection, buffalo_l)</td><td>Model change</td></tr>
+      <tr><td>Face embeddings</td><td class="yes">Yes</td><td>(path:face_N, face_embedding, model)</td><td>Model change</td></tr>
+      <tr><td>IQA scores</td><td class="yes">Yes</td><td>(path, iqa, musiq)</td><td>Model change</td></tr>
+      <tr><td>AVA scores</td><td class="yes">Yes</td><td>(path, ava, resnet50)</td><td>Model change</td></tr>
+      <tr><td>Scene embeddings</td><td class="yes">Yes</td><td>(path, scene_embedding, dinov2)</td><td>Model change</td></tr>
+      <tr><td>Quality filtering</td><td class="no">No</td><td>—</td><td>Config thresholds change</td></tr>
+      <tr><td>Scene clustering</td><td class="no">No</td><td>—</td><td>Algorithm + params</td></tr>
+      <tr><td>Face clustering</td><td class="no">No</td><td>—</td><td>K, distance_threshold, merge params</td></tr>
+      <tr><td>Selection</td><td class="no">No</td><td>—</td><td>max_per_cluster, min_score</td></tr>
+    </tbody>
+  </table>
+
+  <h3>ProfileStore</h3>
+  <p style="font-size:12px;color:var(--dim);margin:8px 0">~/.sim_bench/profiles/*.json — shared between main app and FC app. Same rc_* widget keys in both apps. Supports load/save/default profiles.</p>
+</section>
+
+</div>
+
+<script>
+// Nav highlight on scroll
+const sections=document.querySelectorAll('section');
+const navLinks=document.querySelectorAll('nav a');
+window.addEventListener('scroll',()=>{
+  let current='';
+  sections.forEach(s=>{if(window.scrollY>=s.offsetTop-100)current=s.id});
+  navLinks.forEach(a=>{a.classList.toggle('active',a.getAttribute('href')==='#'+current)});
+});
+
+// Pipeline step detail
+function showStep(el,desc,name,reads,writes){
+  document.querySelectorAll('.step').forEach(s=>s.style.background='');
+  el.style.background='var(--raised)';
+  const info=document.getElementById('step-info');
+  info.classList.add('show');
+  document.getElementById('si-name').textContent=name;
+  document.getElementById('si-desc').textContent=desc;
+  document.getElementById('si-reads').textContent=reads;
+  document.getElementById('si-writes').textContent=writes;
+}
+</script>
+</body>
+</html>

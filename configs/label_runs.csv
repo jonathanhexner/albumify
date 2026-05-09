@@ -1,0 +1,7 @@
+dataset,run_id,crop_source,enabled,K,distance_threshold,n_clusters,pairs_at_045,pairs_at_060,notes
+Google_Germany,Germany_12,,1,50,0.35,26,15,37,K=50 proper config; earliest pre-merge run
+Google_Germany,Germany_10,,0,5,0.35,102,748,748,EXCLUDED: K=5 caused extreme fragmentation (748 pairs are artifacts not real candidates)
+Austria_24,Austria24_1,,1,50,0.35,39,30,130,K=50; 29 existing DB merge labels
+Shira_Album1,shira_album1/base,,1,51,0.35,49,13,103,Largest album (2236 faces); use threshold 0.60 for ~103 pairs
+Noa_5-7,Noa5-7,,1,50,0.35,20,2,9,K=50; low pair count at 0.45; use 0.60 for ~9 pairs
+Noa_2-5,Noa2-5,,1,49,0.35,9,0,1,Small album (418 faces); very few candidates; low priority

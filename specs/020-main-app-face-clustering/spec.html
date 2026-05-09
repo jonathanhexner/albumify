@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec 020 — Unified Face Clustering: Connected Apps</title>
+<style>
+  :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9;
+          --heading: #e6edf3; --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+          --orange: #d29922; --purple: #bc8cff; --dim: #8b949e; --cyan: #56d4dd; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif;
+         line-height: 1.6; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  h1 { color: var(--heading); font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 24px; }
+  h2 { color: var(--accent); font-size: 20px; margin: 36px 0 12px; }
+  h3 { color: var(--heading); font-size: 16px; margin: 20px 0 8px; }
+  p, li { font-size: 14px; }
+  ul, ol { padding-left: 20px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .card-title { color: var(--heading); font-weight: 600; font-size: 15px; margin-bottom: 8px; }
+  code { background: #1f2937; padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--orange); }
+  pre { background: #1f2937; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; margin: 8px 0; line-height: 1.5; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .tag-new { background: #0d419d; color: #79c0ff; }
+  .tag-mod { background: #4d2d00; color: #e3b341; }
+  .tag-keep { background: #0f3a22; color: #56d364; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+  th, td { padding: 8px 10px; border: 1px solid var(--border); text-align: left; }
+  th { background: #1f2937; color: var(--heading); }
+  .flow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  .flow-box { background: #1f2937; border: 1px solid var(--border); border-radius: 6px;
+              padding: 8px 14px; font-size: 13px; text-align: center; min-width: 120px; }
+  .flow-box.new { border-color: var(--green); background: #0f3a2233; }
+  .flow-box.removed { border-color: var(--red); background: #5c1a1a33; text-decoration: line-through; opacity: 0.6; }
+  .flow-box.bridge { border-color: var(--cyan); background: #0d3d4433; }
+  .flow-arrow { color: var(--dim); font-size: 18px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .cols { grid-template-columns: 1fr; } }
+  .risk { border-left: 3px solid var(--orange); padding-left: 12px; margin: 8px 0; }
+  .section-num { color: var(--purple); font-weight: 700; margin-right: 6px; }
+  /* Mock styles */
+  .mock { background: #0d1117; border: 2px solid var(--border); border-radius: 10px; padding: 0; margin: 16px 0; overflow: hidden; }
+  .mock-titlebar { background: #1f2937; padding: 8px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+  .mock-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .mock-body { padding: 20px; }
+  .mock-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .mock-tab { padding: 8px 16px; font-size: 12px; color: var(--dim); cursor: pointer; border-bottom: 2px solid transparent; }
+  .mock-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .mock-section { margin: 12px 0; }
+  .mock-label { font-size: 11px; color: var(--dim); margin-bottom: 4px; }
+  .mock-select { background: #1f2937; border: 1px solid var(--border); border-radius: 4px;
+                 padding: 6px 10px; color: var(--text); font-size: 12px; width: 100%; }
+  .mock-slider { width: 100%; height: 4px; background: var(--border); border-radius: 2px;
+                 position: relative; margin: 8px 0; }
+  .mock-slider-thumb { position: absolute; width: 14px; height: 14px; background: var(--accent);
+                       border-radius: 50%; top: -5px; }
+  .mock-checkbox { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 4px 0; }
+  .mock-check { width: 14px; height: 14px; border: 1px solid var(--border); border-radius: 3px; background: #1f2937; }
+  .mock-check.checked { background: var(--accent); border-color: var(--accent); }
+  .mock-btn { display: inline-block; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .mock-btn-primary { background: var(--accent); color: #0d1117; }
+  .mock-btn-secondary { background: #1f2937; color: var(--text); border: 1px solid var(--border); }
+  .mock-link { color: var(--accent); text-decoration: none; font-size: 12px; }
+  .mock-link:hover { text-decoration: underline; }
+  .mock-metric { text-align: center; }
+  .mock-metric-value { font-size: 24px; font-weight: 700; color: var(--heading); }
+  .mock-metric-label { font-size: 11px; color: var(--dim); }
+  .mock-alert { background: #0f3a22; border: 1px solid #238636; border-radius: 6px; padding: 10px 14px; font-size: 12px; color: var(--green); margin: 12px 0; }
+  .mock-info { background: #0d2d6b; border: 1px solid #1f6feb; border-radius: 6px; padding: 10px 14px; font-size: 12px; color: #79c0ff; margin: 12px 0; }
+  .mock-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .mock-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .mock-expander { border: 1px solid var(--border); border-radius: 6px; margin: 8px 0; }
+  .mock-expander-header { padding: 8px 12px; font-size: 12px; background: #1f2937; border-radius: 6px 6px 0 0; cursor: pointer; display: flex; justify-content: space-between; }
+  .mock-expander-body { padding: 12px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Spec 020 — Unified Face Clustering: Connected Apps</h1>
+<p style="color:var(--dim)">Date: 2026-04-30 &nbsp;|&nbsp; Status: DRAFT &nbsp;|&nbsp; Revision: 2 (connected-apps approach)</p>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">1</span> Problem &amp; Goal</h2>
+
+<div class="card">
+  <p>The main album app and the standalone face clustering app use <strong>different clustering algorithms</strong>.
+  Bug fixes and improvements (SIGHTING-030, spec-019 OR gate, exemplar reselection) only land in <code>face_cluster/</code>.
+  The main app gets none of these.</p>
+  <p style="margin-top:8px"><strong>Goal:</strong> One algorithm, two entry points. The main app uses the same
+  <code>face_cluster/</code> algorithm classes. After clustering, results are exported in the standalone app's
+  format so the user can open them in the face clustering app for deep analysis, recluster, merge tuning, etc.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">2</span> Architecture: Connected Apps via Shared Data</h2>
+
+<div class="card" style="overflow-x:auto">
+<pre style="margin:0;color:var(--text)">
+  MAIN APP (album pipeline)                    STANDALONE APP (face clustering)
+  ========================                     ==============================
+
+  detect_faces                                 FaceClusteringPipeline.run(config)
+  align_faces                                    discover -> embed -> quality
+  extract_embeddings                             -> crops -> cluster -> exemplars
+       |                                         -> merge -> export
+       v                                              |
+  cluster_people                                      v
+    method: face_cluster_knn  ----+            results/&lt;album&gt;/&lt;run&gt;/
+       |                          |              faces.csv
+       |   +-- exports artifacts -+              embeddings.npy
+       |   |                                     cluster_result.npz
+       v   v                                     merge_log.json
+  results/&lt;album&gt;/face_clustering/               pipeline_run.json
+    faces.csv                                         |
+    embeddings.npy            <--- same format ---    |
+    cluster_result.npz                                |
+    merge_log.json                                    v
+    pipeline_run.json                            Standalone app loads it:
+       |                                         11 tabs, recluster, merge
+       v                                         analysis, ML training
+  cluster_by_identity
+  select_best
+  ...
+
+  Main app UI shows link:
+  "Open in Face Clustering App →"
+</pre>
+</div>
+
+<div class="card">
+  <div class="card-title">Key insight</div>
+  <p>The two apps are connected by <strong>data, not code</strong>. The main app exports face clustering
+  artifacts in the same file format the standalone app reads. This means:</p>
+  <ul>
+    <li>No shared orchestration layer needed</li>
+    <li>The standalone app's full power (recluster, merge analysis, parameter tuning) is available for any album</li>
+    <li>If the user reclusters in the standalone app, results can be re-imported into the main app</li>
+    <li>Each app evolves independently — the file format is the contract</li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">3</span> Pipeline Change: Add Method, Don't Replace Step</h2>
+
+<p>Rather than creating a new pipeline step, we add <code>face_cluster_knn</code> as a new <strong>method</strong>
+in the existing <code>cluster_people</code> step. All existing methods (HDBSCAN, agglomerative, etc.) remain available.</p>
+
+<h3>Current methods in <code>cluster_people</code>:</h3>
+<div class="flow">
+  <div class="flow-box">hdbscan</div>
+  <div class="flow-box">hdbscan_pca</div>
+  <div class="flow-box">hybrid_hdbscan_knn</div>
+  <div class="flow-box">mutual_knn</div>
+  <div class="flow-box">agglomerative</div>
+  <div class="flow-box new">face_cluster_knn<br><small>NEW — delegates to face_cluster/</small></div>
+</div>
+
+<div class="card">
+  <div class="card-title">Why add a method, not a new step?</div>
+  <ul>
+    <li>No pipeline YAML changes needed — just change <code>method:</code> value</li>
+    <li>No <code>all_steps.py</code> registration</li>
+    <li>Same context output contract — <code>people_clusters</code> is written identically</li>
+    <li>User can switch back to old method instantly if needed</li>
+    <li>The <code>identity_refinement</code> step is kept — it handles noise attachment, user overrides, exemplar export. The new method writes <code>people_clusters</code> and identity_refinement handles the rest</li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">4</span> Data Export: The Bridge Between Apps</h2>
+
+<div class="card">
+  <p>After the <code>face_cluster_knn</code> method runs, it exports artifacts to
+  <code>results/&lt;album&gt;/face_clustering/</code> in the standalone app's format:</p>
+  <table>
+    <tr><th>File</th><th>Content</th><th>Required by standalone app?</th></tr>
+    <tr><td><code>faces.csv</code></td><td>Face metadata + cluster_id + quality verdicts</td><td>Yes (mandatory)</td></tr>
+    <tr><td><code>embeddings.npy</code></td><td>n_faces x 512 float32 L2-normalized</td><td>Yes (for recluster)</td></tr>
+    <tr><td><code>embedding_face_ids.npy</code></td><td>face_id per embedding row</td><td>Yes (for recluster)</td></tr>
+    <tr><td><code>pipeline_run.json</code></td><td>Config, timing, summary</td><td>Yes (mandatory)</td></tr>
+    <tr><td><code>clusters.csv</code></td><td>Cluster summary (size, exemplars, diameter)</td><td>For full view</td></tr>
+    <tr><td><code>merge_log.json</code></td><td>Merge decisions (if merge enabled)</td><td>For merge analysis</td></tr>
+    <tr><td><code>crop_manifest.json</code></td><td>face_id -> crop path mapping</td><td>For crop display</td></tr>
+  </table>
+  <p style="margin-top:8px">This is the <strong>same format</strong> the standalone app already writes and reads.
+  No new format to design — we reuse <code>face_cluster/export.py</code> functions.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">5</span> User Flow</h2>
+
+<div class="card">
+  <ol>
+    <li><strong>Main app:</strong> User selects album, picks <code>face_cluster_knn</code> method, runs pipeline</li>
+    <li><strong>Main app:</strong> Pipeline clusters faces, exports artifacts, shows results in People tab</li>
+    <li><strong>Main app:</strong> UI shows "Analyze in Face Clustering App" link (deep-link with <code>?load_run=path</code>)</li>
+    <li><strong>Standalone app:</strong> User clicks link → standalone app opens with that run loaded</li>
+    <li><strong>Standalone app:</strong> User can recluster, tune merge params, analyze merge decisions, train ML model</li>
+    <li><strong>Main app:</strong> (optional) User re-imports updated clusters from standalone app recluster</li>
+  </ol>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">6</span> Files Changed</h2>
+
+<div class="cols">
+  <div class="card">
+    <div class="card-title"><span class="tag tag-mod">MOD</span> sim_bench/pipeline/steps/cluster_people.py</div>
+    <ul>
+      <li>Add <code>elif method == "face_cluster_knn":</code> branch (~60 lines)</li>
+      <li>Bridge: context → <code>FaceRecord</code> → algorithm → <code>FaceForClustering</code></li>
+      <li>Export artifacts to <code>results/&lt;album&gt;/face_clustering/</code></li>
+      <li>All existing methods untouched</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="tag tag-mod">MOD</span> configs/pipeline.yaml</div>
+    <ul>
+      <li>Change <code>method: hybrid_hdbscan_knn</code> → <code>method: face_cluster_knn</code></li>
+      <li>Add face_cluster config keys (K, distance_threshold, etc.)</li>
+      <li>Old config keys remain for backward compat</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="tag tag-mod">MOD</span> app/streamlit/components/pipeline_runner.py</div>
+    <ul>
+      <li>Add <code>face_cluster_knn</code> to method selector dropdown</li>
+      <li>Show kNN + quality + merge controls when selected</li>
+      <li>Show "Open in Face Clustering App" link after pipeline completes</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="tag tag-new">NEW</span> tests/test_cluster_faces_knn_method.py</div>
+    <ul>
+      <li>Purity + completeness on synthetic embeddings</li>
+      <li>Quality gating holdout path</li>
+      <li>Export artifacts exist and are loadable by standalone app</li>
+      <li>Context <code>people_clusters</code> format matches downstream expectations</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="tag tag-keep">KEEP</span> face_cluster/ (entire module)</div>
+    <p style="font-size:13px">No changes. Algorithm classes called directly.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="tag tag-keep">KEEP</span> app/face_clustering/ (standalone app)</div>
+    <p style="font-size:13px">No changes. Already supports loading any run via <code>?load_run=</code> deep link.</p>
+  </div>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">7</span> Config</h2>
+
+<div class="card">
+  <pre>
+# configs/pipeline.yaml
+cluster_people:
+  method: face_cluster_knn        # NEW — was hybrid_hdbscan_knn
+  # Base clustering (face_cluster.PipelineConfig fields)
+  K: 5
+  distance_threshold: 0.35
+  min_cluster_size: 2
+  # Quality gating
+  yaw_max: 30
+  pitch_max: 25
+  blur_min: 50
+  # Optional stages
+  merge_enabled: false
+  attach_enabled: false
+  # Merge params (when merge_enabled: true)
+  merge_exemplar_threshold: 0.35
+  merge_cross_threshold: 0.40
+  merge_cross_max_size: 5
+  merge_support_min: 2
+  merge_margin: 0.05
+  merge_diameter_expansion_factor: 1.5
+  # Export for standalone app analysis
+  export_for_analysis: true       # write artifacts for standalone app</pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">8</span> Risks</h2>
+
+<div class="risk">
+  <strong>R1: Blur score source</strong> — <code>QualityGater</code> needs <code>blur_score</code>.
+  Main pipeline may not store it per-face. <strong>Fix:</strong> compute from aligned crop in bridge,
+  or skip blur gate if crops unavailable.
+</div>
+<div class="risk">
+  <strong>R2: Pose format</strong> — InsightFace returns <code>(pitch, yaw, roll)</code>; face_cluster expects
+  <code>(yaw, pitch, roll)</code>. <strong>Fix:</strong> reorder in bridge function (same logic as <code>embedding.py</code>).
+</div>
+<div class="risk">
+  <strong>R3: Export path</strong> — must not collide with standalone app runs or previous pipeline runs.
+  <strong>Fix:</strong> use <code>results/&lt;album&gt;/face_clustering_&lt;timestamp&gt;/</code>.
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">9</span> Implementation Tasks</h2>
+
+<div class="card">
+  <table>
+    <tr><th>#</th><th>Task</th><th>Effort</th></tr>
+    <tr><td>T1</td><td>Add <code>face_cluster_knn</code> method branch to <code>cluster_people.py</code> with bridge functions</td><td>Medium</td></tr>
+    <tr><td>T2</td><td>Add artifact export call (reuse <code>face_cluster/export.py</code> functions)</td><td>Small</td></tr>
+    <tr><td>T3</td><td>Update <code>pipeline.yaml</code> config block</td><td>Small</td></tr>
+    <tr><td>T4</td><td>Add <code>face_cluster_knn</code> to UI method dropdown + config controls</td><td>Medium</td></tr>
+    <tr><td>T5</td><td>Add "Open in Face Clustering App" deep-link button in results UI</td><td>Small</td></tr>
+    <tr><td>T6</td><td>Unit tests: clustering correctness, export format, context contract</td><td>Medium</td></tr>
+    <tr><td>T7</td><td>Integration test: export → standalone app <code>load_pipeline_result</code> round-trip</td><td>Small</td></tr>
+  </table>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">10</span> Acceptance Criteria</h2>
+
+<div class="card">
+  <ol>
+    <li>Pipeline runs with <code>method: face_cluster_knn</code> — clustering correct (purity + completeness)</li>
+    <li>All existing methods still work — no regression</li>
+    <li><code>identity_refinement</code> step runs after and produces <code>refined_people_clusters</code></li>
+    <li>Artifacts exported to <code>results/&lt;album&gt;/face_clustering/</code> in standalone format</li>
+    <li>Standalone app loads exported artifacts via <code>load_pipeline_result()</code> without errors</li>
+    <li>Standalone app can recluster from exported artifacts</li>
+    <li>Main app UI shows deep-link to standalone app after pipeline run</li>
+    <li>At least one test exercises holdout path (quality gating rejects faces)</li>
+  </ol>
+</div>
+
+<!-- ===================================================================== -->
+<h2><span class="section-num">11</span> Mock: Main App — Pipeline Runner</h2>
+
+<div class="mock">
+  <div class="mock-titlebar">
+    <div class="mock-dot" style="background:#ff5f57"></div>
+    <div class="mock-dot" style="background:#febc2e"></div>
+    <div class="mock-dot" style="background:#28c840"></div>
+    <span style="color:var(--dim);font-size:12px;margin-left:8px">Album Organizer — localhost:8501</span>
+  </div>
+  <div class="mock-body">
+    <div class="mock-tabs">
+      <div class="mock-tab">Albums</div>
+      <div class="mock-tab active">Pipeline</div>
+      <div class="mock-tab">People</div>
+      <div class="mock-tab">Results</div>
+    </div>
+
+    <h3 style="font-size:16px;margin-bottom:12px">Run Pipeline</h3>
+
+    <div class="mock-grid-3" style="margin-bottom:16px">
+      <div class="mock-section">
+        <div class="mock-label">Album</div>
+        <div class="mock-select">Austria_24 (753 images)</div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">Pipeline</div>
+        <div class="mock-select">insightface_pipeline</div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">People Clustering Method</div>
+        <div class="mock-select" style="border-color:var(--green);color:var(--green)">face_cluster_knn &#9660;</div>
+      </div>
+    </div>
+
+    <div class="mock-expander">
+      <div class="mock-expander-header">
+        <span>Face Clustering Parameters</span>
+        <span style="color:var(--dim)">v</span>
+      </div>
+      <div class="mock-expander-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+
+          <div>
+            <div style="color:var(--accent);font-weight:600;font-size:11px;margin-bottom:8px">BASE CLUSTERING</div>
+            <div class="mock-section">
+              <div class="mock-label">K (neighbors) <span style="float:right;color:var(--heading)">5</span></div>
+              <div class="mock-slider"><div class="mock-slider-thumb" style="left:10%"></div></div>
+            </div>
+            <div class="mock-section">
+              <div class="mock-label">distance_threshold <span style="float:right;color:var(--heading)">0.35</span></div>
+              <div class="mock-slider"><div class="mock-slider-thumb" style="left:35%"></div></div>
+            </div>
+            <div class="mock-section">
+              <div class="mock-label">min_cluster_size <span style="float:right;color:var(--heading)">2</span></div>
+              <div class="mock-slider"><div class="mock-slider-thumb" style="left:4%"></div></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="color:var(--accent);font-weight:600;font-size:11px;margin-bottom:8px">QUALITY GATING</div>
+            <div class="mock-section">
+              <div class="mock-label">yaw_max <span style="float:right;color:var(--heading)">30</span></div>
+              <div class="mock-slider"><div class="mock-slider-thumb" style="left:33%"></div></div>
+            </div>
+            <div class="mock-section">
+              <div class="mock-label">pitch_max <span style="float:right;color:var(--heading)">25</span></div>
+              <div class="mock-slider"><div class="mock-slider-thumb" style="left:28%"></div></div>
+            </div>
+            <div class="mock-section">
+              <div class="mock-label">blur_min <span style="float:right;color:var(--heading)">50</span></div>
+              <div class="mock-slider"><div class="mock-slider-thumb" style="left:20%"></div></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="color:var(--accent);font-weight:600;font-size:11px;margin-bottom:8px">OPTIONAL STAGES</div>
+            <div class="mock-checkbox"><div class="mock-check"></div> split_enabled</div>
+            <div class="mock-checkbox"><div class="mock-check checked"></div> merge_enabled</div>
+            <div class="mock-checkbox"><div class="mock-check checked"></div> attach_enabled</div>
+            <div class="mock-checkbox"><div class="mock-check checked"></div> export_for_analysis</div>
+            <div style="margin-top:12px;font-size:11px;color:var(--dim)">
+              Export clustering artifacts so you can analyze and recluster in the Face Clustering App.
+            </div>
+          </div>
+        </div>
+
+        <div class="mock-expander" style="margin-top:12px">
+          <div class="mock-expander-header">
+            <span>Merge Parameters (applied when merge is enabled)</span>
+            <span style="color:var(--dim)">v</span>
+          </div>
+          <div class="mock-expander-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+              <div class="mock-section">
+                <div class="mock-label">merge_exemplar_threshold <span style="float:right;color:var(--heading)">0.35</span></div>
+                <div class="mock-slider"><div class="mock-slider-thumb" style="left:35%"></div></div>
+              </div>
+              <div class="mock-section">
+                <div class="mock-label">merge_cross_threshold <span style="float:right;color:var(--heading)">0.40</span></div>
+                <div class="mock-slider"><div class="mock-slider-thumb" style="left:40%"></div></div>
+              </div>
+              <div class="mock-section">
+                <div class="mock-label">merge_cross_max_size <span style="float:right;color:var(--heading)">5</span></div>
+                <div class="mock-slider"><div class="mock-slider-thumb" style="left:25%"></div></div>
+              </div>
+              <div class="mock-section">
+                <div class="mock-label">merge_support_min <span style="float:right;color:var(--heading)">2</span></div>
+                <div class="mock-slider"><div class="mock-slider-thumb" style="left:10%"></div></div>
+              </div>
+              <div class="mock-section">
+                <div class="mock-label">merge_margin <span style="float:right;color:var(--heading)">0.05</span></div>
+                <div class="mock-slider"><div class="mock-slider-thumb" style="left:10%"></div></div>
+              </div>
+              <div class="mock-section">
+                <div class="mock-label">diameter_expansion_factor <span style="float:right;color:var(--heading)">1.5</span></div>
+                <div class="mock-slider"><div class="mock-slider-thumb" style="left:17%"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <span class="mock-btn mock-btn-primary">Run Pipeline</span>
+    </div>
+  </div>
+</div>
+
+<!-- Mock: Post-run results -->
+<h3 style="margin-top:24px">Mock: After Pipeline Completes</h3>
+
+<div class="mock">
+  <div class="mock-titlebar">
+    <div class="mock-dot" style="background:#ff5f57"></div>
+    <div class="mock-dot" style="background:#febc2e"></div>
+    <div class="mock-dot" style="background:#28c840"></div>
+    <span style="color:var(--dim);font-size:12px;margin-left:8px">Album Organizer — Pipeline Results</span>
+  </div>
+  <div class="mock-body">
+    <div class="mock-alert">
+      Pipeline completed in 47.3s
+    </div>
+
+    <div class="mock-grid" style="margin:16px 0">
+      <div class="mock-metric">
+        <div class="mock-metric-value">753</div>
+        <div class="mock-metric-label">Faces detected</div>
+      </div>
+      <div class="mock-metric">
+        <div class="mock-metric-value">547</div>
+        <div class="mock-metric-label">Core (quality-gated)</div>
+      </div>
+      <div class="mock-metric">
+        <div class="mock-metric-value">17</div>
+        <div class="mock-metric-label">People found</div>
+      </div>
+      <div class="mock-metric">
+        <div class="mock-metric-value">54</div>
+        <div class="mock-metric-label">Unassigned</div>
+      </div>
+    </div>
+
+    <div class="mock-info">
+      <strong>Face clustering artifacts exported</strong> to <code>results/Austria_24/face_clustering_20260430/</code><br>
+      <span style="margin-top:6px;display:inline-block">
+        <a class="mock-link" href="#">Open in Face Clustering App &rarr;</a>
+        &nbsp;&nbsp;|&nbsp;&nbsp;
+        <span style="color:var(--dim)">Recluster with different params, analyze merge decisions, train ML model</span>
+      </span>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="mock-expander">
+        <div class="mock-expander-header">
+          <span>Clustering Details: 21 base clusters &rarr; 17 after merge (4 merges, 5 iterations)</span>
+          <span style="color:var(--dim)">v</span>
+        </div>
+        <div class="mock-expander-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+            <div>Method: <code>face_cluster_knn</code> (K=5, dist=0.35)</div>
+            <div>Quality gating: 547/753 core (72.6%)</div>
+            <div>Merge: 4 merges in 5 iterations</div>
+            <div>Noise: 54 faces unassigned after attach</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Mock: Standalone app loading -->
+<h3 style="margin-top:24px">Mock: Standalone App — Loading Main App Results</h3>
+
+<div class="mock">
+  <div class="mock-titlebar">
+    <div class="mock-dot" style="background:#ff5f57"></div>
+    <div class="mock-dot" style="background:#febc2e"></div>
+    <div class="mock-dot" style="background:#28c840"></div>
+    <span style="color:var(--dim);font-size:12px;margin-left:8px">Face Clustering — localhost:8502</span>
+  </div>
+  <div class="mock-body">
+    <div class="mock-tabs">
+      <div class="mock-tab">Run</div>
+      <div class="mock-tab active">Recluster</div>
+      <div class="mock-tab">History</div>
+      <div class="mock-tab">Clusters (Base)</div>
+      <div class="mock-tab">Cluster Analysis</div>
+      <div class="mock-tab">Clusters (Merged)</div>
+      <div class="mock-tab" style="color:var(--accent)">Merge Analysis</div>
+      <div class="mock-tab">Face Analysis</div>
+      <div class="mock-tab">...</div>
+    </div>
+
+    <div class="mock-info">
+      Loaded run from main app: <code>results/Austria_24/face_clustering_20260430</code><br>
+      <span style="color:var(--dim)">753 faces &middot; 17 clusters &middot; 4 merges &middot; Source: Austria_24</span>
+    </div>
+
+    <h3 style="font-size:14px;margin:12px 0">Recluster</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:12px">
+      Re-run <strong>cluster &rarr; exemplars &rarr; merge &rarr; export</strong> on these embeddings with different parameters.
+    </p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div class="mock-section">
+        <div class="mock-label">K <span style="float:right;color:var(--heading)">7</span></div>
+        <div class="mock-slider"><div class="mock-slider-thumb" style="left:14%"></div></div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">distance_threshold <span style="float:right;color:var(--heading)">0.40</span></div>
+        <div class="mock-slider"><div class="mock-slider-thumb" style="left:40%"></div></div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">merge_exemplar_threshold <span style="float:right;color:var(--heading)">0.45</span></div>
+        <div class="mock-slider"><div class="mock-slider-thumb" style="left:45%"></div></div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <span class="mock-btn mock-btn-primary">Recluster</span>
+      <span class="mock-btn mock-btn-secondary" style="margin-left:8px">Load Profile</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

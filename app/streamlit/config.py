@@ -11,14 +11,14 @@ class AppConfig:
 
     # API settings
     api_base_url: str = "http://localhost:8000"
-    api_timeout_sec: int = 30
+    api_timeout_sec: int = 90
 
     # Polling settings
     poll_interval_sec: float = 1.0
     max_poll_attempts: int = 600  # 10 minutes max
 
     # UI settings
-    page_title: str = "Album Organizer"
+    page_title: str = "Albumify"
     page_icon: str = ":camera:"
     layout: str = "wide"
 
@@ -37,7 +37,7 @@ class AppConfig:
             api_base_url=os.getenv("API_BASE_URL", "http://localhost:8000"),
             api_timeout_sec=int(os.getenv("API_TIMEOUT_SEC", "30")),
             poll_interval_sec=float(os.getenv("POLL_INTERVAL_SEC", "1.0")),
-            page_title=os.getenv("PAGE_TITLE", "Album Organizer"),
+            page_title=os.getenv("PAGE_TITLE", "Albumify"),
             images_per_row=int(os.getenv("IMAGES_PER_ROW", "4")),
         )
 

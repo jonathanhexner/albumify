@@ -1,7 +1,7 @@
 """Filter quality step - filter images by quality thresholds."""
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
-from sim_bench.pipeline.context import PipelineContext
+from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
 
 
@@ -46,6 +46,8 @@ class FilterQualityStep(BaseStep):
         passed = set()
         total = len(context.iqa_scores)
 
+        cfg = {"min_iqa_score": min_iqa, "min_sharpness": min_sharpness}
+
         for path_str, iqa_score in context.iqa_scores.items():
             sharpness = context.sharpness_scores.get(path_str, 1.0)
 
@@ -54,6 +56,23 @@ class FilterQualityStep(BaseStep):
 
             if iqa_ok and sharpness_ok:
                 passed.add(path_str)
+                reason = f"Passed (IQA {iqa_score:.2f}, sharpness {sharpness:.2f})"
+                decision = "passed"
+            elif not iqa_ok and not sharpness_ok:
+                reason = f"IQA {iqa_score:.2f} < {min_iqa} AND sharpness {sharpness:.2f} < {min_sharpness}"
+                decision = "rejected"
+            elif not iqa_ok:
+                reason = f"IQA {iqa_score:.2f} < threshold {min_iqa}"
+                decision = "rejected"
+            else:
+                reason = f"Sharpness {sharpness:.2f} < threshold {min_sharpness}"
+                decision = "rejected"
+
+            context.step_decisions.append(StepDecision(
+                item_id=path_str, item_type="image", step="filter_quality",
+                decision=decision, reason=reason, config_used=cfg,
+                metrics={"iqa_score": round(iqa_score, 3), "sharpness": round(sharpness, 3)},
+            ))
 
         context.quality_passed = passed
         context.active_images = passed.copy()

@@ -1,12 +1,15 @@
 """Database session management."""
 
+import logging
 from pathlib import Path
 from typing import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker, Session
 
 from sim_bench.api.database.models import Base
+
+logger = logging.getLogger(__name__)
 
 
 _engine = None
@@ -27,6 +30,24 @@ def get_database_url(db_path: Path = None) -> str:
     return f"sqlite:///{db_path}"
 
 
+def _migrate_new_columns(engine) -> None:
+    """Idempotent migration: add columns that don't exist yet on existing tables."""
+    _MIGRATIONS = [
+        ("pipeline_results", "fc_export_dir", "VARCHAR"),
+        ("pipeline_results", "step_decisions", "JSON"),
+        ("pipeline_runs", "completed_steps", "JSON"),
+    ]
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table, column, col_type in _MIGRATIONS:
+            if not insp.has_table(table):
+                continue
+            existing = {c["name"] for c in insp.get_columns(table)}
+            if column not in existing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                logger.info("Migration: added %s.%s", table, column)
+
+
 def init_db(db_url: str = None) -> None:
     """Initialize database engine and create tables."""
     global _engine, _SessionLocal
@@ -38,6 +59,7 @@ def init_db(db_url: str = None) -> None:
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
     Base.metadata.create_all(_engine)
+    _migrate_new_columns(_engine)
 
 
 def get_engine():

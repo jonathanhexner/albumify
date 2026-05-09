@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Face Crop Verification</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .face-group { margin: 30px 0; padding: 20px; border: 2px solid #333; }
+        .face-img { display: inline-block; margin: 10px; text-align: center; }
+        .face-img img { border: 3px solid #ccc; }
+        .face-img .label { margin-top: 5px; font-weight: bold; }
+        h2 { color: #d00; }
+        .problem { background: #ffe6e6; }
+        .expected { background: #e6ffe6; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Face Crop Verification</h1>
+    <p><strong>Issue</strong>: Embeddings show face 545 is closest to 546 (distance 0.082), but you expected 545 to be closest to 569/573.</p>
+    <p><strong>Hypothesis</strong>: The face crop files might be mislabeled.</p>
+
+    <div class="face-group problem">
+        <h2>❌ PROBLEM: Face 545 vs 546 (very similar according to embeddings)</h2>
+        <div class="face-img">
+            <img src="file:///D:/sim-bench/results/Google_Germany/face_crops/face_0545_aligned.jpg" width="200">
+            <div class="label">Face 545</div>
+            <div>You labeled: Person 1</div>
+        </div>
+        <div class="face-img">
+            <img src="file:///D:/sim-bench/results/Google_Germany/face_crops/face_0546_aligned.jpg" width="200">
+            <div class="label">Face 546</div>
+            <div>You labeled: Person 3</div>
+        </div>
+        <p><strong>Distance: 0.0821</strong> (very close - suggests SAME person)</p>
+        <p><strong>Question</strong>: Are these actually the SAME person? If yes, the embeddings are correct!</p>
+    </div>
+
+    <div class="face-group expected">
+        <h2>✓ EXPECTED: Person 1 Group (545, 569, 573)</h2>
+        <div class="face-img">
+            <img src="file:///D:/sim-bench/results/Google_Germany/face_crops/face_0545_aligned.jpg" width="200">
+            <div class="label">Face 545</div>
+        </div>
+        <div class="face-img">
+            <img src="file:///D:/sim-bench/results/Google_Germany/face_crops/face_0569_aligned.jpg" width="200">
+            <div class="label">Face 569</div>
+        </div>
+        <div class="face-img">
+            <img src="file:///D:/sim-bench/results/Google_Germany/face_crops/face_0573_aligned.jpg" width="200">
+            <div class="label">Face 573</div>
+        </div>
+        <p><strong>Distances</strong>: 545↔569 = 0.201, 545↔573 = 0.220, 569↔573 = 0.162</p>
+        <p><strong>Question</strong>: Are these all the SAME person?</p>
+    </div>
+
+    <div class="face-group expected">
+        <h2>✓ EXPECTED: Person 2 Group (550, 551, 557)</h2>
+        <div class="face-img">
+            <img src="file:///D:/sim-bench/results/Google_Germany/face_crops/face_0550_aligned.jpg" width="200">
+            <div class="label">Face 550</div>
+        </div>
+        <div class="face-img">
+            <img src="file:///D:/sim-bench/results/Google_Germany/face_crops/face_0551_aligned.jpg" width="200">
+            <div class="label">Face 551</div>
+        </div>
+        <div class="face-img">
+            <img src="file:///D:/sim-bench/results/Google_Germany/face_crops/face_0557_aligned.jpg" width="200">
+            <div class="label">Face 557</div>
+        </div>
+        <p><strong>Distances</strong>: 550↔551 = 0.208, 550↔557 = 0.878, 551↔557 = 0.953</p>
+        <p><strong>Question</strong>: Are 550 and 551 the same person? Is 557 different?</p>
+    </div>
+
+    <h2>🔬 Diagnosis</h2>
+    <p><strong>IF</strong> faces 545 and 546 are actually the SAME person:</p>
+    <ul>
+        <li>✅ Embeddings are CORRECT</li>
+        <li>❌ Your Streamlit labeling was incorrect (mislabeled 545 or 546)</li>
+        <li>✅ No bug in the system!</li>
+    </ul>
+
+    <p><strong>IF</strong> faces 545 and 546 are DIFFERENT people:</p>
+    <ul>
+        <li>❌ Embeddings are wrong (but we regenerated 3 times with same result!)</li>
+        <li>❌ Face crops might be corrupted/misaligned</li>
+        <li>❌ OR there's a systematic bug in embedding extraction</li>
+    </ul>
+
+    <h2>📋 Action Required</h2>
+    <p>Open this HTML file and <strong>visually verify</strong>:</p>
+    <ol>
+        <li>Are faces 545 and 546 the SAME person or DIFFERENT?</li>
+        <li>Are faces 545, 569, 573 all the SAME person?</li>
+        <li>Are faces 550 and 551 the SAME person?</li>
+        <li>Is face 557 a DIFFERENT person from 550/551?</li>
+    </ol>
+
+    <p><strong>File location</strong>: D:\sim-bench\verify_faces.html</p>
+</body>
+</html>

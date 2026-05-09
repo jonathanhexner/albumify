@@ -130,12 +130,32 @@ extract_face_embeddings:
 
 # People Clustering (cluster_people) - Global identity clustering for People tab
 cluster_people:
-  method: hybrid_hdbscan_knn   # Options: hybrid_hdbscan_knn, hdbscan, hdbscan_pca, mutual_knn, agglomerative
-  # HDBSCAN base parameters
+  method: face_cluster_knn     # Options: face_cluster_knn, hybrid_hdbscan_knn, hdbscan, hdbscan_pca, mutual_knn, agglomerative
+  # --- face_cluster_knn parameters (used when method=face_cluster_knn) ---
+  K: 5                          # kNN neighbours for mutual graph
+  distance_threshold: 0.35      # Max cosine distance for edge creation
+  # min_cluster_size: 2         # shared with legacy methods below
+  # Quality gating (face_cluster_knn only)
+  yaw_max: 30.0
+  pitch_max: 25.0
+  blur_min: 50.0
+  # Optional stages
+  merge_enabled: true    # Required for Face Clustering App merge analysis
+  attach_enabled: false
+  split_enabled: false
+  # Merge thresholds (when merge_enabled: true)
+  merge_exemplar_threshold: 0.35
+  merge_cross_threshold: 0.40
+  merge_cross_max_size: 5
+  merge_support_min: 2
+  merge_margin: 0.05
+  merge_diameter_expansion_factor: 1.5
+  # Export artifacts for standalone Face Clustering App analysis
+  export_for_analysis: true
+  # --- Legacy method parameters (used by hdbscan/hybrid/mutual_knn/agglomerative) ---
   min_cluster_size: 2
   min_samples: 2
-  cluster_selection_epsilon: 0.045  # Cosine distance space (≈ 0.3 Euclidean on normalised)
-  # Hybrid local-cohesion parameters
+  cluster_selection_epsilon: 0.045  # Cosine distance space
   knn_k: 3                     # Neighbours used for d3 threshold estimation
   threshold_floor: 0.125       # Min per-cluster merge/attach threshold
   threshold_ceiling: 0.405     # Max per-cluster merge/attach threshold

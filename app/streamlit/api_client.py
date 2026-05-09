@@ -255,8 +255,9 @@ class ApiClient:
             current_step=data.get("current_step"),
             current_step_progress=data.get("progress", 0.0),
             current_step_message=data.get("message", ""),
-            completed_steps=data.get("completed_steps", []),
-            total_steps=data.get("total_steps", 0),
+            completed_steps=data.get("completed_steps") or [],
+            total_steps=data.get("total_steps") or 0,
+            started_at=data.get("started_at"),
         )
 
     def get_pipeline_result(self, job_id: str) -> Optional[PipelineResult]:
@@ -270,6 +271,7 @@ class ApiClient:
                 total_duration_ms=data.get("total_duration_ms", 0),
                 step_results=[],  # Not available in current API
                 error_message=None,
+                fc_export_dir=data.get("fc_export_dir"),
             )
         except ApiError as e:
             if e.status_code == 404:
@@ -641,6 +643,7 @@ class ApiClient:
         representative = data.get("representative_face") or data.get("thumbnail_image_path")
         return Person(
             person_id=data.get("person_id", data.get("id", "")),
+            person_index=data.get("person_index", 0),
             name=data.get("name"),
             face_count=data.get("face_count", 0),
             image_count=data.get("image_count", 0),

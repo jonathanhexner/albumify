@@ -1,4 +1,4 @@
-# Album Organization UI
+# Albumify — Album Organization UI
 
 Streamlit UI for photo album organization workflow.
 

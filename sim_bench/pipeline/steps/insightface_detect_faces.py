@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
-from sim_bench.pipeline.context import PipelineContext
+from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.serializers import Serializers
 from sim_bench.pipeline.insightface_pipeline.face_analyzer import InsightFaceFaceAnalyzer
@@ -124,6 +124,20 @@ class InsightFaceDetectFacesStep(BaseStep):
     def _store_results(self, context: PipelineContext, results: Dict[str, Dict[str, Any]], config: dict) -> None:
         """Store faces in context."""
         context.insightface_faces = results
-        
+
+        cfg = {"detection_threshold": config.get("detection_threshold", 0.5),
+               "min_face_size": config.get("min_face_size", 50)}
+        for img_path, data in results.items():
+            faces = data.get("faces", [])
+            n = len(faces)
+            confs = [f.get("confidence", 0) for f in faces]
+            context.step_decisions.append(StepDecision(
+                item_id=img_path, item_type="image", step="insightface_detect_faces",
+                decision=f"detected_{n}" if n > 0 else "no_faces",
+                reason=f"{n} face(s) detected" + (f" (conf: {', '.join(f'{c:.2f}' for c in confs)})" if confs else ""),
+                config_used=cfg,
+                metrics={"face_count": n, "confidences": [round(c, 3) for c in confs]},
+            ))
+
         total_faces = sum(len(r.get('faces', [])) for r in results.values())
         logger.info(f"Detected {total_faces} faces across {len(results)} images")

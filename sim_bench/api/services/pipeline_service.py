@@ -150,13 +150,29 @@ class PipelineService:
             for queue in job.subscribers:
                 queue.put_nowait(JobProgress(step=step, progress=progress, message=message))
 
+        # Track completed steps per-step for live progress
+        def on_step_complete(step_result) -> None:
+            """Called after each step to persist progress to DB."""
+            from sqlalchemy.orm.attributes import flag_modified
+            steps_done = list(run.completed_steps or [])
+            steps_done.append({
+                "step": step_result.step_name,
+                "duration_ms": step_result.duration_ms,
+                "status": "completed" if step_result.success else "failed",
+                "error": step_result.error_message,
+            })
+            run.completed_steps = steps_done
+            flag_modified(run, "completed_steps")
+            self._session.commit()
+
         config = PipelineConfig(
             fail_fast=run.fail_fast,
             step_configs=run.step_configs or {},
             progress_callback=progress_callback
         )
 
-        result = executor.execute(job.context, run.steps, config)
+        result = executor.execute(job.context, run.steps, config,
+                                  on_step_complete=on_step_complete)
 
         if result.success:
             run.status = "completed"
@@ -194,7 +210,14 @@ class PipelineService:
                 },
                 siamese_comparisons=job.context.siamese_comparisons or [],
                 step_timings={r.step_name: r.duration_ms for r in result.step_results},
-                total_duration_ms=result.total_duration_ms
+                total_duration_ms=result.total_duration_ms,
+                fc_export_dir=job.context.fc_export_dir,
+                step_decisions=[
+                    {"item_id": d.item_id, "item_type": d.item_type, "step": d.step,
+                     "decision": d.decision, "reason": d.reason,
+                     "config_used": d.config_used, "metrics": d.metrics}
+                    for d in (job.context.step_decisions or [])
+                ] or None,
             )
 
             self._session.add(pipeline_result)
@@ -304,15 +327,19 @@ class PipelineService:
         for face_info in insightface_faces:
             # Filter scores
             filter_scores = face_info.get('filter_scores', {})
-            if filter_scores:
-                filter_scores_list.append({
+            face_bbox = face_info.get('bbox')  # {x, y, w, h, x_px, y_px, w_px, h_px}
+            if filter_scores or face_bbox:
+                entry = {
                     'face_index': face_info.get('face_index', 0),
-                    'confidence': filter_scores.get('confidence'),
+                    'confidence': filter_scores.get('confidence') or face_info.get('confidence'),
                     'bbox_ratio': filter_scores.get('bbox_ratio'),
                     'relative_size': filter_scores.get('relative_size'),
                     'eye_ratio': filter_scores.get('eye_ratio'),
                     'filter_passed': face_info.get('filter_passed', True),
-                })
+                }
+                if face_bbox:
+                    entry['bbox'] = face_bbox  # Include face bounding box for UI overlay
+                filter_scores_list.append(entry)
 
             # Frontal scores (only for faces that passed filtering)
             if face_info.get('filter_passed', True):

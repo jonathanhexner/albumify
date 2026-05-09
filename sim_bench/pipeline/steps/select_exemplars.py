@@ -97,7 +97,7 @@ class SelectExemplarsStep(BaseStep):
         context.report_progress("select_exemplars", 0.5, "Selecting exemplars")
 
         selector = D10ExemplarSelector(fc_config)
-        cluster_result = selector.select_exemplars(cluster_result, graph_result)
+        cluster_result, _ = selector.select_exemplars(cluster_result, graph_result)
 
         # Update context (cluster_result is modified in-place, but reassign for clarity)
         context.initial_clusters = cluster_result

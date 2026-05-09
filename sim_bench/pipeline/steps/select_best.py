@@ -6,7 +6,7 @@ from typing import Optional, List, Tuple
 import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
-from sim_bench.pipeline.context import PipelineContext
+from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.scoring.quality_strategy import (
     ImageQualityStrategyFactory,
@@ -301,6 +301,33 @@ class SelectBestStep(BaseStep):
 
         # Select best + dissimilar images
         selected = self._select_dissimilar(context, filtered, max_per_cluster)
+
+        # Emit per-image decision records
+        selected_set = set(selected)
+        cfg = {
+            "max_images_per_cluster": max_per_cluster,
+            "min_score_threshold": min_threshold,
+            "dissimilarity_threshold": self._config.get("dissimilarity_threshold", 0.85),
+        }
+        for rank, (path, score) in enumerate(scored_images, 1):
+            if path in selected_set:
+                reason = f"Rank {rank} in cluster (score {score:.2f})"
+                if rank == 1:
+                    reason = f"Best in cluster (score {score:.2f})"
+                decision = "selected"
+            elif score < min_threshold and not no_images_above_threshold:
+                reason = f"Score {score:.2f} < threshold {min_threshold}"
+                decision = "rejected"
+            else:
+                reason = f"Outranked (rank {rank}/{len(scored_images)}, score {score:.2f})"
+                decision = "rejected"
+
+            context.step_decisions.append(StepDecision(
+                item_id=path, item_type="image", step="select_best",
+                decision=decision, reason=reason, config_used=cfg,
+                metrics={"composite_score": round(score, 3), "rank": rank,
+                         "cluster_size": len(scored_images)},
+            ))
 
         return selected
 

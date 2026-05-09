@@ -10,6 +10,47 @@
 
 ---
 
+## ML Merge Interface (spec 010)
+Full plan: `specs/010-ml-merge-interface/tasks.md`
+
+### Phase 1: Setup
+- [x] T001 Verify test suite passes clean before changes | 2026-04-21 | Claude
+
+### Phase 2: Foundational (backend)
+- [x] T002 Add ml_prob/ml_pred fields to MergeDecisionRow in face_cluster/analysis_views.py | 2026-04-21 | Claude
+- [x] T003 Add ml_threshold field to MergeAnalysisView in face_cluster/analysis_views.py | 2026-04-21 | Claude
+- [x] T004 Implement compute_ml_merge_view() in face_cluster/analysis_views.py | 2026-04-21 | Claude
+- [x] T005 Implement compute_pair_feature_contributions() in face_cluster/analysis_views.py | 2026-04-21 | Claude
+- [x] T006 Write ut_MLMergeView tests in tests/face_clustering/test_merge_analysis.py | 2026-04-21 | Claude
+- [x] T007 Write ut_FeatureContributions tests in tests/face_clustering/test_merge_analysis.py | 2026-04-21 | Claude
+
+### Phase 3: US1 — Three-State Decision Refactor (P1)
+- [x] T008-T012 Write US1 app tests in tests/face_clustering/test_streamlit_app.py | 2026-04-21 | Claude
+- [x] T013 Remove auto-pre-fill from render_merge_analysis_tab() in app/face_clustering.py | 2026-04-21 | Claude
+- [x] T014-T015 Add merge_decision_sources session state + update all decision writes | 2026-04-21 | Claude
+- [x] T016 Split Smart Approve into Smart Approve + Smart Reject buttons | 2026-04-21 | Claude
+- [x] T017 Add three-state summary bar (Approved/Rejected/Undecided counts) | 2026-04-21 | Claude
+- [x] T018 Gate Apply+Remerge on n_approved >= 1 | 2026-04-21 | Claude
+- [x] T019-T021 Update _collect_all_merge_labels + session step metadata + ML badge on cards | 2026-04-21 | Claude
+
+### Phase 4: US2 — ML Model as Merge Proposer (P1)
+- [x] T022-T023 Write US2 app tests | 2026-04-21 | Claude
+- [x] T024-T030 Implement ML mode: mode selector, controls, async predict, pre-fill, card badges, detail section, ML Training tab redirect | 2026-04-21 | Claude
+
+### Phase 5-8: US3-US6 (P2-P3)
+- [x] T031-T033 ML Probability Overview Panel + low-separation warning | 2026-04-21 | Claude
+- [x] T034-T035 Per-pair feature contributions in ML card detail + store pair_features | 2026-04-21 | Claude
+- [ ] T036-T038 Heuristic vs ML comparison mode, agreement indicator, Disagreements filter | 2026-04-21 | Claude
+- [ ] T039-T040 Wider candidates badge for extended-range pairs | 2026-04-21 | Claude
+
+### Polish
+- [x] T041 Update CHANGES_LOG.md | 2026-04-21 | Claude
+- [x] T042 Update docs/FEATURE_REQUESTS.md | 2026-04-21 | Claude
+- [x] T043 Full test run | 2026-04-21 | Claude
+- [x] T044 Append learning to docs/LEARNINGS.md | 2026-04-21 | Claude
+
+---
+
 ## Face Clustering — Cohesive Sub-Package (SIGHTING-008) [DONE - PENDING PLAYWRIGHT E2E]
 Full plan: `FACE_CLUSTERING_PLAN.md`
 
@@ -140,4 +181,42 @@ Full plan: `FACE_CLUSTERING_PLAN.md`
 
 ---
 
-**Last updated:** 2026-03-27
+## Pipeline Run Observability (spec 012)
+
+- [x] Implement spec 014: Force Merge widget in Cluster Analysis tab | 2026-04-22 | Claude
+- [x] Implement spec 012 phases 1-6: QualityVerdict types, quality gating verdicts, det_score + d10_score capture, export writers + provenance, Quality Report UI panel, Cluster Provenance UI panel | 2026-04-22 | Claude
+## Run History & Annotations (spec 013)
+Full plan: `specs/013-run-history-annotations/tasks.md`
+
+### Phase 2: DB Migration (foundational)
+- [x] T003 Extend action_log with source_album, run_name, parent_run_id, run_kind, comment, config_json, n_core columns | 2026-04-23 | Claude
+- [x] T004 Update _HOT_FIELDS + start_action/complete_action signatures in face_cluster/run_history_db.py | 2026-04-23 | Claude
+- [x] T005 Add update_comment() helper with 2048-char limit in face_cluster/run_history_db.py | 2026-04-23 | Claude
+- [x] T007 Write test_history_migration.py | 2026-04-23 | Claude
+
+### Phase 3: Overwrite Protection (US2)
+- [x] T008 Create face_cluster/run_naming.py with allocate_run_dir() | 2026-04-23 | Claude
+- [x] T009 Write test_run_naming.py | 2026-04-23 | Claude
+
+### Phase 4-5: Helpers (US5, US1)
+- [x] T010 Create face_cluster/config_diff.py | 2026-04-23 | Claude
+- [x] T012 Create face_cluster/run_history.py with search() + distinct_albums() | 2026-04-23 | Claude
+
+### Phase 6-10: App Changes (US1, US2, US3, US4, US5)
+- [x] T014 Rewrite render_history_tab() with filter bar + st.dataframe | 2026-04-23 | Claude
+- [x] T016-T018 Source-album propagation through pipeline and app dispatch paths | 2026-04-23 | Claude
+- [x] T019 Replace local output-path computations with allocate_run_dir() | 2026-04-23 | Claude
+- [x] T020-T021 Add comment field (History table + run header) | 2026-04-23 | Claude
+- [x] T022-T024 render_run_header() with config diff expander | 2026-04-23 | Claude
+
+### Phase 11: Run Summary (US6 — requires spec 012)
+- [x] T025-T027 render_run_summary() panel — implemented in history_tab.py; renders gracefully for pre-012 runs | 2026-04-23 | Claude
+
+### Phase 12: Polish
+- [x] T028 Export new types from face_cluster/__init__.py | 2026-04-23 | Claude
+- [x] T030 Append CHANGES_LOG.md entry | 2026-04-23 | Claude
+- [x] T031 Close SIGHTING-025 in docs/SIGHTINGS.md | 2026-04-23 | Claude
+
+---
+
+**Last updated:** 2026-04-23

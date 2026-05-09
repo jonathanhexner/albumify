@@ -32,9 +32,10 @@ def pipeline_result(tmp_path_factory):
         pytest.fail(f"Test data directory is empty: {TEST_DATA_100}")
 
     tmp = tmp_path_factory.mktemp("output_100")
-    config = PipelineConfig()  # production defaults — no relaxation
-    pipeline = FaceClusteringPipeline(config)
-    return pipeline.run(TEST_DATA_100, tmp / "output")
+    # production defaults — no relaxation
+    return FaceClusteringPipeline().run(
+        PipelineConfig.full_run(TEST_DATA_100, tmp / "output")
+    )
 
 
 class ut_FaceClusteringPipeline_100:

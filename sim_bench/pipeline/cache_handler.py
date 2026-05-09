@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 
 from sim_bench.api.database.models import UniversalCache
 
@@ -127,21 +127,22 @@ class UniversalCacheHandler:
         if not keys:
             return {}
         
-        # Build query for all keys
-        conditions = []
-        for key in keys:
-            conditions.append(
+        # Build query in batches to avoid SQLite expression tree limit (1000 nodes)
+        BATCH_SIZE = 200  # TODO: move to config/constants
+        entries = []
+        for i in range(0, len(keys), BATCH_SIZE):
+            batch = keys[i:i + BATCH_SIZE]
+            conditions = [
                 and_(
                     UniversalCache.image_path == key.image_path,
                     UniversalCache.feature_type == key.feature_type,
                     UniversalCache.model_name == key.model_name
                 )
+                for key in batch
+            ]
+            entries.extend(
+                self._session.query(UniversalCache).filter(or_(*conditions)).all()
             )
-        
-        from sqlalchemy import or_
-        entries = self._session.query(UniversalCache).filter(
-            or_(*conditions)
-        ).all()
         
         results = {}
         to_delete = []

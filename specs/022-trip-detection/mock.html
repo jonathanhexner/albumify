@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Albumify — Album Results with Geo-Temporal Segments (Mock)</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface2: #1c2333;
+    --border: #30363d; --text: #c9d1d9; --heading: #e6edf3;
+    --accent: #58a6ff; --green: #3fb950; --orange: #d29922;
+    --purple: #bc8cff; --dim: #8b949e; --pink: #f778ba;
+    --warm: #ffa657; --cyan: #56d4dd; --red: #f85149;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; line-height: 1.6; }
+
+  .app { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 16px; flex-shrink: 0; }
+  .logo { font-size: 22px; font-weight: 700; color: var(--heading); margin-bottom: 4px; letter-spacing: -0.5px; }
+  .logo-sub { font-size: 11px; color: var(--dim); margin-bottom: 24px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; font-size: 14px; color: var(--dim); cursor: pointer; margin-bottom: 2px; }
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .nav-item.active { background: rgba(88,166,255,0.12); color: var(--accent); font-weight: 600; }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+  .nav-divider { height: 1px; background: var(--border); margin: 12px 0; }
+  .album-info { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 16px; }
+  .album-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--dim); margin-bottom: 4px; }
+  .album-name { font-size: 13px; font-weight: 600; color: var(--heading); }
+  .album-stats { font-size: 11px; color: var(--dim); margin-top: 4px; }
+
+  /* Main */
+  .main { flex: 1; padding: 32px 40px; max-width: 1100px; overflow-y: auto; }
+  .page-title { font-size: 24px; font-weight: 700; color: var(--heading); margin-bottom: 4px; }
+  .page-subtitle { font-size: 14px; color: var(--dim); margin-bottom: 24px; }
+
+  /* Album summary bar */
+  .album-summary { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .summary-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 13px; color: var(--text); }
+  .summary-chip .chip-icon { font-size: 14px; }
+  .summary-chip .chip-dim { color: var(--dim); }
+
+  /* Metrics row */
+  .metrics { display: flex; gap: 16px; margin-bottom: 24px; }
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; flex: 1; }
+  .metric-value { font-size: 26px; font-weight: 700; color: var(--heading); }
+  .metric-label { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+  /* View toggle */
+  .view-toggle { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+  .view-btn { padding: 7px 16px; font-size: 13px; border: none; background: none; color: var(--dim); cursor: pointer; font-family: inherit; }
+  .view-btn:hover { color: var(--text); }
+  .view-btn.active { background: rgba(88,166,255,0.15); color: var(--accent); font-weight: 600; }
+  .view-btn + .view-btn { border-left: 1px solid var(--border); }
+
+  /* Segment card */
+  .segment { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
+  .segment-header { display: flex; gap: 16px; padding: 16px 20px; cursor: pointer; align-items: flex-start; }
+  .segment-header:hover { background: rgba(255,255,255,0.02); }
+
+  .segment-left { flex: 1; min-width: 0; }
+  .segment-description { font-size: 16px; font-weight: 600; color: var(--heading); margin-bottom: 5px; line-height: 1.4; }
+  .segment-date { font-size: 13px; color: var(--dim); margin-bottom: 8px; }
+  .segment-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-location { background: rgba(88,166,255,0.12); color: var(--accent); }
+  .badge-landmark { background: rgba(255,166,87,0.12); color: var(--warm); }
+  .badge-photos { background: rgba(63,185,80,0.12); color: var(--green); }
+  .badge-people { background: rgba(188,140,255,0.12); color: var(--purple); }
+  .badge-muted { background: rgba(139,148,158,0.12); color: var(--dim); }
+
+  .segment-toggle { color: var(--dim); font-size: 16px; padding-top: 2px; transition: transform 0.2s; flex-shrink: 0; }
+  .segment.open .segment-toggle { transform: rotate(180deg); }
+
+  /* Segment detail */
+  .segment-body { display: none; border-top: 1px solid var(--border); padding: 20px; }
+  .segment.open .segment-body { display: block; }
+  .detail-layout { display: grid; grid-template-columns: 1fr 260px; gap: 20px; }
+  @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
+  .detail-full { grid-template-columns: 1fr; }
+
+  /* Gallery */
+  .gallery { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .gallery-cell { aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 22px; position: relative; }
+  .gc1 { background: linear-gradient(135deg, #1a3a5c, #2d5a88); }
+  .gc2 { background: linear-gradient(135deg, #2d4a2d, #4a7a4a); }
+  .gc3 { background: linear-gradient(135deg, #5a3a2d, #8a5a3d); }
+  .gc4 { background: linear-gradient(135deg, #3a2d5a, #5a4a8a); }
+  .gc5 { background: linear-gradient(135deg, #5a2d4a, #8a3d6a); }
+  .gc6 { background: linear-gradient(135deg, #2d5a5a, #4a8a7a); }
+  .gallery-more { font-size: 13px; color: var(--dim); }
+  .gallery-date { position: absolute; bottom: 3px; right: 5px; font-size: 9px; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.4); padding: 1px 4px; border-radius: 3px; }
+
+  /* Right panel */
+  .right-panel { display: flex; flex-direction: column; gap: 12px; }
+  .panel-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--dim); margin-bottom: 4px; font-weight: 600; }
+
+  /* Map */
+  .map-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .map-visual { width: 100%; height: 160px; position: relative; }
+  .map-bg { position: absolute; inset: 0; opacity: 0.06; background-image: linear-gradient(var(--accent) 1px, transparent 1px), linear-gradient(90deg, var(--accent) 1px, transparent 1px); background-size: 32px 32px; }
+  .map-water { position: absolute; inset: 0; }
+  .map-pin { position: absolute; font-size: 14px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); z-index: 1; }
+  .map-attribution { position: absolute; bottom: 4px; right: 6px; font-size: 9px; color: rgba(255,255,255,0.3); }
+
+  /* Landmark */
+  .landmark-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .landmark-row { display: flex; gap: 10px; align-items: flex-start; }
+  .landmark-icon { font-size: 22px; flex-shrink: 0; }
+  .landmark-name { font-size: 14px; font-weight: 600; color: var(--warm); }
+  .landmark-info { font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+  /* People */
+  .people-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .person-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .person-row:last-child { margin-bottom: 0; }
+  .person-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; flex-shrink: 0; }
+  .pd1 { background: #3a6a9a; } .pd2 { background: #9a6a3a; } .pd3 { background: #5a9a5a; } .pd4 { background: #9a5a7a; }
+  .person-name { font-size: 12px; color: var(--text); }
+  .person-count { font-size: 11px; color: var(--dim); margin-left: auto; }
+
+  /* Unsorted */
+  .unsorted { background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; padding: 14px 20px; margin-bottom: 20px; cursor: pointer; }
+  .unsorted:hover { border-color: var(--dim); }
+  .unsorted-row { display: flex; justify-content: space-between; align-items: center; }
+  .unsorted-label { font-size: 14px; color: var(--dim); font-weight: 600; }
+  .unsorted-sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+  .footer-note { text-align: center; padding: 16px; font-size: 12px; color: var(--dim); }
+  .footer-note a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">Albumify</div>
+    <div class="logo-sub">Smart Album Organization</div>
+    <div class="nav-item"><span class="nav-icon">&#9750;</span> Home</div>
+    <div class="nav-item"><span class="nav-icon">&#128218;</span> Albums</div>
+    <div class="nav-item"><span class="nav-icon">&#9881;</span> Configure & Run</div>
+    <div class="nav-item active"><span class="nav-icon">&#9733;</span> Results</div>
+    <div class="nav-item"><span class="nav-icon">&#128100;</span> People & Faces</div>
+    <div class="nav-item"><span class="nav-icon">&#128270;</span> Explore</div>
+    <div class="nav-item"><span class="nav-icon">&#128230;</span> Export</div>
+    <div class="nav-divider"></div>
+    <div class="album-info">
+      <div class="album-label">Current Album</div>
+      <div class="album-name">Family Photos 2022</div>
+      <div class="album-stats">1,247 photos &middot; 14 people &middot; Completed</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="page-title">Results — Family Photos 2022</div>
+
+    <!-- Album location/date summary chips -->
+    <div class="album-summary">
+      <div class="summary-chip">
+        <span class="chip-icon">&#128205;</span>
+        <span>4 locations:</span>
+        <span class="chip-dim">Dubai, Innsbruck, Tel Aviv, Paris</span>
+      </div>
+      <div class="summary-chip">
+        <span class="chip-icon">&#128197;</span>
+        <span class="chip-dim">May 2022 &ndash; Dec 2022</span>
+      </div>
+      <div class="summary-chip">
+        <span class="chip-icon">&#128247;</span>
+        <span>1,247 photos</span>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-value">1,247</div>
+        <div class="metric-label">Total photos</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">312</div>
+        <div class="metric-label">Selected</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">14</div>
+        <div class="metric-label">People</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">6</div>
+        <div class="metric-label">Segments</div>
+      </div>
+    </div>
+
+    <!-- View toggle -->
+    <div class="view-toggle">
+      <button class="view-btn">All Photos</button>
+      <button class="view-btn active">By Location & Date</button>
+      <button class="view-btn">By Cluster</button>
+      <button class="view-btn">Selected Only</button>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SEGMENT 1: Dubai — Expanded                                    -->
+    <!-- ============================================================= -->
+    <div class="segment open" onclick="this.classList.toggle('open')">
+      <div class="segment-header">
+        <div class="segment-left">
+          <div class="segment-description">A magical week exploring Dubai's stunning skyline and golden beaches</div>
+          <div class="segment-date">&#128197; May 24 &ndash; May 28, 2022</div>
+          <div class="segment-badges">
+            <span class="badge badge-location">&#128205; Dubai, UAE</span>
+            <span class="badge badge-landmark">&#127963; Near Burj Khalifa</span>
+            <span class="badge badge-photos">&#128247; 342 photos</span>
+            <span class="badge badge-people">&#128101; 4 people</span>
+          </div>
+        </div>
+        <span class="segment-toggle">&#9660;</span>
+      </div>
+
+      <div class="segment-body">
+        <div class="detail-layout">
+          <!-- Gallery (sorted by date) -->
+          <div>
+            <div class="panel-label">Photos (sorted by date)</div>
+            <div class="gallery">
+              <div class="gallery-cell gc1">&#127965;<span class="gallery-date">May 24</span></div>
+              <div class="gallery-cell gc3">&#9728;&#65039;<span class="gallery-date">May 24</span></div>
+              <div class="gallery-cell gc6">&#127754;<span class="gallery-date">May 25</span></div>
+              <div class="gallery-cell gc2">&#127796;<span class="gallery-date">May 25</span></div>
+              <div class="gallery-cell gc5">&#127958;<span class="gallery-date">May 26</span></div>
+              <div class="gallery-cell gc4">&#127749;<span class="gallery-date">May 26</span></div>
+              <div class="gallery-cell gc1">&#128247;<span class="gallery-date">May 27</span></div>
+              <div class="gallery-cell gc3">&#128247;<span class="gallery-date">May 27</span></div>
+              <div class="gallery-cell gc6">&#128247;<span class="gallery-date">May 28</span></div>
+              <div class="gallery-cell gc4"><span class="gallery-more">+332</span></div>
+            </div>
+          </div>
+
+          <!-- Right: Map + Landmark + People -->
+          <div class="right-panel">
+            <div>
+              <div class="panel-label">Location</div>
+              <div class="map-box">
+                <div class="map-visual" style="background: linear-gradient(160deg, #0f1f2e 0%, #15304a 40%, #1a3d5c 70%, #0f1f2e 100%);">
+                  <div class="map-bg"></div>
+                  <span class="map-pin" style="top:30%; left:52%;">&#128205;</span>
+                  <span class="map-pin" style="top:42%; left:58%;">&#128205;</span>
+                  <span class="map-pin" style="top:50%; left:45%;">&#128205;</span>
+                  <span class="map-pin" style="top:38%; left:63%;">&#128205;</span>
+                  <span class="map-pin" style="top:55%; left:55%;">&#128205;</span>
+                  <span class="map-attribution">OpenStreetMap</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="landmark-box">
+              <div class="panel-label">Nearby Landmark</div>
+              <div class="landmark-row">
+                <span class="landmark-icon">&#127963;</span>
+                <div>
+                  <div class="landmark-name">Burj Khalifa</div>
+                  <div class="landmark-info">~1.2 km &middot; 828m &middot; World's tallest building</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="people-box">
+              <div class="panel-label">People</div>
+              <div class="person-row"><div class="person-dot pd1">S</div><span class="person-name">Sarah</span><span class="person-count">289 photos</span></div>
+              <div class="person-row"><div class="person-dot pd2">M</div><span class="person-name">Michael</span><span class="person-count">201 photos</span></div>
+              <div class="person-row"><div class="person-dot pd3">J</div><span class="person-name">Jonathan</span><span class="person-count">187 photos</span></div>
+              <div class="person-row"><div class="person-dot pd4">E</div><span class="person-name">Emma</span><span class="person-count">94 photos</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SEGMENT 2: Austrian Alps — Collapsed                           -->
+    <!-- ============================================================= -->
+    <div class="segment" onclick="this.classList.toggle('open')">
+      <div class="segment-header">
+        <div class="segment-left">
+          <div class="segment-description">Beautiful sunny days hiking through the Austrian Alps</div>
+          <div class="segment-date">&#128197; Jun 12 &ndash; Jun 15, 2022</div>
+          <div class="segment-badges">
+            <span class="badge badge-location">&#128205; Innsbruck, Austria</span>
+            <span class="badge badge-landmark">&#9968; Near Nordkette</span>
+            <span class="badge badge-photos">&#128247; 218 photos</span>
+            <span class="badge badge-people">&#128101; 3 people</span>
+          </div>
+        </div>
+        <span class="segment-toggle">&#9660;</span>
+      </div>
+      <div class="segment-body">
+        <div class="detail-layout">
+          <div>
+            <div class="panel-label">Photos (sorted by date)</div>
+            <div class="gallery">
+              <div class="gallery-cell gc2">&#9968;<span class="gallery-date">Jun 12</span></div>
+              <div class="gallery-cell gc4">&#127956;<span class="gallery-date">Jun 12</span></div>
+              <div class="gallery-cell gc6">&#127795;<span class="gallery-date">Jun 13</span></div>
+              <div class="gallery-cell gc1">&#127748;<span class="gallery-date">Jun 13</span></div>
+              <div class="gallery-cell gc5">&#127934;<span class="gallery-date">Jun 14</span></div>
+              <div class="gallery-cell gc3">&#128247;<span class="gallery-date">Jun 14</span></div>
+              <div class="gallery-cell gc2">&#9728;&#65039;<span class="gallery-date">Jun 15</span></div>
+              <div class="gallery-cell gc4">&#128247;<span class="gallery-date">Jun 15</span></div>
+              <div class="gallery-cell gc6">&#128247;<span class="gallery-date">Jun 15</span></div>
+              <div class="gallery-cell gc1"><span class="gallery-more">+208</span></div>
+            </div>
+          </div>
+          <div class="right-panel">
+            <div>
+              <div class="panel-label">Location</div>
+              <div class="map-box">
+                <div class="map-visual" style="background: linear-gradient(135deg, #1a3a2d, #2d5a3d 40%, #3a6a4a 70%, #1a3a2d);">
+                  <div class="map-bg"></div>
+                  <span class="map-pin" style="top:28%; left:42%;">&#128205;</span>
+                  <span class="map-pin" style="top:50%; left:55%;">&#128205;</span>
+                  <span class="map-pin" style="top:65%; left:38%;">&#128205;</span>
+                  <span class="map-attribution">OpenStreetMap</span>
+                </div>
+              </div>
+            </div>
+            <div class="landmark-box">
+              <div class="panel-label">Nearby Landmark</div>
+              <div class="landmark-row">
+                <span class="landmark-icon">&#9968;</span>
+                <div>
+                  <div class="landmark-name">Nordkette</div>
+                  <div class="landmark-info">~3.5 km &middot; 2,334m &middot; Alpine mountain range</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SEGMENT 3: Birthday — Collapsed, single day, no landmark       -->
+    <!-- ============================================================= -->
+    <div class="segment" onclick="this.classList.toggle('open')">
+      <div class="segment-header">
+        <div class="segment-left">
+          <div class="segment-description">A lovely birthday celebration at home with family</div>
+          <div class="segment-date">&#128197; Jul 3, 2022</div>
+          <div class="segment-badges">
+            <span class="badge badge-location">&#128205; Tel Aviv, Israel</span>
+            <span class="badge badge-photos">&#128247; 87 photos</span>
+            <span class="badge badge-people">&#128101; 6 people</span>
+          </div>
+        </div>
+        <span class="segment-toggle">&#9660;</span>
+      </div>
+      <div class="segment-body">
+        <div class="detail-layout">
+          <div>
+            <div class="panel-label">Photos (sorted by date)</div>
+            <div class="gallery">
+              <div class="gallery-cell gc5">&#127874;</div>
+              <div class="gallery-cell gc2">&#127880;</div>
+              <div class="gallery-cell gc4">&#128247;</div>
+              <div class="gallery-cell gc1">&#127881;</div>
+              <div class="gallery-cell gc3">&#128522;</div>
+              <div class="gallery-cell gc6">&#127856;</div>
+              <div class="gallery-cell gc2">&#128247;</div>
+              <div class="gallery-cell gc5">&#128247;</div>
+              <div class="gallery-cell gc4">&#128247;</div>
+              <div class="gallery-cell gc1"><span class="gallery-more">+77</span></div>
+            </div>
+          </div>
+          <div class="right-panel">
+            <div>
+              <div class="panel-label">Location</div>
+              <div class="map-box">
+                <div class="map-visual" style="background: linear-gradient(135deg, #2d3a5a, #3a4a6a 50%, #2d3a5a);">
+                  <div class="map-bg"></div>
+                  <span class="map-pin" style="top:45%; left:50%;">&#128205;</span>
+                  <span class="map-attribution">OpenStreetMap</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SEGMENT 4: No GPS — time-only clustering                       -->
+    <!-- ============================================================= -->
+    <div class="segment" onclick="this.classList.toggle('open')">
+      <div class="segment-header">
+        <div class="segment-left">
+          <div class="segment-description">Wonderful moments together, August 2022</div>
+          <div class="segment-date">&#128197; Aug 9 &ndash; Aug 11, 2022</div>
+          <div class="segment-badges">
+            <span class="badge badge-photos">&#128247; 156 photos</span>
+            <span class="badge badge-people">&#128101; 2 people</span>
+            <span class="badge badge-muted">No GPS data</span>
+          </div>
+        </div>
+        <span class="segment-toggle">&#9660;</span>
+      </div>
+      <div class="segment-body">
+        <div class="detail-layout detail-full">
+          <div>
+            <div class="panel-label">Photos (sorted by date)</div>
+            <div class="gallery">
+              <div class="gallery-cell gc6">&#127749;</div>
+              <div class="gallery-cell gc1">&#128247;</div>
+              <div class="gallery-cell gc3">&#127774;</div>
+              <div class="gallery-cell gc5">&#128247;</div>
+              <div class="gallery-cell gc2">&#128247;</div>
+              <div class="gallery-cell gc4">&#128247;</div>
+              <div class="gallery-cell gc1">&#128247;</div>
+              <div class="gallery-cell gc6">&#128247;</div>
+              <div class="gallery-cell gc3">&#128247;</div>
+              <div class="gallery-cell gc5"><span class="gallery-more">+146</span></div>
+            </div>
+            <div style="margin-top:12px; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-size:12px; color:var(--dim);">
+              &#9432; No GPS coordinates found. Segment detected by time gap only (>8h between adjacent photos).
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- SEGMENT 5: Paris — Collapsed                                   -->
+    <!-- ============================================================= -->
+    <div class="segment" onclick="this.classList.toggle('open')">
+      <div class="segment-header">
+        <div class="segment-left">
+          <div class="segment-description">Delightful autumn weekend in Paris near the Eiffel Tower</div>
+          <div class="segment-date">&#128197; Oct 14 &ndash; Oct 16, 2022</div>
+          <div class="segment-badges">
+            <span class="badge badge-location">&#128205; Paris, France</span>
+            <span class="badge badge-landmark">&#127963; Near Eiffel Tower</span>
+            <span class="badge badge-photos">&#128247; 289 photos</span>
+            <span class="badge badge-people">&#128101; 4 people</span>
+          </div>
+        </div>
+        <span class="segment-toggle">&#9660;</span>
+      </div>
+      <div class="segment-body">
+        <div class="detail-layout">
+          <div>
+            <div class="panel-label">Photos (sorted by date)</div>
+            <div class="gallery">
+              <div class="gallery-cell gc1">&#127960;<span class="gallery-date">Oct 14</span></div>
+              <div class="gallery-cell gc4">&#128247;<span class="gallery-date">Oct 14</span></div>
+              <div class="gallery-cell gc2">&#127958;<span class="gallery-date">Oct 15</span></div>
+              <div class="gallery-cell gc6">&#128247;<span class="gallery-date">Oct 15</span></div>
+              <div class="gallery-cell gc3">&#128247;<span class="gallery-date">Oct 15</span></div>
+              <div class="gallery-cell gc5">&#128247;<span class="gallery-date">Oct 16</span></div>
+              <div class="gallery-cell gc1">&#128247;<span class="gallery-date">Oct 16</span></div>
+              <div class="gallery-cell gc4">&#128247;<span class="gallery-date">Oct 16</span></div>
+              <div class="gallery-cell gc2">&#128247;<span class="gallery-date">Oct 16</span></div>
+              <div class="gallery-cell gc6"><span class="gallery-more">+279</span></div>
+            </div>
+          </div>
+          <div class="right-panel">
+            <div>
+              <div class="panel-label">Location</div>
+              <div class="map-box">
+                <div class="map-visual" style="background: linear-gradient(135deg, #2d2d4a, #3a3a5a 50%, #2d2d4a);">
+                  <div class="map-bg"></div>
+                  <span class="map-pin" style="top:32%; left:48%;">&#128205;</span>
+                  <span class="map-pin" style="top:48%; left:55%;">&#128205;</span>
+                  <span class="map-pin" style="top:58%; left:42%;">&#128205;</span>
+                  <span class="map-attribution">OpenStreetMap</span>
+                </div>
+              </div>
+            </div>
+            <div class="landmark-box">
+              <div class="panel-label">Nearby Landmark</div>
+              <div class="landmark-row">
+                <span class="landmark-icon">&#127963;</span>
+                <div>
+                  <div class="landmark-name">Eiffel Tower</div>
+                  <div class="landmark-info">~0.8 km &middot; 330m &middot; Iconic iron lattice tower</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unsorted -->
+    <div class="unsorted" onclick="this.classList.toggle('open')">
+      <div class="unsorted-row">
+        <div>
+          <div class="unsorted-label">&#128196; Unsorted Photos</div>
+          <div class="unsorted-sub">49 photos &middot; No date or location metadata (screenshots, downloads, edits)</div>
+        </div>
+        <span style="color:var(--dim);">&#9654;</span>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Segmentation: 8h time gap &middot; 30km location radius &middot;
+      <a href="#">Adjust in Configure & Run</a>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

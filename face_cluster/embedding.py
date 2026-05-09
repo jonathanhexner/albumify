@@ -120,6 +120,8 @@ class InsightFaceEmbedder:
                     from insightface.utils import face_align
                     aligned_face = face_align.norm_crop(img_rgb, landmarks)
 
+                det_score = float(face.det_score) if hasattr(face, "det_score") and face.det_score is not None else None
+
                 face_record = FaceRecord(
                     face_id=face_id_counter,
                     image_id=Path(image_path).stem,
@@ -133,7 +135,8 @@ class InsightFaceEmbedder:
                     area=area,
                     is_core=False,
                     image_path=str(image_path),
-                    face_index=face_idx
+                    face_index=face_idx,
+                    det_score=det_score,
                 )
 
                 all_faces.append(face_record)

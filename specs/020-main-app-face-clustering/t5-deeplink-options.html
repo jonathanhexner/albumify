@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T5 Deep-Link Options — How to Connect the Two Apps</title>
+<style>
+  :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9;
+          --heading: #e6edf3; --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+          --orange: #d29922; --purple: #bc8cff; --dim: #8b949e; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif;
+         line-height: 1.6; padding: 24px; max-width: 1100px; margin: 0 auto; }
+  h1 { color: var(--heading); font-size: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 20px; }
+  h2 { color: var(--accent); font-size: 18px; margin: 32px 0 12px; }
+  h3 { color: var(--heading); font-size: 15px; margin: 16px 0 8px; }
+  p { font-size: 13px; margin: 4px 0 10px; }
+  code { background: #1f2937; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--orange); }
+  pre { background: #1f2937; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 8px 0; line-height: 1.5; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .card-title { color: var(--heading); font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .tag-rec { background: #0f3a22; color: var(--green); }
+  .tag-alt { background: #4d2d00; color: var(--orange); }
+  .tag-no { background: #5c1a1a; color: var(--red); }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+  th, td { padding: 8px 10px; border: 1px solid var(--border); text-align: left; }
+  th { background: #1f2937; color: var(--heading); }
+  .pro { color: var(--green); }
+  .con { color: var(--red); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>T5: How Do We Show the "Open in Face Clustering App" Link?</h1>
+
+<!-- ================================================================== -->
+<h2>The Problem</h2>
+
+<div class="card">
+  <p>The main app runs on a <strong>client-server architecture</strong>:</p>
+  <pre style="color:var(--text)">
+  Streamlit Frontend          FastAPI Backend              Disk
+  (browser UI)                (Python server)
+  ─────────────               ──────────────              ────────
+       │                           │
+       │  "Run pipeline"           │
+       ├──────────────────────────>│
+       │                           │
+       │                           ├─── runs pipeline steps ──>  writes results
+       │                           │    (cluster_people runs     to DB + files
+       │                           │     face_cluster_knn)
+       │                           │         │
+       │                           │         ├─── exports artifacts to:
+       │                           │         │    results/album/face_clustering_XXX/
+       │                           │         │
+       │                           │    context._fc_export_dir = "results/album/..."
+       │                           │         │
+       │                           │    ╳ context is DISCARDED after pipeline finishes
+       │                           │         │
+       │  "Pipeline complete!"     │         │
+       │<──────────────────────────│         │
+       │                           │
+       │  HOW does the frontend    │
+       │  know WHERE the export    │
+       │  directory is?            │
+       │                           │
+  </pre>
+
+  <p style="margin-top:12px"><strong>The gap:</strong> The export path (<code>results/album/face_clustering_20260430/</code>)
+  is created inside the pipeline step, stored on an in-memory context object, and then
+  <strong>thrown away</strong> when the pipeline finishes. The Streamlit frontend never sees it.</p>
+
+  <p>The standalone Face Clustering App already supports loading a run via URL:
+  <code>http://localhost:8502/?load_run=results/album/face_clustering_20260430</code>
+  — we just need a way to get that path to the frontend.</p>
+</div>
+
+<!-- ================================================================== -->
+<h2>Three Options</h2>
+
+<!-- Option A -->
+<div class="card">
+  <div class="card-title"><span class="tag tag-alt">Option A</span> Store path in database</div>
+  <pre style="color:var(--text)">
+  Pipeline step                   Database                    Frontend
+  ─────────────                   ────────                    ────────
+       │                              │
+       ├── exports to disk            │
+       │   results/album/fc_XXX/      │
+       │                              │
+       ├── saves path to DB ─────────>│  PipelineResult.fc_export_dir
+       │   (new column)               │  = "results/album/fc_XXX"
+       │                              │
+       │                              │           │
+       │                              │<──────────┤  Frontend queries
+       │                              │           │  API for results
+       │                              │           │
+       │                              │──────────>│  Response includes
+       │                              │           │  fc_export_dir
+       │                              │           │
+       │                              │           ├── renders link:
+       │                              │           │   "Open in FC App →"
+       │                              │           │   href=?load_run=...
+  </pre>
+  <div class="cols" style="margin-top:8px">
+    <div>
+      <p class="pro">+ Clean, reliable — path stored permanently</p>
+      <p class="pro">+ Works even if user navigates away and comes back</p>
+      <p class="pro">+ Survives app restarts</p>
+    </div>
+    <div>
+      <p class="con">- Requires DB schema change (ALTER TABLE, new column)</p>
+      <p class="con">- Requires API endpoint change to return the field</p>
+      <p class="con">- More files to modify (model, service, API, frontend)</p>
+    </div>
+  </div>
+</div>
+
+<!-- Option B -->
+<div class="card">
+  <div class="card-title"><span class="tag tag-rec">Option B — Recommended</span> Frontend scans disk for exports</div>
+  <pre style="color:var(--text)">
+  Pipeline step                                       Frontend
+  ─────────────                                       ────────
+       │
+       ├── exports to disk
+       │   results/Austria_24/face_clustering_20260430/
+       │   (deterministic path: results/{album}/face_clustering_*)
+       │
+       │                                                  │
+       │                        Pipeline completes        │
+       │                                                  │
+       │                                                  ├── knows the album name
+       │                                                  │   (it started the pipeline)
+       │                                                  │
+       │                                                  ├── scans disk:
+       │                                                  │   glob("results/{album}/face_clustering_*")
+       │                                                  │   → finds the directory
+       │                                                  │
+       │                                                  ├── renders link:
+       │                                                  │   "Open in FC App →"
+       │                                                  │   href=?load_run=results/...
+  </pre>
+  <div class="cols" style="margin-top:8px">
+    <div>
+      <p class="pro">+ Zero backend changes — no DB, no API, no model changes</p>
+      <p class="pro">+ Frontend-only: just add a glob + link in results page</p>
+      <p class="pro">+ Works immediately with existing exports</p>
+      <p class="pro">+ Finds ALL past exports, not just the latest one</p>
+    </div>
+    <div>
+      <p class="con">- Relies on naming convention (results/{album}/face_clustering_*)</p>
+      <p class="con">- If naming changes, link breaks (but easy to fix)</p>
+    </div>
+  </div>
+</div>
+
+<!-- Option C -->
+<div class="card">
+  <div class="card-title"><span class="tag tag-alt">Option C</span> Write a marker file that backend returns</div>
+  <pre style="color:var(--text)">
+  Pipeline step                   Result dir                  Frontend
+  ─────────────                   ──────────                  ────────
+       │                              │
+       ├── exports to disk            │
+       │   results/album/fc_XXX/      │
+       │                              │
+       ├── writes marker file ───────>│  results/{job_dir}/
+       │                              │    fc_export_link.json
+       │                              │    {"path": "results/album/fc_XXX"}
+       │                              │
+       │                              │           │
+       │                              │<──────────┤  Frontend reads
+       │                              │           │  job result dir
+       │                              │           │
+       │                              │──────────>│  Finds marker file
+       │                              │           │  → renders link
+  </pre>
+  <div class="cols" style="margin-top:8px">
+    <div>
+      <p class="pro">+ No DB change needed</p>
+      <p class="pro">+ Explicit — path is recorded, not inferred</p>
+    </div>
+    <div>
+      <p class="con">- Needs to know where the job result dir is</p>
+      <p class="con">- Main app results are in DB, not always on disk</p>
+      <p class="con">- More complex than Option B</p>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<h2>Comparison</h2>
+
+<table>
+  <tr>
+    <th>Criteria</th>
+    <th>A: DB column</th>
+    <th style="background:#0f3a2233">B: Scan disk</th>
+    <th>C: Marker file</th>
+  </tr>
+  <tr>
+    <td>Backend changes</td>
+    <td class="con">Model + API + service</td>
+    <td class="pro" style="background:#0f3a2233">None</td>
+    <td>Pipeline step only</td>
+  </tr>
+  <tr>
+    <td>Frontend changes</td>
+    <td>Results page</td>
+    <td style="background:#0f3a2233">Results page</td>
+    <td>Results page</td>
+  </tr>
+  <tr>
+    <td>DB migration</td>
+    <td class="con">Yes (ALTER TABLE)</td>
+    <td class="pro" style="background:#0f3a2233">No</td>
+    <td class="pro">No</td>
+  </tr>
+  <tr>
+    <td>Reliability</td>
+    <td class="pro">High</td>
+    <td style="background:#0f3a2233">High (naming is deterministic)</td>
+    <td>Medium</td>
+  </tr>
+  <tr>
+    <td>Implementation effort</td>
+    <td class="con">~5 files</td>
+    <td class="pro" style="background:#0f3a2233">~1 file (results page)</td>
+    <td>~2 files</td>
+  </tr>
+  <tr>
+    <td>Works for past exports</td>
+    <td class="con">Only new runs</td>
+    <td class="pro" style="background:#0f3a2233">Yes — finds any export on disk</td>
+    <td class="con">Only new runs</td>
+  </tr>
+</table>
+
+<!-- ================================================================== -->
+<h2>Recommendation: Option B</h2>
+
+<div class="card">
+  <p>Option B is simplest and most pragmatic. The export directory follows a deterministic pattern
+  (<code>results/{album}/face_clustering_*</code>). The frontend already knows the album name
+  (it started the pipeline). One glob call finds the export directory. One link rendered.</p>
+
+  <p style="margin-top:8px">If we later need more robustness (e.g., multiple exports per album,
+  specific run tracking), we can upgrade to Option A. But for now B gets us the link with
+  minimal code change.</p>
+
+  <pre style="color:var(--text)">
+# In results page, after pipeline completes:
+import glob
+album_name = st.session_state.get("selected_album_name", "")
+fc_dirs = sorted(glob.glob(f"results/{album_name}/face_clustering_*"), reverse=True)
+if fc_dirs:
+    fc_path = fc_dirs[0]  # latest export
+    fc_url = f"http://localhost:8502/?load_run={fc_path}"
+    st.info(f"[Open in Face Clustering App]({fc_url}) — analyze merges, recluster, train ML")
+  </pre>
+</div>
+
+</body>
+</html>

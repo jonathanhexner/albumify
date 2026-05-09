@@ -105,6 +105,83 @@ def get_face_subclusters(job_id: str, session: Session = Depends(get_session)):
     return subclusters
 
 
+@router.get("/{job_id}/face-embedding")
+def get_face_embedding(
+    job_id: str,
+    image_path: str = Query(..., description="Image file path"),
+    face_index: int = Query(0, description="Face index within image"),
+    session: Session = Depends(get_session)
+):
+    """Get face embedding vector for a specific face. Returns 512-dim float array."""
+    from sim_bench.api.database.models import UniversalCache
+    import numpy as np
+    from sim_bench.pipeline.serializers import Serializers
+
+    # Build cache key
+    path_normalized = image_path.replace("\\", "/")
+    cache_key = f"{path_normalized}:face_{face_index}"
+
+    entry = (
+        session.query(UniversalCache)
+        .filter(
+            UniversalCache.image_path == cache_key,
+            UniversalCache.feature_type == "face_embedding",
+        )
+        .first()
+    )
+
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"No cached embedding for {cache_key}")
+
+    embedding = Serializers.numpy_deserialize(entry.data_blob)
+    return {
+        "face_key": cache_key,
+        "embedding": embedding.tolist(),
+        "model_name": entry.model_name,
+        "created_at": entry.created_at.isoformat() if entry.created_at else None,
+    }
+
+
+@router.get("/{job_id}/face-distance")
+def get_face_distance(
+    job_id: str,
+    image_path_a: str = Query(...),
+    face_index_a: int = Query(0),
+    image_path_b: str = Query(...),
+    face_index_b: int = Query(0),
+    session: Session = Depends(get_session)
+):
+    """Compute cosine distance between two face embeddings."""
+    from sim_bench.api.database.models import UniversalCache
+    import numpy as np
+    from sim_bench.pipeline.serializers import Serializers
+
+    def load_embedding(path, face_idx):
+        key = f"{path.replace(chr(92), '/')}:face_{face_idx}"
+        entry = session.query(UniversalCache).filter(
+            UniversalCache.image_path == key,
+            UniversalCache.feature_type == "face_embedding",
+        ).first()
+        if entry is None:
+            raise HTTPException(404, f"No embedding for {key}")
+        return Serializers.numpy_deserialize(entry.data_blob), key
+
+    emb_a, key_a = load_embedding(image_path_a, face_index_a)
+    emb_b, key_b = load_embedding(image_path_b, face_index_b)
+
+    # Normalize and compute cosine distance
+    emb_a = emb_a / (np.linalg.norm(emb_a) + 1e-8)
+    emb_b = emb_b / (np.linalg.norm(emb_b) + 1e-8)
+    cosine_distance = float(1 - np.dot(emb_a, emb_b))
+
+    return {
+        "face_a": key_a,
+        "face_b": key_b,
+        "cosine_distance": round(cosine_distance, 4),
+        "verdict": "same_person" if cosine_distance < 0.3 else ("borderline" if cosine_distance < 0.5 else "different"),
+    }
+
+
 @router.post("/{job_id}/export", response_model=ExportResponse)
 def export_result(
     job_id: str,

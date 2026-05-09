@@ -1,22 +1,18 @@
 """Results page - Pipeline execution and results viewing."""
 
-import time
 import io
 import base64
 from pathlib import Path
 import streamlit as st
 from PIL import Image, ImageOps
 
-from app.streamlit.config import get_config
-from app.streamlit.session import get_session, add_notification, clear_pipeline_state
+from app.streamlit.session import get_session
 from app.streamlit.api_client import get_client
-from app.streamlit.models import PipelineStatus, Album
+from app.streamlit.models import Album
 from app.streamlit.components.album_selector import render_album_selector
-from app.streamlit.components.pipeline_runner import render_pipeline_runner, render_pipeline_progress, poll_pipeline_status
 from app.streamlit.components.gallery import render_image_gallery, render_cluster_gallery
 from app.streamlit.components.metrics import render_pipeline_metrics, render_step_timings, render_image_metrics_table
 from app.streamlit.components.people_browser import render_people_summary_row
-from app.streamlit.components.export_panel import render_export_panel
 
 
 def _load_thumbnail(image_path: str, size: int = 100) -> str:
@@ -41,7 +37,7 @@ def _load_thumbnail(image_path: str, size: int = 100) -> str:
 
 
 def render_results_page() -> None:
-    """Render the results page with pipeline and gallery."""
+    """Render the results page — viewing only (pipeline config moved to Configure & Run)."""
     st.header("Results")
 
     state = get_session()
@@ -53,38 +49,16 @@ def render_results_page() -> None:
     album = render_album_selector()
 
     if not album:
-        st.info("Select an album to view results or run the pipeline.")
+        st.info("Select an album to view results.")
         return
 
     st.divider()
 
-    if state.pipeline_status == PipelineStatus.RUNNING:
-        _render_running_pipeline()
-        return
+    _render_results_tab(album)
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Run Pipeline", "View Results", "Metrics Table", "Comparisons", "Sub-Clusters", "Export"])
+    st.divider()
 
-    with tab1:
-        job_id = render_pipeline_runner(album)
-        if job_id:
-            st.rerun()
-        st.divider()
-        _render_run_history(album)
-
-    with tab2:
-        _render_results_tab(album)
-
-    with tab3:
-        _render_metrics_table_tab(album)
-
-    with tab4:
-        _render_comparisons_tab(album)
-
-    with tab5:
-        _render_subclusters_tab(album)
-
-    with tab6:
-        _render_export_tab(album)
+    _render_metrics_table_tab(album)
 
 
 def _render_running_pipeline() -> None:
@@ -156,7 +130,20 @@ def _render_results_tab(album: Album) -> None:
     latest = results[0]
     job_id = latest.get("job_id", latest.get("id", ""))
 
+    # Store step_decisions + images in session for popup access
+    st.session_state["_popup_step_decisions"] = latest.get("step_decisions") or []
+
     render_pipeline_metrics(latest)
+
+    # Deep-link to standalone Face Clustering App (when artifacts were exported)
+    fc_dir = latest.get("fc_export_dir")
+    if fc_dir:
+        fc_url = f"http://localhost:8502/?load_run={fc_dir}"
+        st.info(
+            f"Face clustering artifacts exported to `{fc_dir}`  \n"
+            f"[Open in Face Clustering App]({fc_url}) "
+            f"— analyze merges, recluster with different params, train ML model"
+        )
 
     step_timings = latest.get("step_timings", {})
     if step_timings:
@@ -192,11 +179,13 @@ def _render_image_views(job_id: str) -> None:
 
     if view_mode == "Selected Only":
         images = client.get_selected_images(job_id)
+        st.session_state["_popup_all_images"] = images
         st.write(f"**{len(images)}** selected images")
         render_image_gallery(images, show_scores=show_scores, columns=columns)
 
     elif view_mode == "All Processed":
         images = client.get_images(job_id)
+        st.session_state["_popup_all_images"] = images
         st.write(f"**{len(images)}** images processed by pipeline")
         render_image_gallery(images, show_scores=show_scores, columns=columns)
 

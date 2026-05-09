@@ -114,7 +114,7 @@ def _render_album_actions(album) -> None:
 
     with col1:
         if st.button("Run Pipeline", type="primary", use_container_width=True):
-            st.session_state.current_page = "results"
+            st.session_state.current_page = "configure"
             st.rerun()
 
     with col2:
@@ -124,5 +124,5 @@ def _render_album_actions(album) -> None:
 
     with col3:
         if st.button("Browse People", use_container_width=True):
-            st.session_state.current_page = "people"
+            st.session_state.current_page = "people_faces"
             st.rerun()

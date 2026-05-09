@@ -1,13 +1,184 @@
 """Conservative cluster merging using multi-evidence approach."""
 
 import logging
-from typing import List, Dict, Set, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Set, Tuple
 import numpy as np
 
 from face_cluster.types import ClusterResult, GraphResult
 from face_cluster.config import PipelineConfig
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MarginDetail:
+    """Numeric detail for the margin gate check."""
+    passed: bool
+    worst_gap: float          # min(competitor_dist - dist_to_b) across exemplars; PASS if >= merge_margin
+    worst_exemplar: int       # node index with the smallest gap
+    competitor_id: int        # cluster ID that is the problematic competitor (-1 if passed)
+    dist_to_b: float          # distance from worst_exemplar to cluster B
+    competitor_dist: float    # distance from worst_exemplar to competitor cluster
+
+
+@dataclass
+class CandidateGroup:
+    """A connected component of merge candidate pairs.
+
+    Uses only primitive types — no dependency on UI dataclasses.
+    Can be consumed by both the UI layer and (in future) the pipeline's
+    ConservativeMerger to auto-approve high-cohesion groups.
+    """
+    group_id: int
+    cluster_ids: List[int]             # sorted cluster IDs in this component
+    pair_keys: List[Tuple[int, int]]   # (min_id, max_id) for each candidate pair
+    pair_gate_counts: List[int]        # n_gates_passed per pair (parallel to pair_keys)
+    cohesion: float                    # fraction of pairs with all 4 gates passing
+    min_gates: int                     # weakest pair's gate count
+    max_gates: int                     # strongest pair's gate count
+    confidence: str                    # "auto_approve" | "review" | "auto_reject"
+
+
+def group_merge_candidates(
+    candidate_pairs: List[Tuple[int, int]],
+    gate_counts: List[int],
+    cohesion_threshold: float = 0.8,
+    min_gates_for_promotion: int = 3,
+) -> List["CandidateGroup"]:
+    """Group candidate pairs into connected components and classify by confidence.
+
+    Uses union-find to build transitive groups: if A+B and B+C are both
+    candidates, {A, B, C} forms one group. Cohesion (fraction of 4/4-gate
+    pairs) promotes borderline groups to auto_approve when the evidence is
+    overwhelmingly consistent.
+
+    Args:
+        candidate_pairs: List of (cluster_a, cluster_b) candidate pairs.
+        gate_counts: n_gates_passed (0-4) for each pair, parallel to candidate_pairs.
+        cohesion_threshold: Fraction of 4/4 pairs required for cohesion promotion.
+        min_gates_for_promotion: All pairs must pass >= this many gates for promotion.
+
+    Returns:
+        List of CandidateGroup, sorted: review first, then auto_approve, then
+        auto_reject. Within each tier, sorted by group_id ascending.
+
+    Confidence rules:
+        auto_approve : all pairs 4/4  OR  cohesion >= threshold AND min_gates >= min_gates_for_promotion
+        auto_reject  : all pairs <= 2/4
+        review       : everything else
+    """
+    if not candidate_pairs:
+        return []
+
+    # Collect all cluster IDs
+    all_ids: Set[int] = set()
+    for a, b in candidate_pairs:
+        all_ids.add(a)
+        all_ids.add(b)
+
+    # Union-find (path-compressed)
+    parent: Dict[int, int] = {cid: cid for cid in all_ids}
+
+    def _find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def _union(a: int, b: int) -> None:
+        ra, rb = _find(a), _find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    for a, b in candidate_pairs:
+        _union(a, b)
+
+    # Group pairs by root
+    root_to_pairs: Dict[int, List[int]] = {}  # root -> indices into candidate_pairs
+    for idx, (a, _) in enumerate(candidate_pairs):
+        root = _find(a)
+        root_to_pairs.setdefault(root, []).append(idx)
+
+    # Build CandidateGroup for each component
+    groups: List[CandidateGroup] = []
+    for group_id, (root, pair_indices) in enumerate(sorted(root_to_pairs.items())):
+        # Collect cluster IDs in this component
+        component_ids: Set[int] = set()
+        pair_keys: List[Tuple[int, int]] = []
+        pair_gc: List[int] = []
+        for idx in pair_indices:
+            a, b = candidate_pairs[idx]
+            component_ids.add(a)
+            component_ids.add(b)
+            pair_keys.append((min(a, b), max(a, b)))
+            pair_gc.append(gate_counts[idx])
+
+        n_pairs = len(pair_gc)
+        n_full = sum(1 for g in pair_gc if g == 4)
+        cohesion = n_full / n_pairs
+        min_g = min(pair_gc)
+        max_g = max(pair_gc)
+
+        if min_g == 4:
+            confidence = "auto_approve"
+        elif cohesion >= cohesion_threshold and min_g >= min_gates_for_promotion:
+            confidence = "auto_approve"
+        elif max_g <= 2:
+            confidence = "auto_reject"
+        else:
+            confidence = "review"
+
+        groups.append(CandidateGroup(
+            group_id=group_id,
+            cluster_ids=sorted(component_ids),
+            pair_keys=pair_keys,
+            pair_gate_counts=pair_gc,
+            cohesion=cohesion,
+            min_gates=min_g,
+            max_gates=max_g,
+            confidence=confidence,
+        ))
+
+    # Sort: review first, then auto_approve, then auto_reject
+    _order = {"review": 0, "auto_approve": 1, "auto_reject": 2}
+    groups.sort(key=lambda g: (_order[g.confidence], g.group_id))
+    return groups
+
+
+def propose_merge_candidates(
+    cluster_result: ClusterResult,
+    distance_matrix: np.ndarray,
+    merge_candidate_threshold: float,
+) -> List[Tuple[int, int]]:
+    """Return all cluster pairs whose min exemplar-exemplar distance is within threshold.
+
+    Args:
+        cluster_result: Current cluster state
+        distance_matrix: Pairwise cosine distance matrix indexed by face index
+        merge_candidate_threshold: Maximum distance to propose a pair as a candidate
+
+    Returns:
+        List of (cluster_id_a, cluster_id_b) pairs, sorted by cluster ID
+    """
+    candidates = []
+    cluster_ids = sorted(cluster_result.clusters.keys())
+
+    for i, cid_a in enumerate(cluster_ids):
+        for cid_b in cluster_ids[i + 1:]:
+            exemplars_a = cluster_result.exemplars.get(cid_a) or cluster_result.clusters[cid_a]
+            exemplars_b = cluster_result.exemplars.get(cid_b) or cluster_result.clusters[cid_b]
+
+            min_dist = min(
+                distance_matrix[na, nb]
+                for na in exemplars_a
+                for nb in exemplars_b
+            )
+            if min_dist <= merge_candidate_threshold:
+                candidates.append((cid_a, cid_b))
+
+    logger.debug("Proposed %d merge candidates (threshold=%.3f)", len(candidates), merge_candidate_threshold)
+    return candidates
 
 
 class ConservativeMerger:
@@ -27,61 +198,56 @@ class ConservativeMerger:
             config: Pipeline configuration with merge parameters
         """
         self.config = config
-        self.last_thresholds: Dict[int, float] = {}
         self.last_candidates: List[Tuple[int, int, float, Dict]] = []
 
     def merge_clusters_with_logging(
         self,
         cluster_result: ClusterResult,
         graph_result: GraphResult
-    ) -> Tuple[ClusterResult, List[Dict]]:
-        """Merge clusters and return decision log.
-
-        Args:
-            cluster_result: Current cluster result with exemplars
-            graph_result: Graph result with distance matrix
+    ) -> Tuple[ClusterResult, List[Dict], Dict]:
+        """Merge clusters and return decision log and metadata.
 
         Returns:
-            (updated_cluster_result, merge_log)
-            merge_log: List of decision dictionaries with merge details
+            (updated_cluster_result, merge_log, merge_metadata)
+            merge_metadata: cluster_thresholds, global_threshold, iteration counts
         """
-        merge_log = []
-        result = self._merge_clusters_internal(cluster_result, graph_result, merge_log)
-        return result, merge_log
+        merge_log: List[Dict] = []
+        n_iterations = [0]
+        result = self._merge_clusters_internal(cluster_result, graph_result, merge_log, n_iterations)
+        merge_metadata = {
+            "n_candidates_proposed": len({
+                (min(e["cluster_a"], e["cluster_b"]), max(e["cluster_a"], e["cluster_b"]))
+                for e in merge_log
+            }),
+            "n_iterations": n_iterations[0],
+            "merge_exemplar_threshold":  self.config.merge_exemplar_threshold,
+            "merge_candidate_threshold": self.config.merge_candidate_threshold,
+            "config": {
+                "merge_margin": self.config.merge_margin,
+                "merge_support_min": self.config.merge_support_min,
+                "merge_support_frac": self.config.merge_support_frac,
+                "merge_diameter_expansion_factor": self.config.merge_diameter_expansion_factor,
+            },
+        }
+        return result, merge_log, merge_metadata
 
     def merge_clusters(
         self,
         cluster_result: ClusterResult,
         graph_result: GraphResult
     ) -> ClusterResult:
-        """Merge clusters using conservative multi-evidence approach.
-
-        Args:
-            cluster_result: Current cluster result with exemplars
-            graph_result: Graph result with distance matrix
-
-        Returns:
-            Updated ClusterResult with merged clusters
-        """
-        result, _ = self.merge_clusters_with_logging(cluster_result, graph_result)
+        """Merge clusters using conservative multi-evidence approach."""
+        result, _, _ = self.merge_clusters_with_logging(cluster_result, graph_result)
         return result
 
     def _merge_clusters_internal(
         self,
         cluster_result: ClusterResult,
         graph_result: GraphResult,
-        merge_log: List[Dict]
+        merge_log: List[Dict],
+        n_iterations_out: List[int],
     ) -> ClusterResult:
-        """Internal merge implementation that logs decisions.
-
-        Args:
-            cluster_result: Current cluster result with exemplars
-            graph_result: Graph result with distance matrix
-            merge_log: List to append merge decisions to
-
-        Returns:
-            Updated ClusterResult with merged clusters
-        """
+        """Internal merge implementation that logs decisions."""
         if not self.config.merge_enabled:
             logger.info("Cluster merging disabled")
             return cluster_result
@@ -92,22 +258,10 @@ class ConservativeMerger:
 
         distance_matrix = graph_result.distance_matrix
 
-        # Compute cluster thresholds once (for adaptive mode)
-        if self.config.merge_use_adaptive_threshold:
-            cluster_thresholds = self._compute_cluster_thresholds(
-                cluster_result,
-                distance_matrix
-            )
-            global_threshold = self._compute_global_threshold(cluster_thresholds)
-            logger.info(
-                f"Adaptive thresholds: global={global_threshold:.3f}, "
-                f"local range=[{min(cluster_thresholds.values()):.3f}, "
-                f"{max(cluster_thresholds.values()):.3f}]"
-            )
-        else:
-            cluster_thresholds = {}
-            global_threshold = self.config.merge_exemplar_threshold
-            logger.info(f"Using fixed threshold: {global_threshold:.3f}")
+        # Fixed exemplar threshold (no adaptive computation)
+        cluster_thresholds: Dict[int, float] = {}
+        global_threshold = self.config.merge_exemplar_threshold
+        logger.info(f"Merge exemplar threshold: {global_threshold:.3f}")
 
         # Iterative merging
         iteration = 0
@@ -152,14 +306,6 @@ class ConservativeMerger:
                 distance_matrix
             )
 
-            # Recompute cluster thresholds after merge (if adaptive)
-            if self.config.merge_use_adaptive_threshold:
-                cluster_thresholds = self._compute_cluster_thresholds(
-                    cluster_result,
-                    distance_matrix
-                )
-                global_threshold = self._compute_global_threshold(cluster_thresholds)
-
             logger.info(
                 f"Iteration {iteration}: Merged clusters {cluster_id_a} and {cluster_id_b} "
                 f"({cluster_result.n_clusters} clusters remaining)"
@@ -167,8 +313,7 @@ class ConservativeMerger:
 
         logger.info(f"Merging complete after {iteration} iterations")
 
-        # Store decision metadata for analysis (last_candidates set in _find_best_merge)
-        self.last_thresholds = cluster_thresholds.copy() if cluster_thresholds else {}
+        n_iterations_out[0] = iteration
 
         return cluster_result
 
@@ -177,41 +322,9 @@ class ConservativeMerger:
         cluster_result: ClusterResult,
         distance_matrix: np.ndarray
     ) -> List[Tuple[int, int]]:
-        """Propose merge candidates based on exemplar proximity.
-
-        Args:
-            cluster_result: Current cluster result
-            distance_matrix: Distance matrix
-
-        Returns:
-            List of (cluster_id_a, cluster_id_b) tuples
-        """
-        candidates = []
-        cluster_ids = sorted(cluster_result.clusters.keys())
-
-        for i, cluster_id_a in enumerate(cluster_ids):
-            for cluster_id_b in cluster_ids[i + 1:]:
-                # Check if any exemplars are close
-                exemplars_a = cluster_result.exemplars.get(cluster_id_a, [])
-                exemplars_b = cluster_result.exemplars.get(cluster_id_b, [])
-
-                if len(exemplars_a) == 0 or len(exemplars_b) == 0:
-                    # Fall back to full cluster if no exemplars
-                    exemplars_a = cluster_result.clusters[cluster_id_a]
-                    exemplars_b = cluster_result.clusters[cluster_id_b]
-
-                # Find minimum distance between exemplars
-                min_dist = float('inf')
-                for node_a in exemplars_a:
-                    for node_b in exemplars_b:
-                        dist = distance_matrix[node_a, node_b]
-                        min_dist = min(min_dist, dist)
-
-                if min_dist <= self.config.merge_candidate_threshold:
-                    candidates.append((cluster_id_a, cluster_id_b))
-
-        logger.debug(f"Proposed {len(candidates)} merge candidates")
-        return candidates
+        return propose_merge_candidates(
+            cluster_result, distance_matrix, self.config.merge_candidate_threshold
+        )
 
     def _find_best_merge(
         self,
@@ -324,14 +437,24 @@ class ConservativeMerger:
                 'cluster_b_size': len(cluster_result.clusters[cluster_id_b]),
                 'exemplar_dist': evidence['exemplar_dist'],
                 'threshold_used': evidence['merge_threshold'],
+                'T_a': evidence['T_a'],
+                'T_b': evidence['T_b'],
+                'T_global': evidence['T_global'],
+                'p25_cross_dist': evidence['p25_cross_dist'],
+                'passes_cross': evidence['passes_cross'],
                 'support': evidence['support'],
+                'unique_support': evidence['unique_support'],
                 'required_support': evidence['required_support'],
                 'post_diameter': evidence['post_diameter'],
                 'max_allowed_diameter': evidence['max_allowed_diameter'],
-                'action': 'merged' if evidence['valid'] else 'rejected',
+                'action': 'passed' if evidence['valid'] else 'rejected',
                 'passes_exemplar': evidence['passes_exemplar'],
                 'passes_support': evidence['passes_support'],
                 'passes_margin': evidence['passes_margin'],
+                'margin_gap': evidence['margin_gap'],
+                'margin_dist_to_b': evidence['margin_dist_to_b'],
+                'margin_competitor_dist': evidence['margin_competitor_dist'],
+                'margin_competitor_id': evidence['margin_competitor_id'],
                 'passes_diameter': evidence['passes_diameter'],
             }
 
@@ -339,11 +462,25 @@ class ConservativeMerger:
             if not evidence['valid']:
                 reasons = []
                 if not evidence['passes_exemplar']:
-                    reasons.append(f"exemplar_dist {evidence['exemplar_dist']:.3f} > threshold {evidence['merge_threshold']:.3f}")
+                    if self.config.merge_use_cross_gate:
+                        msg = (
+                            f"neither OR path passed: "
+                            f"p25_exemplar {evidence['exemplar_dist']:.3f} > {evidence['merge_threshold']:.3f}, "
+                            f"p25_cross {evidence['p25_cross_dist']:.3f} > {self.config.merge_cross_threshold:.3f}"
+                        )
+                    else:
+                        msg = f"p25_exemplar {evidence['exemplar_dist']:.3f} > threshold {evidence['merge_threshold']:.3f}"
+                    reasons.append(msg)
                 if not evidence['passes_support']:
                     reasons.append(f"support {evidence['support']} < required {evidence['required_support']}")
                 if not evidence['passes_margin']:
-                    reasons.append("margin check failed")
+                    gap = evidence['margin_gap']
+                    req = self.config.merge_margin
+                    cid = evidence['margin_competitor_id']
+                    reasons.append(
+                        f"margin gap {gap:.3f} < required {req:.3f} "
+                        f"(competitor C_{cid} at {evidence['margin_competitor_dist']:.3f})"
+                    )
                 if not evidence['passes_diameter']:
                     reasons.append(f"diameter {evidence['post_diameter']:.3f} > max {evidence['max_allowed_diameter']:.3f}")
                 decision['rejection_reason'] = "; ".join(reasons)
@@ -362,9 +499,10 @@ class ConservativeMerger:
         valid_merges.sort(key=lambda x: x[2]['exemplar_dist'])
         best_merge = valid_merges[0]
 
-        # Mark which merge was actually performed
+        # Mark which merge was actually performed — only the winner gets action="merged"
         for decision in all_decisions:
             if decision['cluster_a'] == best_merge[0] and decision['cluster_b'] == best_merge[1]:
+                decision['action'] = 'merged'
                 decision['actually_merged'] = True
             else:
                 decision['actually_merged'] = False
@@ -403,40 +541,55 @@ class ConservativeMerger:
         exemplars_a = cluster_result.exemplars.get(cluster_id_a, nodes_a)
         exemplars_b = cluster_result.exemplars.get(cluster_id_b, nodes_b)
 
-        # (A) Exemplar agreement with adaptive threshold
-        exemplar_dist = self._min_exemplar_distance(
+        # (A) Exemplar agreement — fixed threshold
+        exemplar_dist = self._p25_exemplar_distance(
             exemplars_a, exemplars_b, distance_matrix
         )
+        merge_threshold = self.config.merge_exemplar_threshold
+        T_a: Optional[float] = None
+        T_b: Optional[float] = None
+        T_global_val: Optional[float] = None
 
-        # Compute merge threshold (adaptive or fixed)
-        if self.config.merge_use_adaptive_threshold and cluster_thresholds:
-            T_a = cluster_thresholds.get(cluster_id_a, self.config.merge_exemplar_threshold)
-            T_b = cluster_thresholds.get(cluster_id_b, self.config.merge_exemplar_threshold)
-            T_local = max(T_a, T_b)  # Use MAX (more permissive)
-            T_global = global_threshold
-            alpha = self.config.merge_threshold_alpha
-            merge_threshold = alpha * T_local + (1 - alpha) * T_global
+        passes_exemplar_only = exemplar_dist <= merge_threshold
+
+        # (A') Cross-distance OR path — p25 over ALL node pairs
+        # Only applies when the smaller cluster is <= merge_cross_max_size
+        p25_cross_dist = self._p25_cross_distance(nodes_a, nodes_b, distance_matrix)
+        passes_cross = p25_cross_dist <= self.config.merge_cross_threshold
+
+        min_size = min(len(nodes_a), len(nodes_b))
+        cross_gate_eligible = (
+            self.config.merge_use_cross_gate
+            and min_size <= self.config.merge_cross_max_size
+        )
+        if cross_gate_eligible:
+            passes_exemplar = passes_exemplar_only or passes_cross
         else:
-            merge_threshold = self.config.merge_exemplar_threshold
-
-        passes_exemplar = exemplar_dist <= merge_threshold
+            passes_exemplar = passes_exemplar_only
 
         # (B) Support count (use merge_threshold for consistency)
         support = self._count_support(
             nodes_a, nodes_b, distance_matrix, merge_threshold
         )
+        unique_support = self._count_unique_support(
+            nodes_a, nodes_b, distance_matrix, merge_threshold
+        )
 
-        min_size = min(len(nodes_a), len(nodes_b))
+        if self.config.merge_support_unique:
+            effective_support = unique_support
+        else:
+            effective_support = support
         required_support = max(
             int(min_size * self.config.merge_support_frac),
             self.config.merge_support_min
         )
-        passes_support = support >= required_support
+        passes_support = effective_support >= required_support
 
         # (C) Margin vs next best
-        passes_margin = self._check_margin(
+        margin_detail = self._check_margin(
             cluster_id_a, cluster_id_b, cluster_result, distance_matrix
         )
+        passes_margin = margin_detail.passed
 
         # (D) Post-merge diameter (adaptive)
         post_diameter = self._compute_post_merge_diameter(
@@ -445,8 +598,8 @@ class ConservativeMerger:
 
         # Allow diameter to expand by factor
         current_max_diameter = max(
-            cluster_result.cluster_stats[cluster_id_a].get('diameter', 0.0),
-            cluster_result.cluster_stats[cluster_id_b].get('diameter', 0.0)
+            cluster_result.cluster_stats.get(cluster_id_a, {}).get('diameter', 0.0),
+            cluster_result.cluster_stats.get(cluster_id_b, {}).get('diameter', 0.0)
         )
         max_allowed_diameter = current_max_diameter * self.config.merge_diameter_expansion_factor
         passes_diameter = post_diameter <= max_allowed_diameter
@@ -458,29 +611,51 @@ class ConservativeMerger:
             'valid': valid,
             'exemplar_dist': exemplar_dist,
             'merge_threshold': merge_threshold,
+            'T_a': T_a,
+            'T_b': T_b,
+            'T_global': T_global_val,
             'passes_exemplar': passes_exemplar,
+            'p25_cross_dist': p25_cross_dist,
+            'passes_cross': passes_cross,
             'support': support,
+            'unique_support': unique_support,
             'required_support': required_support,
             'passes_support': passes_support,
             'passes_margin': passes_margin,
+            'margin_gap': margin_detail.worst_gap,
+            'margin_dist_to_b': margin_detail.dist_to_b,
+            'margin_competitor_dist': margin_detail.competitor_dist,
+            'margin_competitor_id': margin_detail.competitor_id,
             'post_diameter': post_diameter,
             'max_allowed_diameter': max_allowed_diameter,
             'passes_diameter': passes_diameter,
         }
 
-    def _min_exemplar_distance(
+    def _p25_exemplar_distance(
         self,
         exemplars_a: List[int],
         exemplars_b: List[int],
         distance_matrix: np.ndarray
     ) -> float:
-        """Compute minimum distance between exemplars."""
-        min_dist = float('inf')
-        for node_a in exemplars_a:
-            for node_b in exemplars_b:
-                dist = distance_matrix[node_a, node_b]
-                min_dist = min(min_dist, dist)
-        return min_dist
+        """Compute 25th-percentile distance across all exemplar pairs."""
+        dists = [
+            distance_matrix[a, b]
+            for a in exemplars_a
+            for b in exemplars_b
+        ]
+        return float(np.percentile(dists, 25))
+
+    def _p25_cross_distance(
+        self,
+        nodes_a: List[int],
+        nodes_b: List[int],
+        distance_matrix: np.ndarray,
+    ) -> float:
+        """Compute 25th-percentile distance across ALL cross-cluster node pairs."""
+        idx_a = np.array(nodes_a)
+        idx_b = np.array(nodes_b)
+        cross_dists = distance_matrix[np.ix_(idx_a, idx_b)].ravel()
+        return float(np.percentile(cross_dists, 25))
 
     def _count_support(
         self,
@@ -497,48 +672,96 @@ class ConservativeMerger:
                     support += 1
         return support
 
+    def _count_unique_support(
+        self,
+        nodes_a: List[int],
+        nodes_b: List[int],
+        distance_matrix: np.ndarray,
+        threshold: float,
+    ) -> int:
+        """Count unique cross-cluster pairs below threshold (greedy bipartite).
+
+        Each node may participate in at most one counted pair.  Pairs are
+        assigned greedily in ascending distance order.
+        """
+        pairs = []
+        for na in nodes_a:
+            for nb in nodes_b:
+                d = distance_matrix[na, nb]
+                if d <= threshold:
+                    pairs.append((d, na, nb))
+        pairs.sort()
+        used_a: Set[int] = set()
+        used_b: Set[int] = set()
+        count = 0
+        for _, na, nb in pairs:
+            if na not in used_a and nb not in used_b:
+                used_a.add(na)
+                used_b.add(nb)
+                count += 1
+        return count
+
     def _check_margin(
         self,
         cluster_id_a: int,
         cluster_id_b: int,
         cluster_result: ClusterResult,
         distance_matrix: np.ndarray
-    ) -> bool:
+    ) -> MarginDetail:
         """Check margin to next-best cluster.
 
-        For each exemplar in Ci, check that Cj is the nearest cluster
-        by a margin.
+        For each exemplar in A, verify that B is the nearest other cluster
+        by at least merge_margin. Returns full numeric detail for logging.
 
-        If merge_margin=0, this check is disabled (always returns True).
+        If merge_margin=0, this check is disabled (always passes).
         """
-        # Disable check if margin is 0
+        _no_detail = MarginDetail(
+            passed=True, worst_gap=float('inf'),
+            worst_exemplar=-1, competitor_id=-1,
+            dist_to_b=0.0, competitor_dist=0.0
+        )
         if self.config.merge_margin == 0.0:
-            return True
+            return _no_detail
 
         exemplars_a = cluster_result.exemplars.get(
             cluster_id_a,
             cluster_result.clusters[cluster_id_a]
         )
 
+        worst_gap = float('inf')
+        worst_exemplar = -1
+        worst_competitor_id = -1
+        worst_dist_to_b = 0.0
+        worst_competitor_dist = 0.0
+
         for node_a in exemplars_a:
-            # Find distances to all clusters
-            cluster_dists = {}
+            cluster_dists: Dict[int, float] = {}
             for cid, nodes in cluster_result.clusters.items():
                 if cid == cluster_id_a:
                     continue
-                # Min distance to cluster
-                min_dist = min(distance_matrix[node_a, node_b] for node_b in nodes)
-                cluster_dists[cid] = min_dist
+                cluster_dists[cid] = min(distance_matrix[node_a, nb] for nb in nodes)
 
-            # Check if cluster_b is closest by margin
             dist_to_b = cluster_dists.get(cluster_id_b, float('inf'))
             for cid, dist in cluster_dists.items():
-                if cid != cluster_id_b:
-                    if dist_to_b + self.config.merge_margin > dist:
-                        # Another cluster is as close or closer
-                        return False
+                if cid == cluster_id_b:
+                    continue
+                gap = dist - dist_to_b          # positive = competitor is farther (good)
+                if gap < worst_gap:
+                    worst_gap = gap
+                    worst_exemplar = node_a
+                    worst_competitor_id = cid
+                    worst_dist_to_b = dist_to_b
+                    worst_competitor_dist = dist
 
-        return True
+        passed = worst_gap >= self.config.merge_margin
+        return MarginDetail(
+            passed=passed,
+            worst_gap=worst_gap,
+            worst_exemplar=worst_exemplar,
+            competitor_id=worst_competitor_id,
+            dist_to_b=worst_dist_to_b,
+            competitor_dist=worst_competitor_dist,
+        )
 
     def _compute_post_merge_diameter(
         self,
@@ -602,29 +825,16 @@ class ConservativeMerger:
         if cluster_id_b in new_cluster_stats:
             del new_cluster_stats[cluster_id_b]
 
-        # Recompute exemplars for merged cluster
+        # Recompute exemplars for merged cluster over ALL merged nodes so that
+        # bridge nodes (never exemplars in their original cluster) can be discovered.
         new_exemplars = cluster_result.exemplars.copy()
-        # Merge exemplar lists and take top N
-        exemplars_a = cluster_result.exemplars.get(cluster_id_a, [])
-        exemplars_b = cluster_result.exemplars.get(cluster_id_b, [])
-        combined_exemplars = list(set(exemplars_a + exemplars_b))
-
-        # Compute d10 for combined exemplars and keep best
-        if len(combined_exemplars) > self.config.N_exemplars_max:
-            d10_values = []
-            for node in combined_exemplars:
-                # Distance to kth nearest in merged cluster
-                k = min(self.config.d10_k, len(merged_nodes) - 1)
-                dists = [distance_matrix[node, other] for other in merged_nodes if other != node]
-                if len(dists) >= k:
-                    d10 = sorted(dists)[k - 1]
-                    d10_values.append((d10, node))
-
-            d10_values.sort()
-            new_exemplars[cluster_id_a] = [node for _, node in d10_values[:self.config.N_exemplars_max]]
-        else:
-            new_exemplars[cluster_id_a] = combined_exemplars
-
+        helper = _ClusterStatHelper(distance_matrix)
+        new_exemplars[cluster_id_a] = helper.select_exemplars(
+            merged_nodes,
+            d10_k=self.config.d10_k,
+            n_max=self.config.N_exemplars_max,
+            suppression_radius=self.config.exemplar_suppression_radius,
+        )
         if cluster_id_b in new_exemplars:
             del new_exemplars[cluster_id_b]
 
@@ -667,70 +877,142 @@ class ConservativeMerger:
             'p95_dist': float(np.percentile(upper_tri, 95)),
         }
 
-    def _compute_cluster_thresholds(
+
+# ---------------------------------------------------------------------------
+# Public utility: apply a user-specified set of merges to a base ClusterResult
+# ---------------------------------------------------------------------------
+
+def apply_manual_merges(
+    base_cluster_result: ClusterResult,
+    approved_pairs: List[Tuple[int, int]],
+    distance_matrix: np.ndarray,
+) -> ClusterResult:
+    """Apply a user-approved list of cluster merges to a base ClusterResult.
+
+    Handles transitive chains via union-find: if (A, B) and (B, C) are both
+    approved, A, B, and C all end up in the same cluster.
+
+    Args:
+        base_cluster_result: The pre-merge ClusterResult (from kNN clustering).
+        approved_pairs: List of (cluster_id_a, cluster_id_b) to merge.
+            Unknown cluster IDs are silently ignored.
+        distance_matrix: Full pairwise distance matrix (used to recompute stats
+            and exemplars for merged clusters).
+
+    Returns:
+        New ClusterResult reflecting approved merges. Clusters not involved
+        in any approved merge are returned unchanged.
+    """
+    if not approved_pairs:
+        return base_cluster_result
+
+    # Build union-find over known cluster IDs
+    known_ids = set(base_cluster_result.clusters.keys())
+    parent: Dict[int, int] = {cid: cid for cid in known_ids}
+
+    def _find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]  # path compression
+            x = parent[x]
+        return x
+
+    def _union(a: int, b: int) -> None:
+        ra, rb = _find(a), _find(b)
+        if ra != rb:
+            parent[rb] = ra  # merge rb's tree under ra
+
+    for a, b in approved_pairs:
+        if a in known_ids and b in known_ids:
+            _union(a, b)
+
+    # Group cluster IDs by their root (representative)
+    root_to_members: Dict[int, List[int]] = {}
+    for cid in known_ids:
+        root = _find(cid)
+        root_to_members.setdefault(root, []).append(cid)
+
+    # Build new cluster assignment
+    # Use the smallest cluster ID within each group as the new canonical ID
+    new_clusters: Dict[int, List[int]] = {}
+    new_labels = base_cluster_result.labels.copy()
+
+    for root, members in root_to_members.items():
+        canonical_id = min(members)
+        merged_nodes: List[int] = []
+        for cid in members:
+            merged_nodes.extend(base_cluster_result.clusters[cid])
+            # Relabel all nodes from absorbed clusters to the canonical cluster
+            for node in base_cluster_result.clusters[cid]:
+                if base_cluster_result.labels[node] != -1:
+                    new_labels[node] = canonical_id
+        new_clusters[canonical_id] = merged_nodes
+
+    # Recompute stats and exemplars for each new cluster
+    # Reuse the private helper by instantiating a minimal merger
+    _helper = _ClusterStatHelper(distance_matrix)
+    new_cluster_stats: Dict[int, Dict[str, float]] = {}
+    new_exemplars: Dict[int, List[int]] = {}
+
+    for cid, nodes in new_clusters.items():
+        new_cluster_stats[cid] = _helper.compute_stats(nodes)
+        new_exemplars[cid] = _helper.select_exemplars(
+            nodes, d10_k=3, n_max=10, suppression_radius=0.2
+        )
+
+    return ClusterResult(
+        labels=new_labels,
+        clusters=new_clusters,
+        cluster_stats=new_cluster_stats,
+        exemplars=new_exemplars,
+        n_clusters=len(new_clusters),
+        n_noise=base_cluster_result.n_noise,
+    )
+
+
+class _ClusterStatHelper:
+    """Minimal helper to recompute cluster stats and exemplars without full config."""
+
+    def __init__(self, distance_matrix: np.ndarray) -> None:
+        self._dm = distance_matrix
+
+    def compute_stats(self, nodes: List[int]) -> Dict[str, float]:
+        size = len(nodes)
+        if size < 2:
+            return {'size': size, 'diameter': 0.0, 'median_dist': 0.0,
+                    'mean_dist': 0.0, 'p95_dist': 0.0}
+        indices = np.array(nodes)
+        sub = self._dm[np.ix_(indices, indices)]
+        upper = sub[np.triu_indices_from(sub, k=1)]
+        return {
+            'size': size,
+            'diameter': float(upper.max()),
+            'median_dist': float(np.median(upper)),
+            'mean_dist': float(upper.mean()),
+            'p95_dist': float(np.percentile(upper, 95)),
+        }
+
+    def select_exemplars(
         self,
-        cluster_result: ClusterResult,
-        distance_matrix: np.ndarray
-    ) -> Dict[int, float]:
-        """Compute adaptive threshold for each cluster.
-
-        Uses P90 (or configured percentile) of exemplar pairwise distances.
-
-        Args:
-            cluster_result: Cluster result with exemplars
-            distance_matrix: Distance matrix
-
-        Returns:
-            Dict mapping cluster_id -> threshold
-        """
-        cluster_thresholds = {}
-
-        for cluster_id, nodes in cluster_result.clusters.items():
-            exemplar_nodes = cluster_result.exemplars.get(cluster_id, [])
-
-            # Fall back to all nodes if no exemplars
-            if len(exemplar_nodes) < 2:
-                exemplar_nodes = nodes
-
-            if len(exemplar_nodes) < 2:
-                # Too small, use fallback
-                cluster_thresholds[cluster_id] = self.config.merge_exemplar_threshold
-                continue
-
-            # Compute pairwise distances between exemplars
-            exemplar_dists = []
-            for i, node_a in enumerate(exemplar_nodes):
-                for node_b in exemplar_nodes[i + 1:]:
-                    exemplar_dists.append(distance_matrix[node_a, node_b])
-
-            # Use configured percentile
-            if len(exemplar_dists) > 0:
-                threshold = np.percentile(
-                    exemplar_dists,
-                    self.config.merge_exemplar_percentile
-                )
-                cluster_thresholds[cluster_id] = float(threshold)
-            else:
-                cluster_thresholds[cluster_id] = self.config.merge_exemplar_threshold
-
-        return cluster_thresholds
-
-    def _compute_global_threshold(
-        self,
-        cluster_thresholds: Dict[int, float]
-    ) -> float:
-        """Compute global threshold using configured percentile.
-
-        Args:
-            cluster_thresholds: Dict mapping cluster_id -> threshold
-
-        Returns:
-            Global threshold (percentile of all cluster thresholds)
-        """
-        if len(cluster_thresholds) == 0:
-            return self.config.merge_exemplar_threshold
-
-        return float(np.percentile(
-            list(cluster_thresholds.values()),
-            self.config.merge_global_percentile
-        ))
+        nodes: List[int],
+        d10_k: int,
+        n_max: int,
+        suppression_radius: float,
+    ) -> List[int]:
+        """Select up to n_max exemplars by d10 score (kth-NN distance)."""
+        if len(nodes) <= 1:
+            return list(nodes)
+        scored: List[Tuple[float, int]] = []
+        k = min(d10_k, len(nodes) - 1)
+        for node in nodes:
+            dists = sorted(self._dm[node, other] for other in nodes if other != node)
+            d10 = dists[k - 1] if len(dists) >= k else dists[-1]
+            scored.append((d10, node))
+        scored.sort()
+        # Greedy suppression
+        selected: List[int] = []
+        for _, node in scored:
+            if len(selected) >= n_max:
+                break
+            if all(self._dm[node, s] >= suppression_radius for s in selected):
+                selected.append(node)
+        return selected

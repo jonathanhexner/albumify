@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Face Clustering App — UI Mockup</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f6; color: #262730; font-size: 14px; }
+
+/* ── Shell ── */
+.app-header { background: #fff; border-bottom: 1px solid #ddd; padding: 12px 24px; display: flex; align-items: center; gap: 12px; }
+.app-header h1 { font-size: 20px; font-weight: 700; }
+.app-header .sub { font-size: 13px; color: #888; }
+
+.tabbar { background: #fff; border-bottom: 1px solid #ddd; display: flex; padding: 0 24px; }
+.tab { padding: 12px 20px; font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 3px solid transparent; color: #888; }
+.tab:hover { color: #262730; }
+.tab.active { color: #ff4b4b; border-bottom-color: #ff4b4b; }
+
+.page { display: none; padding: 24px; overflow-y: auto; height: calc(100vh - 96px); }
+.page.active { display: block; }
+
+/* ── Utilities ── */
+.card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; margin-bottom: 16px; }
+.card-head { padding: 14px 18px; font-weight: 700; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+.card-body { padding: 16px 18px; }
+
+label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+input[type=text], select { width: 100%; padding: 8px 11px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; background: #fff; }
+input[type=text]:focus, select:focus { outline: none; border-color: #ff4b4b; }
+input[type=range] { width: 100%; accent-color: #ff4b4b; }
+.field { margin-bottom: 16px; }
+.hint { font-size: 12px; color: #888; margin-top: 3px; }
+
+.btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+.btn-primary { background: #ff4b4b; color: #fff; border-color: #ff4b4b; }
+.btn-outline { background: #fff; color: #262730; border-color: #ccc; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-row { display: flex; gap: 8px; }
+
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.ok   { background: #d4edda; color: #155724; }
+.run  { background: #fff3cd; color: #856404; }
+.pend { background: #f0f0f0; color: #888; }
+.fail { background: #f8d7da; color: #721c24; }
+.warn { background: #fff3cd; color: #856404; }
+.info-badge { background: #d1ecf1; color: #0c5460; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #f8f9fa; text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .05em; border-bottom: 2px solid #e0e0e0; }
+td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }
+.mono { font-family: monospace; font-size: 12px; }
+
+.metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 16px; }
+.metric { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px 18px; }
+.metric .mlabel { font-size: 12px; color: #888; }
+.metric .mval { font-size: 28px; font-weight: 700; }
+.metric .msub { font-size: 11px; color: #28a745; margin-top: 2px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+
+.log-box { background: #1e1e1e; color: #d4d4d4; border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 12px; line-height: 1.6; max-height: 200px; overflow-y: auto; }
+.log-box .ts { color: #608b4e; }
+.log-box .lvl { color: #9cdcfe; }
+.log-box .warn { color: #ce9178; }
+
+.expander { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 14px; background: #fff; }
+.exp-head { padding: 11px 14px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; }
+.exp-body { padding: 14px; border-top: 1px solid #f0f0f0; }
+
+/* ── Run tab ── */
+.stage-table-wrap { margin-top: 20px; }
+.stage-status-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
+.stage-status-row:last-child { border-bottom: none; }
+.stage-name { width: 100px; font-weight: 600; }
+.stage-detail { color: #888; font-size: 12px; flex: 1; }
+.stage-time { font-size: 12px; color: #888; width: 60px; text-align: right; }
+.progress-bar { height: 5px; background: #e0e0e0; border-radius: 3px; margin: 4px 0 8px; }
+.progress-fill { height: 100%; background: #ff4b4b; border-radius: 3px; }
+
+/* ── History tab ── */
+.hist-path { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.note-input { border: 1px solid #eee; border-radius: 4px; padding: 3px 7px; font-size: 12px; width: 130px; }
+
+/* ── Browse tab ── */
+.cluster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px,1fr)); gap: 14px; }
+.ccard { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; cursor: pointer; }
+.ccard:hover { box-shadow: 0 3px 12px rgba(0,0,0,.1); }
+.ccard .thumbs { display: flex; height: 75px; background: #f0f2f6; }
+.ccard .thumb { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 24px; border-right: 1px solid #e0e0e0; }
+.ccard .thumb:last-child { border-right: none; }
+.ccard .cinfo { padding: 9px 12px; }
+.ccard .cid { font-size: 11px; color: #888; }
+.ccard .csz { font-weight: 700; font-size: 14px; }
+.ccard .clabel input { width: 100%; border: 1px solid #e0e0e0; border-radius: 4px; padding: 3px 7px; font-size: 12px; margin-top: 5px; }
+
+/* ── Analysis tab ── */
+.analysis-wrap { display: grid; grid-template-columns: 210px 1fr; gap: 16px; }
+.clist { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; overflow-y: auto; max-height: calc(100vh - 145px); }
+.clist-head { padding: 10px 13px; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid #f0f0f0; position: sticky; top: 0; background: #fff; }
+.clist-item { padding: 9px 13px; cursor: pointer; border-bottom: 1px solid #f5f5f5; display: flex; justify-content: space-between; align-items: center; }
+.clist-item:hover { background: #fafafa; }
+.clist-item.sel { background: #fff0f0; border-left: 3px solid #ff4b4b; }
+.clist-item .cn { font-weight: 600; font-size: 13px; }
+.clist-item .cs { font-size: 11px; color: #888; }
+
+.detail-scroll { overflow-y: auto; max-height: calc(100vh - 145px); display: flex; flex-direction: column; gap: 14px; }
+
+.stat-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat { background: #f8f9fa; border: 1px solid #e8e8e8; border-radius: 8px; padding: 10px 14px; min-width: 105px; }
+.stat .sl { font-size: 11px; color: #888; font-weight: 600; text-transform: uppercase; }
+.stat .sv { font-size: 22px; font-weight: 700; }
+.stat .ss { font-size: 11px; color: #888; margin-top: 1px; }
+
+.exemplar-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.ex-card { background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; padding: 9px; text-align: center; width: 105px; }
+.ex-card.top { border-color: #ff4b4b; }
+.ex-card .fthumb { width: 74px; height: 74px; background: #dde2ea; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 6px; }
+.ex-card .fid { font-size: 10px; color: #888; font-family: monospace; }
+.ex-card .fdist { font-size: 12px; font-weight: 700; }
+.ex-card .ftag { font-size: 10px; color: #ff4b4b; font-weight: 700; margin-top: 2px; }
+
+.umap-outer { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px; }
+.umap-canvas { background: #12122a; border-radius: 8px; position: relative; height: 280px; width: 100%; overflow: hidden; }
+.dot { position: absolute; border-radius: 50%; cursor: pointer; transition: transform .15s; }
+.dot:hover { transform: scale(2); z-index: 9; }
+.dot.hl { box-shadow: 0 0 0 2px #fff; }
+.umap-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.leg-item { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+.leg-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+.dist-ok   { color: #28a745; font-weight: 700; }
+.dist-warn { color: #e0a800; font-weight: 700; }
+.dist-bad  { color: #dc3545; font-weight: 700; }
+
+.qg-pass { color: #28a745; font-weight: 600; }
+.qg-fail { color: #dc3545; font-weight: 600; }
+.qg-reason { font-size: 11px; color: #dc3545; font-style: italic; }
+.fmini { width: 34px; height: 34px; background: #dde2ea; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>Face Clustering</h1>
+  <span class="sub">face_cluster v1.0 &nbsp;·&nbsp; D:\sim-bench</span>
+</div>
+
+<div class="tabbar">
+  <div class="tab active"   onclick="goTab('run',this)">Run</div>
+  <div class="tab"          onclick="goTab('results',this)">Results</div>
+  <div class="tab"          onclick="goTab('history',this)">History</div>
+  <div class="tab"          onclick="goTab('browse',this)">Browse</div>
+  <div class="tab"          onclick="goTab('analysis',this)">Analysis</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ RUN ═══ -->
+<div id="page-run" class="page active">
+  <div style="max-width:660px">
+
+    <div class="field">
+      <label>Image Directory</label>
+      <input type="text" value="D:\Google_Germany">
+      <div class="hint">Supports .jpg .jpeg .png .heic — scanned recursively</div>
+    </div>
+    <div class="field">
+      <label>Output Directory</label>
+      <input type="text" value="D:\sim-bench\results\Germany_2026-04-03">
+    </div>
+
+    <div class="expander">
+      <div class="exp-head" onclick="toggle('cfg')">Config <span id="cfg-arrow">▾</span></div>
+      <div class="exp-body" id="cfg">
+        <div class="field">
+          <label style="display:flex;justify-content:space-between">Distance threshold <b style="color:#ff4b4b">0.35</b></label>
+          <input type="range" min=".1" max=".8" step=".01" value=".35">
+          <div class="hint">Max cosine distance for a kNN graph edge</div>
+        </div>
+        <div class="field">
+          <label style="display:flex;justify-content:space-between">Min blur score <b style="color:#ff4b4b">50</b></label>
+          <input type="range" min="0" max="200" step="5" value="50">
+          <div class="hint">Laplacian variance — lower accepts blurrier faces</div>
+        </div>
+        <div class="field">
+          <label style="display:flex;justify-content:space-between">Max faces per image (core) <b style="color:#ff4b4b">3</b></label>
+          <input type="range" min="1" max="10" step="1" value="3">
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer">
+          <input type="checkbox"> Require pose (needs SixDRepNet)
+        </label>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="showProgress()">▶  Run Pipeline</button>
+
+    <div id="progress-area" style="display:none;margin-top:22px;">
+      <div style="font-size:13px;color:#888;margin-bottom:6px;">embed &nbsp;·&nbsp; 310 / 1230 images &nbsp;·&nbsp; 891 faces found</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:42%"></div></div>
+      <div class="card" style="padding:0">
+        <div class="card-head" style="font-size:13px;">Live Stage Progress</div>
+        <div style="padding:10px 16px;">
+          <div class="stage-status-row"><span class="stage-name">discover</span><span class="badge ok">✓ done</span><span class="stage-detail">1230 images</span><span class="stage-time">0.1s</span></div>
+          <div class="stage-status-row"><span class="stage-name">embed</span><span class="badge run">⟳ running</span><span class="stage-detail">310 / 1230 · 891 faces</span><span class="stage-time">42s…</span></div>
+          <div class="stage-status-row"><span class="stage-name">quality</span><span class="badge pend">pending</span><span class="stage-detail">—</span><span class="stage-time">—</span></div>
+          <div class="stage-status-row"><span class="stage-name">crops</span><span class="badge pend">pending</span><span class="stage-detail">—</span><span class="stage-time">—</span></div>
+          <div class="stage-status-row"><span class="stage-name">cluster</span><span class="badge pend">pending</span><span class="stage-detail">—</span><span class="stage-time">—</span></div>
+          <div class="stage-status-row"><span class="stage-name">exemplars</span><span class="badge pend">pending</span><span class="stage-detail">—</span><span class="stage-time">—</span></div>
+          <div class="stage-status-row"><span class="stage-name">export</span><span class="badge pend">pending</span><span class="stage-detail">—</span><span class="stage-time">—</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ RESULTS ═══ -->
+<div id="page-results" class="page">
+
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+    <h2 style="font-size:18px;font-weight:700;">20260403_002051</h2>
+    <span class="badge ok">✓ complete</span>
+    <span style="font-size:13px;color:#888;">D:\Google_Germany &nbsp;·&nbsp; 461s</span>
+    <div class="btn-row" style="margin-left:auto;">
+      <button class="btn btn-outline">↺ Re-run same config</button>
+      <button class="btn btn-outline" onclick="toggle('editpanel')">✎ Re-run with edits</button>
+      <button class="btn btn-outline">⬇ Download log</button>
+    </div>
+  </div>
+
+  <div id="editpanel" style="display:none;background:#fafafa;border:1px dashed #ccc;border-radius:8px;padding:14px;margin-bottom:14px;">
+    <div style="font-size:12px;font-weight:700;color:#ff4b4b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Edit config before re-running</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div><label style="display:flex;justify-content:space-between">Distance threshold <b style="color:#ff4b4b">0.30</b></label><input type="range" min=".1" max=".8" step=".01" value=".30"></div>
+      <div><label style="display:flex;justify-content:space-between">Min blur score <b style="color:#ff4b4b">40</b></label><input type="range" min="0" max="200" step="5" value="40"></div>
+    </div>
+    <button class="btn btn-primary btn-sm" style="margin-top:10px;">▶ Run with this config</button>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="mlabel">Faces detected</div><div class="mval">1103</div></div>
+    <div class="metric"><div class="mlabel">Core faces</div><div class="mval">926</div><div class="msub">177 to holdout</div></div>
+    <div class="metric"><div class="mlabel">Clusters</div><div class="mval">125</div></div>
+    <div class="metric"><div class="mlabel">Noise</div><div class="mval">358</div></div>
+  </div>
+
+  <div class="two-col">
+    <div class="card" style="padding:0">
+      <div class="card-head">Config</div>
+      <div class="card-body" style="padding:0">
+        <table>
+          <tr><td style="color:#888;font-size:12px;width:160px">distance_threshold</td><td><b>0.35</b></td></tr>
+          <tr><td style="color:#888;font-size:12px">blur_min</td><td><b>50.0</b></td></tr>
+          <tr><td style="color:#888;font-size:12px">K</td><td><b>5</b></td></tr>
+          <tr><td style="color:#888;font-size:12px">max_faces_per_image</td><td><b>3</b></td></tr>
+          <tr><td style="color:#888;font-size:12px">min_cluster_size</td><td><b>2</b></td></tr>
+          <tr><td style="color:#888;font-size:12px">require_pose</td><td><b>False</b></td></tr>
+          <tr><td style="color:#888;font-size:12px">attach_enabled</td><td><b>False</b></td></tr>
+          <tr><td style="color:#888;font-size:12px">merge_enabled</td><td><b>False</b></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="card-head">Stage Breakdown</div>
+      <table>
+        <thead><tr><th>Stage</th><th>Status</th><th>Elapsed</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td>discover</td><td><span class="badge ok">✓ done</span></td><td>0.1s</td><td>1230 images</td></tr>
+          <tr><td>embed</td><td><span class="badge ok">✓ done</span></td><td>398s</td><td>1103 faces</td></tr>
+          <tr><td>quality</td><td><span class="badge ok">✓ done</span></td><td>0.5s</td><td>926 core · 177 holdout</td></tr>
+          <tr><td>crops</td><td><span class="badge ok">✓ done</span></td><td>2.1s</td><td>926 saved</td></tr>
+          <tr><td>cluster</td><td><span class="badge ok">✓ done</span></td><td>4.2s</td><td>125 clusters · 358 noise</td></tr>
+          <tr><td>exemplars</td><td><span class="badge ok">✓ done</span></td><td>0.8s</td><td>—</td></tr>
+          <tr><td>export</td><td><span class="badge ok">✓ done</span></td><td>0.3s</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Log <select style="width:auto;font-size:12px;padding:2px 6px;margin-left:8px"><option>Last 50 lines</option><option>Last 200</option><option>Full</option></select></div>
+    <div class="card-body" style="padding:0">
+      <div class="log-box">
+        <span class="ts">00:20:51</span> <span class="lvl">INFO </span>  Pipeline run 20260403_002051  source: D:\Google_Germany<br>
+        <span class="ts">00:20:51</span> <span class="lvl">INFO </span>  [discover] 100%  Found 1230 images<br>
+        <span class="ts">00:20:52</span> <span class="lvl">INFO </span>  [embed] 0%  Detecting faces in 1230 images...<br>
+        <span class="ts">00:27:30</span> <span class="lvl">INFO </span>  [embed] 100%  Detected 1103 faces<br>
+        <span class="ts">00:27:30</span> <span class="lvl">INFO </span>  Reassigned face_ids 0..1102 (globally unique)<br>
+        <span class="ts">00:27:31</span> <span class="lvl">INFO </span>  [quality] Pose angle filter: SKIPPED (heuristic pose unreliable for gating)<br>
+        <span class="ts">00:27:31</span> <span class="warn">WARN </span>  [quality] 177 faces below blur_min=50.0<br>
+        <span class="ts">00:27:31</span> <span class="lvl">INFO </span>  [quality] 100%  926 core, 177 holdout<br>
+        <span class="ts">00:27:33</span> <span class="lvl">INFO </span>  [crops] 100%  Saved 926 crops<br>
+        <span class="ts">00:27:37</span> <span class="lvl">INFO </span>  [cluster] kNN graph: 4821 edges on 926 core faces (K=5, threshold=0.35)<br>
+        <span class="ts">00:27:38</span> <span class="lvl">INFO </span>  [cluster] 100%  125 clusters, 358 noise<br>
+        <span class="ts">00:27:39</span> <span class="lvl">INFO </span>  Pipeline complete 461.5s → D:\sim-bench\results\Germany_2026-04-03<br>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ HISTORY ═══ -->
+<div id="page-history" class="page">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div><b style="font-size:16px">Run History</b><br><span style="font-size:12px;color:#888">4 runs · ~/.sim_bench/face_clustering_runs.db</span></div>
+    <button class="btn btn-outline btn-sm">⟳ Scan directory for missing runs</button>
+  </div>
+  <div class="card" style="padding:0">
+    <table>
+      <thead><tr><th>Run ID</th><th>Source Album</th><th>Status</th><th>Clusters</th><th>Faces</th><th>Time</th><th>Note</th><th></th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono">20260403_002051</td>
+          <td><span class="hist-path" title="D:\Google_Germany">D:\Google_Germany</span></td>
+          <td><span class="badge ok">✓ complete</span></td>
+          <td>125</td><td>1103</td><td>461s</td>
+          <td><input class="note-input" placeholder="Add note…"></td>
+          <td><div class="btn-row"><button class="btn btn-outline btn-sm" onclick="goTab('results',document.querySelectorAll('.tab')[1])">View</button><button class="btn btn-outline btn-sm">Re-run</button></div></td>
+        </tr>
+        <tr>
+          <td class="mono">20260402_183012</td>
+          <td><span class="hist-path">D:\Budapest2025</span></td>
+          <td><span class="badge ok">✓ complete</span></td>
+          <td>88</td><td>741</td><td>312s</td>
+          <td><input class="note-input" placeholder="Add note…"></td>
+          <td><div class="btn-row"><button class="btn btn-outline btn-sm">View</button><button class="btn btn-outline btn-sm">Re-run</button></div></td>
+        </tr>
+        <tr style="background:#fff8f8">
+          <td class="mono">20260401_110455</td>
+          <td><span class="hist-path">D:\Google_Germany</span></td>
+          <td><span class="badge fail">✗ failed: embed</span></td>
+          <td>—</td><td>—</td><td>12s</td>
+          <td><input class="note-input" value="OOM on large HEIC batch"></td>
+          <td><div class="btn-row"><button class="btn btn-outline btn-sm">View</button><button class="btn btn-outline btn-sm">Re-run</button></div></td>
+        </tr>
+        <tr>
+          <td class="mono">20260331_094201</td>
+          <td><span class="hist-path">D:\Google_Germany</span> <span class="badge warn" style="font-size:10px">⚠ output missing</span></td>
+          <td><span class="badge ok">✓ complete</span></td>
+          <td>118</td><td>1094</td><td>448s</td>
+          <td><input class="note-input" placeholder="Add note…"></td>
+          <td><div class="btn-row"><button class="btn btn-outline btn-sm" disabled style="opacity:.4">View</button><button class="btn btn-outline btn-sm">Re-run</button></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ BROWSE ═══ -->
+<div id="page-browse" class="page">
+  <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;">
+    <div style="flex:1"><label>Results Directory</label><input type="text" value="D:\sim-bench\results\Germany_2026-04-03"></div>
+    <button class="btn btn-outline">Load</button>
+  </div>
+  <div style="background:#d1ecf1;color:#0c5460;border:1px solid #bee5eb;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;">
+    125 clusters · 926 clustered faces · 358 noise · D:\Google_Germany · run 20260403_002051
+  </div>
+  <div class="cluster-grid">
+    <div class="ccard"><div class="thumbs"><div class="thumb">👤</div><div class="thumb">👤</div><div class="thumb">👤</div></div><div class="cinfo"><div class="cid">Cluster 0</div><div class="csz">14 faces</div><div class="clabel"><input type="text" placeholder="Label person…"></div></div></div>
+    <div class="ccard"><div class="thumbs"><div class="thumb">👤</div><div class="thumb">👤</div><div class="thumb">👤</div></div><div class="cinfo"><div class="cid">Cluster 1</div><div class="csz">11 faces</div><div class="clabel"><input type="text" placeholder="Label person…"></div></div></div>
+    <div class="ccard"><div class="thumbs"><div class="thumb">👤</div><div class="thumb">👤</div></div><div class="cinfo"><div class="cid">Cluster 2</div><div class="csz">7 faces</div><div class="clabel"><input type="text" value="Jonathan"></div></div></div>
+    <div class="ccard"><div class="thumbs"><div class="thumb">👤</div><div class="thumb">👤</div><div class="thumb">👤</div></div><div class="cinfo"><div class="cid">Cluster 3</div><div class="csz">9 faces</div><div class="clabel"><input type="text" placeholder="Label person…"></div></div></div>
+    <div class="ccard"><div class="thumbs"><div class="thumb">👤</div></div><div class="cinfo"><div class="cid">Cluster 4</div><div class="csz">3 faces</div><div class="clabel"><input type="text" placeholder="Label person…"></div></div></div>
+    <div class="ccard"><div class="thumbs"><div class="thumb">👤</div><div class="thumb">👤</div></div><div class="cinfo"><div class="cid">Cluster 5</div><div class="csz">5 faces</div><div class="clabel"><input type="text" placeholder="Label person…"></div></div></div>
+  </div>
+  <div style="margin-top:16px"><button class="btn btn-primary">Save Labels</button></div>
+</div>
+
+<!-- ══════════════════════════════════════════ ANALYSIS ═══ -->
+<div id="page-analysis" class="page">
+  <div class="analysis-wrap">
+
+    <!-- Left: cluster list -->
+    <div class="clist">
+      <div class="clist-head">125 Clusters</div>
+      <div class="clist-item sel"  onclick="selCluster(this)"><div><div class="cn">Cluster 0</div><div class="cs">14 faces</div></div><span class="badge ok" style="font-size:10px">✓</span></div>
+      <div class="clist-item"      onclick="selCluster(this)"><div><div class="cn">Cluster 1</div><div class="cs">11 faces</div></div><span class="badge ok" style="font-size:10px">✓</span></div>
+      <div class="clist-item"      onclick="selCluster(this)"><div><div class="cn">Cluster 2</div><div class="cs">7 faces · Jonathan</div></div><span class="badge ok" style="font-size:10px">✓</span></div>
+      <div class="clist-item"      onclick="selCluster(this)"><div><div class="cn">Cluster 3</div><div class="cs">9 faces</div></div><span class="badge ok" style="font-size:10px">✓</span></div>
+      <div class="clist-item"      onclick="selCluster(this)"><div><div class="cn">Cluster 4</div><div class="cs">3 faces</div></div><span class="badge warn" style="font-size:10px">!</span></div>
+      <div class="clist-item"      onclick="selCluster(this)"><div><div class="cn">Cluster 5</div><div class="cs">5 faces</div></div><span class="badge ok" style="font-size:10px">✓</span></div>
+      <div class="clist-item"      onclick="selCluster(this)"><div><div class="cn">Cluster 6</div><div class="cs">2 faces</div></div><span class="badge ok" style="font-size:10px">✓</span></div>
+      <div style="padding:10px;font-size:12px;color:#aaa;text-align:center">· · · 118 more · · ·</div>
+    </div>
+
+    <!-- Right: detail -->
+    <div class="detail-scroll">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <b style="font-size:17px">Cluster 0</b>
+        <span class="badge ok">14 faces</span>
+        <span style="font-size:12px;color:#888">diameter: 0.28 &nbsp;·&nbsp; avg intra-dist: 0.19</span>
+        <input type="text" placeholder="Label this person…" style="margin-left:auto;width:180px">
+      </div>
+
+      <!-- Stat blocks -->
+      <div class="stat-row">
+        <div class="stat"><div class="sl">Faces</div><div class="sv">14</div><div class="ss">11 core · 3 attached</div></div>
+        <div class="stat"><div class="sl">Diameter</div><div class="sv" style="color:#28a745">0.28</div><div class="ss">max intra-dist</div></div>
+        <div class="stat"><div class="sl">Avg dist</div><div class="sv">0.19</div><div class="ss">mean intra-dist</div></div>
+        <div class="stat"><div class="sl">Nearest cluster</div><div class="sv" style="color:#e0a800">0.38</div><div class="ss">→ Cluster 7</div></div>
+        <div class="stat"><div class="sl">Exemplars</div><div class="sv">3</div><div class="ss">d10-selected</div></div>
+      </div>
+
+      <!-- Exemplars -->
+      <div class="card">
+        <div class="card-head">Exemplars <span style="font-size:12px;color:#888;font-weight:400">d10 selection — most central faces</span></div>
+        <div class="card-body">
+          <div class="exemplar-row">
+            <div class="ex-card top">
+              <div class="fthumb">👤</div>
+              <div class="fid">face_0042</div>
+              <div class="fdist">d̄ = 0.14</div>
+              <div class="ftag">TOP EXEMPLAR</div>
+            </div>
+            <div class="ex-card">
+              <div class="fthumb">👤</div>
+              <div class="fid">face_0081</div>
+              <div class="fdist">d̄ = 0.17</div>
+            </div>
+            <div class="ex-card">
+              <div class="fthumb">👤</div>
+              <div class="fid">face_0103</div>
+              <div class="fdist">d̄ = 0.21</div>
+            </div>
+            <div style="font-size:12px;color:#888;align-self:center;padding-left:8px">← mean dist to all cluster members</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- All faces in cluster -->
+      <div class="card" style="padding:0">
+        <div class="card-head">All Faces in Cluster</div>
+        <table>
+          <thead><tr><th></th><th>Face ID</th><th>Image</th><th>Blur</th><th>Area</th><th>→ Exemplar</th><th>→ Centroid</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr style="background:#fff8f0">
+              <td><div class="fmini">👤</div></td><td class="mono">face_0042</td><td class="mono" style="font-size:11px">20240816_142312.jpg</td>
+              <td>187.3</td><td>14,220</td><td><span style="color:#888">—</span></td><td>0.14</td>
+              <td><span class="badge ok" style="font-size:10px">exemplar</span></td>
+            </tr>
+            <tr>
+              <td><div class="fmini">👤</div></td><td class="mono">face_0055</td><td class="mono" style="font-size:11px">20240816_150903.jpg</td>
+              <td>142.1</td><td>11,840</td><td>0.16</td><td>0.17</td>
+              <td><span class="badge info-badge" style="font-size:10px">core</span></td>
+            </tr>
+            <tr>
+              <td><div class="fmini">👤</div></td><td class="mono">face_0071</td><td class="mono" style="font-size:11px">20240817_110347.jpg</td>
+              <td>98.4</td><td>9,100</td><td>0.22</td><td>0.23</td>
+              <td><span class="badge info-badge" style="font-size:10px">core</span></td>
+            </tr>
+            <tr style="background:#fffef5">
+              <td><div class="fmini">👤</div></td><td class="mono">face_0209</td><td class="mono" style="font-size:11px">20240819_125821.jpg</td>
+              <td>61.2</td><td>6,800</td><td>0.31</td><td>0.29</td>
+              <td><span class="badge warn" style="font-size:10px">attached</span></td>
+            </tr>
+            <tr><td colspan="8" style="text-align:center;color:#aaa;font-size:12px;padding:8px">· · · 10 more · · ·</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Nearest clusters -->
+      <div class="card" style="padding:0">
+        <div class="card-head">Nearest Clusters <span style="font-size:12px;color:#888;font-weight:400">min exemplar-to-exemplar distance</span></div>
+        <table>
+          <thead><tr><th>Cluster</th><th>Label</th><th>Size</th><th>Min exemplar dist</th><th>p10 cross-dist</th><th>Merge threshold</th><th>Decision</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Cluster 22</td><td>—</td><td>3</td>
+              <td><span class="dist-bad">0.29</span></td><td>0.31</td><td>0.35</td>
+              <td><span class="badge warn">⚠ merge candidate</span></td>
+            </tr>
+            <tr>
+              <td>Cluster 7</td><td>—</td><td>8</td>
+              <td><span class="dist-warn">0.38</span></td><td>0.41</td><td>0.35</td>
+              <td><span class="badge fail" style="font-size:11px">no merge</span></td>
+            </tr>
+            <tr>
+              <td>Cluster 12</td><td>—</td><td>5</td>
+              <td><span class="dist-ok">0.44</span></td><td>0.47</td><td>0.35</td>
+              <td><span class="badge fail" style="font-size:11px">no merge</span></td>
+            </tr>
+            <tr>
+              <td>Cluster 3</td><td>—</td><td>9</td>
+              <td><span class="dist-ok">0.51</span></td><td>0.55</td><td>0.35</td>
+              <td><span class="badge fail" style="font-size:11px">no merge</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- UMAP -->
+      <div class="umap-outer">
+        <div style="font-weight:700;margin-bottom:10px">UMAP — All Clusters <span style="font-size:12px;color:#888;font-weight:400">2D projection of 512-dim ArcFace embeddings</span></div>
+        <div class="umap-canvas" id="umap"></div>
+        <div class="umap-legend" id="umap-leg"></div>
+      </div>
+
+      <!-- Quality gate detail -->
+      <div class="card" style="padding:0">
+        <div class="card-head">
+          Quality Gate — All Detected Faces
+          <span style="font-size:12px;color:#888;font-weight:400">from images containing cluster 0 faces</span>
+        </div>
+        <table>
+          <thead>
+            <tr><th></th><th>Face ID</th><th>Image</th><th>Blur</th><th>Area px²</th><th>Yaw</th><th>Pitch</th><th>Roll</th><th>Rank</th><th>Gate</th><th>Rejection reason</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="fmini">👤</div></td><td class="mono">face_0042</td><td class="mono" style="font-size:11px">20240816_142312.jpg</td>
+              <td>187.3</td><td>14,220</td><td>4.1°</td><td>—</td><td>2.8°</td><td>#1</td>
+              <td><span class="qg-pass">✓ core</span></td><td></td>
+            </tr>
+            <tr>
+              <td><div class="fmini">👤</div></td><td class="mono">face_0043</td><td class="mono" style="font-size:11px">20240816_142312.jpg</td>
+              <td>21.4</td><td>3,100</td><td>—</td><td>—</td><td>—</td><td>#2</td>
+              <td><span class="qg-fail">✗ holdout</span></td>
+              <td><span class="qg-reason">blur 21.4 &lt; min 50.0</span></td>
+            </tr>
+            <tr style="background:#fafafa">
+              <td><div class="fmini">👤</div></td><td class="mono">face_0044</td><td class="mono" style="font-size:11px">20240816_142312.jpg</td>
+              <td>95.2</td><td>2,400</td><td>—</td><td>—</td><td>—</td><td>#4</td>
+              <td><span class="qg-fail">✗ holdout</span></td>
+              <td><span class="qg-reason">rank #4 &gt; max_faces_per_image 3</span></td>
+            </tr>
+            <tr>
+              <td><div class="fmini">👤</div></td><td class="mono">face_0055</td><td class="mono" style="font-size:11px">20240816_150903.jpg</td>
+              <td>142.1</td><td>11,840</td><td>8.2°</td><td>—</td><td>3.1°</td><td>#1</td>
+              <td><span class="qg-pass">✓ core</span></td><td></td>
+            </tr>
+            <tr>
+              <td><div class="fmini">👤</div></td><td class="mono">face_0056</td><td class="mono" style="font-size:11px">20240816_150903.jpg</td>
+              <td>38.9</td><td>4,300</td><td>—</td><td>—</td><td>—</td><td>#2</td>
+              <td><span class="qg-fail">✗ holdout</span></td>
+              <td><span class="qg-reason">blur 38.9 &lt; min 50.0</span></td>
+            </tr>
+            <tr><td colspan="11" style="text-align:center;color:#aaa;font-size:12px;padding:8px">· · · 31 more faces across 14 images · · ·</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /detail-scroll -->
+  </div><!-- /analysis-wrap -->
+</div><!-- /page-analysis -->
+
+<script>
+function goTab(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  el.classList.add('active');
+  if (name === 'analysis') buildUMAP();
+}
+
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function showProgress() {
+  document.getElementById('progress-area').style.display = 'block';
+}
+
+function selCluster(el) {
+  document.querySelectorAll('.clist-item').forEach(i => i.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function buildUMAP() {
+  const canvas = document.getElementById('umap');
+  if (canvas.dataset.done) return;
+  canvas.dataset.done = '1';
+  const legend = document.getElementById('umap-leg');
+
+  const palette = ['#ff4b4b','#4b8bff','#4bff91','#ffb74b','#b74bff',
+                   '#4bfff5','#ff4bb7','#a8ff4b','#ff914b','#4bffb7',
+                   '#ff6b4b','#4b6bff'];
+  const W = canvas.offsetWidth;
+  const H = 280;
+
+  for (let c = 0; c < 12; c++) {
+    const cx = 40 + Math.random() * (W - 80);
+    const cy = 30 + Math.random() * (H - 60);
+    const col = palette[c];
+    const n = 4 + Math.floor(Math.random() * 16);
+    const isSel = c === 0;
+
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot' + (isSel ? ' hl' : '');
+      const r = isSel ? 9 : 6;
+      d.style.cssText = `width:${r}px;height:${r}px;background:${col};` +
+        `left:${cx + (Math.random()-.5)*55}px;top:${cy + (Math.random()-.5)*38}px;opacity:.85`;
+      d.title = `Cluster ${c}`;
+      canvas.appendChild(d);
+    }
+
+    const li = document.createElement('div');
+    li.className = 'leg-item';
+    li.innerHTML = `<span class="leg-dot" style="background:${col}"></span>` +
+      (isSel ? `<b>Cluster 0 (selected)</b>` : `Cluster ${c}`);
+    legend.appendChild(li);
+  }
+
+  // Noise
+  for (let i = 0; i < 45; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.style.cssText = `width:4px;height:4px;background:#444;opacity:.6;` +
+      `left:${15 + Math.random()*(W-30)}px;top:${10 + Math.random()*(H-20)}px`;
+    d.title = 'noise';
+    canvas.appendChild(d);
+  }
+
+  const li = document.createElement('div');
+  li.className = 'leg-item';
+  li.innerHTML = `<span class="leg-dot" style="background:#444"></span><span style="color:#888">noise (358)</span>`;
+  legend.appendChild(li);
+}
+</script>
+</body>
+</html>

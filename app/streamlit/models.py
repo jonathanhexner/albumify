@@ -42,6 +42,7 @@ class PipelineResult:
     total_duration_ms: float
     step_results: List[StepResult] = field(default_factory=list)
     error_message: Optional[str] = None
+    fc_export_dir: Optional[str] = None
 
 
 @dataclass
@@ -102,6 +103,7 @@ class Face:
 class Person:
     """Person (identity cluster) information."""
     person_id: str
+    person_index: int = 0  # Cluster index (0, 1, 2...) for display as "Person 1", "Person 2"
     name: Optional[str] = None
     face_count: int = 0
     image_count: int = 0
@@ -131,8 +133,9 @@ class PipelineProgress:
     current_step: Optional[str] = None
     current_step_progress: float = 0.0
     current_step_message: str = ""
-    completed_steps: List[str] = field(default_factory=list)
+    completed_steps: List[Dict] = field(default_factory=list)  # [{step, duration_ms, status, error}]
     total_steps: int = 0
+    started_at: Optional[Any] = None
 
 
 @dataclass

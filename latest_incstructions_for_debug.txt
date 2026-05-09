@@ -1,0 +1,14 @@
+
+  You need to regenerate crops first:
+
+  # 1. Re-run pipeline to regenerate face crops with correct filenames
+  python scripts/benchmark_face_clustering.py --album-path /path/to/your/original/photos --output results/Google_Germany_NEW
+
+  # 2. Regenerate embeddings from NEW crops
+  python scripts/regenerate_embeddings_from_crops.py --face-crops results/Google_Germany_NEW/face_crops --output results/Google_Germany_NEW --metadata results/Google_Germany_NEW/benchmark_*.json
+
+  # 3. Export clustering data
+  python scripts/export_clustering_data.py --embeddings results/Google_Germany_NEW/embeddings_FRESH_*.npy --output results/Google_Germany_NEW/clustering_export
+
+  # 4. Open labeling app
+  streamlit run app/face_clustering_labeling.py

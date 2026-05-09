@@ -1,5 +1,5 @@
 """
-Main entry point for the Album Organizer Streamlit app.
+Main entry point for the Albumify Streamlit app.
 
 This is a pure frontend that communicates with the FastAPI backend via HTTP.
 Run with: streamlit run app/streamlit/main.py
@@ -20,10 +20,11 @@ from app.streamlit.api_client import get_client
 from app.streamlit.components.sidebar import render_sidebar
 from app.streamlit.pages.home import render_home_page
 from app.streamlit.pages.albums import render_albums_page
+from app.streamlit.pages.configure import render_configure_page
 from app.streamlit.pages.results import render_results_page
-from app.streamlit.pages.people import render_people_page
-from app.streamlit.pages.face_management import render_face_management_page
-from app.streamlit.pages.debug import render_debug_page
+from app.streamlit.pages.people_faces import render_people_faces_page
+from app.streamlit.pages.explore import render_explore_page
+from app.streamlit.pages.export_page import render_export_page
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -111,12 +112,17 @@ def render_app() -> None:
     pages = {
         "home": render_home_page,
         "albums": render_albums_page,
+        "configure": render_configure_page,
         "results": render_results_page,
-        "people": render_people_page,
-        "faces": render_face_management_page,
-        "debug": render_debug_page,
+        "people_faces": render_people_faces_page,
+        "explore": render_explore_page,
+        "export": render_export_page,
     }
     pages.get(page, render_home_page)()
+
+    # Image detail popup (triggered from any page)
+    from app.streamlit.components.image_popup import maybe_show_image_popup
+    maybe_show_image_popup()
 
 
 def main() -> None:

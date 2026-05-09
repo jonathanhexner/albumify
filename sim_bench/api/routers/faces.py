@@ -33,10 +33,12 @@ def list_faces(
         None,
         description="Filter by status (comma-separated). Options: assigned, unassigned, untagged, not_a_face"
     ),
+    limit: int = Query(200, ge=1, le=5000, description="Max faces to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
     session: Session = Depends(get_session)
 ):
     """
-    List all faces for a pipeline run.
+    List faces for a pipeline run with pagination.
 
     Returns faces with their classification status and assignment info.
     """
@@ -46,7 +48,8 @@ def list_faces(
     if status:
         status_filter = [s.strip() for s in status.split(",")]
 
-    return service.get_all_faces(album_id, run_id, status_filter)
+    all_faces = service.get_all_faces(album_id, run_id, status_filter)
+    return all_faces[offset:offset + limit]
 
 
 @router.get("/needs-help", response_model=List[BorderlineFace])

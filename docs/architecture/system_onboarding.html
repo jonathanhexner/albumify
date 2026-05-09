@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Albumify — System Architecture &amp; Onboarding</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+
+  :root {
+    --bg: #0b0e14;
+    --surface: #131721;
+    --surface-2: #1a1f2e;
+    --surface-3: #222840;
+    --border: #2a3150;
+    --border-hl: #3d4a73;
+    --text: #c5cee0;
+    --text-bright: #e8edf7;
+    --text-dim: #6b7894;
+    --accent: #4fc3f7;
+    --accent-2: #7c4dff;
+    --green: #66bb6a;
+    --orange: #ffb74d;
+    --red: #ef5350;
+    --pink: #f06292;
+    --teal: #26a69a;
+    --yellow: #fdd835;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    min-height: 100vh;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(11, 14, 20, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    height: 52px;
+    gap: 1.5rem;
+  }
+  nav .logo {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.3rem;
+    color: var(--accent);
+    font-style: italic;
+    white-space: nowrap;
+  }
+  nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: var(--text-bright); }
+  nav .spacer { flex: 1; }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 7rem 2rem 3rem;
+    text-align: center;
+    background: radial-gradient(ellipse 70% 50% at 50% 30%, rgba(79,195,247,0.06) 0%, transparent 70%);
+  }
+  .hero h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(2.4rem, 5vw, 3.6rem);
+    color: var(--text-bright);
+    font-weight: 400;
+    margin-bottom: 0.6rem;
+  }
+  .hero h1 em { color: var(--accent); font-style: italic; }
+  .hero p {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  /* ── SECTIONS ── */
+  section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+  }
+  section h2 {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.8rem;
+    color: var(--text-bright);
+    margin-bottom: 0.3rem;
+    font-weight: 400;
+  }
+  section h2 .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    vertical-align: middle;
+    margin-left: 0.5rem;
+    background: rgba(79,195,247,0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  section .subtitle {
+    color: var(--text-dim);
+    font-size: 0.92rem;
+    margin-bottom: 2rem;
+  }
+  h3 {
+    font-size: 1.1rem;
+    color: var(--text-bright);
+    margin: 1.8rem 0 0.8rem;
+    font-weight: 600;
+  }
+
+  /* ── DIAGRAM CONTAINERS ── */
+  .diagram-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+  }
+
+  /* ── SVG DIAGRAMS ── */
+  svg text { font-family: 'DM Sans', sans-serif; }
+  svg .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* ── TABLE SCHEMA ── */
+  .schema-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .schema-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.15s;
+    cursor: default;
+  }
+  .schema-card:hover { border-color: var(--border-hl); transform: translateY(-2px); }
+  .schema-card .card-header {
+    padding: 0.7rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .schema-card .card-header .icon {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .schema-card .card-body {
+    padding: 0.6rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.7;
+  }
+  .schema-card .col {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+  .schema-card .col-name { color: var(--text-bright); min-width: 120px; }
+  .schema-card .col-type { color: var(--text-dim); }
+  .schema-card .pk { color: var(--yellow); }
+  .schema-card .fk { color: var(--accent-2); }
+  .schema-card .col-sep {
+    border-top: 1px dashed var(--border);
+    margin: 4px 0;
+  }
+
+  /* ── FLOW BOXES ── */
+  .flow-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    align-items: stretch;
+    margin: 1rem 0;
+  }
+  .flow-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    flex: 1;
+    min-width: 160px;
+    max-width: 220px;
+    position: relative;
+  }
+  .flow-box .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    margin-bottom: 0.2rem;
+  }
+  .flow-box .step-name {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text-bright);
+  }
+  .flow-box .step-desc {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-top: 0.25rem;
+  }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  /* ── CODE BLOCKS ── */
+  pre {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    color: var(--text);
+    margin: 0.8rem 0;
+  }
+  pre .kw { color: var(--accent-2); }
+  pre .str { color: var(--green); }
+  pre .cmt { color: var(--text-dim); font-style: italic; }
+  pre .fn { color: var(--accent); }
+  pre .cls { color: var(--orange); }
+
+  /* ── TABS ── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab-btn:hover { color: var(--text-bright); }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── CALLOUT ── */
+  .callout {
+    background: var(--surface-2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 0.8rem 1.2rem;
+    margin: 1rem 0;
+    font-size: 0.88rem;
+  }
+  .callout.warn { border-left-color: var(--orange); }
+  .callout .label {
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 0.2rem;
+  }
+
+  /* ── ARCH BOXES (SVG-like CSS) ── */
+  .arch-diagram {
+    display: grid;
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+  .arch-row {
+    display: flex;
+    gap: 1rem;
+    align-items: stretch;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .arch-box {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    text-align: center;
+    min-width: 140px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    cursor: default;
+  }
+  .arch-box:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(79,195,247,0.08);
+  }
+  .arch-box .box-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-bright);
+    margin-bottom: 0.25rem;
+  }
+  .arch-box .box-path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+  .arch-box .box-desc {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-top: 0.35rem;
+  }
+  .arch-box.highlight {
+    border-color: var(--accent);
+    background: rgba(79,195,247,0.04);
+  }
+  .arch-box.highlight-purple {
+    border-color: var(--accent-2);
+    background: rgba(124,77,255,0.04);
+  }
+  .arch-box.highlight-green {
+    border-color: var(--green);
+    background: rgba(102,187,106,0.04);
+  }
+  .arch-box.highlight-orange {
+    border-color: var(--orange);
+    background: rgba(255,183,77,0.04);
+  }
+  .arch-connector {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 1.4rem;
+    line-height: 1;
+    padding: 0.3rem 0;
+  }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-block;
+    padding: 1px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    border-radius: 4px;
+    margin-left: 4px;
+  }
+  .badge-blue { background: rgba(79,195,247,0.15); color: var(--accent); }
+  .badge-purple { background: rgba(124,77,255,0.15); color: var(--accent-2); }
+  .badge-green { background: rgba(102,187,106,0.15); color: var(--green); }
+  .badge-orange { background: rgba(255,183,77,0.15); color: var(--orange); }
+
+  /* ── DETAIL TOGGLE ── */
+  details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 0.8rem 0;
+    overflow: hidden;
+  }
+  details summary {
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-bright);
+    user-select: none;
+    list-style: none;
+  }
+  details summary::before {
+    content: '+ ';
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+  }
+  details[open] summary::before { content: '- '; }
+  details .detail-body {
+    padding: 0 1rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    nav { gap: 0.8rem; padding: 0 1rem; }
+    section { padding: 2rem 1rem; }
+    .schema-grid { grid-template-columns: 1fr; }
+    .flow-row { flex-direction: column; align-items: flex-start; }
+    .flow-box { max-width: 100%; }
+    .flow-arrow { transform: rotate(90deg); }
+  }
+
+  /* ── CONNECTOR LINE ── */
+  .connector-line {
+    width: 2px;
+    height: 24px;
+    background: var(--border);
+    margin: 0 auto;
+  }
+
+  /* table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8rem 0;
+    font-size: 0.85rem;
+  }
+  th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-bright);
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem;
+  }
+  td {
+    padding: 0.4rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  td code, th code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  tr:hover td { background: rgba(255,255,255,0.015); }
+
+  .rel-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    padding: 2px 0;
+  }
+  .rel-line .arrow { color: var(--accent); }
+</style>
+</head>
+
+<body>
+
+<!-- ─── NAVIGATION ─── -->
+<nav>
+  <span class="logo">Albumify</span>
+  <a href="#architecture">Architecture</a>
+  <a href="#databases">Databases</a>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#face-cluster">Face Cluster</a>
+  <a href="#frontend">Frontend</a>
+  <a href="#data-flow">Data Flow</a>
+  <a href="#dev-guide">Dev Guide</a>
+  <span class="spacer"></span>
+</nav>
+
+<!-- ─── HERO ─── -->
+<div class="hero">
+  <h1>System Architecture &amp; <em>Onboarding</em></h1>
+  <p>Everything you need to understand how Albumify is built &mdash; from the database schema to the ML pipeline to the Streamlit frontend.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 1: HIGH-LEVEL ARCHITECTURE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="architecture">
+  <h2>System Architecture <span class="tag">HIGH LEVEL</span></h2>
+  <p class="subtitle">Three processes, two databases, one shared config system.</p>
+
+  <div class="arch-diagram">
+    <!-- Row 1: User-facing apps -->
+    <div class="arch-row">
+      <div class="arch-box highlight">
+        <div class="box-title">Albumify UI</div>
+        <div class="box-path">app/streamlit/main.py</div>
+        <div class="box-desc">7-page Streamlit app. Album management, pipeline execution, results exploration, export.</div>
+      </div>
+      <div class="arch-box highlight-purple">
+        <div class="box-title">Face Clustering App</div>
+        <div class="box-path">app/face_clustering/main.py</div>
+        <div class="box-desc">11-tab Streamlit app. Standalone clustering analysis, merge decisions, ML training.</div>
+      </div>
+    </div>
+
+    <div class="arch-connector">&darr; HTTP / API &darr;</div>
+
+    <!-- Row 2: Backend -->
+    <div class="arch-row">
+      <div class="arch-box highlight-green">
+        <div class="box-title">FastAPI Backend</div>
+        <div class="box-path">sim_bench/api/main.py</div>
+        <div class="box-desc">8 routers: albums, pipeline, people, steps, config, events, faces, websocket</div>
+      </div>
+    </div>
+
+    <div class="arch-connector">&darr;</div>
+
+    <!-- Row 3: Core engines -->
+    <div class="arch-row">
+      <div class="arch-box highlight-orange">
+        <div class="box-title">Pipeline Engine</div>
+        <div class="box-path">sim_bench/pipeline/</div>
+        <div class="box-desc">40+ pluggable steps. YAML-driven. Topological sort. @register_step decorator.</div>
+      </div>
+      <div class="arch-box highlight-orange">
+        <div class="box-title">Face Cluster Library</div>
+        <div class="box-path">face_cluster/</div>
+        <div class="box-desc">29 modules. Standalone pipeline: embed &rarr; quality &rarr; cluster &rarr; merge. Config-driven stages.</div>
+      </div>
+    </div>
+
+    <div class="arch-connector">&darr;</div>
+
+    <!-- Row 4: Storage -->
+    <div class="arch-row">
+      <div class="arch-box">
+        <div class="box-title">Main SQLite DB</div>
+        <div class="box-path">~/.sim_bench/sim_bench.db</div>
+        <div class="box-desc">8 tables: albums, pipeline_runs, results, people, cache, config, events, face_overrides</div>
+      </div>
+      <div class="arch-box">
+        <div class="box-title">Per-Run Face DB</div>
+        <div class="box-path">{output}/face_clustering.db</div>
+        <div class="box-desc">7 tables: faces, embeddings, clusters, assignments, merge_decisions, scores, metadata</div>
+      </div>
+      <div class="arch-box">
+        <div class="box-title">Profile Store</div>
+        <div class="box-path">~/.sim_bench/profiles/*.json</div>
+        <div class="box-desc">Shared config profiles between both apps. rc_* widget keys.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="label">Key Design Decisions</div>
+    <ul style="margin-top:0.3rem;padding-left:1.2rem;font-size:0.85rem;">
+      <li><strong>Two separate pipelines:</strong> <code>sim_bench/pipeline/</code> is a YAML-driven plugin system with topological sort. <code>face_cluster/pipeline.py</code> is a simpler fixed-sequence executor for standalone use.</li>
+      <li><strong>Bridge pattern:</strong> <code>cluster_people.py</code> step delegates to <code>face_cluster_bridge.py</code> which converts between the two pipeline's data types.</li>
+      <li><strong>App deep-link:</strong> Albumify exports artifacts to a run directory, then the FC app loads them via <code>?load_run=&lt;path&gt;</code>.</li>
+      <li><strong>UniversalCache:</strong> ML model outputs (embeddings, detections, IQA scores) are cached with mtime-based invalidation. Shared across pipeline runs.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 2: DATABASE SCHEMAS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="databases">
+  <h2>Database Schemas <span class="tag">STORAGE</span></h2>
+  <p class="subtitle">Two SQLite databases: one global, one per face-clustering run.</p>
+
+  <!-- Tab bar -->
+  <div class="tab-bar" data-group="db">
+    <button class="tab-btn active" data-tab="main-db">Main DB (sim_bench.db)</button>
+    <button class="tab-btn" data-tab="face-db">Per-Run Face DB (face_clustering.db)</button>
+    <button class="tab-btn" data-tab="relationships">Relationships</button>
+  </div>
+
+  <!-- TAB: Main DB -->
+  <div class="tab-panel active" data-tab="main-db" data-group="db">
+    <div class="schema-grid">
+      <!-- albums -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--accent)"></span> albums</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">id</span><span class="col-type">String PK</span></div>
+          <div class="col"><span class="col-name">name</span><span class="col-type">String NOT NULL</span></div>
+          <div class="col"><span class="col-name">source_path</span><span class="col-type">String NOT NULL</span></div>
+          <div class="col"><span class="col-name">image_count</span><span class="col-type">Integer</span></div>
+          <div class="col"><span class="col-name">created_at</span><span class="col-type">DateTime</span></div>
+        </div>
+      </div>
+
+      <!-- pipeline_runs -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--green)"></span> pipeline_runs</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">id</span><span class="col-type">String PK</span></div>
+          <div class="col"><span class="col-name fk">album_id</span><span class="col-type">FK &rarr; albums</span></div>
+          <div class="col"><span class="col-name">pipeline_name</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">steps</span><span class="col-type">JSON (list)</span></div>
+          <div class="col"><span class="col-name">step_configs</span><span class="col-type">JSON (dict)</span></div>
+          <div class="col"><span class="col-name">fail_fast</span><span class="col-type">Boolean</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">status</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">current_step</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">progress</span><span class="col-type">Float 0..1</span></div>
+          <div class="col"><span class="col-name">error_message</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">completed_steps</span><span class="col-type">JSON [{step, ms, status}]</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">created_at</span><span class="col-type">DateTime</span></div>
+          <div class="col"><span class="col-name">started_at</span><span class="col-type">DateTime</span></div>
+          <div class="col"><span class="col-name">completed_at</span><span class="col-type">DateTime</span></div>
+        </div>
+      </div>
+
+      <!-- pipeline_results -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--orange)"></span> pipeline_results</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">id</span><span class="col-type">String PK</span></div>
+          <div class="col"><span class="col-name fk">run_id</span><span class="col-type">FK &rarr; pipeline_runs</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">total_images</span><span class="col-type">Integer</span></div>
+          <div class="col"><span class="col-name">filtered_images</span><span class="col-type">Integer</span></div>
+          <div class="col"><span class="col-name">num_clusters</span><span class="col-type">Integer</span></div>
+          <div class="col"><span class="col-name">num_selected</span><span class="col-type">Integer</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">scene_clusters</span><span class="col-type">JSON</span></div>
+          <div class="col"><span class="col-name">face_subclusters</span><span class="col-type">JSON</span></div>
+          <div class="col"><span class="col-name">selected_images</span><span class="col-type">JSON</span></div>
+          <div class="col"><span class="col-name">image_metrics</span><span class="col-type">JSON</span></div>
+          <div class="col"><span class="col-name">step_decisions</span><span class="col-type">JSON [StepDecision]</span></div>
+          <div class="col"><span class="col-name">fc_export_dir</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">step_timings</span><span class="col-type">JSON</span></div>
+          <div class="col"><span class="col-name">total_duration_ms</span><span class="col-type">Integer</span></div>
+        </div>
+      </div>
+
+      <!-- people -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--pink)"></span> people</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">id</span><span class="col-type">String PK</span></div>
+          <div class="col"><span class="col-name fk">album_id</span><span class="col-type">FK &rarr; albums</span></div>
+          <div class="col"><span class="col-name fk">run_id</span><span class="col-type">FK &rarr; pipeline_runs</span></div>
+          <div class="col"><span class="col-name">person_index</span><span class="col-type">Integer (cluster ID)</span></div>
+          <div class="col"><span class="col-name">name</span><span class="col-type">String (user-given)</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">thumbnail_image_path</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">thumbnail_face_index</span><span class="col-type">Integer</span></div>
+          <div class="col"><span class="col-name">thumbnail_bbox</span><span class="col-type">JSON [x,y,w,h]</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">face_count</span><span class="col-type">Integer</span></div>
+          <div class="col"><span class="col-name">image_count</span><span class="col-type">Integer</span></div>
+          <div class="col"><span class="col-name">face_instances</span><span class="col-type">JSON [{path, idx, bbox, score}]</span></div>
+        </div>
+      </div>
+
+      <!-- universal_cache -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--teal)"></span> universal_cache</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">id</span><span class="col-type">Integer PK auto</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">image_path</span><span class="col-type">String (composite key)</span></div>
+          <div class="col"><span class="col-name">feature_type</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">model_name</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">model_version</span><span class="col-type">String</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">data_blob</span><span class="col-type">LargeBinary</span></div>
+          <div class="col"><span class="col-name">image_mtime</span><span class="col-type">Float</span></div>
+          <div class="col"><span class="col-name">created_at</span><span class="col-type">DateTime</span></div>
+          <div class="col"><span class="col-name">last_accessed</span><span class="col-type">DateTime</span></div>
+          <div style="margin-top:4px;font-size:0.68rem;color:var(--text-dim)">UNIQUE(image_path, feature_type, model_name)</div>
+        </div>
+      </div>
+
+      <!-- config_profiles -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--yellow)"></span> config_profiles</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">id</span><span class="col-type">String PK</span></div>
+          <div class="col"><span class="col-name">name</span><span class="col-type">String UNIQUE</span></div>
+          <div class="col"><span class="col-name">description</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">config</span><span class="col-type">JSON (full pipeline config)</span></div>
+          <div class="col"><span class="col-name">is_default</span><span class="col-type">Boolean</span></div>
+          <div class="col"><span class="col-name">is_system</span><span class="col-type">Boolean</span></div>
+          <div class="col"><span class="col-name fk">parent_profile_id</span><span class="col-type">FK &rarr; self</span></div>
+        </div>
+      </div>
+
+      <!-- user_events -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--accent-2)"></span> user_events</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">id</span><span class="col-type">String PK</span></div>
+          <div class="col"><span class="col-name fk">album_id</span><span class="col-type">FK &rarr; albums</span></div>
+          <div class="col"><span class="col-name fk">run_id</span><span class="col-type">FK &rarr; pipeline_runs</span></div>
+          <div class="col"><span class="col-name">event_type</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">event_data</span><span class="col-type">JSON</span></div>
+          <div class="col"><span class="col-name">status</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">source</span><span class="col-type">String</span></div>
+          <div class="col"><span class="col-name">is_undone</span><span class="col-type">Boolean</span></div>
+        </div>
+      </div>
+
+      <!-- face_overrides -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--red)"></span> face_overrides</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">id</span><span class="col-type">String PK</span></div>
+          <div class="col"><span class="col-name fk">album_id</span><span class="col-type">FK &rarr; albums</span></div>
+          <div class="col"><span class="col-name fk">run_id</span><span class="col-type">FK &rarr; pipeline_runs</span></div>
+          <div class="col"><span class="col-name">face_key</span><span class="col-type">String "path:face_N"</span></div>
+          <div class="col"><span class="col-name">status</span><span class="col-type">"assigned"|"untagged"|"not_a_face"</span></div>
+          <div class="col"><span class="col-name fk">person_id</span><span class="col-type">FK &rarr; people</span></div>
+          <div class="col"><span class="col-name">embedding</span><span class="col-type">JSON</span></div>
+          <div style="margin-top:4px;font-size:0.68rem;color:var(--text-dim)">UNIQUE(album_id, face_key)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Face Clustering DB -->
+  <div class="tab-panel" data-tab="face-db" data-group="db">
+    <div class="callout">
+      <div class="label">Per-Run SQLite DB</div>
+      Written by <code>face_cluster/result_db.py</code>. One file per clustering run at <code>{output_dir}/face_clustering.db</code>. Provides full traceability: which face was in which cluster at each merge iteration.
+    </div>
+
+    <div class="schema-grid">
+      <!-- faces -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--accent)"></span> faces</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">face_id</span><span class="col-type">INTEGER PK</span></div>
+          <div class="col"><span class="col-name">image_path</span><span class="col-type">TEXT NOT NULL</span></div>
+          <div class="col"><span class="col-name">image_id</span><span class="col-type">TEXT</span></div>
+          <div class="col"><span class="col-name">face_index</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">bbox_x, bbox_y, bbox_w, bbox_h</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">crop_path</span><span class="col-type">TEXT</span></div>
+          <div class="col"><span class="col-name">det_score</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">blur_score</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">area</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">yaw, pitch, roll</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">is_core</span><span class="col-type">INTEGER (0/1)</span></div>
+          <div class="col"><span class="col-name">rejection_reason</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+
+      <!-- embeddings -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--green)"></span> embeddings</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">face_id</span><span class="col-type">INTEGER PK FK&rarr;faces</span></div>
+          <div class="col"><span class="col-name">embedding</span><span class="col-type">BLOB (512-dim float32)</span></div>
+          <div class="col"><span class="col-name">model_name</span><span class="col-type">TEXT</span></div>
+          <div class="col"><span class="col-name">l2_norm</span><span class="col-type">REAL</span></div>
+        </div>
+      </div>
+
+      <!-- cluster_assignments -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--orange)"></span> cluster_assignments <span class="badge badge-orange">CORE</span></div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">face_id</span><span class="col-type">INTEGER FK&rarr;faces</span></div>
+          <div class="col"><span class="col-name pk">iteration</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">cluster_id</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">is_exemplar</span><span class="col-type">INTEGER (0/1)</span></div>
+          <div class="col"><span class="col-name">d10_score</span><span class="col-type">REAL</span></div>
+          <div style="margin-top:4px;font-size:0.68rem;color:var(--text-dim)">PK: (face_id, iteration) &mdash; tracks face cluster at each merge step</div>
+        </div>
+      </div>
+
+      <!-- clusters -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--pink)"></span> clusters</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">cluster_id</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name pk">iteration</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">size</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">diameter</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">avg_intra_dist</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">origin</span><span class="col-type">TEXT "base"|"auto_merge"</span></div>
+          <div class="col"><span class="col-name">parent_ids</span><span class="col-type">TEXT (JSON list)</span></div>
+        </div>
+      </div>
+
+      <!-- merge_decisions -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--accent-2)"></span> merge_decisions</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">iteration</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name pk">cluster_a</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name pk">cluster_b</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">action</span><span class="col-type">TEXT "merged"|"passed"|"rejected"</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">exemplar_dist</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">cross_dist</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">support</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">margin_gap</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">post_diameter</span><span class="col-type">REAL</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">passes_*</span><span class="col-type">INTEGER (5 gate flags)</span></div>
+          <div class="col"><span class="col-name">threshold_used</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">rejection_reason</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+
+      <!-- face_scores -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--teal)"></span> face_scores</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">face_id</span><span class="col-type">INTEGER PK FK&rarr;faces</span></div>
+          <div class="col"><span class="col-name">pose_score</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">eyes_score</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">expression_score</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">frontal_score</span><span class="col-type">REAL</span></div>
+          <div class="col"><span class="col-name">is_clusterable</span><span class="col-type">INTEGER (0/1)</span></div>
+        </div>
+      </div>
+
+      <!-- run_metadata -->
+      <div class="schema-card">
+        <div class="card-header"><span class="icon" style="background:var(--yellow)"></span> run_metadata</div>
+        <div class="card-body">
+          <div class="col"><span class="col-name pk">run_id</span><span class="col-type">TEXT PK</span></div>
+          <div class="col"><span class="col-name">source_album</span><span class="col-type">TEXT</span></div>
+          <div class="col"><span class="col-name">config</span><span class="col-type">TEXT (JSON)</span></div>
+          <div class="col-sep"></div>
+          <div class="col"><span class="col-name">n_images, n_faces, n_core</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">n_clusters_base, n_clusters_final</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">n_merges, n_iterations</span><span class="col-type">INTEGER</span></div>
+          <div class="col"><span class="col-name">started_at, finished_at</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Relationships -->
+  <div class="tab-panel" data-tab="relationships" data-group="db">
+    <h3>Main Database Relationships</h3>
+    <div class="diagram-wrap">
+      <pre style="background:transparent;border:none;padding:0;font-size:0.82rem;">
+<span style="color:var(--accent)">albums</span>
+  &boxvr;&boxh;&boxh; 1:N &boxh;&boxh;&rarr; <span style="color:var(--green)">pipeline_runs</span>
+  &boxv;               &boxvr;&boxh;&boxh; 1:1 &boxh;&boxh;&rarr; <span style="color:var(--orange)">pipeline_results</span>
+  &boxv;               &boxvr;&boxh;&boxh; 1:N &boxh;&boxh;&rarr; <span style="color:var(--pink)">people</span>
+  &boxv;               &boxur;&boxh;&boxh; 1:N &boxh;&boxh;&rarr; <span style="color:var(--accent-2)">user_events</span>
+  &boxvr;&boxh;&boxh; 1:N &boxh;&boxh;&rarr; <span style="color:var(--pink)">people</span>
+  &boxv;               &boxur;&boxh;&boxh; 1:N &boxh;&boxh;&rarr; <span style="color:var(--red)">face_overrides</span>
+  &boxvr;&boxh;&boxh; 1:N &boxh;&boxh;&rarr; <span style="color:var(--accent-2)">user_events</span>
+  &boxur;&boxh;&boxh; 1:N &boxh;&boxh;&rarr; <span style="color:var(--red)">face_overrides</span>
+
+<span style="color:var(--teal)">universal_cache</span> &mdash; standalone (no FK), keyed by (image_path, feature_type, model_name)
+<span style="color:var(--yellow)">config_profiles</span> &mdash; self-referencing parent_profile_id for inheritance</pre>
+    </div>
+
+    <h3>Face Clustering DB Relationships</h3>
+    <div class="diagram-wrap">
+      <pre style="background:transparent;border:none;padding:0;font-size:0.82rem;">
+<span style="color:var(--accent)">faces</span>
+  &boxvr;&boxh;&boxh; 1:1 &boxh;&boxh;&rarr; <span style="color:var(--green)">embeddings</span> (FK face_id)
+  &boxvr;&boxh;&boxh; 1:1 &boxh;&boxh;&rarr; <span style="color:var(--teal)">face_scores</span> (FK face_id)
+  &boxur;&boxh;&boxh; 1:N &boxh;&boxh;&rarr; <span style="color:var(--orange)">cluster_assignments</span> (FK face_id, one row per iteration)
+                     &boxur;&boxh;&boxh; links to &boxh;&boxh;&rarr; <span style="color:var(--pink)">clusters</span> (by cluster_id + iteration)
+
+<span style="color:var(--accent-2)">merge_decisions</span> &mdash; references cluster_a, cluster_b from <span style="color:var(--pink)">clusters</span>
+<span style="color:var(--yellow)">run_metadata</span> &mdash; standalone summary row</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 3: PIPELINE ENGINE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="pipeline">
+  <h2>Pipeline Engine <span class="tag">sim_bench/pipeline/</span></h2>
+  <p class="subtitle">YAML-driven, pluggable steps with automatic dependency resolution.</p>
+
+  <h3>How a Pipeline Run Works</h3>
+  <div class="flow-row">
+    <div class="flow-box">
+      <div class="step-num">01</div>
+      <div class="step-name">User triggers run</div>
+      <div class="step-desc">UI calls POST /api/v1/pipeline/run with album_id + config overrides</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box">
+      <div class="step-num">02</div>
+      <div class="step-name">PipelineService</div>
+      <div class="step-desc">Creates PipelineRun row (status="running"), starts background task</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box">
+      <div class="step-num">03</div>
+      <div class="step-name">PipelineExecutor</div>
+      <div class="step-desc">Resolves step dependencies. Initializes PipelineContext.</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box">
+      <div class="step-num">04</div>
+      <div class="step-name">Step execution</div>
+      <div class="step-desc">Each step reads/writes PipelineContext. Emits StepDecision records. Uses cache.</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box">
+      <div class="step-num">05</div>
+      <div class="step-name">Results stored</div>
+      <div class="step-desc">PipelineResult row + Person rows written to DB. FC artifacts exported to disk.</div>
+    </div>
+  </div>
+
+  <h3>Pipeline Context (shared state)</h3>
+  <div class="callout">
+    <code>PipelineContext</code> is a mutable dataclass that every step reads from and writes to. Key fields grouped by pipeline phase:
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Phase</th><th>Context Fields</th><th>Populated By</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Discovery</td><td><code>image_paths</code></td><td>discover_images</td></tr>
+      <tr><td>Detection</td><td><code>faces</code>, <code>persons</code>, <code>insightface_faces</code></td><td>detect_faces, insightface_detect_faces, detect_persons</td></tr>
+      <tr><td>Scoring</td><td><code>iqa_scores</code>, <code>ava_scores</code>, <code>face_pose_scores</code>, <code>face_eyes_scores</code>, <code>face_smile_scores</code></td><td>score_iqa, score_ava, score_face_*</td></tr>
+      <tr><td>Embedding</td><td><code>scene_embeddings</code>, <code>face_embeddings</code></td><td>extract_scene_embedding, extract_face_embeddings</td></tr>
+      <tr><td>Filtering</td><td><code>quality_passed</code>, <code>portrait_passed</code>, <code>active_images</code></td><td>filter_quality, filter_portraits</td></tr>
+      <tr><td>Clustering</td><td><code>scene_clusters</code>, <code>people_clusters</code>, <code>face_clusters</code></td><td>cluster_scenes, cluster_people, cluster_by_identity</td></tr>
+      <tr><td>Refinement</td><td><code>refined_people_clusters</code>, <code>cluster_exemplars</code>, <code>attachment_decisions</code></td><td>identity_refinement</td></tr>
+      <tr><td>Selection</td><td><code>selected_images</code>, <code>composite_scores</code></td><td>select_best</td></tr>
+      <tr><td>Observability</td><td><code>step_decisions</code> (list of <code>StepDecision</code>)</td><td>All steps that make pass/reject decisions</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Default Pipeline Steps (in execution order)</h3>
+  <details>
+    <summary>Full 24-step default pipeline (click to expand)</summary>
+    <div class="detail-body">
+      <table>
+        <thead><tr><th>#</th><th>Step</th><th>Category</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>discover_images</code></td><td>Discovery</td><td>Scan directory for supported image formats</td></tr>
+          <tr><td>2</td><td><code>score_iqa</code></td><td>Quality</td><td>Image quality assessment (MUSIQ model)</td></tr>
+          <tr><td>3</td><td><code>score_ava</code></td><td>Quality</td><td>Aesthetic scoring (AVA ResNet)</td></tr>
+          <tr><td>4</td><td><code>filter_quality</code></td><td>Filter</td><td>Remove low-quality images (IQA + sharpness thresholds)</td></tr>
+          <tr><td>5</td><td><code>detect_persons</code></td><td>Detection</td><td>YOLOv8-Pose person detection</td></tr>
+          <tr><td>6</td><td><code>insightface_detect_faces</code></td><td>Detection</td><td>SCRFD face detection via InsightFace</td></tr>
+          <tr><td>7</td><td><code>filter_faces</code></td><td>Filter</td><td>Remove tiny/low-confidence faces</td></tr>
+          <tr><td>8</td><td><code>detect_face_orientation</code></td><td>Alignment</td><td>Detect 0/90/180/270 rotation</td></tr>
+          <tr><td>9</td><td><code>align_faces</code></td><td>Alignment</td><td>5-point affine alignment</td></tr>
+          <tr><td>10</td><td><code>insightface_score_expression</code></td><td>Scoring</td><td>Expression scoring</td></tr>
+          <tr><td>11</td><td><code>insightface_score_eyes</code></td><td>Scoring</td><td>Eye open/closed detection</td></tr>
+          <tr><td>12</td><td><code>insightface_score_pose</code></td><td>Scoring</td><td>Face yaw/pitch/roll from landmarks</td></tr>
+          <tr><td>13</td><td><code>score_face_frontal</code></td><td>Scoring</td><td>Compute frontal score, centrality, roll</td></tr>
+          <tr><td>14</td><td><code>extract_face_embeddings</code></td><td>Embedding</td><td>ArcFace 512-dim face embeddings</td></tr>
+          <tr><td>15</td><td><code>extract_scene_embedding</code></td><td>Embedding</td><td>DINOv2 scene embeddings</td></tr>
+          <tr><td>16</td><td><code>cluster_scenes</code></td><td>Clustering</td><td>HDBSCAN scene clustering</td></tr>
+          <tr><td>17</td><td><code>cluster_people</code></td><td>Clustering</td><td>Global face identity clustering (delegates to face_cluster lib)</td></tr>
+          <tr><td>18</td><td><code>identity_refinement</code></td><td>Refinement</td><td>Exemplar-based holdout attachment</td></tr>
+          <tr><td>19</td><td><code>cluster_by_identity</code></td><td>Clustering</td><td>Sub-cluster scenes by face identity</td></tr>
+          <tr><td>20</td><td><code>filter_portraits</code></td><td>Filter</td><td>Portrait detection and filtering</td></tr>
+          <tr><td>21</td><td><code>select_best</code></td><td>Selection</td><td>Composite scoring + Siamese refinement</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <h3>StepDecision: Pipeline Observability</h3>
+  <pre><span class="cmt"># Every step that makes a pass/reject decision emits a StepDecision</span>
+<span class="cls">StepDecision</span>(
+    item_id=<span class="str">"D:/photos/IMG_001.jpg"</span>,      <span class="cmt"># image path or face key</span>
+    item_type=<span class="str">"image"</span>,                     <span class="cmt"># "image" or "face"</span>
+    step=<span class="str">"filter_quality"</span>,                  <span class="cmt"># which step decided</span>
+    decision=<span class="str">"rejected"</span>,                    <span class="cmt"># "passed", "rejected", "selected", "detected"</span>
+    reason=<span class="str">"IQA 0.08 < threshold 0.20"</span>,     <span class="cmt"># human-readable</span>
+    config_used={<span class="str">"min_iqa"</span>: 0.20},          <span class="cmt"># actual config used</span>
+    metrics={<span class="str">"iqa_score"</span>: 0.08},             <span class="cmt"># measured values</span>
+)</pre>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 4: FACE CLUSTER LIBRARY -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="face-cluster">
+  <h2>Face Cluster Library <span class="tag">face_cluster/</span></h2>
+  <p class="subtitle">Standalone 8-stage pipeline for face identity clustering with conservative merge.</p>
+
+  <h3>Pipeline Stages</h3>
+  <div class="flow-row">
+    <div class="flow-box" style="border-color:var(--accent)">
+      <div class="step-num">STAGE 1</div>
+      <div class="step-name">discover</div>
+      <div class="step-desc">Scan image directory</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box" style="border-color:var(--green)">
+      <div class="step-num">STAGE 2</div>
+      <div class="step-name">embed</div>
+      <div class="step-desc">InsightFace SCRFD detection + ArcFace 512-dim embeddings</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box" style="border-color:var(--orange)">
+      <div class="step-num">STAGE 3</div>
+      <div class="step-name">quality</div>
+      <div class="step-desc">Blur/pose/area gating. Outputs: core vs holdout faces.</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box">
+      <div class="step-num">STAGE 4</div>
+      <div class="step-name">crops</div>
+      <div class="step-desc">Save 112x112 aligned face crops</div>
+    </div>
+  </div>
+  <div class="flow-row">
+    <div class="flow-box" style="border-color:var(--accent-2)">
+      <div class="step-num">STAGE 5</div>
+      <div class="step-name">cluster</div>
+      <div class="step-desc">Build kNN graph (K neighbors) &rarr; connected components</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box" style="border-color:var(--pink)">
+      <div class="step-num">STAGE 6</div>
+      <div class="step-name">exemplars</div>
+      <div class="step-desc">D10 scoring: select representative faces per cluster</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box" style="border-color:var(--red)">
+      <div class="step-num">STAGE 7</div>
+      <div class="step-name">merge</div>
+      <div class="step-desc">Conservative 4-gate merge of cluster pairs</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box" style="border-color:var(--teal)">
+      <div class="step-num">STAGE 8</div>
+      <div class="step-name">export</div>
+      <div class="step-desc">Remap indices, write CSVs + face_clustering.db</div>
+    </div>
+  </div>
+
+  <h3>Core Data Types</h3>
+  <pre><span class="cls">FaceRecord</span>                           <span class="cmt"># One detected face</span>
+    face_id: <span class="kw">int</span>                      <span class="cmt"># Unique ID (0-based)</span>
+    image_path: <span class="kw">str</span>                  <span class="cmt"># Source image full path</span>
+    face_index: <span class="kw">int</span>                  <span class="cmt"># Index within that image (0, 1, 2...)</span>
+    bbox: <span class="kw">Tuple[float, float, float, float]</span>  <span class="cmt"># (x, y, w, h)</span>
+    embedding: <span class="kw">np.ndarray</span>            <span class="cmt"># 512-dim float32</span>
+    embedding_normalized: <span class="kw">np.ndarray</span> <span class="cmt"># L2-normalized</span>
+    pose: <span class="kw">Tuple[float, float, float]</span> <span class="cmt"># (yaw, pitch, roll) degrees</span>
+    blur_score: <span class="kw">float</span>                <span class="cmt"># Laplacian variance</span>
+    area: <span class="kw">float</span>                      <span class="cmt"># bbox area</span>
+    is_core: <span class="kw">bool</span>                    <span class="cmt"># Passed quality gating?</span>
+    quality_verdict: <span class="cls">QualityVerdict</span>  <span class="cmt"># Per-gate results</span>
+    det_score: <span class="kw">float</span>                 <span class="cmt"># Detection confidence</span>
+    d10_score: <span class="kw">float</span>                 <span class="cmt"># Exemplar selection score</span>
+
+<span class="cls">ClusterResult</span>                         <span class="cmt"># Output of clustering stage</span>
+    labels: <span class="kw">np.ndarray</span>               <span class="cmt"># Cluster label per face (-1 = noise)</span>
+    clusters: <span class="kw">Dict[int, List[int]]</span>   <span class="cmt"># cluster_id &rarr; face indices</span>
+    exemplars: <span class="kw">Dict[int, List[int]]</span>  <span class="cmt"># cluster_id &rarr; exemplar face indices</span>
+    cluster_stats: <span class="kw">Dict[int, Dict]</span>  <span class="cmt"># diameter, mean_dist, etc.</span>
+    n_clusters: <span class="kw">int</span>
+    n_noise: <span class="kw">int</span></pre>
+
+  <h3>Conservative Merge Algorithm (4 Gates)</h3>
+  <div class="callout">
+    Per iteration, the merger evaluates all candidate pairs where exemplar distance &lt; threshold. Each candidate must pass 4 gates. Only the best (lowest exemplar distance) passing pair is merged per iteration.
+  </div>
+  <table>
+    <thead><tr><th>Gate</th><th>Criterion</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-blue">Exemplar/Cross</span></td><td>exemplar_dist &lt; threshold <strong>OR</strong> p25_cross_dist &lt; cross_threshold</td><td>At least one distance metric must be close enough</td></tr>
+      <tr><td><span class="badge badge-green">Support</span></td><td>cross-cluster pairs below threshold &ge; support_frac</td><td>Not just one lucky pair &mdash; broad agreement</td></tr>
+      <tr><td><span class="badge badge-orange">Margin</span></td><td>gap between best match and 2nd-best &ge; margin</td><td>Clear winner, not ambiguous</td></tr>
+      <tr><td><span class="badge badge-purple">Diameter</span></td><td>post-merge diameter &lt; expansion_factor &times; max(diam_a, diam_b)</td><td>Merged cluster stays tight</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Bridge: Main Pipeline &harr; Face Cluster Library</h3>
+  <div class="callout">
+    <div class="label">cluster_people.py &rarr; face_cluster_bridge.py &rarr; face_cluster/</div>
+    The main pipeline's <code>cluster_people</code> step delegates to the standalone face_cluster library via a bridge module that:
+    <ol style="margin-top:0.3rem;padding-left:1.2rem;font-size:0.85rem;">
+      <li>Converts <code>PipelineContext</code> face data into <code>FaceRecord</code> objects</li>
+      <li>Builds a <code>face_cluster.PipelineConfig</code> (force-disabling quality gates already applied by main pipeline)</li>
+      <li>Runs the face_cluster pipeline (stages: cluster &rarr; exemplars &rarr; merge)</li>
+      <li>Returns (labels, face_records, base_cr, merged_cr, core_indices, merge_log, merge_metadata, fc_cfg)</li>
+    </ol>
+    Then <code>face_cluster_export.py</code> writes crops + CSVs + face_clustering.db for the standalone FC app.
+  </div>
+
+  <h3>Index Mapping (Critical Concept)</h3>
+  <div class="callout warn">
+    <div class="label">Graph-local vs Face-list indices</div>
+    During clustering (stages 5-7), indices are <strong>graph-local</strong> (0..n_core-1) because only core faces enter the kNN graph. The <code>core_indices</code> array maps: <code>graph_node_idx &rarr; face_list_idx</code>. After the export stage, all indices are remapped to face-list indices for storage in the DB.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 5: FRONTEND APPS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="frontend">
+  <h2>Frontend Apps <span class="tag">STREAMLIT</span></h2>
+  <p class="subtitle">Two Streamlit apps: Albumify (main UI) and Face Clustering App (analysis tool).</p>
+
+  <div class="tab-bar" data-group="apps">
+    <button class="tab-btn active" data-tab="albumify">Albumify (7 pages)</button>
+    <button class="tab-btn" data-tab="fc-app">Face Clustering App (11 tabs)</button>
+    <button class="tab-btn" data-tab="shared">Shared Components</button>
+  </div>
+
+  <!-- Albumify -->
+  <div class="tab-panel active" data-tab="albumify" data-group="apps">
+    <table>
+      <thead><tr><th>Page</th><th>File</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Home</td><td><code>pages/home.py</code></td><td>Welcome, album selection, quick start</td></tr>
+        <tr><td>Albums</td><td><code>pages/albums.py</code></td><td>Create / delete / browse albums</td></tr>
+        <tr><td>Configure &amp; Run</td><td><code>pages/configure.py</code></td><td>Flat config grid, profile selector, pipeline execution with live progress</td></tr>
+        <tr><td>Results</td><td><code>pages/results.py</code></td><td>Pipeline run summary, selected images, step timings</td></tr>
+        <tr><td>People &amp; Faces</td><td><code>pages/people.py</code></td><td>View detected people (face clusters), rename, face corrections</td></tr>
+        <tr><td>Explore</td><td><code>pages/explore.py</code></td><td>7 tabs: Quality, Persons, Faces, Scenes, Face Clusters, Selection, Face Distance</td></tr>
+        <tr><td>Export</td><td><code>pages/export_page.py</code></td><td>Export curated selection to folder</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="label">Configure &amp; Run: Pipeline Progress</div>
+      Uses <code>@st.fragment(run_every=2)</code> for auto-refreshing step-by-step progress display. Replaces the old infinite <code>time.sleep(1); st.rerun()</code> pattern that crashed the frontend.
+    </div>
+  </div>
+
+  <!-- FC App -->
+  <div class="tab-panel" data-tab="fc-app" data-group="apps">
+    <table>
+      <thead><tr><th>Tab</th><th>File</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Run</td><td><code>tabs/run_tab.py</code></td><td>Execute standalone clustering with config controls</td></tr>
+        <tr><td>Re-Cluster</td><td><code>tabs/recluster_tab.py</code></td><td>Re-run clustering on existing embeddings</td></tr>
+        <tr><td>History</td><td><code>tabs/history_tab.py</code></td><td>Browse past runs, load results</td></tr>
+        <tr><td>Overview</td><td><code>tabs/overview_tab.py</code></td><td>Cluster gallery overview</td></tr>
+        <tr><td>Cluster Analysis</td><td><code>tabs/cluster_analysis_tab.py</code></td><td>Base cluster deep-dive</td></tr>
+        <tr><td>Merged Clusters</td><td><code>tabs/merged_clusters_tab.py</code></td><td>Post-merge cluster visualization</td></tr>
+        <tr><td>Merge Analysis</td><td><code>tabs/merge_analysis_tab.py</code></td><td>Merge decisions table, gate pass/fail</td></tr>
+        <tr><td>Face Analysis</td><td><code>tabs/face_analysis_tab.py</code></td><td>Individual face metrics and quality</td></tr>
+        <tr><td>Labeling Review</td><td><code>tabs/labeling_review_tab.py</code></td><td>Review and correct cluster labels</td></tr>
+        <tr><td>ML Training</td><td><code>tabs/ml_training_tab.py</code></td><td>Train merge prediction model from labeled data</td></tr>
+        <tr><td>Label Verification</td><td><code>tabs/label_tab.py</code></td><td>Verify labeling consistency</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="label">Deep-Link Integration</div>
+      The Albumify main app exports artifacts to <code>results/{album}/face_clustering_{timestamp}/</code> and the FC app loads them via URL parameter <code>?load_run=&lt;path&gt;</code>. The exported directory contains: crops/, CSVs, merge logs, face_clustering.db, and pipeline_run.json.
+    </div>
+  </div>
+
+  <!-- Shared -->
+  <div class="tab-panel" data-tab="shared" data-group="apps">
+    <h3>Shared Config: ProfileStore</h3>
+    <p style="font-size:0.88rem;margin-bottom:0.8rem;">Both apps share configuration profiles stored at <code>~/.sim_bench/profiles/*.json</code>. Streamlit widgets use <code>rc_*</code> keys (e.g., <code>rc_K</code>, <code>rc_distance_threshold</code>) so that profile loading/saving works identically in both apps.</p>
+
+    <h3>Key Shared Components</h3>
+    <table>
+      <thead><tr><th>Component</th><th>Location</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Pipeline Runner</td><td><code>app/streamlit/components/pipeline_runner.py</code></td><td>Flat 3-column config grid with profile bar</td></tr>
+        <tr><td>Image Popup</td><td><code>app/streamlit/components/image_popup.py</code></td><td>5-tab detail popup (Quality, Decision, Scene, Faces, Detection)</td></tr>
+        <tr><td>Bbox Overlay</td><td><code>app/streamlit/components/bbox_overlay.py</code></td><td>Draw face bounding boxes on images (resize first, then draw)</td></tr>
+        <tr><td>Album Selector</td><td><code>app/streamlit/components/album_selector.py</code></td><td>Shared album selection dropdown</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 6: END-TO-END DATA FLOW -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="data-flow">
+  <h2>End-to-End Data Flow <span class="tag">FROM IMAGE TO SELECTION</span></h2>
+  <p class="subtitle">How an image folder becomes a curated album selection.</p>
+
+  <div class="diagram-wrap">
+    <pre style="background:transparent;border:none;padding:0;font-size:0.78rem;line-height:1.8;">
+<span style="color:var(--accent)">Source Folder</span>              <span style="color:var(--green)">ML Models</span>                <span style="color:var(--orange)">Clustering</span>              <span style="color:var(--pink)">Output</span>
+&boxdr;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;     &boxdr;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;     &boxdr;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;    &boxdr;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;
+&boxv; *.jpg, *.heic  &boxv; &rarr;&rarr;&rarr; &boxv; MUSIQ (IQA)      &boxv; &rarr;&rarr;&rarr; &boxv; HDBSCAN scenes   &boxv; &rarr;&rarr; &boxv; scene_clusters &boxv;
+&boxv; *.png, *.raw   &boxv;     &boxv; AVA (aesthetic)  &boxv;     &boxv; kNN + CC faces   &boxv;    &boxv; people         &boxv;
+&boxv;                &boxv; &rarr;&rarr;&rarr; &boxv; SCRFD (faces)    &boxv; &rarr;&rarr;&rarr; &boxv; Conservative     &boxv; &rarr;&rarr; &boxv; selected_imgs  &boxv;
+&boxv; 100-500 images &boxv;     &boxv; ArcFace (embed)  &boxv;     &boxv;   merge          &boxv;    &boxv; step_decisions &boxv;
+&boxv;                &boxv; &rarr;&rarr;&rarr; &boxv; DINOv2 (scenes)  &boxv;     &boxv; Siamese refine   &boxv;    &boxv; face_cluster.db&boxv;
+&boxv;                &boxv;     &boxv; YOLOv8 (persons) &boxv;     &boxv;                  &boxv;    &boxv;                &boxv;
+&boxur;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;     &boxur;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;     &boxur;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;    &boxur;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;
+                                    &boxv;
+                              &boxdr;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;
+                              &boxv; UniversalCache &boxv;  <span style="color:var(--text-dim)">&larr; embeddings, detections, scores cached with mtime</span>
+                              &boxur;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxh;&boxgr;</pre>
+  </div>
+
+  <h3>Cache System</h3>
+  <table>
+    <thead><tr><th>Feature Type</th><th>Model</th><th>Cache Key Example</th><th>Cached?</th></tr></thead>
+    <tbody>
+      <tr><td>Face detection</td><td>buffalo_l (SCRFD)</td><td><code>D:/photos/img.jpg : insightface_detection : buffalo_l</code></td><td style="color:var(--green)">Yes</td></tr>
+      <tr><td>Face embedding</td><td>buffalo_l (ArcFace)</td><td><code>D:/photos/img.jpg:face_0 : face_embedding : buffalo_l</code></td><td style="color:var(--green)">Yes</td></tr>
+      <tr><td>IQA score</td><td>musiq</td><td><code>D:/photos/img.jpg : iqa_score : musiq</code></td><td style="color:var(--green)">Yes</td></tr>
+      <tr><td>AVA score</td><td>ava_resnet</td><td><code>D:/photos/img.jpg : ava_score : ava_resnet</code></td><td style="color:var(--green)">Yes</td></tr>
+      <tr><td>Scene embedding</td><td>dinov2</td><td><code>D:/photos/img.jpg : scene_embedding : dinov2</code></td><td style="color:var(--green)">Yes</td></tr>
+      <tr><td>Quality filtering</td><td>&mdash;</td><td>&mdash;</td><td style="color:var(--red)">No (recomputed)</td></tr>
+      <tr><td>Clustering</td><td>&mdash;</td><td>&mdash;</td><td style="color:var(--red)">No (recomputed)</td></tr>
+      <tr><td>Selection</td><td>&mdash;</td><td>&mdash;</td><td style="color:var(--red)">No (recomputed)</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.82rem;color:var(--text-dim);margin-top:0.5rem;">Cache coherency: mtime of the source image is stored. On next access, if current mtime differs, the cached entry is deleted and the feature is recomputed.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SECTION 7: DEVELOPER GUIDE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="dev-guide">
+  <h2>Developer Guide <span class="tag">GETTING STARTED</span></h2>
+  <p class="subtitle">Everything you need to set up, run, and test.</p>
+
+  <h3>Quick Start</h3>
+  <pre><span class="cmt"># 1. Create and activate virtual environment</span>
+python -m venv .venv
+.venv\Scripts\activate              <span class="cmt"># Windows</span>
+
+<span class="cmt"># 2. Install dependencies</span>
+pip install -r requirements.txt
+pip install -e .                    <span class="cmt"># Editable install for face_cluster module</span>
+
+<span class="cmt"># 3. Start the backend (Terminal 1)</span>
+.venv/Scripts/python -m uvicorn sim_bench.api.main:app --reload --port 8000
+
+<span class="cmt"># 4. Start Albumify UI (Terminal 2)</span>
+.venv/Scripts/streamlit run app/streamlit/main.py
+
+<span class="cmt"># 5. Start Face Clustering App (Terminal 3, optional)</span>
+.venv/Scripts/streamlit run app/face_clustering/main.py
+
+<span class="cmt"># Or use the batch file to restart all:</span>
+scripts/restart_apps.bat</pre>
+
+  <h3>Testing</h3>
+  <pre><span class="cmt"># Run all tests</span>
+.venv/Scripts/python -m pytest tests/
+
+<span class="cmt"># Run a specific test</span>
+.venv/Scripts/python -m pytest tests/test_file.py -k <span class="str">"test_name"</span>
+
+<span class="cmt"># Full Playwright E2E test (requires running apps)</span>
+.venv/Scripts/python tests/test_full_e2e_flow.py</pre>
+
+  <h3>Key Entry Points</h3>
+  <table>
+    <thead><tr><th>Entry Point</th><th>File</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>FastAPI Backend</td><td><code>sim_bench/api/main.py</code></td><td>API server on port 8000</td></tr>
+      <tr><td>Albumify Frontend</td><td><code>app/streamlit/main.py</code></td><td>7-page Streamlit app</td></tr>
+      <tr><td>Face Clustering App</td><td><code>app/face_clustering/main.py</code></td><td>11-tab Streamlit app</td></tr>
+      <tr><td>Standalone FC Pipeline</td><td><code>face_cluster/pipeline.py</code></td><td>Config-driven face clustering</td></tr>
+      <tr><td>Pipeline Config</td><td><code>configs/pipeline.yaml</code></td><td>Step definitions and parameters</td></tr>
+      <tr><td>DB Models</td><td><code>sim_bench/api/database/models.py</code></td><td>SQLAlchemy schema (8 tables)</td></tr>
+      <tr><td>Pipeline Steps</td><td><code>sim_bench/pipeline/steps/</code></td><td>40+ registered pipeline steps</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Project Structure</h3>
+  <pre><span style="color:var(--accent)">sim-bench/</span>
+  <span style="color:var(--green)">sim_bench/</span>                 <span class="cmt"># Main Python package</span>
+    api/                       <span class="cmt"># FastAPI backend</span>
+      database/                <span class="cmt">#   models.py, session.py</span>
+      routers/                 <span class="cmt">#   8 route modules</span>
+      services/                <span class="cmt">#   7 service modules</span>
+      schemas/                 <span class="cmt">#   Pydantic request/response models</span>
+    pipeline/                  <span class="cmt"># Pipeline engine</span>
+      steps/                   <span class="cmt">#   40+ pipeline step implementations</span>
+      context.py               <span class="cmt">#   PipelineContext + StepDecision</span>
+      executor.py              <span class="cmt">#   PipelineExecutor</span>
+      registry.py              <span class="cmt">#   Step registry + @register_step</span>
+
+  <span style="color:var(--orange)">face_cluster/</span>              <span class="cmt"># Standalone face clustering library</span>
+    pipeline.py                <span class="cmt">#   8-stage pipeline</span>
+    types.py                   <span class="cmt">#   FaceRecord, ClusterResult, etc.</span>
+    config.py                  <span class="cmt">#   PipelineConfig dataclass</span>
+    merge.py                   <span class="cmt">#   ConservativeMerger (4-gate)</span>
+    result_db.py               <span class="cmt">#   Per-run SQLite writer</span>
+    features/                  <span class="cmt">#   Merge feature engineering</span>
+    views/                     <span class="cmt">#   Analysis views</span>
+
+  <span style="color:var(--accent-2)">app/</span>                       <span class="cmt"># Frontend applications</span>
+    streamlit/                 <span class="cmt">#   Albumify (7 pages)</span>
+      pages/                   <span class="cmt">#   Page modules</span>
+      components/              <span class="cmt">#   Shared UI components</span>
+    face_clustering/           <span class="cmt">#   FC App (11 tabs)</span>
+      tabs/                    <span class="cmt">#   Tab modules</span>
+
+  <span style="color:var(--pink)">configs/</span>                   <span class="cmt"># YAML configurations</span>
+    pipeline.yaml              <span class="cmt">#   Pipeline steps + parameters</span>
+
+  <span style="color:var(--teal)">docs/</span>                      <span class="cmt"># Documentation</span>
+    architecture/              <span class="cmt">#   System architecture (this file)</span>
+    design/                    <span class="cmt">#   Specs, mocks, proposals</span>
+    project/                   <span class="cmt">#   SIGHTINGS.md, LEARNINGS.md, FEATURE_REQUESTS.md</span>
+    guides/                    <span class="cmt">#   How-to guides</span>
+    reference/                 <span class="cmt">#   Algorithm docs</span>
+
+  <span style="color:var(--yellow)">specs/</span>                     <span class="cmt"># Feature specifications</span>
+    NNN-name/spec.md           <span class="cmt">#   Spec document</span>
+    NNN-name/tasks.md          <span class="cmt">#   Task breakdown</span>
+
+  <span style="color:var(--text-dim)">tests/</span>                     <span class="cmt"># Test suites</span>
+  <span style="color:var(--text-dim)">scripts/</span>                   <span class="cmt"># Utility scripts</span>
+  <span style="color:var(--text-dim)">notebooks/</span>                 <span class="cmt"># Jupyter notebooks for analysis</span></pre>
+
+  <h3>Adding a New Pipeline Step</h3>
+  <pre><span class="cmt"># sim_bench/pipeline/steps/my_new_step.py</span>
+
+<span class="kw">from</span> sim_bench.pipeline.base <span class="kw">import</span> <span class="cls">BaseStep</span>, <span class="cls">StepMetadata</span>
+<span class="kw">from</span> sim_bench.pipeline.registry <span class="kw">import</span> <span class="fn">register_step</span>
+
+<span class="fn">@register_step</span>
+<span class="kw">class</span> <span class="cls">MyNewStep</span>(<span class="cls">BaseStep</span>):
+    <span class="fn">@property</span>
+    <span class="kw">def</span> <span class="fn">metadata</span>(self) -> <span class="cls">StepMetadata</span>:
+        <span class="kw">return</span> <span class="cls">StepMetadata</span>(
+            name=<span class="str">"my_new_step"</span>,
+            display_name=<span class="str">"My New Step"</span>,
+            description=<span class="str">"Does something useful"</span>,
+            category=<span class="str">"analysis"</span>,
+            requires={<span class="str">"image_paths"</span>},   <span class="cmt"># context keys needed</span>
+            produces={<span class="str">"my_output"</span>},     <span class="cmt"># context keys produced</span>
+        )
+
+    <span class="kw">def</span> <span class="fn">process</span>(self, context, config):
+        <span class="cmt"># Read from context, write to context</span>
+        <span class="kw">for</span> path <span class="kw">in</span> context.get_active_image_paths():
+            <span class="cmt"># ... process image ...</span>
+            context.step_decisions.append(<span class="cls">StepDecision</span>(
+                item_id=path, item_type=<span class="str">"image"</span>,
+                step=<span class="str">"my_new_step"</span>, decision=<span class="str">"passed"</span>,
+                reason=<span class="str">"Score above threshold"</span>,
+            ))</pre>
+
+  <h3>Important Conventions</h3>
+  <table>
+    <thead><tr><th>Rule</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>Python version</td><td>3.10+, type hints required</td></tr>
+      <tr><td>Imports</td><td>Full imports only (no relative). Keep at top of module.</td></tr>
+      <tr><td>Logging</td><td>Use <code>logging</code> module, never <code>print()</code></td></tr>
+      <tr><td>Windows</td><td>Use <code>.venv/Scripts/python</code>. Forward slashes in code paths.</td></tr>
+      <tr><td>DB location</td><td><code>~/.sim_bench/sim_bench.db</code></td></tr>
+      <tr><td><code>__init__.py</code></td><td>Keep empty except <code>face_cluster/__init__.py</code></td></tr>
+      <tr><td>Testing</td><td>Tests must run on Windows. ASCII-only in CLI output. See <code>docs/guides/TESTING_RULES.md</code>.</td></tr>
+      <tr><td>Feature workflow</td><td>Spec required before implementation. See <code>WORKFLOW.md</code>.</td></tr>
+      <tr><td>Change tracking</td><td>Append to <code>CHANGES_LOG.md</code> after every code change.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section style="padding:2rem;text-align:center;border-top:1px solid var(--border);">
+  <p style="color:var(--text-dim);font-size:0.82rem;">Albumify System Architecture &mdash; Last updated: 2026-05-06</p>
+</section>
+
+<!-- ─── SCRIPTS ─── -->
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const group = btn.closest('.tab-bar').dataset.group;
+    const tab = btn.dataset.tab;
+
+    // Deactivate all in group
+    document.querySelectorAll(`.tab-bar[data-group="${group}"] .tab-btn`).forEach(b => b.classList.remove('active'));
+    document.querySelectorAll(`.tab-panel[data-group="${group}"]`).forEach(p => p.classList.remove('active'));
+
+    // Activate clicked
+    btn.classList.add('active');
+    document.querySelector(`.tab-panel[data-tab="${tab}"][data-group="${group}"]`).classList.add('active');
+  });
+});
+
+// Smooth scroll for nav links
+document.querySelectorAll('nav a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
+
+</body>
+</html>

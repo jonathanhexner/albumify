@@ -1,13 +1,34 @@
 """Pipeline runner component with progress display."""
 
+import sys
 import uuid
-import streamlit as st
+from pathlib import Path
 from typing import Optional, Dict, Any, List
+
+import streamlit as st
 
 from app.streamlit.api_client import get_client, ApiError
 from app.streamlit.models import PipelineProgress, PipelineStatus, Album
 from app.streamlit.session import get_session, update_pipeline_progress, set_pipeline_error, add_notification
 from app.streamlit.config import get_config
+from face_cluster.profile_store import ProfileStore
+
+# Make app/shared/ importable for shared UI controls
+_shared_dir = str(Path(__file__).resolve().parents[2] / "shared")
+if _shared_dir not in sys.path:
+    sys.path.insert(0, _shared_dir)
+from merge_controls import render_merge_params as _render_merge_params
+
+# Parameter keys shared with face_clustering app (same as _RC_PARAM_KEYS in state.py).
+# Using rc_* prefix so profiles saved in either app work in both.
+_RC_PARAM_KEYS: frozenset = frozenset({
+    "rc_K", "rc_dist", "rc_min_cluster",
+    "rc_split", "rc_merge", "rc_attach",
+    "rc_merge_use_adaptive", "rc_merge_exemplar_pct", "rc_merge_global_pct",
+    "rc_merge_alpha", "rc_merge_beta", "rc_merge_candidate", "rc_merge_exemplar_thresh",
+    "rc_merge_support_frac", "rc_merge_support_min", "rc_merge_margin", "rc_merge_diameter",
+    "rc_merge_use_cross_gate", "rc_merge_cross_thresh", "rc_merge_cross_max_size", "rc_merge_support_unique",
+})
 
 
 # No more hardcoded pipelines - fetched from API
@@ -64,12 +85,12 @@ def _fetch_pipelines() -> Dict[str, List[str]]:
         }
 
 
-def _load_user_settings() -> Dict[str, Any]:
-    """Load user's saved settings from API."""
+@st.cache_data(ttl=60)
+def _load_user_settings(_user_id: str) -> Dict[str, Any]:
+    """Load user's saved settings from API (cached 60s to avoid latency on fragment reruns)."""
     try:
         client = get_client()
-        user_id = _get_user_id()
-        return client.get_user_config(user_id)
+        return client.get_user_config(_user_id)
     except Exception:
         return {"selected_pipeline": "default_pipeline", "config": {}}
 
@@ -80,30 +101,69 @@ def _save_user_settings(selected_pipeline: str, config_overrides: Dict[str, Any]
         client = get_client()
         user_id = _get_user_id()
         client.save_user_config(user_id, selected_pipeline, config_overrides)
+        _load_user_settings.clear()  # Invalidate cached settings
         add_notification("Settings saved!", "success")
     except Exception as e:
         add_notification(f"Failed to save settings: {e}", "error")
 
 
+def _render_profile_bar() -> None:
+    """Profile load/save bar — shared with Face Clustering App (~/.sim_bench/profiles/)."""
+    store = ProfileStore()
+    names = store.list_names()
+
+    col_sel, col_load, col_name, col_save, col_default = st.columns([2, 1, 2, 1, 1])
+    with col_sel:
+        options = ["(none)"] + names
+        st.selectbox("Load profile", options, key="prf_select", label_visibility="collapsed")
+    with col_load:
+        if st.button("Load", key="prf_load"):
+            selected = st.session_state.get("prf_select", "(none)")
+            if selected != "(none)":
+                params = store.load(selected)
+                for k, v in params.items():
+                    if k in _RC_PARAM_KEYS:
+                        st.session_state[k] = v
+                add_notification(f"Loaded profile '{selected}'", "info")
+                st.rerun(scope="app")
+    with col_name:
+        st.text_input("Profile name", key="prf_name", label_visibility="collapsed", placeholder="profile name")
+    with col_save:
+        if st.button("Save", key="prf_save"):
+            name = st.session_state.get("prf_name", "").strip()
+            if name:
+                params = {k: st.session_state[k] for k in _RC_PARAM_KEYS if k in st.session_state}
+                store.save(name, params)
+                add_notification(f"Saved profile '{name}'", "success")
+    with col_default:
+        if st.button("Default", key="prf_default", help="Save current params as default profile"):
+            params = {k: st.session_state[k] for k in _RC_PARAM_KEYS if k in st.session_state}
+            store.save("default", params)
+            add_notification("Saved as default profile", "success")
+
+
 def render_pipeline_runner(album: Album) -> Optional[str]:
     """Render pipeline configuration and run button. Returns job ID if started."""
-    state = get_session()
+    return _render_pipeline_config(album)
 
-    st.subheader("Run Pipeline")
+
+def _render_pipeline_config(album: Album) -> Optional[str]:
+    """Flat pipeline config UI — NO expanders, NO fragments. All params visible."""
+    state = get_session()
 
     # Fetch pipelines from API
     pipelines = _fetch_pipelines()
     pipeline_names = list(pipelines.keys())
 
-    # Load user's saved settings
-    user_settings = _load_user_settings()
+    # Load user's saved settings (cached)
+    user_settings = _load_user_settings(_get_user_id())
     saved_pipeline = user_settings.get("selected_pipeline", "default_pipeline")
     saved_config = user_settings.get("config", {})
 
     # Pipeline selection
     default_index = pipeline_names.index(saved_pipeline) if saved_pipeline in pipeline_names else 0
     selected_pipeline = st.radio(
-        "Pipeline Type",
+        "Pipeline",
         options=pipeline_names,
         format_func=lambda x: PIPELINE_DISPLAY_NAMES.get(x, x),
         index=default_index,
@@ -113,11 +173,7 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
 
     steps = pipelines.get(selected_pipeline, [])
 
-    with st.expander("Pipeline Steps", expanded=False):
-        for i, step in enumerate(steps, 1):
-            st.write(f"{i}. {STEP_DISPLAY_NAMES.get(step, step)}")
-
-    # Get saved config values (with defaults)
+    # Get saved config values
     saved_filter = saved_config.get("filter_quality", {})
     saved_select = saved_config.get("select_best", {})
     saved_detect = saved_config.get("detect_persons", {})
@@ -125,178 +181,123 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
     saved_cluster_people = saved_config.get("cluster_people", {})
     saved_embedding = saved_config.get("extract_face_embeddings", {})
 
-    with st.expander("Advanced Configuration", expanded=False):
-        st.markdown("**Quality Filtering**")
-        col1, col2 = st.columns(2)
-        with col1:
-            min_iqa = st.slider(
-                "Min IQA Score", 0.0, 1.0,
-                value=float(saved_filter.get("min_iqa_score", 0.2)),
-                step=0.05, key="config_min_iqa",
-                help="Minimum technical image quality (0-1)"
-            )
-        with col2:
-            min_sharpness = st.slider(
-                "Min Sharpness", 0.0, 1.0,
-                value=float(saved_filter.get("min_sharpness", 0.1)),
-                step=0.05, key="config_min_sharpness",
-                help="Minimum image sharpness (0-1)"
-            )
+    # --- Profile bar (full-width, above config grid) ---
+    # Show profile bar when face_cluster_knn is selected (check session state for live value)
+    current_method = st.session_state.get("config_people_method", saved_cluster_people.get("method", "face_cluster_knn"))
+    if current_method == "face_cluster_knn":
+        _render_profile_bar()
 
-        st.markdown("**Person & Face Detection**")
-        col1, col2 = st.columns(2)
-        with col1:
-            detection_confidence = st.slider(
-                "Detection Confidence", 0.05, 0.5,
-                value=float(saved_detect.get("confidence_threshold", 0.25)),
-                step=0.05, key="config_det_conf",
-                help="Confidence threshold for person and face detection"
-            )
-        with col2:
-            min_face_size = st.slider(
-                "Min Face Size (px)", 20, 100,
-                value=int(saved_insightface.get("min_face_size", 50)),
-                step=10, key="config_min_face_size",
-                help="Minimum face size in pixels to be considered (smaller faces ignored)"
-            )
+    # --- FLAT CONFIG GRID (3 columns, always visible) ---
 
-        st.markdown("**Face Embedding**")
-        col1, col2 = st.columns(2)
-        with col1:
-            embedding_backend = st.selectbox(
-                "Embedding Model",
-                options=["insightface", "custom"],
-                index=0 if saved_embedding.get("backend", "insightface") == "insightface" else 1,
-                key="config_embedding_backend",
-                help="InsightFace: built-in model (rotation invariant). Custom: your trained ArcFace."
-            )
-        with col2:
-            backend_info = "InsightFace w600k_r50" if embedding_backend == "insightface" else "arcface_resnet50.pt"
-            st.info(f"Using: {backend_info}")
+    col_detect, col_cluster, col_select = st.columns(3)
 
-        st.markdown("**Selection**")
-        col1, col2 = st.columns(2)
-        with col1:
-            max_per_cluster = st.number_input(
-                "Max Images per Cluster", 1, 10,
-                value=int(saved_select.get("max_images_per_cluster", 2)),
-                key="config_max_per_cluster",
-                help="Maximum photos to keep from each cluster"
-            )
-            min_score_threshold = st.slider(
-                "Min Composite Score", 0.0, 1.0,
-                value=float(saved_select.get("min_score_threshold", 0.4)),
-                step=0.05, key="config_min_score",
-                help="Minimum composite score (quality + penalties) to be selected"
-            )
-        with col2:
-            st.info("Using new composite scoring: quality score + person penalties")
+    # Column 1: Detection & Quality
+    with col_detect:
+        st.markdown("**Detection & Quality**")
+        detection_confidence = st.slider(
+            "Detection Confidence", 0.05, 0.5,
+            value=float(saved_detect.get("confidence_threshold", 0.25)),
+            step=0.05, key="config_det_conf",
+        )
+        min_face_size = st.slider(
+            "Min Face Size (px)", 20, 100,
+            value=int(saved_insightface.get("min_face_size", 50)),
+            step=10, key="config_min_face_size",
+        )
+        min_iqa = st.slider(
+            "Min IQA Score", 0.0, 1.0,
+            value=float(saved_filter.get("min_iqa_score", 0.2)),
+            step=0.05, key="config_min_iqa",
+        )
+        min_sharpness = st.slider(
+            "Min Sharpness", 0.0, 1.0,
+            value=float(saved_filter.get("min_sharpness", 0.1)),
+            step=0.05, key="config_min_sharpness",
+        )
+        embedding_backend = st.selectbox(
+            "Embedding Model",
+            options=["insightface", "custom"],
+            index=0 if saved_embedding.get("backend", "insightface") == "insightface" else 1,
+            key="config_embedding_backend",
+        )
 
-        st.markdown("**People Clustering**")
-        clustering_methods = ["hdbscan", "hdbscan_pca", "mutual_knn", "agglomerative"]
-        saved_method = saved_cluster_people.get("method", "hdbscan")
+    # Column 2: Face Clustering
+    with col_cluster:
+        st.markdown("**Face Clustering**")
+        clustering_methods = ["face_cluster_knn", "hdbscan", "hdbscan_pca", "mutual_knn", "agglomerative"]
+        saved_method = saved_cluster_people.get("method", "face_cluster_knn")
         method_index = clustering_methods.index(saved_method) if saved_method in clustering_methods else 0
 
-        col1, col2 = st.columns(2)
-        with col1:
-            people_method = st.selectbox(
-                "Clustering Method",
-                options=clustering_methods,
-                index=method_index,
-                key="config_people_method",
-                help="HDBSCAN: density-based. HDBSCAN+PCA: with dim reduction. Mutual KNN: graph-based. Agglomerative: hierarchical."
-            )
+        people_method = st.selectbox(
+            "Method", options=clustering_methods, index=method_index,
+            key="config_people_method",
+        )
 
-        # Initialize defaults
+        # Defaults (overridden by method-specific widgets)
         people_min_cluster_size = 2
         people_distance_threshold = 0.5
         cluster_merge_epsilon = 0.3
         pca_components = 128
         knn_k = 10
         knn_similarity_threshold = 0.70
+        fc_K = 5
+        fc_dist_threshold = 0.35
+        fc_min_cluster = 2
+        fc_merge_enabled = False
+        fc_attach_enabled = False
+        fc_export = True
+        fc_merge_params = {}
 
-        with col2:
-            if people_method == "hdbscan":
-                people_min_cluster_size = st.slider(
-                    "Min Faces per Person", 1, 5,
-                    value=int(saved_cluster_people.get("min_cluster_size", 2)),
-                    key="config_people_min_cluster",
-                    help="Minimum face occurrences to form a person cluster"
-                )
-            elif people_method == "hdbscan_pca":
-                people_min_cluster_size = st.slider(
-                    "Min Faces per Person", 1, 5,
-                    value=int(saved_cluster_people.get("min_cluster_size", 2)),
-                    key="config_people_min_cluster_pca",
-                    help="Minimum face occurrences to form a person cluster"
-                )
-            elif people_method == "mutual_knn":
-                knn_k = st.slider(
-                    "KNN Neighbors (k)", 3, 20,
-                    value=int(saved_cluster_people.get("k", 10)),
-                    key="config_knn_k",
-                    help="Number of nearest neighbors to consider"
-                )
-            else:  # agglomerative
-                people_distance_threshold = st.slider(
-                    "Identity Distance Threshold", 0.3, 0.9,
-                    value=float(saved_cluster_people.get("distance_threshold", 0.5)),
-                    step=0.05, key="config_people_dist",
-                    help="Lower = stricter (more clusters), Higher = lenient (fewer clusters)"
-                )
-
-        # Method-specific additional parameters
-        if people_method == "hdbscan":
-            cluster_merge_epsilon = st.slider(
-                "Cluster Merge Distance", 0.0, 0.8,
-                value=float(saved_cluster_people.get("cluster_selection_epsilon", 0.3)),
-                step=0.05, key="config_cluster_epsilon",
-                help="Higher = merge more clusters = fewer people (reduces over-segmentation)"
-            )
+        if people_method == "face_cluster_knn":
+            fc_K = st.slider("K (neighbors)", 1, 100, value=int(saved_cluster_people.get("K", 5)), key="rc_K")
+            fc_dist_threshold = st.slider("Distance Threshold", 0.01, 1.0, value=float(saved_cluster_people.get("distance_threshold", 0.35)), step=0.01, key="rc_dist")
+            fc_min_cluster = st.slider("Min Cluster Size", 1, 20, value=int(saved_cluster_people.get("min_cluster_size", 2)), key="rc_min_cluster")
+            fc_merge_enabled = st.checkbox("Merge", value=bool(saved_cluster_people.get("merge_enabled", False)), key="rc_merge")
+            fc_attach_enabled = st.checkbox("Attach holdouts", value=bool(saved_cluster_people.get("attach_enabled", False)), key="rc_attach")
+            fc_export = st.checkbox("Export for analysis", value=bool(saved_cluster_people.get("export_for_analysis", True)), key="config_fc_export")
+        elif people_method == "hdbscan":
+            people_min_cluster_size = st.slider("Min Faces/Person", 1, 5, value=int(saved_cluster_people.get("min_cluster_size", 2)), key="config_people_min_cluster")
+            cluster_merge_epsilon = st.slider("Merge Distance", 0.0, 0.8, value=float(saved_cluster_people.get("cluster_selection_epsilon", 0.3)), step=0.05, key="config_cluster_epsilon")
         elif people_method == "hdbscan_pca":
-            col1, col2 = st.columns(2)
-            with col1:
-                pca_components = st.selectbox(
-                    "PCA Dimensions",
-                    options=[64, 128, 256],
-                    index=1 if saved_cluster_people.get("pca_components", 128) == 128 else (
-                        0 if saved_cluster_people.get("pca_components", 128) == 64 else 2
-                    ),
-                    key="config_pca_components",
-                    help="Reduce embeddings to this many dimensions before clustering"
-                )
-            with col2:
-                cluster_merge_epsilon = st.slider(
-                    "Cluster Merge Distance", 0.0, 0.8,
-                    value=float(saved_cluster_people.get("cluster_selection_epsilon", 0.3)),
-                    step=0.05, key="config_cluster_epsilon_pca",
-                    help="Higher = merge more clusters = fewer people"
-                )
+            people_min_cluster_size = st.slider("Min Faces/Person", 1, 5, value=int(saved_cluster_people.get("min_cluster_size", 2)), key="config_people_min_cluster_pca")
+            pca_components = st.selectbox("PCA Dims", options=[64, 128, 256], index=[64, 128, 256].index(saved_cluster_people.get("pca_components", 128)) if saved_cluster_people.get("pca_components", 128) in [64, 128, 256] else 1, key="config_pca_components")
+            cluster_merge_epsilon = st.slider("Merge Distance", 0.0, 0.8, value=float(saved_cluster_people.get("cluster_selection_epsilon", 0.3)), step=0.05, key="config_cluster_epsilon_pca")
         elif people_method == "mutual_knn":
-            knn_similarity_threshold = st.slider(
-                "Similarity Threshold", 0.50, 0.90,
-                value=float(saved_cluster_people.get("similarity_threshold", 0.70)),
-                step=0.05, key="config_knn_sim_threshold",
-                help="Minimum cosine similarity to create edge between faces"
-            )
+            knn_k = st.slider("KNN Neighbors", 3, 20, value=int(saved_cluster_people.get("k", 10)), key="config_knn_k")
+            knn_similarity_threshold = st.slider("Similarity Thresh", 0.50, 0.90, value=float(saved_cluster_people.get("similarity_threshold", 0.70)), step=0.05, key="config_knn_sim_threshold")
+        elif people_method == "agglomerative":
+            people_distance_threshold = st.slider("Distance Threshold", 0.3, 0.9, value=float(saved_cluster_people.get("distance_threshold", 0.5)), step=0.05, key="config_people_dist")
 
-        st.markdown("**Image Similarity & Quality**")
-        col1, col2 = st.columns(2)
-        with col1:
-            duplicate_threshold = st.slider(
-                "Dissimilarity Threshold", 0.80, 0.95,
-                value=float(saved_select.get("dissimilarity_threshold", 0.85)),
-                step=0.01, key="config_dup_thresh",
-                help="Select images with similarity below this threshold"
-            )
-        with col2:
-            siamese_config = saved_select.get("siamese", {})
-            siamese_enabled = st.checkbox(
-                "Enable Siamese Quality Refinement",
-                value=bool(siamese_config.get("enabled", True)),
-                key="config_siamese",
-                help="Use Siamese CNN to refine quality scores for top candidates"
-            )
+    # Column 3: Selection
+    with col_select:
+        st.markdown("**Selection**")
+        max_per_cluster = st.number_input(
+            "Max per Cluster", 1, 10,
+            value=int(saved_select.get("max_images_per_cluster", 2)),
+            key="config_max_per_cluster",
+        )
+        min_score_threshold = st.slider(
+            "Min Score", 0.0, 1.0,
+            value=float(saved_select.get("min_score_threshold", 0.4)),
+            step=0.05, key="config_min_score",
+        )
+        duplicate_threshold = st.slider(
+            "Dissimilarity Thresh", 0.80, 0.95,
+            value=float(saved_select.get("dissimilarity_threshold", 0.85)),
+            step=0.01, key="config_dup_thresh",
+        )
+        siamese_config = saved_select.get("siamese", {})
+        siamese_enabled = st.checkbox(
+            "Siamese Refinement",
+            value=bool(siamese_config.get("enabled", True)),
+            key="config_siamese",
+        )
+
+    # --- Merge Parameters (full-width, visible when merge enabled, NOT an expander) ---
+    if people_method == "face_cluster_knn" and fc_merge_enabled:
+        st.divider()
+        st.markdown("**Merge Parameters**")
+        fc_merge_params = _render_merge_params(key_prefix="rc_")
 
     config = {
         "filter_quality": {"min_iqa_score": min_iqa, "min_sharpness": min_sharpness},
@@ -320,18 +321,30 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
             "device": "cpu",
             "model_name": "buffalo_l",
         },
-        # People clustering config (global identity clustering for People tab)
+        # People clustering config — only include params relevant to selected method
         "cluster_people": {
             "method": people_method,
-            "min_cluster_size": people_min_cluster_size,
-            "min_samples": people_min_cluster_size,
-            "distance_threshold": people_distance_threshold,
-            "cluster_selection_epsilon": cluster_merge_epsilon,
-            # HDBSCAN+PCA specific
-            "pca_components": pca_components,
-            # Mutual KNN specific
-            "k": knn_k,
-            "similarity_threshold": knn_similarity_threshold,
+            **(
+                # face_cluster_knn params
+                {
+                    "K": fc_K,
+                    "distance_threshold": fc_dist_threshold,
+                    "min_cluster_size": fc_min_cluster,
+                    "merge_enabled": fc_merge_enabled,
+                    "attach_enabled": fc_attach_enabled,
+                    "export_for_analysis": fc_export,
+                    **fc_merge_params,
+                } if people_method == "face_cluster_knn"
+                else {
+                    # Legacy method params
+                    "min_cluster_size": people_min_cluster_size,
+                    "min_samples": people_min_cluster_size,
+                    "distance_threshold": people_distance_threshold,
+                    **({"cluster_selection_epsilon": cluster_merge_epsilon} if people_method in ("hdbscan", "hdbscan_pca") else {}),
+                    **({"pca_components": pca_components} if people_method == "hdbscan_pca" else {}),
+                    **({"k": knn_k, "similarity_threshold": knn_similarity_threshold} if people_method == "mutual_knn" else {}),
+                }
+            ),
         },
         # Identity sub-clustering config (within scene clusters)
         "cluster_by_identity": {
@@ -348,6 +361,7 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
 
     is_running = state.pipeline_status == PipelineStatus.RUNNING
 
+    st.divider()
     col1, col2, col3 = st.columns([2, 1, 1])
 
     with col1:
@@ -358,7 +372,9 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
             use_container_width=True,
             key="run_pipeline_btn",
         ):
-            return _start_pipeline(album.album_id, selected_pipeline, steps, config)
+            job_id = _start_pipeline(album.album_id, selected_pipeline, steps, config)
+            if job_id:
+                return job_id
 
     with col2:
         if st.button(
@@ -366,10 +382,8 @@ def render_pipeline_runner(album: Album) -> Optional[str]:
             disabled=is_running,
             use_container_width=True,
             key="save_settings_btn",
-            help="Save your settings for next time",
         ):
             _save_user_settings(selected_pipeline, config)
-            st.rerun()
 
     with col3:
         if is_running and st.button("Cancel", use_container_width=True, key="cancel_pipeline_btn"):

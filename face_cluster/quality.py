@@ -1,12 +1,12 @@
 """Quality gating for face clustering - blur and pose filtering."""
 
 import logging
-from typing import List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 import numpy as np
 import cv2
 from PIL import Image
 
-from face_cluster.types import FaceRecord
+from face_cluster.types import FaceRecord, GateResult, QualityVerdict
 from face_cluster.config import PipelineConfig
 
 logger = logging.getLogger(__name__)
@@ -164,117 +164,142 @@ class QualityGater:
 
     def select_core_set(
         self,
-        faces: List[FaceRecord]
-    ) -> Tuple[List[int], List[int]]:
+        faces: List[FaceRecord],
+    ) -> Tuple[List[int], List[int], List[QualityVerdict]]:
         """Select core and holdout sets based on quality criteria.
 
-        Selection process:
-        1. Group faces by image_id
-        2. Keep only top max_faces_per_image_core by area per image
-        3. Apply quality filters:
-           - abs(yaw) <= yaw_max
-           - abs(pitch) <= pitch_max
-           - abs(roll) <= roll_max
-           - blur_score >= blur_min
-           - area >= min_face_area (if set)
-        4. Faces passing all filters go to core, others to holdout
-
-        Args:
-            faces: List of FaceRecord objects
-
         Returns:
-            (core_indices, holdout_indices) tuple
+            (core_indices, holdout_indices, verdicts) where verdicts[i]
+            corresponds to faces[i] with per-gate results and rejection_reason.
         """
         if not faces:
-            return [], []
+            return [], [], []
 
-        # Group by image_id
-        image_groups = {}
-        for i, face in enumerate(faces):
-            if face.image_id not in image_groups:
-                image_groups[face.image_id] = []
-            image_groups[face.image_id].append(i)
-
-        # Keep only top K faces per image by area
-        candidate_indices = []
-        for image_id, indices in image_groups.items():
-            # Sort by area descending
-            indices_sorted = sorted(indices, key=lambda i: faces[i].area, reverse=True)
-            # Keep top max_faces_per_image_core
-            top_k = indices_sorted[:self.config.max_faces_per_image_core]
-            candidate_indices.extend(top_k)
+        candidate_set = self._top_k_per_image(faces)
 
         logger.info(
-            f"Selected {len(candidate_indices)} candidates from "
+            f"Selected {len(candidate_set)} candidates from "
             f"{len(faces)} faces (top {self.config.max_faces_per_image_core} per image)"
         )
-
-        # Pose angles come from InsightFace's 1k3d68 model — reliable for gating.
-        # Gating is always active; require_pose controls whether faces with no pose data
-        # (detection failed) are sent to holdout.
-        apply_pose_angles = True
         logger.info(
             f"Pose angle filter: ACTIVE (InsightFace 1k3d68), "
             f"yaw<={self.config.yaw_max}, pitch<={self.config.pitch_max}, "
             f"roll<={self.config.roll_max}, require_pose={self.config.require_pose}"
         )
 
-        core_indices = []
-        holdout_indices = []
+        core_indices: List[int] = []
+        holdout_indices: List[int] = []
+        verdicts: List[QualityVerdict] = []
 
         for i, face in enumerate(faces):
-            # Check if this face is a candidate
-            if i not in candidate_indices:
+            if i not in candidate_set:
+                verdicts.append(self._top_k_verdict(face))
                 holdout_indices.append(i)
                 continue
 
-            # Check quality criteria
-            passes_all = True
+            verdict = self._evaluate_gates(face)
+            verdicts.append(verdict)
+            face.quality_verdict = verdict
+            face.rejection_reason = verdict.rejection_reason
 
-            # Pose check — only when calibrated pose available
-            if apply_pose_angles:
-                if face.pose is None:
-                    if self.config.require_pose:
-                        passes_all = False
-                        logger.debug(f"Face {face.face_id}: no pose data, require_pose=True -> holdout")
-                else:
-                    yaw, pitch, roll = face.pose
-                    if abs(yaw) > self.config.yaw_max:
-                        passes_all = False
-                        logger.debug(f"Face {face.face_id}: yaw {yaw:.1f} exceeds {self.config.yaw_max}")
-                    if abs(pitch) > self.config.pitch_max:
-                        passes_all = False
-                        logger.debug(f"Face {face.face_id}: pitch {pitch:.1f} exceeds {self.config.pitch_max}")
-                    if abs(roll) > self.config.roll_max:
-                        passes_all = False
-                        logger.debug(f"Face {face.face_id}: roll {roll:.1f} exceeds {self.config.roll_max}")
-
-            # Blur check
-            if face.blur_score < self.config.blur_min:
-                passes_all = False
-                logger.debug(
-                    f"Face {face.face_id}: blur {face.blur_score:.1f} "
-                    f"below {self.config.blur_min}"
-                )
-
-            # Area check
-            if self.config.min_face_area is not None:
-                if face.area < self.config.min_face_area:
-                    passes_all = False
-                    logger.debug(
-                        f"Face {face.face_id}: area {face.area:.0f} "
-                        f"below {self.config.min_face_area}"
-                    )
-
-            if passes_all:
+            if verdict.all_passed():
                 core_indices.append(i)
                 face.is_core = True
             else:
                 holdout_indices.append(i)
+                logger.debug(f"Face {face.face_id}: holdout ({verdict.rejection_reason})")
 
         logger.info(
             f"Quality gating: {len(core_indices)} core, "
             f"{len(holdout_indices)} holdout faces"
         )
+        return core_indices, holdout_indices, verdicts
 
-        return core_indices, holdout_indices
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _top_k_per_image(self, faces: List[FaceRecord]) -> set:
+        """Return set of face indices kept as top-K per image by area."""
+        image_groups: Dict[str, List[int]] = {}
+        for i, face in enumerate(faces):
+            image_groups.setdefault(face.image_id, []).append(i)
+
+        kept = set()
+        for indices in image_groups.values():
+            sorted_idx = sorted(indices, key=lambda i: faces[i].area, reverse=True)
+            kept.update(sorted_idx[:self.config.max_faces_per_image_core])
+        return kept
+
+    def _top_k_verdict(self, face: FaceRecord) -> QualityVerdict:
+        """Build a rejected verdict for a face dropped by top-K-per-image gate."""
+        gates: Dict[str, GateResult] = {}
+        self._add_det_score_gate(face, gates)
+        self._add_blur_gate(face, gates)
+        self._add_pose_gates(face, gates)
+        self._add_area_gate(face, gates)
+        verdict = QualityVerdict(gates=gates, rejection_reason="top_k_per_image")
+        face.quality_verdict = verdict
+        face.rejection_reason = "top_k_per_image"
+        return verdict
+
+    def _evaluate_gates(self, face: FaceRecord) -> QualityVerdict:
+        """Evaluate all quality gates and return a verdict with rejection_reason."""
+        gates: Dict[str, GateResult] = {}
+        self._add_det_score_gate(face, gates)
+        self._add_blur_gate(face, gates)
+        self._add_pose_gates(face, gates)
+        self._add_area_gate(face, gates)
+
+        # Priority order for rejection_reason (det_score first — most fundamental)
+        _priority = ("det_score", "blur", "pose_yaw", "pose_pitch", "area")
+        rejection_reason = next(
+            (name for name in _priority if name in gates and not gates[name].passed),
+            None,
+        )
+        return QualityVerdict(gates=gates, rejection_reason=rejection_reason)
+
+    def _add_det_score_gate(self, face: FaceRecord, gates: Dict[str, GateResult]) -> None:
+        """Gate on InsightFace detection confidence. Skipped (passes) when det_score_min is None
+        or when the face has no det_score (permissive — don't penalise legacy runs)."""
+        if self.config.det_score_min is None:
+            return
+        threshold = self.config.det_score_min
+        if face.det_score is None:
+            # No score available — pass permissively
+            gates["det_score"] = GateResult(value=-1.0, threshold=threshold, passed=True)
+        else:
+            gates["det_score"] = GateResult(
+                value=float(face.det_score),
+                threshold=threshold,
+                passed=float(face.det_score) >= threshold,
+            )
+
+    def _add_blur_gate(self, face: FaceRecord, gates: Dict[str, GateResult]) -> None:
+        gates["blur"] = GateResult(
+            value=face.blur_score,
+            threshold=self.config.blur_min,
+            passed=face.blur_score >= self.config.blur_min,
+        )
+
+    def _add_pose_gates(self, face: FaceRecord, gates: Dict[str, GateResult]) -> None:
+        if face.pose is None:
+            passed = not self.config.require_pose
+            gates["pose_yaw"] = GateResult(value=0.0, threshold=self.config.yaw_max, passed=passed)
+            gates["pose_pitch"] = GateResult(value=0.0, threshold=self.config.pitch_max, passed=passed)
+            return
+        yaw, pitch, _ = face.pose
+        gates["pose_yaw"] = GateResult(
+            value=abs(yaw), threshold=self.config.yaw_max, passed=abs(yaw) <= self.config.yaw_max
+        )
+        gates["pose_pitch"] = GateResult(
+            value=abs(pitch), threshold=self.config.pitch_max, passed=abs(pitch) <= self.config.pitch_max
+        )
+
+    def _add_area_gate(self, face: FaceRecord, gates: Dict[str, GateResult]) -> None:
+        threshold = self.config.min_face_area if self.config.min_face_area is not None else 0.0
+        gates["area"] = GateResult(
+            value=face.area,
+            threshold=threshold,
+            passed=face.area >= threshold,
+        )

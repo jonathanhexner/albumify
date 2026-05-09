@@ -12,6 +12,7 @@ from PIL import Image, ImageOps
 
 from app.streamlit.models import ImageInfo, ClusterInfo
 from app.streamlit.config import get_config
+from app.streamlit.components.image_popup import image_detail_btn
 
 
 THUMBNAIL_WIDTH = 200  # Fixed width for gallery thumbnails (fits 4 per row)
@@ -105,6 +106,9 @@ def render_image_card(
 
     if show_selection and image.is_selected:
         st.success("Selected")
+
+    # Image detail popup button (always available)
+    image_detail_btn(image, key=f"detail_{hash(image.path) % 100000}")
 
     if on_click:
         if st.button("View", key=f"view_{image.path}"):

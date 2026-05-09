@@ -51,7 +51,8 @@ class PipelineExecutor:
         self,
         context: PipelineContext,
         step_names: list[str],
-        config: PipelineConfig = None
+        config: PipelineConfig = None,
+        on_step_complete=None,
     ) -> PipelineResult:
         """
         Execute a pipeline.
@@ -79,6 +80,13 @@ class PipelineExecutor:
         for i, step in enumerate(steps):
             step_result = self._execute_step(step, context, config)
             result.step_results.append(step_result)
+
+            # Notify caller of per-step completion (for DB persistence)
+            if on_step_complete:
+                try:
+                    on_step_complete(step_result)
+                except Exception as e:
+                    logger.warning(f"on_step_complete callback failed: {e}")
 
             if not step_result.success:
                 result.success = False
@@ -150,7 +158,18 @@ class PipelineExecutor:
                 error_message=f"Validation failed: {'; '.join(validation_errors)}"
             )
 
-        step.process(context, step_config)
+        try:
+            step.process(context, step_config)
+        except Exception as e:
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.error(f"Step '{step_name}' failed after {duration_ms}ms: {e}", exc_info=True)
+            return StepResult(
+                step_name=step_name,
+                success=False,
+                duration_ms=duration_ms,
+                error_message=f"{type(e).__name__}: {e}"
+            )
+
         duration_ms = int((time.time() - start_time) * 1000)
 
         return StepResult(

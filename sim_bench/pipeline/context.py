@@ -2,11 +2,27 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Any, Optional, TYPE_CHECKING
+from typing import Callable, Any, Dict, List, Optional, TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
     from sim_bench.pipeline.cache_handler import UniversalCacheHandler
+
+
+@dataclass
+class StepDecision:
+    """Record of a decision made by a pipeline step about an image or face.
+
+    Steps emit these as they process items. Stored in DB and returned via API
+    so the UI can display them without reimplementing pipeline logic.
+    """
+    item_id: str          # image path or face key
+    item_type: str        # "image" or "face"
+    step: str             # pipeline step name (e.g. "filter_quality", "select_best")
+    decision: str         # "passed", "rejected", "selected", "detected", etc.
+    reason: str           # human-readable, e.g. "IQA 0.08 < threshold 0.20"
+    config_used: Dict[str, Any] = field(default_factory=dict)   # actual config for this decision
+    metrics: Dict[str, Any] = field(default_factory=dict)       # measured values
 
 
 @dataclass
@@ -65,6 +81,9 @@ class PipelineContext:
     cluster_centroids: dict[int, np.ndarray] = field(default_factory=dict)
     attachment_decisions: dict[str, dict] = field(default_factory=dict)
 
+    # Face clustering export (for standalone Face Clustering App analysis)
+    fc_export_dir: Optional[str] = None
+
     # User overrides (loaded from DB before refinement)
     user_overrides: list = field(default_factory=list)
 
@@ -77,6 +96,9 @@ class PipelineContext:
 
     # Selection
     selected_images: list[str] = field(default_factory=list)
+
+    # Per-item decision records (emitted by steps, stored in DB, displayed by UI)
+    step_decisions: list[StepDecision] = field(default_factory=list)
 
     # Progress callback
     on_progress: Callable[[str, float, str], None] = None

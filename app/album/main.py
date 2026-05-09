@@ -1,7 +1,7 @@
 """
-Album Organization - Streamlit App
+Albumify - Streamlit App
 
-Main entry point for the album organization UI.
+Main entry point for the Albumify album organization UI.
 Run with: streamlit run app/album/main.py
 """
 
@@ -24,13 +24,13 @@ from app.album.components import (
 def main():
     """Main application entry point."""
     st.set_page_config(
-        page_title="Album Organization",
+        page_title="Albumify",
         page_icon="📸",
         layout="wide",
         initial_sidebar_state="expanded"
     )
 
-    st.title("📸 Photo Album Organization")
+    st.title("📸 Albumify")
     st.markdown("Automatically organize and select best photos from your albums")
 
     # Initialize session

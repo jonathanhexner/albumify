@@ -20,6 +20,8 @@ class PipelineStatus(BaseModel):
     current_step: Optional[str] = None
     progress: float = 0.0
     message: Optional[str] = None
+    completed_steps: Optional[list] = None  # [{step, duration_ms, status, error}]
+    total_steps: Optional[int] = None
     created_at: datetime
     started_at: Optional[datetime] = None
 
@@ -38,6 +40,7 @@ class PipelineResultResponse(BaseModel):
     selected_images: list[str]
     step_timings: dict[str, int]
     total_duration_ms: int
+    fc_export_dir: Optional[str] = None
 
     class Config:
         from_attributes = True

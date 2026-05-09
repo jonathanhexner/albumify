@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
-from sim_bench.pipeline.context import PipelineContext
+from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.serializers import Serializers
 from sim_bench.pipeline.person_detection.yolo_detector import YOLOPersonDetector
@@ -112,6 +112,18 @@ class DetectPersonsStep(BaseStep):
     def _store_results(self, context: PipelineContext, results: Dict[str, Dict[str, Any]], config: dict) -> None:
         """Store persons in context."""
         context.persons = results
-        
+
+        cfg = {"confidence_threshold": config.get("confidence_threshold", 0.25)}
+        for img_path, data in results.items():
+            detected = data.get("person_detected", False)
+            conf = data.get("confidence", 0)
+            context.step_decisions.append(StepDecision(
+                item_id=img_path, item_type="image", step="detect_persons",
+                decision="detected" if detected else "not_detected",
+                reason=f"Person detected (conf {conf:.2f})" if detected else "No person detected",
+                config_used=cfg,
+                metrics={"confidence": round(conf, 3), "body_facing_score": round(data.get("body_facing_score", 0), 3)},
+            ))
+
         detected_count = sum(1 for r in results.values() if r.get('person_detected', False))
         logger.info(f"Detected persons in {detected_count}/{len(results)} images")

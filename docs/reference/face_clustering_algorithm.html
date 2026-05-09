@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Face Clustering Algorithm — Complete Reference</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: #fafafa; color: #1a1a1a; line-height: 1.65; max-width: 900px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  h2 { font-size: 20px; font-weight: 700; margin: 40px 0 12px; padding-top: 20px; border-top: 2px solid #e0e0e0; }
+  h3 { font-size: 16px; font-weight: 600; margin: 20px 0 8px; color: #333; }
+  p { margin: 8px 0; }
+  .subtitle { color: #666; margin-bottom: 24px; font-size: 15px; }
+  code { background: #eef; padding: 1px 5px; border-radius: 3px; font-family: "Cascadia Code", "Fira Code", monospace; font-size: 13px; }
+  pre { background: #1e1e2e; color: #cdd6f4; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 12px 0; }
+  pre code { background: none; padding: 0; color: inherit; }
+  .comment { color: #6c7086; }
+  .kw { color: #cba6f7; }
+  .str { color: #a6e3a1; }
+  .num { color: #fab387; }
+
+  .pipeline-flow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 16px 0 24px; }
+  .stage-box { background: #fff; border: 2px solid #4b8bff; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; color: #333; text-align: center; min-width: 100px; }
+  .stage-box.optional { border-color: #aaa; border-style: dashed; }
+  .stage-box small { display: block; font-weight: 400; color: #666; font-size: 11px; margin-top: 2px; }
+  .arrow { color: #888; font-size: 18px; }
+
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+  th { background: #f0f0f0; text-align: left; padding: 8px 10px; font-weight: 600; border-bottom: 2px solid #ccc; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+  tr:hover td { background: #f8f8ff; }
+
+  .formula-box { background: #fff; border: 1px solid #d0d0e0; border-radius: 8px; padding: 14px 18px; margin: 12px 0; font-family: "Cascadia Code", monospace; font-size: 13px; line-height: 1.7; }
+  .formula-box .label { font-family: "Segoe UI", sans-serif; font-weight: 600; color: #555; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .gate-card { background: #fff; border: 1px solid #d0d0e0; border-radius: 8px; padding: 16px; margin: 10px 0; }
+  .gate-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #333; }
+  .gate-card .check { color: #2a7; font-weight: 600; }
+  .gate-card .formula { font-family: monospace; font-size: 13px; margin: 6px 0; padding: 6px 10px; background: #f8f8f8; border-radius: 4px; }
+  .gate-card .tuning { font-size: 12px; color: #666; margin-top: 6px; }
+
+  .note { background: #fff8e0; border-left: 3px solid #e0a000; padding: 10px 14px; margin: 12px 0; font-size: 13px; border-radius: 0 6px 6px 0; }
+  .toc { background: #fff; border: 1px solid #d0d0e0; border-radius: 8px; padding: 16px 24px; margin: 20px 0; }
+  .toc ul { list-style: none; padding-left: 0; }
+  .toc li { margin: 4px 0; }
+  .toc a { color: #4b8bff; text-decoration: none; font-size: 14px; }
+  .toc a:hover { text-decoration: underline; }
+  .toc .sub { padding-left: 20px; }
+</style>
+</head>
+<body>
+
+<h1>Face Clustering Algorithm</h1>
+<p class="subtitle">Complete reference for the <code>face_cluster/</code> module. Covers every pipeline stage from image input to final cluster assignments, including post-processing (merge, split, attach).</p>
+
+<div class="toc">
+<strong>Contents</strong>
+<ul>
+  <li><a href="#overview">1. Pipeline Overview</a></li>
+  <li><a href="#detection">2. Face Detection &amp; Embedding</a></li>
+  <li><a href="#quality">3. Quality Gating</a></li>
+  <li><a href="#graph">4. kNN Graph Construction</a></li>
+  <li><a href="#clustering">5. Connected Components Clustering</a></li>
+  <li><a href="#exemplars">6. Exemplar Selection</a></li>
+  <li><a href="#split">7. Cluster Splitting (Optional)</a></li>
+  <li><a href="#merge">8. Conservative Merge (Optional)</a>
+    <ul class="sub">
+      <li><a href="#merge-candidates">8a. Candidate Proposal</a></li>
+      <li><a href="#merge-adaptive">8b. Adaptive Thresholds</a></li>
+      <li><a href="#merge-gates">8c. The Four Gates</a></li>
+      <li><a href="#merge-iteration">8d. Iterative Merging</a></li>
+    </ul>
+  </li>
+  <li><a href="#attach">9. Holdout Attachment (Optional)</a></li>
+  <li><a href="#export">10. Export &amp; Artifacts</a></li>
+  <li><a href="#params">11. Complete Parameter Reference</a></li>
+</ul>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="overview">1. Pipeline Overview</h2>
+
+<p>The pipeline transforms a folder of images into identity clusters — groups of face crops belonging to the same person. It runs in stages, each reading the output of the previous one.</p>
+
+<div class="pipeline-flow">
+  <div class="stage-box">Discover<small>find images</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box">Detect &amp; Embed<small>InsightFace</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box">Quality Gate<small>core / holdout</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box">Save Crops<small>aligned 112x112</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box">kNN Graph<small>mutual neighbors</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box">Cluster<small>connected components</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box">Exemplars<small>d10 selection</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box optional">Split<small>safeguard</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box optional">Merge<small>4-gate criteria</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box optional">Attach<small>holdout faces</small></div>
+  <span class="arrow">&rarr;</span>
+  <div class="stage-box">Export<small>CSV + NPY</small></div>
+</div>
+
+<p>Dashed borders indicate optional stages that can be enabled via configuration. The <strong>recluster</strong> path skips Discover/Detect/Embed/Quality/Crops and reuses existing embeddings, starting from the kNN Graph stage.</p>
+
+<!-- ================================================================== -->
+<h2 id="detection">2. Face Detection &amp; Embedding</h2>
+
+<p>Uses <strong>InsightFace buffalo_l</strong> (SCRFD detector + ArcFace recognizer) to detect faces and extract 512-dimensional embeddings in a single pass.</p>
+
+<h3>Process per image</h3>
+<ol>
+  <li>Load image via PIL with EXIF auto-rotation</li>
+  <li>Convert to RGB numpy array</li>
+  <li>Run InsightFace <code>app.get(img_rgb)</code> &mdash; returns face objects with bbox, landmarks, embedding, pose</li>
+  <li>Sort detected faces by configured ordering (detection order, reading order, area, or confidence)</li>
+  <li>For each face:
+    <ul>
+      <li>Extract 512-dim embedding, L2-normalize</li>
+      <li>Extract pose (yaw, pitch, roll) from the 1k3d68 landmark model</li>
+      <li>Generate 112&times;112 aligned crop via <code>face_align.norm_crop()</code></li>
+      <li>Create a <code>FaceRecord</code> with all metadata</li>
+    </ul>
+  </li>
+</ol>
+
+<div class="formula-box">
+  <span class="label">Embedding normalization</span>
+  embedding_normalized = embedding / ||embedding||<sub>2</sub>
+</div>
+
+<div class="note">
+  <strong>Important:</strong> Face ordering is critical for reproducibility. The same image processed with different ordering settings will produce different face_id&rarr;embedding mappings. The pipeline always uses the same ordering within a run.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="quality">3. Quality Gating</h2>
+
+<p>Separates faces into a <strong>core set</strong> (high quality, used for clustering) and a <strong>holdout set</strong> (lower quality, optionally attached later). This prevents blurry, profile, or tiny faces from corrupting cluster quality.</p>
+
+<h3>Selection process</h3>
+<ol>
+  <li><strong>Per-image top-K filter:</strong> Group faces by source image. Keep only the top <code>max_faces_per_image_core</code> faces by area. This prevents one group photo from dominating the core set.</li>
+  <li><strong>Pose angle filter:</strong> Reject faces with extreme angles:
+    <ul>
+      <li>|yaw| &gt; <code>yaw_max</code> (looking too far left/right)</li>
+      <li>|pitch| &gt; <code>pitch_max</code> (looking too far up/down)</li>
+      <li>|roll| &gt; <code>roll_max</code> (head tilted too far)</li>
+    </ul>
+    If pose data is unavailable and <code>require_pose=False</code> (default), the face passes this filter.
+  </li>
+  <li><strong>Blur filter:</strong> Reject faces with blur_score &lt; <code>blur_min</code>.</li>
+  <li><strong>Area filter (optional):</strong> Reject faces smaller than <code>min_face_area</code> pixels.</li>
+</ol>
+
+<div class="formula-box">
+  <span class="label">Blur score (Laplacian variance)</span>
+  blur_score = Var(Laplacian(grayscale_crop_112x112))
+  <br>Higher = sharper. Typical values: blurry &lt; 30, sharp &gt; 100.
+</div>
+
+<table>
+  <tr><th>Parameter</th><th>Default</th><th>Effect</th></tr>
+  <tr><td><code>yaw_max</code></td><td>30.0</td><td>Degrees. Reject extreme left/right profiles</td></tr>
+  <tr><td><code>pitch_max</code></td><td>25.0</td><td>Degrees. Reject extreme up/down gaze</td></tr>
+  <tr><td><code>roll_max</code></td><td>25.0</td><td>Degrees. Reject excessive head tilt</td></tr>
+  <tr><td><code>blur_min</code></td><td>50.0</td><td>Laplacian variance. Reject blurry faces</td></tr>
+  <tr><td><code>max_faces_per_image_core</code></td><td>3</td><td>Top-K by area per image</td></tr>
+  <tr><td><code>min_face_area</code></td><td>None</td><td>Pixels. Optional floor on face size</td></tr>
+  <tr><td><code>require_pose</code></td><td>False</td><td>If True, no-pose faces go to holdout</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="graph">4. kNN Graph Construction</h2>
+
+<p>Builds a <strong>mutual k-nearest-neighbor graph</strong> from core face embeddings. This graph is the foundation for clustering &mdash; two faces are connected only if they are close <em>and</em> mutually consider each other neighbors.</p>
+
+<h3>Steps</h3>
+<ol>
+  <li><strong>Distance matrix:</strong> Compute pairwise cosine distance between all core embeddings.</li>
+  <li><strong>kNN search:</strong> For each face, find the K closest other faces by sorting distances.</li>
+  <li><strong>Mutual filtering:</strong> Create an edge between face i and face j <em>only if</em>:
+    <ul>
+      <li>j is in the K nearest neighbors of i, <strong>AND</strong></li>
+      <li>i is in the K nearest neighbors of j (the relationship is mutual), <strong>AND</strong></li>
+      <li>distance(i, j) &le; <code>distance_threshold</code></li>
+    </ul>
+  </li>
+</ol>
+
+<div class="formula-box">
+  <span class="label">Cosine distance</span>
+  D[i,j] = clamp(1.0 - dot(E[i], E[j]), 0, 2)
+  <br>where E is the L2-normalized embedding matrix. D=0 means identical, D=2 means opposite.
+</div>
+
+<div class="note">
+  The <strong>mutual</strong> requirement is crucial &mdash; it prevents "bridge" edges where face A considers face B close, but B has many closer neighbors and wouldn't naturally group with A. This reduces transitive closure problems where unrelated faces chain together.
+</div>
+
+<table>
+  <tr><th>Parameter</th><th>Default</th><th>Effect</th></tr>
+  <tr><td><code>K</code></td><td>5</td><td>Number of nearest neighbors. Higher = more edges = larger clusters</td></tr>
+  <tr><td><code>distance_threshold</code></td><td>0.35</td><td>Max cosine distance for edges. Lower = stricter = more clusters</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="clustering">5. Connected Components Clustering</h2>
+
+<p>The simplest and most interpretable clustering step: faces that are connected through any path of mutual-kNN edges belong to the same cluster.</p>
+
+<h3>Algorithm</h3>
+<ol>
+  <li>Find all <strong>connected components</strong> in the mutual kNN graph (using NetworkX).</li>
+  <li>Components with &ge; <code>min_cluster_size</code> faces become clusters.</li>
+  <li>Smaller components are marked as <strong>noise</strong> (label = -1).</li>
+  <li>Compute per-cluster statistics: size, diameter (max pairwise distance), median/mean/P95 distance.</li>
+</ol>
+
+<div class="formula-box">
+  <span class="label">Cluster diameter</span>
+  diameter(C) = max { D[i,j] : i,j in C, i &ne; j }
+  <br>The worst-case pairwise distance within the cluster. Used by split and merge safeguards.
+</div>
+
+<table>
+  <tr><th>Parameter</th><th>Default</th><th>Effect</th></tr>
+  <tr><td><code>min_cluster_size</code></td><td>2</td><td>Min faces to form a cluster. 1 = keep singletons</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="exemplars">6. Exemplar Selection</h2>
+
+<p>Selects a small set of <strong>representative faces</strong> per cluster. Exemplars are used by the merge stage to compare clusters efficiently and by the UI to display cluster thumbnails.</p>
+
+<h3>D10 density metric</h3>
+<p>For each face in a cluster, compute d10 &mdash; the distance to its k<sup>th</sup> nearest neighbor <em>within the same cluster</em>. Faces with low d10 are in dense regions (surrounded by similar faces), making them good representatives.</p>
+
+<h3>Selection algorithm</h3>
+<ol>
+  <li>Compute d10 for every face in the cluster.</li>
+  <li>Filter candidates: keep faces with d10 &le; <code>exemplars_d10_threshold</code>.</li>
+  <li>Sort candidates by d10 ascending (densest first).</li>
+  <li><strong>Greedy selection with suppression:</strong> Walk through candidates in order. Accept a candidate only if it is at least <code>exemplar_suppression_radius</code> away from all already-accepted exemplars. This ensures exemplars are spread across the cluster, not clumped in one region.</li>
+  <li>Stop after selecting <code>N_exemplars_max</code> exemplars.</li>
+</ol>
+
+<div class="formula-box">
+  <span class="label">D10 metric</span>
+  d10(face_i) = sorted(distances_within_cluster[i])[k]
+  <br>where k = <code>d10_k</code>. Skip self-distance (which is 0). Lower d10 = more central face.
+</div>
+
+<table>
+  <tr><th>Parameter</th><th>Default</th><th>Effect</th></tr>
+  <tr><td><code>d10_k</code></td><td>3</td><td>K for d10 computation</td></tr>
+  <tr><td><code>exemplars_d10_threshold</code></td><td>0.35</td><td>Max d10 to be candidate exemplar</td></tr>
+  <tr><td><code>N_exemplars_max</code></td><td>10</td><td>Max exemplars per cluster</td></tr>
+  <tr><td><code>exemplar_suppression_radius</code></td><td>0.2</td><td>Min distance between selected exemplars</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="split">7. Cluster Splitting (Optional)</h2>
+
+<p>A safety net for clusters that are too wide &mdash; likely containing faces from different people connected through a chain of borderline edges.</p>
+
+<h3>Algorithm</h3>
+<ol>
+  <li>For each cluster where diameter &gt; <code>split_diameter_threshold</code>:</li>
+  <li>Build a new <em>internal</em> mutual kNN graph using tighter parameters (<code>split_K</code>, <code>split_distance_threshold</code>).</li>
+  <li>Find connected components in the internal graph.</li>
+  <li>If 2+ sub-components have &ge; <code>min_cluster_size</code> faces: replace the original cluster with sub-clusters.</li>
+  <li>Faces not in any valid sub-component become noise.</li>
+</ol>
+
+<div class="note">
+  Split is disabled by default (<code>split_enabled=False</code>). Enable it when you suspect transitive closure is linking unrelated faces &mdash; a common symptom is clusters with large diameter (&gt;0.6) containing visually different faces.
+</div>
+
+<table>
+  <tr><th>Parameter</th><th>Default</th><th>Effect</th></tr>
+  <tr><td><code>split_enabled</code></td><td>False</td><td>Enable/disable split safeguard</td></tr>
+  <tr><td><code>split_diameter_threshold</code></td><td>0.6</td><td>Trigger split if cluster diameter exceeds this</td></tr>
+  <tr><td><code>split_distance_threshold</code></td><td>0.30</td><td>Tighter edge threshold for internal graph</td></tr>
+  <tr><td><code>split_K</code></td><td>3</td><td>Fewer neighbors for internal graph</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="merge">8. Conservative Merge (Optional)</h2>
+
+<p>The initial clustering (connected components on mutual kNN) tends to <strong>under-merge</strong>: the same person may end up in multiple clusters because their faces lack mutual kNN edges between groups (e.g., different lighting, angles, or time periods). The conservative merge stage corrects this by merging cluster pairs that pass <strong>all four evidence gates</strong>.</p>
+
+<!-- -------------------------------------------- -->
+<h3 id="merge-candidates">8a. Candidate Proposal</h3>
+
+<p>Before evaluating the expensive 4-gate criteria, a cheap pre-filter identifies plausible merge candidates:</p>
+
+<ol>
+  <li>For each pair of clusters (i, j):</li>
+  <li>Compute the minimum exemplar-to-exemplar distance: min{D[a,b] : a in exemplars(i), b in exemplars(j)}</li>
+  <li>If this minimum distance &le; <code>merge_candidate_threshold</code>, add (i, j) as a candidate.</li>
+</ol>
+
+<p><code>merge_candidate_threshold</code> (default 0.45) is intentionally loose &mdash; it just filters out obviously unrelated pairs to save compute. The actual decision is made by the four gates below.</p>
+
+<!-- -------------------------------------------- -->
+<h3 id="merge-adaptive">8b. Adaptive Thresholds</h3>
+
+<p>Rather than using a single fixed threshold for all clusters, the merge stage computes <strong>per-cluster adaptive thresholds</strong> based on each cluster's internal spread:</p>
+
+<ol>
+  <li><strong>Per-cluster threshold T<sub>i</sub>:</strong> For cluster i, compute all pairwise distances between its exemplars. T<sub>i</sub> = P<sub>{exemplar_percentile}</sub> of these distances.</li>
+  <li><strong>Global threshold T<sub>global</sub>:</strong> Take all per-cluster thresholds and compute T<sub>global</sub> = P<sub>{global_percentile}</sub> across them.</li>
+  <li><strong>Merge threshold for pair (A, B):</strong></li>
+</ol>
+
+<div class="formula-box">
+  <span class="label">Adaptive merge threshold</span>
+  T<sub>local</sub> = max(T<sub>A</sub>, T<sub>B</sub>)  &nbsp;&nbsp;&nbsp;<em>(use the more permissive cluster)</em>
+  <br>
+  T<sub>merge</sub> = &alpha; &times; T<sub>local</sub> + &beta; &times; T<sub>global</sub>
+  <br><br>
+  Default: &alpha;=0.70, &beta;=0.30, exemplar_percentile=90, global_percentile=50
+  <br>
+  Both &alpha; and &beta; are independently settable (0 to 2). They are NOT constrained to sum to 1.
+</div>
+
+<p><strong>Intuition:</strong> A tight cluster (small T<sub>i</sub>) should require close exemplars to merge. A loose cluster (large T<sub>i</sub>) naturally tolerates more distance. The global component prevents any single cluster's threshold from dominating.</p>
+
+<!-- -------------------------------------------- -->
+<h3 id="merge-gates">8c. The Four Gates</h3>
+
+<p>Every candidate pair must pass <strong>all four</strong> gates to be merged. If any gate fails, the pair is rejected.</p>
+
+<div class="gate-card">
+  <h4>Gate A: Exemplar Agreement</h4>
+  <p>The closest exemplars from the two clusters must be within the adaptive threshold.</p>
+  <div class="formula">
+    exemplar_dist = min { D[a,b] : a &isin; exemplars(C<sub>A</sub>), b &isin; exemplars(C<sub>B</sub>) }
+    <br><span class="check">PASS if:</span> exemplar_dist &le; T<sub>merge</sub>
+  </div>
+  <p class="tuning"><strong>Tuning:</strong> To loosen, raise <code>merge_threshold_alpha</code>, <code>merge_exemplar_percentile</code>, or <code>merge_global_percentile</code>.</p>
+</div>
+
+<div class="gate-card">
+  <h4>Gate B: Support Count</h4>
+  <p>There must be enough cross-cluster face pairs with distance below the threshold &mdash; not just one lucky pair of exemplars.</p>
+  <div class="formula">
+    support = count { (a,b) : a &isin; C<sub>A</sub>, b &isin; C<sub>B</sub>, D[a,b] &le; T<sub>merge</sub> }
+    <br>required = max(merge_support_frac &times; min(|C<sub>A</sub>|, |C<sub>B</sub>|), &nbsp; merge_support_min)
+    <br><span class="check">PASS if:</span> support &ge; required
+  </div>
+  <p class="tuning"><strong>Tuning:</strong> To loosen, lower <code>merge_support_frac</code> or <code>merge_support_min</code>. Setting <code>merge_support_min=1</code> allows merges with just one close cross-cluster pair.</p>
+</div>
+
+<div class="gate-card">
+  <h4>Gate C: Margin Check</h4>
+  <p>Prevents ambiguous merges where cluster B isn't clearly the best match for A &mdash; some other cluster C might be just as close.</p>
+  <div class="formula">
+    For each exemplar e in C<sub>A</sub>:
+    <br>&nbsp;&nbsp;d_B = min distance from e to any face in C<sub>B</sub>
+    <br>&nbsp;&nbsp;d_C = min distance from e to any face in C<sub>other</sub>
+    <br><span class="check">PASS if:</span> d_B + merge_margin &le; d_C &nbsp; for all other clusters C
+  </div>
+  <p class="tuning"><strong>Tuning:</strong> Set <code>merge_margin=0</code> to disable this gate entirely.</p>
+</div>
+
+<div class="gate-card">
+  <h4>Gate D: Post-Merge Diameter</h4>
+  <p>The hypothetical merged cluster must not be too much wider than the original clusters.</p>
+  <div class="formula">
+    post_diameter = max { D[i,j] : i,j &isin; C<sub>A</sub> &cup; C<sub>B</sub> }
+    <br>max_allowed = merge_diameter_expansion_factor &times; max(diameter(C<sub>A</sub>), diameter(C<sub>B</sub>))
+    <br><span class="check">PASS if:</span> post_diameter &le; max_allowed
+  </div>
+  <p class="tuning"><strong>Tuning:</strong> Raise <code>merge_diameter_expansion_factor</code> (default 1.5). A value of 2.0 allows the merged cluster to be twice as wide as the widest original.</p>
+</div>
+
+<!-- -------------------------------------------- -->
+<h3 id="merge-iteration">8d. Iterative Merging</h3>
+
+<p>Merging runs in a loop:</p>
+<ol>
+  <li>Propose all candidate pairs.</li>
+  <li>Evaluate all four gates for each candidate.</li>
+  <li>Among valid merges, pick the one with the <strong>smallest exemplar distance</strong> (most confident merge).</li>
+  <li>Execute that merge: combine the two clusters, recompute exemplars and stats.</li>
+  <li>If adaptive thresholds are enabled, <strong>recompute all thresholds</strong> (since cluster compositions changed).</li>
+  <li>Repeat from step 1 until no valid merges remain or max iterations reached.</li>
+</ol>
+
+<div class="note">
+  <strong>One merge per iteration:</strong> Only the single best merge is performed per loop. This is conservative &mdash; each merge changes the cluster landscape, and we recompute thresholds before the next decision. This prevents cascading errors where an early bad merge invalidates subsequent decisions.
+</div>
+
+<p>All decisions (merged and rejected) are logged to <code>merge_log.json</code> for post-hoc analysis in the Merge Analysis tab.</p>
+
+<!-- ================================================================== -->
+<h2 id="attach">9. Holdout Attachment (Optional)</h2>
+
+<p>After clustering is complete, holdout faces (rejected by quality gating) can be assigned to clusters. This is useful for people who appear mostly in low-quality photos.</p>
+
+<h3>Algorithm per holdout face</h3>
+<ol>
+  <li>Compute distance from the holdout face to each cluster's exemplars.</li>
+  <li>Identify the best cluster (minimum distance) and the second-best.</li>
+  <li>Check three conditions:
+    <ul>
+      <li><strong>Distance:</strong> d<sub>best</sub> &le; <code>attach_distance_threshold</code></li>
+      <li><strong>Margin:</strong> d<sub>best</sub> + <code>margin</code> &le; d<sub>second</sub> (the face clearly belongs to one cluster, not ambiguously between two)</li>
+      <li><strong>Voting:</strong> Among the K<sub>attach</sub> nearest core faces, at least <code>vote_min</code> belong to the best cluster</li>
+    </ul>
+  </li>
+  <li>If all three pass: attach to best cluster. Otherwise: mark as noise.</li>
+</ol>
+
+<div class="formula-box">
+  <span class="label">Attachment decision</span>
+  attach(h) to best_cluster &nbsp; <strong>if</strong>:
+  <br>&nbsp;&nbsp;d_best &le; attach_distance_threshold
+  <br>&nbsp;&nbsp;AND &nbsp; d_best + margin &le; d_second
+  <br>&nbsp;&nbsp;AND &nbsp; count{k-nearest core faces in best_cluster} &ge; vote_min
+</div>
+
+<table>
+  <tr><th>Parameter</th><th>Default</th><th>Effect</th></tr>
+  <tr><td><code>attach_enabled</code></td><td>False</td><td>Enable holdout attachment</td></tr>
+  <tr><td><code>attach_distance_threshold</code></td><td>0.35</td><td>Max distance to nearest cluster</td></tr>
+  <tr><td><code>K_attach</code></td><td>5</td><td>Neighbors to check for voting</td></tr>
+  <tr><td><code>vote_min</code></td><td>3</td><td>Minimum votes from K_attach neighbors</td></tr>
+  <tr><td><code>margin</code></td><td>0.1</td><td>Margin to second-best cluster</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="export">10. Export &amp; Artifacts</h2>
+
+<p>The pipeline writes all results to the output directory:</p>
+
+<table>
+  <tr><th>File</th><th>Contents</th></tr>
+  <tr><td><code>faces.csv</code></td><td>One row per face: face_id, image_path, cluster_id, is_core, blur_score, area, yaw, pitch, roll</td></tr>
+  <tr><td><code>clusters.csv</code></td><td>One row per cluster: cluster_id, size, exemplar_face_ids (JSON), diameter</td></tr>
+  <tr><td><code>embeddings.npy</code></td><td>Float32 array (n_faces &times; 512), L2-normalized. Row-aligned with faces.csv</td></tr>
+  <tr><td><code>embedding_face_ids.npy</code></td><td>Int32 array (n_faces,). face_id per embedding row</td></tr>
+  <tr><td><code>crop_manifest.json</code></td><td>Dict: face_id &rarr; relative crop path</td></tr>
+  <tr><td><code>pipeline_run.json</code></td><td>Run metadata: config, timing, status, summary</td></tr>
+  <tr><td><code>export_summary.json</code></td><td>Source album, n_faces, n_clusters, config snapshot</td></tr>
+  <tr><td><code>face_crops/</code></td><td>Aligned 112x112 face images</td></tr>
+</table>
+
+<p>If merge is enabled, additional files are written:</p>
+
+<table>
+  <tr><th>File</th><th>Contents</th></tr>
+  <tr><td><code>faces_merged.csv</code></td><td>face_id + merged cluster_id</td></tr>
+  <tr><td><code>clusters_merged.csv</code></td><td>Merged cluster summary</td></tr>
+  <tr><td><code>merge_log.json</code></td><td>Every merge decision: all four gate results, thresholds, rejection reasons</td></tr>
+  <tr><td><code>merge_metadata.json</code></td><td>Per-cluster adaptive thresholds, global threshold, config snapshot</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="params">11. Complete Parameter Reference</h2>
+
+<table>
+  <tr><th>Stage</th><th>Parameter</th><th>Default</th><th>Description</th></tr>
+  <tr><td rowspan="2">Graph</td><td><code>K</code></td><td>5</td><td>Nearest neighbors for mutual kNN</td></tr>
+  <tr><td><code>distance_threshold</code></td><td>0.35</td><td>Max cosine distance to create edge</td></tr>
+  <tr><td>Cluster</td><td><code>min_cluster_size</code></td><td>2</td><td>Min faces to form a cluster</td></tr>
+
+  <tr><td rowspan="7">Quality</td><td><code>yaw_max</code></td><td>30.0</td><td>Max |yaw| degrees</td></tr>
+  <tr><td><code>pitch_max</code></td><td>25.0</td><td>Max |pitch| degrees</td></tr>
+  <tr><td><code>roll_max</code></td><td>25.0</td><td>Max |roll| degrees</td></tr>
+  <tr><td><code>blur_min</code></td><td>50.0</td><td>Min Laplacian variance</td></tr>
+  <tr><td><code>max_faces_per_image_core</code></td><td>3</td><td>Top-K faces per image by area</td></tr>
+  <tr><td><code>min_face_area</code></td><td>None</td><td>Min face area in pixels</td></tr>
+  <tr><td><code>require_pose</code></td><td>False</td><td>Reject faces without pose data</td></tr>
+
+  <tr><td rowspan="4">Exemplars</td><td><code>d10_k</code></td><td>3</td><td>K for d10 density metric</td></tr>
+  <tr><td><code>exemplars_d10_threshold</code></td><td>0.35</td><td>Max d10 to be candidate</td></tr>
+  <tr><td><code>N_exemplars_max</code></td><td>10</td><td>Max exemplars per cluster</td></tr>
+  <tr><td><code>exemplar_suppression_radius</code></td><td>0.2</td><td>Min distance between exemplars</td></tr>
+
+  <tr><td rowspan="4">Split</td><td><code>split_enabled</code></td><td>False</td><td>Enable split safeguard</td></tr>
+  <tr><td><code>split_diameter_threshold</code></td><td>0.6</td><td>Trigger diameter</td></tr>
+  <tr><td><code>split_distance_threshold</code></td><td>0.30</td><td>Tighter edge threshold</td></tr>
+  <tr><td><code>split_K</code></td><td>3</td><td>K for internal graph</td></tr>
+
+  <tr><td rowspan="12">Merge</td><td><code>merge_enabled</code></td><td>False</td><td>Enable conservative merge</td></tr>
+  <tr><td><code>merge_use_adaptive_threshold</code></td><td>True</td><td>Use per-cluster adaptive thresholds</td></tr>
+  <tr><td><code>merge_exemplar_percentile</code></td><td>90</td><td>Percentile for T<sub>i</sub></td></tr>
+  <tr><td><code>merge_global_percentile</code></td><td>50</td><td>Percentile for T<sub>global</sub></td></tr>
+  <tr><td><code>merge_threshold_alpha</code></td><td>0.7</td><td>Weight for T<sub>local</sub></td></tr>
+  <tr><td><code>merge_threshold_beta</code></td><td>0.3</td><td>Weight for T<sub>global</sub></td></tr>
+  <tr><td><code>merge_candidate_threshold</code></td><td>0.45</td><td>Loose pre-filter threshold</td></tr>
+  <tr><td><code>merge_exemplar_threshold</code></td><td>0.35</td><td>Fallback if adaptive disabled</td></tr>
+  <tr><td><code>merge_support_frac</code></td><td>0.3</td><td>Fraction of min cluster size</td></tr>
+  <tr><td><code>merge_support_min</code></td><td>2</td><td>Absolute min support</td></tr>
+  <tr><td><code>merge_margin</code></td><td>0.05</td><td>Margin to next-best (0 = disabled)</td></tr>
+  <tr><td><code>merge_diameter_expansion_factor</code></td><td>1.5</td><td>Max diameter growth factor</td></tr>
+
+  <tr><td rowspan="5">Attach</td><td><code>attach_enabled</code></td><td>False</td><td>Enable holdout attachment</td></tr>
+  <tr><td><code>attach_distance_threshold</code></td><td>0.35</td><td>Max distance to cluster</td></tr>
+  <tr><td><code>K_attach</code></td><td>5</td><td>Neighbors for voting</td></tr>
+  <tr><td><code>vote_min</code></td><td>3</td><td>Min votes from neighbors</td></tr>
+  <tr><td><code>margin</code></td><td>0.1</td><td>Margin to second-best cluster</td></tr>
+</table>
+
+<hr style="margin-top:40px">
+<p style="color:#888;font-size:12px;margin-top:16px">
+  Generated from <code>face_cluster/</code> source code. Module: <code>face_cluster.pipeline.FaceClusteringPipeline</code>.
+  <br>Source files: config.py, embedding.py, quality.py, knn_graph.py, clustering.py, exemplars.py, merge.py, attach.py, export.py, loader.py.
+</p>
+
+</body>
+</html>

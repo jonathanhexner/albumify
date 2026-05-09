@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Merge Analysis — Iteration View Mock</title>
+<style>
+  body { background:#0e1117; color:#fafafa; font-family:'Segoe UI',sans-serif; font-size:13px; margin:0; padding:20px; }
+  h2 { color:#fafafa; font-size:18px; margin-bottom:4px; }
+  h3 { color:#aaa; font-size:14px; font-weight:400; margin-top:0; }
+  .section { margin-bottom:28px; }
+
+  /* ── Metrics row ───────────────────────────────────────────────────── */
+  .metrics { display:flex; gap:12px; margin-bottom:20px; }
+  .metric  { background:#1a1a2e; border-radius:6px; padding:12px 18px; min-width:110px; }
+  .metric .label { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .metric .value { color:#fafafa; font-size:22px; font-weight:700; margin-top:2px; }
+  .metric .delta { font-size:11px; color:#e05; margin-top:1px; }
+  .metric .delta.pos { color:#4da; }
+
+  /* ── Controls row ──────────────────────────────────────────────────── */
+  .controls { display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  .ctrl-label { color:#888; font-size:12px; margin-right:4px; }
+  select, .pill-group { background:#1e2130; border:1px solid #333; border-radius:4px;
+                        color:#eee; padding:4px 8px; font-size:12px; }
+  .pill-group { display:flex; gap:0; padding:0; overflow:hidden; }
+  .pill { padding:5px 12px; cursor:pointer; border-right:1px solid #333; font-size:12px; color:#aaa; }
+  .pill:last-child { border-right:none; }
+  .pill.active { background:#2a4080; color:#fff; font-weight:600; }
+  .pill:hover:not(.active) { background:#252840; }
+
+  /* ── NEW: Iteration timeline strip ────────────────────────────────── */
+  .iter-strip { display:flex; gap:0; align-items:stretch; margin-bottom:18px;
+                border:1px solid #333; border-radius:6px; overflow:hidden; }
+  .iter-cell  { flex:1; text-align:center; padding:10px 6px; cursor:pointer;
+                border-right:1px solid #333; position:relative; }
+  .iter-cell:last-child { border-right:none; }
+  .iter-cell:hover { background:#1e2130; }
+  .iter-cell.active { background:#2a4080; }
+  .iter-cell .iter-num  { font-size:11px; color:#888; }
+  .iter-cell .iter-main { font-size:12px; font-weight:600; margin-top:2px; }
+  .iter-cell .iter-sub  { font-size:10px; color:#888; margin-top:1px; }
+  .iter-cell .merged-badge { position:absolute; top:4px; right:4px;
+                              background:#4da; color:#000; font-size:9px; font-weight:700;
+                              border-radius:3px; padding:1px 4px; }
+  .iter-cell.no-merge .iter-main { color:#e05; }
+  .iter-cell:not(.no-merge) .iter-main { color:#4da; }
+
+  /* ── Pair cards ────────────────────────────────────────────────────── */
+  .pair-card  { background:#1a1a2e; border-radius:6px; margin-bottom:8px;
+                border-left:3px solid #555; overflow:hidden; }
+  .pair-card.merged   { border-left-color:#4da; }
+  .pair-card.rejected { border-left-color:#e05; }
+  .pair-card.near-miss{ border-left-color:#f90; }
+  .pair-header { padding:10px 14px; display:flex; align-items:center; gap:10px;
+                 cursor:pointer; justify-content:space-between; }
+  .pair-header:hover { background:#1e2240; }
+  .pair-title  { font-weight:600; font-size:13px; color:#fff; }
+  .pair-meta   { font-size:11px; color:#888; margin-top:2px; }
+  .badge { border-radius:3px; padding:2px 6px; font-size:10px; font-weight:700; display:inline-block; }
+  .badge.green { background:#1d4030; color:#4da; }
+  .badge.red   { background:#3d1515; color:#e05; }
+  .badge.orange{ background:#3d2a00; color:#f90; }
+  .badge.iter  { background:#1a2050; color:#6af; }
+  .pair-gates  { display:flex; gap:6px; }
+  .gate { border-radius:3px; padding:2px 7px; font-size:10px; border:1px solid #444; }
+  .gate.pass { border-color:#4da; color:#4da; }
+  .gate.fail { border-color:#e05; color:#e05; }
+
+  /* ── Pair detail (expanded) ────────────────────────────────────────── */
+  .pair-detail { padding:12px 14px; border-top:1px solid #2a2a3e; }
+  .gate-badges { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .gate-badge  { background:#111; border-radius:4px; padding:6px 10px; border-left:3px solid #444;
+                 font-size:11px; min-width:110px; }
+  .gate-badge.pass { border-left-color:#4da; }
+  .gate-badge.fail { border-left-color:#e05; }
+  .gate-badge .g-title { font-weight:700; font-size:10px; }
+  .gate-badge .g-val   { color:#ccc; font-size:11px; margin-top:2px; }
+
+  /* ── NEW: Per-pair iteration history table ─────────────────────────── */
+  .iter-history { margin-top:12px; }
+  .iter-history h4 { font-size:11px; color:#888; text-transform:uppercase;
+                     letter-spacing:.06em; margin:0 0 6px; }
+  table.hist { width:100%; border-collapse:collapse; font-size:11px; }
+  table.hist th { color:#666; font-weight:500; text-align:left; padding:3px 8px;
+                  border-bottom:1px solid #2a2a3e; }
+  table.hist td { padding:4px 8px; border-bottom:1px solid #1e1e2e; color:#ccc; }
+  table.hist tr.current td { background:#1e2240; color:#fff; font-weight:600; }
+  table.hist td.act-merged { color:#4da; font-weight:700; }
+  table.hist td.act-rejected { color:#e05; }
+  table.hist td.act-pass { color:#f90; font-style:italic; }
+
+  /* ── Divider ───────────────────────────────────────────────────────── */
+  hr { border:none; border-top:1px solid #2a2a3e; margin:20px 0; }
+  .note { background:#1a2030; border-left:3px solid #6af; padding:8px 12px;
+          border-radius:4px; font-size:12px; color:#aaa; margin-bottom:16px; }
+  .section-title { font-size:14px; font-weight:600; color:#ccc; margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<h2>Merge Analysis</h2>
+<h3>Austria24_4 / recluster_6</h3>
+
+<!-- ── Summary metrics ── -->
+<div class="metrics">
+  <div class="metric">
+    <div class="label">Clusters (base)</div>
+    <div class="value">22</div>
+  </div>
+  <div class="metric">
+    <div class="label">Clusters (merged)</div>
+    <div class="value">18</div>
+    <div class="delta pos">-4</div>
+  </div>
+  <div class="metric">
+    <div class="label">Actual merges</div>
+    <div class="value">4</div>
+  </div>
+  <div class="metric">
+    <div class="label">Iterations run</div>
+    <div class="value">5</div>
+  </div>
+  <div class="metric">
+    <div class="label">Near misses (3/4)</div>
+    <div class="value">3</div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────────────
+     NEW SECTION: Iteration Timeline
+     A compact strip showing what was merged (or stopped) at each iteration.
+     Clicking a cell filters the pair list below to that iteration.
+     ──────────────────────────────────────────────────────────────────── -->
+<div class="section">
+  <div class="section-title">Iteration Timeline</div>
+  <div class="note">
+    Each iteration evaluates all candidate pairs, picks the single best merge, executes it,
+    then re-evaluates from scratch. Click a cell to inspect that iteration's candidates.
+  </div>
+  <div class="iter-strip">
+    <div class="iter-cell" onclick="selectIter(1)">
+      <div class="iter-num">Iter 1</div>
+      <div class="iter-main">C1 + C6</div>
+      <div class="iter-sub">22 candidates &nbsp;·&nbsp; C1 sz=135</div>
+      <div class="merged-badge">MERGED</div>
+    </div>
+    <div class="iter-cell" onclick="selectIter(2)">
+      <div class="iter-num">Iter 2</div>
+      <div class="iter-main">C1 + C12</div>
+      <div class="iter-sub">19 candidates &nbsp;·&nbsp; C1 sz=138</div>
+      <div class="merged-badge">MERGED</div>
+    </div>
+    <div class="iter-cell" onclick="selectIter(3)">
+      <div class="iter-num">Iter 3</div>
+      <div class="iter-main">C4 + C8</div>
+      <div class="iter-sub">14 candidates &nbsp;·&nbsp; C1 sz=140</div>
+      <div class="merged-badge">MERGED</div>
+    </div>
+    <div class="iter-cell" onclick="selectIter(4)">
+      <div class="iter-num">Iter 4</div>
+      <div class="iter-main">C1 + C16</div>
+      <div class="iter-sub">13 candidates &nbsp;·&nbsp; C1 sz=140</div>
+      <div class="merged-badge">MERGED</div>
+    </div>
+    <div class="iter-cell no-merge" onclick="selectIter(5)">
+      <div class="iter-num">Iter 5</div>
+      <div class="iter-main">No merge</div>
+      <div class="iter-sub">10 candidates &nbsp;·&nbsp; C1 sz=143</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Controls row ── -->
+<div class="controls">
+  <span class="ctrl-label">Filter</span>
+  <select>
+    <option>All candidates</option>
+    <option>Merges only</option>
+    <option>Rejections only</option>
+    <option>Near misses (3/4 gates)</option>
+  </select>
+
+  <!-- NEW: Iteration filter -->
+  <span class="ctrl-label">Iteration</span>
+  <div class="pill-group" id="iter-pills">
+    <div class="pill active" onclick="setIterPill(this,'all')">All</div>
+    <div class="pill" onclick="setIterPill(this,'latest')">Latest</div>
+    <div class="pill" onclick="setIterPill(this,'1')">1</div>
+    <div class="pill" onclick="setIterPill(this,'2')">2</div>
+    <div class="pill" onclick="setIterPill(this,'3')">3</div>
+    <div class="pill" onclick="setIterPill(this,'4')">4</div>
+    <div class="pill" onclick="setIterPill(this,'5')">5</div>
+  </div>
+
+  <span class="ctrl-label">Sort by</span>
+  <select>
+    <option>Exemplar distance</option>
+    <option>Gates passed</option>
+    <option>Iteration</option>
+  </select>
+</div>
+
+<!-- ── Pair list ── -->
+<div class="section-title">Merge Candidates</div>
+
+<!-- ── Pair: C1 vs C6 — actually merged in iter 1 ── -->
+<div class="pair-card merged">
+  <div class="pair-header" onclick="toggle('p1')">
+    <div>
+      <div class="pair-title">
+        C1 vs C6
+        <span class="badge green">MERGED</span>
+        <span class="badge iter">iter 1</span>
+      </div>
+      <div class="pair-meta">dist=0.312 &nbsp;·&nbsp; C1 sz=135 → 138 &nbsp;·&nbsp; C6 sz=3</div>
+    </div>
+    <div class="pair-gates">
+      <span class="gate pass">Exemplar</span>
+      <span class="gate pass">Support</span>
+      <span class="gate pass">Margin</span>
+      <span class="gate pass">Diameter</span>
+    </div>
+  </div>
+  <div class="pair-detail" id="p1" style="display:none">
+    <div class="gate-badges">
+      <div class="gate-badge pass"><div class="g-title">PASS Exemplar</div><div class="g-val">0.312 / 0.570 (-0.258)</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Support</div><div class="g-val">4 / 1 (+3)</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Margin</div><div class="g-val">gap=0.142</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Diameter</div><div class="g-val">0.488 / 0.690 (-0.202)</div></div>
+    </div>
+    <!-- No history table for merges — they appear once and are gone -->
+  </div>
+</div>
+
+<!-- ── Pair: C1 vs C10 — persistent near-miss, 5 iterations ── -->
+<div class="pair-card near-miss">
+  <div class="pair-header" onclick="toggle('p2')">
+    <div>
+      <div class="pair-title">
+        C1 vs C10
+        <span class="badge orange">REJECT (3/4)</span>
+        <!-- NEW: multi-iteration badge -->
+        <span class="badge iter" title="Evaluated in 5 iterations">5 iters ↻</span>
+      </div>
+      <!-- NEW: shows LATEST iteration size, not iter-1 size -->
+      <div class="pair-meta">dist=0.575 (latest: iter 5) &nbsp;·&nbsp; C1 sz=143 &nbsp;·&nbsp; C10 sz=2</div>
+    </div>
+    <div class="pair-gates">
+      <span class="gate fail">Exemplar</span>
+      <span class="gate pass">Support</span>
+      <span class="gate pass">Margin</span>
+      <span class="gate pass">Diameter</span>
+    </div>
+  </div>
+  <div class="pair-detail" id="p2" style="display:none">
+    <div class="gate-badges">
+      <div class="gate-badge fail"><div class="g-title">FAIL Exemplar</div><div class="g-val">0.575 / 0.570 (+0.005)</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Support</div><div class="g-val">3 / 1 (+2)</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Margin</div><div class="g-val">gap=0.088</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Diameter</div><div class="g-val">0.511 / 0.720 (-0.209)</div></div>
+    </div>
+
+    <!-- NEW: Iteration history table for this pair -->
+    <div class="iter-history">
+      <h4>Evaluation history (all iterations)</h4>
+      <table class="hist">
+        <thead>
+          <tr>
+            <th>Iter</th>
+            <th>C1 size</th>
+            <th>C10 size</th>
+            <th>Exemplar dist</th>
+            <th>Threshold</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td><td>135</td><td>2</td><td>0.575</td><td>0.570</td>
+            <td class="act-rejected">reject (+0.005)</td>
+          </tr>
+          <tr>
+            <td>2</td><td>138</td><td>2</td><td>0.575</td><td>0.570</td>
+            <td class="act-rejected">reject (+0.005)</td>
+          </tr>
+          <tr>
+            <td>3</td><td>140</td><td>2</td><td>0.575</td><td>0.570</td>
+            <td class="act-rejected">reject (+0.005)</td>
+          </tr>
+          <tr>
+            <td>4</td><td>140</td><td>2</td><td>0.575</td><td>0.570</td>
+            <td class="act-rejected">reject (+0.005)</td>
+          </tr>
+          <tr class="current">
+            <td>5 ← latest</td><td>143</td><td>2</td><td>0.575</td><td>0.570</td>
+            <td class="act-rejected">reject (+0.005)</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:6px;font-size:10px;color:#666">
+        Exemplar distance unchanged across all 5 iterations — no bridge node discovered.
+        Consider raising threshold or inspecting C10 visually.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Pair: C12 vs C14 — rejected by diameter ── -->
+<div class="pair-card rejected">
+  <div class="pair-header" onclick="toggle('p3')">
+    <div>
+      <div class="pair-title">
+        C12 vs C14
+        <span class="badge red">REJECT (2/4)</span>
+        <span class="badge iter">iter 2</span>
+      </div>
+      <div class="pair-meta">dist=0.341 &nbsp;·&nbsp; C12 sz=2 &nbsp;·&nbsp; C14 sz=3</div>
+    </div>
+    <div class="pair-gates">
+      <span class="gate pass">Exemplar</span>
+      <span class="gate pass">Support</span>
+      <span class="gate fail">Margin</span>
+      <span class="gate fail">Diameter</span>
+    </div>
+  </div>
+  <div class="pair-detail" id="p3" style="display:none">
+    <div class="gate-badges">
+      <div class="gate-badge pass"><div class="g-title">PASS Exemplar</div><div class="g-val">0.341 / 0.570 (-0.229)</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Support</div><div class="g-val">2 / 1 (+1)</div></div>
+      <div class="gate-badge fail"><div class="g-title">FAIL Margin</div><div class="g-val">gap=0.018 &lt; 0.050</div></div>
+      <div class="gate-badge fail"><div class="g-title">FAIL Diameter</div><div class="g-val">0.661 / 0.518 (+0.143)</div></div>
+    </div>
+    <div class="iter-history">
+      <h4>Evaluation history</h4>
+      <table class="hist">
+        <thead>
+          <tr><th>Iter</th><th>C12 size</th><th>C14 size</th><th>Exemplar dist</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr class="current">
+            <td>2 ← only eval</td><td>2</td><td>3</td><td>0.341</td>
+            <td class="act-rejected">reject (diameter+margin)</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:6px;font-size:10px;color:#666">
+        Pair was not a candidate before iter 2 (C12 was part of another merge in iter 1).
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Pair: C1 vs C12 — actually merged in iter 2 ── -->
+<div class="pair-card merged">
+  <div class="pair-header" onclick="toggle('p4')">
+    <div>
+      <div class="pair-title">
+        C1 vs C12
+        <span class="badge green">MERGED</span>
+        <span class="badge iter">iter 2</span>
+      </div>
+      <div class="pair-meta">dist=0.328 &nbsp;·&nbsp; C1 sz=138 → 140 &nbsp;·&nbsp; C12 sz=2 &nbsp;·&nbsp; (evaluated but not chosen in iter 1)</div>
+    </div>
+    <div class="pair-gates">
+      <span class="gate pass">Exemplar</span>
+      <span class="gate pass">Support</span>
+      <span class="gate pass">Margin</span>
+      <span class="gate pass">Diameter</span>
+    </div>
+  </div>
+  <div class="pair-detail" id="p4" style="display:none">
+    <div class="gate-badges">
+      <div class="gate-badge pass"><div class="g-title">PASS Exemplar</div><div class="g-val">0.328 / 0.570 (-0.242)</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Support</div><div class="g-val">2 / 1 (+1)</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Margin</div><div class="g-val">gap=0.118</div></div>
+      <div class="gate-badge pass"><div class="g-title">PASS Diameter</div><div class="g-val">0.500 / 0.702 (-0.202)</div></div>
+    </div>
+    <div class="iter-history">
+      <h4>Evaluation history</h4>
+      <table class="hist">
+        <thead>
+          <tr><th>Iter</th><th>C1 size</th><th>Exemplar dist</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td><td>135</td><td>0.328</td>
+            <td class="act-pass">all gates pass — not chosen (C1+C6 was closer)</td>
+          </tr>
+          <tr class="current">
+            <td>2 ← merged</td><td>138</td><td>0.328</td>
+            <td class="act-merged">MERGED (best this iteration)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── Design notes callout ── -->
+<div style="background:#1a1a2e;border-radius:6px;padding:16px 20px;margin-top:4px">
+  <div style="font-size:13px;font-weight:600;color:#6af;margin-bottom:10px">Implementation Plan</div>
+  <table style="font-size:12px;color:#bbb;border-collapse:collapse;width:100%">
+    <tr>
+      <td style="padding:4px 12px 4px 0;color:#888;white-space:nowrap;vertical-align:top">Data layer</td>
+      <td>Add <code>iteration: int = 0</code> field to <code>MergeDecisionRow</code>.
+          In <code>_parse_merge_log_to_rows()</code> remove the <code>seen_rejected</code>
+          deduplication — keep ALL log entries with their iteration number.
+          For display default to "Latest" view (last entry per pair).</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 12px 4px 0;color:#888;white-space:nowrap;vertical-align:top">Timeline strip</td>
+      <td>New component above the pair list. One cell per iteration showing: which pair was
+          merged (or "No merge"), candidate count, and the cluster that grew. Clicking filters
+          the list below.</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 12px 4px 0;color:#888;white-space:nowrap;vertical-align:top">Iter pill filter</td>
+      <td>Add "Iteration" pill-group (All | Latest | 1 | 2 | …) alongside existing Filter/Sort.
+          "Latest" = last evaluation per pair (default). Individual numbers show that
+          iteration's full candidate set. "All" shows every row undeduped.</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 12px 4px 0;color:#888;white-space:nowrap;vertical-align:top">Multi-iter badge</td>
+      <td>Pairs evaluated in &gt;1 iteration show a <span style="background:#1a2050;color:#6af;
+          border-radius:3px;padding:1px 4px;font-size:10px">N iters ↻</span> badge in the header.
+          Header shows LATEST iteration's sizes, not iter-1 sizes.</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 12px 4px 0;color:#888;white-space:nowrap;vertical-align:top">History table</td>
+      <td>Inside each pair expander: "Evaluation history" table with one row per iteration —
+          cluster sizes, exemplar dist, and action. Latest row highlighted. Shows if the
+          distance improved/worsened across iterations.</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 12px 4px 0;color:#888;white-space:nowrap;vertical-align:top">Summary metric</td>
+      <td>Replace "Rejected candidates" metric with two: "Iterations run" (new) + "Unique
+          rejected pairs" (deduped count, same as before).</td>
+    </tr>
+  </table>
+</div>
+
+<script>
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function setIterPill(el, val) {
+  document.querySelectorAll('#iter-pills .pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+}
+function selectIter(n) {
+  const pills = document.querySelectorAll('#iter-pills .pill');
+  pills.forEach(p => p.classList.remove('active'));
+  pills[n + 1].classList.add('active'); // +1 because "All" and "Latest" come first
+}
+</script>
+</body>
+</html>

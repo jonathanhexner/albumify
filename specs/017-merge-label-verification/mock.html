@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Label Verification Tab - Mock</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0e1117;
+    color: #fafafa;
+    padding: 24px 48px;
+    line-height: 1.5;
+  }
+
+  /* -- Header -- */
+  .tab-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; }
+  .tab-subtitle { color: #a3a8b8; font-size: 0.9rem; margin-bottom: 20px; }
+
+  /* -- Controls Row -- */
+  .controls-row {
+    display: flex; gap: 24px; align-items: flex-end;
+    margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 4px; }
+  .control-group label {
+    font-size: 0.78rem; color: #a3a8b8; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  select, input[type=range] {
+    background: #262730; border: 1px solid #4a4a5a; color: #fafafa;
+    border-radius: 6px; padding: 8px 12px; font-size: 0.9rem;
+    min-width: 220px;
+  }
+  select:focus { border-color: #ff4b4b; outline: none; }
+
+  /* -- Metric Cards -- */
+  .metrics-row {
+    display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .metric-card {
+    background: #262730; border-radius: 8px; padding: 14px 20px;
+    min-width: 140px; flex: 1;
+  }
+  .metric-card .value { font-size: 1.6rem; font-weight: 700; color: #fafafa; }
+  .metric-card .label { font-size: 0.75rem; color: #a3a8b8; text-transform: uppercase; letter-spacing: 0.5px; }
+  .metric-card.highlight .value { color: #ff4b4b; }
+
+  /* -- Progress Bar -- */
+  .progress-section { margin-bottom: 24px; }
+  .progress-text { font-size: 0.85rem; color: #a3a8b8; margin-bottom: 6px; }
+  .progress-bar-bg {
+    background: #262730; border-radius: 6px; height: 8px; width: 100%;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    background: linear-gradient(90deg, #ff4b4b, #ff6b6b);
+    height: 100%; border-radius: 6px;
+    transition: width 0.3s ease;
+  }
+
+  /* -- Divider -- */
+  hr.section-divider {
+    border: none; border-top: 1px solid #262730; margin: 20px 0;
+  }
+
+  /* -- Filter Row -- */
+  .filter-row {
+    display: flex; gap: 16px; align-items: center; margin-bottom: 16px;
+  }
+  .filter-chip {
+    background: #262730; border: 1px solid #4a4a5a; border-radius: 20px;
+    padding: 5px 14px; font-size: 0.8rem; color: #a3a8b8; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-chip:hover { border-color: #636674; }
+  .filter-chip.active {
+    background: rgba(255, 75, 75, 0.15); border-color: #ff4b4b; color: #ff6b6b;
+  }
+
+  /* -- Slider -- */
+  .slider-group { display: flex; align-items: center; gap: 12px; }
+  .slider-value {
+    background: #262730; border-radius: 6px; padding: 6px 12px;
+    font-family: 'Courier New', monospace; font-size: 0.9rem;
+    min-width: 50px; text-align: center;
+  }
+  input[type=range] {
+    -webkit-appearance: none; background: #262730; height: 6px;
+    border-radius: 3px; border: none; min-width: 200px; padding: 0;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    background: #ff4b4b; border-radius: 50%; cursor: pointer;
+  }
+
+  /* ===== PAIRS TABLE ===== */
+  .pairs-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 24px;
+  }
+  table.pairs-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    font-size: 0.85rem;
+  }
+  table.pairs-table th {
+    text-align: left; padding: 10px 12px; background: #262730;
+    color: #a3a8b8; font-weight: 600; text-transform: uppercase;
+    font-size: 0.72rem; letter-spacing: 0.5px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  table.pairs-table th.sortable { cursor: pointer; }
+  table.pairs-table th.sortable:hover { color: #fafafa; }
+  table.pairs-table th .sort-arrow { font-size: 0.65rem; margin-left: 3px; }
+  table.pairs-table td {
+    padding: 8px 12px; border-bottom: 1px solid #1a1a2e;
+    vertical-align: middle;
+  }
+  table.pairs-table tr.pair-row { cursor: pointer; transition: background 0.1s; }
+  table.pairs-table tr.pair-row:hover td { background: #1e1e32; }
+  table.pairs-table tr.pair-row.selected td { background: #1a1a2e; }
+  table.pairs-table tr.pair-row.selected td:first-child {
+    border-left: 3px solid #ff4b4b;
+  }
+
+  /* Thumbnails strip in table row */
+  .thumb-strip {
+    display: flex; gap: 3px; align-items: center;
+  }
+  .thumb-strip .thumb {
+    width: 36px; height: 36px; border-radius: 4px; overflow: hidden;
+    background: linear-gradient(135deg, #3a3a4a 25%, #2a2a3a 50%, #3a3a4a 75%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.5rem; color: #636674; flex-shrink: 0;
+  }
+  .thumb-strip .vs-dot {
+    color: #4a4a5a; font-size: 0.6rem; font-weight: 700;
+    margin: 0 2px; flex-shrink: 0;
+  }
+
+  /* Inline action buttons in table */
+  .row-actions {
+    display: flex; gap: 4px; align-items: center;
+  }
+  .row-btn {
+    padding: 4px 10px; border: none; border-radius: 5px;
+    font-size: 0.72rem; font-weight: 600; cursor: pointer;
+    transition: transform 0.08s, opacity 0.15s;
+  }
+  .row-btn:hover { transform: scale(1.05); }
+  .row-btn:active { transform: scale(0.97); }
+  .row-btn.merge { background: #00d26a; color: #0e1117; }
+  .row-btn.reject { background: #ff4b4b; color: #fff; }
+  .row-btn.ignore { background: #3a3a4a; color: #a3a8b8; }
+  .row-btn.active-choice { box-shadow: 0 0 0 2px #fafafa; }
+
+  /* Verified badge */
+  .verified-btn {
+    padding: 4px 10px; border-radius: 5px; font-size: 0.72rem;
+    font-weight: 600; cursor: pointer; transition: all 0.15s;
+    border: 1px solid;
+  }
+  .verified-btn.not-verified {
+    background: transparent; border-color: #4a4a5a; color: #636674;
+  }
+  .verified-btn.verified {
+    background: rgba(0, 210, 106, 0.15); border-color: #00d26a; color: #00d26a;
+  }
+
+  /* Heuristic label pill */
+  .heur-label {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 0.7rem; font-weight: 600;
+  }
+  .heur-label.merge-lbl {
+    background: rgba(0, 210, 106, 0.15); color: #00d26a;
+  }
+  .heur-label.reject-lbl {
+    background: rgba(255, 75, 75, 0.15); color: #ff6b6b;
+  }
+
+  /* Distance value coloring */
+  .dist-cell { font-family: 'Courier New', monospace; font-size: 0.85rem; }
+  .dist-cell.close { color: #00d26a; }
+  .dist-cell.medium { color: #ffc107; }
+  .dist-cell.far { color: #ff4b4b; }
+
+  /* ===== DETAIL PANEL (expanded pair) ===== */
+  .detail-panel {
+    background: #1a1a2e; border-radius: 12px; padding: 24px;
+    margin-bottom: 24px; display: none;
+    border: 1px solid #262730;
+    animation: slideDown 0.2s ease-out;
+  }
+  .detail-panel.visible { display: block; }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .detail-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .detail-title { font-size: 1.05rem; font-weight: 600; }
+  .detail-close {
+    background: #262730; border: 1px solid #4a4a5a; color: #a3a8b8;
+    padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  }
+  .detail-close:hover { border-color: #ff4b4b; color: #fafafa; }
+
+  /* Pair display in detail */
+  .pair-container {
+    display: flex; align-items: stretch; gap: 0;
+    margin-bottom: 16px;
+  }
+  .cluster-side { flex: 5; }
+  .cluster-separator {
+    flex: 0 0 40px; display: flex; align-items: center; justify-content: center;
+  }
+  .cluster-separator .vs-badge {
+    background: #262730; border: 1px solid #4a4a5a; border-radius: 50%;
+    width: 36px; height: 36px; display: flex; align-items: center;
+    justify-content: center; font-size: 0.75rem; font-weight: 700; color: #a3a8b8;
+  }
+
+  .cluster-label {
+    font-size: 0.8rem; font-weight: 600; color: #a3a8b8;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+  }
+  .cluster-label .cluster-id { color: #fafafa; font-size: 0.9rem; }
+  .cluster-label .cluster-size { color: #636674; font-weight: 400; }
+
+  .crops-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .crop-card {
+    background: #262730; border-radius: 8px; overflow: hidden;
+    width: 80px; text-align: center;
+  }
+  .crop-placeholder {
+    width: 80px; height: 80px;
+    background: linear-gradient(135deg, #3a3a4a 25%, #2a2a3a 50%, #3a3a4a 75%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; color: #636674;
+  }
+  .crop-card .face-id {
+    font-size: 0.65rem; color: #636674; padding: 3px 0;
+  }
+
+  /* Distance metrics in detail */
+  .distance-metrics {
+    display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .dist-metric {
+    background: #262730; border-radius: 8px; padding: 10px 14px;
+    min-width: 130px;
+  }
+  .dist-metric .dist-value {
+    font-size: 1.05rem; font-weight: 700; font-family: 'Courier New', monospace;
+  }
+  .dist-metric .dist-label {
+    font-size: 0.68rem; color: #a3a8b8; text-transform: uppercase;
+  }
+  .dist-value.close { color: #00d26a; }
+  .dist-value.medium { color: #ffc107; }
+  .dist-value.far { color: #ff4b4b; }
+
+  /* Gate badges */
+  .gate-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .gate-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #262730; border-radius: 6px; padding: 5px 10px;
+    font-size: 0.75rem;
+  }
+  .gate-badge .gate-icon { font-size: 0.85rem; }
+  .gate-badge.pass .gate-icon { color: #00d26a; }
+  .gate-badge.fail .gate-icon { color: #ff4b4b; }
+  .gate-badge .gate-name { color: #a3a8b8; }
+
+  .current-label-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 6px; padding: 5px 12px; font-size: 0.8rem; font-weight: 600;
+  }
+  .current-label-pill.reject {
+    background: rgba(255, 75, 75, 0.15); border: 1px solid #ff4b4b; color: #ff6b6b;
+  }
+  .current-label-pill.merge {
+    background: rgba(0, 210, 106, 0.15); border: 1px solid #00d26a; color: #00d26a;
+  }
+
+  /* ===== Summary Table ===== */
+  .summary-section { margin-top: 32px; }
+  .summary-section h3 { font-size: 1rem; margin-bottom: 12px; }
+  table.summary-table {
+    width: 100%; border-collapse: collapse; font-size: 0.85rem;
+  }
+  table.summary-table th {
+    text-align: left; padding: 8px 12px; background: #262730;
+    color: #a3a8b8; font-weight: 600; text-transform: uppercase;
+    font-size: 0.72rem; letter-spacing: 0.5px;
+  }
+  table.summary-table td {
+    padding: 8px 12px; border-bottom: 1px solid #1a1a2e;
+  }
+  table.summary-table tr:hover td { background: #1a1a2e; }
+
+  .export-btn {
+    margin-top: 12px; padding: 8px 20px;
+    background: #262730; border: 1px solid #4a4a5a; border-radius: 6px;
+    color: #fafafa; font-size: 0.85rem; cursor: pointer;
+  }
+  .export-btn:hover { border-color: #ff4b4b; }
+
+  /* -- Mock badge -- */
+  .mock-badge {
+    position: fixed; top: 12px; right: 12px;
+    background: #ff4b4b; color: #fff; padding: 4px 12px;
+    border-radius: 4px; font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 1px; z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-badge">MOCK</div>
+
+<!-- ===== Tab Title ===== -->
+<div class="tab-title">Label Verification</div>
+<div class="tab-subtitle">Review merge candidates and verify heuristic labels. Click a row to inspect all faces.</div>
+
+<!-- ===== Controls Row ===== -->
+<div class="controls-row">
+  <div class="control-group">
+    <label>Source Dataset</label>
+    <select id="dataset-select">
+      <option selected>Google_Germany &mdash; Germany_18_recluster_103838</option>
+      <option>Austria_24 &mdash; Austria24_4_recluster_005203</option>
+      <option>Noa_5-7 &mdash; Budapest_1_recluster_111551</option>
+      <option>Noa_2-5 &mdash; Noa2-5_recluster_014740</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Candidate Threshold</label>
+    <div class="slider-group">
+      <input type="range" min="0.20" max="1.00" step="0.01" value="0.45" id="threshold-slider">
+      <div class="slider-value" id="threshold-val">0.45</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Metric Cards ===== -->
+<div class="metrics-row">
+  <div class="metric-card">
+    <div class="value">47</div>
+    <div class="label">Clusters</div>
+  </div>
+  <div class="metric-card">
+    <div class="value">82</div>
+    <div class="label">Candidate Pairs</div>
+  </div>
+  <div class="metric-card">
+    <div class="value">12</div>
+    <div class="label">Verified</div>
+  </div>
+  <div class="metric-card highlight">
+    <div class="value">70</div>
+    <div class="label">Remaining</div>
+  </div>
+</div>
+
+<!-- ===== Progress Bar ===== -->
+<div class="progress-section">
+  <div class="progress-text">Verified 12 / 82 candidate pairs (70 remaining)</div>
+  <div class="progress-bar-bg">
+    <div class="progress-bar-fill" style="width: 14.6%"></div>
+  </div>
+</div>
+
+<!-- ===== Filter Chips ===== -->
+<div class="filter-row">
+  <span style="font-size:0.8rem; color:#636674; margin-right:4px;">Show:</span>
+  <div class="filter-chip" onclick="setFilter(this)">All (82)</div>
+  <div class="filter-chip active" onclick="setFilter(this)">Unverified (70)</div>
+  <div class="filter-chip" onclick="setFilter(this)">Heuristic Rejects (65)</div>
+  <div class="filter-chip" onclick="setFilter(this)">Heuristic Merges (5)</div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ===== PAIRS TABLE ===== -->
+<div class="pairs-table-wrapper">
+<table class="pairs-table">
+  <thead>
+    <tr>
+      <th style="width:36px">#</th>
+      <th>Faces Preview</th>
+      <th class="sortable" onclick="toggleSort(this)">min_exemplar_dist <span class="sort-arrow">&#9650;</span></th>
+      <th class="sortable" onclick="toggleSort(this)">p10_cross_dist</th>
+      <th>Sizes</th>
+      <th>Heuristic</th>
+      <th>Decision</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody id="pairs-body">
+    <!-- Row 1: Heuristic Merge, verified -->
+    <tr class="pair-row" onclick="toggleDetail(this, 0)" id="row-0">
+      <td>1</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0012</div>
+          <div class="thumb">0034</div>
+          <div class="thumb">0089</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0201</div>
+          <div class="thumb">0203</div>
+        </div>
+      </td>
+      <td class="dist-cell close">0.198</td>
+      <td class="dist-cell close">0.224</td>
+      <td>12 + 4</td>
+      <td><span class="heur-label merge-lbl">Merge</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge active-choice" onclick="setDecision(event,0,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,0,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,0,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn verified" onclick="toggleVerified(event,0)">Verified</button></td>
+    </tr>
+
+    <!-- Row 2: Heuristic Merge, verified -->
+    <tr class="pair-row" onclick="toggleDetail(this, 1)" id="row-1">
+      <td>2</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0045</div>
+          <div class="thumb">0046</div>
+          <div class="thumb">0102</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0310</div>
+          <div class="thumb">0311</div>
+          <div class="thumb">0315</div>
+        </div>
+      </td>
+      <td class="dist-cell close">0.231</td>
+      <td class="dist-cell close">0.258</td>
+      <td>6 + 5</td>
+      <td><span class="heur-label merge-lbl">Merge</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge active-choice" onclick="setDecision(event,1,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,1,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,1,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn verified" onclick="toggleVerified(event,1)">Verified</button></td>
+    </tr>
+
+    <!-- Row 3: Heuristic Reject, human-overridden to merge, verified -->
+    <tr class="pair-row" onclick="toggleDetail(this, 2)" id="row-2">
+      <td>3</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0071</div>
+          <div class="thumb">0073</div>
+          <div class="thumb">0074</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0250</div>
+          <div class="thumb">0251</div>
+        </div>
+      </td>
+      <td class="dist-cell close">0.287</td>
+      <td class="dist-cell close">0.305</td>
+      <td>9 + 3</td>
+      <td><span class="heur-label reject-lbl">Reject</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge active-choice" onclick="setDecision(event,2,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,2,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,2,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn verified" onclick="toggleVerified(event,2)">Verified</button></td>
+    </tr>
+
+    <!-- Row 4: Heuristic Reject, not yet verified (selected row to show detail) -->
+    <tr class="pair-row selected" onclick="toggleDetail(this, 3)" id="row-3">
+      <td>4</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0042</div>
+          <div class="thumb">0108</div>
+          <div class="thumb">0215</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0331</div>
+          <div class="thumb">0502</div>
+          <div class="thumb">0617</div>
+        </div>
+      </td>
+      <td class="dist-cell close">0.312</td>
+      <td class="dist-cell close">0.338</td>
+      <td>8 + 3</td>
+      <td><span class="heur-label reject-lbl">Reject</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge" onclick="setDecision(event,3,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,3,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,3,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn not-verified" onclick="toggleVerified(event,3)">Not Verified</button></td>
+    </tr>
+
+    <!-- Row 5: Heuristic Reject, not verified -->
+    <tr class="pair-row" onclick="toggleDetail(this, 4)" id="row-4">
+      <td>5</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0019</div>
+          <div class="thumb">0020</div>
+          <div class="thumb">0021</div>
+          <div class="thumb">0022</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0400</div>
+          <div class="thumb">0401</div>
+          <div class="thumb">0402</div>
+        </div>
+      </td>
+      <td class="dist-cell medium">0.341</td>
+      <td class="dist-cell medium">0.378</td>
+      <td>15 + 7</td>
+      <td><span class="heur-label reject-lbl">Reject</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge" onclick="setDecision(event,4,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,4,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,4,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn not-verified" onclick="toggleVerified(event,4)">Not Verified</button></td>
+    </tr>
+
+    <!-- Row 6 -->
+    <tr class="pair-row" onclick="toggleDetail(this, 5)" id="row-5">
+      <td>6</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0130</div>
+          <div class="thumb">0131</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0560</div>
+          <div class="thumb">0561</div>
+          <div class="thumb">0562</div>
+          <div class="thumb">0563</div>
+          <div class="thumb">0564</div>
+        </div>
+      </td>
+      <td class="dist-cell medium">0.356</td>
+      <td class="dist-cell medium">0.392</td>
+      <td>2 + 11</td>
+      <td><span class="heur-label reject-lbl">Reject</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge" onclick="setDecision(event,5,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,5,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,5,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn not-verified" onclick="toggleVerified(event,5)">Not Verified</button></td>
+    </tr>
+
+    <!-- Row 7 -->
+    <tr class="pair-row" onclick="toggleDetail(this, 6)" id="row-6">
+      <td>7</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0088</div>
+          <div class="thumb">0090</div>
+          <div class="thumb">0091</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0700</div>
+          <div class="thumb">0701</div>
+        </div>
+      </td>
+      <td class="dist-cell medium">0.378</td>
+      <td class="dist-cell medium">0.410</td>
+      <td>5 + 3</td>
+      <td><span class="heur-label reject-lbl">Reject</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge" onclick="setDecision(event,6,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,6,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,6,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn not-verified" onclick="toggleVerified(event,6)">Not Verified</button></td>
+    </tr>
+
+    <!-- Row 8 -->
+    <tr class="pair-row" onclick="toggleDetail(this, 7)" id="row-7">
+      <td>8</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0150</div>
+          <div class="thumb">0151</div>
+          <div class="thumb">0152</div>
+          <div class="thumb">0153</div>
+          <div class="thumb">0154</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0800</div>
+          <div class="thumb">0801</div>
+          <div class="thumb">0802</div>
+          <div class="thumb">0803</div>
+        </div>
+      </td>
+      <td class="dist-cell medium">0.401</td>
+      <td class="dist-cell far">0.435</td>
+      <td>10 + 6</td>
+      <td><span class="heur-label reject-lbl">Reject</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge" onclick="setDecision(event,7,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,7,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,7,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn not-verified" onclick="toggleVerified(event,7)">Not Verified</button></td>
+    </tr>
+
+    <!-- Row 9 -->
+    <tr class="pair-row" onclick="toggleDetail(this, 8)" id="row-8">
+      <td>9</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0005</div>
+          <div class="thumb">0006</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0900</div>
+        </div>
+      </td>
+      <td class="dist-cell far">0.423</td>
+      <td class="dist-cell far">0.451</td>
+      <td>4 + 1</td>
+      <td><span class="heur-label reject-lbl">Reject</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge" onclick="setDecision(event,8,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,8,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,8,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn not-verified" onclick="toggleVerified(event,8)">Not Verified</button></td>
+    </tr>
+
+    <!-- Row 10 -->
+    <tr class="pair-row" onclick="toggleDetail(this, 9)" id="row-9">
+      <td>10</td>
+      <td>
+        <div class="thumb-strip">
+          <div class="thumb">0160</div>
+          <div class="thumb">0161</div>
+          <div class="thumb">0162</div>
+          <div class="vs-dot">|</div>
+          <div class="thumb">0950</div>
+          <div class="thumb">0951</div>
+          <div class="thumb">0952</div>
+          <div class="thumb">0953</div>
+          <div class="thumb">0954</div>
+        </div>
+      </td>
+      <td class="dist-cell far">0.438</td>
+      <td class="dist-cell far">0.462</td>
+      <td>7 + 9</td>
+      <td><span class="heur-label reject-lbl">Reject</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-btn merge" onclick="setDecision(event,9,'merge')">Merge</button>
+          <button class="row-btn reject" onclick="setDecision(event,9,'reject')">Reject</button>
+          <button class="row-btn ignore" onclick="setDecision(event,9,'ignore')">Ignore</button>
+        </div>
+      </td>
+      <td><button class="verified-btn not-verified" onclick="toggleVerified(event,9)">Not Verified</button></td>
+    </tr>
+
+  </tbody>
+</table>
+</div>
+<div style="font-size:0.75rem; color:#636674; margin-bottom:4px; margin-top:-16px;">Showing 10 of 82 pairs &middot; Scroll for more</div>
+
+<!-- ===== DETAIL PANEL (shown for selected row 4) ===== -->
+<div class="detail-panel visible" id="detail-panel">
+
+  <div class="detail-header">
+    <div class="detail-title">Cluster 14 (8 faces) vs Cluster 27 (3 faces)</div>
+    <button class="detail-close" onclick="closeDetail()">Close [Esc]</button>
+  </div>
+
+  <!-- All face crops, side by side -->
+  <div class="pair-container">
+    <!-- Cluster A - all faces -->
+    <div class="cluster-side">
+      <div class="cluster-label">
+        <span class="cluster-id">Cluster 14</span>
+        <span class="cluster-size">&middot; 8 faces &middot; exemplars marked with *</span>
+      </div>
+      <div class="crops-row">
+        <div class="crop-card">
+          <div class="crop-placeholder" style="border:2px solid #ffc107;">0042*</div>
+          <div class="face-id">#0042</div>
+        </div>
+        <div class="crop-card">
+          <div class="crop-placeholder" style="border:2px solid #ffc107;">0108*</div>
+          <div class="face-id">#0108</div>
+        </div>
+        <div class="crop-card">
+          <div class="crop-placeholder" style="border:2px solid #ffc107;">0215*</div>
+          <div class="face-id">#0215</div>
+        </div>
+        <div class="crop-card">
+          <div class="crop-placeholder">0216</div>
+          <div class="face-id">#0216</div>
+        </div>
+        <div class="crop-card">
+          <div class="crop-placeholder">0217</div>
+          <div class="face-id">#0217</div>
+        </div>
+        <div class="crop-card">
+          <div class="crop-placeholder">0218</div>
+          <div class="face-id">#0218</div>
+        </div>
+        <div class="crop-card">
+          <div class="crop-placeholder">0219</div>
+          <div class="face-id">#0219</div>
+        </div>
+        <div class="crop-card">
+          <div class="crop-placeholder">0220</div>
+          <div class="face-id">#0220</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Separator -->
+    <div class="cluster-separator">
+      <div class="vs-badge">VS</div>
+    </div>
+
+    <!-- Cluster B - all faces -->
+    <div class="cluster-side">
+      <div class="cluster-label">
+        <span class="cluster-id">Cluster 27</span>
+        <span class="cluster-size">&middot; 3 faces</span>
+      </div>
+      <div class="crops-row">
+        <div class="crop-card">
+          <div class="crop-placeholder" style="border:2px solid #ffc107;">0331*</div>
+          <div class="face-id">#0331</div>
+        </div>
+        <div class="crop-card">
+          <div class="crop-placeholder" style="border:2px solid #ffc107;">0502*</div>
+          <div class="face-id">#0502</div>
+        </div>
+        <div class="crop-card">
+          <div class="crop-placeholder" style="border:2px solid #ffc107;">0617*</div>
+          <div class="face-id">#0617</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Distance Metrics -->
+  <div class="distance-metrics">
+    <div class="dist-metric">
+      <div class="dist-value close">0.312</div>
+      <div class="dist-label">min_exemplar_dist</div>
+    </div>
+    <div class="dist-metric">
+      <div class="dist-value close">0.338</div>
+      <div class="dist-label">p10_cross_dist</div>
+    </div>
+    <div class="dist-metric">
+      <div class="dist-value medium">0.421</div>
+      <div class="dist-label">p50_cross_dist</div>
+    </div>
+    <div class="dist-metric">
+      <div class="dist-value">0.28</div>
+      <div class="dist-label">support_fraction</div>
+    </div>
+    <div class="dist-metric">
+      <div class="dist-value">0.487</div>
+      <div class="dist-label">post_merge_diameter</div>
+    </div>
+    <div class="dist-metric">
+      <div class="dist-value close">1.12</div>
+      <div class="dist-label">diameter_expansion</div>
+    </div>
+  </div>
+
+  <!-- Current label + Gates -->
+  <div style="display:flex; gap:24px; align-items:center; flex-wrap:wrap;">
+    <div>
+      <span style="font-size:0.75rem; color:#636674; margin-right:6px;">HEURISTIC:</span>
+      <span class="current-label-pill reject">Reject</span>
+    </div>
+    <div class="gate-row">
+      <span style="font-size:0.75rem; color:#636674; margin-right:4px;">GATES:</span>
+      <div class="gate-badge pass"><span class="gate-icon">&#10003;</span><span class="gate-name">Exemplar</span></div>
+      <div class="gate-badge pass"><span class="gate-icon">&#10003;</span><span class="gate-name">Cross-dist</span></div>
+      <div class="gate-badge fail"><span class="gate-icon">&#10007;</span><span class="gate-name">Support</span></div>
+      <div class="gate-badge pass"><span class="gate-icon">&#10003;</span><span class="gate-name">Diameter</span></div>
+    </div>
+  </div>
+
+</div>
+
+<hr class="section-divider">
+
+<!-- ===== Label Summary ===== -->
+<div class="summary-section">
+  <h3>Labeling Summary</h3>
+  <table class="summary-table">
+    <thead>
+      <tr>
+        <th>Dataset</th>
+        <th>Pairs</th>
+        <th>Heuristic Merge</th>
+        <th>Heuristic Reject</th>
+        <th>Human Merge</th>
+        <th>Human Reject</th>
+        <th>Unverified</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Google_Germany</td>
+        <td>82</td>
+        <td>5</td>
+        <td>65</td>
+        <td>8</td>
+        <td>4</td>
+        <td style="color:#ff6b6b;">70</td>
+      </tr>
+      <tr>
+        <td>Austria_24</td>
+        <td>34</td>
+        <td>1</td>
+        <td>28</td>
+        <td>0</td>
+        <td>0</td>
+        <td style="color:#ff6b6b;">34</td>
+      </tr>
+      <tr>
+        <td>Noa_5-7</td>
+        <td>61</td>
+        <td>1</td>
+        <td>52</td>
+        <td>0</td>
+        <td>0</td>
+        <td style="color:#ff6b6b;">61</td>
+      </tr>
+      <tr>
+        <td>Noa_2-5</td>
+        <td>18</td>
+        <td>1</td>
+        <td>14</td>
+        <td>0</td>
+        <td>0</td>
+        <td style="color:#ff6b6b;">18</td>
+      </tr>
+      <tr style="font-weight:700; border-top:2px solid #4a4a5a;">
+        <td>Total</td>
+        <td>195</td>
+        <td>8</td>
+        <td>159</td>
+        <td>8</td>
+        <td>4</td>
+        <td style="color:#ff6b6b;">183</td>
+      </tr>
+    </tbody>
+  </table>
+  <button class="export-btn" onclick="alert('Exported 195 labeled pairs to training_labels.csv')">Export Labels as CSV</button>
+</div>
+
+<script>
+  // Threshold slider
+  const slider = document.getElementById('threshold-slider');
+  const valDisplay = document.getElementById('threshold-val');
+  slider.addEventListener('input', () => {
+    valDisplay.textContent = parseFloat(slider.value).toFixed(2);
+  });
+
+  // Filter chips
+  function setFilter(el) {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Toggle detail panel on row click
+  function toggleDetail(rowEl, idx) {
+    const panel = document.getElementById('detail-panel');
+    const wasSelected = rowEl.classList.contains('selected');
+
+    // Deselect all rows
+    document.querySelectorAll('.pair-row').forEach(r => r.classList.remove('selected'));
+
+    if (wasSelected) {
+      panel.classList.remove('visible');
+    } else {
+      rowEl.classList.add('selected');
+      panel.classList.add('visible');
+      // Scroll panel into view
+      setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    }
+  }
+
+  function closeDetail() {
+    document.getElementById('detail-panel').classList.remove('visible');
+    document.querySelectorAll('.pair-row').forEach(r => r.classList.remove('selected'));
+  }
+
+  // Decision buttons (Merge / Reject / Ignore) per row
+  function setDecision(event, idx, decision) {
+    event.stopPropagation(); // don't toggle detail
+    const row = document.getElementById('row-' + idx);
+    const buttons = row.querySelectorAll('.row-btn');
+    buttons.forEach(b => b.classList.remove('active-choice'));
+    // Find the clicked button and highlight it
+    buttons.forEach(b => {
+      if (b.textContent.toLowerCase() === decision) {
+        b.classList.add('active-choice');
+      }
+    });
+  }
+
+  // Toggle verified status
+  function toggleVerified(event, idx) {
+    event.stopPropagation();
+    const btn = event.target;
+    if (btn.classList.contains('verified')) {
+      btn.classList.remove('verified');
+      btn.classList.add('not-verified');
+      btn.textContent = 'Not Verified';
+    } else {
+      btn.classList.remove('not-verified');
+      btn.classList.add('verified');
+      btn.textContent = 'Verified';
+    }
+  }
+
+  // Keyboard: Escape to close detail
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDetail();
+  });
+
+  // Mock sort toggle
+  function toggleSort(th) {
+    const arrow = th.querySelector('.sort-arrow');
+    if (arrow) {
+      arrow.textContent = arrow.textContent === '\u25B2' ? '\u25BC' : '\u25B2';
+    }
+  }
+</script>
+
+</body>
+</html>

@@ -74,12 +74,38 @@ class FaceService:
                     'confidence': fi.get('assignment_confidence'),
                 }
 
-        # Get all face detections from cache
-        cache_entries = (
-            self._session.query(UniversalCache)
-            .filter(UniversalCache.feature_type == "insightface_detection")
-            .all()
-        )
+        # Get face detections from cache, scoped to this album's images.
+        # Build the set of known image paths from people's face_instances
+        # (much faster than loading ALL cache entries for ALL albums).
+        known_image_paths = set()
+        for person in people:
+            for fi in person.face_instances or []:
+                img_path = fi.get('image_path', '').replace('\\', '/')
+                if img_path:
+                    known_image_paths.add(img_path)
+        # Also include images from overrides
+        for o in overrides:
+            img_path = o.face_key.rsplit(":face_", 1)[0] if ":face_" in o.face_key else ""
+            if img_path:
+                known_image_paths.add(img_path)
+
+        if known_image_paths:
+            # Filter cache to only album-relevant images
+            cache_entries = (
+                self._session.query(UniversalCache)
+                .filter(
+                    UniversalCache.feature_type == "insightface_detection",
+                    UniversalCache.image_path.in_(list(known_image_paths))
+                )
+                .all()
+            )
+        else:
+            # Fallback: load all (for albums with no people yet)
+            cache_entries = (
+                self._session.query(UniversalCache)
+                .filter(UniversalCache.feature_type == "insightface_detection")
+                .all()
+            )
 
         faces = []
         for entry in cache_entries:
@@ -128,7 +154,7 @@ class FaceService:
                     face_key=face_key,
                     image_path=img_path,
                     face_index=face_idx,
-                    thumbnail_base64=self._generate_face_thumbnail(img_path, bbox),
+                    thumbnail_base64=None,  # Lazy: generated on demand, not for every face in list
                     bbox=bbox,
                     status=status,
                     person_id=person_id,

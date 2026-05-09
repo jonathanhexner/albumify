@@ -57,6 +57,8 @@ class ResultService:
             'selected_images': result.selected_images if result else [],
             'step_timings': result.step_timings if result else {},
             'total_duration_ms': result.total_duration_ms if result else 0,
+            'fc_export_dir': result.fc_export_dir if result else None,
+            'step_decisions': result.step_decisions if result else None,
             'created_at': run.created_at,
             'started_at': run.started_at,
             'completed_at': run.completed_at
@@ -450,6 +452,8 @@ class ResultService:
                 'num_clusters': result.num_clusters,
                 'num_selected': result.num_selected,
                 'num_people': num_people if num_people > 0 else None,
+                'fc_export_dir': result.fc_export_dir,
+                'step_decisions': result.step_decisions,
                 'created_at': run.created_at,
                 'completed_at': run.completed_at,
                 'total_duration_ms': result.total_duration_ms

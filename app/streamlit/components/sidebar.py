@@ -59,12 +59,13 @@ def _render_navigation(on_page_change: Optional[Callable[[str], None]] = None) -
     st.subheader("Navigation")
 
     pages = [
-        ("Home", "home", "🏠"),
-        ("Albums", "albums", "📁"),
-        ("Results", "results", "📊"),
-        ("People", "people", "👥"),
-        ("Faces", "faces", "🎭"),
-        ("Debug", "debug", "🔍"),
+        ("Home", "home", ""),
+        ("Albums", "albums", ""),
+        ("Configure & Run", "configure", ""),
+        ("Results", "results", ""),
+        ("People & Faces", "people_faces", ""),
+        ("Explore", "explore", ""),
+        ("Export", "export", ""),
     ]
 
     current_page = st.session_state.get("current_page", "home")

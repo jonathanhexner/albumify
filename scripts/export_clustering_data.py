@@ -282,7 +282,7 @@ def run_clustering_pipeline(
     # Stage 5: Exemplar selection
     logger.info("Stage 5: D10 exemplar selection")
     exemplar_selector = D10ExemplarSelector(config)
-    cluster_result = exemplar_selector.select_exemplars(cluster_result, graph_result)
+    cluster_result, _ = exemplar_selector.select_exemplars(cluster_result, graph_result)
 
     total_exemplars = sum(len(exs) for exs in cluster_result.exemplars.values())
     logger.info(f"Selected {total_exemplars} exemplars across {len(cluster_result.exemplars)} clusters")

@@ -47,6 +47,8 @@ def get_pipeline_status(job_id: str, session: Session = Depends(get_session)):
     if run is None:
         raise HTTPException(status_code=404, detail="Pipeline run not found")
 
+    total_steps = len(run.steps) if run.steps else None
+
     return PipelineStatus(
         job_id=run.id,
         album_id=run.album_id,
@@ -54,6 +56,8 @@ def get_pipeline_status(job_id: str, session: Session = Depends(get_session)):
         current_step=run.current_step,
         progress=run.progress,
         message=run.error_message,
+        completed_steps=run.completed_steps,
+        total_steps=total_steps,
         created_at=run.created_at,
         started_at=run.started_at
     )
@@ -78,5 +82,6 @@ def get_pipeline_result(job_id: str, session: Session = Depends(get_session)):
         scene_clusters=result.scene_clusters,
         selected_images=result.selected_images,
         step_timings=result.step_timings,
-        total_duration_ms=result.total_duration_ms
+        total_duration_ms=result.total_duration_ms,
+        fc_export_dir=result.fc_export_dir,
     )

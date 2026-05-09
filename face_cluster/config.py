@@ -1,7 +1,9 @@
 """Configuration dataclass for face clustering pipeline."""
 
-from dataclasses import dataclass
-from typing import Optional
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Callable, List, Optional
 
 
 @dataclass
@@ -35,14 +37,14 @@ class PipelineConfig:
 
     Conservative merge parameters (optional):
         merge_enabled: Whether to run conservative merge
-        merge_use_adaptive_threshold: Use adaptive per-cluster thresholds (recommended)
-        merge_exemplar_percentile: Percentile for cluster threshold (e.g., 90 = P90)
-        merge_global_percentile: Percentile for global threshold (50 = median, 75 = more permissive)
-        merge_threshold_alpha: Weight for local vs global (0.7 = 70% local, 30% global)
         merge_candidate_threshold: Loose threshold for proposing candidates
-        merge_exemplar_threshold: Fallback threshold if adaptive disabled
+        merge_exemplar_threshold: Fixed threshold for exemplar gate (p25 exemplar distance must be <= this)
+        merge_use_cross_gate: Enable p25_cross_dist OR path for Gate A
+        merge_cross_threshold: Threshold for p25 all-pairs cross-distance OR gate
+        merge_cross_max_size: OR path only applies when min(|A|,|B|) <= this value
         merge_support_frac: Fraction of min(|Ci|,|Cj|) for cross-cluster support
         merge_support_min: Absolute minimum support (fallback)
+        merge_support_unique: Use greedy bipartite matching for support count (each node used at most once)
         merge_margin: Margin to next-best cluster (avoid ambiguous merges)
         merge_diameter_expansion_factor: Allow diameter growth by this factor
 
@@ -67,6 +69,11 @@ class PipelineConfig:
     min_face_area: Optional[int] = None
     require_pose: bool = False
     """If True, faces without pose go to holdout. If False (default), pose filter is skipped when pose is None."""
+    det_score_min: Optional[float] = None
+    """Minimum InsightFace detection confidence (0–1). None = disabled.
+    Faces with det_score below this threshold go to holdout.
+    When det_score is unavailable for a face, the gate passes (permissive).
+    Recommended starting value: 0.7."""
 
     # Exemplar selection
     d10_k: int = 3
@@ -83,19 +90,26 @@ class PipelineConfig:
     # Conservative merge (optional)
     merge_enabled: bool = False
 
-    # Adaptive thresholds (recommended)
-    merge_use_adaptive_threshold: bool = True  # Use adaptive per-cluster thresholds
-    merge_exemplar_percentile: int = 90        # Percentile for cluster threshold (P90)
-    merge_global_percentile: int = 50          # Percentile for global threshold (50=median)
-    merge_threshold_alpha: float = 0.7         # Weight: α×local + (1-α)×global
-
-    # Fallback thresholds (used if adaptive disabled or for proposals)
+    # Merge thresholds
     merge_candidate_threshold: float = 0.45    # Loose threshold for proposing candidates
-    merge_exemplar_threshold: float = 0.35     # Fallback: min exemplar distance
+    merge_exemplar_threshold: float = 0.35     # Fixed threshold: p25 exemplar distance must be <= this
+
+    # Adaptive merge threshold (alternative to fixed merge_exemplar_threshold)
+    use_adaptive_merge_threshold: bool = True
+    merge_exemplar_percentile: int = 90        # Percentile of intra-cluster exemplar dists → T_local
+    merge_global_percentile: int = 75          # Percentile across all cluster thresholds → T_global
+    merge_threshold_alpha: float = 1.0         # Weight of T_local in adaptive formula
+    merge_threshold_beta: float = 0.5          # Weight of T_global in adaptive formula
+
+    # Cross-distance OR gate (Gate A alternative path — small clusters only)
+    merge_use_cross_gate: bool = True          # Enable p25_cross_dist OR path for Gate A
+    merge_cross_threshold: float = 0.40        # Threshold for p25 all-pairs cross-distance
+    merge_cross_max_size: int = 5              # OR path only when min(|A|,|B|) <= this
 
     # Support count
     merge_support_frac: float = 0.3            # Fraction of min(|Ci|,|Cj|)
     merge_support_min: int = 2                 # Absolute minimum (fallback)
+    merge_support_unique: bool = False         # Use greedy bipartite matching (each node used once)
 
     # Safety constraints
     merge_margin: float = 0.05                 # Margin to next-best cluster
@@ -108,6 +122,19 @@ class PipelineConfig:
     vote_min: int = 3
     margin: float = 0.1
 
+    # Embed cache — skip InsightFace inference when images haven't changed
+    embed_cache_enabled: bool = True
+
+    # Pipeline execution — which stages to run and where
+    stages: Optional[List[str]] = None
+    """Ordered list of stage names to execute. None means full run (all stages)."""
+    source_dir: Optional[str] = None
+    """Input directory: raw images (full run), previous run output (recluster/remerge)."""
+    output_dir: Optional[str] = None
+    """Output directory for this run."""
+    on_progress: Optional[Callable] = field(default=None, repr=False)
+    """Progress callback (stage, fraction, message). Not serialized."""
+
     def __post_init__(self):
         """Validate configuration."""
         assert self.K > 0, "K must be positive"
@@ -115,3 +142,43 @@ class PipelineConfig:
         assert self.min_cluster_size >= 1, "min_cluster_size must be >= 1"
         assert self.d10_k > 0, "d10_k must be positive"
         assert self.N_exemplars_max > 0, "N_exemplars_max must be positive"
+
+    # -- Preset factories ----------------------------------------------------
+
+    @classmethod
+    def full_run(cls, source_dir, output_dir, **kwargs) -> "PipelineConfig":
+        """Full pipeline: discover -> embed -> quality -> crops -> cluster -> exemplars -> merge -> export."""
+        return cls(
+            stages=["discover", "embed", "quality", "crops",
+                    "cluster", "exemplars", "merge", "export"],
+            source_dir=str(source_dir),
+            output_dir=str(output_dir),
+            **kwargs,
+        )
+
+    @classmethod
+    def recluster(cls, source_dir, output_dir, **kwargs) -> "PipelineConfig":
+        """Recluster: reuse existing crops/embeddings, re-run cluster -> exemplars -> merge -> export."""
+        return cls(
+            stages=["cluster", "exemplars", "merge", "export"],
+            source_dir=str(source_dir),
+            output_dir=str(output_dir),
+            **kwargs,
+        )
+
+    @classmethod
+    def remerge(cls, source_dir, output_dir, *, with_exemplars: bool = False, **kwargs) -> "PipelineConfig":
+        """Remerge: start from existing cluster snapshot, run merge -> export.
+
+        Args:
+            with_exemplars: If True, re-run exemplar selection before merge
+                            (exemplars -> merge -> export).
+        """
+        stages = (["exemplars", "merge", "export"] if with_exemplars
+                  else ["merge", "export"])
+        return cls(
+            stages=stages,
+            source_dir=str(source_dir),
+            output_dir=str(output_dir),
+            **kwargs,
+        )

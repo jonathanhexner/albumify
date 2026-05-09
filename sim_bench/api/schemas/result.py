@@ -56,6 +56,8 @@ class ResultSummary(BaseModel):
     num_clusters: int
     num_selected: int
     num_people: Optional[int] = None
+    fc_export_dir: Optional[str] = None
+    step_decisions: Optional[list] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
     total_duration_ms: Optional[int] = None
@@ -87,6 +89,8 @@ class ResultDetail(BaseModel):
     # Timing
     step_timings: dict[str, int]
     total_duration_ms: int
+
+    fc_export_dir: Optional[str] = None
 
     created_at: datetime
     started_at: Optional[datetime] = None

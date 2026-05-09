@@ -1,7 +1,7 @@
 """D10-based exemplar selection for clusters."""
 
 import logging
-from typing import List, Dict
+from typing import Dict, List, Tuple
 import numpy as np
 
 from face_cluster.types import ClusterResult, GraphResult
@@ -30,25 +30,24 @@ class D10ExemplarSelector:
     def select_exemplars(
         self,
         cluster_result: ClusterResult,
-        graph_result: GraphResult
-    ) -> ClusterResult:
+        graph_result: GraphResult,
+    ) -> Tuple[ClusterResult, Dict[int, float]]:
         """Select exemplars for each cluster using d10 metric.
 
-        Args:
-            cluster_result: Cluster result from connected components
-            graph_result: Graph result with distance matrix
-
         Returns:
-            Updated ClusterResult with exemplars filled in
+            (updated ClusterResult, node_d10_map) where node_d10_map maps
+            graph-local node index -> d10 value for every core node.
         """
-        exemplars = {}
+        exemplars: Dict[int, List[int]] = {}
+        node_d10_map: Dict[int, float] = {}
 
         for cluster_id, nodes in cluster_result.clusters.items():
-            cluster_exemplars = self._select_cluster_exemplars(
-                nodes,
-                graph_result.distance_matrix
+            cluster_exemplars, d10_vals = self._select_cluster_exemplars(
+                nodes, graph_result.distance_matrix
             )
             exemplars[cluster_id] = cluster_exemplars
+            for node, d10 in zip(nodes, d10_vals):
+                node_d10_map[node] = float(d10)
 
             logger.info(
                 f"Cluster {cluster_id}: {len(cluster_exemplars)} exemplars "
@@ -56,84 +55,67 @@ class D10ExemplarSelector:
             )
 
         cluster_result.exemplars = exemplars
-        return cluster_result
+        return cluster_result, node_d10_map
 
     def _select_cluster_exemplars(
         self,
         cluster_nodes: List[int],
-        distance_matrix: np.ndarray
-    ) -> List[int]:
+        distance_matrix: np.ndarray,
+    ) -> Tuple[List[int], np.ndarray]:
         """Select exemplars for a single cluster.
 
-        Args:
-            cluster_nodes: List of node indices in cluster
-            distance_matrix: Full distance matrix
-
         Returns:
-            List of exemplar node indices
+            (exemplar_node_indices, d10_values_per_node)
         """
         size = len(cluster_nodes)
 
         if size == 0:
-            return []
+            return [], np.array([])
 
         if size == 1:
-            return cluster_nodes
+            return cluster_nodes, np.array([0.0])
 
-        # Extract pairwise distances within cluster
         indices = np.array(cluster_nodes)
         cluster_dists = distance_matrix[np.ix_(indices, indices)]
 
-        # Compute d10 for each node
         k = min(self.config.d10_k, size - 1)
         d10_values = np.array([
-            np.sort(cluster_dists[i])[1:k + 1][-1]  # Skip self (index 0)
+            np.sort(cluster_dists[i])[1:k + 1][-1]
             for i in range(size)
         ])
 
-        # Select candidates with d10 <= threshold
         candidate_mask = d10_values <= self.config.exemplars_d10_threshold
         candidate_indices = np.where(candidate_mask)[0]
 
         if len(candidate_indices) == 0:
-            # No candidates, fall back to best d10 value
             logger.warning(
                 f"No exemplar candidates with d10 <= {self.config.exemplars_d10_threshold:.3f}, "
                 f"using best face (d10={d10_values.min():.3f})"
             )
             best_idx = int(np.argmin(d10_values))
-            return [cluster_nodes[best_idx]]
+            return [cluster_nodes[best_idx]], d10_values
 
-        # Sort candidates by d10 (ascending - smaller is better)
         candidate_indices_sorted = candidate_indices[np.argsort(d10_values[candidate_indices])]
 
-        # Greedy selection with suppression radius
         selected = []
         selected_positions = []
 
         for i in candidate_indices_sorted:
-            # Check if this candidate is too close to already selected exemplars
-            too_close = False
-            for j in selected:
-                dist = cluster_dists[i, j]
-                if dist < self.config.exemplar_suppression_radius:
-                    too_close = True
-                    break
-
+            too_close = any(
+                cluster_dists[i, j] < self.config.exemplar_suppression_radius
+                for j in selected
+            )
             if not too_close:
                 selected.append(i)
                 selected_positions.append(cluster_nodes[i])
-
-                # Stop if we have enough exemplars
                 if len(selected) >= self.config.N_exemplars_max:
                     break
 
-        # If no exemplars selected (all too close), just take the best one
         if len(selected) == 0:
             best_idx = int(candidate_indices_sorted[0])
             selected_positions = [cluster_nodes[best_idx]]
 
-        return selected_positions
+        return selected_positions, d10_values
 
     def get_d10_values(
         self,

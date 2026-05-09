@@ -69,7 +69,7 @@ def render_person_card(person: Person, album_id: Optional[str] = None) -> bool:
     """Render a single person card. Returns True if View clicked."""
     _render_person_thumbnail(person)
 
-    display_name = person.name or f"Person {person.person_id[:6]}"
+    display_name = person.name or f"Person {person.person_index + 1}"
     rename_key = f"renaming_{person.person_id}"
 
     # Inline rename mode
@@ -163,7 +163,7 @@ def render_person_detail(
     all_people: Optional[List[Person]] = None,
 ) -> None:
     """Render detailed view of a person with all their images."""
-    display_name = person.name or f"Person {person.person_id[:6]}"
+    display_name = person.name or f"Person {person.person_index + 1}"
 
     col1, col2, col3 = st.columns([1, 3, 1])
     with col1:
@@ -180,6 +180,17 @@ def render_person_detail(
         _render_rename_dialog(person, album_id, on_rename)
 
     st.caption(f"{person.face_count} appearances in {person.image_count} photos")
+
+    # Show representative image with face bounding box
+    if person.representative_face and person.thumbnail_bbox and len(person.thumbnail_bbox) == 4:
+        from app.streamlit.components.bbox_overlay import draw_face_bboxes
+        bx, by, bw, bh = person.thumbnail_bbox
+        faces = [{"bbox": {"x": bx, "y": by, "w": bw, "h": bh},
+                  "label": display_name, "confidence": None}]
+        annotated = draw_face_bboxes(person.representative_face, faces, highlight_index=0, max_size=300)
+        if annotated:
+            st.image(annotated, caption="Face highlighted in source image", width=300)
+
     st.divider()
 
     _render_person_images(person, album_id)
@@ -284,7 +295,7 @@ def render_merge_dialog(
     for i, person in enumerate(selected_people[:4]):
         with cols[i]:
             _render_person_thumbnail(person)
-            st.caption(person.name or f"Person {person.person_id[:6]}")
+            st.caption(person.name or f"Person {person.person_index + 1}")
 
     if len(selected_people) > 4:
         st.caption(f"... and {len(selected_people) - 4} more")

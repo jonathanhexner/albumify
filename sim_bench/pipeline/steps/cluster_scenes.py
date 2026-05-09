@@ -3,7 +3,7 @@
 import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
-from sim_bench.pipeline.context import PipelineContext
+from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
 
 
@@ -77,6 +77,22 @@ class ClusterScenesStep(BaseStep):
             clusters[label_int].append(path)
 
         context.scene_clusters = clusters
+
+        # Emit per-image cluster assignment decisions
+        cfg = {"algorithm": config.get("algorithm", "hdbscan"),
+               "min_cluster_size": config.get("min_cluster_size", 2)}
+        for path, label_int in context.scene_cluster_labels.items():
+            cluster_size = len(clusters.get(label_int, []))
+            if label_int == -1:
+                decision, reason = "noise", "Not assigned to any cluster (noise)"
+            else:
+                decision = f"cluster_{label_int}"
+                reason = f"Assigned to cluster {label_int} ({cluster_size} images)"
+            context.step_decisions.append(StepDecision(
+                item_id=path, item_type="image", step="cluster_scenes",
+                decision=decision, reason=reason, config_used=cfg,
+                metrics={"cluster_id": label_int, "cluster_size": cluster_size},
+            ))
 
         num_clusters = len([k for k in clusters.keys() if k >= 0])
         noise_count = len(clusters.get(-1, []))

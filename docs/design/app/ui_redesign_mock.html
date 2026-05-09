@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Album App Redesign - Google Photos Style</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow-x: hidden; }
+
+  /* --- Top Bar --- */
+  .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; align-items: center; padding: 0 24px; height: 56px; }
+  .topbar .logo { font-size: 18px; font-weight: 600; color: #e94560; margin-right: 32px; }
+  .topbar .logo span { color: #e0e0e0; }
+
+  /* Floating pill nav */
+  .pill-nav { display: flex; background: #0f3460; border-radius: 24px; padding: 4px; gap: 2px; }
+  .pill-nav button { border: none; background: transparent; color: #8899aa; padding: 8px 20px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+  .pill-nav button.active { background: #e94560; color: white; }
+  .pill-nav button:hover:not(.active) { background: #1a3a6e; color: #e0e0e0; }
+
+  .topbar .spacer { flex: 1; }
+  .topbar .search-box { background: #0f3460; border: 1px solid #1a3a6e; border-radius: 24px; padding: 8px 16px; color: #e0e0e0; width: 280px; font-size: 14px; outline: none; }
+  .topbar .search-box:focus { border-color: #e94560; }
+  .topbar .album-select { background: #0f3460; border: 1px solid #1a3a6e; border-radius: 8px; padding: 8px 12px; color: #e0e0e0; font-size: 13px; margin-left: 16px; }
+  .topbar .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ecca3; margin-left: 16px; }
+
+  /* --- Main Content --- */
+  .main { margin-top: 56px; padding: 24px; max-width: 1400px; margin-left: auto; margin-right: auto; }
+
+  /* --- Page: Photos (Gallery) --- */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .date-group { margin-bottom: 32px; }
+  .date-group h3 { font-size: 14px; font-weight: 600; color: #8899aa; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Justified grid */
+  .photo-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+  .photo-grid .photo { position: relative; border-radius: 4px; overflow: hidden; cursor: pointer; transition: transform 0.15s; }
+  .photo-grid .photo:hover { transform: scale(1.02); z-index: 2; }
+  .photo-grid .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-grid .photo .overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,0.7)); opacity: 0; transition: opacity 0.2s; display: flex; justify-content: space-between; align-items: flex-end; }
+  .photo-grid .photo:hover .overlay { opacity: 1; }
+  .photo-grid .photo .overlay .score { font-size: 11px; color: #4ecca3; font-weight: 600; }
+  .photo-grid .photo .overlay .faces { font-size: 11px; color: #e0e0e0; }
+  .photo-grid .photo .selected-badge { position: absolute; top: 6px; right: 6px; background: #4ecca3; color: #1a1a2e; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
+  .photo-grid .photo .rejected-badge { position: absolute; top: 6px; right: 6px; background: #e94560; color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
+
+  /* Filter bar */
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 20px; align-items: center; }
+  .filter-bar .chip { background: #0f3460; border: 1px solid #1a3a6e; border-radius: 16px; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .filter-bar .chip.active { background: #e94560; border-color: #e94560; color: white; }
+  .filter-bar .chip:hover:not(.active) { border-color: #e94560; }
+  .filter-bar .spacer { flex: 1; }
+  .filter-bar .count { font-size: 13px; color: #8899aa; }
+
+  /* --- Page: People --- */
+  .people-section { margin-bottom: 40px; }
+  .people-section h2 { font-size: 20px; margin-bottom: 16px; }
+
+  .people-scroll { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 12px; }
+  .people-scroll::-webkit-scrollbar { height: 4px; }
+  .people-scroll::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 4px; }
+
+  .person-avatar { text-align: center; cursor: pointer; flex-shrink: 0; width: 100px; }
+  .person-avatar .circle { width: 80px; height: 80px; border-radius: 50%; overflow: hidden; margin: 0 auto 8px; border: 3px solid transparent; transition: border-color 0.2s; background: #0f3460; }
+  .person-avatar:hover .circle { border-color: #e94560; }
+  .person-avatar .circle img { width: 100%; height: 100%; object-fit: cover; }
+  .person-avatar .name { font-size: 12px; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .person-avatar .count { font-size: 11px; color: #8899aa; }
+  .person-avatar .unnamed { color: #8899aa; font-style: italic; }
+
+  /* Person detail panel */
+  .person-detail { background: #16213e; border-radius: 12px; padding: 24px; margin-top: 20px; }
+  .person-detail .header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+  .person-detail .header .big-avatar { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+  .person-detail .header .big-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .person-detail .header .info h2 { font-size: 22px; }
+  .person-detail .header .info .meta { font-size: 13px; color: #8899aa; }
+  .person-detail .actions { display: flex; gap: 8px; margin-bottom: 20px; }
+  .person-detail .actions button { background: #0f3460; border: 1px solid #1a3a6e; color: #e0e0e0; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .person-detail .actions button:hover { border-color: #e94560; }
+
+  /* --- Page: Process --- */
+  .process-card { background: #16213e; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .process-card h3 { font-size: 16px; margin-bottom: 12px; }
+  .process-card .desc { font-size: 13px; color: #8899aa; margin-bottom: 16px; }
+
+  .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .config-group { background: #1a1a2e; border-radius: 8px; padding: 16px; }
+  .config-group h4 { font-size: 13px; color: #e94560; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .config-group .param { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .config-group .param label { font-size: 13px; color: #8899aa; }
+  .config-group .param .value { font-size: 13px; color: #e0e0e0; font-weight: 500; }
+  .config-group .param input[type=range] { width: 120px; accent-color: #e94560; }
+
+  .profile-bar { display: flex; gap: 8px; align-items: center; background: #1a1a2e; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; }
+  .profile-bar select, .profile-bar input { background: #0f3460; border: 1px solid #1a3a6e; color: #e0e0e0; padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+  .profile-bar button { background: #0f3460; border: 1px solid #1a3a6e; color: #e0e0e0; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .profile-bar button:hover { border-color: #e94560; }
+  .profile-bar .label { font-size: 12px; color: #8899aa; }
+
+  .btn-primary { background: #e94560 !important; border-color: #e94560 !important; color: white !important; font-weight: 600; padding: 10px 24px !important; border-radius: 8px !important; cursor: pointer; font-size: 14px !important; }
+  .btn-primary:hover { background: #c73e54 !important; }
+
+  .btn-secondary { background: #0f3460 !important; border: 1px solid #1a3a6e !important; color: #e0e0e0 !important; padding: 10px 20px !important; border-radius: 8px !important; cursor: pointer; font-size: 13px !important; }
+
+  /* Progress */
+  .pipeline-progress { background: #1a1a2e; border-radius: 8px; padding: 16px; margin-top: 16px; }
+  .progress-bar { width: 100%; height: 6px; background: #0f3460; border-radius: 3px; overflow: hidden; margin: 8px 0; }
+  .progress-bar .fill { height: 100%; background: linear-gradient(90deg, #e94560, #4ecca3); border-radius: 3px; transition: width 0.3s; }
+  .step-list { list-style: none; }
+  .step-list li { padding: 4px 0; font-size: 13px; color: #8899aa; }
+  .step-list li.done { color: #4ecca3; }
+  .step-list li.done::before { content: "OK "; }
+  .step-list li.running { color: #e94560; }
+  .step-list li.running::before { content: ">> "; }
+
+  /* --- Page: Results Dashboard --- */
+  .metrics-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+  .metric-card { background: #16213e; border-radius: 10px; padding: 16px; text-align: center; }
+  .metric-card .value { font-size: 28px; font-weight: 700; color: #e94560; }
+  .metric-card .label { font-size: 12px; color: #8899aa; margin-top: 4px; }
+  .metric-card .delta { font-size: 11px; color: #4ecca3; }
+
+  .results-section { margin-bottom: 32px; }
+  .results-section h3 { font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .results-section h3 .badge { background: #0f3460; font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+
+  .deep-link-card { background: linear-gradient(135deg, #0f3460, #16213e); border: 1px solid #1a3a6e; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; cursor: pointer; transition: border-color 0.2s; }
+  .deep-link-card:hover { border-color: #e94560; }
+  .deep-link-card .icon { font-size: 32px; }
+  .deep-link-card .text h4 { font-size: 15px; margin-bottom: 4px; }
+  .deep-link-card .text p { font-size: 13px; color: #8899aa; }
+  .deep-link-card .arrow { margin-left: auto; font-size: 20px; color: #e94560; }
+
+  /* Run history */
+  .run-history { background: #16213e; border-radius: 10px; overflow: hidden; }
+  .run-row { display: grid; grid-template-columns: 80px 1fr 100px 80px 100px 80px; padding: 10px 16px; border-bottom: 1px solid #1a1a2e; font-size: 13px; align-items: center; }
+  .run-row.header { color: #8899aa; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  .run-row .status { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .run-row .status.completed { background: #1a3a2e; color: #4ecca3; }
+  .run-row .status.failed { background: #3a1a1e; color: #e94560; }
+  .run-row .status.running { background: #3a2a1a; color: #f0a030; }
+  .run-row .view-btn { background: transparent; border: 1px solid #1a3a6e; color: #8899aa; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
+  /* --- Page: Analysis Deep Dive --- */
+  .analysis-tabs { display: flex; gap: 2px; background: #0f3460; border-radius: 8px; padding: 4px; margin-bottom: 20px; overflow-x: auto; }
+  .analysis-tabs button { border: none; background: transparent; color: #8899aa; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+  .analysis-tabs button.active { background: #16213e; color: #e0e0e0; }
+
+  /* --- Annotations --- */
+  .annotation { position: absolute; background: #e94560; color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; pointer-events: none; white-space: nowrap; z-index: 50; }
+  .annotation::after { content: ''; position: absolute; border: 6px solid transparent; }
+  .annotation.top { transform: translateX(-50%); }
+  .annotation.top::after { top: 100%; left: 50%; transform: translateX(-50%); border-top-color: #e94560; }
+  .annotation.left::after { left: 100%; top: 50%; transform: translateY(-50%); border-left-color: #e94560; }
+  .annotation.right { transform: translateY(-50%); }
+  .annotation.right::after { right: 100%; top: 50%; transform: translateY(-50%); border-right-color: #e94560; }
+
+  /* Design notes panel */
+  .design-notes { position: fixed; bottom: 0; left: 0; right: 0; background: #0a0a1a; border-top: 2px solid #e94560; padding: 16px 24px; z-index: 200; max-height: 40vh; overflow-y: auto; }
+  .design-notes h3 { color: #e94560; margin-bottom: 8px; font-size: 14px; }
+  .design-notes ul { padding-left: 20px; }
+  .design-notes li { font-size: 12px; color: #8899aa; margin-bottom: 4px; }
+  .design-notes .toggle { position: absolute; top: -28px; right: 24px; background: #e94560; color: white; border: none; padding: 4px 12px; border-radius: 4px 4px 0 0; cursor: pointer; font-size: 12px; }
+
+  /* Placeholder images */
+  .placeholder { background: linear-gradient(135deg, #1a3a6e, #0f3460); display: flex; align-items: center; justify-content: center; color: #8899aa; font-size: 12px; }
+
+  /* Mock page switch */
+  .page-indicator { position: fixed; top: 64px; right: 24px; z-index: 99; display: flex; gap: 4px; }
+  .page-indicator button { background: #16213e; border: 1px solid #1a3a6e; color: #8899aa; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+  .page-indicator button.active { border-color: #e94560; color: #e94560; }
+</style>
+</head>
+<body>
+
+<!-- ========== TOP BAR ========== -->
+<div class="topbar">
+  <div class="logo"><span>Album</span>App</div>
+  <div class="pill-nav">
+    <button class="active" onclick="showPage('photos')">Photos</button>
+    <button onclick="showPage('people')">People</button>
+    <button onclick="showPage('process')">Process</button>
+    <button onclick="showPage('results')">Results</button>
+    <button onclick="showPage('analysis')">Analysis</button>
+  </div>
+  <div class="spacer"></div>
+  <input class="search-box" placeholder="Search photos, people, places..." />
+  <select class="album-select">
+    <option>Austria_24_4 (428 photos)</option>
+    <option>Germany_test (150 photos)</option>
+    <option>+ New Album</option>
+  </select>
+  <div class="status-dot" title="API Connected"></div>
+</div>
+
+<!-- ========== PAGE: PHOTOS ========== -->
+<div class="page active" id="page-photos">
+  <div class="main">
+    <div class="filter-bar">
+      <div class="chip active">All</div>
+      <div class="chip">Selected</div>
+      <div class="chip">Rejected</div>
+      <div class="chip">Unclustered</div>
+      <div class="chip">By Person</div>
+      <div class="spacer"></div>
+      <div class="count">128 of 428 selected</div>
+    </div>
+
+    <!-- People scroll row at top (like Google Photos) -->
+    <div class="people-scroll" style="margin-bottom: 24px;">
+      <div class="person-avatar"><div class="circle"><div class="placeholder" style="width:80px;height:80px">JH</div></div><div class="name">Jonathan</div><div class="count">89 photos</div></div>
+      <div class="person-avatar"><div class="circle"><div class="placeholder" style="width:80px;height:80px">SK</div></div><div class="name">Sarah</div><div class="count">52 photos</div></div>
+      <div class="person-avatar"><div class="circle"><div class="placeholder" style="width:80px;height:80px">MK</div></div><div class="name">Michael</div><div class="count">34 photos</div></div>
+      <div class="person-avatar"><div class="circle"><div class="placeholder" style="width:80px;height:80px">?</div></div><div class="name unnamed">Unknown</div><div class="count">15 photos</div></div>
+      <div class="person-avatar"><div class="circle"><div class="placeholder" style="width:80px;height:80px">?</div></div><div class="name unnamed">Unknown</div><div class="count">8 photos</div></div>
+    </div>
+
+    <div class="date-group">
+      <h3>April 24, 2024 - Salzburg</h3>
+      <div class="photo-grid">
+        <div class="photo" style="width:220px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0142.jpg</div><div class="selected-badge">Selected</div><div class="overlay"><span class="score">0.87</span><span class="faces">2 faces</span></div></div>
+        <div class="photo" style="width:165px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0143.jpg</div><div class="selected-badge">Selected</div><div class="overlay"><span class="score">0.82</span><span class="faces">1 face</span></div></div>
+        <div class="photo" style="width:250px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0144.jpg</div><div class="overlay"><span class="score">0.45</span><span class="faces">3 faces</span></div></div>
+        <div class="photo" style="width:165px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0145.jpg</div><div class="rejected-badge">Low IQA</div><div class="overlay"><span class="score">0.21</span><span class="faces">0 faces</span></div></div>
+        <div class="photo" style="width:200px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0146.jpg</div><div class="selected-badge">Selected</div><div class="overlay"><span class="score">0.91</span><span class="faces">1 face</span></div></div>
+        <div class="photo" style="width:180px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0147.jpg</div><div class="overlay"><span class="score">0.63</span><span class="faces">2 faces</span></div></div>
+      </div>
+    </div>
+
+    <div class="date-group">
+      <h3>April 23, 2024 - Vienna</h3>
+      <div class="photo-grid">
+        <div class="photo" style="width:165px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0098.jpg</div><div class="selected-badge">Selected</div><div class="overlay"><span class="score">0.79</span><span class="faces">1 face</span></div></div>
+        <div class="photo" style="width:230px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0099.jpg</div><div class="selected-badge">Selected</div><div class="overlay"><span class="score">0.85</span><span class="faces">2 faces</span></div></div>
+        <div class="photo" style="width:165px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0100.jpg</div><div class="overlay"><span class="score">0.55</span><span class="faces">1 face</span></div></div>
+        <div class="photo" style="width:200px;height:165px"><div class="placeholder" style="width:100%;height:100%">IMG_0101.jpg</div><div class="overlay"><span class="score">0.72</span><span class="faces">0 faces</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE: PEOPLE ========== -->
+<div class="page" id="page-people">
+  <div class="main">
+    <div class="filter-bar">
+      <div class="chip active">All People</div>
+      <div class="chip">Named</div>
+      <div class="chip">Unnamed</div>
+      <div class="chip">Needs Help</div>
+      <div class="spacer"></div>
+      <button class="btn-secondary" style="font-size:12px;padding:6px 12px !important">Merge Selected</button>
+      <div class="count">12 people, 428 faces</div>
+    </div>
+
+    <div class="people-section">
+      <h2>Named People</h2>
+      <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px;">
+        <div class="person-avatar" style="width:auto">
+          <div class="circle" style="width:100px;height:100px"><div class="placeholder" style="width:100px;height:100px;border-radius:50%">JH</div></div>
+          <div class="name" style="font-size:14px">Jonathan</div>
+          <div class="count">89 faces in 67 photos</div>
+        </div>
+        <div class="person-avatar" style="width:auto">
+          <div class="circle" style="width:100px;height:100px"><div class="placeholder" style="width:100px;height:100px;border-radius:50%">SK</div></div>
+          <div class="name" style="font-size:14px">Sarah</div>
+          <div class="count">52 faces in 41 photos</div>
+        </div>
+        <div class="person-avatar" style="width:auto">
+          <div class="circle" style="width:100px;height:100px"><div class="placeholder" style="width:100px;height:100px;border-radius:50%">MK</div></div>
+          <div class="name" style="font-size:14px">Michael</div>
+          <div class="count">34 faces in 28 photos</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="people-section">
+      <h2>Needs Your Help <span style="background:#e94560;color:white;font-size:12px;padding:2px 8px;border-radius:10px;margin-left:8px">5</span></h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+        <div style="background:#16213e;border-radius:10px;padding:16px;display:flex;gap:12px;align-items:center">
+          <div class="placeholder" style="width:60px;height:60px;border-radius:50%;flex-shrink:0">?</div>
+          <div style="flex:1">
+            <div style="font-size:13px">Looks like <strong>Jonathan</strong></div>
+            <div style="font-size:12px;color:#8899aa">Distance: 0.31 (borderline)</div>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button style="background:#4ecca3;border:none;color:#1a1a2e;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">Yes</button>
+            <button style="background:#e94560;border:none;color:white;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">No</button>
+            <button style="background:#0f3460;border:1px solid #1a3a6e;color:#8899aa;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">Skip</button>
+          </div>
+        </div>
+        <div style="background:#16213e;border-radius:10px;padding:16px;display:flex;gap:12px;align-items:center">
+          <div class="placeholder" style="width:60px;height:60px;border-radius:50%;flex-shrink:0">?</div>
+          <div style="flex:1">
+            <div style="font-size:13px">Looks like <strong>Sarah</strong></div>
+            <div style="font-size:12px;color:#8899aa">Distance: 0.38 (borderline)</div>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button style="background:#4ecca3;border:none;color:#1a1a2e;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">Yes</button>
+            <button style="background:#e94560;border:none;color:white;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">No</button>
+            <button style="background:#0f3460;border:1px solid #1a3a6e;color:#8899aa;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">Skip</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Person detail (shown when clicking a person) -->
+    <div class="person-detail" style="margin-top:32px">
+      <div class="header">
+        <div class="big-avatar"><div class="placeholder" style="width:64px;height:64px;border-radius:50%">JH</div></div>
+        <div class="info">
+          <h2>Jonathan</h2>
+          <div class="meta">89 faces across 67 photos | First seen: Apr 23 | Last seen: Apr 27</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button>Rename</button>
+        <button>Split Faces</button>
+        <button>Merge With...</button>
+        <button>View All Photos</button>
+      </div>
+      <div class="photo-grid">
+        <div class="photo" style="width:140px;height:140px"><div class="placeholder" style="width:100%;height:100%">face_001</div></div>
+        <div class="photo" style="width:140px;height:140px"><div class="placeholder" style="width:100%;height:100%">face_002</div></div>
+        <div class="photo" style="width:140px;height:140px"><div class="placeholder" style="width:100%;height:100%">face_003</div></div>
+        <div class="photo" style="width:140px;height:140px"><div class="placeholder" style="width:100%;height:100%">face_004</div></div>
+        <div class="photo" style="width:140px;height:140px"><div class="placeholder" style="width:100%;height:100%">face_005</div></div>
+        <div class="photo" style="width:140px;height:140px"><div class="placeholder" style="width:100%;height:100%">face_006</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE: PROCESS ========== -->
+<div class="page" id="page-process">
+  <div class="main">
+    <div class="process-card">
+      <h3>Pipeline Configuration</h3>
+      <div class="desc">Configure and run the photo analysis pipeline. Results appear progressively as each step completes.</div>
+
+      <div class="profile-bar">
+        <span class="label">Profile:</span>
+        <select><option>Austria_defaults</option><option>strict_filtering</option><option>face_cluster_v2</option></select>
+        <button>Load</button>
+        <div style="flex:1"></div>
+        <input placeholder="profile name" style="width:140px" />
+        <button>Save</button>
+        <button>Set Default</button>
+      </div>
+
+      <div class="config-grid">
+        <div class="config-group">
+          <h4>Detection & Quality</h4>
+          <div class="param"><label>Detection Confidence</label><input type="range" min="5" max="50" value="25"><span class="value">0.25</span></div>
+          <div class="param"><label>Min Face Size (px)</label><input type="range" min="20" max="100" value="50"><span class="value">50</span></div>
+          <div class="param"><label>Min IQA Score</label><input type="range" min="0" max="100" value="20"><span class="value">0.20</span></div>
+          <div class="param"><label>Min Sharpness</label><input type="range" min="0" max="100" value="10"><span class="value">0.10</span></div>
+        </div>
+        <div class="config-group">
+          <h4>Face Clustering (KNN)</h4>
+          <div class="param"><label>K (neighbors)</label><input type="range" min="1" max="100" value="5"><span class="value">5</span></div>
+          <div class="param"><label>Distance Threshold</label><input type="range" min="1" max="100" value="35"><span class="value">0.35</span></div>
+          <div class="param"><label>Min Cluster Size</label><input type="range" min="1" max="20" value="2"><span class="value">2</span></div>
+          <div class="param"><label>Merge Enabled</label><span class="value" style="color:#4ecca3">Off</span></div>
+          <div class="param"><label>Export for Analysis</label><span class="value" style="color:#4ecca3">On</span></div>
+        </div>
+        <div class="config-group">
+          <h4>Selection</h4>
+          <div class="param"><label>Max per Cluster</label><input type="range" min="1" max="10" value="2"><span class="value">2</span></div>
+          <div class="param"><label>Min Score</label><input type="range" min="0" max="100" value="40"><span class="value">0.40</span></div>
+          <div class="param"><label>Dissimilarity Thresh</label><input type="range" min="80" max="95" value="85"><span class="value">0.85</span></div>
+          <div class="param"><label>Siamese Refinement</label><span class="value" style="color:#4ecca3">On</span></div>
+        </div>
+        <div class="config-group">
+          <h4>Merge Parameters</h4>
+          <div class="param"><label>Candidate Threshold</label><input type="range" min="20" max="80" value="45"><span class="value">0.45</span></div>
+          <div class="param"><label>Exemplar Threshold</label><input type="range" min="20" max="60" value="35"><span class="value">0.35</span></div>
+          <div class="param"><label>Cross-dist OR Gate</label><span class="value" style="color:#4ecca3">On</span></div>
+          <div class="param"><label>Support Fraction</label><input type="range" min="10" max="80" value="30"><span class="value">0.30</span></div>
+          <div class="param"><label>Merge Margin</label><input type="range" min="0" max="20" value="5"><span class="value">0.05</span></div>
+          <div class="param"><label>Diameter Expansion</label><input type="range" min="100" max="300" value="150"><span class="value">1.50</span></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center">
+        <button class="btn-primary">Run Pipeline</button>
+        <button class="btn-secondary">Save Settings</button>
+        <span style="font-size:13px;color:#8899aa">Pipeline: Full (InsightFace) | 15 steps</span>
+      </div>
+    </div>
+
+    <!-- Pipeline progress (shown when running) -->
+    <div class="pipeline-progress">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong style="font-size:14px">Pipeline Running...</strong>
+        <span style="font-size:13px;color:#8899aa">Step 8 of 15 | 42s elapsed</span>
+      </div>
+      <div class="progress-bar"><div class="fill" style="width:53%"></div></div>
+      <ul class="step-list">
+        <li class="done">Discover Images (428 found)</li>
+        <li class="done">Detect People (YOLOv8)</li>
+        <li class="done">Detect Faces (InsightFace)</li>
+        <li class="done">Score Expression</li>
+        <li class="done">Score Eyes Open</li>
+        <li class="done">Score Face Pose</li>
+        <li class="done">Filter Low Quality (392 remaining)</li>
+        <li class="running">Extract Face Features</li>
+        <li>Identify People</li>
+        <li>Cluster by Person</li>
+        <li>Select Best Photos</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE: RESULTS ========== -->
+<div class="page" id="page-results">
+  <div class="main">
+    <div class="metrics-row">
+      <div class="metric-card"><div class="value">428</div><div class="label">Total Photos</div></div>
+      <div class="metric-card"><div class="value">392</div><div class="label">After Filtering</div><div class="delta">-8.4%</div></div>
+      <div class="metric-card"><div class="value">12</div><div class="label">People Found</div></div>
+      <div class="metric-card"><div class="value">128</div><div class="label">Selected</div><div class="delta">30% of total</div></div>
+      <div class="metric-card"><div class="value">23.4s</div><div class="label">Duration</div></div>
+    </div>
+
+    <!-- Deep link to Face Clustering App -->
+    <div class="deep-link-card" onclick="showPage('analysis')">
+      <div class="icon">&#x1F50D;</div>
+      <div class="text">
+        <h4>Open in Face Clustering App</h4>
+        <p>Analyze merge decisions, recluster with different params, train ML model. Exported to results/Austria_24_4/face_clustering_20260430/</p>
+      </div>
+      <div class="arrow">&#x2192;</div>
+    </div>
+
+    <div class="results-section">
+      <h3>Run History <span class="badge">3 runs</span></h3>
+      <div class="run-history">
+        <div class="run-row header"><div>Run</div><div>Config</div><div>People</div><div>Selected</div><div>Duration</div><div></div></div>
+        <div class="run-row"><div><span class="status completed">OK</span></div><div>face_cluster_knn, K=5, t=0.35</div><div>12</div><div>128</div><div>23.4s</div><div><button class="view-btn">View</button></div></div>
+        <div class="run-row"><div><span class="status failed">FAIL</span></div><div>face_cluster_knn, K=5 (blur_min bug)</div><div>1</div><div>0</div><div>18.2s</div><div><button class="view-btn">View</button></div></div>
+        <div class="run-row"><div><span class="status completed">OK</span></div><div>hdbscan, epsilon=0.3</div><div>8</div><div>95</div><div>15.1s</div><div><button class="view-btn">View</button></div></div>
+      </div>
+    </div>
+
+    <div class="results-section">
+      <h3>Selected Photos</h3>
+      <div class="filter-bar" style="margin-bottom:12px">
+        <div class="chip active">Selected (128)</div>
+        <div class="chip">All Processed (392)</div>
+        <div class="chip">By Cluster</div>
+        <div class="chip">By Person</div>
+      </div>
+      <div class="photo-grid">
+        <div class="photo" style="width:180px;height:135px"><div class="placeholder" style="width:100%;height:100%">IMG_0142.jpg</div><div class="selected-badge">0.87</div></div>
+        <div class="photo" style="width:135px;height:135px"><div class="placeholder" style="width:100%;height:100%">IMG_0143.jpg</div><div class="selected-badge">0.82</div></div>
+        <div class="photo" style="width:200px;height:135px"><div class="placeholder" style="width:100%;height:100%">IMG_0146.jpg</div><div class="selected-badge">0.91</div></div>
+        <div class="photo" style="width:135px;height:135px"><div class="placeholder" style="width:100%;height:100%">IMG_0098.jpg</div><div class="selected-badge">0.79</div></div>
+        <div class="photo" style="width:180px;height:135px"><div class="placeholder" style="width:100%;height:100%">IMG_0099.jpg</div><div class="selected-badge">0.85</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE: ANALYSIS ========== -->
+<div class="page" id="page-analysis">
+  <div class="main">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <h2>Face Clustering Analysis</h2>
+      <span style="font-size:13px;color:#8899aa">Austria_24_4 | Run: 20260430_161207 | 428 faces, 12 clusters</span>
+    </div>
+
+    <div class="analysis-tabs">
+      <button class="active">Overview</button>
+      <button>Merge Decisions</button>
+      <button>Cluster Browser</button>
+      <button>Quality Gating</button>
+      <button>Distance Matrix</button>
+      <button>Recluster</button>
+      <button>Label Verification</button>
+      <button>Export</button>
+    </div>
+
+    <div class="metrics-row" style="grid-template-columns: repeat(6, 1fr);">
+      <div class="metric-card"><div class="value">428</div><div class="label">Total Faces</div></div>
+      <div class="metric-card"><div class="value">428</div><div class="label">Core</div></div>
+      <div class="metric-card"><div class="value">12</div><div class="label">Clusters</div></div>
+      <div class="metric-card"><div class="value">0</div><div class="label">Noise</div></div>
+      <div class="metric-card"><div class="value">3</div><div class="label">Merges</div></div>
+      <div class="metric-card"><div class="value">15</div><div class="label">Holdout</div></div>
+    </div>
+
+    <div class="deep-link-card" style="border-color:#4ecca3">
+      <div class="icon">&#x2197;</div>
+      <div class="text">
+        <h4>Open Standalone Face Clustering App</h4>
+        <p>Full 11-tab analysis: merge decisions, label verification, ML training, recluster with different params</p>
+      </div>
+      <div class="arrow">&#x2192;</div>
+    </div>
+
+    <div class="process-card">
+      <h3>Cluster Overview</h3>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px">
+        <div style="background:#1a1a2e;border-radius:8px;padding:12px;text-align:center">
+          <div style="display:flex;gap:4px;justify-content:center;margin-bottom:8px">
+            <div class="placeholder" style="width:40px;height:40px;border-radius:50%">JH</div>
+          </div>
+          <div style="font-size:13px">Jonathan</div>
+          <div style="font-size:11px;color:#8899aa">89 faces | 3 exemplars</div>
+        </div>
+        <div style="background:#1a1a2e;border-radius:8px;padding:12px;text-align:center">
+          <div style="display:flex;gap:4px;justify-content:center;margin-bottom:8px">
+            <div class="placeholder" style="width:40px;height:40px;border-radius:50%">SK</div>
+          </div>
+          <div style="font-size:13px">Sarah</div>
+          <div style="font-size:11px;color:#8899aa">52 faces | 3 exemplars</div>
+        </div>
+        <div style="background:#1a1a2e;border-radius:8px;padding:12px;text-align:center">
+          <div style="display:flex;gap:4px;justify-content:center;margin-bottom:8px">
+            <div class="placeholder" style="width:40px;height:40px;border-radius:50%">MK</div>
+          </div>
+          <div style="font-size:13px">Michael</div>
+          <div style="font-size:11px;color:#8899aa">34 faces | 2 exemplars</div>
+        </div>
+        <div style="background:#1a1a2e;border-radius:8px;padding:12px;text-align:center">
+          <div style="display:flex;gap:4px;justify-content:center;margin-bottom:8px">
+            <div class="placeholder" style="width:40px;height:40px;border-radius:50%">?</div>
+          </div>
+          <div style="font-size:13px;color:#8899aa">Cluster 4</div>
+          <div style="font-size:11px;color:#8899aa">15 faces | unnamed</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DESIGN NOTES ========== -->
+<div class="design-notes" id="notes">
+  <button class="toggle" onclick="document.getElementById('notes').style.display=document.getElementById('notes').style.display==='none'?'block':'none'">Design Notes</button>
+  <h3>Design Decisions (Google Photos-Inspired Redesign)</h3>
+  <ul>
+    <li><strong>Navigation:</strong> Replaced sidebar with floating pill nav (5 tabs: Photos, People, Process, Results, Analysis). Album selector in top bar — always accessible.</li>
+    <li><strong>Photos tab:</strong> Photo-first timeline with justified grid. People scroll row at top (circular avatars, like Google Photos). Filter chips for Selected/Rejected/By Person. Hover shows score + face count.</li>
+    <li><strong>People tab:</strong> Face groups front and center. "Needs Help" section surfaces borderline faces with inline Yes/No/Skip decisions (no separate wizard page). Person detail inline with face grid + actions.</li>
+    <li><strong>Process tab:</strong> Dedicated page for pipeline config (not buried in Results). Profile bar for shared presets (same ProfileStore as Face Clustering App). Config in a clean 2x2 grid — no nested expanders. All params visible at once.</li>
+    <li><strong>Results tab:</strong> Dashboard with metrics row + run history table. Deep-link card to Face Clustering App is prominent. Selected photos gallery with filter chips.</li>
+    <li><strong>Analysis tab:</strong> Embedded face clustering analysis (overview, merge decisions, cluster browser). Prominent link to standalone 11-tab app for deep analysis.</li>
+    <li><strong>Key UX changes:</strong> (1) No nested expanders — all config visible in grid. (2) No page jumps — Process is its own page, not a tab inside Results. (3) People are first-class — visible from Photos and have their own page. (4) Async processing with step-by-step progress. (5) Run history shows all past runs with comparison.</li>
+    <li><strong>Color scheme:</strong> Dark theme (#1a1a2e base, #16213e cards, #0f3460 inputs, #e94560 accent, #4ecca3 success). Designed for photo viewing (dark backgrounds make photos pop).</li>
+    <li><strong>What stays the same:</strong> Backend API unchanged. Face clustering algorithm unchanged. Export functionality unchanged. Just the frontend navigation and layout.</li>
+  </ul>
+</div>
+
+<script>
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.pill-nav button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -2,6 +2,718 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-06 [DOCS] System architecture onboarding documentation + README update
+**Files**: `docs/architecture/system_onboarding.html` (NEW), `README.md`
+**Change**: Created comprehensive interactive HTML onboarding document with: system architecture diagrams, database schemas (main DB 8 tables + per-run face clustering DB 7 tables), pipeline engine walkthrough, face cluster library stages and data types, frontend app structure (Albumify 7 pages + FC app 11 tabs), end-to-end data flow, cache system, and developer guide. Updated README.md documentation section to reference the new onboarding doc and reorganize doc links by category.
+**Reason**: Project complexity requires structured onboarding material for new contributors.
+
+### 2026-05-06 [BUGFIX] SIGHTING-057: Merge log falsely recorded all passing candidates as "merged"
+**Files**: `face_cluster/merge.py`, `face_cluster/views/merge_view.py`, `face_cluster/result_db.py`, `sim_bench/pipeline/steps/face_cluster_export.py`
+**Change**: Initial action for passing candidates is now "passed" (not "merged"). Only the actual winner gets action="merged". All merge-checking code uses `actually_merged` field.
+**Verified**: Relaxed merge run shows exactly 1 merged per iteration (3 total), 3 "passed" correctly separated.
+
+### 2026-05-05 [REFACTOR] spec-027: Split cluster_people.py (687 lines → 3 files)
+**Files**: `sim_bench/pipeline/steps/cluster_people.py` (293 lines), `face_cluster_bridge.py` (145 lines, NEW), `face_cluster_export.py` (194 lines, NEW)
+**Change**: Extracted face_cluster_knn bridge and export logic into separate modules. Buried imports reduced from 24 to 5 (all legitimate lazy imports for optional deps). All imports at module top in new files.
+**Verified**: E2E pipeline run produces identical output (23 people, 35 selected, 872 decisions, DB + 411 crops).
+
+### 2026-05-05 [FEATURE] spec-026: Face clustering results DB — SQLite per-run with full traceability
+**Files**: `face_cluster/result_db.py` (NEW), `face_cluster/loader.py`, `sim_bench/pipeline/steps/cluster_people.py`
+**Change**:
+- New `result_db.py`: 7-table SQLite schema (faces, embeddings, cluster_assignments, clusters, merge_decisions, face_scores, run_metadata). Written alongside CSVs during export.
+- `cluster_assignments` table has (face_id, cluster_id, iteration) — full merge iteration traceability.
+- Loader (`loader.py`) tries DB first, falls back to CSVs for backward compatibility.
+- Traceability query verified: face 0 → image → bbox → crop → embedding(norm=1.0) → cluster 0 → exemplar=true.
+**Verified**: Pipeline run produces face_clustering.db with 428 faces, 428 embeddings, 105 assignments, 13 merge decisions. DB loader matches CSV loader exactly.
+
+### 2026-05-03 [FEATURE] spec-024: Pipeline run observability — per-step progress + crash fix
+**Files**: `sim_bench/pipeline/executor.py`, `sim_bench/api/database/models.py`, `sim_bench/api/database/session.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/routers/pipeline.py`, `sim_bench/api/schemas/pipeline.py`, `app/streamlit/pages/configure.py`, `app/streamlit/models.py`, `app/streamlit/api_client.py`
+**Change**:
+- Added try/catch per step in executor — step failures return StepResult with error instead of crashing pipeline
+- Added `completed_steps` JSON column to PipelineRun — tracks per-step completion with duration and status
+- Commits step progress to DB after each step via `flag_modified` (SQLAlchemy JSON mutation)
+- Enriched API status response with `completed_steps`, `total_steps`
+- Replaced infinite `time.sleep(1); st.rerun()` loop with `@st.fragment(run_every=2)` — only progress fragment refreshes
+- Frontend shows step-by-step list: [OK] step_name (duration) | [>>] running | [FAIL] error
+**Verified**: 20/20 steps tracked with per-step durations in real pipeline run
+
+### 2026-05-03 [FEATURE] spec-025: Cache validation + stale warnings
+**Files**: `app/streamlit/components/cache_validator.py` (NEW), `app/streamlit/pages/configure.py`, `app/streamlit/pages/results.py`
+**Change**:
+- New cache_validator.py: "Cache Validation" expander on Configure & Run page. Samples N cached embeddings, checks mtime, reports valid/stale/missing. "Clear invalid entries" button.
+- Results page: stale cache warning banner when sampled entries have mismatched mtime.
+
+### 2026-05-03 [FEATURE] spec-025: Face Distance calculator + face embedding API
+**Files**: `sim_bench/api/routers/results.py`, `app/streamlit/pages/explore.py`, `app/streamlit/components/image_popup.py`
+**Change**:
+- New API endpoints: GET /results/{id}/face-embedding (returns 512-dim vector) and GET /results/{id}/face-distance (computes cosine distance between two faces)
+- New "Face Distance" tab in Explore page (7th tab) — select two images + faces, compute distance with color-coded verdict
+- Face provenance added to popup Faces tab: cache key + bbox coordinates per face
+**Verified**: API returns cosine distance 0.9816 for two different people, verdict="different". Tab renders in UI with 7 tabs.
+
+### 2026-05-03 [FEATURE] Tabbed image detail popup (spec-023) + popup data wiring
+**Files**: `app/streamlit/components/image_popup.py`, `app/streamlit/pages/results.py`, `app/streamlit/pages/explore.py`
+**Change**:
+- Rewrote image_popup.py with 5-tab layout matching the design mock: Quality, Decision, Scene, Faces, Detection
+- Quality tab: IQA/AVA/Sharpness/Composite with color-coded scores
+- Decision tab: Selected/Rejected/Filtered badge + StepDecision reasons from pipeline + config used
+- Scene tab: cluster ID + peer image thumbnails (current=red, selected=green)
+- Faces tab: per-face scores (pose/eyes/expression) with color-coded chips
+- Detection tab: person detection metrics + face bbox coordinates
+- Results page stores step_decisions and images in session state for popup access
+- Explore page stores same data
+- All data preloaded — zero API calls when popup opens
+
+### 2026-05-01 [BUGFIX] Face clustering export: generate face crops + fix bboxes + scene clustering visual
+**Files**: `sim_bench/pipeline/steps/cluster_people.py`, `app/streamlit/components/bbox_overlay.py`, `app/streamlit/components/people_browser.py`, `app/streamlit/pages/explore.py`
+**Change**:
+- Added `_generate_crops_from_bboxes()` — generates 112x112 face crop JPEGs from source images using bbox coordinates. Writes `crop_manifest.json`. Standalone Face Clustering App can now display faces via deep-link.
+- Fixed bbox_overlay to auto-detect normalized vs pixel coordinates using actual image dimensions.
+- Fixed People detail bbox to pass normalized coords correctly.
+- Rewrote Scene Clustering tab with per-cluster image grids and Selected/Rejected badges.
+**Note**: Re-run pipeline to generate new export with crops. Existing exports won't have them.
+
+### 2026-05-01 09:13:00 [DOCS] Spec status sweep + lifecycle rule
+**Files**: `specs/013-*/spec.md`, `specs/016-*/spec.md`, `specs/019-*/spec.md`, `specs/018-*/spec.md`, `specs/014-*/spec.md`, `specs/010-*/spec.md`, `specs/017-*/spec.md`, `specs/012-*/spec.md`, `CLAUDE.md`
+**Change**: Updated Status field in 8 spec files to reflect actual completion state (5 Draft→Implemented, 2 Draft→In Progress, 1 Complete→Implemented for consistency). Added "Spec Status Lifecycle" rule to CLAUDE.md requiring status updates when starting/finishing specs.
+**Reason**: Spec statuses were not being maintained — completed specs still showed "Draft", making it impossible to tell what's done vs open.
+
+### 2026-05-01 [DOCS] Rebrand album organization app to "Albumify"
+**Files**: `README.md`, `CLAUDE.md`, `docs/guides/APPS.md`, `docs/architecture/ALBUM_APP_ARCHITECTURE.md`, `app/album/README.md`, `app/album/main.py`, `app/streamlit/main.py`, `app/streamlit/config.py`, `models/album_app/README.md`
+**Change**: Renamed all user-facing references from "Album Organizer" / "Album App" / "Album Organization" to "Albumify". Internal package names, directory paths, and imports unchanged. New internal package convention: `photo_organizer_app`.
+**Reason**: Official product naming decision — "Albumify" chosen as the public-facing brand name.
+
+### 2026-05-01 [BUGFIX] Step decisions not reaching UI + Person naming + Gallery popup + Bboxes
+**Files**: `sim_bench/api/schemas/result.py`, `sim_bench/api/services/result_service.py`, `app/streamlit/models.py`, `app/streamlit/api_client.py`, `app/streamlit/pages/explore.py`, `app/streamlit/pages/people_faces.py`, `app/streamlit/components/gallery.py`, `app/streamlit/components/people_browser.py`
+**Change**:
+- Fixed `ResultSummary` Pydantic schema missing `step_decisions` field — data was in DB (872 decisions) but Pydantic stripped it from API response. Added `step_decisions: Optional[list]` to schema.
+- Fixed `list_results()` in result_service to include `step_decisions`.
+- Fixed Person naming: added `person_index` to frontend `Person` model and parser. All displays now show "Person 1", "Person 2" instead of UUID fragments.
+- Fixed People & Faces View button: callback expected `str`, grid passed `Person` object.
+- Wired image detail popup into Results gallery — every image card now has a "Detail" button.
+- Added face bounding box to person detail view (representative image with highlighted face bbox).
+- Explore tabs now show image thumbnails (60px) with pagination (20/page) instead of text-only tables.
+**Verified**: Playwright E2E: 872 decisions flowing through API, thumbnails visible, person naming correct, no errors.
+
+### 2026-05-01 [FEATURE] Pipeline observability: StepDecision records for ALL steps + Explore page refactor
+**Files**: `sim_bench/pipeline/context.py`, `sim_bench/pipeline/steps/filter_quality.py`, `sim_bench/pipeline/steps/select_best.py`, `sim_bench/pipeline/steps/detect_persons.py`, `sim_bench/pipeline/steps/insightface_detect_faces.py`, `sim_bench/pipeline/steps/cluster_scenes.py`, `sim_bench/pipeline/steps/cluster_people.py`, `sim_bench/api/database/models.py`, `sim_bench/api/database/session.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/services/result_service.py`, `app/streamlit/pages/explore.py`, `tests/test_step_decisions.py`
+**Change**:
+- Added `StepDecision` dataclass to `context.py`
+- ALL 6 pipeline steps now emit StepDecision records: filter_quality, detect_persons, insightface_detect_faces, cluster_scenes, cluster_people, select_best
+- Each decision includes: actual thresholds used (from config), measured values, human-readable reason
+- Added `step_decisions` JSON column to PipelineResult DB with migration
+- Decisions flow: pipeline step → context → DB → API → Explore page
+- Refactored `explore.py` to consume step_decisions from API with zero hardcoded thresholds. Falls back to raw image data for old runs without decisions.
+- 22 tests passing (9 decision tests + 6 bridge tests + 7 UI tests)
+- E2E verified: all 6 Explore tabs render without errors on real app
+**Reason**: PRD `docs/design/app/2026-05-01_pipeline_observability_prd.md`. Replaces hardcoded threshold guessing with actual pipeline decision records.
+
+### SUPERSEDED — merged into entry above
+~~### 2026-05-01 [FEATURE] Pipeline observability: StepDecision records for filter_quality + select_best
+**Files**: `sim_bench/pipeline/context.py`, `sim_bench/pipeline/steps/filter_quality.py`, `sim_bench/pipeline/steps/select_best.py`, `sim_bench/api/database/models.py`, `sim_bench/api/database/session.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/services/result_service.py`, `tests/test_step_decisions.py`
+**Change**:
+- Added `StepDecision` dataclass to `context.py` — records item_id, decision, reason (with actual thresholds), config_used, and metrics
+- `filter_quality` now emits a StepDecision per image with actual threshold values (e.g. "IQA 0.08 < threshold 0.25")
+- `select_best` now emits a StepDecision per image with rank and score (e.g. "Best in cluster (score 0.87)" or "Outranked (rank 3/5, score 0.42)")
+- Added `step_decisions` JSON column to `PipelineResult` DB model with idempotent migration
+- Decisions flow through pipeline_service → DB → result_service → API response
+- 9 tests verify: decisions emitted for every image, actual thresholds in reasons (no hardcoded constants), config_used reflects actual config
+**Reason**: PRD `docs/design/app/2026-05-01_pipeline_observability_prd.md`. UI was reimplementing pipeline logic with hardcoded thresholds to guess selection reasons. Now the pipeline emits structured decisions and the UI just displays them.
+
+### 2026-04-30 [FEATURE] UI Reorganization Phase B+C — Flat config grid + Results stripped (spec-021)
+**Files**: `app/streamlit/components/pipeline_runner.py`, `app/streamlit/pages/results.py`
+**Change**:
+- Phase B: Removed `@st.fragment` and all nested expanders from pipeline config. Replaced with flat 3-column grid (Detection & Quality | Face Clustering | Selection) with all sliders visible. Profile bar full-width above grid. Merge params full-width below grid (no expander).
+- Phase C: Stripped Results page to viewing only — removed Run Pipeline tab, Comparisons tab, Sub-Clusters tab, Export tab. Results now shows: metrics row + deep-link + gallery + metrics table.
+**Reason**: Nested expanders caused page jumps (SIGHTING-032, 035). Duplicate Run Pipeline in both Configure and Results was confusing.
+**Verified**: Playwright screenshots confirm flat grid renders, no expanders, Results shows metrics + deep-link.
+
+### 2026-04-30 [PERF] Fix API timeouts: remove per-face thumbnail generation, scope cache queries, add pagination
+**Files**: `sim_bench/api/services/face_service.py`, `sim_bench/api/routers/faces.py`, `app/streamlit/config.py`
+**Change**:
+- Removed `_generate_face_thumbnail()` call from `get_all_faces()` — was generating base64 thumbnails for EVERY face (428 disk reads + image processing per API call). Now returns `thumbnail_base64=None`; thumbnails generated on demand.
+- Scoped UniversalCache query to album-relevant images using `image_path.in_(known_paths)` instead of loading ALL cache entries for ALL albums.
+- Added `limit` (default 200) and `offset` pagination params to faces list endpoint.
+- Increased API timeout from 30s to 90s.
+**Root cause**: SIGHTING-047. The faces list endpoint was O(N) with expensive I/O for N=thousands of faces. For 428 faces, this meant 428 sequential disk reads + image crops + JPEG encodes + base64 encodes per request.
+
+### 2026-04-30 [FEATURE] UI Reorganization Phase A — Navigation skeleton (spec-021)
+**Files**: `app/streamlit/main.py`, `app/streamlit/components/sidebar.py`, `app/streamlit/pages/configure.py` (new), `app/streamlit/pages/explore.py` (new), `app/streamlit/pages/people_faces.py` (new), `app/streamlit/pages/export_page.py` (new), `tests/test_navigation_e2e.py` (new)
+**Change**: Restructured navigation from 6 pages to 7 lifecycle-based pages: Home, Albums, Configure & Run, Results, People & Faces, Explore, Export. All 7 pages verified with Playwright E2E tests.
+**Reason**: Pipeline config was buried in Results page, People/Faces distinction was unclear, no per-step observability.
+
+### 2026-04-30 [FEATURE] Shared ProfileStore between main app and face clustering app
+**Files**: `app/streamlit/components/pipeline_runner.py`
+**Change**:
+- Imported `ProfileStore` from `face_cluster/profile_store.py` into the main app's pipeline runner
+- Renamed face_cluster_knn widget keys from `config_fc_*` to `rc_*` to match the face clustering app's `_RC_PARAM_KEYS`
+- Changed merge params prefix from `fc_` to `rc_` so merge profiles work across both apps
+- Added profile load/save bar (Load dropdown, Save button, Save as Default) using the same `~/.sim_bench/profiles/` directory
+- Profiles saved in the Face Clustering App now load directly in the main app (and vice versa)
+**Reason**: User requested sharing clustering profiles between both apps since they use the same dataset and algorithms.
+
+### 2026-04-30 [BUGFIX] face_cluster_knn: quality gates FORCE-DISABLED + irrelevant params removed
+**Files**: `sim_bench/pipeline/steps/cluster_people.py`, `app/streamlit/components/pipeline_runner.py`, `tests/test_face_cluster_knn_bridge.py`
+**Change**:
+- FORCE-DISABLED blur_min (=0.0), pose gates (yaw/pitch/roll=999), det_score_min (=None) with hardcoded values instead of config.get() defaults. The previous fix (changing default from 50 to 0) had zero effect because pipeline.yaml specified blur_min:50.0 which overrode the default.
+- Cleaned up config dict: face_cluster_knn config only includes its own params (K, distance_threshold, merge_*, etc). Legacy params (cluster_selection_epsilon, pca_components, k, similarity_threshold) only included for their respective methods.
+- Added 6 tests: quality gating passes with disabled gates, 3 identities produce 3 clusters, noise exclusion, config dict correctness.
+**Root cause**: The first "fix" (blur_min default=0.0) was bypassed by pipeline.yaml's explicit blur_min:50.0. Quality gating still rejected 100% of faces on every run. This was the root cause of "one person with all faces".
+**Testing**: Verified with `test_quality_gating_passes_all_faces_when_blur_disabled` (was failing before, now passes) and `test_multiple_identities_produce_multiple_clusters` (3 synthetic identities produce 3 distinct clusters).
+
+### 2026-04-30 [BUGFIX] Noise faces (label=-1) grouped as person + K slider range mismatch
+**Files**: `sim_bench/pipeline/steps/cluster_people.py`, `app/streamlit/components/pipeline_runner.py`
+**Change**:
+- Skip noise faces (cluster_id == -1) when building `context.people_clusters`. Previously ALL faces including noise were grouped by label, so when quality gating rejected all faces (blur_min bug), all 428 faces ended up in cluster -1 and created a single "person".
+- Changed K slider range from 1-50 to 1-100 to match face clustering app.
+**Reason**: User saw exactly 1 person containing all 428 faces. Root cause: the blur_min=50 rejection → all labels=-1 → one noise cluster treated as a person. Even with blur_min fixed, the -1 filtering bug would cause noise faces to pollute people clusters in future runs.
+
+### 2026-04-30 [BUGFIX] Pipeline runner: fc_K slider had zero effect + uncached API calls caused flicker
+**Files**: `app/streamlit/components/pipeline_runner.py`, `tests/test_pipeline_runner_ui.py`
+**Change**:
+- Moved all variable defaults (`fc_K=5`, `fc_dist_threshold=0.35`, etc.) BEFORE the conditional widget blocks so they get properly overridden by slider values. Previously `fc_K=5` on line 275 unconditionally overwrote the slider value from line 238.
+- Cached `_load_user_settings()` with `@st.cache_data(ttl=60)` to eliminate API call latency on every fragment rerun (every slider interaction). Added cache invalidation in `_save_user_settings()`.
+- Added 7 AppTest-based UI tests that verify: rendering, button presence, slider persistence across reruns, config dict correctness (fc_K regression), and stability across 5 consecutive reruns.
+**Reason**: (1) K slider had no effect — config dict always had K=5 regardless of user input. (2) Uncached API call added latency to every `@st.fragment` rerun, causing visible flicker when moving sliders.
+**Testing**: TDD approach — wrote failing test first (`test_fc_K_slider_value_reaches_config_dict` confirmed `K=5` when expecting `K=15`), then fixed code, all 7 tests pass.
+
+### 2026-04-30 [BUGFIX] numpy 2.x incompatible with torch/torchvision/ultralytics
+**Files**: Environment only (no code changes)
+**Change**: Downgraded numpy from 2.4.4 to 1.26.4 (`pip install "numpy<2"`)
+**Reason**: `RuntimeError: Numpy is not available` in torchvision + `_ARRAY_API not found` warning in ultralytics. torch 2.3.1 and torchvision 0.18.1 don't support numpy 2.x internal APIs.
+
+### 2026-04-30 [BUGFIX] face_cluster_knn: blur gating rejects all faces in main pipeline
+**Files**: `sim_bench/pipeline/steps/cluster_people.py`
+**Change**: Changed `blur_min` default from `50.0` to `0.0` in `_run_face_cluster_knn`
+**Reason**: Main pipeline does not compute `blur_score`, so all faces had `blur_score=0.0` and were rejected by the `blur_min=50.0` threshold, leaving 0 core faces and preventing any clustering.
+**Root cause**: Bridge function `_faces_to_face_records` correctly sets `blur_score=getattr(face, "blur_score", 0.0)`, but `FaceForClustering` never gets a blur score populated by the main pipeline. The `PipelineConfig` default should be 0.0 (disabled) when called from the main app.
+
+### 2026-04-30 [BUGFIX] Main app pipeline runner — page jumps on slider interaction (SIGHTING-032)
+**Files**: `app/streamlit/components/pipeline_runner.py`
+**Change**: Wrapped pipeline config UI in `@st.fragment` so slider/checkbox interactions
+only trigger a fragment-scoped rerun, not a full page rerun. Buttons that need full page
+rerun (Run Pipeline, Save, Cancel) use `st.rerun(scope="app")`.
+**Reason**: Every slider change caused the page to scroll/jump because the full tab set
+re-rendered. Fragment isolation keeps the scroll position stable.
+
+### 2026-04-30 [FEATURE] Deep-link from main app to Face Clustering App (spec-020 T5)
+**Files**: `sim_bench/pipeline/context.py`, `sim_bench/api/database/models.py`,
+           `sim_bench/api/database/session.py`, `sim_bench/api/services/pipeline_service.py`,
+           `sim_bench/api/services/result_service.py`, `sim_bench/api/schemas/pipeline.py`,
+           `sim_bench/api/schemas/result.py`, `sim_bench/api/routers/pipeline.py`,
+           `app/streamlit/models.py`, `app/streamlit/api_client.py`, `app/streamlit/pages/results.py`
+**Change**: Added `fc_export_dir` field end-to-end: PipelineContext → DB column (with
+idempotent ALTER TABLE migration) → API schema → API router → frontend model → results page.
+When face clustering artifacts are exported, the results page shows an "Open in Face
+Clustering App" link with `?load_run=<path>` deep-link.
+**Reason**: Users need a way to jump from main app results to the standalone face clustering
+app for merge analysis, recluster, and ML training.
+
+### 2026-04-30 [FEATURE] Unified face clustering: face_cluster_knn method in main app (spec-020)
+**Files**: `sim_bench/pipeline/steps/cluster_people.py`, `configs/pipeline.yaml`,
+           `app/streamlit/components/pipeline_runner.py`,
+           `tests/face_clustering/test_cluster_faces_knn_method.py`
+**Change**: Added `face_cluster_knn` as a new method option in the existing `cluster_people` step.
+Delegates to `face_cluster/` algorithm classes (QualityGater, KNNGraphBuilder,
+ConnectedComponentsClusterer, D10ExemplarSelector, ConservativeMerger, HoldoutAttacher).
+Bridge functions convert between `FaceForClustering` (sim_bench) and `FaceRecord` (face_cluster).
+When `export_for_analysis: true`, exports artifacts (faces.csv, embeddings.npy, pipeline_run.json,
+merge_log.json) in the standalone app's format so users can open them in the Face Clustering App
+for merge analysis, recluster, and ML training. UI controls added to pipeline_runner.py with
+method-specific sliders (K, distance_threshold, merge params). 4 unit tests.
+**Reason**: Main app and standalone app used divergent clustering algorithms; bug fixes and
+improvements only landed in face_cluster/. Now one algorithm, two entry points.
+
+### 2026-04-30 [FEATURE] Auto-purge stale run history entries on startup
+**Files**: `face_cluster/run_history_db.py`, `app/face_clustering/state.py`
+**Change**: `purge_stale_runs()` deletes DB entries whose output_dir no longer exists
+or lacks key files (faces.csv / pipeline_run.json / cluster_result.npz). Stale
+"running" entries are marked as "failed". Called once per session from `_init_state()`.
+**Reason**: Archived/deleted result directories were cluttering the run dropdown with
+153 stale entries pointing to nonexistent paths.
+
+### 2026-04-30 [FEATURE] p25 cross-distance OR gate for merge algorithm (spec-019)
+**Files**: `face_cluster/config.py`, `face_cluster/merge.py`, `face_cluster/views/merge_view.py`,
+           `app/face_clustering/_merge_decisions_panel.py`, `app/face_clustering/state.py`,
+           `tests/face_clustering/test_merge.py`
+**Change**: Gate A is now an OR: `p25_exemplar_dist <= T_exemplar OR p25_cross_dist <= T_cross`.
+  - `_p25_cross_distance()`: computes p25 over ALL cross-cluster node pairs (vectorized numpy).
+  - `_count_unique_support()`: greedy bipartite matching — each node used at most once.
+  - Config: `merge_use_cross_gate` (default True), `merge_cross_threshold` (default 0.40),
+    `merge_cross_max_size` (default 5), `merge_support_unique` (default False).
+  - OR path only applies when `min(|A|,|B|) <= merge_cross_max_size` — prevents loosening
+    gates for large-vs-large merges where exemplars are already representative.
+  - `p25_cross_dist`, `passes_cross`, `unique_support` always logged in merge_log.json.
+  - `MergeDecisionRow` carries new fields; gate badge shows cross-dist and unique support.
+  - 9 unit tests in `ut_CrossDistGate`: OR gate pass/fail, config flag off, size gating,
+    unique support node-reuse prevention, evidence dict fields.
+**Reason**: Large clusters merging with small ones (2-3 faces) were blocked by Gate A when
+exemplars happened to be far, even though many non-exemplar node pairs were close.
+
+### 2026-04-30 [FEATURE] Merge gallery "By iteration" default view
+**Files**: `app/face_clustering/_merge_decisions_panel.py`, `app/face_clustering/state.py`
+**Change**: Replaced the checkbox toggle (flat/grouped) with a 3-way radio:
+"By iteration" (default) | "Flat list" | "Transitive groups". New
+`_render_iteration_grouped_gallery` renders one collapsible section per iteration,
+showing the merged pair first then rejections sorted by exemplar distance.
+**Reason**: User found it confusing to understand what candidates existed in each iteration
+when viewing a flat list filtered by iteration number.
+
+### 2026-04-30 [FEATURE] Merge Analysis iteration visibility (SIGHTING-029)
+**Files**: `face_cluster/views/merge_view.py`, `app/face_clustering/_merge_decisions_panel.py`,
+           `app/face_clustering/state.py`, `tests/face_clustering/test_merge_iter_view.py`
+**Change**: The Merge Analysis tab now exposes per-iteration data from the iterative merger.
+  - `MergeDecisionRow.iteration` field added; `_parse_merge_log` keeps all entries (no dedup).
+  - `_latest_per_pair()` / `_build_pair_history()` / `_build_iter_timeline()` helpers added.
+  - `MergeAnalysisView` carries `n_iterations`, `iter_timeline`, `all_rejection_rows`, `pair_history`.
+  - Default "Latest" view shows last iteration entry per pair — fixes wrong size display (C1 was showing 135 instead of 143).
+  - Iteration Timeline strip + "Iteration" filter + multi-iter badge + history table in pair expander.
+**Reason**: Users couldn't see that rejected pairs are re-evaluated each iteration with updated cluster sizes.
+
+### 2026-04-30 [BUGFIX] Full exemplar reselection after merge (SIGHTING-030)
+**Files**: `face_cluster/merge.py`, `tests/face_clustering/test_merge.py`
+**Change**: Replaced the `combined_exemplars = exemplars_a + exemplars_b` shortcut in
+`_merge_two_clusters` with `_ClusterStatHelper.select_exemplars(merged_nodes, ...)`.
+Post-merge exemplars are now selected from ALL nodes in the merged cluster via full d10
+ranking + greedy suppression, not just the prior exemplar union.
+**Reason**: Bridge nodes (never an exemplar in their original cluster) were invisible to
+Gate A. Austria24_4 C1 vs C10 failed by 0.005 across 5 iterations because none of the
+absorbed nodes entered the exemplar pool. Four unit tests added in `ut_MergeTwoClusters`.
+
+### 2026-04-27 [BUGFIX] Gate A: switch exemplar distance metric from min to p25
+**Files**: `face_cluster/merge.py`, `face_cluster/config.py`
+**Change**: Replaced `_min_exemplar_distance` (returns the single closest exemplar pair) with `_p25_exemplar_distance` (25th percentile across all exemplar pairs). Gate A threshold (`merge_exemplar_threshold`) is compared against p25 instead of min.
+**Reason**: min is dominated by outlier-close pairs; p25 is more robust and consistent with how the feature is stored in `candidate_pairs.parquet`.
+
+### 2026-04-27 [FEATURE] Auto-save candidate pair features after every clustering run
+**Files**: `face_cluster/features/distance.py`, `face_cluster/features/__init__.py`, `face_cluster/export.py`, `face_cluster/pipeline.py`, `notebooks/face_clustering/eda_merge_ml.ipynb`
+**Change**:
+- Added `p10_exemplar_dist`, `p25_exemplar_dist` to `compute_distance_features()` and `ClusterPairFeatures`
+- Bumped `FeatureComputer.VERSION` 3→4
+- Added `FeatureComputer.compute_top_n_pairs()`: ranks all cluster pairs by min exemplar dist, skips > 0.80, returns top 300
+- Added `save_candidate_pairs()` / `load_candidate_pairs()` to `export.py` (writes `candidate_pairs.parquet`)
+- Pipeline `_select_exemplars` now calls `_save_candidate_pairs()` automatically (non-fatal on error)
+- Notebook cell-4 now supports `DATA_SOURCE = "db"` (training) or `"run_dir"` (what-if analysis from parquet)
+
+### 2026-04-27 [FEATURE] Notebook: add gate-pass features to eda_merge_ml
+**Files**: `notebooks/face_clustering/eda_merge_ml.ipynb`
+**Change**: Added Gate A/B/D pass booleans and `n_gates_passed` (0-3) as derived features. Gate C (margin vs next-best cluster) excluded — not available as a per-pair feature since it requires global context across all clusters. Added feature names to `DISTANCE_FEATURES` list so they flow through model training and SHAP cells automatically.
+
+### 2026-04-27 [FEATURE] Label Verification: st.dataframe redesign + notebook DB fix
+**Files**: `app/face_clustering/tabs/label_tab.py`, `app/face_clustering/state.py`, `notebooks/face_clustering/eda_merge_ml.ipynb`
+**Change**:
+- Replaced row-by-row widget table (N×buttons) with a single `st.dataframe` (one widget regardless of row count)
+- Row selection via `on_select="rerun"` + `selection_mode="multi-row"`; action buttons Merge/Reject/Ignore appear when rows are selected
+- Added filter controls inside fragment: decision (All/merge/reject/ignore/unlabeled) + p10 min/max range
+- Detail panel (thumbnails) shown when exactly 1 row is selected
+- Removed manual pagination and filter chip bar (replaced by dataframe sorting + filter widgets)
+- Removed `lv_filter`, `lv_page`, `lv_page_size`, `lv_selected_pair` from session state
+- Notebook cell 4: replaced `load_run_features` re-computation loop with direct `load_training_data()` call;
+  features + labels now come from the DB (populated by Label Verification tab), no pipeline reload needed
+**Reason**: Every button click caused a full page rerender (150+ widgets). Single dataframe + fragment = ~0.1s response.
+
+### 2026-04-27 [FEATURE] Label Verification: drop Verified column + @st.fragment performance fix
+**Files**: `app/face_clustering/tabs/label_tab.py`, `app/face_clustering/state.py`
+**Change**:
+- Dropped Verified column entirely (checkbox was slow, UX was confusing)
+- Wrapped the pairs table + detail panel + pagination in `@st.fragment` so button clicks only rerender that section (no full page rerun per click)
+- Save bar moved inside the fragment — shows live unsaved count, Save triggers `st.rerun(scope="app")` for full refresh
+- Renamed "Unverified" filter to "Unlabeled" (pairs with no human label in DB and no unsaved decision this session)
+- Removed `lv_verified` from session state; `_flush_dirty` now always passes `verified=True` to `save_human_label`
+- Metric cards: replaced Verified/Remaining with a single Labeled count
+- Removed progress bar
+- Bulk apply: "Unverified only" → "Unlabeled only" with matching logic
+**Reason**: User reported every button click was laggy (2 full page rerenders). Fragment isolation eliminates full rerenders for decision buttons.
+
+### 2026-04-27 [FEATURE] Notebook feature expansion + p10 threshold analysis
+**Files**: `notebooks/face_clustering/eda_merge_explore.ipynb`, `notebooks/face_clustering/eda_merge_ml.ipynb`
+**Change**:
+- Both notebooks: documented p10_cross_dist ≈ 0.60 empirical threshold in headers
+- Expanded DISTANCE_FEATURES to include size_a/b/ratio, mean_intra_dist_a/b, cross_dist_iqr (all vary per pair, not per run)
+- Added derived ratio features: p10_over_p50 (distribution shape) and inter_over_intra (margin: p10 / max intra-dist; <1.0 = clusters overlap)
+- Added threshold analysis cell to both notebooks: distribution histogram, inter_over_intra margin plot, p10 sweep vs RF F1
+- ML notebook: updated CANONICAL_RUNS to pre-merge runs (Germany_12, Austria24_1, shira_album1/base, Noa5-7, Noa2-5)
+**Reason**: User observed p10~0.60 separates merges from rejects; size/geometry features are valid per-pair signals that were incorrectly excluded
+
+### 2026-04-27 [FEATURE] Label Verification tab UX: deferred saves + bulk apply + page size
+**Files**: `app/face_clustering/tabs/label_tab.py`, `app/face_clustering/state.py`
+**Change**:
+- Individual Merge/Reject/Ignore/Verified clicks now update session state only (deferred writes). A "Save N changes" warning bar appears when dirty, committing all changes in one batch on click.
+- New "Quick Label by p10 threshold" expander: set p10 min/max range, pick label, optionally restrict to unverified pairs, preview count, Apply button (writes immediately as intentional batch).
+- Page size selector (25/50/100/500/All) replaces the fixed 20-row page size. Added `lv_page_size` and `lv_dirty` to session state defaults.
+**Reason**: Reviewing 100+ pairs one-click-at-a-time was too slow; bulk apply by p10 threshold enables fast labeling of obvious cases
+
+### 2026-04-25 [FEATURE] CSV-based canonical run config for label verification
+**Files**: `configs/label_runs.csv` (new), `face_cluster/label_verification.py`, `app/face_clustering/tabs/label_tab.py`
+**Change**: Replaced hardcoded `CANONICAL_RUNS` dict with `configs/label_runs.csv` + `load_canonical_runs()`:
+- `configs/label_runs.csv`: all runs with enabled/disabled flag and notes (audit trail); Germany_10 marked disabled with K=5 fragmentation note
+- `label_verification.py`: removed hardcoded dict; added `load_canonical_runs(csv_path)` that re-reads CSV on every call (no restart needed)
+- `label_tab.py`: replaced `CANONICAL_RUNS` import with `load_canonical_runs()` called at render time
+**Reason**: User requested editable CSV config so runs can be toggled without restarting the app, with notes explaining why runs were included/excluded
+
+### 2026-04-25 [REFACTOR] Archive old results, sync notebook with label_runs.csv
+**Files**: `results/` (archive), `notebooks/face_clustering/eda_merge_ml.ipynb`, `face_cluster/label_verification.py`
+**Change**:
+- Archived 63 old/test result directories to `results/archive/` (fully restorable)
+- Active results/ now has only 9 folders: 4 canonicals + 4 crop sources + shira_album1
+- Restored Germany_12 and Austria24_1 (needed by label_runs.csv)
+- Notebook: CANONICAL_RUNS now read from `configs/label_runs.csv` (single source of truth)
+- Notebook cell 4: applies human labels BEFORE skip decision — runs with 0 heuristic merges but human labels are now included
+- label_verification.py already uses load_canonical_runs() from CSV
+
+### 2026-04-25 [BUGFIX] Notebook crash on null labels from training DB
+**Files**: `notebooks/face_clustering/eda_merge_ml.ipynb`
+**Change**: Filter `db_df` to `label.notna()` before building the `manual` override dict
+**Reason**: Pre-populated heuristic rows with no decision (and "Ignore" pairs) have NULL label; `int(NaN)` raised `ValueError`
+
+### 2026-04-25 [FEATURE] Spec-017 Label Verification tab integration
+**Files**: `face_cluster/label_verification.py`, `face_cluster/training_db.py`, `app/face_clustering/tabs/label_tab.py`, `app/face_clustering/main.py`, `app/face_clustering/state.py`
+**Change**: Completed spec-017 Label Verification tab implementation:
+- `training_db.py`: added `source`/`verified` columns + migration, `insert_heuristic_samples`, `save_human_label`, `get_labels_for_run`, `label_summary_by_run`
+- `label_verification.py`: backend worker — loads run, computes candidate pair features, pre-populates DB with heuristic labels, merges human labels
+- `label_tab.py`: full Streamlit tab — dataset picker, threshold slider, paginated pairs table with thumbnails, Merge/Reject/Ignore buttons, detail panel, CSV export
+- `main.py`: added "Label Verification" as 11th tab
+- `state.py`: added `lv_*` session state defaults; fixed disallowed `try/except` in crop loader
+**Reason**: Enables human verification of heuristic merge labels for ML training data quality
+
+### 2026-04-25 [FEATURE] Simplify to distance-only features + canonical runs + label verification spec
+**Files**: `notebooks/face_clustering/eda_merge_explore.ipynb`, `notebooks/face_clustering/eda_merge_ml.ipynb`, `specs/017-merge-label-verification/spec.md`, `specs/017-merge-label-verification/tasks.md`
+**Change**: Second pass on both notebooks:
+- Replaced generic dedup with **canonical runs** (one per source dataset: Google_Germany, Austria_24, Noa_5-7, Noa_2-5)
+- Restricted to **distance-only features** (12 features measuring inter-cluster relationship)
+- Dropped t_local, t_global, blur, pose, area, size features (dataset properties, not merge evidence)
+- Added crop fallback: recluster runs use crops from sibling run with same face IDs
+- Created spec 017 for label verification tab (manual labeling UI to replace heuristic labels)
+**Reason**: User identified that t_local/t_global are dataset measures not pair features, and that heuristic labels are unreliable (Germany_10 reject labels visually incorrect). Only 8 positive labels exist across all datasets.
+
+### 2026-04-25 [FEATURE] Merge EDA data validation, feature engineering, and spec
+**Files**: `notebooks/face_clustering/eda_merge_explore.ipynb`, `notebooks/face_clustering/eda_merge_ml.ipynb`, `specs/016-merge-eda-validation/spec.md`, `specs/016-merge-eda-validation/tasks.md`, `docs/LEARNINGS.md`, `docs/FEATURE_REQUESTS.md`
+**Change**: Major overhaul of both merge EDA notebooks:
+- Fixed RUN_DIR path (`../results/` -> `../../results/`) — root cause of "missing" face crops
+- Added run deduplication (hash merge decisions, filter identical runs)
+- Added union-find transitive closure for merge labels (fixes false negatives when A+B and B+C merge)
+- Aligned candidate_threshold to pipeline default 0.45 (was 0.9, creating OOD noise)
+- Flagged t_global leakage (constant per run, acts as run ID in multi-run training)
+- Added 6 derived ratio features: dist_over_t_local, dist_over_t_global, dist_over_diameter, expansion_ratio, support_density, dist_percentile
+- Added full feature correlation heatmap with redundancy detection
+- Added negative label harvesting section (non-candidate pairs as strong negatives)
+- Created spec 016 documenting all data quality issues and validation requirements
+- **eda_merge_ml.ipynb**: Same dedup/transitivity/threshold fixes, plus by-run GroupKFold CV
+  to test cross-album generalization, derived feature lift analysis, correlation heatmap
+**Reason**: User reported missing face crops and asked for in-depth analysis of feature engineering opportunities and data quality
+
+### 2026-04-25 [DOCS] Organise face-clustering analysis notebooks
+**Files**: `notebooks/face_clustering/` (new), `notebooks/eda_merge_explore.ipynb` → moved, `notebooks/eda_merge_ml.ipynb` → moved, `notebooks/face_clustering/README.md` (new)
+**Change**: Moved both merge-analysis notebooks into `notebooks/face_clustering/`. Added README documenting purpose, workflow, and dependencies for each notebook. Also filtered `eda_merge_ml` cell 4 to skip runs with zero merges, and added an early guard in `eda_merge_explore` cell 2 that raises on runs with no merges.
+**Reason**: Prevent notebooks from getting lost among unrelated notebooks; provide onboarding docs.
+
+### 2026-04-25 [FEATURE] EDA notebook for ML merge decisions
+**Files**: `notebooks/eda_merge_ml.ipynb`
+**Change**: New Jupyter notebook for exploring whether ML can beat the heuristic 4-gate merge pipeline. Loads features from multiple runs via FeatureComputer, labels from merge_log + training DB. Trains LR, Decision Tree, Random Forest. Uses SHAP + RF Gini importance to find top features, then deep-dives with scatter/strip/dependence plots. Includes confusion matrix with exemplar crop images for TP/FP/TN/FN examples. Label sanity check section acknowledges heuristic labels may be wrong. Handles imbalanced data (most rejects are trivially-different clusters) via undersampling.
+**Reason**: User wants to explore ML alternatives to threshold-based merging, starting with EDA.
+
+### 2026-04-24 [BUGFIX] Fix hardcoded merge threshold + add run config display
+**Files**: `face_cluster/views/cluster_view.py`, `face_cluster/views/run_overview.py`, `app/face_clustering/tabs/overview_tab.py`, `app/face_clustering/tabs/history_tab.py`
+**Change**: Replaced hardcoded `0.45` merge threshold in `cluster_view.py:110` and `run_overview.py:99` with actual run config value from `result.summary["config"]["merge_candidate_threshold"]`. Added "Run Configuration" expander panel to Overview tab and History tab showing key thresholds (clustering, quality gate, merge settings).
+**Reason**: User's actual `merge_candidate_threshold` was 0.84, but UI showed 0.450. Clusters that should have been merge candidates were not flagged. Also added config display so users can verify what settings were used for any loaded run.
+
+### 2026-04-24 [FEATURE] Cluster detail popup + inline thumbnails
+**Files**: `app/face_clustering/cluster_popup.py` (new), `app/face_clustering/gallery_panels.py`, `app/face_clustering/main.py`, `app/face_clustering/state.py`
+**Change**: Cluster table now shows exemplar thumbnail per row and opens a detail popup on row click
+**Details**:
+- `gallery_panels.py`: Added `_pil_to_data_url()` helper; cluster table gains "Thumb" `ImageColumn` showing top exemplar crop as base64 data URL; row selection triggers `cluster_popup_id` instead of inline detail
+- `cluster_popup.py`: `@st.dialog("Cluster Detail")` showing metrics, ALL exemplar crops in grid with face Detail buttons, nearest clusters with thumbnails; "Go to Cluster Analysis" (same window), "Open in new window" (deep link), "Close" buttons
+- `main.py`: Deep link support via `st.query_params` (`?load_run=<path>&cluster=<id>`); wired `maybe_show_cluster_popup()` after `maybe_show_face_popup()`
+- `state.py`: Added `cluster_popup_id` and `cluster_popup_cache` to init + invalidation
+- Face popup takes priority over cluster popup (guard in `maybe_show_cluster_popup`)
+
+### 2026-04-24 [FEATURE] App-wide UI improvements
+**Files**: `app/face_clustering/tabs/history_tab.py`, `app/face_clustering/tabs/face_analysis_tab.py`, `app/face_clustering/gallery_panels.py`
+**Change**: Three bundled UI improvements
+**Details**:
+- History tab: Output column now shows `parent/run_name` (e.g., `Noa2_5_2/base_1`) instead of just the last dir component, so the session context is immediately visible
+- Face Analysis tab: replaced one-at-a-time selectbox with a sortable/filterable `st.dataframe` showing all faces (ID, Gate, Rejected by, Blur, Area, Det score, Yaw, Pitch, Roll, Cluster, Image); row click drives the detail view
+- Clusters (Base) and Clusters (Merged) tabs: replaced card gallery with a `st.dataframe` table (Cluster, Faces, Diameter, Avg dist, Exemplars, Nearest C, Nearest dist, Merge cand?); row click expands inline cluster detail
+
+### 2026-04-24 [BUGFIX] SIGHTING-026 — det_score quality gate
+**Files**: `face_cluster/config.py`, `face_cluster/quality.py`, `app/face_clustering/tabs/run_tab.py`, `tests/face_clustering/test_quality_gating.py`
+**Change**: Added `det_score_min` as a new quality gate in `QualityGater`
+**Details**:
+- `PipelineConfig.det_score_min: Optional[float] = None` — disabled by default for backward compat; recommended value 0.7
+- `QualityGater._add_det_score_gate()`: rejects faces below threshold; passes permissively when `face.det_score is None` (legacy data)
+- Gate wired into `_evaluate_gates()` and `_top_k_verdict()`; `"det_score"` is first in rejection priority order
+- Run tab UI: `det_score_min` number input added to Stage 3 Quality Gate section (0 = off)
+- 6 new unit tests in `test_quality_gating.py`: disabled default, rejects low, passes high, exact threshold, None permissive, priority over blur
+
+### 2026-04-24 [FEATURE]
+**Files**: `app/face_clustering/face_popup.py` (new), `app/face_clustering/main.py`, `app/face_clustering/state.py`, `app/face_clustering/gallery_panels.py`, `app/face_clustering/tabs/cluster_analysis_tab.py`, `app/face_clustering/tabs/face_analysis_tab.py`, `app/face_clustering/_merge_helpers.py`, `tests/face_clustering/test_face_popup.py` (new)
+**Change**: Face detail popup (spec-015) — click any face anywhere in the app to see full detail in a modal dialog
+**Details**:
+- `face_popup.py`: `@st.dialog` modal rendering full FaceView (gate, blur/area/pose, quality report, same-cluster neighbours, cross-cluster neighbours, co-image faces); comment field persisted to `face_comments.json`; "Open in Face Analysis" navigation
+- `face_detail_btn(face_id, key)` helper added to all face-rendering sites: cluster gallery (Base/Merged), Cluster Analysis (exemplars + all-faces + nearest-clusters strips), Face Analysis (same-cluster + other-cluster + co-image strips), Merge Analysis pair crops
+- `state.py`: added `face_popup_id` / `face_popup_cache` to init and `_invalidate_run_caches`
+- `main.py`: calls `maybe_show_face_popup(result)` unconditionally after tab block
+- 8 unit tests covering comment persistence, edge cases, key uniqueness
+
+### 2026-04-24 [CONFIG]
+**Files**: `scripts/backfill_source_album.py` (new)
+**Change**: Added one-time migration script to backfill `source_album` in action_log for old runs where it is NULL/unknown
+**Reason**: Old runs pre-dating spec-013 have no `source_album` in the DB; inferred from `Path(output_dir).parent.name` (matches run-naming convention). Dry-run by default; pass `--apply` to write.
+
+### 2026-04-24 [REFACTOR]
+**Files**: `face_cluster/views/` (new subpackage), `face_cluster/analysis_views.py`, `app/face_clustering/shared.py` (deleted), `app/face_clustering/{cache_helpers,nav_helpers,run_panels,config_controls,gallery_panels,quality_panels}.py` (new), `app/face_clustering/{_merge_helpers,_merge_decisions_panel,_merge_ml_panel}.py` (new), `app/face_clustering/tabs/merge_analysis_tab.py`
+**Change**: Split 3 oversized modules (analysis_views 1240L, merge_analysis_tab 988L, shared 501L) into focused files
+**Details**:
+- analysis_views.py → face_cluster/views/ subpackage (6 files: _base, cluster_debug_view, run_overview, cluster_view, face_view, merge_view); analysis_views.py kept as thin re-exporter
+- shared.py → 6 flat files (cache_helpers, nav_helpers, run_panels, config_controls, gallery_panels, quality_panels); all tab imports updated; shared.py deleted
+- merge_analysis_tab.py → thin orchestrator + 3 private siblings (_merge_helpers, _merge_decisions_panel, _merge_ml_panel) placed in app/face_clustering/ for sys.path compatibility
+- run_panels.py uses try/except import fallback (local vs package) to support both streamlit runtime and package-level test imports
+- test_history_tab_data.py and test_streamlit_app.py updated from `app.face_clustering.shared` to `app.face_clustering.run_panels`
+
+### 2026-04-23 [BUGFIX]
+**Files**: `tests/face_clustering/test_streamlit_app.py`, `tests/face_clustering/test_quality_gating.py`, `tests/face_clustering/test_history_tab_data.py`, `pyproject.toml`
+**Change**: Fixed 21 failing tests after app refactor to package + spec-012 API changes
+**Details**:
+- `test_quality_gating.py`: `select_core_set()` now returns 3-tuple; updated all 6 tests to unpack `core, holdout, _`. Rewrote `test_heuristic_pose_never_gates` to reflect SIGHTING-020 resolution (pose IS gated).
+- `test_history_tab_data.py`: `_list_available_runs` moved from `app.face_clustering` to `app.face_clustering.shared`; updated 4 import paths.
+- `test_streamlit_app.py`: `APP_PATH` updated to `app/face_clustering/main.py`; import/patch paths updated (`_list_available_runs` → shared, `_prefill_approval_decisions` → state, patch targets updated); weakened unworkable AppTest button injection test to just assert no exception.
+- `pyproject.toml`: Registered `e2e` mark + `addopts = "-m 'not e2e'"` to exclude browser tests from default run.
+
+### 2026-04-23 [REFACTOR]
+**Files**: `CLAUDE.md`, `WORKFLOW.md`
+**Change**: Simplified spec-kit workflow from 7 mandatory artifacts to 2 (spec.md + tasks.md)
+**Reason**: Previous workflow produced ~800-1200 lines of planning docs per feature across 7-8 files with significant redundancy. Design decisions appeared in research.md, plan.md, data-model.md, and contracts/ simultaneously. Leaner approach: spec.md (what) + tasks.md (how, with design notes inline). Old files (plan.md, research.md, data-model.md, contracts/, checklists/) are now optional.
+
+### 2026-04-23 [FEATURE]
+**Files**: `face_cluster/run_history_db.py`, `face_cluster/run_naming.py` (new), `face_cluster/config_diff.py` (new), `face_cluster/run_history.py` (new), `face_cluster/__init__.py`, `face_cluster/pipeline.py`, `app/face_clustering/tabs/history_tab.py`, `app/face_clustering/tabs/recluster_tab.py`, `app/face_clustering/tabs/merge_analysis_tab.py`, `app/face_clustering/state.py`, `docs/SIGHTINGS.md`, `docs/LEARNINGS.md`
+**Change**: Spec 013 — Run History & Run Annotations
+**Details**:
+- DB migration: 7 new columns on `action_log` (source_album, run_name, parent_run_id, run_kind, comment, config_json, n_core); idempotent via `_migrate_013()`
+- `run_naming.py`: `allocate_run_dir` with atomic reservation via `run_dir_reservations` table (UNIQUE constraint)
+- `config_diff.py`: shallow diff between two config dicts; returns `ConfigDelta` list
+- `run_history.py`: `search(HistoryFilters)`, `distinct_albums()`, `get_run_by_id()` — typed `RunRow` projections
+- History tab rewritten: album filter, date range, text search, editable comments, run header (album/run name/parent/config delta), Run Summary panel (spec-012 outputs), Load button
+- Recluster tab: `allocate_run_dir` replaces manual path computation; `current_source_album` propagated
+- Apply+Remerge: uses `allocate_run_dir` for both snap and remerge dirs; closes SIGHTING-025
+- Pipeline: `source_album`, `run_kind`, `n_core`, `config_json` written to `action_log` on start and complete
+**Reason**: P0 user problem — derived runs appeared as unrelated albums in History; silent overwrites destroyed previous results
+
+### 2026-04-23 [REFACTOR]
+**Files**: `app/face_clustering/` (new), `app/face_clustering.py` (deleted), `docs/APPS.md`
+**Change**: Split monolithic `app/face_clustering.py` (~4840 lines) into modular subfolder package
+**Details**: New layout: `constants.py`, `state.py`, `session_helpers.py`, `shared.py`, `tabs/` (10 modules), `main.py`. Entry point changed to `app/face_clustering/main.py`.
+**Reason**: Single file had grown to ~4840 lines; split improves maintainability and navigation.
+
+### 2026-04-22 [FEATURE]
+**Files**: `app/face_clustering.py`
+**Change**: Spec 014 — Force Merge widget in Cluster Analysis tab
+**Details**: "Force Merge" expander added below Nearest Clusters section. User selects any two cluster IDs, clicks Preview to see side-by-side exemplar crops + 3-gate evidence (exemplar dist, support pairs, post-merge diameter) with PASS/FAIL badges. Warns if pair is not a merge candidate. Confirm applies the merge via `save_manual_merge_snapshot`, increments merge_round, reloads result. Works for any pair — candidate or not.
+**Reason**: Spec 014 — critical gap where the user had no way to correct false-negative merges that fall outside the candidate threshold window.
+
+### 2026-04-22 [DOCS]
+**Files**: `specs/014-force-merge/spec.md`, `specs/011-ml-model-expansion/spec.md`, `docs/FEATURE_REQUESTS.md`
+**Change**: Extracted "force merge for non-candidate clusters" from spec 011 US3 into standalone spec 014
+**Reason**: Feature has no ML dependency — bundling it in spec 011 was misleading and delayed it
+
+### 2026-04-22 [FEATURE]
+**Files**: `face_cluster/types.py`, `face_cluster/quality.py`, `face_cluster/pipeline.py`, `face_cluster/exemplars.py`, `face_cluster/embedding.py`, `face_cluster/export.py`, `face_cluster/loader.py`, `face_cluster/merge.py`, `face_cluster/manual_merge_snapshot.py`, `face_cluster/analysis_views.py`, `face_cluster/__init__.py`, `app/face_clustering.py`, `tests/face_clustering/test_types.py`, `tests/face_clustering/test_quality.py`, `tests/face_clustering/test_export.py`, `tests/face_clustering/test_manual_merge_snapshot.py`
+**Change**: Spec 012 — Pipeline Run Observability implemented (phases 1–6)
+**Details**:
+- Phase 1: `GateResult`, `QualityVerdict`, `ClusterOrigin`, `ClusterMetadata` added to `types.py`; `FaceRecord` extended with `quality_verdict`, `rejection_reason`, `det_score`, `d10_score`.
+- Phase 2: `QualityGater.select_core_set()` returns per-face verdicts; `quality_config.json` written per run; `quality_summary` (rejected-per-gate, near-threshold counts) merged into `pipeline_run.json`.
+- Phase 3: `det_score` captured from InsightFace detector; `d10_score` from D10ExemplarSelector (node_d10_map returned alongside ClusterResult, assigned to faces in `_select_exemplars`).
+- Phase 4: `faces.csv` gains `det_score`, `d10_score`, `quality_rejection_reason`, `quality_<gate>_value/pass` columns. `clusters.csv` gains `origin`, `parent_cluster_ids`. `clusters_stage_base.csv` snapshot before merge. `merge_metadata.json` extended with `merge_exemplar_threshold`/`merge_candidate_threshold`. Manual-merge snapshot writes `origin="manual_merge"` with parent IDs. Loader reads new columns with backward-compat defaults.
+- Phase 5: `_render_quality_report()` helper added to `app/face_clustering.py`; wired into Face Analysis tab.
+- Phase 6: `_render_cluster_provenance()` helper added; wired into Cluster Analysis tab.
+- 50 unit tests passing. Callers of `select_exemplars()` updated for new return signature.
+**Reason**: SIGHTING-022 (quality gating opaque) and SIGHTING-024 (no cluster provenance) — pipeline stages computed rich decisions but discarded them.
+
+### 2026-04-22 [DOCS]
+**Files**: `specs/012-pipeline-observability/{spec.md, plan.md, tasks.md}`, `specs/013-run-history-annotations/OUTLINE.md`, `CHANGES_LOG.md`
+**Change**: Migrated History-tab display scope out of spec 012 and into spec 013 to eliminate overlap between the two specs. Spec 012 now only **persists** the per-run data (`quality_summary` dict in `pipeline_run.json`, extended `merge_metadata.json`, cluster provenance); spec 013 **consumes** and renders that data in the new History tab. Spec 012 US4 removed; FR-009 rewritten as a data contract; Phase 6 narrowed to cluster-provenance UI only; task count reduced from 42 → 39. Spec 013 gained new goal G8 and user story US8 (Run Summary dashboard) with explicit spec-012-first dependency.
+**Reason**: Both specs originally redesigned `render_history_tab()`. Implementing them in sequence would have caused double refactoring. Clean split (012 = data producer, 013 = cross-run UI consumer) makes each spec self-contained.
+
+### 2026-04-22 [DOCS]
+**Files**: `docs/SIGHTINGS.md`, `docs/LEARNINGS.md`, `specs/013-run-history-annotations/OUTLINE.md`
+**Change**: Filed SIGHTING-025 (Apply + Remerge silently overwrites sibling run directory). Added two LEARNING entries: (a) Apply + Remerge with relaxed config absorbed noise into mega-cluster in `Noa2_5_1`; (b) run directory naming collides across sessions. Drafted spec 013 outline (Run History, Annotations & Diff) covering album-grouped searchable history, run/cluster annotations, parent pointer + config diff in headers, cluster size-delta warnings, run-to-run diff view, overwrite protection, and persistent identity labels.
+**Reason**: Investigation of a concrete case (`Noa2_5_1/merge_remerge_1` cluster 1 = 343 faces) showed spec 012's per-run observability does not cover cross-run understanding. The user approved legitimate merges but the subsequent remerge with loose thresholds silently absorbed ~160 foreign noise faces — invisible without config diff and size-delta tooling.
+
+### 2026-04-22 [DOCS]
+**Files**: `specs/012-pipeline-observability/{spec.md, plan.md, research.md, data-model.md, tasks.md, checklists/requirements.md}`, `.specify/feature.json`
+**Change**: Completed spec-kit artifacts for spec 012 Pipeline Run Observability (unifies SIGHTING-022 and SIGHTING-024).
+**Reason**: Three sightings share one root cause — pipeline stages compute rich per-face/per-cluster decisions but discard them. Plan covers quality verdicts on faces.csv, cluster origin + parent_cluster_ids on clusters.csv, `clusters_stage_base.csv` snapshot, `quality_config.json`, `det_score` and `d10_score` capture (already computed, previously dropped), extended `merge_metadata.json`, and UI panels in Face Analysis, Cluster Analysis, and History tabs. Seven phases, 42 tasks, backward-compat loader guarantees for legacy runs.
+
+### 2026-04-22 [DOCS]
+**Files**: `GEMINI.md`
+**Change**: Created `GEMINI.md` with foundational mandates for Gemini CLI
+**Reason**: To ensure Gemini CLI follows the same rigorous engineering standards, spec-kit workflow, and project rules as established for Claude Code.
+
+### 2026-04-22 [BUGFIX]
+**Files**: `app/face_clustering.py`
+**Change**: SIGHTING-023 — Added "Show all exemplars" toggle to cluster views
+**Reason**: Exemplar grid was hard-capped at 5 in both the shared cluster view renderer and the Cluster Analysis tab. Large clusters couldn't be audited. Now shows a checkbox "Show all N exemplars" when more than 5 exist, rendering in rows of 5.
+
+### 2026-04-22 [DOCS]
+**Files**: `docs/SIGHTINGS.md`
+**Change**: Filed SIGHTING-022 (opaque quality gating — missing per-face criteria/thresholds, e.g. Cluster 8 in `Noa2_5_1/merge_remerge_1`), SIGHTING-023 (exemplar view truncates — need "Show all exemplars" option), SIGHTING-024 (no cluster provenance/history — cannot tell if a large cluster came from base clustering, auto-merge, manual merge, or remerge; no split/undo).
+**Reason**: Issues reported by user while auditing `D:\sim-bench\results\Noa2_5_1\merge_remerge_1`.
+
+### 2026-04-21 [FEATURE] spec-010 ML Merge Interface (T001-T035)
+**Files**: `face_cluster/analysis_views.py`, `app/face_clustering.py`, `tests/face_clustering/test_merge_analysis.py`, `tests/face_clustering/test_streamlit_app.py`
+**Change**: Implemented spec-010 ML Merge Interface — three-state decision model + ML model as merge proposer
+**Details**:
+- **Phase 2 (Foundational)**: Added `ml_prob`/`ml_pred` fields to `MergeDecisionRow`; `ml_threshold`/`pair_features` to `MergeAnalysisView`. Implemented `compute_ml_merge_view()` (feature compute → ML predict → group → return view with probability-to-gate mapping) and `compute_pair_feature_contributions()` (top-3 feature contributions; exact for LR, proxy for XGBoost/MLP). 10 new unit tests (ut_MLMergeView, ut_FeatureContributions).
+- **Phase 3 (US1 — Three-State)**: All pairs now start Undecided (absent from `merge_approval_decisions`). Added `merge_decision_sources` session state tracking "human" vs "ml" source per decision. Removed auto-pre-fill from `_prefill_approval_decisions`. Split "Smart Approve" into separate Smart Approve (only `auto_approve` groups) and Smart Reject (only `auto_reject` groups). Three-state summary bar (Approved/Rejected/Undecided `st.metric()` columns). Apply + Remerge gated on `n_approved >= 1`. `_save_merge_features_if_available` filters to `source=="human"` only (training data discipline). Session step metadata includes `n_approved_human`, `n_approved_ml`, `n_rejected_human`, etc. 5 new streamlit app tests.
+- **Phase 4 (US2 — ML Mode)**: Mode selector radio ("Heuristic / ML Model") at top of Merge Analysis tab. ML controls: model dropdown, threshold slider, wider candidates checkbox, Apply threshold button. Async prediction worker (`_AsyncState`) calls `compute_ml_merge_view`; pre-fills decisions with source="ml" (borderline → Undecided); human decisions not overwritten. Probability badges on pair cards (green/amber/red, `[MERGE: 85%]` format). ML detail section in expanded pair: `prob=X (threshold=Y)`, feature contributions 3-row table, heuristic gate reference. ML Probability Overview Panel: model metadata, histogram (color-coded), merge/reject/borderline counts, low-separation warning (variance < 0.1). ML Training tab "Open in Merge Analysis" button. Per-pair features stored in `st.session_state.ml_pair_features`.
+
+### 2026-04-21 [FEATURE]
+**Files**: `face_cluster/session_manager.py` (new), `face_cluster/chain_executor.py` (new), `face_cluster/__init__.py`, `app/face_clustering.py`, `tests/face_clustering/test_session_manager.py` (new), `tests/face_clustering/test_chain_executor.py` (new)
+**Change**: Spec-009 Session Operation Pipeline — session/chain data model + app integration
+**Details**:
+- `session_manager.py`: `Session`, `Chain`, `Step` dataclasses + `SessionManager` (create/load/append_step/pending_labels/branch). Atomic JSON writes. 23 tests, all passing.
+- `chain_executor.py`: `ChainExecutor.execute_chain_from()` re-executes chain steps for branching use case. Handles cluster/recluster/merge/remerge step types. Labels stored in `labels.json` per step. 10 tests.
+- `app/face_clustering.py`: Run tab now writes to `<session_root>/base/`, creates session + chain_01 on success. Merge tab adds "Apply Only" button (accumulates labels) and "Apply + Remerge" consumes all pending labels before materializing step. Recluster tab appends recluster step to chain. Sidebar chain pipeline panel. Session restored on startup from `session_root` in session_state.
+- `face_cluster/__init__.py`: Removed session_manager exports (kept __init__.py clean per spec-009 rule).
+
+### 2026-04-20 [BUGFIX]
+**Files**: `face_cluster/manual_merge_snapshot.py`, `face_cluster/loader.py`, `app/face_clustering.py`, `tests/face_clustering/test_manual_merge_snapshot.py`
+**Change**: Fixed "approve merge → returns to Rejected" bug; improved Merge Analysis UX
+**Root Cause**: `save_manual_merge_snapshot` wrote `faces.csv` using the ConservativeMerger cluster state but never applied the user's `approved_pairs` to actually merge those clusters. The remerge pipeline then loaded this unchanged state, ran ConservativeMerger again, and rejected the same pairs → user's approvals had no effect.
+**Fix**:
+- `manual_merge_snapshot.py`: Added `_merge_cluster_assignments()` and `_merge_exemplars()` helpers; snapshot now applies approved_pairs via union-find before writing `faces.csv` / `clusters.csv`. Summary now includes `n_manual_merges`.
+- `loader.py`: Promotes `mode`, `source_run`, `source_type`, `config` from top-level `pipeline_run.json` into `summary` so they're accessible via `result.summary`.
+- `app/face_clustering.py`: Added `_render_merge_run_provenance()` — shows a clear info bar when viewing a remerge/snapshot result. "Select run to analyse" dropdown moved inside a collapsed "Load a different run" expander so it doesn't dominate the page.
+- 12 snapshot tests updated to assert approved_pairs are applied (was asserting the broken behavior).
+
+### 2026-04-20 [FEATURE]
+**Files**: `face_cluster/merge.py`, `face_cluster/analysis_views.py`, `app/face_clustering.py`, `tests/face_clustering/test_merge_analysis.py`
+**Change**: SIGHTING-021 — Transitive merge grouping + Smart Auto-Approve (spec 008)
+**Details**:
+- `merge.py`: Added `CandidateGroup` dataclass and `group_merge_candidates()` — pure algorithm function using union-find to build connected components from candidate pairs, then classify each group as `auto_approve` / `review` / `auto_reject` based on gate counts and component cohesion (fraction of 4/4-gate pairs). Cohesion >= 80% with min_gates >= 3 promotes borderline groups to auto_approve.
+- `analysis_views.py`: Added `MergeGroup` wrapper (attaches MergeDecisionRow data to CandidateGroup for rendering). Added `_build_merge_groups()`. Extended `MergeAnalysisView` with `merge_groups`, `n_auto_approve`, `n_review`, `n_auto_reject` fields.
+- `face_clustering.py`: Added "Smart Approve" button (auto-resolves all non-review groups in one click). Added group summary line showing tier counts. Added `_render_grouped_merge_gallery()` — group-level cards with expand-to-pairs. Added `_render_merge_gallery()` dispatch with group/flat toggle. Smart pre-fill on view load (auto_approve → "approve", auto_reject → "reject", review → unset). Renamed `_render_unified_merge_gallery` → `_render_flat_merge_gallery`.
+- 12 new unit tests; all 106 face_clustering tests pass.
+**Reason**: Austria24_2 dataset produced 226 merge pairs across 23 pages. Transitive grouping + confidence tiering reduces this to ~5-10 review groups (95%+ reduction).
+
+### 2026-04-18 [BUGFIX]
+**Files**: `face_cluster/pipeline.py`, `face_cluster/merge.py`, `app/face_clustering.py`
+**Change**: Fix three user-reported issues
+1. **Merge stage crash on remerge ("Stage 'merge': 1")**: `_load_source_remerge` set `cluster_stats={}` but merge stage accesses `cluster_stats[cluster_id]`. Fixed by computing cluster_stats from the distance matrix, and making merge.py use `.get()` defensively.
+2. **Recluster tab stale temp path**: Output dir text_input cached old value via Streamlit widget key; if source run was in a temp dir, the output path became temp too. Fixed by resetting `rc_output_dir` when source run changes, and falling back to `results/` for temp-dir sources.
+3. **Run tab merge_enabled without config controls**: Added `_render_merge_params(key_prefix="run_")` expander in Run tab when merge_enabled is checked. Also cleaned up `_render_merge_params()` — removed 5 phantom fields (`merge_use_adaptive_threshold`, `merge_exemplar_percentile`, `merge_global_percentile`, `merge_threshold_alpha`, `merge_threshold_beta`) that don't exist in PipelineConfig.
+
+### 2026-04-18 [BUGFIX]
+**Files**: `tests/face_clustering/conftest.py` (new)
+**Change**: Add session-scoped autouse fixture to isolate face_clustering tests from production DB
+**Reason**: All pipeline E2E tests wrote to `~/.sim_bench/sim_bench.db`, polluting the app History tab with 200 stale pytest temp-dir entries (e.g. "remerged", "remerged_ex"). Conftest patches `run_history_db.get_db_path` to a temp DB; `test_pipeline_history_hook.py`'s per-test monkeypatch correctly overrides this. Also deleted the 200 stale entries from the real DB.
+
+### 2026-04-18 [TEST]
+**Files**: `tests/face_clustering/test_merge_analysis.py`, `tests/face_clustering/test_streamlit_app.py`, `docs/SIGHTINGS.md`
+**Change**: Fix 3 pre-existing/regressed test failures found during full suite run
+- `test_merge_analysis.py`: removed `merge_use_adaptive_threshold` param (was removed from PipelineConfig) from two tests; updated names to reflect current design
+- `test_streamlit_app.py`: `test_list_available_runs_filters_complete_only` updated to use `unittest.mock.patch` on `run_history_db.list_actions` (function now queries DB, not filesystem); removed `sys.path.insert` anti-pattern
+- Filed SIGHTING-020 for pre-existing design conflict: `test_heuristic_pose_never_gates` vs hardcoded `apply_pose_angles=True` in quality.py
+- Resolved/updated status of SIGHTING-009 (Unicode fix confirmed), SIGHTING-010 (core index mapping fix confirmed), SIGHTING-011 (port fix confirmed), SIGHTING-019 (iterative merge implemented)
+
+### 2026-04-17 [FEATURE]
+**Files**: `face_cluster/config.py`, `face_cluster/pipeline.py`, `face_cluster/manual_merge_snapshot.py` (new), `face_cluster/__init__.py`, `app/face_clustering.py`, `tests/face_clustering/test_manual_merge_snapshot.py` (new), `tests/face_clustering/test_pipeline_remerge.py` (new), `tests/face_clustering/test_pipeline_e2e.py`
+**Change**: Config-driven pipeline + iterative manual merge (spec 007)
+- `PipelineConfig` extended with `stages`, `source_dir`, `output_dir`, `on_progress` fields and preset factories `full_run()`, `recluster()`, `remerge()`
+- `FaceClusteringPipeline.run()` now accepts a single `PipelineConfig`; source loaders (`_load_source_recluster`, `_load_source_remerge`) handle all entry points generically
+- `save_manual_merge_snapshot()` writes a self-contained directory that `pipeline.run(PipelineConfig.remerge(...))` can consume; logs `manual_merge` action to DB
+- Apply Approved Merges button now saves a snapshot then launches an async remerge pipeline run; on completion the result replaces `pipeline_result` and merge decisions reset
+- History tab now shows Manual Merge and Remerge run types with human-readable labels
+- `_render_next_round_section` (old in-memory iterative loop) removed
+- 12 snapshot contract tests + 8 remerge E2E tests added; all passing
+**Reason**: Iterative manual merge required a persistent, auditable loop — snapshot → remerge → fresh candidates — rather than an in-memory one-shot application
+
+### 2026-04-17 [TEST]
+**Files**: `tests/face_clustering/test_pipeline_e2e.py`
+**Change**: Updated `test_produces_three_clusters` → `test_produces_one_cluster_per_qualified_person` and `test_all_persons_represented` → `test_all_qualified_persons_represented`
+**Reason**: 2 of person_2's test images have poses outside production quality gate thresholds (roll=35.8°, yaw=-30.3°), leaving only 1 core face — which cannot cluster (min_cluster_size=2). Assertions now check "one cluster per person with ≥ 2 core faces" which is the correct invariant.
+
+### 2026-04-17 [BUGFIX]
+**Files**: `app/face_clustering.py`
+**Change**: Remove duplicate `start_action`/`complete_action`/`fail_action` calls and `_record_pipeline_complete` helper from the app layer. `face_cluster/pipeline.py` already handles the full DB lifecycle internally.
+**Reason**: Every pipeline_run and recluster was writing two rows to `run_history_db`, causing duplicate entries in the History tab.
+
+### 2026-04-17 [BUGFIX]
+**Files**: `app/face_clustering.py`
+**Change**: Record `pipeline_run` and `recluster` actions to `run_history_db` when they start/complete/fail
+**Reason**: Pipeline runs were never written to the DB, so the History tab always showed an empty list. Added `start_action` before `_AsyncState.start()` and `complete_action`/`fail_action` in the worker done/error blocks. Backfilled `Austria_24` run via `upsert_run`.
+
+### 2026-04-17 [FEATURE]
+**Files**: `face_cluster/run_history_db.py` (new), `face_cluster/pipeline.py`, `face_cluster/profile_store.py`, `face_cluster/ml_trainer.py`, `app/face_clustering.py`, `scripts/migrate_runs_to_db.py` (new), `tests/face_clustering/test_run_history_db.py` (new), `tests/face_clustering/test_pipeline_history_hook.py` (new), `tests/face_clustering/test_history_tab_data.py` (new)
+**Change**: Persistent action log for all user-initiated face-clustering operations
+- New `action_log` table in `~/.sim_bench/sim_bench.db` records every pipeline_run, recluster, merge_apply, profile_save, ml_train, model_load with status, timing, config, metrics, error, and log_file path
+- Pipeline hooks in `_init_context` / `_build_result` / `_finalize` write start/complete/fail rows automatically
+- History tab rewritten to read exclusively from DB; adds Recent Actions panel and inline log viewer per run
+- `scripts/migrate_runs_to_db.py` back-fills existing `results/` runs (idempotent)
+- 8 DB unit tests + 3 pipeline hook tests + 4 history tab data tests, all passing
+**Reason**: Users had no persistent audit trail of what ran, when it ran, or why it failed — debugging required navigating raw output directories
+
+### 2026-04-17 [BUGFIX]
+**Files**: `app/face_clustering.py`
+**Change**: Fixed history-load hijack and recluster button UX
+- `_AsyncState` gains `started_at`, `ended_at`, and `elapsed_s()` for timing display
+- `recluster_promoted_dir` session key tracks which recluster result has been promoted; stale done-worker no longer overwrites a History-loaded `pipeline_result`
+- Recluster in-progress banner shows elapsed time and output dir; done state shows time taken, face count, output path, and log file path; log expander auto-opens after completion
+- Added `_latest_log_file()` helper to surface the run log file path in the UI
+**Reason**: (1) Stale recluster done-worker was silently hijacking History-loaded runs on every rerun. (2) Users had no visibility into what recluster was doing or where output went.
+
+### 2026-04-17 [FEATURE]
+**Files**: `face_cluster/merge.py`, `face_cluster/profile_store.py` (new), `face_cluster/__init__.py`, `app/face_clustering.py`
+**Change**: Three merge UX PRDs implemented
+- **PRD 1 — Iterative merge re-evaluation**: `propose_merge_candidates` extracted as public module-level function. After "Apply Approved Merges", new candidates are proposed on the merged result and shown as a "Round N Candidates" section with approve/reject controls. Repeats until stable.
+- **PRD 2 — Merge params always visible**: Removed `if rc_merge:` gate. Merge Parameters expander is always rendered in the Recluster tab (auto-expands when merge_enabled is checked). Users can view/pre-configure `merge_support_frac`, `merge_support_min`, `merge_margin`, `merge_diameter_expansion_factor` without enabling merge first.
+- **PRD 3 — Persist parameter defaults**: New `ProfileStore` dataclass saves/loads named profiles to `~/.sim_bench/profiles/<name>.json`. Recluster tab has load-profile bar at top and save-profile/save-as-default bar at bottom. Default profile auto-loads on app start.
+**Reason**: User reported missing transitive merges, hidden safety params, and session-loss of tuned parameters.
+
+### 2026-04-17 [FEATURE]
+**Files**: `face_cluster/ml_trainer.py` (new), `face_cluster/training_db.py`, `app/face_clustering.py`, `tests/face_clustering/test_ml_trainer.py` (new)
+**Change**: ML Training Dashboard — spec 006 Phase 1 implementation.
+- `ml_trainer.py`: `MergeTrainer` class with `TrainConfig`/`TrainResult` dataclasses; supports LR, XGBoost (optional), MLP; `train()`, `predict()`, `save_model()`, `load_model()`; feature group selection; by-run split strategy
+- `training_db.py`: Extended with `trained_models` table, `save_model_record()`, `load_model_records()`, `update_label()`
+- App: "Training Data" tab renamed to "Labeling Review" (extended with audit table + disagreement flags + inline label flip + active labeling suggestions); new "ML Training" 10th tab (dataset config, model/feature config, async training, results panel, save/load, apply to current run)
+- 14 new unit tests; 21/21 tests passing
+**Reason**: Spec 006 — enable no-code model training and label auditing from the Streamlit UI.
+
+### 2026-04-16 [FEATURE]
+**Files**: `face_cluster/training_db.py` (new), `app/face_clustering.py`, `tests/face_clustering/test_training_db.py` (new)
+**Change**: ML training data — central SQLite storage + Training Data dashboard tab (spec 005 extension).
+- `training_db.py`: thin sqlite3 wrapper — `upsert_training_samples`, `load_training_data`, `training_data_summary`; table `merge_training_data` in `~/.sim_bench/sim_bench.db`
+- `_save_merge_features_if_available`: now also upserts to central DB with `output_dir` and `exemplar_ids` for crop drill-down
+- New "Training Data" 9th tab: summary metrics, readiness indicator, per-run breakdown, label distribution chart, feature histograms, pair inspector with thumbnails, CSV/Parquet export
+- 7 unit tests; 26/26 total feature tests passing
+**Reason**: Scattered per-run parquets were not queryable across runs; central DB enables classifier training.
+
+### 2026-04-14 23:30:00 [FEATURE]
+**Files**: `app/face_clustering.py`
+**Change**: Cluster Gallery UX (spec 004) — replaced dataframe+selectbox+button pattern with `_render_cluster_gallery()` in Clusters (Base) and Clusters (Merged) tabs. Each cluster shows 3 exemplar thumbnails, stats, and an expand/collapse toggle for the full detail view.
+**Reason**: Feature request — browsing clusters required select-then-navigate; now all clusters are visible at once.
+
+### 2026-04-14 23:30:00 [BUGFIX]
+**Files**: `app/face_clustering.py`
+**Change**: Merge Analysis tab no longer auto-loads a pipeline result on first render; requires explicit "Load run" button click.
+**Reason**: Auto-load triggered a cascade of 26 `st.rerun()` calls (each tab starting async workers), causing 28s startup and test timeout. Root cause: `need_load` was always true on initial render when `pipeline_result` is None.
+
+### 2026-04-14 17:00:00 [FEATURE]
+**Files**: `face_cluster/features/__init__.py`, `face_cluster/features/distance.py`, `face_cluster/features/geometry.py`, `face_cluster/features/source_images.py`, `face_cluster/features/quality.py`, `face_cluster/features/context.py`, `face_cluster/features/graph.py`, `face_cluster/export.py`, `face_cluster/__init__.py`, `app/face_clustering.py`, `tests/face_clustering/test_features_v3.py`, `tests/face_clustering/test_merge_features_contract.py`
+**Change**: ML merge features V3 — converted features.py into a package of focused sub-modules; added MergeFeatureContext container, ClusterPairFeatures V3 (~40 fields), FeatureComputer orchestrator, parquet persistence, UI wiring, 19 tests (all passing)
+**Reason**: Foundation for training a merge classifier from human-labeled decisions. Features computed once after clustering; saved alongside labels on user save.
+
+### 2026-04-14 16:30:00 [DOCS]
+**Files**: `specs/005-ml-merge-features/plan.md`, `docs/ML_CLUSTER_MERGING.md`
+**Change**: Simplified implementation plan; added mirror edge case note to spec
+**Reason**: Reduced to 2 files (features.py, export.py) + UI wiring. Corrected flow: features computed after base clustering, not at save time. Deferred training/classifier modules until labeled data exists.
+
+### 2026-04-14 16:00:00 [DOCS]
+**Files**: `docs/ML_CLUSTER_MERGING.md`
+**Change**: Created ML-based cluster merging spec document
+**Reason**: Design doc for replacing gate-based merge heuristics with a trained classifier. Includes literature review, comprehensive feature catalog (~50 features in 9 groups), collection spec, and classifier design.
+
+---
+
 ## Format Guidelines
 
 Each entry should include:
@@ -10,6 +722,116 @@ Each entry should include:
 - **Files**: List all modified files
 - **Change**: Brief description (1-2 sentences)
 - **Reason**: Why this change was needed
+
+### 2026-04-14 [BUGFIX] Remove stale "Threshold distribution" section from Merge Analysis
+
+**Files**: `app/face_clustering.py`
+
+**Change**: Replaced `_render_threshold_distribution()` body with a no-op. The section referenced `cluster_thresholds`, `global_threshold`, `merge_threshold_alpha/beta` — all from the adaptive threshold system removed in a prior sprint. New runs never populate these fields so the section always showed a misleading "not available" info message.
+
+### 2026-04-14 [BUGFIX] Manual merge result not visible in Clusters (Merged) tab (SIGHTING-018)
+
+**Files**: `app/face_clustering.py`
+
+**Change**: Clusters (Merged) tab now checks `merge_approval_result` in session state first. When set, it uses the manually approved `ClusterResult` and shows a banner. Apply button also resets the merged tab workers so they recompute for the new result.
+
+**Root cause**: `merge_approval_result` was computed and stored in session state but never read by the Clusters (Merged) tab.
+
+### 2026-04-14 [BUGFIX] apply_manual_merges IndexError — distance matrix indexed by core position, not face ID
+
+**Files**: `app/face_clustering.py`
+
+**Change**: `_get_distance_matrix` was building a (705×705) matrix from core faces only (positional 0-based), but cluster nodes store original face list indices (up to 708). Fixed to build a full (N×N) matrix over all faces so face IDs map directly to row/column indices.
+
+**Root cause**: Core-only filter made matrix row 0 = first core face, not face_id 0. Non-core faces hold gaps in the face ID space, making core-only index always wrong for runs with any quality-gated faces.
+
+### 2026-04-14 [FEATURE] Unified Merge Decision Gallery
+
+**Files**: `app/face_clustering.py`
+
+**Change**: Replaced four separate Merge Analysis sections (All Merge Decisions table, Near Misses, Merged Pairs, Rejected Candidates) with a single `_render_unified_merge_gallery()`. Each decision now shows face crops inline with 4 gate badges (PASS/FAIL with values) and approve/reject buttons. Adds filter (All/Merged/Rejected/Near Misses/Contested), sort (exemplar distance, gates passed), and pagination (10/page). Spec: `specs/003-unified-merge-gallery/`.
+
+**Reason**: "All Merge Decisions" had no images; users had to scroll between table and galleries to evaluate decisions. Unified view provides full context (faces + metrics) in one place.
+
+### 2026-04-12 [FEATURE] Embed cache for FaceClusteringPipeline
+
+**Files**: `face_cluster/cache.py` (new), `face_cluster/config.py`, `face_cluster/pipeline.py`, `app/face_clustering.py`, `tests/face_clustering/test_embed_cache.py` (new)
+
+**Change**: Added transparent embed cache that skips InsightFace inference on subsequent runs with the same image directory. Cache stored in `{output_dir}/.embed_cache/` (faces_cache.pkl + cache_meta.json). Invalidated automatically when any image is added/removed/modified (SHA-256 fingerprint). Atomic write (temp-dir rename) prevents corruption. UI shows cache status + "Clear cache" button in Run tab pipeline config panel.
+
+**Reason**: Full `pipeline.run()` takes 2–10 minutes; ~85–90% is the embed stage. Users iterate on clustering params without changing images — this makes re-runs near-instant.
+
+---
+
+### 2026-04-10 [FEATURE] Redesign All Merge Decisions table — show actual/threshold/delta per gate
+**Files**: `app/face_clustering.py`, `face_cluster/merge.py`, `face_cluster/analysis_views.py`
+**Change**: Replaced cryptic PASS/FAIL columns with per-gate `actual / threshold (delta)` strings. Each of the 4 gates (Exemplar, Support, Margin, Diameter) now shows the measured value, the allowed threshold, and a signed delta showing how far above/below. Color intensity scales with distance from threshold. Added `merge_margin` config to `merge_metadata` so the Margin gate can display its required threshold. Fixed `Styler.applymap` deprecation warning.
+**Reason**: Repeated user feedback that the table was unreadable — couldn't tell why a pair was rejected or how close marginal pairs were to passing.
+
+### 2026-04-10 [FEATURE] Merge criteria transparency — numeric Margin detail + in-app reference doc
+### 2026-04-12 [FEATURE] Interactive Merge Approval UI + ML Merge Classifier foundation
+
+**Files**: `face_cluster/config.py`, `face_cluster/merge.py`, `face_cluster/pipeline.py`, `face_cluster/export.py`, `face_cluster/loader.py`, `face_cluster/__init__.py`, `app/face_clustering.py`, `tests/face_clustering/test_merge.py`, `tests/face_clustering/test_export.py`, `specs/002-interactive-merge-approval/`
+
+**Change**:
+1. **Simplified merger** — dropped adaptive per-cluster threshold system (5 config fields: `merge_use_adaptive_threshold`, `merge_exemplar_percentile`, `merge_global_percentile`, `merge_threshold_alpha`, `merge_threshold_beta`). Merger now uses a single fixed `merge_exemplar_threshold`. Removes ~100 lines of opaque adaptive logic.
+2. **`apply_manual_merges()`** — new public function: takes base `ClusterResult` + approved `(cluster_a, cluster_b)` pairs + distance matrix → returns new `ClusterResult` with union-find transitivity. Exported from `face_cluster` public API.
+3. **`merge_decisions.json`** — new artifact schema (writer-owns-contract in `export.py`). `save_merge_decisions()` / `load_merge_decisions()` functions added. `PipelineResult.merge_decisions` field added. Loader auto-loads on run load.
+4. **Merge Approval UI** — in Merge Analysis tab: per-candidate Approve/Reject buttons, pre-populated from heuristic; "Accept all heuristic" / "Reset all" bulk actions; tally (approved / rejected / unreviewed); "Apply Approved Merges" button applies from base clusters (not heuristic result); inline cluster count delta + size table; "Save Decisions" writes `merge_decisions.json`; contested candidates (1–3 gates passing) sorted first; "Show contested only" filter toggle. Decisions reload from file on next app open.
+
+**Reason**: Interactive approval gives immediate value (correct merges per run), dual-purposes as ML training data collection, and simplification makes the heuristic baseline cleaner and easier to compare against a future ML classifier.
+
+---
+
+**Files**: `face_cluster/merge.py`, `face_cluster/analysis_views.py`, `app/face_clustering.py`, `docs/merge_criteria_reference.md`
+**Change**: Margin gate now logs numeric values (`margin_gap`, `dist_to_b`, `competitor_dist`, `competitor_id`) instead of a bare bool. All Merge Decisions table gains `margin_gap` column. A collapsible "Merge Criteria Reference" expander at the top of Merge Analysis renders `docs/merge_criteria_reference.md` with per-gate value-vs-threshold formulas and a Jaccard comparison.
+**Reason**: Margin was the only gate with no numeric feedback — users couldn't tell how far off they were or which config to relax.
+
+### 2026-04-10 [FEATURE] Persist image/output directories + expand parameter ranges
+**Files**: `app/face_clustering.py`
+**Change**: (1) Image directory and output directory in Run tab now persist their last-used values across reruns via `st.session_state.last_image_dir/last_output_dir` — no more retyping. (2) Expanded slider ranges: K 1→100, distance_threshold 0.01→1.0, min_cluster_size 1→50, N_exemplars_max 1→100, d10_threshold 0.01→1.0, suppression_radius 0.01→1.0, blur_min 0→500, max_faces 1→50, merge_candidate/exemplar_threshold 0.01→1.5, merge_support_min 0→50, merge_margin 0→1.0, merge_diameter_factor 1→10. Applied to both Run and Recluster tabs.
+**Reason**: Users shouldn't have to retype paths on every run; parameter ceilings were artificially low for experimentation.
+
+### 2026-04-09 [DOCS] Comprehensive face clustering algorithm documentation
+**Files**: `docs/face_clustering_algorithm.html`
+**Change**: Created self-contained HTML document covering the entire face clustering pipeline: detection, quality gating, kNN graph construction, connected components clustering, exemplar selection, cluster splitting, 4-gate merge algorithm (with formulas), noise attachment, and export. Includes visual pipeline flow, formula boxes, gate cards, and complete parameter reference table with tuning guidance.
+**Reason**: User requested documentation at a level that someone unfamiliar with the system can fully understand the algorithm, thresholds, and tuning.
+
+### 2026-04-09 [BUGFIX] Merge Analysis tab: add run selector and fix gate display
+**Files**: `app/face_clustering.py`
+**Change**: (1) Added run selector dropdown at top of Merge Analysis tab, filtered to runs with merge_log.json. Uses `_list_available_runs()` + file existence check. (2) Replaced cryptic "E,S,M,D" gate abbreviations in decisions table with 4 explicit columns ("Exemplar", "Support", "Margin", "Diameter") showing "PASS"/"FAIL" with green/red color styling.
+**Reason**: User review found: no way to select which run to analyze, and gate pass/fail indicators were unclear.
+
+### 2026-04-09 [DOCS] CLAUDE.md improvements
+**Files**: `CLAUDE.md`
+**Change**: Removed hardcoded stale sighting IDs from init checklist; fixed all Common Commands to use `.venv/Scripts/` prefix; added `recluster()` to public API description; expanded module descriptions for export.py/loader.py/merge.py; added 8-tab structure to face_clustering.py entry point; added 3 new debugging tips (widget state, merge troubleshooting, PyArrow).
+**Reason**: `/init` review identified stale references and missing documentation for recent features.
+
+### 2026-04-09 [FEATURE] Merge Analysis tab — gate bottleneck analysis, threshold distribution, near-miss gallery
+**Files**: `face_cluster/merge.py`, `face_cluster/export.py`, `face_cluster/pipeline.py`, `face_cluster/loader.py`, `face_cluster/analysis_views.py`, `face_cluster/__init__.py`, `app/face_clustering.py`, `tests/face_clustering/test_merge_analysis.py`
+**Change**: Replaced "Merge Comparison" tab with "Merge Analysis" tab featuring 8 sections: summary metrics, gate bottleneck bar chart, adaptive threshold distribution, enriched all-decisions table, near-miss gallery, merged/rejected pair galleries, absorbed clusters mapping. Added T_a/T_b/T_global to merge_log entries; export/load merge_metadata.json; enriched MergeDecisionRow with all gate pass/fail fields; added MergeAnalysisView with gate_rejection_counts/sole_blocker_counts/near_misses; fixed stale-state bug in _invalidate_run_caches (widget keys cleared on run load).
+**Tests**: 10 new tests covering threshold components, metadata round-trip, backward compat, gate counts, near-misses, old-format log parsing.
+
+### 2026-04-08 [FEATURE] New Recluster tab with full merge parameter controls
+**Files**: `app/face_clustering.py`
+**Change**: Added dedicated Recluster tab (tab 2). Includes source run dropdown, full merge parameter controls (alpha, beta, exemplar_percentile, global_percentile, support_frac, support_min, margin, diameter_expansion_factor, candidate/exemplar thresholds), merge criteria reference, and async worker with auto-load. Removed old recluster expander from Run tab.
+**Reason**: Users needed to tune merge thresholds to get more than 1 merge on 102 clusters. All thresholds were hardcoded to defaults with no UI control.
+
+### 2026-04-08 [FEATURE] Merge threshold: independent alpha/beta weights
+**Files**: `face_cluster/config.py`, `face_cluster/merge.py`
+**Change**: Replaced `alpha * T_local + (1-alpha) * T_global` with `alpha * T_local + beta * T_global`. Added `merge_threshold_beta: float = 0.3` to `PipelineConfig`. Both weights can be set independently in [0, 2].
+**Reason**: Allows users to independently boost local and global threshold influence without being constrained to sum=1.
+
+### 2026-04-08 [BUGFIX] History tab: ArrowInvalid crash on runs with missing summary
+**Files**: `app/face_clustering.py`
+**Change**: Changed fallback for `faces`/`clusters`/`noise` columns from `"?"` (string) to `None`.
+**Reason**: Recluster runs where `summary` is incomplete had string `"?"` in numeric columns, causing PyArrow serialization failure when rendering the history table. Error was console-only with no in-app feedback.
+
+### 2026-04-08 [BUGFIX] SIGHTING-016: exemplar_face_ids in clusters.csv are graph indices, not face_ids
+**Files**: `face_cluster/export.py`, `tests/face_clustering/test_export.py`, `docs/SIGHTINGS.md`, `docs/LEARNINGS.md`
+**Root Cause**: `export_results()` remapped cluster membership through `core_indices` (lines 52-62) but wrote `cluster_result.exemplars` raw — graph-local node indices (0..n_core-1) instead of actual face_ids. Same bug class as SIGHTING-015.
+**Fix**: Map each exemplar graph-node through `core_indices` then to `faces[idx].face_id` before writing to CSV.
+**Test**: Added `test_exemplar_face_ids_are_actual_face_ids_not_graph_indices` — 5 faces with holdout gaps, asserts exemplar IDs in clusters.csv are real face_ids and members of their cluster.
 
 ### 2026-04-07 [FEATURE] History tab, Run tab, and Nearest Clusters UI improvements
 **Files**: `app/face_clustering.py`
@@ -4345,3 +5167,8 @@ python scripts/export_clustering_data.py --embeddings results/Budapest/embedding
 # With custom output (if needed)
 python scripts/export_clustering_data.py --embeddings results/Budapest/embeddings_*.npy --output custom/path
 ```
+
+### 2026-04-10 [DOCS]
+**Files**: `WORKFLOW.md` (new), `CLAUDE.md`
+**Change**: Added spec-kit workflow document and enforced it via CLAUDE.md gate rules
+**Reason**: Integrated `templates/` and `scripts/` from github/spec-kit; gates in CLAUDE.md now block implementation until spec → plan → tasks artifacts exist

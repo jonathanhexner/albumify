@@ -41,6 +41,7 @@ class PipelineRun(Base):
     current_step = Column(String, nullable=True)
     progress = Column(Float, default=0.0)
     error_message = Column(String, nullable=True)
+    completed_steps = Column(JSON, nullable=True)  # [{step, duration_ms, status}]
 
     created_at = Column(DateTime, default=datetime.utcnow)
     started_at = Column(DateTime, nullable=True)
@@ -73,6 +74,8 @@ class PipelineResult(Base):
 
     step_timings = Column(JSON)
     total_duration_ms = Column(Integer)
+    fc_export_dir = Column(String, nullable=True)  # Face clustering export path for standalone app
+    step_decisions = Column(JSON, nullable=True)  # Per-item decision records from pipeline steps
 
     run = relationship("PipelineRun", back_populates="result")
 

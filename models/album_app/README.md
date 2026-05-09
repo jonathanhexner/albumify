@@ -1,6 +1,6 @@
-# Album App Production Models
+# Albumify Production Models
 
-This folder contains the trained models used by the Photo Album Organization App.
+This folder contains the trained models used by Albumify (the photo album organization app).
 
 ## 📦 Models
 
@@ -30,7 +30,7 @@ This folder contains the trained models used by the Photo Album Organization App
 - Subject matter (what makes photos interesting)
 - Technical execution (depth of field, framing)
 
-**Usage in Album App**:
+**Usage in Albumify**:
 - Weight: **50%** of selection score (biggest factor!)
 - Applied to: Every image in quality assessment stage
 - Replaces: CLIP aesthetic (less accurate)
@@ -62,7 +62,7 @@ This folder contains the trained models used by the Photo Album Organization App
 - Subtle differences (when scores are close)
 - Series-specific factors (e.g., better expression in portrait series)
 
-**Usage in Album App**:
+**Usage in Albumify**:
 - Triggered: When candidates have scores within 5% (tiebreaking)
 - Applied to: Top N candidates in each cluster
 - Replaces: Arbitrary selection based on first candidate
@@ -237,7 +237,7 @@ device: cpu  # or 'cuda' or 'mps'
 
 ## 🎯 Selection Formula
 
-The album app combines models like this:
+Albumify combines models like this:
 
 ```python
 # From sim_bench/album/selection.py

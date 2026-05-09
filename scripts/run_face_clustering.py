@@ -39,11 +39,14 @@ def main():
     parser.add_argument("--max-faces-per-image", type=int, default=3)
     args = parser.parse_args()
 
-    config = PipelineConfig(
+    config = PipelineConfig.full_run(
+        source_dir=args.images,
+        output_dir=args.output,
         distance_threshold=args.distance_threshold,
         blur_min=args.blur_min,
         require_pose=args.require_pose,
         max_faces_per_image_core=args.max_faces_per_image,
+        on_progress=on_progress,
     )
 
     print(f"\nFace Clustering Pipeline")
@@ -51,9 +54,8 @@ def main():
     print(f"  Output:  {args.output}")
     print(f"  Config:  distance_threshold={config.distance_threshold}, blur_min={config.blur_min}, require_pose={config.require_pose}\n")
 
-    pipeline = FaceClusteringPipeline(config)
     try:
-        result = pipeline.run(args.images, args.output, on_progress=on_progress)
+        result = FaceClusteringPipeline().run(config)
     except PipelineStageError as e:
         logger.error(str(e))
         sys.exit(1)

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cache Coherency Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:wght@400;500&family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--void:#0d1117;--base:#161b22;--srf:#1c2333;--raised:#242d3d;--brd:#30363d;--glow:#e94560;--grn:#3fb950;--red:#f85149;--ylw:#d29922;--blu:#58a6ff;--txt:#c9d1d9;--dim:#6e7681;--brt:#e6edf3;--mono:'Berkeley Mono','DM Mono',monospace;--sans:'Libre Franklin',system-ui,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--void);color:var(--txt);font-family:var(--sans);font-size:13px;line-height:1.6}
+::selection{background:var(--glow);color:#fff}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
+.wrap{max-width:1100px;margin:0 auto;padding:32px 24px}
+h1{font-size:26px;font-weight:800;color:var(--brt);letter-spacing:-.8px;margin-bottom:4px}
+h2{font-size:18px;font-weight:700;color:var(--brt);margin:32px 0 12px;letter-spacing:-.3px}
+h3{font-size:14px;font-weight:600;color:var(--brt);margin:16px 0 8px}
+.sub{font-size:12px;color:var(--dim);margin-bottom:24px}
+hr{border:none;border-top:1px solid var(--brd);margin:32px 0}
+
+/* ─── TABLE SCHEMA ─── */
+.schema{background:var(--srf);border:1px solid var(--brd);border-radius:8px;padding:16px;margin:12px 0;font-family:var(--mono);font-size:12px}
+.schema .tname{color:var(--glow);font-weight:600;font-size:14px;margin-bottom:8px}
+.schema .col{display:flex;gap:8px;padding:3px 0;border-bottom:1px solid rgba(48,54,61,.3)}
+.schema .col:last-child{border:none}
+.schema .cname{color:var(--blu);width:120px;flex-shrink:0}
+.schema .ctype{color:var(--dim);width:80px;flex-shrink:0}
+.schema .cdesc{color:var(--txt)}
+.schema .key{background:rgba(233,69,96,.1);color:var(--glow);padding:0 4px;border-radius:2px;font-size:10px;margin-left:4px}
+
+/* ─── COMPOSITE KEY ─── */
+.key-demo{background:var(--srf);border:1px solid var(--brd);border-radius:8px;padding:16px;margin:12px 0;font-family:var(--mono);text-align:center}
+.key-demo .full{font-size:15px;color:var(--brt);margin-bottom:12px}
+.key-demo .full .path{color:var(--blu)}
+.key-demo .full .sep{color:var(--glow);font-weight:700}
+.key-demo .full .face{color:var(--grn)}
+.key-demo .arrow{color:var(--dim);font-size:20px;margin:4px 0}
+.key-demo .split{display:flex;justify-content:center;gap:32px}
+.key-demo .split .part{background:var(--raised);border:1px solid var(--brd);border-radius:6px;padding:8px 16px}
+.key-demo .split .label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+
+/* ─── CACHED VS NOT ─── */
+.cached-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.cached-box{background:var(--srf);border:1px solid var(--brd);border-radius:8px;padding:14px}
+.cached-box h4{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.cached-box.yes h4{color:var(--grn)}
+.cached-box.no h4{color:var(--red)}
+.cached-box li{font-size:12px;color:var(--dim);margin:4px 0;list-style:none;padding-left:12px;position:relative}
+.cached-box li::before{content:'';position:absolute;left:0;top:7px;width:5px;height:5px;border-radius:50%}
+.cached-box.yes li::before{background:var(--grn)}
+.cached-box.no li::before{background:var(--red)}
+
+/* ─── FLOWCHART ─── */
+.flow{margin:16px 0}
+.flow-step{display:flex;align-items:stretch;margin-bottom:2px}
+.flow-num{width:32px;background:var(--raised);border:1px solid var(--brd);border-radius:6px 0 0 6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--glow);flex-shrink:0}
+.flow-body{flex:1;background:var(--srf);border:1px solid var(--brd);border-left:none;border-radius:0 6px 6px 0;padding:10px 14px;font-size:12px}
+.flow-body code{background:var(--raised);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:11px;color:var(--blu)}
+.flow-branch{margin-left:32px;display:flex;gap:8px;margin-bottom:2px}
+.flow-branch .fb{flex:1;border-radius:6px;padding:10px;font-size:11px;border:1px solid}
+.fb.hit{background:rgba(63,185,80,.06);border-color:rgba(63,185,80,.25);color:var(--grn)}
+.fb.miss{background:rgba(248,81,73,.06);border-color:rgba(248,81,73,.25);color:var(--red)}
+.fb.stale{background:rgba(210,153,34,.06);border-color:rgba(210,153,34,.25);color:var(--ylw)}
+.flow-arrow{text-align:center;color:var(--dim);font-size:16px;margin:2px 0}
+
+/* ─── WARNINGS ─── */
+.warn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.warn{background:rgba(210,153,34,.06);border:1px solid rgba(210,153,34,.2);border-left:3px solid var(--ylw);border-radius:6px;padding:10px 12px;font-size:12px}
+.warn .wt{color:var(--ylw);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px}
+.warn p{color:var(--dim);line-height:1.5}
+
+/* ─── APP MAP ─── */
+.app-map{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
+.app-loc{background:var(--srf);border:1px solid var(--brd);border-radius:8px;padding:12px;cursor:pointer;transition:.15s}
+.app-loc:hover{border-color:var(--glow)}
+.app-loc .page{font-size:11px;color:var(--glow);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px}
+.app-loc .what{font-size:12px;color:var(--brt);font-weight:500;margin-bottom:4px}
+.app-loc .how{font-size:11px;color:var(--dim)}
+.app-loc .file{font-size:10px;color:var(--blu);font-family:var(--mono);margin-top:6px}
+
+/* ─── COMPARISON ─── */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.compare-box{border-radius:8px;padding:14px;border:1px solid}
+.compare-box.current{background:rgba(210,153,34,.06);border-color:rgba(210,153,34,.2)}
+.compare-box.ideal{background:rgba(63,185,80,.06);border-color:rgba(63,185,80,.2)}
+.compare-box h4{font-size:12px;font-weight:600;margin-bottom:8px}
+.compare-box.current h4{color:var(--ylw)}
+.compare-box.ideal h4{color:var(--grn)}
+.compare-box li{font-size:12px;color:var(--dim);margin:4px 0;list-style:disc;margin-left:16px}
+.compare-box li strong{color:var(--brt)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Cache Coherency Architecture</h1>
+<div class="sub">How Albumify caches ML features, validates them, and what can go wrong</div>
+
+<hr>
+
+<!-- ─── SCHEMA ─── -->
+<h2>1. UniversalCache Table</h2>
+<p style="font-size:12px;color:var(--dim);margin-bottom:8px">SQLite database at <code style="color:var(--blu)">~/.sim_bench/sim_bench.db</code></p>
+
+<div class="schema">
+  <div class="tname">universal_cache</div>
+  <div class="col"><span class="cname">image_path</span><span class="ctype">STRING</span><span class="cdesc">Composite key: <code>"path/img.jpg:face_0"</code><span class="key">INDEXED</span></span></div>
+  <div class="col"><span class="cname">feature_type</span><span class="ctype">STRING</span><span class="cdesc"><code>"face_embedding"</code>, <code>"insightface_detection"</code>, <code>"iqa"</code>, etc.</span></div>
+  <div class="col"><span class="cname">model_name</span><span class="ctype">STRING</span><span class="cdesc"><code>"buffalo_l"</code>, <code>"musiq"</code>, <code>"dinov2"</code></span></div>
+  <div class="col"><span class="cname">data_blob</span><span class="ctype">BLOB</span><span class="cdesc">Serialized numpy array or JSON bytes</span></div>
+  <div class="col"><span class="cname">image_mtime</span><span class="ctype">FLOAT</span><span class="cdesc">Source file modification time when cached — <strong style="color:var(--ylw)">the ONLY coherency check</strong></span></div>
+  <div class="col"><span class="cname">created_at</span><span class="ctype">DATETIME</span><span class="cdesc">When entry was first cached</span></div>
+  <div class="col"><span class="cname">last_accessed</span><span class="ctype">DATETIME</span><span class="cdesc">Updated on each cache hit</span></div>
+</div>
+
+<!-- ─── COMPOSITE KEY ─── -->
+<h2>2. Composite Key Structure</h2>
+<p style="font-size:12px;color:var(--dim);margin-bottom:8px">Face-level features use a composite key. The mtime check extracts the real file path by splitting on <code>:face_</code></p>
+
+<div class="key-demo">
+  <div class="full"><span class="path">D:/Budapest2025_Google/20250822_123303.jpg</span><span class="sep">:face_</span><span class="face">0</span></div>
+  <div class="arrow">&#x2193; split on ":face_" &#x2193;</div>
+  <div class="split">
+    <div class="part"><div class="label">Source image path (for mtime check)</div><span style="color:var(--blu)">D:/Budapest2025_Google/20250822_123303.jpg</span></div>
+    <div class="part"><div class="label">Face index (for lookup)</div><span style="color:var(--grn)">0</span></div>
+  </div>
+</div>
+
+<!-- ─── CACHED VS NOT ─── -->
+<h2>3. What Gets Cached vs Recomputed</h2>
+
+<div class="cached-grid">
+  <div class="cached-box yes">
+    <h4>Cached (shared across runs)</h4>
+    <ul>
+      <li>Face detections (InsightFace SCRFD) — per image</li>
+      <li>Face embeddings (ArcFace 512-dim) — per face</li>
+      <li>IQA scores (MUSIQ) — per image</li>
+      <li>AVA scores (aesthetic) — per image</li>
+      <li>Scene embeddings (DINOv2) — per image</li>
+    </ul>
+  </div>
+  <div class="cached-box no">
+    <h4>NOT cached (recomputed per run)</h4>
+    <ul>
+      <li>Quality filtering decisions</li>
+      <li>Scene clustering (HDBSCAN)</li>
+      <li>Face clustering (kNN + merge)</li>
+      <li>Selection decisions</li>
+      <li>People/person assignment</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── FLOWCHART ─── -->
+<h2>4. Cache Coherency Check Flow</h2>
+<p style="font-size:12px;color:var(--dim);margin-bottom:12px">This happens automatically during every pipeline run, inside <code style="color:var(--blu)">cache_handler.py:load_from_cache()</code></p>
+
+<div class="flow">
+  <div class="flow-step">
+    <div class="flow-num">1</div>
+    <div class="flow-body">Pipeline step starts (e.g., <code>extract_face_embeddings</code>). Generates list of <code>CacheKey</code> objects for all items to process.</div>
+  </div>
+  <div class="flow-arrow">&#x2193;</div>
+  <div class="flow-step">
+    <div class="flow-num">2</div>
+    <div class="flow-body">Calls <code>cache_handler.load_from_cache(keys)</code>. Batches query in chunks of 200 (SQLite expression limit).</div>
+  </div>
+  <div class="flow-arrow">&#x2193;</div>
+  <div class="flow-step">
+    <div class="flow-num">3</div>
+    <div class="flow-body">For each cached entry found in <code>UniversalCache</code> table:</div>
+  </div>
+  <div class="flow-arrow">&#x2193;</div>
+  <div class="flow-step">
+    <div class="flow-num">3a</div>
+    <div class="flow-body">Extract source image path from composite key: <code>"path/img.jpg:face_0".split(":face_")[0]</code> → <code>"path/img.jpg"</code></div>
+  </div>
+  <div class="flow-arrow">&#x2193;</div>
+  <div class="flow-step">
+    <div class="flow-num">3b</div>
+    <div class="flow-body">Get current file mtime: <code>os.path.getmtime("path/img.jpg")</code></div>
+  </div>
+  <div class="flow-arrow">&#x2193;</div>
+  <div class="flow-step">
+    <div class="flow-num">3c</div>
+    <div class="flow-body">Compare: <code>entry.image_mtime == current_mtime</code> ?</div>
+  </div>
+
+  <div class="flow-branch">
+    <div class="fb hit"><strong>Match → CACHE HIT</strong><br>Return cached data_blob. Update last_accessed. Skip model inference for this item.</div>
+    <div class="fb stale"><strong>Mismatch → STALE</strong><br>Delete entry from DB. Return nothing. Item will be recomputed by model inference.</div>
+    <div class="fb miss"><strong>File not found → INVALID</strong><br>mtime returns -1. Delete entry. Source image was moved or deleted.</div>
+  </div>
+
+  <div class="flow-arrow">&#x2193;</div>
+  <div class="flow-step">
+    <div class="flow-num">4</div>
+    <div class="flow-body">Step processes <strong>uncached items only</strong> — runs model inference (expensive: 100ms-10s per item)</div>
+  </div>
+  <div class="flow-arrow">&#x2193;</div>
+  <div class="flow-step">
+    <div class="flow-num">5</div>
+    <div class="flow-body">Calls <code>cache_handler.store_to_cache(key, data_bytes)</code> for each newly computed result. Stores current file mtime.</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ─── WARNINGS ─── -->
+<h2>5. Known Coherency Problems</h2>
+
+<div class="warn-grid">
+  <div class="warn">
+    <div class="wt">SIGHTING-017: Two separate caches</div>
+    <p>Standalone face_cluster app uses file-based cache at <code>{output_dir}/.embed_cache/</code>. Main app uses UniversalCache (SQLite). No synchronization between them. Same image can have different embeddings in each cache.</p>
+  </div>
+  <div class="warn">
+    <div class="wt">SIGHTING-003/006: Face ID offset corruption</div>
+    <p>Historical bug: embeddings cached with wrong face indices (face 2 stored as face 0). Fixed, but no mechanism to detect if old corrupted entries still exist in cache.</p>
+  </div>
+  <div class="warn">
+    <div class="wt">Model version changes undetected</div>
+    <p>mtime check only validates source file hasn't changed. If model weights are updated (e.g., new ArcFace checkpoint), cached embeddings from the old model are still treated as valid. <code>model_name</code> is part of the key but <code>model_version</code> is not checked.</p>
+  </div>
+  <div class="warn">
+    <div class="wt">No blob integrity check</div>
+    <p>No checksum or hash stored alongside data_blob. A corrupted blob (disk error, interrupted write) would be returned as valid because mtime still matches.</p>
+  </div>
+</div>
+
+<hr>
+
+<!-- ─── WHERE CHECKS HAPPEN ─── -->
+<h2>6. Where Cache Checks Happen in the App</h2>
+
+<div class="app-map">
+  <div class="app-loc">
+    <div class="page">Pipeline Execution</div>
+    <div class="what">Automatic mtime check</div>
+    <div class="how">Every pipeline step calls <code>load_from_cache()</code>. Stale entries auto-deleted. No user interaction needed.</div>
+    <div class="file">cache_handler.py</div>
+  </div>
+  <div class="app-loc">
+    <div class="page">Configure &amp; Run</div>
+    <div class="what">Cache Validation expander</div>
+    <div class="how">User clicks "Validate Cache". Samples N entries, checks mtime, shows valid/stale/missing counts. Can clear invalid entries.</div>
+    <div class="file">cache_validator.py</div>
+  </div>
+  <div class="app-loc">
+    <div class="page">Results</div>
+    <div class="what">Stale cache warning</div>
+    <div class="how">On page load, samples 20 entries, checks mtime. Shows warning banner if any are stale. Links to Cache Validation.</div>
+    <div class="file">results.py</div>
+  </div>
+  <div class="app-loc">
+    <div class="page">Explore &rarr; Face Distance</div>
+    <div class="what">Manual embedding verification</div>
+    <div class="how">User picks two faces, loads embeddings from cache, computes cosine distance. Lets user verify clustering makes sense.</div>
+    <div class="file">explore.py + results.py API</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ─── CURRENT VS IDEAL ─── -->
+<h2>7. Current Check vs Proper Coherency</h2>
+
+<div class="compare">
+  <div class="compare-box current">
+    <h4>What We Have (mtime only)</h4>
+    <ul>
+      <li><strong>Check</strong>: file modification time matches cached mtime</li>
+      <li><strong>Detects</strong>: file modified, file deleted, file moved</li>
+      <li><strong>Misses</strong>: model version change, corrupted blobs, face detection changes (different # of faces found), embedding algorithm change</li>
+      <li><strong>Speed</strong>: instant (single stat() call per entry)</li>
+      <li><strong>Scope</strong>: per-entry during load, random sample in validator</li>
+    </ul>
+  </div>
+  <div class="compare-box ideal">
+    <h4>Proper Coherency (re-extract + compare)</h4>
+    <ul>
+      <li><strong>Check</strong>: re-run model on source image, compare output to cached embedding via cosine similarity</li>
+      <li><strong>Detects</strong>: everything — model changes, corruption, face index shifts, extraction bugs</li>
+      <li><strong>Cost</strong>: ~100ms-1s per entry (requires model load + inference)</li>
+      <li><strong>Threshold</strong>: similarity &gt; 0.99 = valid, &lt; 0.99 = corrupted</li>
+      <li><strong>When to run</strong>: after model updates, periodically on sample, when user suspects issues</li>
+      <li><strong>Status</strong>: <strong style="color:var(--red)">NOT IMPLEMENTED</strong> — requires loading InsightFace model in validation, which is slow and complex</li>
+    </ul>
+  </div>
+</div>
+
+<hr>
+
+<!-- ─── CODE LOCATIONS ─── -->
+<h2>8. Code Locations</h2>
+<div class="schema" style="line-height:2">
+  <div class="col"><span class="cname" style="width:280px;color:var(--blu)">sim_bench/pipeline/cache_handler.py</span><span class="cdesc">Core cache logic: load_from_cache(), store_to_cache(), mtime validation</span></div>
+  <div class="col"><span class="cname" style="width:280px;color:var(--blu)">sim_bench/api/database/models.py</span><span class="cdesc">UniversalCache SQLAlchemy model</span></div>
+  <div class="col"><span class="cname" style="width:280px;color:var(--blu)">sim_bench/pipeline/steps/extract_face_embeddings.py</span><span class="cdesc">Face embedding caching — generates cache keys, calls handler</span></div>
+  <div class="col"><span class="cname" style="width:280px;color:var(--blu)">app/streamlit/components/cache_validator.py</span><span class="cdesc">UI validation: sample entries, check mtime, report status</span></div>
+  <div class="col"><span class="cname" style="width:280px;color:var(--blu)">app/streamlit/pages/results.py</span><span class="cdesc">Stale cache warning banner (should be in cache_validator.py)</span></div>
+  <div class="col"><span class="cname" style="width:280px;color:var(--blu)">sim_bench/api/routers/results.py</span><span class="cdesc">Face embedding + distance API endpoints</span></div>
+</div>
+
+</div>
+</body>
+</html>
