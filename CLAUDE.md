@@ -15,7 +15,9 @@ Upon starting a new session:
 
 Gates: `specs/NNN-<name>/spec.md` + `specs/NNN-<name>/tasks.md` must exist.
 Exemptions: bug fixes (file sighting instead), isolated refactors, doc-only changes.
-Spec lifecycle: `Draft` → `In Progress` → `Implemented`.
+Spec lifecycle: `Draft` → `In Progress` → `Code Review` → `Implemented`.
+
+**Code Review gate is MANDATORY.** Before flipping a spec to `Implemented`, run the `/code-review` slash command to produce `REVIEW.md` against `docs/guides/CODE_REVIEW_CHECKLIST.md`. High-severity findings block handoff. New feature requests do NOT go in `docs/project/FEATURE_REQUESTS.md` (deprecated); they become a proper spec dir via WORKFLOW.md.
 
 ---
 
@@ -66,9 +68,11 @@ Spec lifecycle: `Draft` → `In Progress` → `Implemented`.
 After EVERY code change, append to `CHANGES_LOG.md`: date, category tag ([FEATURE]/[BUGFIX]/[REFACTOR]/[DOCS]/[TEST]/[CONFIG]/[PERF]), files, change, reason.
 
 ## Architecture & Design Rules
+- See `docs/architecture/index.html` for the central documentation index (live HTMLs: db_schemas, classes, data_flow).
 - See `docs/architecture/overview.md` for system architecture.
 - See `RECOVERY_PLAN.md` for face clustering module responsibilities.
 - See `docs/guides/TROUBLESHOOTING.md` for debugging tips.
+- **Documentation update mandate**: any change to a class, Pydantic model, Pandera schema, DB column, pipeline step, or boundary contract MUST update the corresponding HTML in `docs/architecture/` in the same PR. The Code Review gate (§7 of `docs/guides/CODE_REVIEW_CHECKLIST.md`) checks this.
 - Architecture changes → update `docs/architecture/overview.md`. Wait for approval on non-trivial changes.
 
 ## Key Entry Points

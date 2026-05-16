@@ -3,6 +3,7 @@
 from sim_bench.pipeline.base import BaseStep, StepMetadata
 from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
+from sim_bench.pipeline.steps.configs._validate import validate_step_config
 
 
 @register_step
@@ -40,8 +41,10 @@ class FilterQualityStep(BaseStep):
         )
 
     def process(self, context: PipelineContext, config: dict) -> None:
-        min_iqa = config.get("min_iqa_score", 0.3)
-        min_sharpness = config.get("min_sharpness", 0.2)
+        # spec-033 P-G: typo'd key raises ValidationError instead of silently defaulting.
+        cfg = validate_step_config("filter_quality", config)
+        min_iqa = cfg.min_iqa_score
+        min_sharpness = cfg.min_sharpness
 
         passed = set()
         total = len(context.iqa_scores)
@@ -73,6 +76,17 @@ class FilterQualityStep(BaseStep):
                 decision=decision, reason=reason, config_used=cfg,
                 metrics={"iqa_score": round(iqa_score, 3), "sharpness": round(sharpness, 3)},
             ))
+
+            # spec-032: same decision as a typed FilterContext entry.  Downstream
+            # steps that opt into the new contract iterate ctx.filters.active("image").
+            context.filters.record(
+                path_str,
+                filter_name="image_quality",
+                rejected=(not (iqa_ok and sharpness_ok)),
+                reason=reason,
+                measured={"iqa": round(iqa_score, 3),
+                          "sharpness": round(sharpness, 3)},
+            )
 
         context.quality_passed = passed
         context.active_images = passed.copy()

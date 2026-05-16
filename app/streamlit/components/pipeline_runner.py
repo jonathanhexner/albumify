@@ -198,27 +198,62 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
             "Detection Confidence", 0.05, 0.5,
             value=float(saved_detect.get("confidence_threshold", 0.25)),
             step=0.05, key="config_det_conf",
+            help=(
+                "Dimensionless 0-1. Writes to detect_persons.confidence_threshold "
+                "(YOLOv8) and insightface_detect_faces.detection_threshold (SCRFD). "
+                "Higher = stricter detection."
+            ),
         )
         min_face_size = st.slider(
             "Min Face Size (px)", 20, 100,
             value=int(saved_insightface.get("min_face_size", 50)),
             step=10, key="config_min_face_size",
+            help=(
+                "Pixels. Writes to insightface_detect_faces.min_face_size and the 3 "
+                "insightface_score_* steps (expression/eyes/pose). "
+                "DOES NOT reach the cluster_people face filter — "
+                "see 'Min Face Bbox Ratio' below for the actual face-size rejector."
+            ),
+        )
+        min_bbox_ratio = st.slider(
+            "Min Face Bbox Ratio", 0.0, 0.20,
+            value=float(saved_config.get("filter_faces", {}).get("min_bbox_ratio", 0.02)),
+            step=0.005, format="%.3f", key="config_min_bbox_ratio",
+            help=(
+                "bbox_width / image_width. Writes to filter_faces.min_bbox_ratio "
+                "(spec-033 P-A: surfaced from hidden default). "
+                "This is the actual face-size rejector on the InsightFace pipeline. "
+                "0.02 = face must be >=2% of image width."
+            ),
         )
         min_iqa = st.slider(
             "Min IQA Score", 0.0, 1.0,
             value=float(saved_filter.get("min_iqa_score", 0.2)),
             step=0.05, key="config_min_iqa",
+            help=(
+                "Dimensionless 0-1. Writes to filter_quality.min_iqa_score. "
+                "Image-level technical quality (NIMA IQA model)."
+            ),
         )
         min_sharpness = st.slider(
             "Min Sharpness", 0.0, 1.0,
             value=float(saved_filter.get("min_sharpness", 0.1)),
             step=0.05, key="config_min_sharpness",
+            help=(
+                "Dimensionless 0-1. Writes to filter_quality.min_sharpness. "
+                "Image-level Laplacian-variance sharpness."
+            ),
         )
         embedding_backend = st.selectbox(
             "Embedding Model",
             options=["insightface", "custom"],
             index=0 if saved_embedding.get("backend", "insightface") == "insightface" else 1,
             key="config_embedding_backend",
+            help=(
+                "Writes to extract_face_embeddings.backend. 'insightface' uses "
+                "buffalo_l (w600k_r50); 'custom' uses the checkpoint at "
+                "models/album_app/arcface_resnet50.pt."
+            ),
         )
 
     # Column 2: Face Clustering
@@ -231,6 +266,11 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
         people_method = st.selectbox(
             "Method", options=clustering_methods, index=method_index,
             key="config_people_method",
+            help=(
+                "cluster_people.method. 'face_cluster_knn' is the FC App "
+                "algorithm (mutual kNN graph + connected components); others "
+                "are legacy."
+            ),
         )
 
         # Defaults (overridden by method-specific widgets)
@@ -249,12 +289,41 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
         fc_merge_params = {}
 
         if people_method == "face_cluster_knn":
-            fc_K = st.slider("K (neighbors)", 1, 100, value=int(saved_cluster_people.get("K", 5)), key="rc_K")
-            fc_dist_threshold = st.slider("Distance Threshold", 0.01, 1.0, value=float(saved_cluster_people.get("distance_threshold", 0.35)), step=0.01, key="rc_dist")
-            fc_min_cluster = st.slider("Min Cluster Size", 1, 20, value=int(saved_cluster_people.get("min_cluster_size", 2)), key="rc_min_cluster")
-            fc_merge_enabled = st.checkbox("Merge", value=bool(saved_cluster_people.get("merge_enabled", False)), key="rc_merge")
-            fc_attach_enabled = st.checkbox("Attach holdouts", value=bool(saved_cluster_people.get("attach_enabled", False)), key="rc_attach")
-            fc_export = st.checkbox("Export for analysis", value=bool(saved_cluster_people.get("export_for_analysis", True)), key="config_fc_export")
+            fc_K = st.slider(
+                "K (neighbors)", 1, 100, value=int(saved_cluster_people.get("K", 5)),
+                key="rc_K",
+                help="cluster_people.K. Mutual kNN neighbours. Higher = denser graph.",
+            )
+            fc_dist_threshold = st.slider(
+                "Distance Threshold", 0.01, 1.0,
+                value=float(saved_cluster_people.get("distance_threshold", 0.35)),
+                step=0.01, key="rc_dist",
+                help=(
+                    "cluster_people.distance_threshold. Max cosine distance for kNN edge. "
+                    "Lower = stricter (more clusters, more noise)."
+                ),
+            )
+            fc_min_cluster = st.slider(
+                "Min Cluster Size", 1, 20,
+                value=int(saved_cluster_people.get("min_cluster_size", 2)),
+                key="rc_min_cluster",
+                help="cluster_people.min_cluster_size. Components smaller than this become noise.",
+            )
+            fc_merge_enabled = st.checkbox(
+                "Merge", value=bool(saved_cluster_people.get("merge_enabled", False)),
+                key="rc_merge",
+                help="cluster_people.merge_enabled. Run conservative cluster merge after base clustering.",
+            )
+            fc_attach_enabled = st.checkbox(
+                "Attach holdouts", value=bool(saved_cluster_people.get("attach_enabled", False)),
+                key="rc_attach",
+                help="cluster_people.attach_enabled. Try to attach quality-failed faces to existing clusters.",
+            )
+            fc_export = st.checkbox(
+                "Export for analysis", value=bool(saved_cluster_people.get("export_for_analysis", True)),
+                key="config_fc_export",
+                help="cluster_people.export_for_analysis. Write FC App artifacts (faces.csv, etc.) to the run dir.",
+            )
         elif people_method == "hdbscan":
             people_min_cluster_size = st.slider("Min Faces/Person", 1, 5, value=int(saved_cluster_people.get("min_cluster_size", 2)), key="config_people_min_cluster")
             cluster_merge_epsilon = st.slider("Merge Distance", 0.0, 0.8, value=float(saved_cluster_people.get("cluster_selection_epsilon", 0.3)), step=0.05, key="config_cluster_epsilon")
@@ -275,22 +344,26 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
             "Max per Cluster", 1, 10,
             value=int(saved_select.get("max_images_per_cluster", 2)),
             key="config_max_per_cluster",
+            help="select_best.max_images_per_cluster. Cap on photos kept per scene cluster.",
         )
         min_score_threshold = st.slider(
             "Min Score", 0.0, 1.0,
             value=float(saved_select.get("min_score_threshold", 0.4)),
             step=0.05, key="config_min_score",
+            help="select_best.min_score_threshold. Minimum composite score (IQA+AVA+person_penalty) to keep.",
         )
         duplicate_threshold = st.slider(
             "Dissimilarity Thresh", 0.80, 0.95,
             value=float(saved_select.get("dissimilarity_threshold", 0.85)),
             step=0.01, key="config_dup_thresh",
+            help="select_best.dissimilarity_threshold. Embedding distance to consider two photos distinct.",
         )
         siamese_config = saved_select.get("siamese", {})
         siamese_enabled = st.checkbox(
             "Siamese Refinement",
             value=bool(siamese_config.get("enabled", True)),
             key="config_siamese",
+            help="select_best.siamese.enabled. Use the Siamese comparison model to refine the top-N selections.",
         )
 
     # --- Merge Parameters (full-width, visible when merge enabled, NOT an expander) ---
@@ -301,6 +374,9 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
 
     config = {
         "filter_quality": {"min_iqa_score": min_iqa, "min_sharpness": min_sharpness},
+        # Face-size filter (spec-033 P-A: surfaced from hidden default 0.02).
+        # Active in the InsightFace pipeline; this is the actual face-size rejector.
+        "filter_faces": {"min_bbox_ratio": min_bbox_ratio},
         # InsightFace detection config
         "insightface_detect_faces": {
             "detection_threshold": detection_confidence,

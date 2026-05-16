@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sim-bench · Architecture Documentation Index</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1100px; margin: 1.5em auto; padding: 0 1.5em;
+         color: #222; line-height: 1.55; background:#fafbfc; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; margin-bottom: 0; }
+  h1 + .subtitle { color: #666; margin-top: .2em; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 2em; }
+  table { border-collapse: collapse; margin: 1em 0; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid #ddd; padding: 7px 10px; text-align: left;
+           vertical-align: top; }
+  th { background: #f4f4f6; }
+  code { background:#eef0f4; padding: 1px 4px; border-radius: 3px;
+         font-size: 13px; font-family: Consolas, monospace; }
+  .source-of-truth { background:#fffde6; border:1px solid #d4ce7a;
+                     padding: 8px 12px; border-radius:4px;
+                     margin: 1em 0; }
+  .card {
+    border: 2px solid #ccc; border-radius: 6px; padding: 12px 16px;
+    margin: 8px 0; background:#fff;
+  }
+  .card h3 { margin: 0 0 4px 0; font-size: 17px; }
+  .card .when { color:#666; font-size: 12px; margin-bottom: 8px; }
+  .card a { font-weight: 600; }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:10px;
+          font-size:11px; font-weight:600; }
+  .live { background:#e3f5e0; color:#236623; }
+  .ref  { background:#e0e7ff; color:#1d3a8a; }
+</style>
+</head>
+<body>
+
+<h1>Architecture Documentation Index</h1>
+<p class="subtitle">Central entry point for sim-bench architecture docs · Last updated: 2026-05-15</p>
+
+<div class="source-of-truth">
+<b>⚠️ Reading the code? Update these docs.</b> When you change a class, DB
+column, pipeline step, or boundary contract, the corresponding HTML below
+must be updated in the same PR. The Code Review gate
+(<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code> §7,
+<code>WORKFLOW.md</code> lifecycle) checks for this before flipping a spec
+to <code>Implemented</code>.
+</div>
+
+<h2>Live documents (face-clustering layer)</h2>
+
+<div class="grid">
+  <div class="card">
+    <h3><a href="db_schemas.html">Per-Run DB Schemas</a> <span class="pill live">LIVE</span></h3>
+    <div class="when">Read when: touching <code>face_cluster/db/</code>, <code>run_exporter.py</code>, <code>run_store.py</code>, or any per-run table.</div>
+    <p>Field-level reference for the per-run <code>&lt;run_dir&gt;/_v4/face_clustering.db</code>. 7 tables; every column described with type, nullable, Pandera constraint, producer, and BOTH / ALBUMIFY-ONLY / TARGET status. Calls out SIGHTING-060/064 (area unit) and SIGHTING-065 (image fields denormalized onto faces).</p>
+  </div>
+  <div class="card">
+    <h3><a href="db_global.html">Global DB</a> <span class="pill live">LIVE</span></h3>
+    <div class="when">Read when: touching <code>sim_bench/api/database/</code>, <code>face_cluster/run_history_db.py</code>, <code>face_cluster/training_db.py</code>, or any cross-run state.</div>
+    <p>Field-level reference for <code>~/.sim_bench/sim_bench.db</code>. 8 SQLAlchemy tables (albums, pipeline_runs, pipeline_results, people, config_profiles, universal_cache, user_events, face_overrides) + 3 raw-sqlite3 tables (action_log, merge_training_data, trained_models). Cross-DB pointer map shows how the two scopes connect.</p>
+  </div>
+  <div class="card">
+    <h3><a href="classes.html">Classes &amp; Types</a> <span class="pill live">LIVE</span></h3>
+    <div class="when">Read when: adding a Pydantic model, dataclass, Pandera schema, or a class involved in a boundary contract.</div>
+    <p>Inventory of every Pydantic model, Pandera schema, dataclass, and plain class in the face-clustering layer. Fields, methods, relationships, target-state diff.</p>
+  </div>
+  <div class="card">
+    <h3><a href="data_flow.html">Data Flow</a> <span class="pill live">LIVE</span></h3>
+    <div class="when">Read when: touching any pipeline step, the bridge, the exporter, the read side, or trying to understand "where does field X come from."</div>
+    <p>One face end-to-end through the 11-stage Albumify pipeline. Contract callout at every boundary. Before vs after the spec-033 refactor. Lists what the flow does <i>not</i> yet prove.</p>
+  </div>
+  <div class="card">
+    <h3><a href="../../specs/034-pipeline-context-contract/spec.md">Context Contract (spec-034)</a> <span class="pill live">LIVE</span></h3>
+    <div class="when">Read when: adding or removing a field on <code>PipelineContext</code> / <code>_RunContext</code>.</div>
+    <p>The in-memory state contract. Every field on both context dataclasses with type, unit, producer step, consumer step(s), persistence, lifecycle. CI guard: <code>tests/architecture/test_pipeline_context_contract.py</code>.</p>
+  </div>
+</div>
+
+<h2>Reference / historical documents</h2>
+
+<div class="grid">
+  <div class="card">
+    <h3><a href="../../specs/033-data-integrity/MASTER_PLAN.md">spec-033 Master Plan</a> <span class="pill ref">REF</span></h3>
+    <div class="when">Read when: understanding why the boundary contracts exist.</div>
+    <p>The plan that produced the current state. 8 phases (P-A through P-H), locked decisions, sequencing.</p>
+  </div>
+  <div class="card">
+    <h3><a href="../../specs/033-data-integrity/REVIEW.md">spec-033 Code Review</a> <span class="pill ref">REF</span></h3>
+    <div class="when">Read when: applying the same review process to a different spec; understanding follow-up tickets.</div>
+    <p>Two-audience review (onboarding + accept/reject). Findings, verdicts, follow-up tickets that became specs 035–039.</p>
+  </div>
+  <div class="card">
+    <h3><a href="../../specs/033-data-integrity/EXECUTIVE_SUMMARY.html">spec-033 Executive Summary</a> <span class="pill ref">REF</span></h3>
+    <div class="when">Read when: explaining what shipped to engineering leadership in under 10 minutes.</div>
+    <p>Head-of-engineering gloss. Problem, fix, impact, residual risks.</p>
+  </div>
+  <div class="card">
+    <h3><a href="../../specs/033-data-integrity/FOLLOW_UPS_ROADMAP.html">Follow-ups Roadmap</a> <span class="pill ref">REF</span></h3>
+    <div class="when">Read when: planning the next slice of face-clustering work.</div>
+    <p>The 8 review follow-ups with severity, disposition, sequencing, ~1 engineer-week cost. Maps tickets to specs 035–039, sightings 062/063, and a TODO entry.</p>
+  </div>
+  <div class="card">
+    <h3><a href="../../specs/033-data-integrity/pipeline_map.html">Current-state pipeline map</a> <span class="pill ref">REF</span></h3>
+    <div class="when">Read when: doing diagnostic work; need to know what's persisted where.</div>
+    <p>The deep snapshot — pipeline diagram, bridge field-drop table, context↔storage mapping. Pre-dates the boundary-contract refactor.</p>
+  </div>
+  <div class="card">
+    <h3><a href="../guides/CODE_REVIEW_CHECKLIST.md">Code Review Checklist</a> <span class="pill ref">REF</span></h3>
+    <div class="when">Read when: reviewing any spec; setting expectations before implementation.</div>
+    <p>The 8-section checklist the <code>/code-review</code> command applies. Includes the failure-mode table (SIGHTING-058 to SIGHTING-061).</p>
+  </div>
+</div>
+
+<h2>Existing architecture documents (pre-spec-033)</h2>
+<table>
+  <thead><tr><th>Doc</th><th>Covers</th></tr></thead>
+  <tbody>
+    <tr><td><a href="overview.md">overview.md</a></td><td>System architecture overview (top of doc tree).</td></tr>
+    <tr><td><a href="ALBUM_APP_ARCHITECTURE.md">ALBUM_APP_ARCHITECTURE.md</a></td><td>Albumify app structure.</td></tr>
+    <tr><td><a href="PIPELINE_ARCHITECTURE.md">PIPELINE_ARCHITECTURE.md</a></td><td>Pipeline registry and step model.</td></tr>
+    <tr><td><a href="PIPELINE_ARCHITECTURE_CURRENT_STATE.md">PIPELINE_ARCHITECTURE_CURRENT_STATE.md</a></td><td>Current-state snapshot of the pipeline registry.</td></tr>
+    <tr><td><a href="INSIGHTFACE_PIPELINE.md">INSIGHTFACE_PIPELINE.md</a></td><td>The active InsightFace pipeline steps.</td></tr>
+    <tr><td><a href="FACE_DATA_FLOW.md">FACE_DATA_FLOW.md</a></td><td>Earlier (pre-spec-033) face data flow.</td></tr>
+    <tr><td><a href="CLASS_DIAGRAM.md">CLASS_DIAGRAM.md</a></td><td>Earlier class diagram.</td></tr>
+    <tr><td><a href="CACHING_ARCHITECTURE.md">CACHING_ARCHITECTURE.md</a></td><td>Universal feature cache.</td></tr>
+    <tr><td><a href="STREAMLIT_FRONTEND.md">STREAMLIT_FRONTEND.md</a></td><td>UI app conventions.</td></tr>
+  </tbody>
+</table>
+
+<h2>How these docs stay correct</h2>
+<ol>
+  <li><b>Spec lifecycle</b> (<code>WORKFLOW.md</code>): <code>Draft → In Progress → Code Review → Implemented</code>. No skipping Code Review.</li>
+  <li><b>Code Review gate</b> (<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>): every spec runs <code>/code-review</code> before being marked Implemented. §7 of the checklist asks "is the architecture documentation updated?" — must be Pass before handoff.</li>
+  <li><b>CI architecture tests</b> (<code>tests/architecture/</code>): drift between code and spec breaks the build (e.g., a new <code>PipelineContext</code> field without a row in spec-034 fails CI).</li>
+</ol>
+
+<h2>If a doc looks wrong</h2>
+<p>Don't fix it silently. File a sighting in <code>docs/project/SIGHTINGS.md</code> (or fix-and-log-learning if trivial). Drift between code and doc is itself a finding that future reviewers should see.</p>
+
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>SIGHTING-059 round 2 — why "Area 0 px², Blur 0.0" is still happening</title>
+<style>
+  body { font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+         max-width: 980px; margin: 32px auto; padding: 0 16px; color: #1c1c1c; }
+  h1 { border-bottom: 2px solid #d33; padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  h3 { margin-top: 22px; }
+  .tldr { background: #fff8e1; border-left: 4px solid #f9a825; padding: 12px 16px; }
+  .bad { color: #c62828; font-weight: 600; }
+  .ok  { color: #2e7d32; font-weight: 600; }
+  .hint { color: #555; font-style: italic; }
+  code, pre { font-family: "Consolas", "SF Mono", monospace; background: #f5f5f5;
+              padding: 1px 4px; border-radius: 3px; font-size: 13px; }
+  pre { padding: 10px 14px; border-left: 3px solid #888; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 18px; }
+  th, td { border: 1px solid #ddd; padding: 6px 9px; vertical-align: top; text-align: left; }
+  th { background: #f0f0f0; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px;
+          background: #eceff1; color: #37474f; }
+  .pill.p0 { background:#ffcdd2; color:#b71c1c; }
+  .pill.p1 { background:#ffe0b2; color:#bf360c; }
+  .pill.p2 { background:#fff9c4; color:#827717; }
+  .pill.p3 { background:#c8e6c9; color:#1b5e20; }
+  .flow { background: #fafafa; padding: 10px 14px; border: 1px dashed #888;
+          white-space: pre; font-family: monospace; font-size: 12.5px; }
+  details { margin: 6px 0 12px; }
+  summary { cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>SIGHTING-059 round 2 — diagnostic + corrective plan</h1>
+<p class="hint">Run analysed: <code>D:\sim-bench\results\album\face_clustering_20260512_215039</code>
+&nbsp;&nbsp;|&nbsp;&nbsp; date: 2026-05-12 &nbsp;|&nbsp; producer: <code>albumify</code> (mode <code>main_app_export</code>)</p>
+
+<div class="tldr">
+<b>TL;DR.</b> The fixes shipped in spec-032 P0–P5 were correct <em>in the FC App pipeline</em>, but
+the run you just inspected was produced by the <b>Albumify pipeline</b>
+(<code>app/album/main.py</code> → <code>sim_bench/pipeline/steps/face_cluster_export.py</code>),
+which writes the v4 directory directly via <code>RunExporter</code> <b>without forwarding
+<code>context.filters</code></b>. Combined with three pre-existing data-contract bugs
+(area-as-fraction, blur-always-zero, det/pose silently dropped), the symptom set
+matches exactly what you see in the UI. Below: precise evidence, the unified root cause,
+and a 4-phase corrective plan that bolts observability onto the live data path
+rather than the right-but-unused one.
+</div>
+
+<h2>1. What the UI is actually showing you</h2>
+
+<table>
+  <tr><th>Symptom (your screenshot)</th><th>What's in the DB</th><th>What's actually wrong</th></tr>
+  <tr>
+    <td>Cluster 6 — no face crops</td>
+    <td>Members: <code>face_46</code>, <code>face_47</code> (both <code>is_exemplar=1, is_core=1</code>);
+        both rows have <code>crop_path = ""</code> (empty string).</td>
+    <td class="bad">Faces with no aligned crop reached <em>exemplar</em> status — i.e. the
+        quality gate did not gate. They cluster fine on the raw 512-d embedding,
+        but produce empty thumbnails because <code>norm_crop</code> was skipped
+        (landmarks missing).</td>
+  </tr>
+  <tr>
+    <td>face_0026 — "Area: 0 px², Blur: 0.0"</td>
+    <td><code>area = 0.001019</code>, <code>blur_score = 0.0</code>,
+        <code>det_score = NULL</code>, <code>yaw/pitch/roll = NULL</code>,
+        <code>crop_path = 'crops/face_0026_aligned.jpg'</code> (exists).</td>
+    <td class="bad">Three unit/wiring bugs in one cell:<br>
+        (a) <code>area</code> is a <b>fraction-of-image</b> (0…1) but the UI labels it "px²"
+        and renders <code>int(0.001) = 0</code>.<br>
+        (b) <code>blur_score</code> column is <b>literally 0.0 for all 428 rows</b> — never computed
+        or never persisted along this path.<br>
+        (c) <code>det_score / yaw / pitch / roll</code> are <b>NULL for all 428 rows</b>;
+        the producer along this path drops them.</td>
+  </tr>
+</table>
+
+<h3>Reproduction numbers (read straight off the DB)</h3>
+<pre>area:        min=0.0001  max=0.4551  avg=0.0105     (ALL 428 rows < 1 — fraction units)
+blur_score:  min=0.0     max=0.0     avg=0.0        (ALL 428 rows == 0.0)
+det_score:   non-null count = 0 / 428
+yaw / pitch / roll: non-null count = 0 / 428
+face_scores.pose_score:   non-null count = 0 / 428
+face_scores.is_clusterable: 428 rows, all 1 — quality gate is a no-op for this run
+
+cluster_assignments cluster_id=6: face_id ∈ {46, 47}
+  face_46: crop_path=''  is_core=1  area=0.0214  blur=0.0
+  face_47: crop_path=''  is_core=1  area=0.0164  blur=0.0
+
+filter_decisions table:  EXISTS in _v4/face_clustering.db,  contains 0 rows
+                        (writer never invoked for this producer)</pre>
+
+<h2>2. The pipeline split — why "spec-032 is done" but the data still looks broken</h2>
+
+<p>The repo has <b>two pipelines</b> that both produce face-clustering run directories.
+The user-facing UI doesn't tell you which one wrote a given run; the only signal is
+<code>pipeline_run.json &rarr; mode</code>.</p>
+
+<table>
+  <tr><th>Pipeline</th><th>Entry point</th><th><code>mode</code> in pipeline_run.json</th>
+      <th><code>ctx.filters</code> populated?</th><th>Forwarded to <code>RunExporter</code>?</th></tr>
+  <tr>
+    <td>FC App standalone</td>
+    <td><code>face_cluster/pipeline.py::FaceClusteringPipeline</code></td>
+    <td><code>full_pipeline</code> / <code>recluster</code></td>
+    <td class="ok">YES — quality gate bridge + <code>_save_crops</code> bridge fire</td>
+    <td class="ok">YES — <code>filters=ctx.filters</code> (line 1025)</td>
+  </tr>
+  <tr>
+    <td>Albumify export shim<br>(this is the one you ran)</td>
+    <td><code>sim_bench/pipeline/steps/face_cluster_export.py</code></td>
+    <td><b><code>main_app_export</code></b></td>
+    <td>Partial — only <code>filter_quality.py</code> records (image-level IQA).
+        <code>filter_faces.py</code>, <code>filter_portraits.py</code>,
+        <code>filter_best_faces.py</code> are still TODO-P5.</td>
+    <td class="bad">NO — <code>RunExporter(...).export(...)</code> never passes
+        <code>filters=</code> (line 119). Decisions die in memory at end of step.</td>
+  </tr>
+</table>
+
+<p>That is why <code>_v4/face_clustering.db</code> contains the
+<code>filter_decisions</code> table (schema) but zero rows (no insert).</p>
+
+<h2>3. End-to-end data flow — where each field goes wrong</h2>
+
+<div class="flow">
+Source image
+   │
+   ├── detect_faces (InsightFace)  ─►  bbox in PIXELS   det_score (float)   landmarks (kps)
+   │
+   ├── filter_faces.py             ─►  drops faces without kps (SOMETIMES)   <span class="bad">⚠ silent</span>
+   │                                   computes area in PIXELS  but…
+   │
+   ├── face_cluster_bridge.py      ─►  CONVERTS bbox &amp; area to FRACTIONS of image
+   │                                   for FaceRecord; landmark / det_score lost here
+   │                                   <span class="bad">⚠ unit drift  ⚠ field drop</span>
+   │
+   ├── extract_face_embeddings     ─►  512-d embeddings (works fine)
+   │
+   ├── ... quality / pose / blur scoring (Albumify steps)
+   │                                   results live in dicts, NOT on FaceRecord
+   │                                   when face_cluster_export runs, these dicts
+   │                                   don't map to faces[].blur_score / .det_score
+   │                                   <span class="bad">⚠ ALL 428 rows blur=0.0, det=NULL, pose=NULL</span>
+   │
+   ├── face_cluster_export.py      ─►  builds the v4 DB via RunExporter
+   │                                   (a) writes faces with fractional area
+   │                                   (b) writes face_scores rows that are all NULL
+   │                                   (c) writes crop_path = '' for faces with no kps
+   │                                   (d) does NOT pass filters=  → filter_decisions empty
+   │
+FC App UI                          ─►  reads faces.area  → int(0.001)=0 → "0 px²"
+                                       reads faces.blur_score → 0.0 → "Blur: 0.0"
+                                       reads clusters_merged → cluster 6 has face_46/47
+                                       reads crop_path = ''  → no thumbnail
+                                       reads filter_decisions → empty → no telemetry
+</div>
+
+<h2>4. Root causes — five distinct bugs, one symptom</h2>
+
+<table>
+  <tr><th>#</th><th>Cause</th><th>Files</th><th>Evidence</th><th>Fix family</th></tr>
+  <tr>
+    <td>RC-1</td>
+    <td>Bbox &amp; area written as <b>fraction-of-image</b>, displayed as pixels.</td>
+    <td><code>sim_bench/pipeline/steps/face_cluster_bridge.py</code>:49<br>
+        <code>face_cluster/embedding.py</code>:99<br>
+        <code>app/face_clustering/face_popup.py</code>:115<br>
+        <code>app/face_clustering/tabs/face_analysis_tab.py</code>:148</td>
+    <td>All 428 area values &lt; 1; UI does <code>int(view.area)</code>.</td>
+    <td>SIGHTING-060 — canonicalise to <b>pixels</b> at the source, pre-existing planned P6.</td>
+  </tr>
+  <tr>
+    <td>RC-2</td>
+    <td>Blur, det_score, yaw, pitch, roll, pose_score, eyes_score, expression_score,
+        frontal_score all <b>NULL/0.0 along the Albumify path</b>.</td>
+    <td><code>face_cluster_export.py</code> builds FaceRecord without copying these from
+        the per-face dicts produced upstream.</td>
+    <td>428 rows, 0 non-null. <code>face_scores</code> table has 428 rows, all-NULL scores.</td>
+    <td>Producer fix: populate FaceRecord scoring fields in the bridge / export.</td>
+  </tr>
+  <tr>
+    <td>RC-3</td>
+    <td>Quality gate is a <b>no-op when thresholds are null/disabled</b>. Faces with no
+        aligned crop still get <code>is_core=1</code> and become exemplars.</td>
+    <td>Run config: <code>min_face_area=null, det_score_min=null, yaw_max=999,
+        pitch_max=999, roll_max=999, blur_min=0.0</code>.</td>
+    <td>Cluster 6 has face_46/47 as exemplars with <code>crop_path=''</code>.</td>
+    <td>Independent of thresholds, faces with <code>aligned_face is None</code> must be
+        rejected at <code>save_crops</code> — and that rejection must be visible.</td>
+  </tr>
+  <tr>
+    <td>RC-4</td>
+    <td>FilterContext decisions <b>never reach the v4 DB on the Albumify path</b>.</td>
+    <td><code>face_cluster_export.py</code>:119 — RunExporter call missing <code>filters=</code>.</td>
+    <td><code>filter_decisions</code> table has 0 rows.</td>
+    <td>One-line wiring fix + bridge the rest of the Albumify filter steps.</td>
+  </tr>
+  <tr>
+    <td>RC-5</td>
+    <td><b>"Min Face Size (px)" slider is a phantom control</b> on this path.</td>
+    <td><code>app/streamlit/components/pipeline_runner.py</code> exposes <code>config_min_face_size</code>;
+        the active filter compares fractional area to a px threshold (always passes).</td>
+    <td>NON_FILTER_KEYS already documents this as "no-op rejector today".</td>
+    <td>P6 fix from spec-032 — promote slider to a real face_area filter, but only after RC-1
+        canonicalises area to px.</td>
+  </tr>
+</table>
+
+<h2>5. Answer to your three direct questions</h2>
+
+<h3>Q1. Can we reliably get this information from the DB?</h3>
+<p><b>Today: no</b>, for runs that go through <code>main_app_export</code>. The schema is
+fine (faces, face_scores, cluster_assignments, filter_decisions all exist), but the
+<em>writer</em> drops fields (RC-2), writes wrong units (RC-1), and skips the
+filter_decisions table entirely (RC-4). For runs that go through the FC App's own
+pipeline, the data flow is already wired (spec-032 P0–P5) and the data is reliable —
+this is exactly why you observed the FC App running stand-alone "worked very well".</p>
+
+<h3>Q2. Can we add telemetry to the FC App?</h3>
+<p><b>Yes, and the table already exists</b> — <code>filter_decisions</code> in
+<code>_v4/face_clustering.db</code>. We just need to (a) forward <code>ctx.filters</code>
+from the Albumify export shim and (b) bridge the three remaining Albumify filter
+steps so they record decisions. After that, every face gets a row per filter
+("kept" or "rejected, reason=X, measured=Y") and a "Filter Decisions" tab in the
+FC App can read it directly via <code>RunStore.filter_decisions()</code>.</p>
+
+<h3>Q3. What about the "Min Face Size (px)" slider we discussed?</h3>
+<p>It's currently a no-op (RC-5). The slider value flows into a comparator that's
+fed a fraction (0…1). Even at the most aggressive setting (e.g. <code>≥1000 px²</code>),
+the comparison <code>0.5 &gt;= 1000</code> is always false — but the comparator's
+<em>direction</em> is "reject if below threshold", and there's a short-circuit when
+the input doesn't look like pixels, so in practice nothing ever rejects. Fixing this
+requires RC-1 to land first (so the comparator is fed real pixel values).</p>
+
+<h2>6. Corrective plan — 4 phases, end-to-end coverage</h2>
+
+<p>Each phase is independently testable and small enough to ship in one PR.
+Phases are sequenced because each depends on the previous one being on disk.</p>
+
+<table>
+  <tr><th>Phase</th><th>What ships</th><th>Acceptance signal</th></tr>
+  <tr>
+    <td><span class="pill p0">P-A</span> Canonicalise area to pixels</td>
+    <td>
+      • New helper <code>bbox_area_pixels(bbox, image_shape)</code> in <code>face_cluster/geometry.py</code><br>
+      • Migrate the three producers identified in RC-1 to write pixels<br>
+      • Add a unit assertion: <code>assert area &gt; 1.0 OR area == 0</code> at write time in <code>RunExporter._write_faces_and_scores</code><br>
+      • UI labels keep saying "px²" (now truthfully)
+    </td>
+    <td>
+      <code>SELECT MIN(area), MAX(area) FROM faces</code> returns pixel-scale values
+      (typically hundreds to tens of thousands). Min Face Size slider becomes a real rejector.
+    </td>
+  </tr>
+  <tr>
+    <td><span class="pill p1">P-B</span> Forward filters on the Albumify path</td>
+    <td>
+      • One-line fix in <code>face_cluster_export.py</code>:119 → <code>filters=context.filters</code><br>
+      • Migrate <code>filter_faces.py</code>, <code>filter_portraits.py</code>,
+        <code>filter_best_faces.py</code> to call <code>context.filters.record(...)</code>
+        (delete from <code>ALLOW_LIST</code> in <code>test_no_raw_collection_iteration.py</code>)<br>
+      • Add a hard contract test: every face row in <code>faces</code> must have at least one
+        matching <code>filter_decisions</code> row.
+    </td>
+    <td>
+      After re-running the failing scenario,
+      <code>SELECT COUNT(*) FROM filter_decisions</code> ≫ 0 in <code>_v4/face_clustering.db</code>,
+      and every face_46/face_47-style "no aligned crop" face has a
+      <code>filter_name='face_crop', rejected=1, reason='landmarks_missing'</code> row.
+    </td>
+  </tr>
+  <tr>
+    <td><span class="pill p2">P-C</span> Stop dropping per-face scores</td>
+    <td>
+      • Audit <code>face_cluster_export.py</code> — copy <code>det_score, yaw, pitch, roll, blur_score</code>
+        from upstream context dicts into FaceRecord<br>
+      • Populate <code>face_scores</code> non-NULL columns (<code>pose_score, eyes_score,
+        expression_score, frontal_score, is_clusterable</code>)<br>
+      • Add regression test on a 5-image fixture: assert all five scoring columns non-NULL on at least one row.
+    </td>
+    <td>
+      <code>SELECT COUNT(*) FROM faces WHERE det_score IS NULL</code> drops to 0 (or
+      whatever fraction legitimately fails detection).
+    </td>
+  </tr>
+  <tr>
+    <td><span class="pill p3">P-D</span> Reject unalignable faces at the gate (not at display)</td>
+    <td>
+      • Add a non-negotiable filter <code>face_alignable</code> in both pipelines —
+        <code>aligned_face is None → rejected</code> regardless of threshold settings<br>
+      • Quality gate must consume this signal before deciding <code>is_core</code><br>
+      • Remove faces with no aligned crop from exemplar candidates
+    </td>
+    <td>
+      Cluster 6 either disappears (face_46/47 rejected before clustering) or its
+      members all have valid crops on disk. No more "phantom exemplar" rows in the UI.
+    </td>
+  </tr>
+</table>
+
+<h2>7. Observability — make the next bug self-reporting</h2>
+
+<p>The reason these five bugs hid for so long is that no single screen shows what each
+filter did to each face. Two additions close that gap:</p>
+
+<ul>
+  <li><b>"Filter Decisions" tab</b> in FC App. Reads <code>filter_decisions</code> via
+      <code>RunStore</code> and renders a matrix: rows = images/faces, columns = filter names,
+      cells = "kept" / "rejected: <i>reason</i>". One click drills to the face crop.</li>
+  <li><b>Image-level summary card</b> on each image: "Detected 3 faces, kept 1, rejected 2:
+      face_42 (low_quality), face_43 (top_k). Filter decisions: detector ✓, quality ✓,
+      alignment ✗, top-k ✗ ✓ ✓." This is what you asked for as "complete observability
+      for each image" — the data lives in <code>filter_decisions</code> with
+      <code>parent_id = image_path</code>, so the query is a single join.</li>
+</ul>
+
+<h2>8. Self-test layer — fail loudly on regression</h2>
+
+<p>Three contract tests, each cheap, all CI-gated:</p>
+
+<ol>
+  <li><b>Unit-check at write time.</b> <code>RunExporter._write_faces_and_scores</code> asserts
+      <code>area</code> is pixel-scale (heuristic: <code>area &gt; 1 OR (area == 0 AND bbox empty)</code>).
+      Catches fraction-vs-pixel drift the instant it's introduced by a new producer.</li>
+  <li><b>Filter-coverage invariant.</b> Architecture test:
+      <code>SELECT face_id FROM faces EXCEPT SELECT DISTINCT item_id FROM filter_decisions
+      WHERE item_type='face'</code> must return empty on every run produced after P-B.
+      Fails if a future step bypasses FilterContext.</li>
+  <li><b>End-to-end fixture test.</b> Run the Albumify pipeline on a 5-image fixture, then assert:
+      <ul>
+        <li>every face row has non-NULL det_score, blur_score, yaw, pitch, roll</li>
+        <li>every cluster member has a crop file on disk</li>
+        <li>filter_decisions count == faces × (number of filters that run on each face)</li>
+      </ul>
+      This is the test that would have caught the current state in CI before reaching you.</li>
+</ol>
+
+<h2>9. What I am not changing</h2>
+<ul>
+  <li>The FC App's own pipeline (<code>face_cluster/pipeline.py</code>) — already correct; no churn.</li>
+  <li>The v4 schema — already correct; only writers need to populate it.</li>
+  <li>The bidirectional UI alignment test (spec-032 P4) — already passing.</li>
+</ul>
+
+<h2>10. Open question for you</h2>
+<p>The four-phase plan above takes the bugs in dependency order (P-A → P-B → P-C → P-D),
+which means the symptom you see ("Area: 0 px², Blur: 0.0") doesn't fully disappear until
+all four ship. If you'd rather see one symptom go away fast, an alternative order:</p>
+<ul>
+  <li><b>"UI honesty first"</b>: change <code>face_popup.py</code> / <code>face_analysis_tab.py</code>
+      to detect fraction values (<code>area &lt; 1.0</code>) and render "0.0102 (fraction — bug)" instead of
+      "0 px²". This is a cosmetic 5-minute change and makes the underlying RC-1 visible to you while
+      the proper P-A migration is in flight.</li>
+  <li><b>"Crop integrity first"</b>: ship P-D alone first. Cluster 6 disappears immediately;
+      everything else still looks wrong but at least no exemplar is a black square.</li>
+</ul>
+
+<p class="hint">Awaiting your direction before any code changes — per CLAUDE.md, this is debug
+output, not an implementation. Reply with a phase order and I'll start.</p>
+
+</body>
+</html>

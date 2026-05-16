@@ -116,6 +116,26 @@ _RC_PARAM_KEYS: frozenset[str] = frozenset({
     "rc_merge_alpha", "rc_merge_beta", "rc_merge_candidate", "rc_merge_exemplar_thresh",
     "rc_merge_support_frac", "rc_merge_support_min", "rc_merge_margin", "rc_merge_diameter",
     "rc_merge_use_cross_gate", "rc_merge_cross_thresh", "rc_merge_cross_max_size", "rc_merge_support_unique",
+    "rc_cap_enabled", "rc_cap_max_full", "rc_cap_max_exemplar",
+})
+
+
+# ---------------------------------------------------------------------------
+# Run-pipeline profile parameter keys (parallel to _RC_PARAM_KEYS but for the
+# full pipeline Run tab, which exposes detect/embed/quality params on top of
+# the cluster/merge params shared with Recluster).
+# ---------------------------------------------------------------------------
+_RUN_PARAM_KEYS: frozenset[str] = frozenset({
+    "run_blur_min", "run_max_faces", "run_min_face_area", "run_det_score_min",
+    "run_yaw_max", "run_pitch_max", "run_roll_max", "run_require_pose",
+    "run_K", "run_dist", "run_min_cluster",
+    "run_N_exemplars", "run_d10_thresh", "run_suppression",
+    "run_split", "run_merge", "run_attach",
+    "run_merge_use_adaptive", "run_merge_exemplar_pct", "run_merge_global_pct",
+    "run_merge_alpha", "run_merge_beta", "run_merge_candidate", "run_merge_exemplar_thresh",
+    "run_merge_support_frac", "run_merge_support_min", "run_merge_margin", "run_merge_diameter",
+    "run_merge_use_cross_gate", "run_merge_cross_thresh", "run_merge_cross_max_size", "run_merge_support_unique",
+    "run_cap_enabled", "run_cap_max_full", "run_cap_max_exemplar",
 })
 
 
@@ -198,8 +218,9 @@ def _init_state():
             st.session_state[k] = v
 
     _profile_defaults = ProfileStore().load("default")
+    _allowed_profile_keys = _RC_PARAM_KEYS | _RUN_PARAM_KEYS
     for k, v in _profile_defaults.items():
-        if k not in st.session_state and k in _RC_PARAM_KEYS:
+        if k not in st.session_state and k in _allowed_profile_keys:
             st.session_state[k] = v
 
     # One-time startup: purge stale run history entries
@@ -211,6 +232,10 @@ def _init_state():
 
 def _collect_rc_params() -> dict:
     return {k: st.session_state[k] for k in _RC_PARAM_KEYS if k in st.session_state}
+
+
+def _collect_run_params() -> dict:
+    return {k: st.session_state[k] for k in _RUN_PARAM_KEYS if k in st.session_state}
 
 
 def _invalidate_run_caches():

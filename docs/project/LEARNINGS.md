@@ -6,6 +6,16 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-05-15: Long pointless explanations are unacceptable
+**Root cause**: Repeated user feedback ("I didn't understand anything", "this isn't simple", "you're again opting for long unclear explanations") on responses that buried the answer under recap, framing, and symmetric "what was supposed / what actually" templates.
+**Lesson**: Direct answer first. One short paragraph or tight bullets. No restating the question. No "let me explain". Caveats only if asked.
+**Prevention**: Pasted to auto-memory (`feedback_concise.md`) so future sessions inherit it.
+
+### 2026-05-15: "Plumb the field through" needs an upstream producer
+**Root cause**: spec-033 P-C C-1 removed the bridge's hardcoded force-disable of `blur_min` on the assumption that `face_cluster_bridge.faces_to_face_records` could recover `blur_score` from `context.insightface_faces`. It can't — the active InsightFace pipeline has no blur-scoring step. So every FaceRecord's `blur_score` stayed 0.0 and `cluster_people.blur_min=50.0` from `configs/pipeline.yaml` rejected 100% of faces (SIGHTING-061).
+**Lesson**: A boundary fix that "stops dropping the field" is only valid if a producer is actually writing the field somewhere upstream. Removing the downstream force-disable BEFORE verifying upstream computation = silent total failure. The pose 3-tuple has the same issue (only a scalar `pose_score` exists; the bridge can't synthesize yaw/pitch/roll), saved only by the fact that the QualityGater is permissive when pose=None.
+**Prevention**: When unlocking a gate at a boundary, audit both ends: (a) does an upstream step compute the field? (b) does the bridge read it under the right dict key? If either is missing, the bridge must pin a permissive default with a docstring explaining what's missing. Architecture test asserts the docstring stays in place so the pin can't be "fixed back" without the upstream step landing first.
+
 ### 2026-05-09: Strict-write contracts catch real producer-side bugs
 **Root cause**: While building the new `RunExporter` for spec-030, the strict-key check (`merge_log[i] keys must equal MergeDecisionRow.field_names()`) refused to accept the on-disk `merge_log.json` from `face_clustering_20260508_000446`. Investigation found 4 rows in the terminal iteration missing `actually_merged` — the early-return path in `merge.py:_select_best_merge` skipped the stamping step when no valid merges existed. SIGHTING-057's fix had stamped `actually_merged` only on the winner-selection branch, leaving the no-winner branch incomplete.
 **Lesson**: A strict-write that rejects unknown / missing keys is a contract enforcer, not a nuisance. The first thing it caught was a real bug that would otherwise have stayed hidden behind a `dict.get(key, default)` call. Default values mask producer bugs as long as the consumer happens to be tolerant.

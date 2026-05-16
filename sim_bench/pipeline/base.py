@@ -101,10 +101,16 @@ class BaseStep(ABC):
     def process(self, context: "PipelineContext", config: dict) -> None:
         """
         Template method - handles caching flow automatically.
-        
+
         Steps can override this to handle caching themselves, or implement
         the abstract methods to use the template method pattern.
         """
+        # spec-033 P-G: validate config against the step's Pydantic model (if any).
+        # Steps that override process() must call validate_step_config themselves.
+        # Importing here avoids a circular import at module load time.
+        from sim_bench.pipeline.steps.configs._validate import validate_step_config
+        validate_step_config(self._metadata.name, config)
+
         # Check if step wants to use template method
         if self._uses_template_method():
             self._process_with_cache(context, config)

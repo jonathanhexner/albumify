@@ -13,8 +13,8 @@ except Exception as e:
     exit(1)
 
 # Check 2: What fields does it have?
-import dataclasses
-fields = [f.name for f in dataclasses.fields(FaceRecord)]
+# spec-033 P-C C-2: FaceRecord is a Pydantic BaseModel; introspect via model_fields.
+fields = list(FaceRecord.model_fields.keys())
 print(f"\nFaceRecord has {len(fields)} fields:")
 for f in fields:
     print(f"  - {f}")

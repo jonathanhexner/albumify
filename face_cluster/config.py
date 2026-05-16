@@ -115,6 +115,27 @@ class PipelineConfig:
     merge_margin: float = 0.05                 # Margin to next-best cluster
     merge_diameter_expansion_factor: float = 1.5  # Allow diameter to grow by this factor
 
+    # Diameter cap step (spec-031): runs AFTER merge as a separate stage.
+    # Reverts any merged cluster whose internal diameter exceeds an absolute
+    # threshold back to its pre-merge components.
+    #
+    # Why a second diameter check on top of merge gate D:
+    #   gate D rejects an individual A+B merge if the relative growth is too big,
+    #   but a chain of 5 pair-merges each within the expansion factor can still
+    #   produce a final cluster too sprawling to be a single identity.  The cap
+    #   is an absolute ceiling on the finished cluster, regardless of how it
+    #   was built.
+    #
+    # Two thresholds — both must pass for the cluster to be kept:
+    #   max_full_diameter      — worst-case across ALL pairs of nodes (sensitive
+    #                            to a single outlier face; matches gate D's metric)
+    #   max_exemplar_diameter  — worst-case across the cluster's exemplars only
+    #                            (robust to a lone rogue face; flags systematic
+    #                             multi-identity blobs)
+    cluster_diameter_cap_enabled: bool = False
+    max_full_diameter: float = 1.2
+    max_exemplar_diameter: float = 0.8
+
     # Holdout attachment
     attach_enabled: bool = False
     attach_distance_threshold: float = 0.35
@@ -147,10 +168,10 @@ class PipelineConfig:
 
     @classmethod
     def full_run(cls, source_dir, output_dir, **kwargs) -> "PipelineConfig":
-        """Full pipeline: discover -> embed -> quality -> crops -> cluster -> exemplars -> merge -> export."""
+        """Full pipeline: discover -> embed -> quality -> crops -> cluster -> exemplars -> merge -> diameter_cap -> export."""
         return cls(
             stages=["discover", "embed", "quality", "crops",
-                    "cluster", "exemplars", "merge", "export"],
+                    "cluster", "exemplars", "merge", "diameter_cap", "export"],
             source_dir=str(source_dir),
             output_dir=str(output_dir),
             **kwargs,
@@ -158,9 +179,9 @@ class PipelineConfig:
 
     @classmethod
     def recluster(cls, source_dir, output_dir, **kwargs) -> "PipelineConfig":
-        """Recluster: reuse existing crops/embeddings, re-run cluster -> exemplars -> merge -> export."""
+        """Recluster: reuse existing crops/embeddings, re-run cluster -> exemplars -> merge -> diameter_cap -> export."""
         return cls(
-            stages=["cluster", "exemplars", "merge", "export"],
+            stages=["cluster", "exemplars", "merge", "diameter_cap", "export"],
             source_dir=str(source_dir),
             output_dir=str(output_dir),
             **kwargs,
@@ -168,14 +189,14 @@ class PipelineConfig:
 
     @classmethod
     def remerge(cls, source_dir, output_dir, *, with_exemplars: bool = False, **kwargs) -> "PipelineConfig":
-        """Remerge: start from existing cluster snapshot, run merge -> export.
+        """Remerge: start from existing cluster snapshot, run merge -> diameter_cap -> export.
 
         Args:
             with_exemplars: If True, re-run exemplar selection before merge
-                            (exemplars -> merge -> export).
+                            (exemplars -> merge -> diameter_cap -> export).
         """
-        stages = (["exemplars", "merge", "export"] if with_exemplars
-                  else ["merge", "export"])
+        stages = (["exemplars", "merge", "diameter_cap", "export"] if with_exemplars
+                  else ["merge", "diameter_cap", "export"])
         return cls(
             stages=stages,
             source_dir=str(source_dir),

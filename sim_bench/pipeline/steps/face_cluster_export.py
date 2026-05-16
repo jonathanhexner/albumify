@@ -115,6 +115,18 @@ def export_for_analysis(face_records, base_cluster_result, merged_cluster_result
     # spec-030 Phase 1 — dual-write the v4 layout to a parallel subdir alongside
     # the legacy artifacts above.  Albumify and the FC App go through the same
     # RunExporter so v4 layouts are byte-identical regardless of producer.
+    # spec-033 P-C C-3: join image-level context onto each face row by image_path.
+    # Albumify keys these dicts by str path; lookups elsewhere use the same key.
+    image_scores = {}
+    for path in set(getattr(context, "iqa_scores", {})) | set(getattr(context, "ava_scores", {})) \
+            | set(getattr(context, "sharpness_scores", {})) | set(getattr(context, "scene_cluster_labels", {})):
+        image_scores[path] = {
+            "iqa": getattr(context, "iqa_scores", {}).get(path),
+            "ava": getattr(context, "ava_scores", {}).get(path),
+            "sharpness": getattr(context, "sharpness_scores", {}).get(path),
+            "scene_cluster_id": getattr(context, "scene_cluster_labels", {}).get(path),
+        }
+
     try:
         RunExporter(output_dir / "_v4").export(
             faces=face_records,
@@ -130,6 +142,11 @@ def export_for_analysis(face_records, base_cluster_result, merged_cluster_result
             started_at=run_info["started_at"],
             finished_at=run_info["finished_at"],
             crop_source_dir=output_dir / "crops",
+            # spec-033 P-C C-3 / spec-032 P1: forward the FilterContext so the
+            # filter_decisions table is populated on Albumify runs (was empty).
+            filters=getattr(context, "filters", None),
+            # spec-033 P-C C-3: per-image scores joined onto each face row.
+            image_scores=image_scores,
         )
     except Exception as e:
         logger.warning(f"v4 dual-write failed (non-fatal during Phase 1): {e}",

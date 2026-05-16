@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Face Clustering Pipeline Map (Albumify path)</title>
+<style>
+  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+         max-width: 1080px; margin: 28px auto; padding: 0 16px; color: #1c1c1c; }
+  h1 { border-bottom: 2px solid #1565c0; padding-bottom: 6px; margin-bottom: 4px; }
+  h2 { margin-top: 28px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  h3 { margin-top: 18px; font-size: 15px; }
+  .hint { color: #555; font-style: italic; margin-top: 0; }
+  .tldr { background: #fff8e1; border-left: 4px solid #f9a825; padding: 10px 14px; margin: 10px 0; }
+  code { font-family: "Consolas", "SF Mono", monospace; background: #f5f5f5;
+         padding: 1px 4px; border-radius: 3px; font-size: 12.5px; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 14px; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 5px 8px; vertical-align: top; text-align: left; }
+  th { background: #eceff1; }
+  .bad  { color: #c62828; font-weight: 600; }
+  .ok   { color: #2e7d32; font-weight: 600; }
+  .warn { color: #ef6c00; font-weight: 600; }
+  .dim  { color: #777; }
+  .pipe { background: #fafafa; padding: 12px 16px; border: 1px solid #ccc;
+          font-family: "Consolas", monospace; font-size: 12.5px; line-height: 1.55;
+          white-space: pre; overflow-x: auto; }
+  .pipe .step { color: #1565c0; font-weight: 600; }
+  .pipe .ctx  { color: #2e7d32; }
+  .pipe .drop { color: #c62828; }
+  .pipe .note { color: #777; font-style: italic; }
+</style>
+</head>
+<body>
+
+<h1>Face Clustering Pipeline Map</h1>
+<p class="hint">Albumify path (<code>mode=main_app_export</code>) — the one in use. FC App standalone path noted only where it diverges.</p>
+
+<div class="tldr">
+<b>One-line summary.</b> Face clustering is <em>inline inside</em> <code>cluster_people</code>, not a separate pipeline step.
+The bridge <code>face_cluster_bridge.py</code> drops five FaceRecord fields and force-disables the quality gates that
+would have caught the resulting defects. Every gap reported in SIGHTING-059 is downstream of that one boundary.
+</div>
+
+<h2>1. Pipeline (Albumify, <code>mode=main_app_export</code>)</h2>
+
+<div class="pipe">
+<span class="step">discover_images</span>           → context.image_paths, active_images
+<span class="step">score_iqa</span>, score_ava       → context.iqa_scores, ava_scores
+<span class="step">detect_persons</span>             → context.persons                                <span class="note">(YOLOv8-Pose)</span>
+<span class="step">insightface_detect_faces</span>   → context.insightface_faces[*].{bbox, det_score, kps}  <span class="note">(SCRFD)</span>
+<span class="step">filter_faces</span>               → mutates face['filter_passed']                  <span class="note">rejects on min_confidence, min_bbox_ratio, min_relative_size, min_eye_ratio</span>
+<span class="step">score_face_frontal</span>         → context.insightface_faces[*].frontal_score
+<span class="step">detect_face_orientation</span>    → context.insightface_faces[*].orientation
+<span class="step">align_faces</span>                → context.aligned_faces                          <span class="note">(aligned 112×112 from kps; skipped if kps missing)</span>
+<span class="step">insightface_score_expression</span>→ context.insightface_faces[*].expression_score
+<span class="step">insightface_score_eyes</span>     → context.insightface_faces[*].eyes_score
+<span class="step">insightface_score_pose</span>     → context.insightface_faces[*].{yaw, pitch, roll}
+<span class="step">filter_quality</span>             → context.active_images, ctx.filters.record(image_quality)  <span class="note">image-level only</span>
+<span class="step">extract_scene_embedding</span>    → context.scene_embeddings
+<span class="step">cluster_scenes</span>             → context.scene_clusters
+<span class="step">extract_face_embeddings</span>    → context.face_embeddings   keyed by <code>"&lt;path&gt;:face_&lt;i&gt;"</code>
+<span class="step">cluster_people</span>             → context.people_clusters, fc_export_dir
+   │
+   └── <span class="step">face_cluster_bridge.run_face_cluster_knn()</span>            <span class="note">(face_cluster lives HERE — no separate step)</span>
+        ├── <span class="drop">faces_to_face_records()</span>     bridge.py:27-53        <span class="drop">⚠ FIVE FIELDS DROPPED — see §2</span>
+        ├── <span class="drop">build_fc_config()</span>           bridge.py:56-85        <span class="drop">⚠ ALL QUALITY GATES FORCE-DISABLED</span>
+        ├── QualityGater.select_core_set()                       <span class="note">5 gates run, all no-op</span>
+        ├── KNNGraphBuilder.build_graph() → ConnectedComponents
+        ├── D10ExemplarSelector.select_exemplars()
+        ├── [optional] ConservativeMerger.merge_clusters_with_logging()
+        ├── [optional] HoldoutAttacher.attach_holdouts()
+        └── <span class="step">face_cluster_export.export_for_analysis()</span>
+              ├── Legacy artifacts: crops/, *.csv, merge_log.json, pipeline_run.json
+              └── <span class="step">RunExporter._v4/.export(...)</span>   export.py:119-133  <span class="drop">⚠ filters= NOT PASSED</span>
+<span class="step">identity_refinement</span>        → context.refined_people_clusters, cluster_exemplars
+<span class="step">cluster_by_identity</span>        → context.face_clusters
+<span class="step">select_best</span>                → context.selected_images, composite_scores
+</div>
+
+<h2>2. The Albumify→face_cluster bridge — where fields are dropped</h2>
+
+<p>FaceRecord is the contract face_cluster sees. The bridge constructs it from <code>FaceForClustering</code>; what doesn't survive the bridge cannot be checked downstream.</p>
+
+<table>
+  <tr><th>FaceRecord field</th><th>Source</th><th>Value in Albumify run</th><th>Quality gate effect</th></tr>
+  <tr><td><code>bbox</code></td><td>bridge.py:31-38 — reads <code>face.bbox</code> dict</td><td><b>fraction (0–1)</b>, set upstream by SCRFD normalization</td><td>passed; downstream consumers assume pixels</td></tr>
+  <tr><td><code>area</code></td><td>bridge.py:49 — <code>w*h</code> of normalized bbox</td><td><b>fraction²</b> (~0.001…0.45)</td><td>area gate compares to int px threshold → always passes</td></tr>
+  <tr><td><code>blur_score</code></td><td>bridge.py:48 — <code>getattr(face, "blur_score", 0.0)</code></td><td class="bad"><b>0.0 for every face</b> — FaceForClustering has no such field</td><td>blur gate force-disabled (<code>blur_min=0.0</code>); even if enabled, all pass</td></tr>
+  <tr><td><code>pose</code></td><td>bridge.py:50 — <code>getattr(face, "pose", None)</code></td><td class="bad"><b>None for every face</b> — yaw/pitch/roll live in <code>insightface_faces[*]</code> dict, never copied onto FaceRecord</td><td>yaw/pitch/roll gates force-disabled; <code>face.pose is None</code> short-circuits</td></tr>
+  <tr><td><code>det_score</code></td><td>bridge.py:51 — <code>getattr(face, "det_score", None)</code></td><td class="bad">may be None (depends on FaceForClustering construction path)</td><td>det gate disabled (<code>det_score_min=None</code>)</td></tr>
+  <tr><td><code>landmarks</code></td><td>not extracted</td><td class="bad">None</td><td>n/a; but no alignment downstream of bridge</td></tr>
+  <tr><td><code>aligned_face</code></td><td>not extracted</td><td class="bad">None</td><td><b>no gate rejects on this</b>; face_46/47 reach exemplar status with no crop</td></tr>
+</table>
+
+<p>The bridge <em>knows</em> this — bridge.py:59-60 says it explicitly:
+<code>"Quality gates are FORCE-DISABLED because the main pipeline doesn't compute blur_score or pose on FaceForClustering objects."</code></p>
+
+<h2>3. Context state — load-bearing fields only</h2>
+
+<table>
+  <tr><th>Field</th><th>Written by</th><th>Read by</th><th>Status</th></tr>
+  <tr><td><code>insightface_faces</code></td><td>insightface_detect_faces; mutated by 6 scoring steps</td><td>filter_faces, extract_face_embeddings, face_cluster_bridge (indirect)</td><td>live; scores attached to nested dict, never copied to FaceRecord</td></tr>
+  <tr><td><code>face_embeddings</code></td><td>extract_face_embeddings</td><td>cluster_people → face_cluster_bridge</td><td>live</td></tr>
+  <tr><td><code>quality_passed</code>, <code>portrait_passed</code></td><td>filter_quality, filter_portraits</td><td>—</td><td class="dim">DEPRECATED — replaced by <code>filters</code></td></tr>
+  <tr><td><code>active_images</code></td><td>discover_images, filter_quality</td><td>extract_scene_embedding</td><td>live (image-level)</td></tr>
+  <tr><td><code>filters</code> (FilterContext)</td><td>filter_quality only on Albumify; bridge filter steps NOT wired</td><td>RunExporter <span class="bad">if forwarded</span> — currently isn't on Albumify path</td><td class="warn">spec-032 P1 incomplete on Albumify</td></tr>
+  <tr><td><code>people_clusters</code></td><td>cluster_people</td><td>identity_refinement, cluster_by_identity</td><td>live</td></tr>
+  <tr><td><code>fc_export_dir</code></td><td>export_for_analysis</td><td>UI deep-link</td><td>live</td></tr>
+</table>
+
+<h2>4. Storage — what each run writes</h2>
+
+<table>
+  <tr><th>Path under run dir</th><th>Written by</th><th>Read by</th></tr>
+  <tr><td><code>crops/face_NNNN_aligned.jpg</code></td><td>_generate_crops_from_bboxes (legacy)</td><td>FC App UI (legacy fallback)</td></tr>
+  <tr><td><code>crop_manifest.json</code>, <code>*_cluster_*.csv</code>, <code>merge_log.json</code>, <code>merge_metadata.json</code>, <code>pipeline_run.json</code></td><td>legacy <code>export_results</code> / <code>export_merged_results</code></td><td>FC App loader (fallback when v4 absent)</td></tr>
+  <tr><td><code>_v4/face_clustering.db</code></td><td><code>RunExporter</code></td><td>FC App via <code>RunStore</code> (preferred when present)</td></tr>
+  <tr><td><code>_v4/embeddings.npy</code>, <code>embedding_face_ids.npy</code></td><td><code>RunExporter</code></td><td><code>RunStore.embeddings()</code></td></tr>
+  <tr><td><code>_v4/pipeline_run.json</code></td><td><code>RunExporter</code></td><td><code>RunStore.metadata()</code></td></tr>
+  <tr><td><code>_v4/crops/</code></td><td><code>RunExporter</code> (copy from legacy)</td><td>FC App UI</td></tr>
+</table>
+
+<h3>DB schema (9 tables in <code>_v4/face_clustering.db</code>)</h3>
+
+<table>
+  <tr><th>Table</th><th>Albumify population</th></tr>
+  <tr><td><code>faces</code> (face_id, image_path, bbox_*, crop_path, det_score, blur_score, area, yaw/pitch/roll, is_core, rejection_reason)</td><td class="bad">det_score=NULL, blur_score=0.0, yaw/pitch/roll=NULL, area=fraction (all 428 rows)</td></tr>
+  <tr><td><code>face_scores</code> (face_id, pose_score, eyes_score, expression_score, frontal_score, is_clusterable)</td><td class="bad">all scoring columns NULL (428/428 rows)</td></tr>
+  <tr><td><code>clusters</code>, <code>cluster_assignments</code></td><td class="ok">populated correctly</td></tr>
+  <tr><td><code>merge_decisions</code></td><td class="ok">populated correctly (spec-030 fix)</td></tr>
+  <tr><td><code>filter_decisions</code> (spec-032)</td><td class="bad">EMPTY (0 rows) — RunExporter call missing <code>filters=</code></td></tr>
+  <tr><td><code>run_metadata</code></td><td class="ok">populated</td></tr>
+</table>
+
+<h2>4b. Context → Storage mapping</h2>
+
+<p>Which context fields reach the v4 DB, which don't, and where each lives. Used by the cleanup plan (P-C).</p>
+
+<table>
+  <tr><th>Context field</th><th>Producer step</th><th>Reaches storage?</th><th>Where (v4)</th></tr>
+  <tr><td><code>image_paths</code></td><td>discover_images</td><td class="ok">indirect</td><td><code>faces.image_path</code> (one row per face, not per image)</td></tr>
+  <tr><td><code>iqa_scores[path]</code></td><td>score_iqa</td><td class="bad">NO</td><td>— LOST IN TRANSIT</td></tr>
+  <tr><td><code>ava_scores[path]</code></td><td>score_ava</td><td class="bad">NO</td><td>— LOST IN TRANSIT</td></tr>
+  <tr><td><code>sharpness_scores[path]</code></td><td>score_iqa (side-effect)</td><td class="bad">NO</td><td>— LOST IN TRANSIT</td></tr>
+  <tr><td><code>active_images</code></td><td>filter_quality</td><td class="warn">via filter_decisions only</td><td><code>filter_decisions</code> (empty on Albumify)</td></tr>
+  <tr><td><code>insightface_faces[path][i].bbox</code></td><td>insightface_detect_faces</td><td class="ok">yes</td><td><code>faces.bbox_{x,y,w,h}</code> (units = fraction on Albumify)</td></tr>
+  <tr><td><code>insightface_faces[path][i].det_score</code></td><td>insightface_detect_faces</td><td class="bad">NO (on Albumify)</td><td><code>faces.det_score</code> column exists; NULL for all 428 rows</td></tr>
+  <tr><td><code>insightface_faces[path][i].kps</code> (landmarks)</td><td>insightface_detect_faces</td><td class="bad">NO</td><td>— ephemeral; consumed by align_faces, then discarded</td></tr>
+  <tr><td><code>insightface_faces[path][i].frontal_score</code></td><td>score_face_frontal</td><td class="bad">NO (on Albumify)</td><td><code>face_scores.frontal_score</code> column exists; NULL</td></tr>
+  <tr><td><code>insightface_faces[path][i].orientation</code></td><td>detect_face_orientation</td><td class="bad">NO</td><td>— not in schema</td></tr>
+  <tr><td><code>insightface_faces[path][i].expression_score</code></td><td>insightface_score_expression</td><td class="bad">NO (on Albumify)</td><td><code>face_scores.expression_score</code>; NULL</td></tr>
+  <tr><td><code>insightface_faces[path][i].eyes_score</code></td><td>insightface_score_eyes</td><td class="bad">NO (on Albumify)</td><td><code>face_scores.eyes_score</code>; NULL</td></tr>
+  <tr><td><code>insightface_faces[path][i].{yaw,pitch,roll}</code></td><td>insightface_score_pose</td><td class="bad">NO (on Albumify)</td><td><code>faces.{yaw,pitch,roll}</code>; NULL</td></tr>
+  <tr><td><code>aligned_faces</code></td><td>align_faces</td><td class="ok">indirect</td><td>JPEG bytes in <code>crops/face_NNNN_aligned.jpg</code></td></tr>
+  <tr><td><code>scene_embeddings[path]</code></td><td>extract_scene_embedding</td><td class="warn">by design no</td><td>— ephemeral; not face-clustering data</td></tr>
+  <tr><td><code>scene_cluster_labels[path]</code></td><td>cluster_scenes</td><td class="bad">NO</td><td>— LOST IN TRANSIT</td></tr>
+  <tr><td><code>face_embeddings["path:face_i"]</code></td><td>extract_face_embeddings</td><td class="ok">yes</td><td><code>embeddings.npy</code> + <code>embedding_face_ids.npy</code></td></tr>
+  <tr><td><code>people_clusters[id]</code></td><td>cluster_people</td><td class="ok">yes</td><td><code>clusters</code> + <code>cluster_assignments</code> tables</td></tr>
+  <tr><td><code>filters</code> (FilterContext)</td><td>filter_quality (+ should be: filter_faces, filter_portraits, filter_best_faces)</td><td class="bad">NO (on Albumify)</td><td><code>filter_decisions</code> table; empty — <code>filters=</code> not passed at export.py:119</td></tr>
+  <tr><td><code>refined_people_clusters</code></td><td>identity_refinement</td><td class="warn">partial</td><td>same as <code>people_clusters</code> (overwrites)</td></tr>
+  <tr><td><code>face_clusters[scene][identity]</code></td><td>cluster_by_identity</td><td class="bad">NO</td><td>— scene×identity sub-clustering not in v4 schema</td></tr>
+  <tr><td><code>composite_scores[path]</code>, <code>selected_images</code></td><td>select_best</td><td class="warn">by design no (album selection, not face data)</td><td>— album-level outputs live elsewhere</td></tr>
+</table>
+
+<h3>Per-image observability — the join that doesn't exist yet</h3>
+
+<p>To answer "show everything we know about image X", today you'd need:</p>
+
+<ol>
+  <li>Look up image-level scores → <span class="bad">no table holds these</span></li>
+  <li>Find all faces on this image → <code>SELECT * FROM faces WHERE image_path=?</code> (works, many NULL columns)</li>
+  <li>Get per-face scoring → <code>JOIN face_scores</code> (mostly NULL on Albumify)</li>
+  <li>Get cluster assignment per face → <code>JOIN cluster_assignments</code> (works)</li>
+  <li>Get per-face filter decisions → <code>JOIN filter_decisions WHERE item_type='face'</code> (empty on Albumify)</li>
+  <li>Get image-level filter decisions → <code>WHERE item_type='image' AND item_id=image_path</code> (empty on Albumify)</li>
+</ol>
+
+<p>Three of six joins return empty or all-NULL on the current Albumify run. The cleanup plan's P-C closes those gaps; P-D wraps the whole join in <code>RunStore.image_detail(image_path)</code>.</p>
+
+<h2>5. The gap table — UI control vs. what actually runs</h2>
+
+<p>This is the architectural mess in one place. Each row is a control or hidden gate; column 4 is the truth.</p>
+
+<table>
+  <tr><th>UI control (or hidden gate)</th><th>Widget key / config field</th><th>Binds to</th><th>Effective behaviour on Albumify run</th></tr>
+  <tr>
+    <td>"Min Face Size (px)" slider</td>
+    <td><code>config_min_face_size</code> → 4 step configs</td>
+    <td>detect_faces.min_face_size; 3 scoring steps' min_face_size (skip-if-smaller, scoring-only)</td>
+    <td class="bad"><b>Phantom for clustering.</b> Never reaches the face_cluster quality gate; the gate compares fraction² to int(px) anyway.</td>
+  </tr>
+  <tr>
+    <td>(no UI)</td>
+    <td><code>min_face_ratio = 0.005</code></td>
+    <td>detect_faces, filter_best_faces, filter_portraits (3 different defaults)</td>
+    <td class="warn">The actual face-size rejector. <b>Hidden</b> from user.</td>
+  </tr>
+  <tr>
+    <td>"Min IQA Score" / "Min Sharpness"</td>
+    <td><code>config_min_iqa</code> / <code>config_min_sharpness</code></td>
+    <td>filter_quality</td>
+    <td class="ok">Works (image-level). Emits <code>filter_decisions</code> on Albumify path.</td>
+  </tr>
+  <tr>
+    <td>(no UI) blur gate</td>
+    <td><code>blur_min</code> in face_cluster QualityGater</td>
+    <td>quality.py:278 — compares <code>face.blur_score &gt;= blur_min</code></td>
+    <td class="bad"><b>Force-disabled</b> (bridge sets <code>blur_min=0.0</code>); FaceRecord.blur_score=0.0 anyway.</td>
+  </tr>
+  <tr>
+    <td>(no UI) yaw/pitch/roll gates</td>
+    <td><code>yaw_max</code>, <code>pitch_max</code>, <code>roll_max</code></td>
+    <td>quality.py:285 — compares <code>abs(face.pose[i]) &lt;= max</code></td>
+    <td class="bad"><b>Force-disabled</b> (bridge sets max=999); FaceRecord.pose=None anyway.</td>
+  </tr>
+  <tr>
+    <td>(no UI) det_score gate</td>
+    <td><code>det_score_min</code></td>
+    <td>quality.py:262 — None → skipped</td>
+    <td class="bad"><b>Force-disabled</b> (bridge sets None); FaceRecord.det_score may be None too.</td>
+  </tr>
+  <tr>
+    <td>(no UI) area gate</td>
+    <td><code>min_face_area</code></td>
+    <td>quality.py:300 — compares <code>face.area &gt;= min_face_area</code></td>
+    <td class="bad"><b>No-op:</b> face.area is fraction² (~0.001); threshold defaults to None or px. Cannot fire.</td>
+  </tr>
+  <tr>
+    <td>(no gate) alignable check</td>
+    <td>none</td>
+    <td>nowhere</td>
+    <td class="bad"><b>Missing rejector.</b> <code>aligned_face is None</code> faces become exemplars. This is cluster 6 / face_46 / face_47.</td>
+  </tr>
+  <tr>
+    <td>"Merge / Attach / Export" checkboxes</td>
+    <td><code>rc_merge</code>, <code>rc_attach</code>, <code>config_fc_export</code></td>
+    <td>face_cluster_bridge config</td>
+    <td class="ok">Wired correctly.</td>
+  </tr>
+  <tr>
+    <td>FC App Run-tab <code>min_face_area</code></td>
+    <td><code>run_min_face_area</code></td>
+    <td>FC App's own <code>PipelineConfig.min_face_area</code></td>
+    <td class="warn">Works on FC App standalone runs; <b>unused on Albumify runs</b> (different code path).</td>
+  </tr>
+</table>
+
+<h2>6. Drift points — the six places where order is missing</h2>
+
+<table>
+  <tr><th>#</th><th>Boundary</th><th>What's broken</th><th>One-line fix direction</th></tr>
+  <tr><td>D-1</td><td>UI ↔ pipeline binding</td><td>"Min Face Size (px)" doesn't drive the face-size gate; <code>min_face_ratio</code> is the real (hidden) one</td><td>One slider, one filter — bind <code>config_min_face_size</code> to <em>both</em> detector and post-bridge area gate (after D-2)</td></tr>
+  <tr><td>D-2</td><td>Bridge unit contract</td><td><code>face.area</code> is fraction² on Albumify, pixels on FC App standalone — same field, two units</td><td>Canonicalize at the bridge: compute area in pixels from bbox×image_shape (SIGHTING-060)</td></tr>
+  <tr><td>D-3</td><td>Bridge field carry-through</td><td>blur, pose, det_score, landmarks, aligned_face dropped between FaceForClustering and FaceRecord</td><td>Either populate FaceForClustering with these from the scoring steps, or have the bridge read <code>context.insightface_faces[path][i]</code> directly</td></tr>
+  <tr><td>D-4</td><td>Gate enablement</td><td>Bridge force-disables 5 gates because the fields aren't populated</td><td>Resolved by D-3; then <code>build_fc_config</code> stops needing the disable hack</td></tr>
+  <tr><td>D-5</td><td>Alignability ≠ filter</td><td>Faces with no landmarks → no aligned_face → become exemplars anyway</td><td>Non-negotiable filter <code>face_alignable</code>: <code>aligned_face is None → rejected</code>, before clustering</td></tr>
+  <tr><td>D-6</td><td>FilterContext forwarding</td><td><code>RunExporter</code> called from Albumify without <code>filters=context.filters</code></td><td>One-line fix at <code>face_cluster_export.py:119</code> + bridge <code>filter_faces</code>/<code>filter_portraits</code>/<code>filter_best_faces</code> to record decisions</td></tr>
+</table>
+
+<h2>7. What this map does <em>not</em> prescribe</h2>
+
+<p>No fix order, no spec, no code. The point of this page is to make the boundaries visible so the next conversation can choose <em>where</em> to apply order, not <em>which</em> bug to swat.</p>
+
+<p class="hint">Sources: <code>sim_bench/pipeline/context.py</code>, <code>sim_bench/pipeline/steps/face_cluster_bridge.py</code>, <code>sim_bench/pipeline/steps/face_cluster_export.py</code>, <code>face_cluster/types.py</code>, <code>face_cluster/quality.py</code>, <code>face_cluster/run_exporter.py</code>, <code>app/streamlit/components/pipeline_runner.py</code>, <code>configs/pipeline.yaml</code>. Run inspected: <code>results/album/face_clustering_20260512_215039</code>.</p>
+
+</body>
+</html>

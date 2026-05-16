@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sim-bench · Global DB (~/.sim_bench/sim_bench.db)</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1200px; margin: 1.5em auto; padding: 0 1.5em;
+         color: #222; line-height: 1.5; background:#fafbfc; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; margin-bottom: 0; }
+  h1 + .subtitle { color: #666; margin-top: .2em; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 2em;
+       display:flex; justify-content:space-between; align-items:baseline; }
+  h2 .src { font-size: 12px; color:#777; font-weight: 400; font-family: Consolas, monospace; }
+  h3 { margin-top: 1.5em; color:#1f5fc7; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left;
+           vertical-align: top; }
+  th { background: #f4f4f6; }
+  code { background:#eef0f4; padding: 1px 4px; border-radius: 3px;
+         font-size: 12px; font-family: Consolas, monospace; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px;
+          font-size:11px; font-weight:600; }
+  .pk    { background:#f0e3fc; color:#5a2887; font-weight: 700; }
+  .fk    { background:#d6e8ff; color:#1d3a8a; font-weight: 600; }
+  .live  { background:#e3f5e0; color:#236623; }
+  .legacy{ background:#f4d3d3; color:#8a1a1a; }
+  .nullable { color:#777; font-style:italic; }
+  .source-of-truth { background:#fffde6; border:1px solid #d4ce7a;
+                     padding: 6px 10px; border-radius:4px; font-size: 13px;
+                     margin: 1em 0; }
+  .callout { background: #f6f7fa; border-left: 4px solid #4a72c4;
+             padding: .6em 1em; margin: 1em 0; border-radius: 0 4px 4px 0;
+             font-size: 14px; }
+  .toc { background:#fff; border:1px solid #ddd; padding: 8px 14px;
+         border-radius: 4px; margin: 1em 0; font-size: 14px; }
+  .toc a { text-decoration:none; color:#1f5fc7; margin-right: 12px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; margin: .5em 0 1em; font-size:13px; }
+  .group { margin: 1.5em 0; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background:#fff; }
+  .group h3 { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<h1>Global DB — <code>~/.sim_bench/sim_bench.db</code></h1>
+<p class="subtitle">Shared SQLite database for cross-run state · Last updated: 2026-05-16</p>
+
+<div class="source-of-truth">
+<b>⚠️ Source of truth.</b> Schemas defined across <code>sim_bench/api/database/models.py</code> (SQLAlchemy, 8 tables), <code>face_cluster/run_history_db.py</code>, and <code>face_cluster/training_db.py</code> (sqlite3, 3 tables). <b>Any change to a table in this file requires updating this document in the same PR</b> (CODE_REVIEW_CHECKLIST §7).
+</div>
+
+<div class="callout">
+<b>One file, two access paths.</b> The same SQLite file is opened by two different drivers:
+<ul>
+  <li><b>SQLAlchemy</b> via <code>sim_bench/api/database/session.py</code> — 8 tables managed by ORM models with idempotent column migrations.</li>
+  <li><b>Raw sqlite3</b> via <code>face_cluster/{run_history_db,training_db}.py</code> — 3 tables managed by <code>CREATE TABLE IF NOT EXISTS</code> + idempotent <code>ALTER TABLE</code> migrations.</li>
+</ul>
+The two access paths do not share Base / metadata. They coexist because the face_cluster modules predate the API layer; merging them is a low-priority refactor.
+</div>
+
+<div class="toc">
+<b>Tables:</b>
+<b>API tables (SQLAlchemy):</b>
+<a href="#albums">albums</a>
+<a href="#pipeline_runs">pipeline_runs</a>
+<a href="#pipeline_results">pipeline_results</a>
+<a href="#people">people</a>
+<a href="#config_profiles">config_profiles</a>
+<a href="#universal_cache">universal_cache</a>
+<a href="#user_events">user_events</a>
+<a href="#face_overrides">face_overrides</a>
+<br>
+<b>face_cluster tables (raw sqlite3):</b>
+<a href="#action_log">action_log</a>
+<a href="#merge_training_data">merge_training_data</a>
+<a href="#trained_models">trained_models</a>
+</div>
+
+<div class="legend">
+  <span><span class="pill pk">PK</span> primary key</span>
+  <span><span class="pill fk">FK</span> foreign key</span>
+  <span><span class="pill live">LIVE</span> currently written</span>
+  <span><span class="pill legacy">LEGACY</span> deprecated / read-only</span>
+</div>
+
+<h2>Path resolution</h2>
+<p>All access goes through helper functions that resolve to the same path:</p>
+<ul>
+  <li><code>sim_bench/api/database/session.py::get_database_path()</code> → <code>~/.sim_bench/sim_bench.db</code></li>
+  <li><code>face_cluster/run_history_db.py::get_db_path()</code> → same path</li>
+  <li><code>face_cluster/training_db.py::get_db_path()</code> → same path</li>
+</ul>
+<p>The directory is created on first access. There is no schema-version handshake between the two access paths — they own disjoint table sets.</p>
+
+<div class="group">
+<h3>API tables — managed by SQLAlchemy (<code>sim_bench/api/database/models.py</code>)</h3>
+<p>Migrations are idempotent <code>ALTER TABLE</code>s in <code>session.py::_migrate_new_columns</code>. No version number — schema is "whatever the running code expects, with optional new columns added on init."</p>
+
+<h2 id="albums">albums <span class="src">SQLAlchemy · class Album</span></h2>
+<p>One row per ingested album.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>String</td><td>no</td><td>Stable album identifier (UUID).</td></tr>
+    <tr><td><code>name</code></td><td>String</td><td>no</td><td>Display name.</td></tr>
+    <tr><td><code>source_path</code></td><td>String</td><td>no</td><td>Disk path the album was ingested from.</td></tr>
+    <tr><td><code>image_count</code></td><td>Integer</td><td>default 0</td><td>Cardinality at last scan.</td></tr>
+    <tr><td><code>created_at</code></td><td>DateTime</td><td>default utcnow</td><td>Ingest timestamp.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="pipeline_runs">pipeline_runs <span class="src">SQLAlchemy · class PipelineRun</span></h2>
+<p>One row per Albumify pipeline invocation (the API tracks both running and completed jobs here).</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>String</td><td>no</td><td>Run identifier (UUID).</td></tr>
+    <tr><td><code>album_id</code> <span class="pill fk">FK → albums.id</span></td><td>String</td><td>no</td><td>Which album the run is for.</td></tr>
+    <tr><td><code>pipeline_name</code></td><td>String</td><td class="nullable">yes</td><td>One of: <code>default_pipeline</code>, <code>minimal_pipeline</code>, <code>mediapipe_pipeline</code>.</td></tr>
+    <tr><td><code>steps</code></td><td>JSON</td><td class="nullable">yes</td><td>Resolved step list at run start.</td></tr>
+    <tr><td><code>step_configs</code></td><td>JSON</td><td class="nullable">yes</td><td>Effective step_configs dict (the Pydantic-validated values from the UI).</td></tr>
+    <tr><td><code>fail_fast</code></td><td>Boolean</td><td>default True</td><td>If True, stop on first step failure.</td></tr>
+    <tr><td><code>status</code></td><td>String</td><td>default "pending"</td><td>pending / running / completed / failed / cancelled.</td></tr>
+    <tr><td><code>current_step</code></td><td>String</td><td class="nullable">yes</td><td>Step name while running.</td></tr>
+    <tr><td><code>progress</code></td><td>Float</td><td>default 0.0</td><td>0–1 progress fraction.</td></tr>
+    <tr><td><code>error_message</code></td><td>String</td><td class="nullable">yes</td><td>Failure message if status=failed.</td></tr>
+    <tr><td><code>completed_steps</code></td><td>JSON</td><td class="nullable">yes</td><td>List of <code>{step, duration_ms, status}</code>.</td></tr>
+    <tr><td><code>created_at, started_at, completed_at</code></td><td>DateTime</td><td class="nullable">yes</td><td>Wall-clock bounds.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="pipeline_results">pipeline_results <span class="src">SQLAlchemy · class PipelineResult</span></h2>
+<p>One row per completed pipeline_runs row. Holds the JSON outputs the API serves to the UI.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>String</td><td>Result identifier (UUID).</td></tr>
+    <tr><td><code>run_id</code> <span class="pill fk">FK → pipeline_runs.id</span></td><td>String</td><td>Which run produced this result.</td></tr>
+    <tr><td><code>total_images, filtered_images, num_clusters, num_selected</code></td><td>Integer</td><td>Cardinalities.</td></tr>
+    <tr><td><code>scene_clusters</code></td><td>JSON</td><td>Scene cluster assignments per image.</td></tr>
+    <tr><td><code>face_subclusters</code></td><td>JSON</td><td>Per-scene face identity subclusters.</td></tr>
+    <tr><td><code>selected_images</code></td><td>JSON</td><td>Final selection list with scores.</td></tr>
+    <tr><td><code>image_metrics</code></td><td>JSON</td><td>Per-image score dict (iqa / ava / sharpness / composite).</td></tr>
+    <tr><td><code>siamese_comparisons</code></td><td>JSON</td><td>Pairwise Siamese refinement log (debug).</td></tr>
+    <tr><td><code>step_timings, total_duration_ms</code></td><td>JSON / Integer</td><td>Performance breakdown.</td></tr>
+    <tr><td><code>fc_export_dir</code></td><td>String</td><td>Path to FC App artifact dir for this run (the per-run face_clustering.db lives under <code>fc_export_dir/_v4/</code>).</td></tr>
+    <tr><td><code>step_decisions</code></td><td>JSON</td><td>spec-012 StepDecision list. Coexists with the per-run filter_decisions table.</td></tr>
+  </tbody>
+</table>
+<p class="callout"><b>Pointer to per-run DB:</b> <code>pipeline_results.fc_export_dir</code> is the bridge from the global DB to the per-run face_clustering.db (covered in <a href="db_schemas.html">db_schemas.html</a>).</p>
+
+<h2 id="people">people <span class="src">SQLAlchemy · class Person</span></h2>
+<p>Identity registry. One row per detected person (cluster) within an album. Survives across runs.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>String</td><td>no</td><td>Person identifier (UUID).</td></tr>
+    <tr><td><code>album_id</code> <span class="pill fk">FK</span></td><td>String</td><td>no</td><td>The album this person was discovered in.</td></tr>
+    <tr><td><code>run_id</code> <span class="pill fk">FK</span></td><td>String</td><td>no</td><td>The run that produced this person.</td></tr>
+    <tr><td><code>person_index</code></td><td>Integer</td><td class="nullable">yes</td><td>Cluster id from <code>cluster_people</code> (0, 1, 2…).</td></tr>
+    <tr><td><code>name</code></td><td>String</td><td class="nullable">yes</td><td>User-assigned label.</td></tr>
+    <tr><td><code>thumbnail_image_path, thumbnail_face_index, thumbnail_bbox</code></td><td>String/Int/JSON</td><td class="nullable">yes</td><td>Pointer to the best-face crop for this person.</td></tr>
+    <tr><td><code>face_count, image_count</code></td><td>Integer</td><td>default 0</td><td>Stats.</td></tr>
+    <tr><td><code>face_instances</code></td><td>JSON</td><td>default []</td><td>List of <code>{image_path, face_index, bbox, score}</code>.</td></tr>
+    <tr><td><code>created_at</code></td><td>DateTime</td><td>default utcnow</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<h2 id="config_profiles">config_profiles <span class="src">SQLAlchemy · class ConfigProfile</span></h2>
+<p>Named pipeline configurations. Replaces the file-based profile store at <code>~/.sim_bench/profiles/*.json</code> for API-driven flows.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>String</td><td>Profile identifier (UUID).</td></tr>
+    <tr><td><code>name</code></td><td>String unique</td><td>Display name.</td></tr>
+    <tr><td><code>description</code></td><td>String</td><td>Optional human description.</td></tr>
+    <tr><td><code>config</code></td><td>JSON</td><td>Full pipeline config dict (compatible with the step_configs format).</td></tr>
+    <tr><td><code>is_default</code></td><td>Boolean</td><td>One profile per user marked as default.</td></tr>
+    <tr><td><code>is_system</code></td><td>Boolean</td><td>True if managed by the system (loaded from <code>configs/pipeline.yaml</code>).</td></tr>
+    <tr><td><code>user_id</code></td><td>String</td><td>Optional — for user-scoped profiles.</td></tr>
+    <tr><td><code>parent_profile_id</code> <span class="pill fk">FK self</span></td><td>String</td><td>Profile inheritance.</td></tr>
+    <tr><td><code>created_at, updated_at</code></td><td>DateTime</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<h2 id="universal_cache">universal_cache <span class="src">SQLAlchemy · class UniversalCache</span></h2>
+<p>Cache for any feature computed from an image (embeddings, scores, etc.). Survives across runs and across pipelines.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span> auto</td><td>Integer</td><td>Surrogate.</td></tr>
+    <tr><td><code>image_path</code></td><td>String</td><td>Indexed. Path to the source image (forward slashes).</td></tr>
+    <tr><td><code>feature_type</code></td><td>String</td><td>e.g. <code>face_embedding</code>, <code>scene_embedding</code>, <code>iqa_score</code>.</td></tr>
+    <tr><td><code>model_name</code></td><td>String</td><td>e.g. <code>buffalo_l</code>, <code>dinov2_vitb14</code>.</td></tr>
+    <tr><td><code>model_version</code></td><td>String</td><td class="nullable">Optional version tag for cache invalidation.</td></tr>
+    <tr><td><code>data_blob</code></td><td>LargeBinary</td><td>Opaque bytes (numpy serialization, JSON, etc.).</td></tr>
+    <tr><td><code>image_mtime</code></td><td>Float</td><td>Source-file mtime at cache-write time; used for invalidation.</td></tr>
+    <tr><td><code>created_at, last_accessed</code></td><td>DateTime</td><td>—</td></tr>
+  </tbody>
+</table>
+<p><b>Unique constraint:</b> <code>(image_path, feature_type, model_name)</code> — one cache entry per source-feature-model triple.</p>
+<p class="callout"><b>This is the table that makes re-running cheap.</b> Re-running a pipeline on an unchanged album hits this cache for every cacheable step. Clearing it (<code>sqlite3 ~/.sim_bench/sim_bench.db "DELETE FROM universal_cache WHERE feature_type='face_embedding'"</code>) forces re-embedding.</p>
+
+<h2 id="user_events">user_events <span class="src">SQLAlchemy · class UserEvent</span></h2>
+<p>Generic event log for user actions, AI requests, undo/redo. One row per event.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>String</td><td>Event identifier.</td></tr>
+    <tr><td><code>album_id, run_id</code> <span class="pill fk">FK</span></td><td>String</td><td>Optional scoping.</td></tr>
+    <tr><td><code>event_type</code></td><td>String</td><td>e.g. <code>face_assigned</code>, <code>merge_approved</code>.</td></tr>
+    <tr><td><code>event_data</code></td><td>JSON</td><td>Type-specific payload.</td></tr>
+    <tr><td><code>status, result, error</code></td><td>String/JSON/String</td><td>Outcome.</td></tr>
+    <tr><td><code>source</code></td><td>String</td><td>Default "user"; can be "ai", "system".</td></tr>
+    <tr><td><code>created_at</code></td><td>DateTime</td><td>—</td></tr>
+    <tr><td><code>is_undone, undone_by_id</code></td><td>Boolean / FK self</td><td>Undo chain.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="face_overrides">face_overrides <span class="src">SQLAlchemy · class FaceOverride</span></h2>
+<p>Persistent user corrections to face classification. Survives across runs.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>String</td><td>—</td></tr>
+    <tr><td><code>album_id</code> <span class="pill fk">FK</span></td><td>String</td><td>—</td></tr>
+    <tr><td><code>run_id</code> <span class="pill fk">FK</span></td><td>String</td><td class="nullable">yes</td></tr>
+    <tr><td><code>face_key</code></td><td>String</td><td>Format: <code>image_path:face_N</code>.</td></tr>
+    <tr><td><code>status</code></td><td>String</td><td>One of: <code>assigned</code>, <code>untagged</code>, <code>not_a_face</code>.</td></tr>
+    <tr><td><code>person_id</code> <span class="pill fk">FK</span></td><td>String</td><td>For status=assigned.</td></tr>
+    <tr><td><code>embedding</code></td><td>JSON</td><td class="nullable">For status=not_a_face — used for similarity rejection on future runs.</td></tr>
+    <tr><td><code>created_at, created_by</code></td><td>DateTime / String</td><td>Audit.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="group">
+<h3>face_cluster tables — raw sqlite3 (<code>face_cluster/{run_history_db,training_db}.py</code>)</h3>
+<p>Same SQLite file, but accessed without SQLAlchemy. Migrations are <code>CREATE TABLE IF NOT EXISTS</code> + idempotent <code>ALTER TABLE</code> in module init.</p>
+
+<h2 id="action_log">action_log <span class="src">run_history_db.py</span></h2>
+<p>Run history for face_cluster pipeline invocations (FC App + recluster + remerge). Independent of the API's <code>pipeline_runs</code> table.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span> auto</td><td>INTEGER</td><td>Surrogate.</td></tr>
+    <tr><td><code>action_type</code></td><td>TEXT</td><td>e.g. <code>full_run</code>, <code>recluster</code>, <code>remerge</code>, <code>manual_merge</code>.</td></tr>
+    <tr><td><code>status</code></td><td>TEXT</td><td>running / completed / failed.</td></tr>
+    <tr><td><code>started_at, ended_at, duration_s</code></td><td>TEXT / TEXT / REAL</td><td>Timing.</td></tr>
+    <tr><td><code>error</code></td><td>TEXT</td><td class="nullable">Failure message.</td></tr>
+    <tr><td><code>run_id</code></td><td>TEXT</td><td>Stable identifier matching the per-run dir name.</td></tr>
+    <tr><td><code>source_dir, output_dir</code></td><td>TEXT</td><td>Filesystem locations.</td></tr>
+    <tr><td><code>album, source_album</code></td><td>TEXT</td><td>Album name (two columns kept for backward compat).</td></tr>
+    <tr><td><code>n_faces, n_clusters, n_noise, n_core</code></td><td>INTEGER</td><td>Cardinalities at run end.</td></tr>
+    <tr><td><code>log_file</code></td><td>TEXT</td><td>Path to the run's log file.</td></tr>
+    <tr><td><code>run_name, parent_run_id, run_kind</code></td><td>TEXT / INTEGER / TEXT</td><td>spec-013 hierarchy fields.</td></tr>
+    <tr><td><code>comment</code></td><td>TEXT</td><td>User-attached comment (max 2048 chars).</td></tr>
+    <tr><td><code>config_json</code></td><td>TEXT</td><td>JSON-encoded effective config.</td></tr>
+    <tr><td><code>payload_json</code></td><td>TEXT</td><td>Extra metadata.</td></tr>
+  </tbody>
+</table>
+<p><b>Indexes:</b> <code>idx_action_log_started (started_at DESC)</code>, <code>idx_action_log_type (action_type, started_at DESC)</code>.</p>
+<p class="callout"><b>Overlap with <code>pipeline_runs</code>:</b> the API's <code>pipeline_runs</code> table is for Albumify; <code>action_log</code> is for the FC App standalone path. They do not share rows. A run that goes through Albumify writes to <code>pipeline_runs</code>; an FC App run writes to <code>action_log</code>. Both record an <code>fc_export_dir</code> pointing at the same on-disk artifact layout.</p>
+
+<h2 id="merge_training_data">merge_training_data <span class="src">training_db.py</span></h2>
+<p>ML training samples for the merge-decision classifier. Each row is a (cluster_a, cluster_b) pair with extracted features and a user-supplied label.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span> auto</td><td>INTEGER</td><td>Surrogate.</td></tr>
+    <tr><td><code>run_id</code></td><td>TEXT</td><td>Run that produced the pair.</td></tr>
+    <tr><td><code>album_path</code></td><td>TEXT</td><td class="nullable">Source album.</td></tr>
+    <tr><td><code>cluster_a, cluster_b</code></td><td>INTEGER</td><td>Cluster ids at evaluation time.</td></tr>
+    <tr><td><code>label</code></td><td>INTEGER</td><td class="nullable">User label: 1 = should-merge, 0 = should-not-merge, NULL = unlabeled.</td></tr>
+    <tr><td><code>feature_version</code></td><td>INTEGER</td><td>Version of the feature extractor (bump on schema change).</td></tr>
+    <tr><td><code>features_json</code></td><td>TEXT</td><td>JSON-encoded feature dict (~40 fields per current extractor).</td></tr>
+    <tr><td><code>output_dir, exemplar_ids</code></td><td>TEXT / TEXT</td><td>Trace info.</td></tr>
+    <tr><td><code>saved_at</code></td><td>TEXT</td><td>ISO 8601.</td></tr>
+    <tr><td><code>source</code></td><td>TEXT</td><td class="nullable">e.g. <code>ui_label</code>, <code>verification_round</code>.</td></tr>
+    <tr><td><code>verified</code></td><td>INTEGER</td><td>0 / 1 — second-pass verification status.</td></tr>
+  </tbody>
+</table>
+<p><b>Unique constraint:</b> <code>(run_id, cluster_a, cluster_b)</code>.</p>
+
+<h2 id="trained_models">trained_models <span class="src">training_db.py</span></h2>
+<p>Registry of trained merge-classifier models. One row per trained model.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span> auto</td><td>INTEGER</td><td>Surrogate.</td></tr>
+    <tr><td><code>name</code></td><td>TEXT unique</td><td>Model display name.</td></tr>
+    <tr><td><code>model_type</code></td><td>TEXT</td><td>e.g. <code>mlp</code>, <code>logistic</code>, <code>random_forest</code>.</td></tr>
+    <tr><td><code>model_path</code></td><td>TEXT</td><td>Path to the serialized model file.</td></tr>
+    <tr><td><code>feature_version</code></td><td>INTEGER</td><td>Joined to <code>merge_training_data.feature_version</code>.</td></tr>
+    <tr><td><code>n_samples, n_train, n_test</code></td><td>INTEGER</td><td>Dataset cardinalities.</td></tr>
+    <tr><td><code>accuracy, f1, auc_roc</code></td><td>REAL</td><td>Validation metrics.</td></tr>
+    <tr><td><code>created_at</code></td><td>TEXT</td><td>ISO 8601.</td></tr>
+    <tr><td><code>metadata_json</code></td><td>TEXT</td><td>Hyperparameters, training notes.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Cross-DB pointers — how the two scopes connect</h2>
+<table>
+  <thead><tr><th>From (global)</th><th>To (per-run)</th><th>Via</th></tr></thead>
+  <tbody>
+    <tr><td><code>pipeline_results.fc_export_dir</code></td><td><code>&lt;fc_export_dir&gt;/_v4/face_clustering.db</code></td><td>Filesystem path. The UI uses this to open the per-run DB for detail views.</td></tr>
+    <tr><td><code>action_log.output_dir</code></td><td><code>&lt;output_dir&gt;/_v4/face_clustering.db</code></td><td>Same convention for FC App runs.</td></tr>
+    <tr><td><code>merge_training_data.run_id</code></td><td><code>face_clustering.db::run_metadata.run_id</code></td><td>Stable across the two DBs (set by the producer).</td></tr>
+    <tr><td><code>face_overrides.face_key</code> (<code>image_path:face_N</code>)</td><td><code>face_clustering.db::faces (image_path, face_index)</code></td><td>String-encoded join key. Used by <code>identity_refinement</code> to apply overrides.</td></tr>
+  </tbody>
+</table>
+
+<h2>What's deliberately NOT in the global DB</h2>
+<ul>
+  <li><b>Per-face data</b> (bbox, embedding, blur, pose). Lives in the per-run DB.</li>
+  <li><b>Clustering structure</b> (clusters, cluster_assignments, merge_decisions). Lives in the per-run DB.</li>
+  <li><b>Embeddings</b>. Cached in <code>universal_cache</code> (global, key=image) and materialized into <code>embeddings.npy</code> per run.</li>
+  <li><b>Filter decisions</b> (spec-032). Lives in the per-run DB.</li>
+</ul>
+<p>This split is deliberate: per-run data is voluminous and ephemeral (each rerun produces fresh rows); global data is small and durable (identities, profiles, user corrections, cached features).</p>
+
+<h2>Maintenance commands (current)</h2>
+<table>
+  <thead><tr><th>Goal</th><th>Command</th></tr></thead>
+  <tbody>
+    <tr><td>Clear face-embedding cache (force re-embedding)</td>
+        <td><code>sqlite3 ~/.sim_bench/sim_bench.db "DELETE FROM universal_cache WHERE feature_type='face_embedding'"</code></td></tr>
+    <tr><td>List recent FC App runs</td>
+        <td><code>sqlite3 ~/.sim_bench/sim_bench.db "SELECT id, action_type, started_at, status FROM action_log ORDER BY started_at DESC LIMIT 20"</code></td></tr>
+    <tr><td>List training samples per album</td>
+        <td><code>sqlite3 ~/.sim_bench/sim_bench.db "SELECT album_path, COUNT(*) FROM merge_training_data GROUP BY album_path"</code></td></tr>
+    <tr><td>Backup the whole DB</td>
+        <td><code>cp ~/.sim_bench/sim_bench.db ~/.sim_bench/sim_bench.db.bak</code></td></tr>
+  </tbody>
+</table>
+
+<h2>Related documents</h2>
+<ul>
+  <li><a href="db_schemas.html">db_schemas.html</a> — per-run <code>face_clustering.db</code> reference (the other DB).</li>
+  <li><a href="classes.html">classes.html</a> — Pydantic / Pandera / dataclass inventory.</li>
+  <li><a href="data_flow.html">data_flow.html</a> — face-clustering data flow.</li>
+  <li><a href="index.html">index.html</a> — architecture documentation index.</li>
+  <li><code>sim_bench/api/database/models.py</code> — SQLAlchemy ORM source of truth for the API tables.</li>
+  <li><code>face_cluster/run_history_db.py</code>, <code>face_cluster/training_db.py</code> — raw-sqlite3 schemas.</li>
+</ul>
+
+</body>
+</html>

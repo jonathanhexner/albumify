@@ -13,6 +13,7 @@ from typing import Callable, Dict, List, Optional
 
 from face_cluster.config import PipelineConfig
 from face_cluster.types import FaceRecord, ClusterResult
+from face_cluster.filter_context import FilterContext
 from face_cluster import run_history_db
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,11 @@ class _RunContext:
     merged_cluster_result: Optional[ClusterResult] = None
     merge_log: Optional[List[Dict]] = None
     merge_metadata: Optional[Dict] = None
+    cap_decisions: Optional[List[Dict]] = None
+    cap_summary: Optional[Dict] = None
+
+    # spec-032: shared filter context (same class Albumify uses).
+    filters: FilterContext = field(default_factory=FilterContext)
 
     def write_run_record(self):
         with open(self.output_dir / "pipeline_run.json", "w", encoding="utf-8") as f:
@@ -172,14 +178,15 @@ class FaceClusteringPipeline:
     SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif"}
 
     FULL_STAGES = [
-        ("discover",  "_discover"),
-        ("embed",     "_embed"),
-        ("quality",   "_quality_gate"),
-        ("crops",     "_save_crops"),
-        ("cluster",   "_cluster"),
-        ("exemplars", "_select_exemplars"),
-        ("merge",     "_merge"),
-        ("export",    "_export"),
+        ("discover",     "_discover"),
+        ("embed",        "_embed"),
+        ("quality",      "_quality_gate"),
+        ("crops",        "_save_crops"),
+        ("cluster",      "_cluster"),
+        ("exemplars",    "_select_exemplars"),
+        ("merge",        "_merge"),
+        ("diameter_cap", "_diameter_cap"),
+        ("export",       "_export"),
     ]
 
     # DB action_type derived from the first stage in the config
@@ -620,7 +627,7 @@ class FaceClusteringPipeline:
         ctx.progress("quality", 0.0, "Applying quality gate...")
         gater = QualityGater(ctx.config)
         ctx.faces = gater.compute_blur_scores(ctx.faces)
-        ctx.core_indices, ctx.holdout_indices, _ = gater.select_core_set(ctx.faces)
+        ctx.core_indices, ctx.holdout_indices, verdicts = gater.select_core_set(ctx.faces)
 
         if not ctx.core_indices:
             raise ValueError(
@@ -629,12 +636,66 @@ class FaceClusteringPipeline:
                 f"Try lowering blur_min or check face crops."
             )
 
+        # spec-032: translate per-gate verdicts into typed FilterContext decisions.
+        # Mapping: GateResult name -> canonical filter_name in KNOWN_FILTERS.
+        self._record_quality_filters(ctx, verdicts)
+
         self._write_quality_config(ctx)
         self._update_quality_summary(ctx)
 
         ctx.progress("quality", 1.0,
                      f"{len(ctx.core_indices)} core, {len(ctx.holdout_indices)} holdout")
         return {"n_core": len(ctx.core_indices), "n_holdout": len(ctx.holdout_indices)}
+
+    @staticmethod
+    def _gate_to_filter_name(gate_name: str) -> str:
+        """Map QualityGater gate names to KNOWN_FILTERS canonical names."""
+        return {
+            "blur":             "face_blur",
+            "pose_yaw":         "face_pose_yaw",
+            "pose_pitch":       "face_pose_pitch",
+            "area":             "face_area",
+            "top_k_per_image":  "face_top_k_per_image",
+            "det_score":        "face_confidence",
+        }.get(gate_name, gate_name)
+
+    def _record_quality_filters(self, ctx: _RunContext, verdicts) -> None:
+        """Emit one FilterContext decision per (face, gate) pair.
+
+        Verdicts and faces are index-aligned. Each face's parent_id is the
+        image path string so parent inheritance works downstream.
+
+        ``top_k_per_image`` is encoded via verdict.rejection_reason rather than
+        as a gate in verdict.gates — we emit it as its own filter decision
+        when the face was culled by the top-K rule.
+        """
+        for face, verdict in zip(ctx.faces, verdicts):
+            face_id = f"face_{face.face_id:04d}"
+            parent  = face.image_path
+            ctx.filters.register(face_id, "face", parent_id=parent)
+            for gate_name, gate_result in verdict.gates.items():
+                filter_name = self._gate_to_filter_name(gate_name)
+                ctx.filters.record(
+                    face_id,
+                    filter_name=filter_name,
+                    rejected=(not gate_result.passed),
+                    reason=(f"{gate_name} value={gate_result.value:.3f} "
+                            f"threshold={gate_result.threshold:.3f}"),
+                    measured={
+                        "value":     float(gate_result.value),
+                        "threshold": float(gate_result.threshold),
+                    },
+                )
+            top_k_rejected = (verdict.rejection_reason == "top_k_per_image")
+            ctx.filters.record(
+                face_id,
+                filter_name="face_top_k_per_image",
+                rejected=top_k_rejected,
+                reason=("dropped by top-K-per-image rule"
+                        if top_k_rejected else "in top-K for its image"),
+                measured={"max_faces_per_image_core":
+                          ctx.config.max_faces_per_image_core},
+            )
 
     def _write_quality_config(self, ctx: _RunContext) -> None:
         """Write quality_config.json — exact thresholds used for this run."""
@@ -696,6 +757,39 @@ class FaceClusteringPipeline:
 
         ctx.progress("crops", 0.0, "Saving aligned face crops...")
         ctx.crop_manifest = save_crops(ctx.faces, ctx.output_dir)
+
+        # spec-032 / SIGHTING-059 #1: record face_crop decision for every face.
+        # Today's silent drop pattern (face.aligned_face is None →
+        # save_crops skips with a logger.debug only) becomes an explicit
+        # rejection that downstream queries can see.
+        for face in ctx.faces:
+            face_id = f"face_{face.face_id:04d}"
+            ctx.filters.register(face_id, "face", parent_id=face.image_path)
+            if face.face_id in ctx.crop_manifest:
+                ctx.filters.record(
+                    face_id,
+                    filter_name="face_crop",
+                    rejected=False,
+                    reason="crop persisted",
+                    measured={"crop_path": str(ctx.crop_manifest[face.face_id])},
+                )
+            elif face.aligned_face is None:
+                ctx.filters.record(
+                    face_id,
+                    filter_name="face_crop",
+                    rejected=True,
+                    reason="landmarks_missing — InsightFace returned no kps; norm_crop skipped",
+                    measured={},
+                )
+            else:
+                ctx.filters.record(
+                    face_id,
+                    filter_name="face_crop",
+                    rejected=True,
+                    reason="crop_skipped — aligned face present but not in manifest",
+                    measured={},
+                )
+
         ctx.progress("crops", 1.0, f"Saved {len(ctx.crop_manifest)} crops")
         return {"n_saved": len(ctx.crop_manifest)}
 
@@ -802,6 +896,60 @@ class FaceClusteringPipeline:
         ctx.progress("merge", 1.0, f"{n_merges} merges -> {merged.n_clusters} clusters")
         return {"n_merges": n_merges, "n_clusters_merged": merged.n_clusters}
 
+    def _diameter_cap(self, ctx: _RunContext) -> dict:
+        """Spec-031: reject merged clusters that exceed an absolute diameter ceiling.
+
+        Skipped if merge didn't run (nothing to cap) or the feature is disabled.
+        Operates in graph-local coordinates — same space as merge.
+        """
+        if not ctx.config.cluster_diameter_cap_enabled:
+            ctx.progress("diameter_cap", 1.0, "Diameter cap disabled -- skipping")
+            return {}
+        if ctx.merged_cluster_result is None or ctx.cluster_result is None:
+            ctx.progress("diameter_cap", 1.0, "No merge output -- skipping")
+            return {}
+
+        from face_cluster.cluster_diameter_cap import (
+            apply_diameter_cap,
+            decisions_to_dict_list,
+        )
+
+        ctx.progress("diameter_cap", 0.0, "Inspecting merged clusters...")
+
+        # Cap step operates in graph-local indices (same as merge).
+        # Map core_indices -> FaceRecord to keep the cap signature index-aligned.
+        core_faces = [ctx.faces[i] for i in ctx.core_indices]
+
+        result = apply_diameter_cap(
+            merged_result=ctx.merged_cluster_result,
+            base_result=ctx.cluster_result,
+            faces=core_faces,
+            max_full_diameter=ctx.config.max_full_diameter,
+            max_exemplar_diameter=ctx.config.max_exemplar_diameter,
+        )
+
+        ctx.merged_cluster_result = result.cluster_result
+        ctx.cap_decisions = decisions_to_dict_list(result.decisions)
+        ctx.cap_summary = {
+            "enabled":               True,
+            "max_full_diameter":     ctx.config.max_full_diameter,
+            "max_exemplar_diameter": ctx.config.max_exemplar_diameter,
+            "n_clusters_inspected":  len(result.decisions),
+            "n_kept":                result.n_kept,
+            "n_split":               result.n_split,
+        }
+
+        ctx.progress(
+            "diameter_cap", 1.0,
+            f"{result.n_kept} kept, {result.n_split} split -> "
+            f"{result.cluster_result.n_clusters} clusters",
+        )
+        return {
+            "n_kept":              result.n_kept,
+            "n_split":             result.n_split,
+            "n_clusters_after_cap": result.cluster_result.n_clusters,
+        }
+
     def _export(self, ctx: _RunContext) -> dict:
         """Snapshot graph-local results, remap to face indices, write all output files."""
         from face_cluster.export import export_results, export_merged_results
@@ -837,6 +985,16 @@ class FaceClusteringPipeline:
                 merge_metadata=ctx.merge_metadata,
             )
 
+        # spec-031: persist diameter-cap audit log alongside merge_log.json.
+        if ctx.cap_decisions is not None:
+            payload = {
+                "summary":   ctx.cap_summary or {},
+                "decisions": ctx.cap_decisions,
+            }
+            (ctx.output_dir / "cap_decisions.json").write_text(
+                json.dumps(payload, indent=2), encoding="utf-8"
+            )
+
         # spec-030 Phase 1 — dual-write the v4 layout to a parallel subdir.
         # Legacy artifacts above stay in place; the loader still uses them.
         # In Phase 4 the legacy writes go away and RunExporter takes the run root.
@@ -864,6 +1022,7 @@ class FaceClusteringPipeline:
                 finished_at=ctx.run_record.get("finished_at") or datetime.now().isoformat(),
                 parent_run_id=parent_run_id,
                 crop_source_dir=ctx.output_dir / "crops",
+                filters=ctx.filters,  # spec-032
             )
         except Exception as e:
             # Phase 1 is additive — failure to write the parallel layout must not

@@ -32,6 +32,15 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import numpy as np
 from PIL import Image
 
+import pandas as pd
+
+from face_cluster.db import (
+    EXPECTED_ARTIFACTS,
+    FACES_SCHEMA,
+    FACE_SCORES_SCHEMA,
+    SCHEMA_DDL,
+    SCHEMA_VERSION,
+)
 from face_cluster.types import (
     ClusterResult,
     FaceRecord,
@@ -41,139 +50,14 @@ from face_cluster.types import (
 logger = logging.getLogger(__name__)
 
 
-SCHEMA_VERSION = 4
-
-# Allow-list of files produced by export().  Tests assert listdir matches this set
-# (FR-012).  `crops` is a directory; the rest are files.
-EXPECTED_ARTIFACTS = (
-    "face_clustering.db",
-    "embeddings.npy",
-    "embedding_face_ids.npy",
-    "pipeline_run.json",
-    "crops",
-)
+# Schema (DDL + version + artifact allow-list) lives in `face_cluster/db/`.
+# Re-export for callers that historically imported these names from this
+# module (RunStore, tests, scripts).
+__all__ = ("RunExporter", "RunExporterError", "EXPECTED_ARTIFACTS", "SCHEMA_VERSION")
 
 
 class RunExporterError(RuntimeError):
     """Raised when input data violates the writer's contract."""
-
-
-# ---------------------------------------------------------------------------
-# Schema — single source of truth for the relational store.  Field order in
-# `merge_decisions` matches `MergeDecisionRow.field_names()` so we can bind
-# parameters positionally without a manual mapping.
-# ---------------------------------------------------------------------------
-
-_SCHEMA = """
-PRAGMA foreign_keys = ON;
-
-CREATE TABLE IF NOT EXISTS faces (
-    face_id          INTEGER PRIMARY KEY,
-    image_path       TEXT,
-    image_id         TEXT,
-    face_index       INTEGER,
-    bbox_x           REAL,
-    bbox_y           REAL,
-    bbox_w           REAL,
-    bbox_h           REAL,
-    crop_path        TEXT,
-    det_score        REAL,
-    blur_score       REAL,
-    area             REAL,
-    yaw              REAL,
-    pitch            REAL,
-    roll             REAL,
-    is_core          INTEGER NOT NULL,
-    rejection_reason TEXT
-);
-
-CREATE TABLE IF NOT EXISTS face_scores (
-    face_id          INTEGER PRIMARY KEY REFERENCES faces(face_id),
-    pose_score       REAL,
-    eyes_score       REAL,
-    expression_score REAL,
-    frontal_score    REAL,
-    is_clusterable   INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS clusters (
-    cluster_id     INTEGER NOT NULL,
-    iteration      INTEGER NOT NULL,
-    size           INTEGER NOT NULL,
-    diameter       REAL,
-    avg_intra_dist REAL,
-    origin         TEXT NOT NULL,
-    parent_ids     TEXT NOT NULL,
-    PRIMARY KEY (cluster_id, iteration)
-);
-
-CREATE TABLE IF NOT EXISTS cluster_assignments (
-    face_id     INTEGER NOT NULL REFERENCES faces(face_id),
-    cluster_id  INTEGER NOT NULL,
-    iteration   INTEGER NOT NULL,
-    is_exemplar INTEGER NOT NULL DEFAULT 0,
-    d10_score   REAL,
-    PRIMARY KEY (face_id, iteration)
-);
-
--- 28 columns matching MergeDecisionRow.field_names() exactly (FR-004).
-CREATE TABLE IF NOT EXISTS merge_decisions (
-    iteration              INTEGER NOT NULL,
-    cluster_a              INTEGER NOT NULL,
-    cluster_b              INTEGER NOT NULL,
-    cluster_a_size         INTEGER NOT NULL,
-    cluster_b_size         INTEGER NOT NULL,
-    exemplar_dist          REAL    NOT NULL,
-    threshold_used         REAL    NOT NULL,
-    T_a                    REAL,
-    T_b                    REAL,
-    T_global               REAL,
-    p25_cross_dist         REAL,
-    passes_cross           INTEGER,
-    support                INTEGER NOT NULL,
-    unique_support         INTEGER,
-    required_support       INTEGER NOT NULL,
-    post_diameter          REAL    NOT NULL,
-    max_allowed_diameter   REAL    NOT NULL,
-    margin_gap             REAL    NOT NULL,
-    margin_dist_to_b       REAL    NOT NULL,
-    margin_competitor_dist REAL    NOT NULL,
-    margin_competitor_id   INTEGER NOT NULL,
-    passes_exemplar        INTEGER NOT NULL,
-    passes_support         INTEGER NOT NULL,
-    passes_margin          INTEGER NOT NULL,
-    passes_diameter        INTEGER NOT NULL,
-    action                 TEXT    NOT NULL,
-    actually_merged        INTEGER NOT NULL,
-    rejection_reason       TEXT,
-    PRIMARY KEY (iteration, cluster_a, cluster_b)
-);
-
-CREATE TABLE IF NOT EXISTS run_metadata (
-    run_id                  TEXT PRIMARY KEY,
-    source_album            TEXT NOT NULL,
-    producer                TEXT NOT NULL,
-    parent_run_id           TEXT,
-    config_json             TEXT NOT NULL,
-    merge_thresholds_json   TEXT,
-    merge_iter_summary_json TEXT,
-    n_images                INTEGER NOT NULL,
-    n_faces                 INTEGER NOT NULL,
-    n_core                  INTEGER NOT NULL,
-    n_clusters_base         INTEGER NOT NULL,
-    n_clusters_final        INTEGER NOT NULL,
-    n_merges                INTEGER NOT NULL,
-    n_iterations            INTEGER NOT NULL,
-    started_at              TEXT NOT NULL,
-    finished_at             TEXT NOT NULL,
-    schema_version          INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_assign_iter    ON cluster_assignments(iteration);
-CREATE INDEX IF NOT EXISTS idx_assign_cluster ON cluster_assignments(cluster_id, iteration);
-CREATE INDEX IF NOT EXISTS idx_md_iter        ON merge_decisions(iteration);
-CREATE INDEX IF NOT EXISTS idx_md_pair        ON merge_decisions(cluster_a, cluster_b);
-"""
 
 
 _VALID_PRODUCERS = ("albumify", "fc_app", "remerge", "manual_merge")
@@ -212,6 +96,8 @@ class RunExporter:
         finished_at: str,
         parent_run_id: Optional[str] = None,
         crop_source_dir: Optional[Path] = None,
+        filters=None,  # face_cluster.filter_context.FilterContext | None
+        image_scores: Optional[Dict[str, Dict[str, float]]] = None,
     ) -> None:
         """Write the full 5-artifact layout into self.output_dir.
 
@@ -254,15 +140,16 @@ class RunExporter:
 
         conn = sqlite3.connect(str(db_path))
         try:
-            conn.executescript(_SCHEMA)
+            conn.executescript(SCHEMA_DDL)
             conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
-            self._write_faces_and_scores(conn, faces, crop_manifest)
+            self._write_faces_and_scores(conn, faces, crop_manifest, image_scores)
             self._write_clusters_and_assignments(
                 conn, base_cluster_result, merged_cr, merge_log,
                 core_indices, faces,
             )
             self._write_merges(conn, merge_log)
+            self._write_filter_decisions(conn, filters)
             self._write_run_metadata(
                 conn,
                 faces=faces,
@@ -329,12 +216,19 @@ class RunExporter:
         conn: sqlite3.Connection,
         faces: List[FaceRecord],
         crop_manifest: Dict[int, str],
+        image_scores: Optional[Dict[str, Dict[str, float]]] = None,
     ) -> None:
+        image_scores = image_scores or {}
         face_rows = []
         score_rows = []
         for face in faces:
             bbox = face.bbox or (0.0, 0.0, 0.0, 0.0)
             yaw, pitch, roll = (face.pose or (None, None, None))
+            # spec-033 P-C C-3: per-image scores looked up by image_path (the
+            # canonical key used elsewhere).  Falls back to image_id for
+            # FC-App-style runs.
+            img_key = face.image_path or face.image_id or ""
+            img_score = image_scores.get(img_key) or image_scores.get(face.image_id, {})
             face_rows.append((
                 face.face_id,
                 face.image_path or face.image_id,
@@ -353,6 +247,11 @@ class RunExporter:
                 _maybe_float(roll),
                 1 if face.is_core else 0,
                 face.rejection_reason,
+                # spec-033 P-C C-3: image-level context fields
+                _maybe_float(img_score.get("iqa")),
+                _maybe_float(img_score.get("ava")),
+                _maybe_float(img_score.get("sharpness")),
+                img_score.get("scene_cluster_id"),
             ))
 
             pose_score = None
@@ -363,8 +262,26 @@ class RunExporter:
                 1 if face.is_core else 0,
             ))
 
+        # spec-033 P-H: Pandera-validate before commit.  A NULL in a
+        # non-nullable column (blur_score, area, is_core, ...) is the
+        # SIGHTING-059 failure mode this guards against.
+        _faces_columns = [
+            "face_id", "image_path", "image_id", "face_index",
+            "bbox_x", "bbox_y", "bbox_w", "bbox_h", "crop_path",
+            "det_score", "blur_score", "area", "yaw", "pitch", "roll",
+            "is_core", "rejection_reason",
+            "iqa_score", "ava_score", "sharpness_score", "scene_cluster_id",
+        ]
+        FACES_SCHEMA.validate(pd.DataFrame(face_rows, columns=_faces_columns))
+
+        _scores_columns = [
+            "face_id", "pose_score", "eyes_score", "expression_score",
+            "frontal_score", "is_clusterable",
+        ]
+        FACE_SCORES_SCHEMA.validate(pd.DataFrame(score_rows, columns=_scores_columns))
+
         conn.executemany(
-            "INSERT INTO faces VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO faces VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             face_rows,
         )
         conn.executemany(
@@ -469,6 +386,37 @@ class RunExporter:
         placeholders = ",".join(["?"] * len(field_order))
         conn.executemany(
             f"INSERT INTO merge_decisions VALUES ({placeholders})",
+            rows,
+        )
+
+    # ------------------------------------------------------------------
+    # spec-032: filter decisions
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _write_filter_decisions(conn: sqlite3.Connection, filters) -> None:
+        """Persist FilterContext to the filter_decisions table.
+
+        No-op when filters is None or empty — keeps the schema consistent
+        for runs that don't use the new contract yet (P1 dual-write window).
+        """
+        if filters is None or len(filters) == 0:
+            return
+        rows: List[Tuple] = []
+        for item, decision in filters.all_decisions():
+            rows.append((
+                item.item_id,
+                item.item_type,
+                item.parent_id,
+                decision.filter_name,
+                1 if decision.rejected else 0,
+                decision.reason,
+                json.dumps(decision.measured, default=str),
+            ))
+        conn.executemany(
+            "INSERT INTO filter_decisions "
+            "(item_id, item_type, parent_id, filter_name, rejected, reason, measured_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
 

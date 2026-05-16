@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sim-bench · Class &amp; Type Inventory (face-clustering layer)</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1200px; margin: 1.5em auto; padding: 0 1.5em;
+         color: #222; line-height: 1.5; background:#fafbfc; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; margin-bottom: 0; }
+  h1 + .subtitle { color: #666; margin-top: .2em; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 2em;
+       display:flex; justify-content:space-between; align-items:baseline; }
+  h2 .src { font-size: 12px; color:#777; font-weight: 400; font-family: Consolas, monospace; }
+  h3 { margin-top: 1.5em; color:#1f5fc7; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left;
+           vertical-align: top; }
+  th { background: #f4f4f6; font-weight: 600; }
+  code { background:#eef0f4; padding: 1px 4px; border-radius: 3px;
+         font-size: 12px; font-family: Consolas, monospace; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px;
+          font-size:11px; font-weight:600; }
+  .pyd  { background:#dfe7f8; color:#1f5fc7; }
+  .pan  { background:#e0f4ea; color:#0e9466; }
+  .dc   { background:#efe1f9; color:#7a4ec0; }
+  .plain{ background:#eee; color:#444; }
+  .stat-ok { background:#e3f5e0; color:#236623; }
+  .stat-tgt{ background:#e0e7ff; color:#1d3a8a; }
+  .stat-gap{ background:#fde2e2; color:#8a1a1a; }
+  .source-of-truth { background:#fffde6; border:1px solid #d4ce7a;
+                     padding: 6px 10px; border-radius:4px; font-size: 13px;
+                     margin: 1em 0; }
+  .toc { background:#fff; border:1px solid #ddd; padding: 8px 14px;
+         border-radius: 4px; margin: 1em 0; font-size: 14px; }
+  .toc a { text-decoration:none; color:#1f5fc7; margin-right: 12px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; margin: .5em 0 1em;
+            font-size:13px; }
+  .callout { background: #f6f7fa; border-left: 4px solid #4a72c4;
+             padding: .6em 1em; margin: 1em 0; border-radius: 0 4px 4px 0;
+             font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Class &amp; Type Inventory — face-clustering layer</h1>
+<p class="subtitle">Pydantic models, Pandera schemas, dataclasses, and plain classes that carry the boundary contracts · Last updated: 2026-05-15</p>
+
+<div class="source-of-truth">
+<b>⚠️ Source of truth.</b> Code lives under <code>face_cluster/</code> and
+<code>sim_bench/pipeline/</code>. <b>Any class addition, removal, or field
+change must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST §7).
+The class diagram is reviewed alongside the code review for the spec that
+introduces the change.
+</div>
+
+<div class="legend">
+  <span><span class="pill pyd">Pydantic</span> BaseModel — object boundary contract</span>
+  <span><span class="pill pan">Pandera</span> DataFrameSchema — DataFrame boundary contract</span>
+  <span><span class="pill dc">Dataclass</span> internal record type</span>
+  <span><span class="pill plain">Class</span> plain Python class / module</span>
+  <span><span class="pill stat-ok">CURRENT</span> exists today</span>
+  <span><span class="pill stat-tgt">TARGET</span> aspirational</span>
+</div>
+
+<div class="toc">
+<b>Sections:</b>
+<a href="#boundary">1 Boundary contracts</a>
+<a href="#step-configs">2 Step-config models</a>
+<a href="#db-validators">3 DB validators</a>
+<a href="#legacy-types">4 Internal types</a>
+<a href="#executors">5 Writers / readers / executors</a>
+<a href="#relationships">6 Relationships</a>
+<a href="#target">7 Target-state diff</a>
+</div>
+
+<h2 id="boundary">1 · Boundary contracts (Pydantic, the new contract layer)</h2>
+
+<h3>FaceRecord <span class="pill pyd">Pydantic · extra=forbid</span> <span class="pill stat-ok">CURRENT</span></h3>
+<p><code>face_cluster/types.py</code> · spec-033 P-C C-2 · migrated from <code>@dataclass</code></p>
+
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>face_id</code></td><td>int</td><td>—</td><td>Stable face identifier within the run.</td></tr>
+    <tr><td><code>image_id</code></td><td>str</td><td>—</td><td>Image basename (FC App) or path.</td></tr>
+    <tr><td><code>bbox</code></td><td>Tuple[float,float,float,float]</td><td>—</td><td>(x, y, w, h). Unit per SIGHTING-060.</td></tr>
+    <tr><td><code>landmarks</code></td><td>Optional[ndarray]</td><td>None</td><td>5-point or N×2 facial landmarks.</td></tr>
+    <tr><td><code>aligned_face</code></td><td>Optional[ndarray]</td><td>None</td><td>Aligned 112×112×3 uint8 crop.</td></tr>
+    <tr><td><code>embedding</code></td><td>Optional[ndarray]</td><td>None</td><td>Raw 512-d embedding.</td></tr>
+    <tr><td><code>embedding_normalized</code></td><td>Optional[ndarray]</td><td>None</td><td>L2-normalized embedding for cosine distance.</td></tr>
+    <tr><td><code>pose</code></td><td>Optional[Tuple[f,f,f]]</td><td>None</td><td>(yaw, pitch, roll) degrees. <code>@field_validator</code> rejects partial tuples.</td></tr>
+    <tr><td><code>blur_score</code></td><td>float</td><td>0.0</td><td>Laplacian variance. 0 = not computed today on Albumify.</td></tr>
+    <tr><td><code>area</code></td><td>float</td><td>0.0</td><td>Face area. Unit varies (SIGHTING-060).</td></tr>
+    <tr><td><code>is_core</code></td><td>bool</td><td>False</td><td>Passed quality gating.</td></tr>
+    <tr><td><code>det_score</code></td><td>Optional[float]</td><td>None</td><td>InsightFace detection confidence 0–1.</td></tr>
+    <tr><td><code>d10_score</code></td><td>Optional[float]</td><td>None</td><td>Distance to 10th-NN (exemplar selection input).</td></tr>
+    <tr><td><code>image_path</code></td><td>Optional[str]</td><td>None</td><td>Absolute source path (forward slashes).</td></tr>
+    <tr><td><code>face_index</code></td><td>Optional[int]</td><td>None</td><td>Index within source image.</td></tr>
+    <tr><td><code>quality_verdict</code></td><td>Optional[QualityVerdict]</td><td>None</td><td>Per-gate verdicts (spec-012).</td></tr>
+    <tr><td><code>rejection_reason</code></td><td>Optional[str]</td><td>None</td><td>First failing gate name.</td></tr>
+  </tbody>
+</table>
+<p><b>Contract:</b> <code>model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)</code>. Typo'd kwarg or partial pose tuple raises <code>ValidationError</code> at construction.</p>
+
+<h3>ImageDetail <span class="pill pyd">Pydantic · extra=forbid</span> <span class="pill stat-ok">CURRENT</span></h3>
+<p><code>face_cluster/image_detail.py</code> · spec-033 P-D · return type of <code>RunStore.image_detail(path)</code></p>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>image_path</code></td><td>str</td><td>The path queried.</td></tr>
+    <tr><td><code>image_id</code></td><td>Optional[str]</td><td>Image id (basename) if available.</td></tr>
+    <tr><td><code>iqa_score</code></td><td>Optional[float]</td><td>filter_quality IQA score 0–1.</td></tr>
+    <tr><td><code>ava_score</code></td><td>Optional[float]</td><td>Aesthetics score 0–1.</td></tr>
+    <tr><td><code>sharpness_score</code></td><td>Optional[float]</td><td>Image-level sharpness 0–1.</td></tr>
+    <tr><td><code>scene_cluster_id</code></td><td>Optional[int]</td><td>Scene cluster assignment.</td></tr>
+    <tr><td><code>faces</code></td><td>List[FaceDetail]</td><td>Every face detected on this image.</td></tr>
+    <tr><td><code>image_filter_decisions</code></td><td>List[FaceFilterDecision]</td><td>Image-level filter verdicts.</td></tr>
+  </tbody>
+</table>
+
+<h3>FaceDetail <span class="pill pyd">Pydantic · extra=forbid</span> <span class="pill stat-ok">CURRENT</span></h3>
+<p><code>face_cluster/image_detail.py</code> · element of <code>ImageDetail.faces</code></p>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>face_id</code></td><td>int</td><td>PK in faces table.</td></tr>
+    <tr><td><code>face_index</code></td><td>Optional[int]</td><td>Index within source image.</td></tr>
+    <tr><td><code>bbox</code></td><td>Tuple[f,f,f,f]</td><td>(x, y, w, h).</td></tr>
+    <tr><td><code>crop_path</code></td><td>Optional[str]</td><td>Aligned crop path relative to run dir.</td></tr>
+    <tr><td><code>det_score</code></td><td>Optional[float]</td><td>Detection confidence.</td></tr>
+    <tr><td><code>blur_score</code></td><td>float</td><td>Laplacian variance (≥0).</td></tr>
+    <tr><td><code>area</code></td><td>float</td><td>Face area (unit per SIGHTING-060).</td></tr>
+    <tr><td><code>pose</code></td><td>Optional[Tuple[f,f,f]]</td><td>(yaw, pitch, roll) in degrees.</td></tr>
+    <tr><td><code>is_core</code></td><td>bool</td><td>Passed quality gating.</td></tr>
+    <tr><td><code>rejection_reason</code></td><td>Optional[str]</td><td>First failing gate when not core.</td></tr>
+    <tr><td><code>cluster_id</code></td><td>Optional[int]</td><td>Final cluster id; None for noise.</td></tr>
+    <tr><td><code>is_exemplar</code></td><td>bool</td><td>True if cluster exemplar.</td></tr>
+    <tr><td><code>filter_decisions</code></td><td>List[FaceFilterDecision]</td><td>Per-face filter verdicts.</td></tr>
+  </tbody>
+</table>
+
+<h3>FaceFilterDecision <span class="pill pyd">Pydantic · extra=forbid</span> <span class="pill stat-ok">CURRENT</span></h3>
+<p><code>face_cluster/image_detail.py</code> · the per-face slice of spec-032</p>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>filter_name</code></td><td>str</td><td>From <code>KNOWN_FILTERS</code>.</td></tr>
+    <tr><td><code>rejected</code></td><td>bool</td><td>True if the filter rejected.</td></tr>
+    <tr><td><code>reason</code></td><td>str</td><td>Human-readable.</td></tr>
+    <tr><td><code>measured</code></td><td>Dict</td><td>Values that produced the verdict.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="step-configs">2 · Step-config models <span class="pill pyd">P-G</span></h2>
+<p>Registered in <code>sim_bench/pipeline/steps/configs/STEP_CONFIG_MODELS</code>.
+<code>BaseStep.process()</code> calls <code>validate_step_config(step_name, config)</code> at every invocation. <code>extra="forbid"</code> on all of them.</p>
+
+<table>
+  <thead><tr><th>Model</th><th>Step name</th><th>Fields (count)</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td><code>FilterQualityConfig</code></td><td>filter_quality</td><td>2 (min_iqa_score, min_sharpness)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
+    <tr><td><code>FilterFacesConfig</code></td><td>filter_faces</td><td>4 (min_confidence, min_bbox_ratio, min_relative_size, min_eye_ratio)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
+    <tr><td><code>ClusterPeopleConfig</code></td><td>cluster_people</td><td>~40 (method + all face_cluster_knn + legacy method params)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
+    <tr><td><code>ExtractFaceEmbeddingsConfig</code></td><td>extract_face_embeddings</td><td>4 (backend, checkpoint_path, device, model_name)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
+    <tr><td><code>InsightFaceDetectFacesConfig</code></td><td>insightface_detect_faces</td><td>5 (model_name, detection_threshold, min_face_size, device, associate_to_person)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
+    <tr><td><code>InsightFaceScoreBlurConfig</code></td><td>insightface_score_blur</td><td>1 (min_face_size)</td><td><span class="pill stat-tgt">TARGET</span> · specs/037</td></tr>
+    <tr><td><i>(all other face-clustering steps)</i></td><td>—</td><td>—</td><td><span class="pill stat-gap">GAP</span> · specs/039 (registry guard)</td></tr>
+  </tbody>
+</table>
+<p><b>Field source of truth:</b> each model's <code>Field(description=...)</code> string is what the UI <code>help=</code> tooltip should display (P-A → P-G linkage).</p>
+
+<h2 id="db-validators">3 · DB validators <span class="pill pan">Pandera</span></h2>
+<p><code>face_cluster/db/validators.py</code> · invoked by <code>RunExporter._write_faces_and_scores</code> before INSERT (P-H).</p>
+
+<table>
+  <thead><tr><th>Schema</th><th>Validates</th><th>Strict-required (non-nullable)</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td><code>FACES_SCHEMA</code></td>
+        <td>faces table rows</td>
+        <td>face_id, blur_score (≥0), area (≥0), is_core (∈{0,1})</td>
+        <td><span class="pill stat-ok">CURRENT</span></td></tr>
+    <tr><td><code>FACE_SCORES_SCHEMA</code></td>
+        <td>face_scores rows</td>
+        <td>face_id; all scorer columns nullable by design</td>
+        <td><span class="pill stat-ok">CURRENT</span></td></tr>
+    <tr><td><code>FILTER_DECISIONS_SCHEMA</code></td>
+        <td>filter_decisions rows</td>
+        <td>item_id, item_type (∈{image,face,cluster}), filter_name, rejected, reason, measured_json</td>
+        <td><span class="pill stat-ok">CURRENT</span></td></tr>
+    <tr><td><i>CLUSTERS_SCHEMA, ASSIGNMENTS_SCHEMA, MERGE_DECISIONS_SCHEMA, RUN_METADATA_SCHEMA</i></td>
+        <td>—</td><td>—</td>
+        <td><span class="pill stat-tgt">TARGET</span> · not yet defined</td></tr>
+  </tbody>
+</table>
+
+<h2 id="legacy-types">4 · Internal record types <span class="pill dc">Dataclass</span></h2>
+<p>Kept as dataclasses (no external boundary, no need for Pydantic overhead).</p>
+
+<table>
+  <thead><tr><th>Class</th><th>Location</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>PipelineConfig</code></td><td>face_cluster/config.py</td><td>The 60+-field FC App configuration dataclass. Will be replaced by ClusterPeopleConfig + per-step models when migration completes.</td></tr>
+    <tr><td><code>MergeDecisionRow</code></td><td>face_cluster/types.py</td><td>28-field row matching merge_decisions table column order exactly.</td></tr>
+    <tr><td><code>GateResult</code></td><td>face_cluster/types.py</td><td>{value, threshold, passed} for one quality gate.</td></tr>
+    <tr><td><code>QualityVerdict</code></td><td>face_cluster/types.py</td><td>Per-face dict of {gate_name → GateResult} (spec-012).</td></tr>
+    <tr><td><code>ClusterMetadata</code></td><td>face_cluster/types.py</td><td>{origin, parent_cluster_ids} provenance.</td></tr>
+    <tr><td><code>ClusterResult</code></td><td>face_cluster/types.py</td><td>{labels, clusters, cluster_stats, exemplars, n_clusters, n_noise}.</td></tr>
+    <tr><td><code>GraphResult</code></td><td>face_cluster/types.py</td><td>{neighbors, neighbor_distances, edges, G (networkx), distance_matrix}.</td></tr>
+    <tr><td><code>StepDecision</code></td><td>sim_bench/pipeline/context.py</td><td>spec-012 per-item decision record (coexists with FilterContext).</td></tr>
+    <tr><td><code>PipelineContext</code></td><td>sim_bench/pipeline/context.py</td><td>Albumify shared state container (~30 fields). Contract: specs/034.</td></tr>
+    <tr><td><code>_RunContext</code></td><td>face_cluster/pipeline.py</td><td>FC App standalone shared state container. Contract: specs/034.</td></tr>
+    <tr><td><code>RunMetadata, FilterDecisionRow, EmbeddingMatrix</code></td><td>face_cluster/run_store.py</td><td>Read-side row types returned by RunStore.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="executors">5 · Writers / readers / step bodies <span class="pill plain">Plain class</span></h2>
+
+<table>
+  <thead><tr><th>Class</th><th>Location</th><th>Role</th><th>Notable methods</th></tr></thead>
+  <tbody>
+    <tr><td><code>RunExporter</code></td><td>face_cluster/run_exporter.py</td>
+        <td>Single writer for a run dir's 5-artifact layout. Single-use per instance.</td>
+        <td><code>export(...)</code> [14 kwargs, FR-033-4 → ExportRequest]; <code>_write_faces_and_scores</code>; <code>_write_clusters_and_assignments</code>; <code>_write_merges</code>; <code>_write_filter_decisions</code>; <code>_write_run_metadata</code></td></tr>
+    <tr><td><code>RunStore</code></td><td>face_cluster/run_store.py</td>
+        <td>Single reader. Fail-loud on missing artifacts.</td>
+        <td><code>metadata()</code>, <code>faces()</code>, <code>embeddings()</code>, <code>clusters("base"|"final")</code>, <code>merge_log()</code>, <code>filter_decisions()</code>, <code>image_detail(path)</code> [P-D]</td></tr>
+    <tr><td><code>QualityGater</code></td><td>face_cluster/quality.py</td>
+        <td>Per-face quality gates: blur, pose_yaw, pose_pitch, area, top_k_per_image, det_score.</td>
+        <td><code>select_core_set(face_records)</code></td></tr>
+    <tr><td><code>FilterContext</code></td><td>face_cluster/filter_context.py</td>
+        <td>spec-032 typed filter-decision primitive. Shared by Albumify <code>PipelineContext.filters</code> and FC App <code>_RunContext.filters</code>.</td>
+        <td><code>record(item_id, filter_name=..., rejected=..., reason=..., measured=...)</code>, <code>active(item_type)</code>, <code>summary()</code></td></tr>
+    <tr><td><code>BaseStep</code></td><td>sim_bench/pipeline/base.py</td>
+        <td>Template-method base for all pipeline steps. P-G: <code>process()</code> calls <code>validate_step_config()</code> at top.</td>
+        <td><code>process(context, config)</code>, <code>_process_with_cache(...)</code>, <code>validate(context)</code></td></tr>
+    <tr><td><code>face_cluster_bridge</code> <span class="pill plain">module</span></td><td>sim_bench/pipeline/steps/face_cluster_bridge.py</td>
+        <td>Adapter: Albumify <code>FaceForClustering</code> → <code>FaceRecord</code> + builds FCConfig.</td>
+        <td><code>faces_to_face_records(faces, emb_norm, context)</code>, <code>build_fc_config(config)</code> [pins blur_min=0 per SIGHTING-061], <code>run_face_cluster_knn(...)</code></td></tr>
+    <tr><td><code>config_diff</code> <span class="pill plain">module</span></td><td>face_cluster/config_diff.py</td>
+        <td>spec-033 P-F: canonical effective-config + diff CLI.</td>
+        <td><code>compute(parent, child)</code>, <code>effective_config_from_fc_config(cfg)</code>, <code>effective_config_from_albumify(step_configs)</code>, <code>main(argv)</code></td></tr>
+    <tr><td><code>ConservativeMerger</code></td><td>face_cluster/merge.py</td>
+        <td>Conservative 4-gate merge (exemplar / support / margin / diameter).</td>
+        <td><code>merge_clusters_with_logging(cluster_result, graph_result)</code></td></tr>
+    <tr><td><code>D10ExemplarSelector</code></td><td>face_cluster/exemplars.py</td>
+        <td>Exemplar selection by d10 threshold + suppression radius.</td>
+        <td><code>select_exemplars(cluster_result, graph_result)</code></td></tr>
+    <tr><td><code>KNNGraphBuilder, ConnectedComponentsClusterer, HoldoutAttacher</code></td><td>face_cluster/{knn_graph, clustering, attach}.py</td>
+        <td>Mutual-kNN graph, connected-components clustering, holdout attachment.</td>
+        <td>—</td></tr>
+  </tbody>
+</table>
+
+<h2 id="relationships">6 · Cross-class relationships</h2>
+
+<table>
+  <thead><tr><th>Producer</th><th>Consumer</th><th>Carrier</th><th>Contract</th></tr></thead>
+  <tbody>
+    <tr><td>UI widget</td><td>BaseStep.process</td><td>step_configs dict</td><td>Pydantic step model (P-G); typo raises ValidationError.</td></tr>
+    <tr><td>face_cluster_bridge</td><td>QualityGater</td><td>List[FaceRecord]</td><td>Pydantic FaceRecord (P-C C-2); extra=forbid.</td></tr>
+    <tr><td>RunExporter</td><td>SQLite</td><td>tuples → DataFrame</td><td>Pandera FACES_SCHEMA / FACE_SCORES_SCHEMA (P-H); validate before INSERT.</td></tr>
+    <tr><td>RunStore.image_detail</td><td>UI / analysis</td><td>ImageDetail</td><td>Pydantic ImageDetail / FaceDetail (P-D).</td></tr>
+    <tr><td>filter steps</td><td>FilterContext</td><td>FilterDecision</td><td>spec-032; KNOWN_FILTERS registry gates filter names.</td></tr>
+    <tr><td>FC App PipelineConfig</td><td>config_diff</td><td>effective_config dict</td><td>spec-033 P-F; canonical shape compared via <code>compute()</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="target">7 · Target-state diff (where we're aiming)</h2>
+
+<table>
+  <thead><tr><th>Today</th><th>Target</th><th>Lands in</th></tr></thead>
+  <tbody>
+    <tr><td><code>face_cluster_bridge.build_fc_config</code> pins <code>blur_min=0.0</code></td><td>Honors <code>blur_min</code> from config; producer step exists.</td><td><span class="pill stat-tgt">specs/037</span></td></tr>
+    <tr><td>Pose data not plumbed (no 3-tuple producer)</td><td>Yaw / pitch / roll populated on every face.</td><td><span class="pill stat-tgt">future</span></td></tr>
+    <tr><td>5 face-clustering step configs typed</td><td>Every face-clustering step has a Pydantic model; CI enforces.</td><td><span class="pill stat-tgt">specs/039</span></td></tr>
+    <tr><td><code>RunExporter.export(...)</code> = 14 kwargs</td><td><code>RunExporter.export(request: ExportRequest)</code></td><td><span class="pill stat-tgt">specs/038</span></td></tr>
+    <tr><td>Pandera on faces / face_scores / filter_decisions only</td><td>Pandera on every read/write boundary.</td><td><span class="pill stat-tgt">future</span></td></tr>
+    <tr><td>No config-to-producer contract</td><td>Architecture test asserts every gate has a producer step.</td><td><span class="pill stat-tgt">specs/036</span></td></tr>
+    <tr><td>No real E2E test exercises the pipeline end-to-end</td><td>5-image fixture E2E in CI on every PR.</td><td><span class="pill stat-tgt">specs/035</span></td></tr>
+  </tbody>
+</table>
+
+<h2>Related documents</h2>
+<ul>
+  <li><a href="db_schemas.html">db_schemas.html</a> — field-by-field DB reference</li>
+  <li><a href="data_flow.html">data_flow.html</a> — one face end-to-end</li>
+  <li><a href="index.html">index.html</a> — architecture documentation index</li>
+  <li><code>specs/034-pipeline-context-contract/spec.md</code> — PipelineContext / _RunContext field contract</li>
+</ul>
+
+</body>
+</html>

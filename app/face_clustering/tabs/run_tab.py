@@ -10,11 +10,12 @@ import streamlit as st
 from face_cluster import FaceClusteringPipeline, PipelineConfig
 from face_cluster.cache import clear_embed_cache, get_cache_info
 
-from state import _AsyncState, _invalidate_run_caches
+from state import _AsyncState, _invalidate_run_caches, _RUN_PARAM_KEYS
 from session_helpers import _create_session_from_result
 from run_panels import _render_live_log, _render_log_expander, _render_stage_plan, _render_run_files_panel
 from config_controls import _render_merge_params
 from constants import _LOG_MAX_STORED
+from _profile_bar import render_profile_bar, render_profile_save_bar
 
 
 def _render_embed_cache_status(output_dir_str: str) -> None:
@@ -40,6 +41,7 @@ def _render_embed_cache_status(output_dir_str: str) -> None:
 
 def render_run_tab():
     st.header("Run Pipeline")
+    render_profile_bar(_RUN_PARAM_KEYS, widget_prefix="run_")
     col1, col2 = st.columns(2)
     with col1:
         image_dir = st.text_input(
@@ -77,63 +79,154 @@ def render_run_tab():
         _render_embed_cache_status(output_dir_str)
         st.divider()
         st.markdown("**Stage 3 · Quality Gate**")
+        st.caption(
+            ":warning: Quality gates below run on **FC App standalone**. "
+            "When this profile is loaded in Albumify, these knobs are "
+            "force-disabled by `face_cluster_bridge.py:66-71` (SIGHTING-059). "
+            "Spec-033 P-C unblocks them."
+        )
         c1, c2, c3 = st.columns(3)
         with c1:
-            blur_min = st.slider("blur_min", 0.0, 500.0, 50.0, 5.0,
-                help="Min Laplacian variance.")
+            blur_min = st.slider(
+                "blur_min", 0.0, 500.0, 50.0, 5.0,
+                key="run_blur_min",
+                help=(
+                    "PipelineConfig.blur_min. Min Laplacian variance for core set. "
+                    "Filter: face_blur. NO EFFECT on Albumify runs (bridge force-disables)."
+                ),
+            )
         with c2:
-            max_faces = st.slider("max_faces_per_image_core", 1, 50, 3,
-                help="Keep only the N largest faces per source image.")
+            max_faces = st.slider(
+                "max_faces_per_image_core", 1, 50, 3,
+                key="run_max_faces",
+                help=(
+                    "PipelineConfig.max_faces_per_image_core. Keep N largest faces per image "
+                    "in the core set. Filter: face_top_k_per_image."
+                ),
+            )
         with c3:
-            min_face_area = st.number_input("min_face_area px (0=off)", min_value=0, value=0, step=500)
+            min_face_area = st.number_input(
+                "min_face_area px (0=off)",
+                min_value=0, value=0, step=500,
+                key="run_min_face_area",
+                help=(
+                    "PipelineConfig.min_face_area. UNIT on FC App standalone: PIXELS. "
+                    "Filter: face_area. WARNING: when this profile runs via Albumify, "
+                    "the bridge computes face.area as fraction² (~0.001-0.45) not "
+                    "pixels — SIGHTING-060 unit drift. Spec-033 P-C / P-F resolves."
+                ),
+            )
         c4 = st.columns(1)[0]
         with c4:
             det_score_min_val = st.number_input(
                 "det_score_min (0=off)", min_value=0.0, max_value=1.0,
                 value=0.0, step=0.05, format="%.2f",
-                help="Min InsightFace detection confidence (0–1). 0 = disabled. Recommended: 0.7",
+                key="run_det_score_min",
+                help=(
+                    "PipelineConfig.det_score_min. Min InsightFace detection confidence (0-1). "
+                    "Filter: face_confidence. Recommended: 0.7. "
+                    "NO EFFECT on Albumify runs (bridge force-disables; "
+                    "Albumify uses config_det_conf instead)."
+                ),
             )
         st.markdown("*Pose filter*")
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            yaw_max = st.slider("yaw_max °", 5.0, 90.0, 30.0, 1.0)
+            yaw_max = st.slider(
+                "yaw_max °", 5.0, 90.0, 30.0, 1.0, key="run_yaw_max",
+                help=(
+                    "PipelineConfig.yaw_max. degrees. Filter: face_pose_yaw. "
+                    "NO EFFECT on Albumify runs (bridge force-disables)."
+                ),
+            )
         with c2:
-            pitch_max = st.slider("pitch_max °", 5.0, 90.0, 25.0, 1.0)
+            pitch_max = st.slider(
+                "pitch_max °", 5.0, 90.0, 25.0, 1.0, key="run_pitch_max",
+                help=(
+                    "PipelineConfig.pitch_max. degrees. Filter: face_pose_pitch. "
+                    "NO EFFECT on Albumify runs (bridge force-disables)."
+                ),
+            )
         with c3:
-            roll_max = st.slider("roll_max °", 5.0, 90.0, 25.0, 1.0)
+            roll_max = st.slider(
+                "roll_max °", 5.0, 90.0, 25.0, 1.0, key="run_roll_max",
+                help=(
+                    "PipelineConfig.roll_max. degrees. Filter: face_pose_roll. "
+                    "NO EFFECT on Albumify runs (bridge force-disables)."
+                ),
+            )
         with c4:
-            require_pose = st.checkbox("require_pose")
+            require_pose = st.checkbox(
+                "require_pose", key="run_require_pose",
+                help=(
+                    "PipelineConfig.require_pose. If on, faces without pose data go to holdout. "
+                    "NO EFFECT on Albumify runs (bridge does not extract pose)."
+                ),
+            )
         st.divider()
         st.markdown("**Stage 4 · Crops** — save aligned 112x112 crops + crop_manifest.json")
         st.divider()
         st.markdown("**Stage 5 · Cluster** — mutual kNN graph + connected components")
         c1, c2, c3 = st.columns(3)
         with c1:
-            K = st.slider("K (kNN neighbours)", 1, 100, 5)
+            K = st.slider(
+                "K (kNN neighbours)", 1, 100, 5, key="run_K",
+                help="PipelineConfig.K. Mutual kNN edge requires both nodes in each other's top-K.",
+            )
         with c2:
-            distance_threshold = st.slider("distance_threshold", 0.01, 1.0, 0.35, 0.01)
+            distance_threshold = st.slider(
+                "distance_threshold", 0.01, 1.0, 0.35, 0.01, key="run_dist",
+                help=(
+                    "PipelineConfig.distance_threshold. Max cosine distance for an edge. "
+                    "Lower = stricter (more clusters, more noise)."
+                ),
+            )
         with c3:
-            min_cluster_size = st.slider("min_cluster_size", 1, 50, 2)
+            min_cluster_size = st.slider(
+                "min_cluster_size", 1, 50, 2, key="run_min_cluster",
+                help="PipelineConfig.min_cluster_size. Components below this become noise.",
+            )
         st.divider()
         st.markdown("**Stage 6 · Exemplars**")
         c1, c2, c3 = st.columns(3)
         with c1:
-            N_exemplars_max = st.slider("N_exemplars_max", 1, 100, 10)
+            N_exemplars_max = st.slider(
+                "N_exemplars_max", 1, 100, 10, key="run_N_exemplars",
+                help="PipelineConfig.N_exemplars_max. Max exemplars selected per cluster.",
+            )
         with c2:
-            exemplars_d10_threshold = st.slider("exemplars_d10_threshold", 0.01, 1.0, 0.35, 0.01)
+            exemplars_d10_threshold = st.slider(
+                "exemplars_d10_threshold", 0.01, 1.0, 0.35, 0.01, key="run_d10_thresh",
+                help=(
+                    "PipelineConfig.exemplars_d10_threshold. Max d10 (10th-NN cosine distance) "
+                    "for a node to be exemplar-eligible."
+                ),
+            )
         with c3:
-            exemplar_suppression_radius = st.slider("exemplar_suppression_radius", 0.01, 1.0, 0.2, 0.01)
+            exemplar_suppression_radius = st.slider(
+                "exemplar_suppression_radius", 0.01, 1.0, 0.2, 0.01, key="run_suppression",
+                help="PipelineConfig.exemplar_suppression_radius. Min cosine distance between selected exemplars.",
+            )
         st.divider()
         st.markdown("**Stage 7 · Export** — write faces.csv, clusters.csv, embeddings.npy")
         st.divider()
         st.markdown("**Optional Stages**")
         c1, c2, c3 = st.columns(3)
         with c1:
-            split_enabled  = st.checkbox("split_enabled")
+            split_enabled = st.checkbox(
+                "split_enabled", key="run_split",
+                help="PipelineConfig.split_enabled. Run cluster split safeguard after base clustering.",
+            )
         with c2:
-            merge_enabled  = st.checkbox("merge_enabled")
+            merge_enabled = st.checkbox(
+                "merge_enabled", key="run_merge",
+                help="PipelineConfig.merge_enabled. Run conservative merge after exemplar selection.",
+            )
         with c3:
-            attach_enabled = st.checkbox("attach_enabled")
+            attach_enabled = st.checkbox(
+                "attach_enabled", key="run_attach",
+                help="PipelineConfig.attach_enabled. Try to attach quality-failed (holdout) faces to clusters.",
+            )
 
     run_merge_params: dict = {}
     if merge_enabled:
@@ -184,6 +277,9 @@ def render_run_tab():
     if worker is not None and worker.has_error:
         st.error(f"Pipeline failed: {worker.error}")
         _render_log_expander(st.session_state.pipeline_log, label="Error log")
+
+    render_profile_save_bar(_RUN_PARAM_KEYS, widget_prefix="run_")
+    st.divider()
 
     run_disabled = not (image_dir and output_dir_str)
     if st.button("Run Pipeline", type="primary", disabled=run_disabled):

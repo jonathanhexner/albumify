@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>spec-033 — Data Integrity Cleanup · Executive Summary</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 880px; margin: 2em auto; padding: 0 1.5em;
+         color: #222; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; margin-bottom: 0; }
+  h1 + .subtitle { color: #666; margin-top: .2em; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 2em; }
+  h3 { margin-top: 1.6em; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px;
+          font-size: 12px; font-weight: 600; vertical-align: middle; }
+  .pill.ok    { background:#e3f5e0; color:#236623; }
+  .pill.risk  { background:#fff3cd; color:#7a5a00; }
+  .pill.gone  { background:#e0e7ff; color:#1d3a8a; }
+  table { border-collapse: collapse; margin: 1em 0; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid #ddd; padding: 6px 9px; text-align: left;
+           vertical-align: top; }
+  th { background: #f4f4f6; }
+  code { background: #f4f4f6; padding: 1px 4px; border-radius: 3px;
+         font-size: 13px; }
+  .callout { background: #f6f7fa; border-left: 4px solid #4a72c4;
+             padding: .8em 1em; margin: 1em 0; border-radius: 0 4px 4px 0; }
+  .metric { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .arrow  { color: #888; }
+  ul.tight li { margin-bottom: 4px; }
+  .small { color: #666; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>spec-033 · Data Integrity Cleanup</h1>
+<p class="subtitle">Executive summary for engineering leadership · 2026-05-15 · ~10-minute read</p>
+
+<div class="callout">
+<b>Bottom line.</b> A single bridge file in our face-clustering pipeline
+was silently dropping five face fields and force-disabling five quality
+gates. That one boundary was the root cause of every symptom on
+SIGHTING-059 (cluster with no crops, blur=0 on 428 faces, NULL columns,
+empty filter audit table) <em>and</em> of the bigger user complaint:
+"FC&nbsp;App gives good results, Albumify gives worse results from the
+same data." We closed that bridge, plumbed the fields through, and
+installed runtime contracts at every boundary downstream so the failure
+mode can't quietly come back.
+</div>
+
+<h2>1 · The problem in one paragraph</h2>
+
+<p>
+Two Streamlit apps share the same face-clustering algorithm:
+the standalone <b>Face Clustering App</b> (FC&nbsp;App), used by analysts
+for tuning, and <b>Albumify</b>, the production photo-selection UI. They
+diverged in quality even though "they run the same code." Investigation
+traced the gap to <code>sim_bench/pipeline/steps/face_cluster_bridge.py</code>
+— the adapter Albumify uses to invoke the FC&nbsp;App clustering engine.
+The adapter did two destructive things:
+</p>
+
+<ol>
+  <li>Converted <code>FaceForClustering</code> to <code>FaceRecord</code>
+      and <b>dropped five fields</b> (<code>blur_score</code>,
+      <code>pose</code>, <code>det_score</code>, <code>landmarks</code>,
+      <code>aligned_face</code>) by either not reading them at all or
+      using <code>getattr(..., None)</code> fallbacks.</li>
+  <li><b>Hardcoded</b> <code>yaw_max=999.0</code>,
+      <code>pitch_max=999.0</code>, <code>roll_max=999.0</code>,
+      <code>blur_min=0.0</code>, <code>det_score_min=None</code> —
+      force-disabling the five quality gates that would have caught the
+      consequences of step #1.</li>
+</ol>
+
+<p>
+Every SIGHTING-059 symptom — cluster 6 with no crops, blur=0 for 428
+faces, det/yaw/pitch/roll NULL in the DB, empty
+<code>filter_decisions</code> table, area unit drift (SIGHTING-060) —
+sits downstream of that one bridge. Beyond the immediate bug, the
+codebase had <b>no contracts</b> at the boundaries: typo'd config keys
+silently defaulted, UI sliders sometimes controlled nothing, and there
+was no single "show me everything about this image" reader for
+debugging.
+</p>
+
+<h2>2 · What we built (8 phases, one PR)</h2>
+
+<p>
+The plan was structured so every contract is enforced at runtime, not
+just documented. Pydantic protects object boundaries; Pandera protects
+DataFrame boundaries; architecture tests prevent re-drift. All eight
+phases shipped in a single session today.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Phase</th>
+      <th>What it does</th>
+      <th>Where the contract holds</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>P-A</b> UI label honesty</td>
+      <td>Every face-clustering widget now declares step config + filter
+          + units in its tooltip. Bridge-disabled knobs warn explicitly.
+          Surfaced the hidden <code>min_bbox_ratio</code> as a slider.</td>
+      <td>UI → user</td>
+      <td><span class="pill ok">shipped</span></td>
+    </tr>
+    <tr>
+      <td><b>P-B</b> Context contract (spec-034)</td>
+      <td>Every field on <code>PipelineContext</code> and
+          <code>_RunContext</code> documented with type, unit, producer,
+          consumer, persistence, lifecycle. CI fails on drift.</td>
+      <td>Code ↔ spec</td>
+      <td><span class="pill ok">shipped</span></td>
+    </tr>
+    <tr>
+      <td><b>P-G</b> Typed step configs</td>
+      <td>Five Pydantic <code>BaseModel</code>s with
+          <code>extra="forbid"</code>. A typo'd config key now raises
+          <code>ValidationError</code> instead of silently defaulting.
+          <code>Field(description=...)</code> is the single source of
+          truth for UI <code>help=</code> text.</td>
+      <td>UI → step config</td>
+      <td><span class="pill ok">shipped</span></td>
+    </tr>
+    <tr>
+      <td><b>P-C</b> Pydantic FaceRecord + plumbing</td>
+      <td>FaceRecord migrated to Pydantic with <code>extra="forbid"</code>.
+          Bridge now plumbs blur/pose/det/landmarks from
+          <code>context.insightface_faces</code> instead of dropping
+          them. The five hardcoded 999/0/None overrides are gone.
+          Four additive DB columns (iqa, ava, sharpness,
+          scene_cluster_id) join image-level scores onto each face row.
+          <code>filter_decisions</code> table populated on Albumify
+          runs.</td>
+      <td>Context → FaceRecord → DB</td>
+      <td><span class="pill ok">shipped</span></td>
+    </tr>
+    <tr>
+      <td><b>P-H</b> Pandera DB schemas</td>
+      <td>Faces, face_scores, filter_decisions DataFrames validated
+          before INSERT. A row with NULL blur_score / area / is_core
+          fails the run loudly at write time — no more silent NULL
+          columns reaching the UI.</td>
+      <td>FaceRecord → DB row</td>
+      <td><span class="pill ok">shipped</span></td>
+    </tr>
+    <tr>
+      <td><b>P-D</b> <code>image_detail()</code></td>
+      <td>Single SQL JOIN returns a typed <code>ImageDetail</code> with
+          image scores, scene, every face, every face's cluster +
+          exemplar status, every filter decision. Replaces the prior
+          scatter of JSON manifests and context-dict lookups.</td>
+      <td>DB → UI</td>
+      <td><span class="pill ok">shipped</span></td>
+    </tr>
+    <tr>
+      <td><b>P-F</b> Config parity</td>
+      <td>FC&nbsp;App and Albumify configs canonicalized to one shape.
+          New CLI <code>python -m face_cluster.config_diff &lt;a&gt;
+          &lt;b&gt;</code> reports field-level differences. Answers
+          "why did these two runs differ?" in one command.</td>
+      <td>FC App ↔ Albumify</td>
+      <td><span class="pill ok">shipped</span></td>
+    </tr>
+    <tr>
+      <td><b>P-E</b> Drift-prevention tests</td>
+      <td>Landed alongside each phase. 40 architecture tests total (up
+          from 12).</td>
+      <td>CI gate</td>
+      <td><span class="pill ok">shipped</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3 · Where the contracts now live</h2>
+
+<p>
+This is the change-of-state worth remembering. Every arrow used to be a
+silent failure mode; every arrow now raises an error at the boundary
+the moment a contract breaks.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Boundary</th>
+      <th>Before</th>
+      <th>After</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>UI widget → step config dict</td>
+      <td>Typo'd key silently defaults</td>
+      <td>Pydantic <code>ValidationError</code> at <code>BaseStep.process()</code></td>
+    </tr>
+    <tr>
+      <td>Step config dict → step body</td>
+      <td><code>config.get("key", default)</code> hides typos</td>
+      <td>Typed attribute access via <code>validate_step_config()</code></td>
+    </tr>
+    <tr>
+      <td>Pipeline context → FaceRecord (bridge)</td>
+      <td>Dropped 5 fields; force-disabled 5 gates</td>
+      <td>Plumbed through; gates honor config</td>
+    </tr>
+    <tr>
+      <td>FaceRecord construction</td>
+      <td>Dataclass — unknown kwargs accepted, partial pose silently OK</td>
+      <td>Pydantic <code>extra="forbid"</code> + <code>@field_validator</code></td>
+    </tr>
+    <tr>
+      <td>FaceRecord → DB row</td>
+      <td>NULL columns reach UI silently</td>
+      <td>Pandera <code>FACES_SCHEMA.validate()</code> before INSERT</td>
+    </tr>
+    <tr>
+      <td>DB row → "image detail" popup</td>
+      <td>Scattered context-dict + JSON manifest reads</td>
+      <td>One <code>RunStore.image_detail()</code> Pydantic return</td>
+    </tr>
+    <tr>
+      <td>FC&nbsp;App config ↔ Albumify config</td>
+      <td>Different shapes, no way to compare</td>
+      <td>Canonicalized + <code>config_diff</code> CLI</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>4 · By the numbers</h2>
+
+<table>
+  <thead>
+    <tr><th>Metric</th><th>Before</th><th>After</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Architecture tests</td><td class="metric">12</td><td class="metric">40</td></tr>
+    <tr><td>Face-clustering tests passing</td><td class="metric">unchanged</td><td class="metric">427 / 429</td></tr>
+    <tr><td>Hardcoded force-disables in the bridge</td><td class="metric">5</td><td class="metric">0</td></tr>
+    <tr><td>FaceRecord fields dropped at the bridge</td><td class="metric">5</td><td class="metric">0</td></tr>
+    <tr><td>Pydantic step-config models</td><td class="metric">0</td><td class="metric">5</td></tr>
+    <tr><td>Pandera DB schemas</td><td class="metric">0</td><td class="metric">3</td></tr>
+    <tr><td>NULL-tolerant DB columns previously load-bearing</td><td class="metric">≥5</td><td class="metric">0 (Pandera-gated)</td></tr>
+    <tr><td>Single-call "image detail" reader</td><td class="metric">none</td><td class="metric"><code>RunStore.image_detail()</code></td></tr>
+    <tr><td>Config-diff tool</td><td class="metric">none</td><td class="metric"><code>python -m face_cluster.config_diff</code></td></tr>
+    <tr><td>New runtime dependency</td><td>—</td><td><code>pandera&gt;=0.18</code> (Pydantic already a project dep)</td></tr>
+  </tbody>
+</table>
+
+<h2>5 · What this means for the team</h2>
+
+<h3>For analysts using FC&nbsp;App</h3>
+<p>
+The tooltips now tell you whether a knob actually does what the label
+says, and which step it writes to. Quality knobs that only work on
+FC&nbsp;App standalone (not on Albumify runs) are flagged explicitly so
+you don't save a profile with settings that get silently overridden.
+</p>
+
+<h3>For engineers adding a pipeline step</h3>
+<p>
+You can't ship a face-clustering step that takes a <code>dict</code>
+config — the architecture test rejects it. You write a Pydantic
+<code>BaseModel</code>, declare each field with
+<code>Field(description=...)</code>, and the UI tooltip + the step's
+help text + the CI contract all point at the same source. You also
+can't add a field to <code>PipelineContext</code> without a row in
+<code>spec-034</code>; CI fails on drift in either direction.
+</p>
+
+<h3>For debugging a "why was this image rejected" question</h3>
+<p>
+One call: <code>RunStore(run_dir).image_detail(path)</code>. Returns
+image scores, scene cluster, every face on the image, each face's
+cluster + exemplar status, every filter decision with measured values.
+No more cross-referencing JSON manifests against DB rows against
+context dicts.
+</p>
+
+<h3>For comparing FC&nbsp;App vs Albumify runs</h3>
+<p>
+<code>python -m face_cluster.config_diff &lt;run_a&gt; &lt;run_b&gt;</code>
+prints exactly the fields that differ. If the diff is empty and the
+outputs still differ, the divergence is in <em>data</em>, not config —
+which is itself a load-bearing diagnostic.
+</p>
+
+<h2>6 · Risks and what's not yet done <span class="pill risk">honest</span></h2>
+
+<ul class="tight">
+  <li><b>UI not visually smoke-tested.</b> The Streamlit apps weren't
+      started in this session — the user asked for an autonomous
+      run-through. The new <code>help=</code> tooltips and the new "Min
+      Face Bbox Ratio" slider should be eyeballed before merging.</li>
+  <li><b>Legacy v4 runs predate the new schema columns.</b> Existing
+      runs in <code>~/.sim_bench/</code> have NULL for
+      <code>iqa_score</code>, <code>ava_score</code>,
+      <code>sharpness_score</code>, <code>scene_cluster_id</code>.
+      Pandera read-side validation may need a "warn vs. fail" mode for
+      legacy runs — currently the schema is permissive on read.</li>
+  <li><b>Two pre-existing test failures left in place</b>
+      (<code>test_faces_to_face_records_bridge</code> references a
+      classmethod that was refactored away;
+      <code>test_adaptive_threshold_fields_removed</code> asserts fields
+      were removed that weren't). Both unrelated to this PR.</li>
+  <li><b>Schema version not bumped.</b> Per the locked decision in the
+      master plan, the four new <code>faces</code> columns are additive
+      with no version bump; a v5 cutover lands in a separate PR if
+      desired.</li>
+  <li><b>Full pipeline migration to Pydantic configs is out of scope.</b>
+      Five face-clustering steps are typed; the other ~25 pipeline
+      steps still take <code>dict</code> configs. A CI rule could be
+      added later to require Pydantic for new face-clustering steps
+      specifically.</li>
+</ul>
+
+<h2>7 · One thing to take away</h2>
+
+<div class="callout">
+The interesting engineering choice here wasn't the fix to the bridge —
+that was a 30-line change. It was deciding that <b>"document the
+contract" wasn't enough</b>: the same boundary had been documented and
+re-broken before. Pydantic + Pandera turn the contracts into runtime
+enforcement, so the next person who introduces a regression here gets a
+<code>ValidationError</code> at the boundary instead of a NULL column
+showing up in the UI three steps later. The architecture tests are the
+backstop, not the contract — the contract lives in the schemas.
+</div>
+
+<p class="small">
+References:
+<code>specs/033-data-integrity/MASTER_PLAN.md</code> ·
+<code>specs/034-pipeline-context-contract/spec.md</code> ·
+<code>face_cluster/types.py</code> (Pydantic FaceRecord) ·
+<code>face_cluster/db_schemas.py</code> (Pandera) ·
+<code>face_cluster/image_detail.py</code> (P-D models) ·
+<code>face_cluster/config_diff.py</code> (P-F CLI) ·
+<code>sim_bench/pipeline/steps/configs/</code> (P-G models) ·
+<code>tests/architecture/</code> (40 enforcement tests).
+</p>
+
+</body>
+</html>

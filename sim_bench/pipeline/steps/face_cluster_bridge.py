@@ -2,11 +2,16 @@
 
 Runs the face_cluster_knn algorithm: quality gating → kNN graph →
 connected components → exemplar selection → optional merge/attach.
+
+spec-033 P-C C-1: the bridge now plumbs blur_score, pose, det_score,
+landmarks, aligned_face from ``context.insightface_faces`` instead of
+dropping them. This unblocks the quality gates that were previously
+force-disabled (``build_fc_config`` no longer hardcodes 999.0 / 0.0).
 """
 
 import copy
 import logging
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
@@ -24,8 +29,35 @@ from sim_bench.pipeline.context import PipelineContext
 logger = logging.getLogger(__name__)
 
 
-def faces_to_face_records(faces, embeddings_norm: np.ndarray) -> List[FaceRecord]:
-    """Bridge FaceForClustering → FaceRecord for face_cluster algorithms."""
+def _lookup_insightface_face(context: Optional[PipelineContext], image_path: str, face_index: int) -> dict:
+    """Find the matching insightface_faces entry for a (image, face_index) pair.
+
+    Returns an empty dict if the lookup fails — caller must tolerate missing data.
+    The bridge formerly dropped these fields entirely; reading them here turns
+    "silently lost" into "explicitly absent" so downstream NULL columns are
+    diagnosable.
+    """
+    if context is None:
+        return {}
+    face_data = (getattr(context, "insightface_faces", None) or {}).get(image_path, {})
+    faces = face_data.get("faces", []) if isinstance(face_data, dict) else []
+    for f in faces:
+        if f.get("face_index") == face_index:
+            return f
+    return {}
+
+
+def faces_to_face_records(
+    faces,
+    embeddings_norm: np.ndarray,
+    context: Optional[PipelineContext] = None,
+) -> List[FaceRecord]:
+    """Bridge FaceForClustering → FaceRecord for face_cluster algorithms.
+
+    When ``context`` is supplied, plumbs blur_score, pose, det_score,
+    landmarks, and aligned_face from ``context.insightface_faces`` instead
+    of leaving them at sentinel zeros. spec-033 P-C C-1.
+    """
     records = []
     for i, face in enumerate(faces):
         bbox = face.bbox
@@ -37,6 +69,37 @@ def faces_to_face_records(faces, embeddings_norm: np.ndarray) -> List[FaceRecord
         else:
             bbox_tuple = (0, 0, 0, 0)
 
+        # spec-033 P-C C-1: recover the fields FaceForClustering doesn't carry
+        # by joining back to context.insightface_faces.
+        if_face = _lookup_insightface_face(context, str(face.original_path), face.face_index)
+        if_scores = if_face.get("scores", {}) if isinstance(if_face, dict) else {}
+
+        blur_score = (
+            getattr(face, "blur_score", None)
+            if getattr(face, "blur_score", None) is not None
+            else float(if_scores.get("blur_score", 0.0) or 0.0)
+        )
+        det_score = (
+            getattr(face, "det_score", None)
+            if getattr(face, "det_score", None) is not None
+            else (float(if_face.get("confidence")) if if_face.get("confidence") is not None else None)
+        )
+        pose = getattr(face, "pose", None)
+        if pose is None:
+            pose_scores = if_face.get("pose_scores") or if_scores.get("pose") if isinstance(if_face, dict) else None
+            if isinstance(pose_scores, dict) and {"yaw", "pitch", "roll"} <= set(pose_scores):
+                pose = (
+                    float(pose_scores["yaw"]),
+                    float(pose_scores["pitch"]),
+                    float(pose_scores["roll"]),
+                )
+        landmarks = if_face.get("landmarks") if isinstance(if_face, dict) else None
+        if landmarks is not None and not isinstance(landmarks, np.ndarray):
+            try:
+                landmarks = np.asarray(landmarks, dtype=np.float32)
+            except (TypeError, ValueError):
+                landmarks = None
+
         records.append(FaceRecord(
             face_id=i,
             image_id=str(face.original_path),
@@ -45,10 +108,13 @@ def faces_to_face_records(faces, embeddings_norm: np.ndarray) -> List[FaceRecord
             bbox=bbox_tuple,
             embedding=face.embedding,
             embedding_normalized=embeddings_norm[i],
-            blur_score=getattr(face, "blur_score", 0.0),
+            blur_score=float(blur_score) if blur_score is not None else 0.0,
             area=float(bbox.get("w", 0) * bbox.get("h", 0)) if isinstance(bbox, dict) else 0.0,
-            pose=getattr(face, "pose", None),
-            det_score=getattr(face, "det_score", None),
+            pose=pose,
+            det_score=det_score,
+            landmarks=landmarks,
+            # aligned_face is populated downstream by align_faces; bridge does
+            # not synthesize it.
         ))
     return records
 
@@ -56,19 +122,34 @@ def faces_to_face_records(faces, embeddings_norm: np.ndarray) -> List[FaceRecord
 def build_fc_config(config: dict) -> FCConfig:
     """Build a face_cluster PipelineConfig from the main pipeline's config dict.
 
-    Quality gates are FORCE-DISABLED because the main pipeline doesn't
-    compute blur_score or pose on FaceForClustering objects.
+    spec-033 P-C C-1 + P-F F-1: quality gates are NO LONGER force-disabled
+    wholesale. Values flow through from the caller's typed config.
+
+    EXCEPTION — gates whose data the InsightFace pipeline does not yet
+    compute are pinned to permissive values, regardless of config:
+
+    * ``blur_min``: pinned to 0.0. The active InsightFace pipeline has no
+      blur-scoring step; ``FaceRecord.blur_score`` is 0.0 for every face.
+      Honoring ``cluster_people.blur_min: 50.0`` from pipeline.yaml would
+      reject 100% of faces (the regression that motivated this comment —
+      see logs/2026-05-15_11-18-44/api.log). Re-enable once an
+      ``insightface_score_blur`` step lands and the bridge plumbs it.
+
+    Pose gates (yaw/pitch/roll) stay config-driven: when pose is None and
+    ``require_pose=False`` the QualityGater passes the face through
+    permissively, so the gate's threshold value is moot for now.
     """
     return FCConfig(
         K=config.get("K", 5),
         distance_threshold=config.get("distance_threshold", 0.35),
         min_cluster_size=config.get("min_cluster_size", 2),
-        yaw_max=999.0,
-        pitch_max=999.0,
-        roll_max=999.0,
+        yaw_max=float(config.get("yaw_max", 999.0)),
+        pitch_max=float(config.get("pitch_max", 999.0)),
+        roll_max=float(config.get("roll_max", 999.0)),
+        # Pinned: InsightFace pipeline has no blur step yet (see docstring).
         blur_min=0.0,
         max_faces_per_image_core=config.get("max_faces_per_image_core", 3),
-        det_score_min=None,
+        det_score_min=config.get("det_score_min", None),
         split_enabled=config.get("split_enabled", False),
         merge_enabled=config.get("merge_enabled", False),
         attach_enabled=config.get("attach_enabled", False),
@@ -88,7 +169,9 @@ def build_fc_config(config: dict) -> FCConfig:
 def run_face_cluster_knn(faces, embeddings_norm, config, context):
     """Run face_cluster/ algorithms and return (labels, face_records, base_cr, merged_cr, core_indices, merge_log, merge_metadata, fc_cfg)."""
     fc_cfg = build_fc_config(config)
-    face_records = faces_to_face_records(faces, embeddings_norm)
+    # spec-033 P-C C-1: pass context so the bridge can plumb blur/pose/det/landmarks
+    # from insightface_faces instead of dropping them.
+    face_records = faces_to_face_records(faces, embeddings_norm, context=context)
     n = len(face_records)
 
     # Quality gating

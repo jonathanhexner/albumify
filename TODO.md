@@ -219,4 +219,65 @@ Full plan: `specs/013-run-history-annotations/tasks.md`
 
 ---
 
-**Last updated:** 2026-04-23
+## spec-032: filter context (2026-05-12)
+- [x] P0: FilterContext primitive + tests | 2026-05-12 | Claude
+- [x] P1: Migrate filter_quality + QualityGater + _save_crops (closes SIGHTING-059 Issue 1 at primitive level) | 2026-05-12 | Claude
+- [x] P2: RunExporter writes filter_decisions table + RunStore reader | 2026-05-12 | Claude
+- [x] P4: UI ↔ filter alignment static check (flagged 4 real phantoms, all documented) | 2026-05-12 | Claude
+- [x] P5: no-raw-collection-iteration static check (grandfathered allow-list) | 2026-05-12 | Claude
+- [ ] P3: FC App Run Summary tab surfacing filters.summary() | Claude
+- [ ] P6: SIGHTING-060 area-unit fix (bbox_area_pixels canonical helper, migrate 3 producers, promote config_min_face_size to real rejector) | Claude
+- [ ] P7: Remove legacy advisory fields (quality_passed, face["filter_passed"], quality_*_pass CSV columns) | Claude
+
+## spec-031: max_diameter cap step (2026-05-11)
+- [x] Phase 1: implement cap step (merged-only scope, full + exemplar thresholds, split action) | 2026-05-11 | Claude
+- [ ] Phase 2 (deferred): option to expand scope to all clusters (catches base-clustering chains too) | Claude
+- [ ] Phase 3 (deferred): FC App "Cluster Cap" tab to surface cap_decisions.json visually | Claude
+
+## SIGHTING-059 — face clustering data integrity (2026-05-10)
+- [x] Item 4: profile load/save in Run tab | 2026-05-10 | Claude
+- [ ] Item 1: face_46/47 (cluster 6) have no crops despite passing quality | Claude
+- [ ] Item 2: area column unit mismatch (fraction vs pixels label) | Claude
+- [ ] Item 3a: blur_score=0.0 for ALL faces — blur step broken or stripped during export | Claude
+- [ ] Item 3b: det_score=NaN for ALL faces — never persisted | Claude
+- [ ] Item 3c: merge_log.json missing `*_pass` boolean fields | Claude
+- [ ] HTML diagnostic report visualizing tracing of all of the above | Claude
+
+## spec-033 — data integrity cleanup (2026-05-15)
+Master plan: `specs/033-data-integrity/MASTER_PLAN.md`
+- [x] P-A: UI label honesty + surface hidden min_bbox_ratio | 2026-05-15 | Claude
+- [x] P-B: write spec-034 context contract | 2026-05-15 | Claude
+- [x] P-G: typed step configs (Pydantic) | 2026-05-15 | Claude
+- [x] P-C: storage plumbing + Pydantic FaceRecord (resolves SIGHTING-059 Items 1, 3a, 3b) | 2026-05-15 | Claude
+- [x] P-H: Pandera DB I/O schemas | 2026-05-15 | Claude
+- [x] P-D: RunStore.image_detail (extends spec-023) | 2026-05-15 | Claude
+- [x] P-F: config parity (FC App ↔ Albumify) | 2026-05-15 | Claude
+- [x] P-E: drift-prevention architecture tests (landed alongside their phases) | 2026-05-15 | Claude
+
+## spec-040 — Unified Pipeline Framework (2026-05-16)
+Branch: `unification/spec-040` (separate, depends on FR-033-1 on main first)
+Spec: `specs/040-unified-pipeline-framework/`
+- [x] Phase 0 (blocks branch): land FR-033-1 (E2E test) on main | 2026-05-16 | Claude
+- [ ] Phase 1: unified PipelineContext (extend spec-034) | Claude
+- [ ] Phase 2: Pydantic config for every face-clustering step (closes FR-033-6) | Claude
+- [ ] Phase 3: replace bridge functions with real pipeline steps | Claude
+- [ ] Phase 4: schema v5 (images table per SIGHTING-065; area_ratio per SIGHTING-064) | Claude
+- [ ] Phase 5: retire FaceClusteringPipeline + face_cluster/config.py PipelineConfig | Claude
+- [ ] Phase 6: delete face_cluster_bridge.py; architecture test prevents return | Claude
+- [ ] Phase 7: collapse doc HTMLs to single-origin | Claude
+- [ ] Phase 8: 2-week burn-in on labeled album; then merge | Claude
+
+## spec-033 follow-ups (2026-05-15)
+Review: `specs/033-data-integrity/REVIEW.md` | Roadmap: `specs/033-data-integrity/FOLLOW_UPS_ROADMAP.html`
+- [x] FR-033-1: E2E acceptance test → `specs/035-albumify-e2e-acceptance/` | 2026-05-16 | Claude
+- [ ] FR-033-2: Config-to-producer contract → `specs/036-config-producer-contract/`
+- [ ] FR-033-3: InsightFace blur scoring step + lift SIGHTING-061 pin → `specs/037-insightface-blur-step/`
+- [ ] FR-033-4: ExportRequest Pydantic bundle → `specs/038-export-request-pydantic/`
+- [ ] FR-033-5: Verify no duplicate filter_decisions rows → SIGHTING-062
+- [ ] FR-033-6: STEP_CONFIG_MODELS registry guard → `specs/039-step-config-registry-guard/`
+- [ ] FR-033-7: Fix bridge pose-lookup operator precedence → SIGHTING-063
+- [ ] FR-033-8: Delete or relocate `notebook_diagnostic.py` (this entry) | Claude
+
+---
+
+**Last updated:** 2026-05-15

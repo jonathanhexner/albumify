@@ -8,4 +8,5 @@ python_functions = ["test_*"]
 addopts = "-m 'not e2e'"
 markers = [
     "e2e: browser-based end-to-end tests requiring a running Streamlit server (excluded from default run)",
+    "face_e2e: Albumify face-clustering pipeline E2E test on a 5-image fixture (spec-035). Slow on first run (model warmup); fast on cache hit.",
 ]

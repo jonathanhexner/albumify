@@ -4,7 +4,162 @@ This file tracks feature requests from users. Claude should scan this on init to
 
 ---
 
+<!-- DEPRECATED: new feature requests go through WORKFLOW.md as proper specs.
+     Each request becomes its own spec dir under `specs/NNN-<name>/`.
+     This file is kept for historical reference only — do not append. -->
+
 <!-- Add new entries at the top, newest first -->
+
+### 2026-05-15: spec-033 review follow-ups — MIGRATED TO SPECS
+
+Roadmap: `specs/033-data-integrity/FOLLOW_UPS_ROADMAP.html`. The original 8 tickets were promoted:
+
+- FR-033-1 → `specs/035-albumify-e2e-acceptance/`
+- FR-033-2 → `specs/036-config-producer-contract/`
+- FR-033-3 → `specs/037-insightface-blur-step/`
+- FR-033-4 → `specs/038-export-request-pydantic/`
+- FR-033-5 → SIGHTING-062 (bug-shaped)
+- FR-033-6 → `specs/039-step-config-registry-guard/`
+- FR-033-7 → SIGHTING-063 (one-line latent bug)
+- FR-033-8 → `TODO.md` entry (housekeeping)
+
+Original ticket text follows for historical reference. Going forward, the WORKFLOW.md gate routes every new request to a proper spec dir.
+
+<details><summary>Original ticket text (historical)</summary>
+
+#### FR-033-1: E2E acceptance test for Albumify face-clustering pipeline
+**Status**: OPEN
+**Severity**: Critical (highest leverage of the eight)
+**Description**:
+Add a real end-to-end test that runs the full Albumify pipeline on a 5-image fixture and asserts:
+- `context.people_clusters` is non-empty after `cluster_people`
+- `context.core_indices` is non-empty after the bridge's quality gate
+- `RunStore.image_detail(path)` returns non-NULL on the resulting DB
+
+**Motivation**: SIGHTING-061 went undetected because no test in the spec-033 suite exercises the real pipeline. 14 static tests + ~10 unit tests + 2 synthetic-data tests caught zero runtime semantic bugs. This is the missing acceptance gate.
+
+**Touch points**: `tests/face_clustering/test_albumify_e2e.py` (new); fixture under `tests/fixtures/images_5/` (new); pipeline registry already supports invocation via `PipelineExecutor`.
+
+---
+
+#### FR-033-2: Config-to-producer graph contract
+**Status**: OPEN
+**Severity**: Major
+**Description**:
+Add a contract test that asserts: for every `cluster_people.{gate}_min` config knob the bridge honors (`yaw_max`, `pitch_max`, `roll_max`, `blur_min`, `det_score_min`), an upstream step in the active pipeline produces the corresponding field on `context.insightface_faces`. Fails CI when a gate is configurable but its data isn't computed.
+
+**Motivation**: SIGHTING-061 root cause — the refactor unblocked `blur_min` but no step computes blur. This is a new class of contract (object-shape contracts can't catch it). The architectural fix the SIGHTING-061 learning explicitly calls out.
+
+**Touch points**: `tests/architecture/test_gate_has_producer.py` (new); needs a mapping `{gate_config_key: required_context_field}` either hand-written or scraped from `QualityGater`.
+
+---
+
+#### FR-033-3: Add `insightface_score_blur` step, revert SIGHTING-061 workaround
+**Status**: OPEN
+**Severity**: Major
+**Description**:
+Add a pipeline step that computes Laplacian-variance blur on each detected face crop and writes it to `context.insightface_faces[path]["faces"][i]["scores"]["blur_score"]`. Then revert the `blur_min=0.0` pin in `face_cluster_bridge.build_fc_config` so the yaml-configured `blur_min: 50.0` takes effect again.
+
+**Motivation**: The SIGHTING-061 workaround is by-design temporary. Blur is a meaningful quality signal; the FC App standalone uses it. Albumify should too.
+
+**Touch points**: `sim_bench/pipeline/steps/insightface_score_blur.py` (new); `configs/pipeline.yaml` (add to `default_pipeline` list); `sim_bench/pipeline/steps/face_cluster_bridge.py:_lookup_insightface_face` (already lookups blur — will start finding values); `sim_bench/pipeline/steps/face_cluster_bridge.py:build_fc_config` (un-pin blur_min); update `test_bridge_pose_and_det_gates_read_from_config`.
+
+---
+
+#### FR-033-4: Replace `RunExporter.export(**kwargs)` with typed `ExportRequest`
+**Status**: OPEN
+**Severity**: Major
+**Description**:
+`RunExporter.export()` takes 14 keyword arguments today. Replace with a single `ExportRequest` Pydantic model that bundles them. Same pattern as the rest of the spec-033 refactor (Pydantic at object boundaries).
+
+**Motivation**: Per code review — function fan-in of 14 is a known smell. Spec-033's contracts elsewhere are Pydantic models; this entry-point should be too.
+
+**Touch points**: `face_cluster/run_exporter.py` (define `ExportRequest`, change `export(self, request: ExportRequest)`); both callers (`face_cluster/pipeline.py`, `sim_bench/pipeline/steps/face_cluster_export.py`); tests that construct exports.
+
+---
+
+#### FR-033-5: Verify no duplicate `filter_decisions` rows on Albumify run
+**Status**: OPEN
+**Severity**: Major (could be silent data corruption)
+**Description**:
+After spec-033 P-C wired `filters=context.filters` into `RunExporter.export()`, the Albumify path now has two writers contributing filter_decisions: `filter_quality.py` records via `context.filters.record()`, and `face_cluster_export.py` forwards the same `FilterContext`. Need a runtime check that no `(item_id, filter_name)` pair is inserted twice (would raise SQLite PrimaryKeyError) — or assert the dedup is happening elsewhere.
+
+**Motivation**: Two write paths producing rows for the same logical key is the same pattern that caused SIGHTING-058.
+
+**Touch points**: Add an assertion in `RunExporter._write_filter_decisions` or rely on the table's PRIMARY KEY to surface duplicates; test that asserts a real Albumify run produces a `filter_decisions` table without PK conflicts.
+
+---
+
+#### FR-033-6: CI guard on `STEP_CONFIG_MODELS` registry
+**Status**: OPEN
+**Severity**: Major
+**Description**:
+Add a test that asserts every step file under `sim_bench/pipeline/steps/` whose name matches `^(filter_|cluster_|insightface_|extract_)` either appears in `STEP_CONFIG_MODELS` or is listed in an explicit allowlist with a reason. Prevents a new face-clustering step from shipping with a `dict` config and silent defaults.
+
+**Motivation**: Per code review — registry is a flat dict in `__init__.py`. A new step is silently un-typed unless someone remembers to register it.
+
+**Touch points**: `tests/architecture/test_typed_step_configs.py` (extend with a registry-completeness test); `sim_bench/pipeline/steps/configs/__init__.py` may need an explicit allowlist constant.
+
+---
+
+#### FR-033-7: Fix or delete bridge pose-lookup operator precedence
+**Status**: OPEN
+**Severity**: Minor (bug-shaped but no current observable failure)
+**Description**:
+`sim_bench/pipeline/steps/face_cluster_bridge.py:80` reads:
+```python
+pose_scores = if_face.get("pose_scores") or if_scores.get("pose") if isinstance(if_face, dict) else None
+```
+The ternary binds only to the second operand. Today both `.get()` calls return None (no upstream pose step produces a 3-tuple), so the bug is invisible. Either fix the precedence or delete the dead branch.
+
+**Touch points**: One-line fix; add a unit test that constructs a fake `if_face` with `pose_scores` present.
+
+---
+
+#### FR-033-8: Decide fate of `notebook_diagnostic.py`
+**Status**: OPEN
+**Severity**: Minor (housekeeping)
+**Description**:
+`notebook_diagnostic.py` at repo root is debug scaffolding for "did FaceRecord get the new fields" — useful during the dataclass-to-Pydantic migration, mostly obsolete now. Either delete or move under `scripts/diagnostics/`.
+
+**Touch points**: `notebook_diagnostic.py`.
+
+</details>
+
+---
+
+### 2026-05-11: Absolute max_diameter post-merge step (spec-031)
+**Status**: SPEC DRAFT — `specs/031-max-diameter-step/spec.md`
+**Requested by**: User, 2026-05-11 (during SIGHTING-059 diagnosis)
+**Description**:
+Add a 5th merge gate alongside the existing 4 (exemplar / support / margin / diameter-expansion). The existing diameter gate compares `post_merge_diameter` to `diameter_expansion_factor * max(diameter_a, diameter_b)` — a *relative* check. The new gate adds an *absolute* ceiling: `post_merge_diameter <= max_diameter` (default 1.2). Both gates must pass for the merge to proceed.
+
+**Motivation**:
+On the user's chain-merge run (cluster 4, 28 faces, internal max distance 0.867), the relative-only diameter check let chained sub-identities through because each sub-merge stayed within the expansion factor. An absolute ceiling would reject merges that produce clusters too sprawling to be a single identity regardless of inputs.
+
+**Touch points (estimated)**:
+- `face_cluster/merge.py` — add gate, log new `max_diameter_pass` field
+- `face_cluster/types.py` — add `max_diameter_pass` to MergeDecisionRow (29 fields)
+- `face_cluster/run_exporter.py` — schema bump to v5 OR add nullable column
+- `face_cluster/run_store.py` — read new field
+- `app/shared/merge_controls.py` — add `max_diameter` slider (default 1.2, range 0.5–2.0)
+- `face_cluster/types.py` PipelineConfig — add `merge_max_diameter` param
+- `configs/pipeline.yaml` — add `merge_max_diameter: 1.2`
+- UI: add 5th gate badge in `_merge_decisions_panel.py`
+- Tests: gate behavior + regression on chain-merge fixture
+
+### 2026-05-12: Filter context — named, enforced filter decisions (spec-032)
+**Status**: SPEC DRAFT — `specs/032-filter-context/spec.md`
+**Design doc**: `specs/033-data-integrity/design.html` (v2.1)
+**Resolves**: SIGHTING-059 Issues 1 & 2; SIGHTING-060
+**Description**:
+Move filter decisions from advisory state (scattered sets, dict flags, post-hoc CSV columns) to a typed, queryable `FilterContext` primitive that lives on both pipeline contexts. Filter steps call `ctx.filters.record(filter_name=..., rejected=..., reason=..., measured=...)`. Downstream steps iterate `ctx.filters.active(item_type)` instead of raw collections. Faces inherit parent-image state recursively. End-of-run report comes free via `summary()`. Cross-pipeline drift mitigated by 4 independent guards: shared primitive in `face_cluster/filter_context.py`, shared exporter via spec-030 RunExporter, parity pytest, static check rejecting raw-collection iteration. Additional guard: bidirectional UI ↔ filter alignment check that fails CI on phantom controls or hidden filters without documented reason. 7-phase rollout, ~1500 LoC across 22 files (54% test).
+
+### 2026-05-11: Crop-stage observability columns
+**Status**: OPEN — needs investigation
+**Requested by**: User, 2026-05-11 (during SIGHTING-059 diagnosis)
+**Description**:
+Per SIGHTING-059 Issue 1 follow-up: when `crop_path=NaN` in faces.csv we cannot tell why from the data alone. Add a `crop_skip_reason` column (NaN on success, enum string on skip) and matching field on `FaceRecord` so future "where did this face's crop go?" questions are answered by a query, not by reading code. Enum candidates from a code skim: `landmarks_missing`, `alignment_failed`, `top_k_culled`, `write_failed`. Investigation needed to enumerate the real causes — 7 quality-passed faces and 10 top-K-culled faces on the reference run currently disappear silently.
 
 ### 2026-05-09: Storage Ownership Refactor — RunStore / RunExporter (spec-030)
 **Status**: SPEC READY

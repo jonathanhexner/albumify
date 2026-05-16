@@ -14,6 +14,7 @@ import numpy as np
 from sim_bench.pipeline.base import BaseStep, StepMetadata
 from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
+from sim_bench.pipeline.steps.configs._validate import validate_step_config
 from sim_bench.pipeline.steps.face_cluster_bridge import run_face_cluster_knn
 from sim_bench.pipeline.steps.face_cluster_export import export_for_analysis
 
@@ -112,6 +113,8 @@ class ClusterPeopleStep(BaseStep):
 
     def process(self, context: PipelineContext, config: dict) -> None:
         """Cluster faces by identity."""
+        # spec-033 P-G: typo'd key raises ValidationError.
+        validate_step_config("cluster_people", config)
         faces_with_embeddings = self._collect_faces_with_embeddings(context)
 
         if not faces_with_embeddings:

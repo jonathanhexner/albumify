@@ -20,11 +20,27 @@ import logging
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
+
+
+def _safe_json(s: Optional[str]) -> Dict:
+    """Parse a JSON string, tolerating None / malformed input.
+
+    Used by ``image_detail`` to materialize the ``measured_json`` column.
+    A malformed payload becomes an empty dict rather than raising — the row
+    is metadata, not load-bearing.
+    """
+    if not s:
+        return {}
+    try:
+        return json.loads(s)
+    except (ValueError, TypeError):
+        return {}
 
 import numpy as np
 
-from face_cluster.run_exporter import EXPECTED_ARTIFACTS, SCHEMA_VERSION
+from face_cluster.db import EXPECTED_ARTIFACTS, SCHEMA_VERSION
+from face_cluster.image_detail import FaceDetail, FaceFilterDecision, ImageDetail
 from face_cluster.types import (
     ClusterResult,
     FaceRecord,
@@ -50,6 +66,23 @@ class EmbeddingMatrix(NamedTuple):
     """
     matrix: np.ndarray
     face_ids: np.ndarray
+
+
+@dataclass
+class FilterDecisionRow:
+    """spec-032: one row of the filter_decisions table.
+
+    Mirrors the schema in `face_cluster.run_exporter._SCHEMA`. Used by
+    consumers (FC App Run Summary tab, analysis notebooks) to ask
+    "why did item X end up rejected?" via a typed object instead of raw CSV.
+    """
+    item_id:     str
+    item_type:   str            # "image" | "face" | "cluster"
+    parent_id:   Optional[str]
+    filter_name: str
+    rejected:    bool
+    reason:      str
+    measured:    Dict
 
 
 @dataclass
@@ -269,6 +302,180 @@ class RunStore:
                 else:
                     kwargs[name] = value
             out.append(MergeDecisionRow(**kwargs))
+        return out
+
+    def image_detail(self, image_path: str) -> ImageDetail:
+        """Return everything we know about one image in this run (spec-033 P-D).
+
+        Closes spec-023 US1's "data source = ``image_metrics`` JSON" gap:
+        the main-app popup and the FC App popup both call this method
+        instead of recomputing from raw context dicts.
+
+        Returns an ``ImageDetail`` with image-level scores, scene assignment,
+        every face on the image, each face's cluster + exemplar status, and
+        every spec-032 filter decision (image-level and per-face).
+
+        Raises ``RunStoreError`` if the run doesn't contain this image at all.
+        """
+        with self._connect() as conn:
+            # 1. Image-level fields come from any face row on this image
+            #    (the columns are denormalized onto faces — spec-033 P-C C-3).
+            img_row = conn.execute(
+                "SELECT image_path, image_id, iqa_score, ava_score, "
+                "sharpness_score, scene_cluster_id FROM faces "
+                "WHERE image_path = ? LIMIT 1",
+                (image_path,),
+            ).fetchone()
+            if img_row is None:
+                # Try matching on image_id too — FC App standalone often
+                # stores image_id as basename without a full image_path.
+                img_row = conn.execute(
+                    "SELECT image_path, image_id, iqa_score, ava_score, "
+                    "sharpness_score, scene_cluster_id FROM faces "
+                    "WHERE image_id = ? LIMIT 1",
+                    (image_path,),
+                ).fetchone()
+            if img_row is None:
+                raise RunStoreError(
+                    f"No face row found for image_path={image_path!r} in this run."
+                )
+
+            # 2. All faces for this image.
+            face_rows = conn.execute(
+                "SELECT * FROM faces WHERE image_path = ? OR image_id = ? "
+                "ORDER BY face_index, face_id",
+                (image_path, image_path),
+            ).fetchall()
+
+            # 3. Final cluster assignments (latest iteration per face).
+            face_ids = [r["face_id"] for r in face_rows]
+            assignments: Dict[int, Tuple[int, bool]] = {}
+            if face_ids:
+                placeholders = ",".join("?" for _ in face_ids)
+                latest_iter = conn.execute(
+                    f"SELECT face_id, cluster_id, is_exemplar, "
+                    f"  MAX(iteration) AS it "
+                    f"FROM cluster_assignments "
+                    f"WHERE face_id IN ({placeholders}) "
+                    f"GROUP BY face_id",
+                    face_ids,
+                ).fetchall()
+                for r in latest_iter:
+                    assignments[r["face_id"]] = (r["cluster_id"], bool(r["is_exemplar"]))
+
+            # 4. Per-face filter decisions (spec-032).
+            face_decisions: Dict[str, List[FaceFilterDecision]] = {}
+            for r in conn.execute(
+                "SELECT item_id, filter_name, rejected, reason, measured_json "
+                "FROM filter_decisions WHERE item_type = 'face'",
+            ).fetchall():
+                face_decisions.setdefault(r["item_id"], []).append(
+                    FaceFilterDecision(
+                        filter_name=r["filter_name"],
+                        rejected=bool(r["rejected"]),
+                        reason=r["reason"],
+                        measured=_safe_json(r["measured_json"]),
+                    )
+                )
+
+            # 5. Image-level filter decisions for this image.
+            image_decisions: List[FaceFilterDecision] = [
+                FaceFilterDecision(
+                    filter_name=r["filter_name"],
+                    rejected=bool(r["rejected"]),
+                    reason=r["reason"],
+                    measured=_safe_json(r["measured_json"]),
+                )
+                for r in conn.execute(
+                    "SELECT filter_name, rejected, reason, measured_json "
+                    "FROM filter_decisions WHERE item_type = 'image' AND item_id = ?",
+                    (image_path,),
+                ).fetchall()
+            ]
+
+        faces: List[FaceDetail] = []
+        for r in face_rows:
+            fid = r["face_id"]
+            cluster_id, is_exemplar = assignments.get(fid, (None, False))
+            pose = None
+            if r["yaw"] is not None:
+                pose = (float(r["yaw"]), float(r["pitch"] or 0.0), float(r["roll"] or 0.0))
+            # Look up per-face decisions by either the literal face_id string
+            # or the canonical "<image_path>:<face_index>" key used by spec-032.
+            decisions = (
+                face_decisions.get(str(fid))
+                or face_decisions.get(f"{r['image_path']}:{r['face_index']}")
+                or []
+            )
+            faces.append(FaceDetail(
+                face_id=fid,
+                face_index=r["face_index"],
+                bbox=(r["bbox_x"] or 0.0, r["bbox_y"] or 0.0,
+                      r["bbox_w"] or 0.0, r["bbox_h"] or 0.0),
+                crop_path=r["crop_path"] or None,
+                det_score=r["det_score"],
+                blur_score=float(r["blur_score"] or 0.0),
+                area=float(r["area"] or 0.0),
+                pose=pose,
+                is_core=bool(r["is_core"]),
+                rejection_reason=r["rejection_reason"],
+                cluster_id=cluster_id,
+                is_exemplar=is_exemplar,
+                filter_decisions=decisions,
+            ))
+
+        return ImageDetail(
+            image_path=img_row["image_path"] or image_path,
+            image_id=img_row["image_id"],
+            iqa_score=img_row["iqa_score"],
+            ava_score=img_row["ava_score"],
+            sharpness_score=img_row["sharpness_score"],
+            scene_cluster_id=img_row["scene_cluster_id"],
+            faces=faces,
+            image_filter_decisions=image_decisions,
+        )
+
+    def filter_decisions(self) -> List["FilterDecisionRow"]:
+        """Return spec-032 filter_decisions table rows.
+
+        Empty list when the run pre-dates spec-032 (table exists but holds no
+        rows) — that's the dual-write transition window. The table is created
+        unconditionally by the schema; absence of the table indicates v4
+        schema corruption and raises.
+        """
+        with self._connect() as conn:
+            try:
+                rows = conn.execute(
+                    "SELECT item_id, item_type, parent_id, filter_name, "
+                    "rejected, reason, measured_json "
+                    "FROM filter_decisions "
+                    "ORDER BY item_id, filter_name"
+                ).fetchall()
+            except sqlite3.OperationalError as e:
+                raise RunStoreError(
+                    f"filter_decisions table missing or unreadable: {e}"
+                ) from e
+
+        import json as _json
+        out: List[FilterDecisionRow] = []
+        for raw in rows:
+            item_id, item_type, parent_id, filter_name, rejected, reason, mjson = raw
+            try:
+                measured = _json.loads(mjson) if mjson else {}
+            except _json.JSONDecodeError as e:
+                raise RunStoreError(
+                    f"filter_decisions: malformed measured_json for "
+                    f"{item_id} / {filter_name}: {e}"
+                ) from e
+            out.append(FilterDecisionRow(
+                item_id=item_id,
+                item_type=item_type,
+                parent_id=parent_id,
+                filter_name=filter_name,
+                rejected=bool(rejected),
+                reason=reason,
+                measured=measured,
+            ))
         return out
 
     def embeddings(self) -> EmbeddingMatrix:

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sim-bench · Face-Clustering Data Flow (current + target)</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1200px; margin: 1.5em auto; padding: 0 1.5em;
+         color: #222; line-height: 1.45; background:#fafbfc; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; margin-bottom: 0; }
+  h1 + .subtitle { color: #666; margin-top: .2em; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 2em; }
+  h3 { margin-top: 1.5em; color:#1f5fc7; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f6; }
+  code { background:#eef0f4; padding: 1px 4px; border-radius: 3px;
+         font-size: 12px; font-family: Consolas, monospace; }
+  .stage {
+    border: 2px solid #444; background:#fff; border-radius:6px;
+    padding: 10px 14px; margin: 8px 0; max-width: 820px;
+  }
+  .stage .head {
+    font-weight:700; display:flex; justify-content:space-between; align-items:baseline;
+    border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px;
+  }
+  .stage .src { font-size: 11px; color:#777; font-weight:400; font-family: Consolas, monospace; }
+  .stage .body { font-family: Consolas, "SF Mono", monospace; font-size: 13px; }
+  .stage .contract {
+    margin-top: 6px; padding: 4px 8px; background:#f3f7ff;
+    border-left: 3px solid #1f5fc7; font-size: 12px;
+  }
+  .stage .pinned {
+    margin-top: 6px; padding: 4px 8px; background:#fdf6e3;
+    border-left: 3px solid #b58900; font-size: 12px;
+  }
+  .stage .target {
+    margin-top: 6px; padding: 4px 8px; background:#eef2ff;
+    border-left: 3px solid #4a5fb4; font-size: 12px;
+  }
+  .arrow { text-align:center; color:#555; font-size:18px; margin: 2px 0; font-weight:700; }
+  .ui    { border-color:#7a4ec0; }
+  .sim   { border-color:#444; }
+  .bridge{ border-color:#b58900; background:#fefcf3; }
+  .face  { border-color:#1f5fc7; }
+  .db    { border-color:#0e9466; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; margin:.5em 0 1.5em; font-size:13px; }
+  .legend .swatch {
+    display:inline-block; width:12px; height:12px; border:2px solid; margin-right:4px;
+    vertical-align:middle;
+  }
+  .source-of-truth { background:#fffde6; border:1px solid #d4ce7a;
+                     padding: 6px 10px; border-radius:4px; font-size: 13px;
+                     margin: 1em 0; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px;
+          font-size:11px; font-weight:600; }
+  .ok { background:#e3f5e0; color:#236623; }
+  .tgt{ background:#e0e7ff; color:#1d3a8a; }
+</style>
+</head>
+<body>
+
+<h1>Face-Clustering Data Flow — current &amp; target state</h1>
+<p class="subtitle">One face, end-to-end · Last updated: 2026-05-15</p>
+
+<div class="source-of-truth">
+<b>⚠️ Source of truth.</b> Behavior is defined by the code paths cited under each stage.
+<b>Any change to a pipeline step, the bridge, the exporter, or the read-side
+return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST §7).
+</div>
+
+<div class="legend">
+  <span><span class="swatch" style="border-color:#7a4ec0;"></span>UI layer</span>
+  <span><span class="swatch" style="border-color:#444;"></span>sim_bench.pipeline (steps)</span>
+  <span><span class="swatch" style="border-color:#b58900;"></span>face_cluster_bridge (adapter)</span>
+  <span><span class="swatch" style="border-color:#1f5fc7;"></span>face_cluster engine</span>
+  <span><span class="swatch" style="border-color:#0e9466;"></span>storage (DB + npy + crops)</span>
+</div>
+
+<h2>Stages A–K</h2>
+
+<div class="stage ui">
+  <div class="head"><span class="name">A · UI widget</span><span class="src">app/streamlit/components/pipeline_runner.py</span></div>
+  <div class="body">Slider sets <code>config["filter_quality"]["min_iqa_score"] = 0.2</code></div>
+  <div class="contract"><b>Contract (P-A):</b> tooltip lists step config + filter + units, sourced from <code>Field(description=...)</code> on the Pydantic model.</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage sim">
+  <div class="head"><span class="name">B · step config validation</span><span class="src">sim_bench/pipeline/base.py BaseStep.process</span></div>
+  <div class="body"><code>validate_step_config("filter_quality", config)</code> → <code>FilterQualityConfig.model_validate(config)</code></div>
+  <div class="contract"><b>Contract (P-G):</b> <code>extra="forbid"</code>. Typo'd key (e.g. <code>mim_iqa_score</code>) raises <code>ValidationError</code>.</div>
+  <div class="target"><b>Target:</b> every face-clustering step has a registered model (FR-033-6 / specs/039 enforces).</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage sim">
+  <div class="head"><span class="name">C · pipeline steps run</span><span class="src">configs/pipeline.yaml::default_pipeline</span></div>
+  <div class="body">
+    detect_persons (YOLOv8) → insightface_detect_faces (SCRFD) → filter_faces<br>
+    align_faces → insightface_score_{expression,eyes,pose} → score_iqa, score_ava<br>
+    filter_quality → cluster_scenes → extract_face_embeddings → <b>cluster_people</b>
+  </div>
+  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
+  <div class="target"><b>Target (specs/037):</b> insert <code>insightface_score_blur</code> after <code>align_faces</code>.</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage bridge">
+  <div class="head"><span class="name">D · bridge (adapter)</span><span class="src">sim_bench/pipeline/steps/face_cluster_bridge.py</span></div>
+  <div class="body">
+    <code>run_face_cluster_knn(faces, emb_norm, config, context)</code><br>
+    → <code>build_fc_config(config)</code> → FCConfig (pose/det read from config)<br>
+    → <code>faces_to_face_records(faces, emb_norm, context=context)</code><br>
+    &nbsp;&nbsp;recovers <b>blur_score / pose / det_score / landmarks</b> from <code>context.insightface_faces[path]</code>
+  </div>
+  <div class="pinned"><b>Pinned today (SIGHTING-061):</b> <code>blur_min = 0.0</code> regardless of config — no upstream blur producer.</div>
+  <div class="target"><b>Target (specs/036 + specs/037):</b> config-to-producer test enforces gate-has-producer; blur step lands; pin lifts.</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage face">
+  <div class="head"><span class="name">E · FaceRecord construction</span><span class="src">face_cluster/types.py</span></div>
+  <div class="body"><code>FaceRecord(face_id=i, image_id=..., bbox=..., embedding=..., pose=..., blur_score=..., area=..., ...)</code></div>
+  <div class="contract"><b>Contract (P-C C-2):</b> Pydantic <code>extra="forbid"</code>; typo'd kwarg raises. <code>@field_validator("pose")</code> rejects partial tuples.</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage face">
+  <div class="head"><span class="name">F · QualityGater</span><span class="src">face_cluster/quality.py</span></div>
+  <div class="body">
+    <code>core_indices, holdout_indices, verdicts = gater.select_core_set(face_records)</code><br>
+    Gates: top_k_per_image · area · blur · pose_yaw · pose_pitch · det_score
+  </div>
+  <div class="contract">Permissive when pose=None (with <code>require_pose=False</code>). Permissive when det_score=None.</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage face">
+  <div class="head"><span class="name">G · clustering</span><span class="src">face_cluster/{knn_graph, clustering, exemplars, merge}.py</span></div>
+  <div class="body">mutual kNN → connected components → exemplar selection (D10) → conservative merge (4 gates) → diameter cap (spec-031)</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage sim">
+  <div class="head"><span class="name">H · export step joins image-level context</span><span class="src">sim_bench/pipeline/steps/face_cluster_export.py</span></div>
+  <div class="body">
+    Builds <code>image_scores[path] = {iqa, ava, sharpness, scene_cluster_id}</code><br>
+    Calls <code>RunExporter.export(faces=..., filters=context.filters, image_scores=image_scores, ...)</code>
+  </div>
+  <div class="contract"><b>spec-032 wiring:</b> filters forwarded. <b>spec-033 P-C C-3:</b> image-level fields joined onto each face row.</div>
+  <div class="target"><b>Target (specs/038):</b> bundle into one <code>ExportRequest</code> Pydantic; 1 kwarg instead of 14.</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage db">
+  <div class="head"><span class="name">I · RunExporter writes</span><span class="src">face_cluster/run_exporter.py</span></div>
+  <div class="body">
+    Builds <code>face_rows</code>, <code>score_rows</code> as List[Tuple]<br>
+    → <code>FACES_SCHEMA.validate(pd.DataFrame(face_rows, columns=...))</code><br>
+    → <code>FACE_SCORES_SCHEMA.validate(pd.DataFrame(score_rows, columns=...))</code><br>
+    → <code>conn.executemany("INSERT INTO faces VALUES (?,...)", face_rows)</code>
+  </div>
+  <div class="contract"><b>Contract (P-H):</b> Pandera fails the run if a non-nullable column (blur_score, area, is_core) contains NULL.</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage db">
+  <div class="head"><span class="name">J · SQLite</span><span class="src">&lt;run_dir&gt;/_v4/face_clustering.db</span></div>
+  <div class="body">7 tables. DDL per-table in <code>face_cluster/db/schema.py</code>; <code>SCHEMA_VERSION = 4</code>. Field reference: <a href="db_schemas.html">db_schemas.html</a>.</div>
+</div>
+
+<div class="arrow">▼</div>
+
+<div class="stage face">
+  <div class="head"><span class="name">K · RunStore.image_detail (read side)</span><span class="src">face_cluster/run_store.py</span></div>
+  <div class="body">
+    Single SQL JOIN: faces + cluster_assignments + filter_decisions<br>
+    → <code>ImageDetail(faces=[FaceDetail(...), ...], image_filter_decisions=[FaceFilterDecision(...), ...])</code>
+  </div>
+  <div class="contract"><b>Contract (P-D):</b> ImageDetail / FaceDetail / FaceFilterDecision are Pydantic with <code>extra="forbid"</code>.</div>
+</div>
+
+<h2>The five contract boundaries — at a glance</h2>
+
+<table>
+  <thead><tr><th>Boundary</th><th>Stage</th><th>Failure if violated</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>UI → step config</td><td>B</td><td>ValidationError: extra fields not permitted</td><td><span class="pill ok">CURRENT</span> · 5 of N steps</td></tr>
+    <tr><td>step config → step body</td><td>inside each step</td><td>AttributeError on typed access</td><td><span class="pill ok">CURRENT</span></td></tr>
+    <tr><td>context → FaceRecord</td><td>D → E</td><td>ValidationError on unknown kwarg / partial pose</td><td><span class="pill ok">CURRENT</span></td></tr>
+    <tr><td>FaceRecord → DB row</td><td>I</td><td>pandera.SchemaError: non-nullable contains null</td><td><span class="pill ok">CURRENT</span></td></tr>
+    <tr><td>DB row → ImageDetail</td><td>K</td><td>ValidationError on unexpected column</td><td><span class="pill ok">CURRENT</span></td></tr>
+    <tr><td>gate config → upstream producer</td><td>between C and D</td><td>(none today — exposed SIGHTING-061)</td><td><span class="pill tgt">TARGET</span> · specs/036</td></tr>
+  </tbody>
+</table>
+
+<h2>Before spec-033 vs after (same flow)</h2>
+
+<table>
+  <thead><tr><th>Stage</th><th>Before</th><th>After</th></tr></thead>
+  <tbody>
+    <tr><td>A · UI widget</td><td>Labels often didn't match what the filter actually did</td><td>Tooltip names step config + filter + units (P-A)</td></tr>
+    <tr><td>B · step config</td><td><code>config.get(key, default)</code> silently defaulted on typos</td><td>Pydantic <code>extra="forbid"</code>; typo raises ValidationError (P-G)</td></tr>
+    <tr><td>D · bridge</td><td>Dropped 5 fields; force-disabled 5 gates with literal 999.0/0.0/None</td><td>Plumbs blur/pose/det/landmarks; gates honor config (except blur pinned)</td></tr>
+    <tr><td>E · FaceRecord</td><td>Dataclass; unknown kwargs accepted, partial pose silently OK</td><td>Pydantic <code>extra="forbid"</code> + <code>@field_validator("pose")</code> (P-C C-2)</td></tr>
+    <tr><td>I · RunExporter</td><td>NULL columns silently reached the UI</td><td>Pandera fails the run on NULL in load-bearing columns (P-H)</td></tr>
+    <tr><td>K · read side</td><td>Scattered context-dict + JSON-manifest reads, sometimes drifted from DB</td><td>One <code>RunStore.image_detail(path)</code> → typed Pydantic ImageDetail (P-D)</td></tr>
+  </tbody>
+</table>
+
+<h2>What this flow does NOT prove (today)</h2>
+
+<p>
+The diagram shows the path data <i>can</i> take. It does <b>not</b> show whether the
+upstream side of every contract actually produces the data the downstream side reads.
+That gap is exactly what SIGHTING-061 exposed: the bridge claims to plumb
+<code>blur_score</code>, but no upstream step computes it. Object-shape contracts
+can't catch this. The fix is the config-to-producer graph contract (specs/036)
+plus an E2E acceptance test (specs/035).
+</p>
+
+<h2>Related documents</h2>
+<ul>
+  <li><a href="db_schemas.html">db_schemas.html</a></li>
+  <li><a href="classes.html">classes.html</a></li>
+  <li><a href="index.html">index.html</a> — architecture documentation index</li>
+  <li><code>specs/033-data-integrity/REVIEW.md</code> — code review of the work that produced this state</li>
+  <li><code>specs/033-data-integrity/MASTER_PLAN.md</code> — master plan with all 8 phases</li>
+</ul>
+
+</body>
+</html>

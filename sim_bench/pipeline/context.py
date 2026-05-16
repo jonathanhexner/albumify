@@ -8,6 +8,8 @@ import numpy as np
 if TYPE_CHECKING:
     from sim_bench.pipeline.cache_handler import UniversalCacheHandler
 
+from face_cluster.filter_context import FilterContext
+
 
 @dataclass
 class StepDecision:
@@ -99,6 +101,13 @@ class PipelineContext:
 
     # Per-item decision records (emitted by steps, stored in DB, displayed by UI)
     step_decisions: list[StepDecision] = field(default_factory=list)
+
+    # spec-032: named, enforced filter decisions.  Filter steps call
+    # ctx.filters.record(...); downstream steps query ctx.filters.active(...).
+    # Replaces ad-hoc patterns (quality_passed: set, face["filter_passed"]: bool).
+    # Shared definition lives in face_cluster.filter_context so both pipeline
+    # frameworks (Albumify and FC App) point at the same class.
+    filters: FilterContext = field(default_factory=FilterContext)
 
     # Progress callback
     on_progress: Callable[[str, float, str], None] = None

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from sim_bench.pipeline.base import BaseStep, StepMetadata
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.registry import register_step
+from sim_bench.pipeline.steps.configs._validate import validate_step_config
 from sim_bench.pipeline.utils.image_cache import get_image_cache
 
 logger = logging.getLogger(__name__)
@@ -82,10 +83,12 @@ class FilterFacesStep(BaseStep):
 
     def process(self, context: PipelineContext, config: dict) -> None:
         """Filter faces based on size and confidence criteria."""
-        min_confidence = config.get("min_confidence", 0.5)
-        min_bbox_ratio = config.get("min_bbox_ratio", 0.02)
-        min_relative_size = config.get("min_relative_size", 0.3)
-        min_eye_ratio = config.get("min_eye_ratio", 0.01)
+        # spec-033 P-G: typo'd key raises ValidationError instead of silently defaulting.
+        cfg = validate_step_config("filter_faces", config)
+        min_confidence = cfg.min_confidence
+        min_bbox_ratio = cfg.min_bbox_ratio
+        min_relative_size = cfg.min_relative_size
+        min_eye_ratio = cfg.min_eye_ratio
 
         cache = get_image_cache()
 

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>spec-033 · Follow-up Roadmap · Executive Summary</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 980px; margin: 2em auto; padding: 0 1.5em;
+         color: #222; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; margin-bottom: 0; }
+  h1 + .subtitle { color: #666; margin-top: .2em; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 2em; }
+  table { border-collapse: collapse; margin: 1em 0; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid #ddd; padding: 6px 9px; text-align: left;
+           vertical-align: top; }
+  th { background: #f4f4f6; }
+  code { background: #f4f4f6; padding: 1px 4px; border-radius: 3px;
+         font-size: 13px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px;
+          font-size: 12px; font-weight: 600; }
+  .crit { background:#fde2e2; color:#8a1a1a; }
+  .maj  { background:#fff3cd; color:#7a5a00; }
+  .min  { background:#e3f5e0; color:#236623; }
+  .full { background:#e0e7ff; color:#1d3a8a; }
+  .sight { background:#f0e3fc; color:#5a2887; }
+  .todo { background:#e6e6e6; color:#444; }
+  .callout { background: #f6f7fa; border-left: 4px solid #4a72c4;
+             padding: .8em 1em; margin: 1em 0; border-radius: 0 4px 4px 0; }
+  .small { color: #666; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>spec-033 · Follow-up Roadmap</h1>
+<p class="subtitle">Executive summary of work surfaced by the spec-033 code review · 2026-05-15</p>
+
+<div class="callout">
+<b>Outcome to head-of-engineering.</b> The spec-033 refactor is mergeable but
+not "done." The code review surfaced 8 follow-up items, of which 5 deserve
+proper PRDs (full spec dirs), 2 are bug-shaped sightings, and 1 is
+trivial housekeeping. The highest-leverage item is <b>FR-033-1: an E2E
+acceptance test</b> — its absence is the reason SIGHTING-061 went undetected
+and is the single most useful piece of work to schedule next.
+</div>
+
+<h2>1 · The eight items</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Title</th>
+      <th>Severity</th>
+      <th>Disposition</th>
+      <th>Why it exists</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>FR-033-1</b></td>
+      <td>E2E acceptance test for Albumify face-clustering pipeline</td>
+      <td><span class="pill crit">Critical</span></td>
+      <td><span class="pill full">PRD: specs/035</span></td>
+      <td>The architecture-test suite is all static + unit; zero tests exercise the real pipeline on real data. This is what would have caught SIGHTING-061.</td>
+    </tr>
+    <tr>
+      <td><b>FR-033-2</b></td>
+      <td>Config-to-producer graph contract</td>
+      <td><span class="pill maj">Major</span></td>
+      <td><span class="pill full">PRD: specs/036</span></td>
+      <td>A new class of contract the refactor exposed the need for but didn't build: "every gate the bridge honors must have an upstream step producing its field."</td>
+    </tr>
+    <tr>
+      <td><b>FR-033-3</b></td>
+      <td>Add <code>insightface_score_blur</code> step, revert SIGHTING-061 workaround</td>
+      <td><span class="pill maj">Major</span></td>
+      <td><span class="pill full">PRD: specs/037</span></td>
+      <td>The bridge's <code>blur_min=0.0</code> pin is by-design temporary. Real fix is the missing measurement step.</td>
+    </tr>
+    <tr>
+      <td><b>FR-033-4</b></td>
+      <td>Replace <code>RunExporter.export(**kwargs)</code> with typed <code>ExportRequest</code></td>
+      <td><span class="pill maj">Major</span></td>
+      <td><span class="pill full">PRD: specs/038</span></td>
+      <td>14-kwarg fan-in is a known smell; same Pydantic pattern as the rest of the refactor closes it.</td>
+    </tr>
+    <tr>
+      <td><b>FR-033-5</b></td>
+      <td>Verify no duplicate <code>filter_decisions</code> rows on Albumify</td>
+      <td><span class="pill maj">Major</span></td>
+      <td><span class="pill sight">Sighting</span></td>
+      <td>Two write paths now produce filter_decisions on Albumify; same shape as SIGHTING-058. Bug-shaped investigation, not a feature.</td>
+    </tr>
+    <tr>
+      <td><b>FR-033-6</b></td>
+      <td>CI guard on <code>STEP_CONFIG_MODELS</code> registry</td>
+      <td><span class="pill maj">Major</span></td>
+      <td><span class="pill full">PRD: specs/039</span></td>
+      <td>A new face-clustering step silently ships with a <code>dict</code> config unless someone remembers to register it. CI must enforce.</td>
+    </tr>
+    <tr>
+      <td><b>FR-033-7</b></td>
+      <td>Fix bridge pose-lookup operator precedence</td>
+      <td><span class="pill min">Minor</span></td>
+      <td><span class="pill sight">Sighting</span></td>
+      <td>One-line bug, no current observable failure. Fix or delete the dead branch.</td>
+    </tr>
+    <tr>
+      <td><b>FR-033-8</b></td>
+      <td>Delete or relocate <code>notebook_diagnostic.py</code></td>
+      <td><span class="pill min">Minor</span></td>
+      <td><span class="pill todo">TODO</span></td>
+      <td>Housekeeping. Repo-root script that was useful during the dataclass→Pydantic migration.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>2 · Suggested sequencing</h2>
+
+<table>
+  <thead>
+    <tr><th>Order</th><th>Item</th><th>Why this order</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>FR-033-7 (sighting), FR-033-8 (TODO)</td>
+      <td>Trivial. Clear them so the queue reflects only real work.</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>FR-033-1 (E2E test)</td>
+      <td>Highest leverage. Without it, every subsequent change is unverified on real data.</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>FR-033-5 (filter_decisions dedup)</td>
+      <td>Possible silent data corruption. Cheap to investigate; expensive if it bites later.</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>FR-033-2 (config-to-producer contract)</td>
+      <td>Closes the architectural gap SIGHTING-061 exposed. Prerequisite to safely re-enable any pinned gate.</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>FR-033-3 (blur step)</td>
+      <td>Real feature work; restores the blur gate the workaround disables.</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>FR-033-4 (ExportRequest), FR-033-6 (registry guard)</td>
+      <td>Hygiene. Land alongside any PR touching the affected modules.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3 · Cost estimate</h2>
+
+<table>
+  <thead><tr><th>Item</th><th>Effort</th><th>Risk</th></tr></thead>
+  <tbody>
+    <tr><td>FR-033-1 E2E test</td><td>1-2 days (fixture + plumbing)</td><td>Low</td></tr>
+    <tr><td>FR-033-2 Config-producer contract</td><td>1 day</td><td>Low</td></tr>
+    <tr><td>FR-033-3 Blur step</td><td>2-3 days (model selection, scoring, plumbing)</td><td>Medium (model choice)</td></tr>
+    <tr><td>FR-033-4 ExportRequest</td><td>1 day</td><td>Medium (touches every caller)</td></tr>
+    <tr><td>FR-033-5 Dedup check</td><td>2-4 hours</td><td>Low</td></tr>
+    <tr><td>FR-033-6 Registry guard</td><td>2 hours</td><td>Low</td></tr>
+    <tr><td>FR-033-7 Pose precedence</td><td>15 minutes</td><td>None</td></tr>
+    <tr><td>FR-033-8 notebook_diagnostic</td><td>5 minutes</td><td>None</td></tr>
+  </tbody>
+</table>
+
+<p>Total: roughly <b>1 engineer-week</b> to clear the queue, with FR-033-1 + FR-033-2 + FR-033-5 as the must-have core (~3 days).</p>
+
+<h2>4 · Where the documents live</h2>
+
+<table>
+  <thead><tr><th>Artifact</th><th>Location</th></tr></thead>
+  <tbody>
+    <tr><td>Master plan (spec-033)</td><td><code>specs/033-data-integrity/MASTER_PLAN.md</code></td></tr>
+    <tr><td>Code review</td><td><code>specs/033-data-integrity/REVIEW.md</code></td></tr>
+    <tr><td>Exec summary (the original feature)</td><td><code>specs/033-data-integrity/EXECUTIVE_SUMMARY.html</code></td></tr>
+    <tr><td>This roadmap</td><td><code>specs/033-data-integrity/FOLLOW_UPS_ROADMAP.html</code></td></tr>
+    <tr><td>Class diagram (central)</td><td><code>docs/architecture/classes.html</code></td></tr>
+    <tr><td>SW &amp; data flow (central)</td><td><code>docs/architecture/data_flow.html</code></td></tr>
+    <tr><td>DB schemas (central)</td><td><code>docs/architecture/db_schemas.html</code></td></tr>
+    <tr><td>Architecture index</td><td><code>docs/architecture/index.html</code></td></tr>
+    <tr><td>Current-state pipeline map</td><td><code>specs/033-data-integrity/pipeline_map.html</code></td></tr>
+    <tr><td>PRDs (per follow-up)</td><td><code>specs/035-e2e-acceptance/</code> … <code>specs/039-step-config-registry-guard/</code></td></tr>
+    <tr><td>Code review checklist</td><td><code>docs/guides/CODE_REVIEW_CHECKLIST.md</code></td></tr>
+    <tr><td>Workflow gate (mandate)</td><td><code>WORKFLOW.md</code></td></tr>
+    <tr><td>Slash command</td><td><code>.claude/commands/code-review.md</code></td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

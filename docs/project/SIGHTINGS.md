@@ -31,6 +31,244 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-065: Image-level fields denormalized onto every `faces` row (no `images` table)
+**Status**: OPEN
+**Severity**: Medium (design smell; not a data bug)
+**Reported**: 2026-05-16 (during DB doc review)
+**Persona**: SW Architect
+
+**Problem Description**:
+The per-run `face_clustering.db` has no dedicated `images` table. Image-level fields (`iqa_score`, `ava_score`, `sharpness_score`, `scene_cluster_id`) are denormalized onto every row of the `faces` table — added by spec-033 P-C C-3 so `RunStore.image_detail(path)` could do a single JOIN. The result: every face of the same image carries duplicate copies of these fields; updating an image score requires updating N face rows; an image with zero detected faces has nowhere to record its IQA score.
+
+**Symptoms**:
+- Redundant storage (N face rows × 4 image-level columns each).
+- "Where is the image-level data?" question has no clean answer — it's distributed.
+- No way to record information about images that have no detected faces (e.g., scenery photos that still got an IQA score).
+
+**Suspicion**:
+The shortcut was taken to keep `image_detail()` to one query. An `images` table + a join would be the right design.
+
+**Recommended Fix**:
+- Add an `images` table: `(image_path PK, image_id, iqa_score, ava_score, sharpness_score, scene_cluster_id, n_faces, created_at)`.
+- Remove the 4 denormalized columns from `faces`.
+- `RunStore.image_detail()` does one extra JOIN — still single-call, still cheap.
+- Migrate as a non-additive schema change (bumps SCHEMA_VERSION).
+- Update both <code>docs/architecture/db_schemas.html</code> and <code>db_global.html</code> in the same PR.
+
+---
+
+### SIGHTING-064: `area` column unit confusion — propose `area_ratio` canonical column
+**Status**: OPEN
+**Severity**: Medium (consumer confusion; SIGHTING-060 is the underlying unit-drift)
+**Reported**: 2026-05-16 (during DB doc review)
+**Persona**: SW Engineer
+
+**Problem Description**:
+`faces.area` (and bbox_x/y/w/h) are in mixed units across the two pipelines: px / px² on FC App standalone, fraction / fraction² on Albumify. Consumers reading the column must know which producer wrote it. SIGHTING-060 documents the underlying bug; this sighting proposes the structural fix.
+
+**Recommended Fix**:
+- Add `area_ratio REAL NOT NULL` to `faces`, defined as `bbox_w_fraction * bbox_h_fraction` ∈ [0, 1] regardless of producer.
+- Keep `area` for backward compatibility, but mark it deprecated in the docs and remove it after one release.
+- Same treatment for bbox: add `bbox_x_ratio, bbox_y_ratio, bbox_w_ratio, bbox_h_ratio` and deprecate the raw columns.
+- Update Pandera schema with `Check.in_range(0.0, 1.0)` on the new ratio columns — catches unit confusion at write time.
+- Update <code>docs/architecture/db_schemas.html</code> in the same PR.
+
+---
+
+### SIGHTING-063: Bridge pose-lookup operator precedence (dead branch, latent bug)
+**Status**: OPEN
+**Severity**: Low (no current observable failure — both lookup paths return None today)
+**Reported**: 2026-05-15 (from spec-033 REVIEW.md, FR-033-7)
+**Persona**: SW Engineer
+
+**Problem Description**:
+`sim_bench/pipeline/steps/face_cluster_bridge.py:80` reads:
+```python
+pose_scores = if_face.get("pose_scores") or if_scores.get("pose") if isinstance(if_face, dict) else None
+```
+The ternary binds only to the second operand: it parses as `if_face.get("pose_scores") or (if_scores.get("pose") if isinstance(if_face, dict) else None)`. Almost certainly not what was intended. Today both `.get()` calls return None (no upstream step produces a 3-tuple pose under either key), so the bug is invisible.
+
+**Suspicion**:
+Author intended `(if_face.get("pose_scores") or if_scores.get("pose")) if isinstance(if_face, dict) else None`. The `if_face.get(...)` outside the ternary will error if `if_face` is ever not a dict.
+
+**Steps to Reproduce**: would require an `if_face` that's not a dict — doesn't happen in current code paths.
+
+**Recommended Fix**: parenthesize correctly, or delete the dead branch entirely. The pose-lookup logic should be revisited as part of spec-037 anyway (which adds a real pose step), so this can be folded into that PR.
+
+---
+
+### SIGHTING-062: Duplicate `filter_decisions` rows possible on Albumify runs (spec-033 P-C C-3 + spec-032 wiring)
+**Status**: OPEN
+**Severity**: Medium (silent data corruption risk; protected by SQLite PRIMARY KEY which would surface as a write failure)
+**Reported**: 2026-05-15 (from spec-033 REVIEW.md, FR-033-5)
+**Persona**: SW Engineer
+
+**Problem Description**:
+After spec-033 P-C C-3 wired `filters=context.filters` into `RunExporter.export()`, two write paths on the Albumify pipeline now contribute to `filter_decisions`:
+1. `sim_bench/pipeline/steps/filter_quality.py:79` records `image_quality` decisions via `context.filters.record(...)`.
+2. `sim_bench/pipeline/steps/face_cluster_export.py:151` forwards the same `FilterContext` to `RunExporter`, which inserts every recorded decision into `filter_decisions`.
+
+If any other step also calls `context.filters.record(...)` for the same `(item_id, filter_name)` pair, the table's `PRIMARY KEY (item_id, filter_name)` raises `IntegrityError` on INSERT — which today is caught by the try/except at `face_cluster_export.py:118-138` and logged as a non-fatal warning. The user never sees it.
+
+**Symptoms** (potential, not observed yet):
+- Silent log warning "v4 dual-write failed: UNIQUE constraint failed: filter_decisions.item_id, filter_decisions.filter_name"
+- Missing v4 artifacts on affected runs
+
+**Steps to Reproduce**:
+1. Run a full Albumify pipeline on a 5-image fixture.
+2. Grep the run log for "UNIQUE constraint failed".
+3. Inspect `_v4/face_clustering.db` for completeness.
+
+**Recommended Fix**:
+- Short-term: tighten the try/except at `face_cluster_export.py:118` so PK violations fail loud (don't get masked as warnings).
+- Medium-term: assert in `FilterContext.record(...)` that re-recording the same `(item_id, filter_name)` is explicit (the docstring says it replaces, but writes accumulate — verify).
+- Resolution may be that this is benign because `FilterContext` already dedupes by replacing; the verification is the cheap part.
+
+---
+
+### SIGHTING-061: spec-033 P-C C-1 regression — bridge gate-unblock + missing blur step → 100% face rejection
+**Status**: RESOLVED (workaround landed same day; root fix needs an `insightface_score_blur` step)
+**Severity**: Critical (blocks identity_refinement on every Albumify run)
+**Reported**: 2026-05-15
+**Resolved**: 2026-05-15
+**Persona**: ML Engineer
+
+**Problem Description**:
+After spec-033 P-C C-1 removed the bridge's hardcoded force-disables for the five quality gates, every face on an Albumify run got rejected at the blur gate, leaving `people_clusters` empty and crashing `identity_refinement` with "Required context key is empty: people_clusters".
+
+**Symptoms** (from `logs/2026-05-15_11-18-44/api.log`):
+- 428 faces, 200 candidates after top-k.
+- `Quality gating: 0 core, 428 holdout faces`.
+- `face_cluster_knn: no faces passed quality gating, all noise`.
+- `Excluded 428 noise faces (label=-1) from people clusters`.
+- Pipeline fails at `identity_refinement`.
+
+**Root Cause**:
+`face_cluster_bridge.build_fc_config` post-P-C honored `cluster_people.blur_min: 50.0` from `configs/pipeline.yaml`. But the active InsightFace pipeline has no blur-scoring step — `insightface_faces[path]["faces"][i]` has no `blur_score` field. The bridge plumbed nothing, so every `FaceRecord.blur_score` stayed at 0.0 and the gate rejected all 428 faces.
+
+**Fix**:
+`face_cluster_bridge.build_fc_config` now pins `blur_min=0.0` regardless of config, with a docstring explaining "InsightFace pipeline has no blur step yet; re-enable when `insightface_score_blur` lands and the bridge plumbs it." Architecture test `test_bridge_pose_and_det_gates_read_from_config` checks the docstring explanation is still present.
+
+**Findings** (added to LEARNINGS.md):
+- "Plumb fields through the boundary" only works if the upstream producer actually computes the field. Removing a downstream force-disable without auditing upstream computation = silent 100% rejection.
+- The right pattern: bridge pins permissive defaults for any gate whose upstream signal isn't yet computed in this pipeline. Honest. Reversible the moment the signal exists.
+- Bidirectional plumbing audit checklist: for every field the bridge claims to recover, verify (a) the upstream step writes it, (b) under the dict key the bridge reads.
+
+---
+
+### SIGHTING-060: `face.area` unit drift — three producers write three different units to the same field
+**Status**: OPEN
+**Severity**: High
+**Reported**: 2026-05-11
+**Persona**: Senior SW Engineer
+**Related**: SIGHTING-059 Issue 2; spec-030
+
+**Problem Description**:
+Three independent producers in the codebase populate the `face.area` field with three different units. Downstream consumers (quality gate, UI, slider label) each assume whichever unit is convenient, with no explicit unit declaration anywhere in the data. Result: on Albumify-produced runs the UI renders "Area 0 px²" for face_26 because the column is actually a fraction (0.001) being cast to int.
+
+**Concrete evidence — three producer sites**:
+| File | Line | Code | Unit |
+|---|---|---|---|
+| `face_cluster/embedding.py` | 99 | `area = (x2 - x1) * (y2 - y1)` | **raw pixels** |
+| `sim_bench/pipeline/steps/face_cluster_bridge.py` | 49 | `area = float(bbox.get("w", 0) * bbox.get("h", 0))` | **fraction of image area** (bbox.w/h are normalized 0..1) |
+| `sim_bench/pipeline/steps/filter_quality_gate.py` | 111 | `area = w_px * h_px` | **raw pixels** |
+
+**Concrete evidence — consumers each assume their own unit**:
+- `face_cluster/quality.py:300-304` — compares `face.area >= threshold` directly; threshold comes from a slider labeled "px"
+- `app/face_clustering/tabs/face_analysis_tab.py` — renders `int(area) px²` in the UI
+- `app/face_clustering/tabs/run_tab.py:90` — `min_face_area px (0=off)` slider, default 0
+- `face_cluster/views/face_view.py:64` — uses `face.area < 1000` as a sanity check (assumes pixels)
+
+**Symptoms**:
+- On the reference run `face_clustering_20260510_231628`, every face's area is a fraction 0.0001..0.45, but the Face Analysis tab shows "Area 0 px²" for all of them.
+- The FC App's `min_face_area` slider is effectively dead unless the user happens to use the FC App's standalone runner (then area is pixels and the slider works).
+- The Albumify `min_face_ratio` default (0.005) doesn't appear to be filtering face_26 (area=0.001) — separate sub-bug requiring confirmation of which config path actually ran.
+
+**Suspicion**:
+- The two pipelines (Albumify and FC standalone) were developed independently and converged on the same field name with different unit conventions.
+- No place in the schema/types declares the unit, so the bug was invisible until a multi-producer scenario (Albumify exporting for FC App) made it manifest.
+
+**Resolution direction** (to be finalized in design):
+- Either: (a) standardize on ONE unit across all 3 producers, OR
+- (b) add an explicit `area_unit` column (`"px"` or `"image_ratio"`) carried alongside `area`, and make every consumer dispatch on it.
+- Recommended: (a) — fewer moving parts, kills the bug at the source. Pixels is the more intuitive unit and is what the user expects ("min face size in pixels").
+- Either way also fix the unrelated sub-bug: figure out why `detect_faces.min_face_ratio: 0.005` did not filter face_26 on this run.
+
+**Steps to Reproduce**:
+1. Run Albumify on any album with merge_enabled (gives `mode=main_app_export`).
+2. Open the resulting `face_clustering_<ts>/faces.csv`. Note `area` column max is < 1.0.
+3. Open the FC App, navigate to Face Analysis tab, find any face. UI shows "0 px²".
+
+**Findings (preliminary)**:
+- This is a classic "no schema, no contract" multi-writer bug. Same shape as SIGHTING-058 (merge_log.json field divergence between Albumify and FC App writers). Pattern: when two apps write to the same data store independently, drift is the default outcome, not the exception.
+- Long-term prevention: every field with a unit should carry the unit, OR every producer should be invoked through a single typed writer (the `RunExporter` pattern from spec-030).
+
+---
+
+### SIGHTING-059: Multiple data-integrity defects on Albumify face_clustering runs (cluster 6 has no crops, area shown as 0px², blur=0 for everyone, merge gate fields missing)
+**Status**: OPEN
+**Severity**: Critical
+**Reported**: 2026-05-10
+**Persona**: ML Engineer + Senior SW Engineer
+**Reference run**: `results/album/face_clustering_20260510_231628/` (mode=`main_app_export`, source `D:\Budapest2025_Google`, 428 faces, 14 clusters, merge enabled)
+
+**Problem Description**:
+User reports four distinct defects on a fresh Albumify-produced run, suggesting multiple writers are still emitting incomplete/incorrect data despite SIGHTING-058 / spec-030 work. (Note: spec-030 Phase 3 is on a feature branch, not merged to main — so the user is hitting Phase 1+2 state where v4 is dual-written but the legacy artifacts the UI still reads remain authoritative.)
+
+**Symptoms — verified by tracing `faces.csv`, `merge_log.json`, `embeddings.npy`**:
+
+1. **Cluster 6 has no thumbnails in the UI.**
+   - `face_46` (from `20250822_123354.jpg`) and `face_47` (from `20250822_123400.jpg`) are assigned to cluster 6, `is_core=True`, all four quality gates `pass=True`, `quality_rejection_reason=NaN`.
+   - But `crop_path = NaN` in faces.csv and **no `face_0046_*` / `face_0047_*` exist in `crops/`**. Other cluster faces (e.g. face_26 → `face_0026_aligned.jpg`) do have crops.
+   - So the UI is faithfully showing "no crop", but the data is missing it. Crop generation is silently dropping a subset of faces that survive quality.
+
+2. **face_26 (from `20250822_122626.jpg`) shows "Area 0px²" in the UI but is in cluster 4.**
+   - faces.csv records `area = 0.001019` — the column is a **fraction of image area** (overall column ranges 0.0001 → 0.45).
+   - The Run-tab control is labeled `min_face_area px (0=off)`. Either the column unit is wrong, or the slider/label is wrong. Whichever it is, the UI rendering "0 px²" is the int-cast of a 0–1 float.
+   - The filter is also disabled by default (slider value 0), so face_26 was never going to be filtered regardless.
+
+3. **`blur_score = 0.0` for ALL 428 faces.**
+   - `faces['blur_score'].describe()` → min=0, max=0, std=0. The blur step is either no-op or its results are clobbered before export.
+   - `det_score` is `NaN` for every face also.
+
+4. **Merge log is missing the four gate `*_pass` booleans.**
+   - For C4–C6 row in `merge_log.json`: `support_pass`, `margin_pass`, `diameter_pass`, `distance_pass` are all absent. Same for `centroid_dist`, `d_cross_min`, `d_cross_p25` (only `p25_cross_dist` is present).
+   - The UI is forced to recompute pass/fail or render "REJECTED 4/4" via fallback logic — which mis-renders cases like the user's old C0/C1 complaint.
+   - The 28-field contract documented in spec-030 is **not** what's actually on disk.
+
+5. **Recluster tab has a "Load profile" picker; Run tab does not.**
+   - `app/face_clustering/tabs/recluster_tab.py:58 _render_profile_bar` — selectbox of all profiles in `~/.sim_bench/profiles/`.
+   - `app/face_clustering/tabs/run_tab.py` — no equivalent. User must re-enter every parameter for a fresh run instead of loading a tuned profile.
+
+6. **Cluster 4 (28 faces) is internally incoherent.**
+   - Pairwise cosine distances inside cluster 4: **mean=0.471, max=0.867, min=0.115**. Anything > ~0.4 is "different person" — so cluster 4 is a chain-merged blob of multiple people, not one identity. (Reported separately by user as "merge distances don't seem real". Distances themselves *are* real; it's that the clustering thresholds let a chain through.)
+   - C4 vs C6 cross distances: mean=0.682, min=0.499 — they're correctly far apart. The merge decision rejected them. But the rejected pair is still being surfaced because C4 itself is bloated.
+
+**Suspicion**:
+- (1) Crop step iterates a different subset than quality step — face passes quality but its `crop_path` never populates. Likely an indexing/filter mismatch in `face_cluster/pipeline.py` crop stage when faces survive quality but fail some downstream check before crop persistence.
+- (2) `area` column unit drift: somewhere the column was changed from pixel² to fraction (or never was pixels), but UI label and slider unit are stale. Need to grep producers.
+- (3) Blur step likely runs but its result is overwritten when faces.csv is rebuilt by a later stage, OR the blur stage was disabled in pipeline.yaml and no test caught it. det_score=NaN suggests the same — fields not being persisted from detection.
+- (4) Two writers for merge_log.json with different schemas — one writes `support_pass` and one doesn't. Spec-030 Phase 3 (single RunExporter) addresses this; on main it's still split.
+- (5) Pure UI gap — easy to add.
+- (6) The clustering parameters at run time were too loose for this album, OR the merge gates aren't catching the chain because per-pair gates can't see global cluster cohesion.
+
+**Steps to Reproduce**:
+1. Run Albumify on `D:\Budapest2025_Google` with merge_enabled=True (run dir: `results/album/face_clustering_20260510_231628/`).
+2. Open FC App, deep-link to the run.
+3. Cluster Analysis tab → cluster 6: thumbnails missing.
+4. Face Analysis tab → face_26: area "0 px²".
+5. Merge Analysis tab → C4 vs C6: gate badges show pass-state without underlying `*_pass` booleans.
+
+**Resolution**:
+TBD — see investigation plan in this sighting.
+
+**Findings (preliminary)**:
+- v4 dual-write present (`_v4/` subdir with `face_clustering.db`, npy, crops) but legacy `merge_log.json`/`faces.csv` remain authoritative on main → defects in legacy producers still leak through.
+- Need to bring Phase 3 (single-reader cutover) to main *or* fix the legacy producers in place.
+- Defects (1)/(2)/(3) are **producer bugs**, not display bugs — none of spec-030's reader work fixes them.
+
+---
+
 ### SIGHTING-058: Albumify-produced face clustering runs render with broken merge values in FC App
 **Status**: SPEC READY (spec-030)
 **Severity**: Critical

@@ -1,6 +1,6 @@
 # Feature Development Workflow
 
-Structured workflow that turns a feature request into a spec, tasks, and implementation. All artifacts live under `specs/<NNN>-<feature-name>/`.
+Structured workflow that turns a feature request into a spec, tasks, implementation, and a reviewed handoff. All artifacts live under `specs/<NNN>-<feature-name>/`.
 
 ## Quick Reference
 
@@ -8,14 +8,41 @@ Structured workflow that turns a feature request into a spec, tasks, and impleme
 Feature idea
   |
   v
-spec.md    -->  WHAT to build (problem, user stories, acceptance criteria)
+spec.md    -->  WHAT to build (problem, user stories, acceptance criteria)        [Status: Draft]
   |
   v
-tasks.md   -->  HOW to build it (design notes at top, ordered task checklist)
+tasks.md   -->  HOW to build it (design notes at top, ordered task checklist)     [Status: In Progress]
   |
   v
 implement  -->  execute tasks phase-by-phase
+  |
+  v
+/code-review --> REVIEW.md per docs/guides/CODE_REVIEW_CHECKLIST.md               [Status: Code Review]
+  |               ^^^ MANDATORY GATE — no spec flips to Implemented without this
+  v
+hand off   -->  CHANGES_LOG.md entry; high-severity findings resolved or waived   [Status: Implemented]
 ```
+
+## Spec lifecycle (locked)
+
+`Draft → In Progress → Code Review → Implemented`
+
+No skipping `Code Review`. The `/code-review` slash command produces `specs/<NNN>-<name>/REVIEW.md` against `docs/guides/CODE_REVIEW_CHECKLIST.md`. Any High-severity finding blocks the move to `Implemented` until resolved or explicitly waived (waiver recorded in REVIEW.md).
+
+**Why this gate exists**: SIGHTING-061 shipped a 100%-face-rejection regression in spec-033 because the architecture tests checked code shape, not whether the contracts were actually exercised on real data. The Code Review gate forces an explicit "what test would catch the failure modes this feature was supposed to prevent?" walk-through before handoff.
+
+## Documentation update mandate
+
+Any spec that changes a class, Pydantic model, Pandera schema, DB column, pipeline step, or boundary contract **must** update the corresponding HTML in `docs/architecture/` in the same PR:
+
+| Changed | Update |
+|---|---|
+| DB column | `docs/architecture/db_schemas.html` |
+| Class / Pydantic / Pandera / dataclass field | `docs/architecture/classes.html` |
+| Pipeline step / bridge / exporter / read side | `docs/architecture/data_flow.html` |
+| New architecture doc added | `docs/architecture/index.html` (the entry-point list) |
+
+The Code Review gate (§7 of `docs/guides/CODE_REVIEW_CHECKLIST.md`) blocks handoff on stale docs.
 
 ## Required Artifacts (2 files)
 

@@ -101,6 +101,29 @@ def render_merge_params(key_prefix: str = "rc_") -> dict:
             "diameter_expansion_factor", 1.0, 5.0, 1.5, step=0.05, key=f"{key_prefix}merge_diameter",
             help="Max allowed post-merge diameter relative to larger input cluster.",
         )
+    st.markdown("**Absolute Diameter Cap (spec-031, runs after merge)**")
+    cap_enabled = st.checkbox(
+        "cluster_diameter_cap_enabled", value=False,
+        key=f"{key_prefix}cap_enabled",
+        help="Post-merge safety net: reject any merged cluster whose internal "
+             "diameter exceeds an absolute ceiling. Reverts violators to their "
+             "pre-merge component clusters.",
+    )
+    c1, c2 = st.columns(2)
+    with c1:
+        max_full_diameter = st.slider(
+            "max_full_diameter", 0.3, 2.0, 1.2, step=0.05,
+            key=f"{key_prefix}cap_max_full",
+            help="Max pairwise cosine distance across ALL faces in the cluster.",
+            disabled=not cap_enabled,
+        )
+    with c2:
+        max_exemplar_diameter = st.slider(
+            "max_exemplar_diameter", 0.2, 2.0, 0.8, step=0.05,
+            key=f"{key_prefix}cap_max_exemplar",
+            help="Max pairwise cosine distance restricted to the cluster's exemplars.",
+            disabled=not cap_enabled,
+        )
     return {
         "merge_candidate_threshold":      merge_candidate_thresh,
         "merge_exemplar_threshold":       merge_exemplar_thresh,
@@ -117,4 +140,7 @@ def render_merge_params(key_prefix: str = "rc_") -> dict:
         "merge_support_unique":           support_unique,
         "merge_margin":                   merge_margin,
         "merge_diameter_expansion_factor": diameter_factor,
+        "cluster_diameter_cap_enabled":   cap_enabled,
+        "max_full_diameter":              max_full_diameter,
+        "max_exemplar_diameter":          max_exemplar_diameter,
     }

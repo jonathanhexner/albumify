@@ -1,10 +1,19 @@
-"""Dataclasses for face clustering pipeline."""
+"""Dataclasses for face clustering pipeline.
+
+spec-033 P-C C-2: ``FaceRecord`` is a Pydantic v2 BaseModel with
+``extra='forbid'``. Typo'd field names at construction raise
+``ValidationError`` instead of silently dropping data — closing the
+"5 fields dropped at the bridge" class of bug that motivated SIGHTING-059.
+Other types in this module remain dataclasses (no boundary contracts to
+enforce on them).
+"""
 
 from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 import networkx as nx
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 @dataclass
@@ -44,9 +53,13 @@ class ClusterMetadata:
     parent_cluster_ids: List[int] = field(default_factory=list)
 
 
-@dataclass
-class FaceRecord:
+class FaceRecord(BaseModel):
     """Single face record with metadata and embeddings.
+
+    spec-033 P-C C-2: Pydantic v2 BaseModel. ``extra='forbid'`` —
+    constructing with an unknown field raises ValidationError. The pose
+    validator rejects partial tuples; everything else accepts the legacy
+    sentinel values (zeros, None) so existing loaders keep working.
 
     Attributes:
         face_id: Unique identifier (int or str)
@@ -58,11 +71,18 @@ class FaceRecord:
         embedding_normalized: L2-normalized embedding
         pose: (yaw, pitch, roll) in degrees, None if not computed
         blur_score: Laplacian variance blur score
-        area: Face area in pixels (bbox width * height)
+        area: Face area (UNIT varies by source — see SIGHTING-060;
+              FC App standalone produces px², bridge produces fraction²)
         is_core: Whether this face passed quality gating for core set
         image_path: Full path to source image (optional, for traceability)
         face_index: Index of face within source image (optional, for traceability)
     """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        arbitrary_types_allowed=True,
+    )
+
     face_id: int
     image_id: str
     bbox: Tuple[float, float, float, float]
@@ -81,6 +101,22 @@ class FaceRecord:
     rejection_reason: Optional[str] = None
     det_score: Optional[float] = None
     d10_score: Optional[float] = None
+
+    @field_validator("pose")
+    @classmethod
+    def _validate_pose_is_3_tuple(cls, v):
+        """If pose is provided, all 3 dims must be present.
+
+        Prevents the SIGHTING-059-class bug where pose is partially populated
+        and downstream filters silently treat missing dims as zero.
+        """
+        if v is None:
+            return v
+        if len(v) != 3:
+            raise ValueError(
+                f"pose must be a 3-tuple of (yaw, pitch, roll), got length {len(v)}"
+            )
+        return v
 
 
 @dataclass

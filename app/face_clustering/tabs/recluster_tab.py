@@ -8,16 +8,16 @@ from pathlib import Path
 import streamlit as st
 
 from face_cluster import FaceClusteringPipeline, PipelineConfig
-from face_cluster.profile_store import ProfileStore
 from face_cluster.run_naming import RunDirSpec, allocate_run_dir
 
-from state import _AsyncState, _invalidate_run_caches, _RC_PARAM_KEYS, _collect_rc_params
+from state import _AsyncState, _invalidate_run_caches, _RC_PARAM_KEYS
 from session_helpers import _append_recluster_step_to_session
 from run_panels import (
     _list_available_runs, _latest_log_file,
     _render_live_log, _render_log_expander, _render_stage_plan,
 )
 from config_controls import _render_merge_params
+from _profile_bar import render_profile_bar, render_profile_save_bar
 
 
 def _render_merge_criteria_reference():
@@ -56,39 +56,11 @@ When adaptive is off: `merge_threshold = merge_exemplar_threshold` (fixed)
 
 
 def _render_profile_bar() -> None:
-    store = ProfileStore()
-    names = store.list_names()
-    if not names:
-        return
-    col_sel, col_load = st.columns([3, 1])
-    with col_sel:
-        selected = st.selectbox("Load profile", ["(none)"] + names, key="prf_select")
-    with col_load:
-        st.write("")
-        if st.button("Load", key="prf_load") and selected != "(none)":
-            params = store.load(selected)
-            for k, v in params.items():
-                if k in _RC_PARAM_KEYS:
-                    st.session_state[k] = v
-            st.toast(f"Loaded profile '{selected}'")
-            st.rerun()
+    render_profile_bar(_RC_PARAM_KEYS, widget_prefix="rc_")
 
 
 def _render_profile_save_bar() -> None:
-    col_name, col_save, col_default = st.columns([2, 1, 1])
-    with col_name:
-        profile_name = st.text_input("Profile name", key="prf_name",
-                                     label_visibility="collapsed", placeholder="profile name")
-    with col_save:
-        if st.button("Save profile", key="prf_save"):
-            name = st.session_state.get("prf_name", "").strip()
-            if name:
-                ProfileStore().save(name, _collect_rc_params())
-                st.toast(f"Saved profile '{name}'")
-    with col_default:
-        if st.button("Save as default", key="prf_default"):
-            ProfileStore().save("default", _collect_rc_params())
-            st.toast("Saved as default")
+    render_profile_save_bar(_RC_PARAM_KEYS, widget_prefix="rc_")
 
 
 def render_recluster_tab():
@@ -138,27 +110,60 @@ def render_recluster_tab():
     with st.expander("Base Clustering Parameters", expanded=True):
         c1, c2, c3 = st.columns(3)
         with c1:
-            rc_K = st.slider("K", 1, 100, 5, key="rc_K")
+            rc_K = st.slider(
+                "K", 1, 100, 5, key="rc_K",
+                help="PipelineConfig.K. Mutual kNN edge requires both nodes in each other's top-K.",
+            )
         with c2:
-            rc_dist = st.slider("distance_threshold", 0.01, 1.0, 0.35, step=0.01, key="rc_dist")
+            rc_dist = st.slider(
+                "distance_threshold", 0.01, 1.0, 0.35, step=0.01, key="rc_dist",
+                help=(
+                    "PipelineConfig.distance_threshold. Max cosine distance for kNN edge. "
+                    "Lower = stricter."
+                ),
+            )
         with c3:
-            rc_min_cluster = st.slider("min_cluster_size", 1, 50, 2, key="rc_min_cluster")
+            rc_min_cluster = st.slider(
+                "min_cluster_size", 1, 50, 2, key="rc_min_cluster",
+                help="PipelineConfig.min_cluster_size. Components below this become noise.",
+            )
         c1, c2, c3 = st.columns(3)
         with c1:
-            rc_N_exemplars = st.slider("N_exemplars_max", 1, 100, 10, key="rc_N_exemplars")
+            rc_N_exemplars = st.slider(
+                "N_exemplars_max", 1, 100, 10, key="rc_N_exemplars",
+                help="PipelineConfig.N_exemplars_max. Max exemplars selected per cluster.",
+            )
         with c2:
-            rc_d10_thresh = st.slider("exemplars_d10_threshold", 0.01, 1.0, 0.35, step=0.01, key="rc_d10_thresh")
+            rc_d10_thresh = st.slider(
+                "exemplars_d10_threshold", 0.01, 1.0, 0.35, step=0.01, key="rc_d10_thresh",
+                help=(
+                    "PipelineConfig.exemplars_d10_threshold. Max d10 (10th-NN cosine distance) "
+                    "for exemplar eligibility."
+                ),
+            )
         with c3:
-            rc_suppression = st.slider("exemplar_suppression_radius", 0.01, 1.0, 0.2, step=0.01, key="rc_suppression")
+            rc_suppression = st.slider(
+                "exemplar_suppression_radius", 0.01, 1.0, 0.2, step=0.01, key="rc_suppression",
+                help="PipelineConfig.exemplar_suppression_radius. Min cosine distance between selected exemplars.",
+            )
 
     st.markdown("**Optional stages**")
     c1, c2, c3 = st.columns(3)
     with c1:
-        rc_split  = st.checkbox("split_enabled",  key="rc_split")
+        rc_split = st.checkbox(
+            "split_enabled", key="rc_split",
+            help="PipelineConfig.split_enabled. Run cluster split safeguard.",
+        )
     with c2:
-        rc_merge  = st.checkbox("merge_enabled",  key="rc_merge")
+        rc_merge = st.checkbox(
+            "merge_enabled", key="rc_merge",
+            help="PipelineConfig.merge_enabled. Run conservative merge after exemplars.",
+        )
     with c3:
-        rc_attach = st.checkbox("attach_enabled", key="rc_attach")
+        rc_attach = st.checkbox(
+            "attach_enabled", key="rc_attach",
+            help="PipelineConfig.attach_enabled. Attach holdout faces to clusters.",
+        )
 
     with st.expander("Merge Parameters (applied when merge is enabled)", expanded=rc_merge):
         merge_params = _render_merge_params()
