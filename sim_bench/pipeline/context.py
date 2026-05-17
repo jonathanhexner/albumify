@@ -43,6 +43,12 @@ class PipelineContext:
     sharpness_scores: dict[str, float] = field(default_factory=dict)
 
     # Face-specific (keyed by image path string)
+    # NOTE (spec-040): this dict-of-dicts representation is being retired.
+    # See specs/040-unified-pipeline-framework/spec.md "Locked architectural
+    # constraints" — every face-bearing step migrates to writing/reading
+    # `context.face_records: List[FaceRecord]` directly (Pydantic, no
+    # translator step). Both `faces` and `insightface_faces` become dead
+    # state in Phase 3 and are deleted in Phase 7.
     faces: dict[str, list] = field(default_factory=dict)
     face_pose_scores: dict[str, list[float]] = field(default_factory=dict)
     face_eyes_scores: dict[str, list[float]] = field(default_factory=dict)

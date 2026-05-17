@@ -112,6 +112,17 @@ Albumify's `default_pipeline` and the FC App's standalone run both produce the s
 - **Not migrating non-face-clustering steps** (e.g., `select_best`, `cluster_by_identity`) — they continue to use whatever pattern they had; only the face-clustering subset is unified.
 - **Not changing the UI surface.** Tooltips, sliders, profile load/save stay where they are; their backing store consolidates.
 
+## Locked architectural constraints
+
+- **NO bridge / adapter / translator classes in the final architecture.** Producers write Pydantic objects directly onto context. Consumers read those same Pydantic objects. The only translation in the entire pipeline is the Pydantic-object → DataFrame → SQL row chain at write time (and its reverse at read time), with Pandera as the single validation hop. Specifically:
+  - **`face_cluster_bridge.py` is deleted** (Phase 7 — already in the plan).
+  - **No `assemble_face_records` step.** The plan previously had this as a "convert insightface_faces dict to FaceRecord list" translator step. Removed. Instead, `insightface_detect_faces` writes `context.face_records: List[FaceRecord]` directly.
+  - **No `context.insightface_faces` dict-of-dicts.** Replaced by `context.face_records: List[FaceRecord]`. Scoring steps mutate Pydantic attributes, not dict keys.
+  - **No `context.face_embeddings` dict.** Replaced by `face.embedding` attribute on each `FaceRecord` (set by `extract_face_embeddings` directly on the existing records).
+  - **Same rule for the scene side**: `cluster_scenes` writes `context.scene_clusters: List[SceneClusterRecord]` directly. No `context.scene_clusters` dict-of-lists or separate `scene_cluster_labels` dict.
+- **One canonical Python representation per concept.** `FaceRecord`, `ImageRecord`, `SceneClusterRecord` are the only face/image/scene shapes that exist mid-pipeline. The DB row is a direct serialization of those shapes (Pandera-validated).
+- **Cross-package imports of shared types are OK.** `sim_bench/pipeline/steps/insightface_detect_faces.py` may import from `face_cluster.types` — `face_cluster.types` is the shared contract module, not a layer to be hidden.
+
 ## Risks
 
 - **Blast radius is large.** Every face-clustering step is touched. Mitigation: lockstep with the FR-033-1 E2E test (must land on main first; serves as regression net throughout).

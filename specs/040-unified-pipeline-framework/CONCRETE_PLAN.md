@@ -12,6 +12,7 @@
 2. **New FC App location**: `app/face_clustering/` (the original path — legacy moves out first).
 3. **Global DB**: both apps share `~/.sim_bench/sim_bench.db`. `action_log` gains a `producer` column (`fc_app_legacy` vs `fc_app_v2`).
 4. **Equivalence bar**: ≥95% cluster-assignment agreement on a labeled fixture, run as a deterministic CI test.
+5. **NO bridge / adapter / translator classes in the final architecture.** Producers write Pydantic objects directly onto context (`List[FaceRecord]`, `List[ImageRecord]`, `List[SceneClusterRecord]`). Consumers read the same Pydantic objects. The only translation is Pydantic → DataFrame → SQL row at write time, validated by Pandera. No `face_cluster_bridge`, no `assemble_face_records` translator step, no `context.insightface_faces` dict-of-dicts. spec.md ↳ "Locked architectural constraints" for the full list.
 
 ---
 
@@ -114,25 +115,36 @@ Affected files: bridge (`sim_bench/pipeline/steps/face_cluster_bridge.py`), test
 
 ### Phase 3 — Replace bridge with named pipeline steps (Day 7–11)
 
-9 new steps (in `sim_bench/pipeline/steps/`) replace the bridge's internals:
+**No bridge / translator steps.** Producers write Pydantic objects directly; consumers read the same objects. Eight new steps (one fewer than before — `assemble_face_records` dropped per the "no bridges" locked constraint):
 
-| New step | Replaces |
-|---|---|
-| `assemble_face_records` | `face_cluster_bridge.faces_to_face_records()` |
-| `quality_gate_faces` | inline `QualityGater.select_core_set()` |
-| `build_face_knn_graph` | inline `KNNGraphBuilder.build_graph()` |
-| `cluster_face_components` | inline `ConnectedComponentsClusterer.cluster()` |
-| `select_face_exemplars` | inline `D10ExemplarSelector.select_exemplars()` |
-| `merge_face_clusters` | inline `ConservativeMerger.merge_clusters_with_logging()` |
-| `apply_diameter_cap` | inline spec-031 cap |
-| `attach_holdout_faces` | inline `HoldoutAttacher.attach_holdouts()` |
-| `assign_people_clusters` | labels-loop tail of `run_face_cluster_knn` |
+| New step | Replaces | Reads | Writes |
+|---|---|---|---|
+| `quality_gate_faces` | inline `QualityGater.select_core_set()` | `context.face_records` | mutates `face.is_core` / `face.rejection_reason` on each `FaceRecord` |
+| `build_face_knn_graph` | inline `KNNGraphBuilder.build_graph()` | `context.face_records` | `context.graph_result` |
+| `cluster_face_components` | inline `ConnectedComponentsClusterer.cluster()` | `context.graph_result` | `context.cluster_result` |
+| `select_face_exemplars` | inline `D10ExemplarSelector.select_exemplars()` | `context.cluster_result` | mutates `face.d10_score`; sets `cluster_result.exemplars` |
+| `merge_face_clusters` | inline `ConservativeMerger.merge_clusters_with_logging()` | `context.cluster_result` | `context.merged_cluster_result`, `context.merge_log`, `context.merge_metadata` |
+| `apply_diameter_cap` | inline spec-031 cap | `context.merged_cluster_result` | `context.cap_decisions`, `context.cap_summary` |
+| `attach_holdout_faces` | inline `HoldoutAttacher.attach_holdouts()` | `context.cluster_result` + holdout indices | mutates `cluster_result.clusters` |
+| `assign_people_clusters` | labels-loop tail of `run_face_cluster_knn` | final `cluster_result` | `context.people_clusters` |
 
-`configs/pipeline.yaml::default_pipeline` updates to invoke these in order. `cluster_people` reduces to a thin dispatcher or is removed.
+**Also in Phase 3** — modify existing producer steps to write Pydantic directly (kills the dict-of-dicts):
 
-**Bridge file stays alive** for one more phase (legacy bridge tests still reference it). Deleted in Phase 7.
+| Step | Today | Phase 3 |
+|---|---|---|
+| `insightface_detect_faces` | writes `context.insightface_faces[path]["faces"]` (list of dicts) | constructs `FaceRecord` objects and appends to `context.face_records: List[FaceRecord]` |
+| `align_faces` | mutates the dict, sets `face["aligned_face"]` | mutates `face.aligned_face` on the Pydantic object |
+| `insightface_score_pose / eyes / expression` | writes nested dicts under `face["scores"]` | sets `face.pose_score`, `face.eyes_score`, `face.expression_score` directly |
+| `extract_face_embeddings` | writes a separate `context.face_embeddings[path]` dict | sets `face.embedding` / `face.embedding_normalized` on the existing `FaceRecord` |
+| `filter_faces` | reads / writes dict | reads / writes Pydantic attrs |
 
-**Tests**: spec-035 E2E still green; unit tests per new step.
+After Phase 3: `context.insightface_faces` and `context.face_embeddings` are **dead state**. They can be deprecated and removed in Phase 7. Every step from detect through clustering uses `context.face_records: List[FaceRecord]` as the single source of truth.
+
+`configs/pipeline.yaml::default_pipeline` updates to invoke the new clustering steps in order. `cluster_people` reduces to a thin dispatcher or is removed.
+
+**Bridge file (`sim_bench/pipeline/steps/face_cluster_bridge.py`) stays alive** for one more phase because legacy FC App (in `face_cluster_legacy/`) still imports from it. Deleted in Phase 7 alongside legacy retirement.
+
+**Tests**: spec-035 E2E still green; unit tests per new step. New test `test_no_intermediate_face_dicts.py` asserts `context.insightface_faces` is not read by any step after Phase 3 (architecture test — fails on regression).
 
 ---
 

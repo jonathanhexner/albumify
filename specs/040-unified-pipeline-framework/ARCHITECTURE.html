@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>spec-040 · Architecture &amp; Data Flow (target state)</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1200px; margin: 1em auto; padding: 0 1em;
+         color: #222; line-height: 1.4; background:#fafbfc; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .2em; margin-bottom: 0; }
+  h1 + .subtitle { color: #666; margin-top: .2em; font-size: 14px; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 1.8em; font-size: 19px; }
+  h3 { margin-top: 1.3em; font-size: 16px; }
+  .row { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; }
+  .col { flex: 1 1 0; min-width: 260px; }
+  .box {
+    border: 2px solid #444; border-radius: 6px; background:#fff;
+    padding: 6px 10px; margin: 5px 0; font-size: 12.5px;
+    font-family: Consolas, "SF Mono", monospace;
+  }
+  .box .name {
+    font-weight: 700; font-family: -apple-system, Segoe UI, sans-serif;
+    border-bottom: 1px solid #ddd; padding-bottom: 3px; margin-bottom: 3px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .box .stereo {
+    font-size: 10px; color:#777; font-weight: 600; text-transform: uppercase;
+  }
+  .pyd    { border-color:#1f5fc7; }
+  .pyd .name { color:#1f5fc7; }
+  .pan    { border-color:#0e9466; }
+  .pan .name { color:#0e9466; }
+  .dc     { border-color:#7a4ec0; }
+  .dc .name { color:#7a4ec0; }
+  .step   { border-color:#b58900; background:#fefcf3; }
+  .step .name { color:#b58900; }
+  .store  { border-color:#0e9466; background:#f3fbf6; }
+  .store .name { color:#0e9466; }
+  .npy    { border-color:#444; background:#f4f4f6; }
+  .down   { text-align:center; color:#555; font-size:18px; margin: 2px 0; font-weight:700; line-height: 1; }
+  .right  { text-align:center; color:#555; font-size:18px; font-weight:700; }
+  .legend {
+    display:flex; gap:12px; flex-wrap:wrap; margin:.5em 0 1em; font-size:12px;
+  }
+  .legend .swatch {
+    display:inline-block; width:11px; height:11px; border:2px solid; margin-right:3px;
+    vertical-align:middle;
+  }
+  .lane {
+    border: 1px dashed #aaa; border-radius: 5px; padding: 6px 10px;
+    margin: 6px 0; background: #fff;
+  }
+  .lane h4 { margin: 0 0 6px 0; font-size: 13px; color: #555; }
+  .strikethrough { text-decoration: line-through; color:#999; }
+  .dead { background: #fbeaea; border-color:#c66; }
+  table.matrix { border-collapse: collapse; font-size: 12px; margin: .4em 0; width: 100%; }
+  table.matrix th, table.matrix td {
+    border: 1px solid #ccc; padding: 4px 7px; text-align: left; vertical-align: top;
+  }
+  table.matrix th { background:#f4f4f6; }
+  .pill { display:inline-block; padding:1px 6px; border-radius:8px;
+          font-size:10px; font-weight:600; vertical-align: middle; }
+  .now { background:#fde2e2; color:#8a1a1a; }
+  .tgt { background:#e0e7ff; color:#1d3a8a; }
+  .arrow-down { width: 16px; height: 24px; }
+  .timeline {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px;
+    margin: 1em 0;
+  }
+  .timeline .phase {
+    border: 2px solid #444; border-radius: 4px; padding: 5px 6px;
+    text-align: center; font-size: 11px; background: #fff;
+  }
+  .timeline .phase b { display:block; font-size: 13px; color:#1f5fc7; }
+  .timeline .phase .ph-num { font-size: 18px; color:#aaa; font-weight:700; }
+  .timeline .phase.done { background:#e3f5e0; border-color:#236623; }
+  .timeline .phase.crit { background:#fff3cd; border-color:#7a5a00; }
+  hr.sep { border: none; border-top: 1px solid #ddd; margin: 1em 0; }
+</style>
+</head>
+<body>
+
+<h1>spec-040 · Architecture &amp; Data Flow</h1>
+<p class="subtitle">Target state after the strangler-fig migration completes (post-Phase&nbsp;7). Today's state and migration timeline at the bottom.</p>
+
+<div class="legend">
+  <span><span class="swatch" style="border-color:#1f5fc7;"></span>Pydantic BaseModel (object boundary)</span>
+  <span><span class="swatch" style="border-color:#0e9466;"></span>Pandera DataFrameSchema (DB boundary)</span>
+  <span><span class="swatch" style="border-color:#7a4ec0;"></span>Dataclass (internal record)</span>
+  <span><span class="swatch" style="border-color:#b58900;"></span>Pipeline step (BaseStep subclass)</span>
+  <span><span class="swatch" style="border-color:#0e9466; background:#f3fbf6;"></span>Storage class (RunExporter / RunStore)</span>
+</div>
+
+<h2>1 · End-to-end data flow — one face, one image</h2>
+
+<div class="row">
+
+<!-- LEFT lane: producers -->
+<div class="col">
+  <div class="lane">
+    <h4>UI / Config layer</h4>
+    <div class="box pyd">
+      <div class="name">FilterFacesConfig <span class="stereo">Pydantic · extra=forbid</span></div>
+      <div>min_confidence · min_bbox_ratio · ...</div>
+    </div>
+    <div class="box pyd">
+      <div class="name">ClusterPeopleConfig <span class="stereo">Pydantic · extra=forbid</span></div>
+      <div>K · distance_threshold · blur_min · ...</div>
+    </div>
+    <div class="down">↓ validated by validate_step_config()</div>
+  </div>
+
+  <div class="lane">
+    <h4>Pipeline steps — write Pydantic directly</h4>
+
+    <div class="box step">
+      <div class="name">insightface_detect_faces <span class="stereo">producer</span></div>
+      <div>creates <b>FaceRecord</b> per detected face<br>appends to <b>context.face_records</b></div>
+    </div>
+    <div class="down">↓</div>
+
+    <div class="box step">
+      <div class="name">align_faces · score_pose · score_eyes · ...<span class="stereo">mutators</span></div>
+      <div>mutate face.aligned_face / face.pose_score / face.eyes_score on the existing FaceRecord</div>
+    </div>
+    <div class="down">↓</div>
+
+    <div class="box step">
+      <div class="name">extract_face_embeddings <span class="stereo">mutator</span></div>
+      <div>sets face.embedding / face.embedding_normalized on the existing FaceRecord</div>
+    </div>
+    <div class="down">↓</div>
+
+    <div class="box step">
+      <div class="name">quality_gate_faces <span class="stereo">mutator</span></div>
+      <div>QualityGater sets face.is_core / face.rejection_reason</div>
+    </div>
+    <div class="down">↓</div>
+
+    <div class="box step">
+      <div class="name">build_face_knn_graph → cluster_face_components → select_face_exemplars → merge_face_clusters → apply_diameter_cap → attach_holdout_faces → assign_people_clusters</div>
+      <div style="color:#666; font-size:11px;">reads context.face_records;<br>writes context.{graph_result, cluster_result, merged_cluster_result, merge_log, cap_decisions, people_clusters}</div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT lane: data + storage -->
+<div class="col">
+  <div class="lane">
+    <h4>Shared context state (one canonical shape)</h4>
+
+    <div class="box pyd">
+      <div class="name">FaceRecord <span class="stereo">Pydantic · extra=forbid</span></div>
+      face_id · image_id · image_path · face_index<br>
+      bbox · bbox_x_ratio · bbox_y_ratio · bbox_w_ratio · bbox_h_ratio · area_ratio<br>
+      landmarks · aligned_face · embedding · embedding_normalized<br>
+      pose · pose_score · eyes_score · expression_score · frontal_score<br>
+      blur_score · det_score · d10_score<br>
+      is_core · rejection_reason · quality_verdict
+    </div>
+
+    <div class="box pyd">
+      <div class="name">ImageRecord <span class="stereo">Pydantic · NEW Phase 4</span></div>
+      image_path · image_id · width_px · height_px · n_faces<br>
+      iqa_score · ava_score · sharpness_score · composite_score<br>
+      scene_cluster_id · filter_passed · created_at
+    </div>
+
+    <div class="box pyd">
+      <div class="name">SceneClusterRecord <span class="stereo">Pydantic · NEW Phase 4</span></div>
+      scene_cluster_id · iteration · size · method<br>
+      exemplar_image_path · avg_intra_distance · created_at
+    </div>
+
+    <div class="box dc">
+      <div class="name">ClusterResult / GraphResult / MergeDecisionRow <span class="stereo">dataclasses</span></div>
+      algorithm-internal types from face_cluster.{clustering, knn_graph, types}
+    </div>
+
+    <div class="box dc">
+      <div class="name">PipelineContext <span class="stereo">dataclass · holds all of the above</span></div>
+      face_records: List[FaceRecord]<br>
+      images: List[ImageRecord]<br>
+      scene_clusters: List[SceneClusterRecord]<br>
+      cluster_result · graph_result · merge_log · ...<br>
+      filters: FilterContext (spec-032)
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+
+  <div class="lane">
+    <h4>Single writer · Pandera-validated</h4>
+
+    <div class="box store">
+      <div class="name">RunExporter <span class="stereo">spec-030 contract</span></div>
+      _write_faces_and_scores → <b>FACES_SCHEMA</b>.validate<br>
+      _write_clusters_and_assignments<br>
+      _write_merges → strict-validate vs MergeDecisionRow<br>
+      _write_filter_decisions → <b>FILTER_DECISIONS_SCHEMA</b>.validate<br>
+      _write_images <span class="pill tgt">NEW Ph.4</span> → <b>IMAGES_SCHEMA</b>.validate<br>
+      _write_scene_clusters_and_assignments <span class="pill tgt">NEW Ph.4</span><br>
+      _write_scene_embeddings_npy <span class="pill tgt">NEW Ph.4</span><br>
+      _write_run_metadata
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+
+  <div class="lane">
+    <h4>Per-run storage</h4>
+    <div class="box store">&lt;run_dir&gt;/_v4/face_clustering.db (10 tables)</div>
+    <div class="box npy">embeddings.npy + embedding_face_ids.npy</div>
+    <div class="box npy">scene_embeddings.npy + scene_embedding_image_paths.npy <span class="pill tgt">NEW Ph.4</span></div>
+    <div class="box store">crops/face_NNNN_aligned.jpg ...</div>
+  </div>
+
+  <div class="down">↓</div>
+
+  <div class="lane">
+    <h4>Single reader · Pandera-validated</h4>
+    <div class="box store">
+      <div class="name">RunStore</div>
+      metadata() · faces() · embeddings() · clusters()<br>
+      merge_log() · filter_decisions()<br>
+      image_detail(path) → <b>ImageDetail</b> (Pydantic)
+    </div>
+  </div>
+</div>
+
+</div>
+
+<hr class="sep">
+
+<h2>2 · Class &amp; type relationships</h2>
+
+<div class="row">
+
+<div class="col">
+  <h3>Object-side contracts (Pydantic)</h3>
+  <div class="box pyd"><div class="name">FaceRecord</div>The shared face object. Every face-bearing step reads / mutates this.</div>
+  <div class="down">↑↓ owned by</div>
+  <div class="box dc"><div class="name">PipelineContext.face_records: List[FaceRecord]</div></div>
+
+  <div class="box pyd"><div class="name">ImageRecord <span class="stereo">NEW Phase 4</span></div></div>
+  <div class="down">↑↓ owned by</div>
+  <div class="box dc"><div class="name">PipelineContext.images: List[ImageRecord]</div></div>
+
+  <div class="box pyd"><div class="name">SceneClusterRecord <span class="stereo">NEW Phase 4</span></div></div>
+  <div class="down">↑↓ owned by</div>
+  <div class="box dc"><div class="name">PipelineContext.scene_clusters: List[SceneClusterRecord]</div></div>
+
+  <div class="box pyd"><div class="name">ImageDetail / FaceDetail / FaceFilterDecision</div>read-side return types (P-D)</div>
+</div>
+
+<div class="col">
+  <h3>DataFrame-side contracts (Pandera)</h3>
+  <div class="box pan"><div class="name">FACES_SCHEMA</div>not-null: face_id, blur_score, area_ratio, is_core. Range checks on ratios.</div>
+  <div class="box pan"><div class="name">FACE_SCORES_SCHEMA</div>scorer columns nullable by design</div>
+  <div class="box pan"><div class="name">FILTER_DECISIONS_SCHEMA</div>item_type ∈ {image, face, cluster}</div>
+  <div class="box pan"><div class="name">IMAGES_SCHEMA <span class="stereo">NEW Phase 4</span></div></div>
+  <div class="box pan"><div class="name">SCENE_CLUSTERS_SCHEMA <span class="stereo">NEW Phase 4</span></div></div>
+  <div class="box pan"><div class="name">SCENE_CLUSTER_ASSIGNMENTS_SCHEMA <span class="stereo">NEW Phase 4</span></div></div>
+</div>
+
+<div class="col">
+  <h3>Step-config contracts (Pydantic)</h3>
+  <div class="box pyd"><div class="name">FilterQualityConfig · FilterFacesConfig</div></div>
+  <div class="box pyd"><div class="name">ClusterPeopleConfig <span class="stereo">~40 fields</span></div></div>
+  <div class="box pyd"><div class="name">ExtractFaceEmbeddingsConfig</div></div>
+  <div class="box pyd"><div class="name">InsightFaceDetectFacesConfig · InsightFaceScoreBlurConfig <span class="stereo">NEW Ph.4</span></div></div>
+  <div class="box pyd"><div class="name">+ Pydantic config per every face-clustering step <span class="stereo">Ph.2</span></div></div>
+  <div class="down">↑ registered in</div>
+  <div class="box dc"><div class="name">STEP_CONFIG_MODELS dict</div>looked up by BaseStep.process()</div>
+</div>
+
+</div>
+
+<hr class="sep">
+
+<h2>3 · The five contract boundaries (target state)</h2>
+
+<table class="matrix">
+<thead><tr><th>Boundary</th><th>Contract</th><th>Validator</th><th>Fails how</th></tr></thead>
+<tbody>
+<tr><td>UI widget → step config dict</td><td>Pydantic per-step model</td><td><code>validate_step_config(step_name, dict)</code> at BaseStep.process</td><td>ValidationError on typo / range</td></tr>
+<tr><td>Step body → context object</td><td>Pydantic FaceRecord / ImageRecord / SceneClusterRecord</td><td>Pydantic at construction; extra=forbid; field validators</td><td>ValidationError on unknown kwarg / partial pose</td></tr>
+<tr><td>Pydantic object → DB row</td><td>Pandera DataFrameSchema</td><td>RunExporter calls <code>.validate(DataFrame)</code> before INSERT</td><td>SchemaError on NULL in non-nullable / out-of-range</td></tr>
+<tr><td>DB row → Pydantic return type</td><td>Pydantic ImageDetail / FaceDetail / FaceFilterDecision</td><td>Pydantic at construction (from SQL row dict)</td><td>ValidationError on unexpected column</td></tr>
+<tr><td>Gate config → upstream producer</td><td>Architecture test <code>test_gate_has_producer.py</code></td><td>CI walks <code>GATE_PRODUCERS</code> + step <code>produces_fields</code></td><td>Test fails on PR if gate has no producer step</td></tr>
+</tbody></table>
+
+<p style="font-size:12px; color:#666;">No bridge / adapter / translator class exists anywhere in this chain. The single translation hop is Pydantic → DataFrame → SQL row, with Pandera as the sole validator. Architecture test <code>test_no_bridge.py</code> + <code>test_no_intermediate_face_dicts.py</code> guard the constraint.</p>
+
+<hr class="sep">
+
+<h2>4 · What dies in the migration</h2>
+
+<div class="row">
+<div class="col">
+<h3>Today (pre-spec-040)</h3>
+<div class="box dead"><div class="name">face_cluster_bridge.py</div>faces_to_face_records · build_fc_config · run_face_cluster_knn — adapter between Albumify dicts and face_cluster types. SIGHTING-058/059/061 root.</div>
+<div class="box dead"><div class="name">face_cluster_legacy.pipeline.FaceClusteringPipeline</div>hand-written FC App stage runner</div>
+<div class="box dead"><div class="name">face_cluster_legacy.config.PipelineConfig <span class="stereo">dataclass</span></div>60+ flat fields</div>
+<div class="box dead"><div class="name">context.insightface_faces: dict[str, dict]</div>nested dict-of-dicts</div>
+<div class="box dead"><div class="name">context.face_embeddings: dict[str, list]</div>separate embedding dict</div>
+<div class="box dead"><div class="name">faces.{iqa_score, ava_score, sharpness_score, scene_cluster_id}</div>denormalized image fields on every face row</div>
+<div class="box dead"><div class="name">faces.area / bbox_x / bbox_y / bbox_w / bbox_h <span class="stereo">unit-mixed</span></div>fraction² on Albumify, px² on FC App (SIGHTING-060/064)</div>
+</div>
+
+<div class="col">
+<h3>After spec-040 Phase 7</h3>
+<div class="box pyd"><div class="name">FaceRecord (Pydantic)</div>One canonical face shape. Every step mutates the same object.</div>
+<div class="box pyd"><div class="name">ImageRecord (Pydantic)</div>One canonical image shape. Lives in <code>images</code> table.</div>
+<div class="box pyd"><div class="name">SceneClusterRecord (Pydantic)</div>One canonical scene-cluster shape. Lives in <code>scene_clusters</code> + <code>scene_cluster_assignments</code>.</div>
+<div class="box pyd"><div class="name">Per-step Pydantic configs (~15)</div>STEP_CONFIG_MODELS registry; UI builds the typed instance.</div>
+<div class="box pan"><div class="name">Pandera schemas (6+)</div>FACES / FACE_SCORES / FILTER_DECISIONS / IMAGES / SCENE_CLUSTERS / SCENE_CLUSTER_ASSIGNMENTS</div>
+<div class="box store"><div class="name">RunExporter (single writer)</div>spec-030 contract preserved</div>
+<div class="box store"><div class="name">RunStore (single reader)</div>image_detail() returns Pydantic ImageDetail</div>
+<div class="box step"><div class="name">face_cluster.fc_app_runner (≤200 LOC)</div>FC App's thin wrapper over the unified framework</div>
+</div>
+</div>
+
+<hr class="sep">
+
+<h2>5 · Strangler-fig migration timeline</h2>
+
+<div class="timeline">
+  <div class="phase done"><span class="ph-num">0</span><b>Phase 0</b>E2E test on main<br><span style="color:#236623;">done 2026-05-16</span></div>
+  <div class="phase"><span class="ph-num">1</span><b>Phase 1</b>rename to _legacy<br>(Day 1)</div>
+  <div class="phase"><span class="ph-num">2</span><b>Phase 2</b>Pydantic configs<br>(Day 2–6)</div>
+  <div class="phase crit"><span class="ph-num">3</span><b>Phase 3</b>bridge → steps<br>Pydantic direct<br>(Day 7–11)</div>
+  <div class="phase crit"><span class="ph-num">4</span><b>Phase 4</b>schema v5<br>images + scenes<br>+ blur step<br>(Day 12–15)</div>
+  <div class="phase"><span class="ph-num">5</span><b>Phase 5</b>build new FC App<br>(Day 15–21)</div>
+  <div class="phase crit"><span class="ph-num">6</span><b>Phase 6</b>equivalence test<br>≥95% legacy↔v2<br>(Day 22–23)</div>
+  <div class="phase"><span class="ph-num">7</span><b>Phase 7+8</b>sunset legacy<br>delete bridge<br>docs collapse<br>(after 2-week burn-in)</div>
+</div>
+
+<p style="font-size:12px; color:#666; margin-top: .5em;"><b>Strangler-fig contract</b>: at every phase, both legacy FC App and new FC App (once it exists in Phase 5) must run end-to-end on the same fixture. Phase 6's equivalence test is the merge gate.</p>
+
+<hr class="sep">
+
+<h2>6 · See also</h2>
+<ul style="font-size:13px;">
+<li><code>specs/040-unified-pipeline-framework/spec.md</code> — locked architectural constraints (the "no bridges" rule)</li>
+<li><code>specs/040-unified-pipeline-framework/CONCRETE_PLAN.md</code> — file-level migration per phase</li>
+<li><code>specs/040-unified-pipeline-framework/COVERAGE.md</code> — backlog items absorbed</li>
+<li><code>docs/architecture/db_schemas.html</code> — per-column DB reference (current + target)</li>
+<li><code>docs/architecture/classes.html</code> — current-state class inventory</li>
+<li><code>docs/architecture/data_flow.html</code> — current-state data flow (pre-spec-040)</li>
+</ul>
+
+</body>
+</html>
