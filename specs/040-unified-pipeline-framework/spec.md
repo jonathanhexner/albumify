@@ -1,9 +1,15 @@
 # Feature Specification: Unified Pipeline Framework
 
 **Created**: 2026-05-16
-**Status**: Draft
+**Status**: Draft — Phase 0 complete (E2E test on main); branch created
 **Resolves**: the structural root cause behind SIGHTING-058 / -059 / -060 / -061 / -062 / -064 / -065 and the spec-033 follow-up backlog
-**Branch**: `unification/spec-040` (separate branch — main stays stable; FR-033-1 E2E test must land on main first as the regression net)
+**Branch**: `unification/spec-040` (active — created 2026-05-16 off main `740403d`)
+
+**Companion docs in this dir**:
+- `spec.md` (this file) — what & why
+- `tasks.md` — phase-by-phase checklist
+- `CONCRETE_PLAN.md` — file-level migration (target architecture, per-phase file changes, test gates, rollback notes, risk register, open questions)
+- `COVERAGE.md` — cross-reference: which other PRDs / sightings / open items this spec absorbs or makes moot
 
 ## Problem Statement
 

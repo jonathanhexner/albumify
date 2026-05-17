@@ -31,6 +31,44 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-066: Scene side has no structured persistence — no `images`, no `scene_clusters`, no scene-embedding npy
+**Status**: OPEN
+**Severity**: Medium (structural symmetry violation; analyst can't query "show me all images in scene cluster 3")
+**Reported**: 2026-05-17 (during DB doc review)
+**Persona**: SW Architect
+
+**Problem Description**:
+The faces side of the per-run DB is structured (faces, face_scores, embeddings.npy, clusters, cluster_assignments, merge_decisions). The scenes side has nothing equivalent:
+
+| Faces side | Scenes side today |
+|---|---|
+| `faces` (per-face metadata) | — only `scene_cluster_id` denormalized onto `faces` |
+| `face_scores` (pose/eyes/expression/frontal) | — image scores (IQA/AVA/sharpness/composite) denormalized onto `faces` (SIGHTING-065) |
+| `embeddings.npy` + `embedding_face_ids.npy` | scene embeddings only as opaque <code>universal_cache.data_blob</code> rows — cross-run cache but not queryable per-run |
+| `clusters` (size, diameter, origin, parent_ids) | — `cluster_scenes` step writes <code>context.scene_clusters</code> (in-memory dict, dropped at run end) |
+| `cluster_assignments` (per-iteration membership) | — image→scene mapping implicit via the denormalized <code>scene_cluster_id</code> on each face row |
+
+**Symptoms**:
+- "Show me all images in scene cluster 3" requires deduplicating across `faces` rows (one row per face, not per image).
+- Images with zero detected faces (e.g. landscapes) have no row anywhere in the per-run DB.
+- Cluster-level scene info (size, exemplar image, average IQA) can't be answered without re-aggregating.
+- Re-running `cluster_scenes` with a different threshold loses provenance — the old assignment is gone.
+
+**Suspicion**:
+spec-030 prioritized the face side because the FC App is identity-centric. The scene side was treated as "image metadata" and dumped onto faces. Two years of features later, scene-cluster questions are common but the data model didn't follow.
+
+**Recommended Fix** (parallel to spec-040 Phase 4):
+- New `images` table — image_path PK, image_id, n_faces, iqa, ava, sharpness, composite_score, created_at. Already in spec-040 Phase 4 per SIGHTING-065; expand to cover scene-related fields.
+- New `scene_clusters` table — `scene_cluster_id PK, iteration, size, method (hdbscan/kmeans/...), exemplar_image_path, avg_intra_distance, created_at`.
+- New `scene_cluster_assignments` table — `image_path FK images, scene_cluster_id, iteration, distance_to_centroid`.
+- New `scene_embeddings.npy` + `scene_embedding_image_paths.npy` (parallel to faces side bulk storage).
+- Remove `scene_cluster_id` from `faces` (it now lives on `images`); `RunStore.image_detail()` JOINs through `images.scene_cluster_id`.
+
+**Folding into spec-040 Phase 4**:
+The schema v5 work already adds the `images` table. Extending it to also add `scene_clusters`, `scene_cluster_assignments`, and `scene_embeddings.npy` is the same migration commit. Pandera schemas added in lockstep. Closes this sighting + completes structural symmetry between faces and scenes.
+
+---
+
 ### SIGHTING-065: Image-level fields denormalized onto every `faces` row (no `images` table)
 **Status**: OPEN
 **Severity**: Medium (design smell; not a data bug)

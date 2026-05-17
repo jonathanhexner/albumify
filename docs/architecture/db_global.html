@@ -52,10 +52,26 @@
 <div class="callout">
 <b>One file, two access paths.</b> The same SQLite file is opened by two different drivers:
 <ul>
-  <li><b>SQLAlchemy</b> via <code>sim_bench/api/database/session.py</code> — 8 tables managed by ORM models with idempotent column migrations.</li>
-  <li><b>Raw sqlite3</b> via <code>face_cluster/{run_history_db,training_db}.py</code> — 3 tables managed by <code>CREATE TABLE IF NOT EXISTS</code> + idempotent <code>ALTER TABLE</code> migrations.</li>
+  <li><b>SQLAlchemy ORM</b> via <code>sim_bench/api/database/session.py</code> — 8 tables managed by ORM models in <code>sim_bench/api/database/models.py</code> with idempotent column migrations.</li>
+  <li><b>Raw <code>sqlite3</code></b> via <code>face_cluster/{run_history_db,training_db}.py</code> — 3 tables managed by <code>CREATE TABLE IF NOT EXISTS</code> + idempotent <code>ALTER TABLE</code> migrations.</li>
 </ul>
-The two access paths do not share Base / metadata. They coexist because the face_cluster modules predate the API layer; merging them is a low-priority refactor.
+The two access paths do not share Base / metadata. They coexist because the face_cluster modules predate the API layer; merging them is a low-priority refactor (post-spec-040 follow-up).
+</div>
+
+<div class="callout" style="background:#f0f7ff; border-left-color:#1f5fc7;">
+<b>Implementation layer per table — at a glance:</b>
+<table style="margin: .3em 0;">
+  <tr><th>Tables</th><th>Driver</th><th>Validation layer</th><th>Migration mechanism</th></tr>
+  <tr><td>albums, pipeline_runs, pipeline_results, people, config_profiles, universal_cache, user_events, face_overrides</td>
+      <td>SQLAlchemy ORM</td>
+      <td>ORM column types + service-layer guards</td>
+      <td><code>_migrate_new_columns</code> in <code>session.py</code> (idempotent ALTER on init)</td></tr>
+  <tr><td>action_log, merge_training_data, trained_models</td>
+      <td>Raw <code>sqlite3</code></td>
+      <td>Module-level functions; no ORM. (No Pandera today either — could add as part of post-spec-040 cleanup.)</td>
+      <td>Module-init <code>CREATE TABLE IF NOT EXISTS</code> + idempotent <code>ALTER TABLE</code> for new columns</td></tr>
+</table>
+For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html</a>) is <b>raw sqlite3 with Pydantic + Pandera</b> — no ORM. Different lifetime (transient per run) and different access pattern (bulk writes) justify the different approach.
 </div>
 
 <div class="toc">
@@ -75,6 +91,24 @@ The two access paths do not share Base / metadata. They coexist because the face
 <a href="#merge_training_data">merge_training_data</a>
 <a href="#trained_models">trained_models</a>
 </div>
+
+<h2>Writer classes at a glance</h2>
+<table>
+  <thead><tr><th>Table</th><th>Writer class / module</th><th>When written</th></tr></thead>
+  <tbody>
+    <tr><td><a href="#albums">albums</a></td><td><code>AlbumService</code></td><td>On album ingest / rescan.</td></tr>
+    <tr><td><a href="#pipeline_runs">pipeline_runs</a></td><td><code>PipelineService.start_pipeline / execute_pipeline</code></td><td>Inserted at start; updated as steps complete.</td></tr>
+    <tr><td><a href="#pipeline_results">pipeline_results</a></td><td><code>ResultService</code> (via PipelineService)</td><td>At run completion.</td></tr>
+    <tr><td><a href="#people">people</a></td><td><code>PeopleService</code></td><td>At end of cluster_people / identity_refinement; updated on user actions.</td></tr>
+    <tr><td><a href="#config_profiles">config_profiles</a></td><td><code>ConfigService</code></td><td>System default loaded from yaml at startup; user profiles on save.</td></tr>
+    <tr><td><a href="#universal_cache">universal_cache</a></td><td><code>UniversalCacheHandler.store_to_cache</code></td><td>Inside any cacheable <code>BaseStep</code>.</td></tr>
+    <tr><td><a href="#user_events">user_events</a></td><td><code>EventService</code></td><td>From every tracked user action / undo / AI call.</td></tr>
+    <tr><td><a href="#face_overrides">face_overrides</a></td><td><code>FaceService</code></td><td>On user face actions (assign / untag / not_a_face).</td></tr>
+    <tr><td><a href="#action_log">action_log</a></td><td><code>face_cluster.run_history_db</code> (module functions)</td><td>Begin/end of every face_cluster run. Producer-tag column distinguishes legacy vs v2 (spec-040 Phase 4).</td></tr>
+    <tr><td><a href="#merge_training_data">merge_training_data</a></td><td><code>face_cluster.training_db.upsert_training_samples</code></td><td>From Merge Label Verification tab + ml_trainer harvesting.</td></tr>
+    <tr><td><a href="#trained_models">trained_models</a></td><td><code>face_cluster.training_db.register_model</code> (called by <code>MergeTrainer.train</code>)</td><td>On training completion.</td></tr>
+  </tbody>
+</table>
 
 <div class="legend">
   <span><span class="pill pk">PK</span> primary key</span>
@@ -98,6 +132,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="albums">albums <span class="src">SQLAlchemy · class Album</span></h2>
 <p>One row per ingested album.</p>
+<p class="callout"><b>Writer class</b>: <code>sim_bench.api.services.album_service.AlbumService</code> — creates rows on album ingest; updates on rescan.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr></thead>
   <tbody>
@@ -111,6 +146,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="pipeline_runs">pipeline_runs <span class="src">SQLAlchemy · class PipelineRun</span></h2>
 <p>One row per Albumify pipeline invocation (the API tracks both running and completed jobs here).</p>
+<p class="callout"><b>Writer class</b>: <code>sim_bench.api.services.pipeline_service.PipelineService</code> — <code>start_pipeline()</code> inserts; <code>execute_pipeline()</code> updates <code>status</code> / <code>current_step</code> / <code>progress</code> / <code>completed_at</code> as steps complete.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr></thead>
   <tbody>
@@ -131,6 +167,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="pipeline_results">pipeline_results <span class="src">SQLAlchemy · class PipelineResult</span></h2>
 <p>One row per completed pipeline_runs row. Holds the JSON outputs the API serves to the UI.</p>
+<p class="callout"><b>Writer class</b>: <code>sim_bench.api.services.result_service.ResultService</code> (called from <code>PipelineService</code> on run completion). Reads the populated <code>PipelineContext</code> and serializes the JSON fields.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
@@ -151,6 +188,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="people">people <span class="src">SQLAlchemy · class Person</span></h2>
 <p>Identity registry. One row per detected person (cluster) within an album. Survives across runs.</p>
+<p class="callout"><b>Writer class</b>: <code>sim_bench.api.services.people_service.PeopleService</code> — builds rows from <code>PipelineContext.people_clusters</code> (or <code>refined_people_clusters</code>) at the end of a run; updates <code>name</code> and <code>face_instances</code> on user actions.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr></thead>
   <tbody>
@@ -168,6 +206,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="config_profiles">config_profiles <span class="src">SQLAlchemy · class ConfigProfile</span></h2>
 <p>Named pipeline configurations. Replaces the file-based profile store at <code>~/.sim_bench/profiles/*.json</code> for API-driven flows.</p>
+<p class="callout"><b>Writer class</b>: <code>sim_bench.api.services.config_service.ConfigService</code> — <code>save_profile()</code>, <code>sync_default_from_yaml()</code> (system profile, loaded from <code>configs/pipeline.yaml</code>), and the user-config endpoints.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
@@ -185,6 +224,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="universal_cache">universal_cache <span class="src">SQLAlchemy · class UniversalCache</span></h2>
 <p>Cache for any feature computed from an image (embeddings, scores, etc.). Survives across runs and across pipelines.</p>
+<p class="callout"><b>Writer class</b>: <code>sim_bench.pipeline.cache_handler.UniversalCacheHandler</code> — <code>store_to_cache()</code> from any cacheable pipeline step (anything using the <code>BaseStep</code> template-method path with a <code>_get_cache_config</code>).</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
@@ -203,6 +243,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="user_events">user_events <span class="src">SQLAlchemy · class UserEvent</span></h2>
 <p>Generic event log for user actions, AI requests, undo/redo. One row per event.</p>
+<p class="callout"><b>Writer class</b>: <code>sim_bench.api.services.event_service.EventService</code> — invoked from UI handlers and API endpoints for each tracked user action.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
@@ -219,6 +260,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="face_overrides">face_overrides <span class="src">SQLAlchemy · class FaceOverride</span></h2>
 <p>Persistent user corrections to face classification. Survives across runs.</p>
+<p class="callout"><b>Writer class</b>: <code>sim_bench.api.services.face_service.FaceService</code> — on user actions (assign / untag / mark not-a-face). Read at run time by <code>identity_refinement</code> step.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
@@ -240,6 +282,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="action_log">action_log <span class="src">run_history_db.py</span></h2>
 <p>Run history for face_cluster pipeline invocations (FC App + recluster + remerge). Independent of the API's <code>pipeline_runs</code> table.</p>
+<p class="callout"><b>Writer module / functions</b>: <code>face_cluster.run_history_db</code> — module-level functions (no class wrapper today). <code>begin_action()</code> inserts the row at run start; <code>end_action()</code> updates <code>status</code> / <code>ended_at</code> / <code>duration_s</code> / <code>error</code> / hot-field summary at end. Called from <code>face_cluster_legacy.pipeline.FaceClusteringPipeline</code> (legacy FC App) and <code>face_cluster.fc_app_runner</code> (new FC App, spec-040 Phase 5). After spec-040 schema v5: a new <code>producer</code> column distinguishes the two.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
@@ -264,6 +307,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="merge_training_data">merge_training_data <span class="src">training_db.py</span></h2>
 <p>ML training samples for the merge-decision classifier. Each row is a (cluster_a, cluster_b) pair with extracted features and a user-supplied label.</p>
+<p class="callout"><b>Writer module / functions</b>: <code>face_cluster.training_db.upsert_training_samples()</code> — module-level function (no class wrapper). Invoked from the Merge Label Verification tab (<code>app/face_clustering*/tabs/ml_training_tab.py</code>) and from <code>face_cluster.ml_trainer.harvest_features</code>.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
@@ -284,6 +328,7 @@ The two access paths do not share Base / metadata. They coexist because the face
 
 <h2 id="trained_models">trained_models <span class="src">training_db.py</span></h2>
 <p>Registry of trained merge-classifier models. One row per trained model.</p>
+<p class="callout"><b>Writer module / functions</b>: <code>face_cluster.training_db.register_model()</code> / <code>upsert_model()</code> — module-level functions. Invoked from <code>face_cluster.ml_trainer.MergeTrainer.train()</code> on training completion.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>

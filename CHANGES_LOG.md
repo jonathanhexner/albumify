@@ -2,6 +2,18 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-16 [DOCS] spec-040 branch created; CONCRETE_PLAN.md + COVERAGE.md + db_schemas writer-class column
+**Branch**: `unification/spec-040` (off main `740403d` after merging `spec-030-phase-3-ui-cutover` → main).
+**Files**:
+- NEW `specs/040-unified-pipeline-framework/CONCRETE_PLAN.md` — file-level migration plan. Target architecture diagram. Per-phase: files to add/edit/delete, LOC deltas, tests, rollback, done-when. Critical path table. Risk register. 4 open questions for user input.
+- NEW `specs/040-unified-pipeline-framework/COVERAGE.md` — cross-reference between spec-040 scope and the open backlog. ~10 items absorbed or made moot (FR-033-2..-7, SIGHTING-060/-064/-065, two 2026-03/04 OPEN entries). Item-by-item disposition table.
+- UPDATED `docs/architecture/db_schemas.html` — `faces` table now has explicit "Producer (Albumify)", "Producer (FC App)", and "Writer to DB" columns. Class names bolded, step names italicized. Final callout summarizes the duplication pattern: one writer (RunExporter), two producer chains, spec-040 collapses them.
+- UPDATED `specs/040-unified-pipeline-framework/spec.md` — header points at all three companion docs; status notes Phase 0 complete and the branch is active.
+
+**Change**: User asked for (a) coverage cross-reference, (b) explicit writer-class clarity in DB schemas, (c) concrete unification plan. All three delivered as separate, discoverable docs.
+
+**Reason**: Make the spec-040 work actionable for the engineer who picks it up next. Spec.md said WHAT and WHY; tasks.md said HIGH-LEVEL HOW; CONCRETE_PLAN.md now says EXACT HOW including file paths, test gates, and rollback at each phase.
+
 ### 2026-05-16 [TEST] spec-035 / FR-033-1 — Albumify E2E acceptance test landed (Phase 0 of spec-040)
 **Files**:
 - NEW `tests/face_clustering/test_albumify_e2e.py` — runs the production `default_pipeline` from `configs/pipeline.yaml` on a 5-image fixture (deterministically picked from `test_data/face_clustering_100/`). 4 tests: `test_pipeline_completes_successfully`, `test_people_clusters_non_empty` (SIGHTING-061 regression guard), `test_faces_detected_on_at_least_one_image`, `test_filter_decisions_recorded` (spec-032 wiring guard).
