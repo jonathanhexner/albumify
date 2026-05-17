@@ -49,6 +49,18 @@ from sim_bench.pipeline.steps.cluster_people import ClusterPeopleStep
 from sim_bench.pipeline.steps.identity_refinement import IdentityRefinementStep
 from sim_bench.pipeline.steps.cluster_by_identity import ClusterByIdentityStep
 
+# spec-040 Phase 3: unified face-clustering steps (operate on context.face_records)
+from sim_bench.pipeline.steps.face_clustering_steps import (  # noqa: F401
+    QualityGateFacesStep,
+    BuildFaceKNNGraphStep,
+    ClusterFaceComponentsStep,
+    SelectFaceExemplarsStep,
+    MergeFaceClustersStep,
+    AttachHoldoutFacesStep,
+    ApplyDiameterCapStep,
+    AssignPeopleClustersStep,
+)
+
 # Face Clustering Experimentation Pipeline
 from sim_bench.pipeline.steps.filter_quality_gate import FilterQualityGateStep
 from sim_bench.pipeline.steps.build_knn_graph import BuildKNNGraphStep

@@ -42,6 +42,14 @@ class PipelineContext:
     ava_scores: dict[str, float] = field(default_factory=dict)
     sharpness_scores: dict[str, float] = field(default_factory=dict)
 
+    # spec-040 Phase 3: canonical Pydantic representation for face state.
+    # Producer steps (insightface_detect_faces, align_faces, score_*,
+    # extract_face_embeddings, filter_faces) write/mutate this list
+    # directly. Replaces context.insightface_faces / face_embeddings dicts.
+    # During the strangler-fig window the dict-shaped fields below are
+    # dual-written; Phase 7 removes them.
+    face_records: list = field(default_factory=list)
+
     # Face-specific (keyed by image path string)
     # NOTE (spec-040): this dict-of-dicts representation is being retired.
     # See specs/040-unified-pipeline-framework/spec.md "Locked architectural

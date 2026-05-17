@@ -51,7 +51,8 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 
 | Field | Type | Unit | Producer | Consumer(s) | Persisted | Lifecycle | Notes |
 |---|---|---|---|---|---|---|---|
-| `faces` | `dict[str, list]` | n/a | `detect_faces` (MediaPipe) | `score_face_*`, `cluster_by_identity` | indirectly via `insightface_faces` on the active pipeline | full run | LEGACY — InsightFace pipeline uses `insightface_faces` |
+| `face_records` | `list[FaceRecord]` | n/a (typed object) | spec-040 producer steps (insightface_detect_faces, align_faces, score_*, extract_face_embeddings, filter_faces) | spec-040 clustering chain (quality_gate_faces → assign_people_clusters); RunExporter at write time | yes (`faces` + `face_scores` tables) | full run from detect → end | spec-040 Phase 3 canonical face state; replaces the dict-based `faces` / `insightface_faces` / `face_embeddings` fields below as those are phased out |
+| `faces` | `dict[str, list]` | n/a | `detect_faces` (MediaPipe) | `score_face_*`, `cluster_by_identity` | indirectly via `insightface_faces` on the active pipeline | full run | LEGACY — InsightFace pipeline uses `insightface_faces`; spec-040 Phase 7 deletes |
 | `face_pose_scores` | `dict[str, list[float]]` | float[0,1] | `score_face_pose` | `select_best` | ephemeral (legacy) | scoring → end | legacy path only |
 | `face_eyes_scores` | `dict[str, list[float]]` | float[0,1] | `score_face_eyes` | `select_best` | ephemeral (legacy) | scoring → end | legacy path only |
 | `face_smile_scores` | `dict[str, list[float]]` | float[0,1] | `score_face_smile` | `select_best` | ephemeral (legacy) | scoring → end | legacy path only |
