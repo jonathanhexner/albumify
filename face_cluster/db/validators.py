@@ -56,6 +56,14 @@ FACES_SCHEMA = DataFrameSchema(
         "ava_score":    Column(float, nullable=True),
         "sharpness_score": Column(float, nullable=True),
         "scene_cluster_id": Column(_NULLABLE_INT, nullable=True),
+        # spec-040 Phase 4 (schema v5): canonical unit-normalized geometry.
+        # SIGHTING-064 fix; ∈ [0,1]. Nullable on writes from legacy code paths
+        # that don't yet compute them; required on the unified path.
+        "area_ratio":     Column(float, nullable=True, checks=pa.Check.in_range(0.0, 1.0, include_min=True, include_max=True)),
+        "bbox_x_ratio":   Column(float, nullable=True, checks=pa.Check.in_range(0.0, 1.0, include_min=True, include_max=True)),
+        "bbox_y_ratio":   Column(float, nullable=True, checks=pa.Check.in_range(0.0, 1.0, include_min=True, include_max=True)),
+        "bbox_w_ratio":   Column(float, nullable=True, checks=pa.Check.in_range(0.0, 1.0, include_min=True, include_max=True)),
+        "bbox_h_ratio":   Column(float, nullable=True, checks=pa.Check.in_range(0.0, 1.0, include_min=True, include_max=True)),
     },
     strict=False,  # tolerate extra columns; existing readers add more
     coerce=True,
@@ -75,6 +83,62 @@ FACE_SCORES_SCHEMA = DataFrameSchema(
         "expression_score": Column(float, nullable=True, checks=pa.Check.in_range(0.0, 1.0, include_min=True, include_max=True)),
         "frontal_score":    Column(float, nullable=True, checks=pa.Check.in_range(0.0, 1.0, include_min=True, include_max=True)),
         "is_clusterable":   Column(_NULLABLE_INT, nullable=True, checks=pa.Check.isin([0, 1])),
+    },
+    strict=False,
+    coerce=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# images — spec-040 Phase 4 (schema v5) · SIGHTING-065 fix
+# ---------------------------------------------------------------------------
+IMAGES_SCHEMA = DataFrameSchema(
+    {
+        "image_path":       Column(str, nullable=False, unique=True),
+        "image_id":         Column(str, nullable=True),
+        "width_px":         Column(_NULLABLE_INT, nullable=True),
+        "height_px":        Column(_NULLABLE_INT, nullable=True),
+        "n_faces":          Column(int, nullable=False, checks=pa.Check.ge(0)),
+        "iqa_score":        Column(float, nullable=True),
+        "ava_score":        Column(float, nullable=True),
+        "sharpness_score":  Column(float, nullable=True),
+        "composite_score":  Column(float, nullable=True),
+        "scene_cluster_id": Column(_NULLABLE_INT, nullable=True),
+        "filter_passed":    Column(int, nullable=False, checks=pa.Check.isin([0, 1])),
+        "created_at":       Column(str, nullable=False),
+    },
+    strict=False,
+    coerce=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# scene_clusters — spec-040 Phase 4 · SIGHTING-066 fix
+# ---------------------------------------------------------------------------
+SCENE_CLUSTERS_SCHEMA = DataFrameSchema(
+    {
+        "scene_cluster_id":    Column(int, nullable=False),
+        "iteration":           Column(int, nullable=False, checks=pa.Check.ge(0)),
+        "size":                Column(int, nullable=False, checks=pa.Check.ge(0)),
+        "method":              Column(str, nullable=False),
+        "exemplar_image_path": Column(str, nullable=True),
+        "avg_intra_distance":  Column(float, nullable=True),
+        "created_at":          Column(str, nullable=False),
+    },
+    strict=False,
+    coerce=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# scene_cluster_assignments — spec-040 Phase 4
+# ---------------------------------------------------------------------------
+SCENE_CLUSTER_ASSIGNMENTS_SCHEMA = DataFrameSchema(
+    {
+        "image_path":           Column(str, nullable=False),
+        "scene_cluster_id":     Column(int, nullable=False),
+        "iteration":            Column(int, nullable=False, checks=pa.Check.ge(0)),
+        "distance_to_centroid": Column(float, nullable=True),
     },
     strict=False,
     coerce=True,

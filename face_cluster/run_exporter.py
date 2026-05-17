@@ -252,6 +252,14 @@ class RunExporter:
                 _maybe_float(img_score.get("ava")),
                 _maybe_float(img_score.get("sharpness")),
                 img_score.get("scene_cluster_id"),
+                # spec-040 Phase 4 (schema v5): canonical unit-normalized geometry.
+                # SIGHTING-064 fix. NULL on legacy code paths that don't compute
+                # them; populated by the new unified producer steps once they land.
+                _maybe_float(getattr(face, "area_ratio", None)),
+                _maybe_float(getattr(face, "bbox_x_ratio", None)),
+                _maybe_float(getattr(face, "bbox_y_ratio", None)),
+                _maybe_float(getattr(face, "bbox_w_ratio", None)),
+                _maybe_float(getattr(face, "bbox_h_ratio", None)),
             ))
 
             pose_score = None
@@ -271,6 +279,8 @@ class RunExporter:
             "det_score", "blur_score", "area", "yaw", "pitch", "roll",
             "is_core", "rejection_reason",
             "iqa_score", "ava_score", "sharpness_score", "scene_cluster_id",
+            # spec-040 Phase 4 (v5) — canonical ratios
+            "area_ratio", "bbox_x_ratio", "bbox_y_ratio", "bbox_w_ratio", "bbox_h_ratio",
         ]
         FACES_SCHEMA.validate(pd.DataFrame(face_rows, columns=_faces_columns))
 
@@ -281,7 +291,7 @@ class RunExporter:
         FACE_SCORES_SCHEMA.validate(pd.DataFrame(score_rows, columns=_scores_columns))
 
         conn.executemany(
-            "INSERT INTO faces VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO faces VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             face_rows,
         )
         conn.executemany(

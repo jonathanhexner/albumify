@@ -11,7 +11,7 @@ NOT need a bump per the spec-033 locked decision.
 from __future__ import annotations
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 # Allow-list of files produced by RunExporter.export().  Tests assert
@@ -56,7 +56,16 @@ CREATE TABLE IF NOT EXISTS faces (
     iqa_score        REAL,
     ava_score        REAL,
     sharpness_score  REAL,
-    scene_cluster_id INTEGER
+    scene_cluster_id INTEGER,
+    -- spec-040 Phase 4 (schema v5): canonical unit-normalized geometry.
+    -- SIGHTING-064 fix. All *_ratio columns are ∈ [0,1]; the raw bbox_*
+    -- and area columns above are deprecated and removed in a follow-up
+    -- after one release.
+    area_ratio       REAL,
+    bbox_x_ratio     REAL,
+    bbox_y_ratio     REAL,
+    bbox_w_ratio     REAL,
+    bbox_h_ratio     REAL
 );
 """
 
@@ -156,6 +165,53 @@ CREATE TABLE IF NOT EXISTS filter_decisions (
 """
 
 
+# ---------------------------------------------------------------------------
+# spec-040 Phase 4 (schema v5): new tables for image / scene-side persistence.
+# Closes SIGHTING-065 (image fields denormalized onto faces) and SIGHTING-066
+# (scene side has no structured persistence).
+# ---------------------------------------------------------------------------
+
+IMAGES_DDL = """
+CREATE TABLE IF NOT EXISTS images (
+    image_path        TEXT PRIMARY KEY,
+    image_id          TEXT,
+    width_px          INTEGER,
+    height_px         INTEGER,
+    n_faces           INTEGER NOT NULL DEFAULT 0,
+    iqa_score         REAL,
+    ava_score         REAL,
+    sharpness_score   REAL,
+    composite_score   REAL,
+    scene_cluster_id  INTEGER,
+    filter_passed     INTEGER NOT NULL DEFAULT 1,
+    created_at        TEXT NOT NULL
+);
+"""
+
+SCENE_CLUSTERS_DDL = """
+CREATE TABLE IF NOT EXISTS scene_clusters (
+    scene_cluster_id     INTEGER NOT NULL,
+    iteration            INTEGER NOT NULL,
+    size                 INTEGER NOT NULL,
+    method               TEXT NOT NULL,
+    exemplar_image_path  TEXT,
+    avg_intra_distance   REAL,
+    created_at           TEXT NOT NULL,
+    PRIMARY KEY (scene_cluster_id, iteration)
+);
+"""
+
+SCENE_CLUSTER_ASSIGNMENTS_DDL = """
+CREATE TABLE IF NOT EXISTS scene_cluster_assignments (
+    image_path           TEXT NOT NULL REFERENCES images(image_path),
+    scene_cluster_id     INTEGER NOT NULL,
+    iteration            INTEGER NOT NULL,
+    distance_to_centroid REAL,
+    PRIMARY KEY (image_path, iteration)
+);
+"""
+
+
 RUN_METADATA_DDL = """
 CREATE TABLE IF NOT EXISTS run_metadata (
     run_id                  TEXT PRIMARY KEY,
@@ -186,6 +242,8 @@ CREATE INDEX IF NOT EXISTS idx_assign_iter    ON cluster_assignments(iteration);
 CREATE INDEX IF NOT EXISTS idx_assign_cluster ON cluster_assignments(cluster_id, iteration);
 CREATE INDEX IF NOT EXISTS idx_md_iter        ON merge_decisions(iteration);
 CREATE INDEX IF NOT EXISTS idx_md_pair        ON merge_decisions(cluster_a, cluster_b);
+CREATE INDEX IF NOT EXISTS idx_sca_cluster    ON scene_cluster_assignments(scene_cluster_id, iteration);
+CREATE INDEX IF NOT EXISTS idx_images_scene   ON images(scene_cluster_id);
 """
 
 
@@ -196,6 +254,9 @@ SCHEMA_DDL = "\n".join([
     "PRAGMA foreign_keys = ON;",
     FACES_DDL,
     FACE_SCORES_DDL,
+    IMAGES_DDL,                       # spec-040 v5: must precede scene_cluster_assignments (FK ref)
+    SCENE_CLUSTERS_DDL,
+    SCENE_CLUSTER_ASSIGNMENTS_DDL,
     CLUSTERS_DDL,
     CLUSTER_ASSIGNMENTS_DDL,
     MERGE_DECISIONS_DDL,

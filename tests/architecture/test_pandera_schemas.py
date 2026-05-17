@@ -39,6 +39,10 @@ def _good_face_row(face_id: int = 0) -> dict:
         "rejection_reason": None,
         "iqa_score":        0.8, "ava_score": 0.7, "sharpness_score": 0.6,
         "scene_cluster_id": 0,
+        # spec-040 Phase 4 (v5) — canonical ratios
+        "area_ratio":       0.1,
+        "bbox_x_ratio":     0.0, "bbox_y_ratio": 0.0,
+        "bbox_w_ratio":     0.3, "bbox_h_ratio": 0.3,
     }
 
 

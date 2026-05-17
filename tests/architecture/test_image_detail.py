@@ -72,7 +72,7 @@ def _build_synthetic_run(run_dir: Path) -> None:
         # 21 columns matching the schema order — see run_exporter._write_faces_and_scores.
         for fid in (0, 1):
             conn.execute(
-                "INSERT INTO faces VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO faces VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     fid, image_path, "img.jpg", fid,
                     0.0, 0.0, 100.0, 100.0,
@@ -80,6 +80,8 @@ def _build_synthetic_run(run_dir: Path) -> None:
                     0.95, 100.0, 10000.0, 5.0, 2.0, 1.0,
                     1, None,
                     0.8, 0.7, 0.6, 3,
+                    # spec-040 Phase 4 (v5) — ratio columns
+                    0.1, 0.0, 0.0, 0.3, 0.3,
                 ),
             )
             conn.execute(

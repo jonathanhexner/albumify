@@ -213,7 +213,7 @@ def test_metadata_round_trip(written_run):
     assert meta.n_iterations == 1
     assert meta.n_clusters_base == 2
     assert meta.n_clusters_final == 1
-    assert meta.schema_version == 4
+    assert meta.schema_version == 5
 
 
 def test_merge_log_full_fidelity(written_run):
