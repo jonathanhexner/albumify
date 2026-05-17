@@ -2,6 +2,87 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-18 [FEATURE] spec-040 Phases 1–6 — strangler-fig unification (6 of 8 phases shipped)
+**Branch**: `unification/spec-040`
+**Commits**: `e496b30` (Phase 1) · `<phase 2>` · `<phase 3>` · `73eb484` (Phase 4) · `<phases 5+6>`
+
+User-directed plow-through of the spec-040 plan. Phases 0–6 landed in
+one session; Phases 7 (legacy retirement) and 8 (final doc collapse)
+are gated by a 2-week equivalence-test burn-in.
+
+**Phase 1 — face_cluster_legacy/ shim** (Day 1)
+  - NEW `face_cluster_legacy/__init__.py` re-exports FaceClusteringPipeline,
+    PipelineResult, PipelineStageError, PipelineConfig.
+  - Virtual rename (Windows file lock prevented physical app dir move).
+
+**Phase 2 — Pydantic configs for every face-clustering step** (Day 2-6)
+  - 11 new BaseModels under `sim_bench/pipeline/steps/configs/`:
+    align_faces, cluster_scenes, detect_face_orientation, detect_persons,
+    extract_scene_embedding, insightface_score_{expression,eyes,pose},
+    score_ava, score_face_frontal, score_iqa.
+  - STEP_CONFIG_MODELS now covers 16 face-clustering steps.
+  - Closes FR-033-6 (specs/039).
+
+**Phase 3 — Unified clustering chain on context.face_records** (Day 7-11)
+  - 8 new pipeline steps in `sim_bench/pipeline/steps/face_clustering_steps.py`:
+    quality_gate_faces, build_face_knn_graph, cluster_face_components,
+    select_face_exemplars, merge_face_clusters, attach_holdout_faces,
+    apply_diameter_cap, assign_people_clusters.
+  - Each step operates on context.face_records: List[FaceRecord] directly.
+    No translator class. Locked "no bridges" constraint upheld.
+  - context.face_records field added (spec-034 updated).
+  - 3 unit tests verify the chain produces clusters on synthetic data
+    and does NOT write to legacy dict-of-dicts state.
+
+**Phase 4 — Schema v5: images + scene tables + canonical ratios** (Day 12-15)
+  - SCHEMA_VERSION = 5 (bump in face_cluster/db/schema.py).
+  - NEW tables: images, scene_clusters, scene_cluster_assignments
+    (closes SIGHTING-065, SIGHTING-066).
+  - NEW columns on faces: area_ratio, bbox_{x,y,w,h}_ratio (all ∈ [0,1]).
+    Closes SIGHTING-064.
+  - NEW Pandera schemas: IMAGES_SCHEMA, SCENE_CLUSTERS_SCHEMA,
+    SCENE_CLUSTER_ASSIGNMENTS_SCHEMA.
+  - RunExporter._write_faces_and_scores emits 26-column rows (was 21).
+  - Old columns (area, bbox_*) deprecated but kept; deletion in follow-up.
+
+**Phase 5 — FC App runner over the unified framework** (Day 15-21)
+  - NEW `face_cluster/fc_app_runner.py` — FCAppRunner.run(context, step_configs)
+    wraps PipelineExecutor with the 8-step unified clustering chain.
+  - Replaces face_cluster_legacy.pipeline.FaceClusteringPipeline (the
+    hand-written stage runner). ~120 LOC.
+
+**Phase 6 — Equivalence test (merge gate)** (Day 22-23)
+  - NEW `tests/face_clustering/test_legacy_vs_v2_equivalence.py` —
+    runs the same 15-face synthetic input through:
+      (a) legacy face_cluster_bridge.run_face_cluster_knn
+      (b) v2 FCAppRunner with the unified chain
+    Asserts pairwise cluster-assignment agreement ≥ 95%.
+  - Both tests pass. The merge gate to main now exists in CI.
+
+**Phases 7+8 — gated** by 2-week burn-in of the equivalence test on real
+labeled albums. Don't merge until:
+  - test_legacy_vs_v2_equivalence is green daily for 2 weeks; AND
+  - it's run on a real labeled album (not just synthetic), and
+    cluster-assignment agreement is ≥95% there too.
+Then: delete face_cluster_legacy/, face_cluster_bridge.py, the
+legacy app/ dir; collapse `docs/architecture/db_schemas.html` and
+`classes.html` to single-origin columns; update spec-033 to
+"Implemented + superseded by spec-040".
+
+**Test status at HEAD**:
+  - Architecture suite: 40/40 ✅
+  - run_exporter + run_store: 32/32 ✅
+  - Unified clustering chain: 3/3 ✅
+  - Equivalence: 2/2 ✅
+
+**Risks acknowledged** (per chat log before plow-through):
+  - Phase 3 changes (writing Pydantic FaceRecord directly) are the same
+    blast-radius class as SIGHTING-061 in spec-033. Mitigated by Phase 6
+    equivalence test being the regression net.
+  - Schema v5 is additive (no in-place migration needed for legacy v4
+    runs; new runs go to v5).
+
+
 ### 2026-05-16 [DOCS] spec-040 branch created; CONCRETE_PLAN.md + COVERAGE.md + db_schemas writer-class column
 **Branch**: `unification/spec-040` (off main `740403d` after merging `spec-030-phase-3-ui-cutover` → main).
 **Files**:

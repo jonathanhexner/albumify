@@ -1,9 +1,23 @@
 # Feature Specification: Unified Pipeline Framework
 
 **Created**: 2026-05-16
-**Status**: Draft — Phase 0 complete (E2E test on main); branch created
-**Resolves**: the structural root cause behind SIGHTING-058 / -059 / -060 / -061 / -062 / -064 / -065 and the spec-033 follow-up backlog
+**Status**: In Progress — Phases 0 through 6 complete; Phase 7 (legacy retirement) pending 2-week equivalence-test burn-in; Phase 8 (final doc collapse) deferred until Phase 7 lands.
+**Resolves**: the structural root cause behind SIGHTING-058 / -059 / -060 / -061 / -062 / -064 / -065 / -066 and the spec-033 follow-up backlog
 **Branch**: `unification/spec-040` (active — created 2026-05-16 off main `740403d`)
+
+## Status table (2026-05-18)
+
+| Phase | What landed | Status |
+|---|---|---|
+| 0 | `tests/face_clustering/test_albumify_e2e.py` (FR-033-1) on main | ✅ Done (2026-05-16) |
+| 1 | `face_cluster_legacy/` re-export package (virtual rename) | ✅ Done |
+| 2 | 16 Pydantic step configs registered in `STEP_CONFIG_MODELS` | ✅ Done |
+| 3 | 8 unified clustering steps on `context.face_records: List[FaceRecord]` | ✅ Done |
+| 4 | Schema v5: `images`, `scene_clusters`, `scene_cluster_assignments` tables + `area_ratio` / `bbox_*_ratio` columns + Pandera schemas | ✅ Done |
+| 5 | `face_cluster/fc_app_runner.py` — thin runner over the unified framework | ✅ Done |
+| 6 | `tests/face_clustering/test_legacy_vs_v2_equivalence.py` — ≥95% pairwise agreement gate | ✅ Done (passes on synthetic fixture) |
+| 7 | Delete `face_cluster_legacy/`, `face_cluster_bridge.py`, `app/face_clustering_legacy/` | ⏳ Pending 2-week burn-in |
+| 8 | Final doc collapse (drop legacy vs v2 comparison columns from `db_schemas.html` / `classes.html`) | ⏳ After Phase 7 |
 
 **Companion docs in this dir**:
 - `spec.md` (this file) — what & why
