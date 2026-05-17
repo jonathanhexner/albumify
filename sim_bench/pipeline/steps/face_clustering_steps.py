@@ -87,7 +87,7 @@ class QualityGateFacesStep(BaseStep):
             category="clustering",
             requires={"face_records"},
             produces={"core_indices", "holdout_indices"},
-            depends_on=["extract_face_embeddings"],
+            depends_on=[],
             config_schema={"type": "object"},
         )
 
