@@ -58,11 +58,14 @@ def test_out_of_range_value_raises():
 
 
 def test_unknown_step_returns_none():
-    """Steps without a model are not yet typed — pass through silently.
+    """Steps without a model pass through silently (returns None).
 
-    (Full pipeline migration is out of scope per master plan P-G.)
+    Use a step name that we don't expect to ever type (legacy mediapipe
+    `detect_faces`, or any non-face-clustering step). Updated after
+    spec-040 Phase 2 typed the previously-untyped face-clustering steps.
     """
-    assert validate_step_config("score_iqa", {"whatever": 1}) is None
+    assert validate_step_config("detect_faces", {"whatever": 1}) is None
+    assert validate_step_config("non_existent_step", {"x": 1}) is None
 
 
 def test_validated_model_exposes_typed_attrs():
