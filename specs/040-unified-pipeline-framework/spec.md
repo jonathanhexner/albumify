@@ -1,23 +1,46 @@
 # Feature Specification: Unified Pipeline Framework
 
 **Created**: 2026-05-16
-**Status**: In Progress — Phases 0 through 6 complete; Phase 7 (legacy retirement) pending 2-week equivalence-test burn-in; Phase 8 (final doc collapse) deferred until Phase 7 lands.
+**Status**: In Progress — Phases 0, 2, 6 fully done; Phases 1, 3, 4, 5 **partially complete** (scaffolding shipped, load-bearing pieces gapped — see "Open findings" below and `REVIEW.md`). Phase 7 (legacy retirement) gated on closing those gaps + 2-week equivalence-test burn-in; Phase 8 (final doc collapse) deferred until Phase 7 lands.
 **Resolves**: the structural root cause behind SIGHTING-058 / -059 / -060 / -061 / -062 / -064 / -065 / -066 and the spec-033 follow-up backlog
 **Branch**: `unification/spec-040` (active — created 2026-05-16 off main `740403d`)
 
-## Status table (2026-05-18)
+## Status table (2026-05-19)
 
-| Phase | What landed | Status |
-|---|---|---|
-| 0 | `tests/face_clustering/test_albumify_e2e.py` (FR-033-1) on main | ✅ Done (2026-05-16) |
-| 1 | `face_cluster_legacy/` re-export package (virtual rename) | ✅ Done |
-| 2 | 16 Pydantic step configs registered in `STEP_CONFIG_MODELS` | ✅ Done |
-| 3 | 8 unified clustering steps on `context.face_records: List[FaceRecord]` | ✅ Done |
-| 4 | Schema v5: `images`, `scene_clusters`, `scene_cluster_assignments` tables + `area_ratio` / `bbox_*_ratio` columns + Pandera schemas | ✅ Done |
-| 5 | `face_cluster/fc_app_runner.py` — thin runner over the unified framework | ✅ Done |
-| 6 | `tests/face_clustering/test_legacy_vs_v2_equivalence.py` — ≥95% pairwise agreement gate | ✅ Done (passes on synthetic fixture) |
-| 7 | Delete `face_cluster_legacy/`, `face_cluster_bridge.py`, `app/face_clustering_legacy/` | ⏳ Pending 2-week burn-in |
-| 8 | Final doc collapse (drop legacy vs v2 comparison columns from `db_schemas.html` / `classes.html`) | ⏳ After Phase 7 |
+Status flag meaning:
+- ✅ **Done** — phase shipped what `CONCRETE_PLAN.md` said it would; no open REVIEW.md findings against it.
+- ⚠️ **Partial** — phase shipped scaffolding; one or more load-bearing pieces (producer writes, UI surface, deprecation signal, real logic) are gapped. Specific gaps tagged with REVIEW.md finding IDs.
+- ⏳ **Not started** — gated on prior phases.
+
+| Phase | What landed | Status | Gap (what's missing) |
+|---|---|---|---|
+| 0 | `tests/face_clustering/test_albumify_e2e.py` (FR-033-1) on main | ✅ Done | — |
+| 1 | `face_cluster_legacy/` re-export package (virtual rename) | ⚠️ Partial | Bridge import and legacy shim re-exports don't emit `DeprecationWarning`, so old import paths still work silently and callers get no migration signal. (**B1, B2**) |
+| 2 | 16 Pydantic step configs registered in `STEP_CONFIG_MODELS` | ✅ Done | — |
+| 3 | 8 unified clustering steps on `context.face_records`; producer dual-write closed 2026-05-19 | ⚠️ Partial | `apply_diameter_cap` step body is a no-op stub — the spec-031 cap logic in `face_cluster/cluster_diameter_cap.py` is never invoked (**C3**). Chain ordering is also duplicated between step `depends_on` metadata and the `UNIFIED_CLUSTERING_STEPS` literal in `fc_app_runner.py` (**B7**). |
+| 4 | Schema v5 DDL: `images` / `scene_clusters` / `scene_cluster_assignments` tables + `area_ratio` / `bbox_*_ratio` columns + Pandera schemas | ⚠️ Partial | `RunExporter` has no write methods for the three new tables and emits `None` for the new ratio columns, so every fresh v5 run produces empty tables and NULL columns despite the schema being in place. The three new Pandera schemas are defined but never called. (**B3, B6**) |
+| 5 | `face_cluster/fc_app_runner.py` — thin runner over the unified framework | ⚠️ Partial | Phase 5a (runner) shipped; Phase 5b (UI) didn't. The new Streamlit app at `app/face_clustering_v2/` + tabs (Run, Recluster, Clusters, Merge Analysis, ...) and `scripts/migrate_fc_profiles.py` are not built yet, so `FCAppRunner` has zero callers outside the equivalence test. New path locked 2026-05-20 — original `app/face_clustering/` stays put; v2 lives alongside (`CONCRETE_PLAN.md` Phase 5). (**B4**) |
+| 6 | `tests/face_clustering/test_legacy_vs_v2_equivalence.py` — real-fixture equivalence; A2 closed 2026-05-19 | ✅ Done | — |
+| 7 | Delete `face_cluster_legacy/`, `face_cluster_bridge.py`, original `app/face_clustering/` (after v2 supersedes it) | ⏳ Not started | Gated on Phase 5b UI (B4) + 2-week burn-in of the equivalence sweep. |
+| 8 | Final doc collapse (drop legacy-vs-v2 comparison columns from `db_schemas.html` / `classes.html`) | ⏳ Not started | Gated on Phase 7. |
+
+### Open findings (from `REVIEW.md`)
+
+| ID | Severity | Phase | One-liner | Status |
+|---|---|---|---|---|
+| A1 | Critical | 3 | No producer writes to `context.face_records` | ✅ Closed 2026-05-19 (commit `966f641`) |
+| A2 | Critical | 6 | Equivalence test runs on synthetic data only | ✅ Closed 2026-05-19 (commit `0974c0f`) |
+| B1 | Major | 1 | Bridge file has no DeprecationWarning | 🔓 Open |
+| B2 | Major | 1 | `face_cluster_legacy/` re-exports without warning | 🔓 Open |
+| B3 | Major | 4 | New schema columns / tables are write-but-NULL | 🔓 Open |
+| B4 | Major | 5 | `FCAppRunner` isn't wired into any UI | 🔓 Open |
+| B5 | Major | 3 | `_build_fc_config()` is a residual translator (doc-only) | 🔓 Open (recommend spec-text update only) |
+| B6 | Major | 4 | New Pandera schemas never invoked | 🔓 Open |
+| B7 | Major | 3 | Two sources of truth for chain order | 🔓 Open |
+| C3 | Minor | 3 | `apply_diameter_cap` is a no-op | 🔓 Open |
+| C5 | Minor | 6 | No equivalence test with `merge_enabled=True` | ✅ Closed 2026-05-19 (subsumed by A2 sweep) |
+
+**Flipping spec-040 to `Implemented` requires closing all Major findings (B1–B7) — Critical findings already cleared.** Minor findings (C3 et al.) do not block but are tracked.
 
 **Companion docs in this dir**:
 - `spec.md` (this file) — what & why

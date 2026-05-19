@@ -6,10 +6,10 @@
 
 ---
 
-## Locked decisions (2026-05-17)
+## Locked decisions (2026-05-17, amended 2026-05-20)
 
-1. **Legacy location**: `app/face_clustering_legacy/` + `face_cluster_legacy/` (rename existing).
-2. **New FC App location**: `app/face_clustering/` (the original path — legacy moves out first).
+1. **Legacy location** (~~amended 2026-05-20~~): `face_cluster_legacy/` Python package shipped as a re-export shim (Phase 1, commit `e496b30`). The Streamlit app directory `app/face_clustering/` was **not** renamed and is **not going to be** — the strangler-fig keeps the original UI in place at the original path, and the new app lives alongside it (see #2). Removal happens in Phase 7.
+2. **New FC App location** (~~amended 2026-05-20~~): `app/face_clustering_v2/` (a fresh sibling path). The original `app/face_clustering/` is **not** disturbed — every existing import, shortcut, and bookmark keeps working until Phase 7. This is the same alongside-not-on-top pattern as `face_cluster_legacy/` on the Python side: two apps coexist, both runnable from the Streamlit menu, equivalence test gates that they produce the same clustering. Originally locked as "new app at `app/face_clustering/` (original path — legacy moves out first)"; revised because the rename never happened in Phase 1 and re-litigating it now would break every caller for no benefit the strangler-fig doesn't already give us.
 3. **Global DB**: both apps share `~/.sim_bench/sim_bench.db`. `action_log` gains a `producer` column (`fc_app_legacy` vs `fc_app_v2`).
 4. **Equivalence bar**: ≥95% cluster-assignment agreement on a labeled fixture, run as a deterministic CI test.
 5. **NO bridge / adapter / translator classes in the final architecture.** Producers write Pydantic objects directly onto context (`List[FaceRecord]`, `List[ImageRecord]`, `List[SceneClusterRecord]`). Consumers read the same Pydantic objects. The only translation is Pydantic → DataFrame → SQL row at write time, validated by Pandera. No `face_cluster_bridge`, no `assemble_face_records` translator step, no `context.insightface_faces` dict-of-dicts. spec.md ↳ "Locked architectural constraints" for the full list.
@@ -173,35 +173,53 @@ After Phase 3: `context.insightface_faces` and `context.face_embeddings` are **d
 
 ---
 
-### Phase 5 — Build NEW FC App at `app/face_clustering/` (Day 15–21)
+### Phase 5 — Build NEW FC App at `app/face_clustering_v2/` (amended 2026-05-20)
 
-The strangler fig. New app lives where the old one used to be (legacy already moved out in Phase 1).
+Status as of 2026-05-20: **Phase 5a (runner) shipped, Phase 5b (UI) open.**
 
-**New files**
+- **5a — Runner** ✅: `face_cluster/fc_app_runner.py` landed in commit `b5ef128`. Clean interface (`FCAppRunner().run(context, step_configs=...)`), ≤200 LOC, exercised by `test_legacy_vs_v2_equivalence.py` across 4 configs + the 50-img slow fixture.
+- **5b — UI** 🔓: not started. REVIEW.md B4. Defined below.
 
-| File | Purpose | LOC |
+The strangler fig: the new app lives **alongside** the original at a fresh path. The original `app/face_clustering/` is untouched — every import, shortcut, and bookmark keeps working. This mirrors the Python-side pattern where `face_cluster/` stayed put and `face_cluster_legacy/` was added as a re-export shim.
+
+(Original 2026-05-17 plan said new app would go at `app/face_clustering/` with the existing app renamed to `_legacy/`. The rename never happened in Phase 1 and we are not going to do it now — see Locked decisions #1, #2.)
+
+**New files (Phase 5b)**
+
+| File | Purpose | LOC budget |
 |---|---|---|
-| `face_cluster/fc_app_runner.py` | Thin wrapper. Builds a `PipelineContext` + step list and runs `PipelineExecutor`. Same code path Albumify uses. | ≤200 |
-| `app/face_clustering/main.py` | Streamlit entry. Tabs mirror legacy: Run, Recluster, Clusters Base, Merge Analysis, etc. | similar to legacy |
-| `app/face_clustering/tabs/run_tab.py` | Builds per-step config dicts (per the Pydantic models from Phase 2). Calls `fc_app_runner.run()`. | smaller than legacy |
-| `app/face_clustering/tabs/recluster_tab.py` | Same |
-| Other tabs as needed | Same | — |
+| `app/face_clustering_v2/__init__.py` | Empty marker. | 0 |
+| `app/face_clustering_v2/main.py` | Streamlit entry. Tabs mirror legacy: Run, Recluster, Clusters, Merge Analysis, Merge ML, Quality, Gallery. | ~similar to legacy |
+| `app/face_clustering_v2/tabs/run_tab.py` | Builds per-step config dicts (per Phase 2 Pydantic models). Calls `FCAppRunner().run()`. Writes results via `RunExporter`. | smaller than legacy `main.py` Run section |
+| `app/face_clustering_v2/tabs/recluster_tab.py` | Re-runs the clustering chain on an existing run dir with new configs. | small |
+| `app/face_clustering_v2/tabs/clusters_tab.py` | Read-only view over `RunStore`. Same `face_cluster.run_store` reader as legacy. | small |
+| `app/face_clustering_v2/tabs/merge_analysis_tab.py` + `merge_ml_tab.py` + `quality_tab.py` + `gallery_tab.py` | Direct ports of the corresponding legacy panels, adapted to read v2's `face_records` / `cluster_result` shape. | port-with-rename |
+| `app/face_clustering_v2/_profile_bar.py` | Profile load/save bar; depends on `scripts/migrate_fc_profiles.py` (also Phase 5b). | port |
+| `scripts/migrate_fc_profiles.py` | Re-shapes legacy `~/.sim_bench/profiles/*.json` (flat-dataclass-shape) → per-step-dict-shape that v2's `step_configs` expects. Idempotent. | small |
 
-**Reuses shared infrastructure**: `face_cluster.{types, quality, knn_graph, clustering, exemplars, merge, run_exporter, run_store, db}` — all of it.
+**Reuses shared infrastructure** (no duplication): `face_cluster.{types, quality, knn_graph, clustering, exemplars, merge, run_exporter, run_store, run_history_db, image_detail, db}` — all of it. The v2 app is a UI shell + config translation layer over `FCAppRunner` + the existing shared algorithms / storage.
 
-**Streamlit menu**: now has BOTH entries: "Face Clustering" (new) and "Face Clustering (legacy)" — separately runnable.
+**Tabs deliberately deferred** (do not port to v2):
+- Anything that depends on the dropped `cluster_diameter_cap` debug surface — fold into clusters_tab if useful.
+- Internal debug panels in legacy that have no production user — drop, don't port.
 
-**Profile compatibility**: new app reads the same `~/.sim_bench/profiles/*.json` via `migrate_fc_profiles.py` (re-shapes flat-dataclass-shape → per-step-dict-shape at load time). Legacy app reads the original shape. Both apps write back in their native shape.
+**Streamlit menu** (`app/streamlit/main.py`): gains a second entry, "Face Clustering (v2)", alongside the existing "Face Clustering" entry. Both runnable independently; both write to the shared global DB with their producer tag.
 
-**Tests**
+**Profile compatibility**: `scripts/migrate_fc_profiles.py` re-shapes profile JSONs at load time. Legacy continues to read the original shape; v2 reads the migrated shape. Neither app overwrites the other's profile files. Both apps write back in their native shape.
 
-- `tests/face_clustering/test_fc_app_v2_e2e.py` — runs the NEW FC App through `fc_app_runner` on the 5-image fixture; same assertions as the Albumify E2E test.
-- spec-035 Albumify E2E still passes.
-- Legacy FC App tests still pass.
+**Tests (Phase 5b)**
 
-**Rollback**: delete `app/face_clustering/` (the new one) and `face_cluster/fc_app_runner.py`. Legacy untouched.
+- `tests/face_clustering/test_fc_app_v2_e2e.py` — drives the new app's `run_tab` on the 9-jpg fixture; asserts a v5 DB is produced, `action_log` row has `producer='fc_app_v2'`, equivalence sweep still green.
+- `tests/face_clustering/test_profile_migration.py` — round-trip a sample legacy profile through `migrate_fc_profiles.py`, run it through v2, get the same cluster output as legacy on a tiny fixture.
+- Legacy FC App tests stay green (the original `app/face_clustering/` is untouched; this is the strangler-fig invariant).
 
-**Done when**: both apps launch from the Streamlit menu; both produce a v5 face_clustering.db; both write to action_log with their producer tag.
+**Rollback**: delete `app/face_clustering_v2/` and `scripts/migrate_fc_profiles.py`. Original FC App and `FCAppRunner` untouched.
+
+**Done when**: both apps launch from the Streamlit menu side-by-side; v2 produces a v5 face_clustering.db that the equivalence test consumes; `action_log` shows rows from both producers; legacy FC App still works identically to today.
+
+**Out of scope (still Phase 5b but lower priority)**:
+- Visual polish of v2 tabs — port behavior first; refine layout in a follow-up.
+- Replacing `app/streamlit/main.py`'s menu with a more sophisticated routing — current radio-button menu suffices for two entries.
 
 ---
 
