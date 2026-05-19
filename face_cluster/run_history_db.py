@@ -66,6 +66,8 @@ _HOT_FIELDS = frozenset({
     # spec-013 fields
     "source_album", "run_name", "parent_run_id", "run_kind", "comment",
     "config_json", "n_core",
+    # spec-040 Phase 4 field — distinguishes which app produced a run.
+    "producer",
 })
 
 _COMMENT_MAX_LEN = 2048
@@ -79,6 +81,10 @@ _ALTER_COLUMNS: list[tuple[str, str]] = [
     ("comment",       "TEXT"),
     ("config_json",   "TEXT"),
     ("n_core",        "INTEGER"),
+    # spec-040 Phase 4 — distinguishes runs by producer app
+    # (albumify | fc_app | fc_app_v2). Idempotent add via the same migration
+    # path as the spec-013 columns; reads from existing rows return NULL.
+    ("producer",      "TEXT"),
 ]
 
 
@@ -146,8 +152,9 @@ def start_action(
                  n_faces, n_clusters, n_noise, log_file,
                  source_album, run_name, parent_run_id, run_kind,
                  config_json, n_core,
+                 producer,
                  payload_json)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 action_type, "running", _now_iso(),
                 hot.get("run_id"), hot.get("source_dir"),
@@ -157,6 +164,7 @@ def start_action(
                 hot.get("source_album"), hot.get("run_name"),
                 hot.get("parent_run_id"), hot.get("run_kind"),
                 hot.get("config_json"), hot.get("n_core"),
+                hot.get("producer"),
                 json.dumps(payload),
             ),
         )
@@ -208,6 +216,7 @@ def complete_action(
                 run_kind=COALESCE(?,run_kind),
                 config_json=COALESCE(?,config_json),
                 n_core=COALESCE(?,n_core),
+                producer=COALESCE(?,producer),
                 payload_json=?
                 WHERE id=?""",
             (
@@ -219,6 +228,7 @@ def complete_action(
                 hot.get("source_album"), hot.get("run_name"),
                 hot.get("parent_run_id"), hot.get("run_kind"),
                 hot.get("config_json"), hot.get("n_core"),
+                hot.get("producer"),
                 json.dumps(payload),
                 action_id,
             ),

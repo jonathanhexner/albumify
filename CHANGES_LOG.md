@@ -2,6 +2,41 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-20 [FEATURE] spec-040 T4 — FC App v2 MVP UI (B4 closed)
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `app/face_clustering_v2/` — minimum-viable Streamlit app on the unified pipeline framework. Layout:
+  - `main.py` — entry, `streamlit run app/face_clustering_v2/main.py`. 2 tabs (Run, Clusters).
+  - `pipeline.py` — extractable `run_v2_pipeline(src_dir, output_dir, step_configs, progress_cb)` → `V2RunResult`. Producer chain (discover → detect → align → embed) + `FCAppRunner` clustering chain + `RunExporter` v5 export + `action_log` row with `producer='fc_app_v2'`.
+  - `tabs/run_tab.py` — UI wrapping `run_v2_pipeline` (source dir / output dir / K / distance_threshold / min_cluster_size / merge_enabled / cluster_diameter_cap_enabled). Progress bar + spinner.
+  - `tabs/clusters_tab.py` — read-only RunStore viewer; cluster cards with face thumbnails.
+- NEW `scripts/migrate_fc_profiles.py` — idempotent reshape of legacy flat profiles into the v2 step_configs shape. Backs up the v1 file alongside. `--dry-run` supported.
+- `face_cluster/run_history_db.py` — added `producer` column to `action_log` via the existing idempotent ALTER pattern (matches the spec-013 column-add convention). Plumbed through `start_action` INSERT + `complete_action` UPDATE.
+- NEW `tests/face_clustering/test_fc_app_v2_e2e.py` — 4 tests: pipeline succeeds end-to-end on a 6-jpg fixture, images table populated, ratio columns non-NULL, action_log row carries producer='fc_app_v2', canonical 5-artifact layout produced.
+- NEW `tests/face_clustering/test_profile_migration.py` — 6 tests: round-trip reshape, idempotence (re-running on already-migrated profile is a no-op), backup file written, dry-run doesn't mutate, invalid JSON skipped gracefully.
+- `specs/040-unified-pipeline-framework/spec.md` — Phase 5 row + B4 in the findings table updated to reflect what shipped vs deferred.
+
+**Change**: `FCAppRunner` now has a runnable UI. The new app coexists at `app/face_clustering_v2/` alongside the original `app/face_clustering/` (no rename, per the locked 2026-05-20 path decision). Both apps remain runnable; their runs are now distinguishable by the new `producer` column on `action_log` (`albumify` / `fc_app` / `fc_app_v2`).
+
+**Browser verification**: Streamlit started on port 8888 (`streamlit run app/face_clustering_v2/main.py --server.headless true --server.port 8888`); Playwright drove the page and confirmed:
+  - H1 renders ("Face Clustering — v2 (spec-040)")
+  - Both tabs visible ("Run", "Clusters")
+  - Run-tab inputs render ("Source image directory", config knobs)
+  - Clusters-tab inputs render ("Run directory")
+  - Full-page screenshot captured (deleted after verification — not committed).
+
+**Reason**: Closes REVIEW.md B4 (the Critical-Major gap that the new app had no UI). Resolves the "Phase 5b never landed" gap from the prior honest-status update.
+
+**Tab-fidelity caveat (deferred, not in this commit)**: CONCRETE_PLAN.md Phase 5b lists 7 tabs (Run, Recluster, Clusters, Merge Analysis, Merge ML, Quality, Gallery). T4 ships **2 of 7** — the minimum surface needed for the strangler-fig story (drive the v2 pipeline + view its output). The other 5 are direct ports of legacy panels and are tracked as follow-up work; they don't block flipping spec-040 to `Implemented` because they're parity work, not contract work.
+
+**Test status**:
+  - FC App v2 e2e (4 tests): 4/4 OK (~94s).
+  - Profile migration (6 tests): 6/6 OK (<1s).
+  - Browser smoke (Playwright): OK — UI renders, tabs switch, inputs visible.
+  - Full T4 regression surface (80 tests across equivalence, schema v5, dual-write, unified steps, Albumify E2E, architecture): 80 passed / 1 deselected in 176s.
+
+---
+
 ### 2026-05-20 [FEATURE] spec-040 T3 — apply_diameter_cap step body (C3)
 **Branch**: `unification/spec-040`
 **Files**:

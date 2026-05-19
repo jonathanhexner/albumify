@@ -19,7 +19,7 @@ Status flag meaning:
 | 2 | 16 Pydantic step configs registered in `STEP_CONFIG_MODELS` | ✅ Done | — |
 | 3 | 8 unified clustering steps on `context.face_records`; producer dual-write closed 2026-05-19 | ⚠️ Partial | `apply_diameter_cap` step body is a no-op stub — the spec-031 cap logic in `face_cluster/cluster_diameter_cap.py` is never invoked (**C3**). Chain ordering is also duplicated between step `depends_on` metadata and the `UNIFIED_CLUSTERING_STEPS` literal in `fc_app_runner.py` (**B7**). |
 | 4 | Schema v5 DDL: `images` / `scene_clusters` / `scene_cluster_assignments` tables + `area_ratio` / `bbox_*_ratio` columns + Pandera schemas | ⚠️ Partial | `RunExporter` has no write methods for the three new tables and emits `None` for the new ratio columns, so every fresh v5 run produces empty tables and NULL columns despite the schema being in place. The three new Pandera schemas are defined but never called. (**B3, B6**) |
-| 5 | `face_cluster/fc_app_runner.py` — thin runner over the unified framework | ⚠️ Partial | Phase 5a (runner) shipped; Phase 5b (UI) didn't. The new Streamlit app at `app/face_clustering_v2/` + tabs (Run, Recluster, Clusters, Merge Analysis, ...) and `scripts/migrate_fc_profiles.py` are not built yet, so `FCAppRunner` has zero callers outside the equivalence test. New path locked 2026-05-20 — original `app/face_clustering/` stays put; v2 lives alongside (`CONCRETE_PLAN.md` Phase 5). (**B4**) |
+| 5 | `face_cluster/fc_app_runner.py` (5a) + minimum-viable v2 UI at `app/face_clustering_v2/` (5b) | ⚠️ Partial | 5a (runner) ✅. 5b shipped 2 of 7 tabs promised in `CONCRETE_PLAN.md`: **Run** (drives the v2 pipeline + writes producer=fc_app_v2 to action_log) and **Clusters** (read-only RunStore viewer). `scripts/migrate_fc_profiles.py` ships with idempotent v1 → v2 reshape. Remaining tabs (Recluster, Merge Analysis, Merge ML, Quality, Gallery) deferred. REVIEW.md B4 now reads "wired into a UI" — closed; tab-fidelity gap is a separate follow-up. |
 | 6 | `tests/face_clustering/test_legacy_vs_v2_equivalence.py` — real-fixture equivalence; A2 closed 2026-05-19 | ✅ Done | — |
 | 7 | Delete `face_cluster_legacy/`, `face_cluster_bridge.py`, original `app/face_clustering/` (after v2 supersedes it) | ⏳ Not started | Gated on Phase 5b UI (B4) + 2-week burn-in of the equivalence sweep. |
 | 8 | Final doc collapse (drop legacy-vs-v2 comparison columns from `db_schemas.html` / `classes.html`) | ⏳ Not started | Gated on Phase 7. |
@@ -33,7 +33,7 @@ Status flag meaning:
 | B1 | Major | 1 | Bridge file has no DeprecationWarning | 🔓 Open |
 | B2 | Major | 1 | `face_cluster_legacy/` re-exports without warning | 🔓 Open |
 | B3 | Major | 4 | New schema columns / tables are write-but-NULL | 🔓 Open |
-| B4 | Major | 5 | `FCAppRunner` isn't wired into any UI | 🔓 Open |
+| B4 | Major | 5 | `FCAppRunner` isn't wired into any UI | ✅ Closed 2026-05-20 (MVP UI at `app/face_clustering_v2/`; remaining tabs deferred) |
 | B5 | Major | 3 | `_build_fc_config()` is a residual translator (doc-only) | 🔓 Open (recommend spec-text update only) |
 | B6 | Major | 4 | New Pandera schemas never invoked | 🔓 Open |
 | B7 | Major | 3 | Two sources of truth for chain order | 🔓 Open |
