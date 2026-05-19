@@ -2,6 +2,30 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-19 [TEST] spec-040 A2 — real-fixture equivalence test (legacy vs v2), multi-config + larger-fixture coverage
+**Branch**: `unification/spec-040`
+**Files**:
+- `tests/face_clustering/test_legacy_vs_v2_equivalence.py` — rewritten. Replaces synthetic hand-crafted `FaceRecord` fixture with real producer-chain runs (`detect_persons → insightface_detect_faces → detect_face_orientation → align_faces → extract_face_embeddings`). Faces matched across paths by `(image_path, face_index)`, not `face_id` (face_id is not portable).
+  - **Small fixture** (`test_data/face_clustering/`, 9 jpgs): one module-scoped producer run; both equivalence tests parametrized over 4 configs — `default`, `merge_on` (`merge_enabled=True`), `tighter_threshold` (`distance_threshold=0.35`), `larger_K` (`K=5`). 8 test invocations, ~88s.
+  - **Larger fixture** (`test_data/face_clustering_100/`, 50 jpgs): opt-in via `pytest -m slow`. Single test on default config; ~130s wall clock. Asserts identity-set match + pairwise agreement ≥0.95 on a much larger pair count.
+- `pyproject.toml` — new `slow` marker; `addopts` updated to `-m 'not e2e and not slow'` so slow tests are excluded from default invocations.
+
+**Change**: The spec-040 Phase 6 merge gate (≥95% pairwise cluster-assignment agreement) is now exercised on real InsightFace output across multiple algorithm configurations and two fixture sizes. Merge-stage equivalence (REVIEW.md C5) is no longer deferred — it's asserted by the `merge_on` parametrization. The larger fixture provides a tighter agreement signal (~1k-10k pairs vs ~36 on the small fixture).
+
+**Reason**: Closes REVIEW.md finding A2 (CRITICAL) — "Equivalence test runs on synthetic data only." Before A1 (producer dual-write), no real-album producer could populate `face_records`, so the merge gate was un-runnable end-to-end. A1 unblocked this; A2 lands the gate. The multi-config sweep + larger fixture were added in the same session as A2 to broaden coverage beyond the single-config "is it green once" check.
+
+**Test status**:
+  - Default invocation: 8/8 equivalence sweep tests OK (88s); 1 slow test deselected.
+  - `pytest -m slow`: 100-image equivalence OK (130s).
+  - Dual-write producers (A1): unchanged, 6/6 OK.
+
+**Out of scope** (deferred):
+  - DeprecationWarnings on bridge / legacy shim (REVIEW.md B1, B2).
+  - Pandera write invocations for the empty `images` / `scene_clusters` tables (REVIEW.md B3, B6).
+  - Ground-truth-aware correctness metrics (purity / completeness / ARI vs labels) — discussed and deferred to a follow-up if equivalence-vs-each-other proves insufficient signal.
+
+---
+
 ### 2026-05-19 [FEATURE] spec-040 A1 — producer dual-write to context.face_records
 **Branch**: `unification/spec-040`
 **Files**:
