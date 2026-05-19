@@ -1,9 +1,22 @@
 """Bridge between main pipeline's FaceForClustering and face_cluster's FaceRecord.
 
-Runs the face_cluster_knn algorithm: quality gating → kNN graph →
-connected components → exemplar selection → optional merge/attach.
+**DEPRECATED — scheduled for deletion in spec-040 Phase 7.**
 
-spec-033 P-C C-1: the bridge now plumbs blur_score, pose, det_score,
+This module is the legacy adapter that converts Albumify's dict-of-dicts
+state (``context.insightface_faces`` + ``context.face_embeddings``) into
+``face_cluster.types.FaceRecord`` and runs the bridge clustering chain.
+It is replaced by the unified 8-step chain in
+``sim_bench/pipeline/steps/face_clustering_steps.py`` plus
+``face_cluster.fc_app_runner.FCAppRunner``, which read ``context.face_records``
+directly (populated by the spec-040 A1 producer dual-write).
+
+Today it is still imported by ``cluster_people`` because Albumify's
+``default_pipeline`` in ``configs/pipeline.yaml`` invokes ``cluster_people``
+with ``method: face_cluster_knn``. Phase 7 deletes this file once the new
+FC App at ``app/face_clustering_v2/`` ships and the equivalence sweep
+holds green for 2 weeks. **Do not add new callers.**
+
+spec-033 P-C C-1: the bridge plumbs blur_score, pose, det_score,
 landmarks, aligned_face from ``context.insightface_faces`` instead of
 dropping them. This unblocks the quality gates that were previously
 force-disabled (``build_fc_config`` no longer hardcodes 999.0 / 0.0).
@@ -11,6 +24,7 @@ force-disabled (``build_fc_config`` no longer hardcodes 999.0 / 0.0).
 
 import copy
 import logging
+import warnings
 from typing import List, Optional
 
 import numpy as np
@@ -27,6 +41,16 @@ from face_cluster.types import FaceRecord
 from sim_bench.pipeline.context import PipelineContext
 
 logger = logging.getLogger(__name__)
+
+warnings.warn(
+    "sim_bench.pipeline.steps.face_cluster_bridge is deprecated and scheduled "
+    "for deletion in spec-040 Phase 7. New callers should use the unified "
+    "8-step clustering chain in sim_bench.pipeline.steps.face_clustering_steps "
+    "or face_cluster.fc_app_runner.FCAppRunner, both of which read "
+    "context.face_records directly.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def _lookup_insightface_face(context: Optional[PipelineContext], image_path: str, face_index: int) -> dict:

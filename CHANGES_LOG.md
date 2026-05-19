@@ -2,6 +2,25 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-20 [CHORE] spec-040 T1 — deprecation signals + chain-order single source of truth + spec-text fix (B1+B2+B5+B7)
+**Branch**: `unification/spec-040`
+**Files**:
+- `sim_bench/pipeline/steps/face_cluster_bridge.py` — added module-level `warnings.warn(DeprecationWarning, ...)` on import + expanded docstring noting Phase 7 deletion and pointing at `FCAppRunner`. (B1)
+- `face_cluster_legacy/__init__.py` — same `DeprecationWarning` on package import, pointing at `face_cluster.fc_app_runner.FCAppRunner`. (B2)
+- `specs/040-unified-pipeline-framework/spec.md` — "Locked architectural constraints" section updated: the "no bridges" rule now explicitly documents `_build_fc_config` in `face_clustering_steps.py` as the one allowed translator-in-disguise (lives inside consumer steps, not a separate class), pending a future spec that replaces `FCConfig`. (B5)
+- NEW `tests/architecture/test_unified_clustering_chain_order.py` — 2 tests assert `UNIFIED_CLUSTERING_STEPS` literal in `fc_app_runner.py` is a valid topological ordering of the `depends_on` graph on the 8 unified steps, and that each non-first step depends on exactly its immediate predecessor in the chain. (B7)
+
+**Change**: Old call sites importing the bridge or `face_cluster_legacy` now emit `DeprecationWarning` at import — surfaced by `pytest -W` and visible in the test run as the migration signal REVIEW.md said was missing. Chain-order drift between the literal and the metadata is now blocked by CI: if anyone edits one without the other, the new architecture test fails with a side-by-side diff.
+
+**Reason**: Closes REVIEW.md findings B1, B2, B5, B7. None of these change runtime behavior — they're signal/contract additions that prevent the next regression from being silent.
+
+**Test status**:
+  - Equivalence sweep (8 tests): 8/8 OK, 89s — unchanged.
+  - Dual-write producers (A1): 6/6 OK.
+  - New chain-order architecture tests: 2/2 OK.
+
+---
+
 ### 2026-05-19 [TEST] spec-040 A2 — real-fixture equivalence test (legacy vs v2), multi-config + larger-fixture coverage
 **Branch**: `unification/spec-040`
 **Files**:
