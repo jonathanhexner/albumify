@@ -2,6 +2,26 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-20 [FEATURE] spec-040 T3 — apply_diameter_cap step body (C3)
+**Branch**: `unification/spec-040`
+**Files**:
+- `sim_bench/pipeline/steps/face_clustering_steps.py` — `ApplyDiameterCapStep.process()` rewritten from a no-op stub to a real invocation of `face_cluster.cluster_diameter_cap.apply_diameter_cap`. Mirrors the legacy pattern in `face_cluster.pipeline._cap_diameters`: operate in graph-local indices, map `core_indices` → `core_faces`, then call the cap algorithm. `_build_fc_config` plumbs the 3 spec-031 config keys (`cluster_diameter_cap_enabled`, `max_full_diameter`, `max_exemplar_diameter`).
+- `tests/face_clustering/test_unified_clustering_steps.py` — 3 new tests: disabled-by-default produces `cap_summary={enabled: False, applied: False}`; enabled with permissive thresholds runs and keeps all clusters; enabled without a merge result signals `"no merge output to inspect"`.
+
+**Change**: The spec-031 diameter cap safety rail (rejects over-merged clusters whose intra-cluster distance exceeds an absolute ceiling) now runs on the v2 chain when `cluster_diameter_cap_enabled=True`. Before T3, the v2 step body was just `cap_summary={"applied": False}` — the cap algorithm in `face_cluster/cluster_diameter_cap.py` was dead code from the unified chain's perspective.
+
+**Reason**: Closes REVIEW.md C3. Legacy FC App (`face_cluster.pipeline.FaceClusteringPipeline`) already runs the cap; v2 (`FCAppRunner`) didn't. T3 brings them to parity so the future v2-vs-legacy-FC-App equivalence test can compare them with the cap enabled on both sides.
+
+**Equivalence-sweep impact**: the existing legacy-bridge-vs-v2 sweep keeps the cap disabled (matching what the Albumify bridge does today — bridge does NOT call the cap). Adding cap_on to that sweep would intentionally diverge them. Cap parity will be exercised by the v2-vs-legacy-FC-App test that lands with T4 / the new FC App UI.
+
+**Test status**:
+  - Unified clustering steps (6 tests): 6/6 OK.
+  - Diameter cap algorithm suite: unchanged, all OK.
+  - Equivalence sweep (8 tests): 8/8 OK — cap-disabled default keeps the sweep stable.
+  - Full T3 verification (79 tests): 79 passed / 1 deselected in 96s.
+
+---
+
 ### 2026-05-20 [FEATURE] spec-040 T2 — schema v5 writes shipped (B3+B6)
 **Branch**: `unification/spec-040`
 **Files**:

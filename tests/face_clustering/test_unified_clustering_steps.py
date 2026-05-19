@@ -127,3 +127,59 @@ def test_empty_face_records_produces_empty_clusters():
     ctx = PipelineContext()
     _run_chain(ctx, {"K": 3, "distance_threshold": 0.6, "min_cluster_size": 2})
     assert ctx.people_clusters == {}
+
+
+# ---------------------------------------------------------------------------
+# spec-040 T3 (REVIEW.md C3): apply_diameter_cap is no longer a no-op.
+# ---------------------------------------------------------------------------
+
+_BASE_CFG = {
+    "K": 3, "distance_threshold": 0.6, "min_cluster_size": 2,
+    "blur_min": 0.0, "yaw_max": 999.0, "pitch_max": 999.0, "roll_max": 999.0,
+    "max_faces_per_image_core": 50,
+}
+
+
+def test_apply_diameter_cap_no_op_when_disabled(two_identity_context):
+    """Default config has cap disabled → cap_summary signals disabled."""
+    _run_chain(two_identity_context, _BASE_CFG)
+    summary = two_identity_context.cap_summary
+    assert summary["enabled"] is False
+    assert summary["applied"] is False
+    assert summary["reason"] == "disabled by config"
+
+
+def test_apply_diameter_cap_runs_and_keeps_tight_clusters(two_identity_context):
+    """Cap on with permissive thresholds: runs, keeps clusters, reports kept count.
+
+    The two-identity fixture has 5 faces of identity A + 4 of identity B, each
+    cluster's intra-distance is ~0.1 (small noise around an orthogonal basis).
+    A permissive threshold (1.0) keeps everything.
+    """
+    cfg = {
+        **_BASE_CFG,
+        "merge_enabled": True,  # need a merged_cluster_result for the cap to run
+        "cluster_diameter_cap_enabled": True,
+        "max_full_diameter": 1.0,
+        "max_exemplar_diameter": 1.0,
+    }
+    _run_chain(two_identity_context, cfg)
+    summary = two_identity_context.cap_summary
+    assert summary["enabled"] is True
+    assert summary["applied"] is True
+    assert summary["n_clusters_inspected"] >= 1
+    assert summary["n_split"] == 0, "permissive threshold should not split any cluster"
+    # cap_decisions is the dict-list form ready for export.
+    assert isinstance(two_identity_context.cap_decisions, list)
+
+
+def test_apply_diameter_cap_signals_no_merge_output():
+    """Cap on but cluster chain hasn't produced a merge result → reason is logged."""
+    from sim_bench.pipeline.steps.face_clustering_steps import ApplyDiameterCapStep
+    ctx = PipelineContext()
+    # Intentionally do NOT run the chain — merged_cluster_result stays None.
+    ApplyDiameterCapStep().process(ctx, {**_BASE_CFG, "cluster_diameter_cap_enabled": True})
+    summary = ctx.cap_summary
+    assert summary["enabled"] is True
+    assert summary["applied"] is False
+    assert summary["reason"] == "no merge output to inspect"

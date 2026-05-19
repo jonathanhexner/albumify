@@ -69,6 +69,10 @@ def _build_fc_config(config: dict) -> FCConfig:
         merge_support_unique=config.get("merge_support_unique", False),
         merge_margin=config.get("merge_margin", 0.05),
         merge_diameter_expansion_factor=config.get("merge_diameter_expansion_factor", 1.5),
+        # spec-031 diameter cap — wired up in spec-040 T3 (REVIEW.md C3).
+        cluster_diameter_cap_enabled=config.get("cluster_diameter_cap_enabled", False),
+        max_full_diameter=float(config.get("max_full_diameter", 1.2)),
+        max_exemplar_diameter=float(config.get("max_exemplar_diameter", 0.8)),
     )
 
 
@@ -271,12 +275,63 @@ class ApplyDiameterCapStep(BaseStep):
         )
 
     def process(self, context: PipelineContext, config: dict) -> None:
-        # The cap logic lives in face_cluster/cluster_diameter_cap.py and
-        # is invoked from the legacy FC App stage runner. Wiring it as a
-        # step is straightforward but optional for Phase 3 — leave as a
-        # no-op until specs/031 is integrated. Mark in cap_summary.
+        """spec-040 T3 — wire the spec-031 diameter cap into the v2 chain.
+
+        Mirrors the legacy invocation in ``face_cluster.pipeline._cap_diameters``:
+        operate in graph-local indices (the same space merge runs in), use
+        ``core_indices`` to map face_records → core_faces, then call
+        ``apply_diameter_cap``. The result is a NEW ClusterResult (cap never
+        edits in place); we replace ``context.merged_cluster_result`` with it
+        so downstream steps see the post-cap clustering.
+
+        Skipped when ``cluster_diameter_cap_enabled=False`` (default) or
+        when there is no merge result to inspect — both paths leave the
+        clustering unchanged but populate ``cap_summary`` so consumers can
+        tell the difference between "off" and "ran but kept everything".
+        """
+        from face_cluster.cluster_diameter_cap import (
+            apply_diameter_cap,
+            decisions_to_dict_list,
+        )
+
+        fc_cfg = _build_fc_config(config)
         context.cap_decisions = []
-        context.cap_summary = {"note": "diameter cap step is a no-op until integrated", "applied": False}
+
+        if not fc_cfg.cluster_diameter_cap_enabled:
+            context.cap_summary = {"enabled": False, "applied": False, "reason": "disabled by config"}
+            return
+        merged_cr = getattr(context, "merged_cluster_result", None)
+        base_cr = getattr(context, "cluster_result", None)
+        if merged_cr is None or base_cr is None:
+            context.cap_summary = {"enabled": True, "applied": False, "reason": "no merge output to inspect"}
+            return
+
+        # Cap operates on the core-face subset in graph-local indices.
+        core_faces = [context.face_records[i] for i in context.core_indices]
+
+        result = apply_diameter_cap(
+            merged_result=merged_cr,
+            base_result=base_cr,
+            faces=core_faces,
+            max_full_diameter=fc_cfg.max_full_diameter,
+            max_exemplar_diameter=fc_cfg.max_exemplar_diameter,
+        )
+
+        context.merged_cluster_result = result.cluster_result
+        context.cap_decisions = decisions_to_dict_list(result.decisions)
+        context.cap_summary = {
+            "enabled": True,
+            "applied": True,
+            "max_full_diameter": fc_cfg.max_full_diameter,
+            "max_exemplar_diameter": fc_cfg.max_exemplar_diameter,
+            "n_clusters_inspected": len(result.decisions),
+            "n_kept": result.n_kept,
+            "n_split": result.n_split,
+        }
+        logger.info(
+            "apply_diameter_cap: kept=%d split=%d -> %d clusters",
+            result.n_kept, result.n_split, result.cluster_result.n_clusters,
+        )
 
 
 # ---------------------------------------------------------------------------
