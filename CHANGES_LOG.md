@@ -2,6 +2,34 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-20 [FEATURE] spec-040 T2 — schema v5 writes shipped (B3+B6)
+**Branch**: `unification/spec-040`
+**Files**:
+- `face_cluster/types.py` — `FaceRecord` gains 7 optional fields: `area_ratio`, `bbox_x_ratio`, `bbox_y_ratio`, `bbox_w_ratio`, `bbox_h_ratio`, `image_width_px`, `image_height_px` (all default `None` for backward compat).
+- `sim_bench/pipeline/steps/insightface_detect_faces.py` — `_build_face_records` now populates the new ratio + dimension fields directly from the detector's bbox dict (already carries normalized `x`/`y`/`w`/`h` in [0,1]). Image dims derived from `px / ratio`.
+- `face_cluster/run_exporter.py` — three new write methods: `_write_images`, `_write_scene_clusters`, `_write_scene_cluster_assignments`. All three invoke their Pandera schema on every call (empty DataFrame included), so the contract is exercised on every export, not just when populated. `export()` gains 3 new optional params: `image_paths`, `scene_clusters`, `scene_cluster_assignments`. Path normalization (`\` → `/`) added inside `_write_images` so callers don't have to be careful.
+- `sim_bench/pipeline/steps/face_cluster_export.py` — passes `image_paths` from `context.image_paths` to `RunExporter.export()`.
+- NEW `tests/face_clustering/test_schema_v5_writes.py` — 4 tests on a real 6-jpg fixture: `area_ratio` populated in (0,1] per face, image dims populated per face, end-to-end exporter run writes one row per image into the new table with ratio columns non-NULL, and Pandera contracts pass on completely empty input.
+- `docs/architecture/db_schemas.html` — collapsed the "FUTURE" section into the live schema docs; pills + writer references updated.
+
+**Change**: `faces.area_ratio` / `bbox_*_ratio` columns are now populated on every Albumify run instead of NULL; the `images` table has one row per discovered image (n_faces=0 included); the scene tables exist but stay empty until a scene-clustering producer ships (separate ticket). All three new Pandera schemas (`IMAGES_SCHEMA`, `SCENE_CLUSTERS_SCHEMA`, `SCENE_CLUSTER_ASSIGNMENTS_SCHEMA`) are now invoked on every export() — they were dead code before T2.
+
+**Reason**: Closes REVIEW.md findings B3 and B6. spec-040 Phase 4 shipped the DDL + Pandera schemas (commit `73eb484`) but skipped the producer side. T2 lands the producer.
+
+**Test status**:
+  - New schema v5 tests: 4/4 OK (~90s).
+  - Equivalence sweep (8 tests): 8/8 OK — unaffected.
+  - Albumify E2E (4 tests): 4/4 OK — `image_paths` plumbing verified end-to-end.
+  - Dual-write (A1, 6 tests): 6/6 OK — FaceRecord field additions are non-breaking.
+  - Run exporter regression suite + architecture tests: all OK.
+  - Full T2 verification: 76 passed / 1 deselected in 171s.
+
+**Out of scope** (deferred):
+  - Scene-side producer (`cluster_scenes` writing `context.scene_clusters`) — REVIEW.md flagged as separate work; tables ship empty for now.
+  - Removing the deprecated unit-mixed `area` / `bbox_x/y/w/h` columns from `faces` — Phase 7 cleanup once consumers cut over to ratios.
+
+---
+
 ### 2026-05-20 [CHORE] spec-040 T1 — deprecation signals + chain-order single source of truth + spec-text fix (B1+B2+B5+B7)
 **Branch**: `unification/spec-040`
 **Files**:

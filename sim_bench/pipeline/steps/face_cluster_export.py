@@ -147,6 +147,9 @@ def export_for_analysis(face_records, base_cluster_result, merged_cluster_result
             filters=getattr(context, "filters", None),
             # spec-033 P-C C-3: per-image scores joined onto each face row.
             image_scores=image_scores,
+            # spec-040 Phase 4 (schema v5) — populate the images table.
+            # Zero-face images get a row with n_faces=0.
+            image_paths=[str(p) for p in getattr(context, "image_paths", []) or []],
         )
     except Exception as e:
         logger.warning(f"v4 dual-write failed (non-fatal during Phase 1): {e}",

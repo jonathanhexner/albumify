@@ -130,8 +130,8 @@ action_log, training data, etc.) see <a href="db_global.html">db_global.html</a>
     <tr><td><a href="#merge_decisions">merge_decisions</a></td><td><code>RunExporter._write_merges</code></td><td>Strict-validated against <code>MergeDecisionRow.field_names()</code> (28 keys exactly).</td></tr>
     <tr><td><a href="#filter_decisions">filter_decisions</a></td><td><code>RunExporter._write_filter_decisions</code></td><td>Reads a <code>FilterContext</code>; pandera against <code>FILTER_DECISIONS_SCHEMA</code>.</td></tr>
     <tr><td><a href="#run_metadata">run_metadata</a></td><td><code>RunExporter._write_run_metadata</code></td><td>Last writer in the export transaction.</td></tr>
-    <tr style="background:#eef2ff;"><td><a href="#images-target">images</a> <span class="pill" style="background:#1d3a8a;color:white;">FUTURE</span></td><td><code>RunExporter._write_images</code> (new in Phase 4)</td><td>One row per image; closes SIGHTING-065.</td></tr>
-    <tr style="background:#eef2ff;"><td><a href="#scene_clusters-target">scene_clusters</a> + <a href="#scene_cluster_assignments-target">scene_cluster_assignments</a> <span class="pill" style="background:#1d3a8a;color:white;">FUTURE</span></td><td><code>RunExporter._write_scene_clusters_and_assignments</code> (new in Phase 4)</td><td>Parallel to faces side; closes SIGHTING-066.</td></tr>
+    <tr style="background:#eef2ff;"><td><a href="#images-target">images</a></td><td><code>RunExporter._write_images</code></td><td>One row per image (n_faces=0 included); closes SIGHTING-065. Writer landed 2026-05-20.</td></tr>
+    <tr style="background:#eef2ff;"><td><a href="#scene_clusters-target">scene_clusters</a> + <a href="#scene_cluster_assignments-target">scene_cluster_assignments</a></td><td><code>RunExporter._write_scene_clusters</code> + <code>_write_scene_cluster_assignments</code></td><td>Writers landed 2026-05-20; populated when a scene-clustering producer ships (follow-up).</td></tr>
     <tr style="background:#eef2ff;"><td><a href="#scene_embeddings-target">scene_embeddings.npy</a> <span class="pill" style="background:#1d3a8a;color:white;">FUTURE</span></td><td><code>RunExporter._write_scene_embeddings_npy</code> (new in Phase 4)</td><td>Bulk numeric, parallel to embeddings.npy.</td></tr>
   </tbody>
 </table>
@@ -375,15 +375,15 @@ When Producer (Albumify) ≠ Producer (FC App), you're looking at the duplicatio
   </tbody>
 </table>
 
-<h2 style="border-color:#1d3a8a;">Target state — tables added in spec-040 Phase 4 (schema v5)</h2>
+<h2 style="border-color:#1d3a8a;">Schema v5 tables — added in spec-040 Phase 4, writers shipped 2026-05-20 (T2)</h2>
 
 <div class="callout" style="background:#eef2ff; border-left-color:#1d3a8a;">
-The four artifacts below <b>do not exist today</b>. They land together in spec-040 Phase 4 and close SIGHTING-065 (images table) + SIGHTING-066 (scene-side structural symmetry). Storage layer: raw <code>sqlite3</code> + Pydantic + Pandera (same convention as the existing tables — no ORM).
+DDL + Pandera schemas landed in spec-040 Phase 4 (commit <code>73eb484</code>); the matching write methods landed in T2 (REVIEW.md B3/B6, 2026-05-20). On every Albumify run the <code>images</code> table now has one row per discovered image (n_faces=0 included), the <code>faces.*_ratio</code> columns are populated by the InsightFace producer, and the scene tables are present but empty (scene-side producer is a follow-up). Storage layer: raw <code>sqlite3</code> + Pydantic + Pandera (same convention as the existing tables — no ORM).
 </div>
 
-<h3 id="images-target">images <span class="src">FUTURE · spec-040 Phase 4 · DDL: face_cluster/db/schema.py::IMAGES_DDL (to be added)</span></h3>
-<p>One row per image in the run. Replaces the 4 image-level columns denormalized onto <code>faces</code> today (SIGHTING-065). Lets images with zero detected faces have a row.</p>
-<p class="callout"><b>Writer class</b>: <code>RunExporter._write_images</code> (new method). Reads <code>PipelineContext.iqa_scores / ava_scores / sharpness_scores / scene_cluster_labels / composite_scores</code> + <code>image_paths</code>.</p>
+<h3 id="images-target">images <span class="src">spec-040 Phase 4 + T2 · DDL: face_cluster/db/schema.py::IMAGES_DDL · Writer: face_cluster/run_exporter.py::RunExporter._write_images</span></h3>
+<p>One row per image in the run. Replaces the 4 image-level columns denormalized onto <code>faces</code> today (SIGHTING-065). Images with zero detected faces still get a row (n_faces=0).</p>
+<p class="callout"><b>Writer</b>: <code>RunExporter._write_images</code>. Reads <code>image_paths</code> param (from <code>PipelineContext.image_paths</code>) for the canonical image set, joined with face counts derived from <code>faces</code> list, joined with <code>image_scores</code> param for iqa / ava / sharpness / scene. Pandera-validates via <code>IMAGES_SCHEMA</code> on every call (empty df included).</p>
 
 <table>
   <thead><tr><th>Column</th><th>Type · Pandera</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
@@ -402,9 +402,9 @@ The four artifacts below <b>do not exist today</b>. They land together in spec-0
   </tbody>
 </table>
 
-<h3 id="scene_clusters-target">scene_clusters <span class="src">FUTURE · spec-040 Phase 4 · DDL: SCENE_CLUSTERS_DDL (to be added)</span></h3>
+<h3 id="scene_clusters-target">scene_clusters <span class="src">spec-040 Phase 4 + T2 · DDL: SCENE_CLUSTERS_DDL · Writer: _write_scene_clusters (empty until scene producer ships)</span></h3>
 <p>One row per (scene_cluster_id, iteration) pair. Parallel to the face <code>clusters</code> table. Lets analysts query "show me all images in scene cluster 3" + cluster-level stats.</p>
-<p class="callout"><b>Writer class</b>: <code>RunExporter._write_scene_clusters_and_assignments</code> (new method). Reads <code>PipelineContext.scene_clusters</code> + <code>scene_embeddings</code>.</p>
+<p class="callout"><b>Writer</b>: <code>RunExporter._write_scene_clusters</code>. Accepts a <code>scene_clusters</code> param (list of dicts); Pandera-validates via <code>SCENE_CLUSTERS_SCHEMA</code> on every call. Empty until a scene-clustering producer step populates <code>PipelineContext.scene_clusters</code> in a follow-up.</p>
 
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
@@ -419,7 +419,7 @@ The four artifacts below <b>do not exist today</b>. They land together in spec-0
   </tbody>
 </table>
 
-<h3 id="scene_cluster_assignments-target">scene_cluster_assignments <span class="src">FUTURE · spec-040 Phase 4 · DDL: SCENE_CLUSTER_ASSIGNMENTS_DDL (to be added)</span></h3>
+<h3 id="scene_cluster_assignments-target">scene_cluster_assignments <span class="src">spec-040 Phase 4 + T2 · DDL: SCENE_CLUSTER_ASSIGNMENTS_DDL · Writer: _write_scene_cluster_assignments (empty until scene producer ships)</span></h3>
 <p>Per-image scene assignment per iteration. Parallel to <code>cluster_assignments</code> on the faces side.</p>
 <p class="callout"><b>Writer class</b>: <code>RunExporter._write_scene_clusters_and_assignments</code> (same method as the parent table).</p>
 

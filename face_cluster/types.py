@@ -101,6 +101,17 @@ class FaceRecord(BaseModel):
     rejection_reason: Optional[str] = None
     det_score: Optional[float] = None
     d10_score: Optional[float] = None
+    # spec-040 Phase 4 (schema v5) canonical unit-normalized geometry — SIGHTING-064.
+    # All ratios in [0, 1]; image_*_px are the raw image dims so ratio = px / image_*_px
+    # is reproducible at read time. All optional for backward compat with legacy
+    # producers that don't populate them.
+    area_ratio: Optional[float] = None
+    bbox_x_ratio: Optional[float] = None
+    bbox_y_ratio: Optional[float] = None
+    bbox_w_ratio: Optional[float] = None
+    bbox_h_ratio: Optional[float] = None
+    image_width_px: Optional[int] = None
+    image_height_px: Optional[int] = None
 
     @field_validator("pose")
     @classmethod

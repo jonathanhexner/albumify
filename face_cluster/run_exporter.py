@@ -38,6 +38,9 @@ from face_cluster.db import (
     EXPECTED_ARTIFACTS,
     FACES_SCHEMA,
     FACE_SCORES_SCHEMA,
+    IMAGES_SCHEMA,
+    SCENE_CLUSTERS_SCHEMA,
+    SCENE_CLUSTER_ASSIGNMENTS_SCHEMA,
     SCHEMA_DDL,
     SCHEMA_VERSION,
 )
@@ -98,6 +101,9 @@ class RunExporter:
         crop_source_dir: Optional[Path] = None,
         filters=None,  # face_cluster.filter_context.FilterContext | None
         image_scores: Optional[Dict[str, Dict[str, float]]] = None,
+        image_paths: Optional[List[str]] = None,
+        scene_clusters: Optional[List[Dict]] = None,
+        scene_cluster_assignments: Optional[List[Dict]] = None,
     ) -> None:
         """Write the full 5-artifact layout into self.output_dir.
 
@@ -150,6 +156,15 @@ class RunExporter:
             )
             self._write_merges(conn, merge_log)
             self._write_filter_decisions(conn, filters)
+            # spec-040 Phase 4 (schema v5) — scene-side + image-level persistence.
+            # Closes REVIEW.md B3 + B6: write the 3 new tables that previously
+            # had DDL + Pandera schemas but no writer. Image rows derived from
+            # the face list (one row per distinct image_path) plus any
+            # image_paths that produced zero faces. Scene tables remain empty
+            # until the scene-clustering producer side ships in a follow-up.
+            self._write_images(conn, faces, image_paths, image_scores)
+            self._write_scene_clusters(conn, scene_clusters)
+            self._write_scene_cluster_assignments(conn, scene_cluster_assignments)
             self._write_run_metadata(
                 conn,
                 faces=faces,
@@ -429,6 +444,172 @@ class RunExporter:
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
+
+    # ------------------------------------------------------------------
+    # spec-040 Phase 4 (schema v5): images + scene-side persistence
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _write_images(
+        conn: sqlite3.Connection,
+        faces: List[FaceRecord],
+        image_paths: Optional[List[str]] = None,
+        image_scores: Optional[Dict[str, Dict[str, float]]] = None,
+    ) -> None:
+        """Persist one row per distinct image to the ``images`` table.
+
+        Rows derived from two sources unioned:
+          * every distinct ``face.image_path`` in ``faces`` (image had >=1 face)
+          * every entry in ``image_paths`` (images discovered upstream, even if
+            they produced zero faces)
+
+        ``image_scores`` (keyed by image_path) joins iqa/ava/sharpness/scene
+        scores onto the corresponding row. Width/height are populated from
+        the first face on that image that carries ``image_width_px``.
+
+        Pandera-validates the resulting DataFrame before INSERT (spec-033 P-H).
+        Empty input writes nothing but still validates an empty DataFrame so
+        the schema contract is exercised on every run.
+        """
+        image_scores = image_scores or {}
+        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+        def _norm(p: str) -> str:
+            """Normalize path separators so face_records (forward slashes) and
+            caller-supplied paths (potentially backslash on Windows) align.
+            """
+            return str(p).replace("\\", "/")
+
+        # Group faces by image_path → carries n_faces + width/height.
+        by_path: Dict[str, Dict[str, object]] = {}
+        for face in faces:
+            p = _norm(face.image_path) if face.image_path else None
+            if not p:
+                continue
+            entry = by_path.setdefault(p, {
+                "n_faces": 0,
+                "width_px": None,
+                "height_px": None,
+            })
+            entry["n_faces"] = int(entry["n_faces"]) + 1
+            if entry["width_px"] is None and face.image_width_px:
+                entry["width_px"] = int(face.image_width_px)
+            if entry["height_px"] is None and face.image_height_px:
+                entry["height_px"] = int(face.image_height_px)
+
+        # Union with upstream image_paths so zero-face images get a row.
+        all_paths = sorted(set(by_path) | {_norm(p) for p in (image_paths or [])})
+
+        rows: List[Tuple] = []
+        for path in all_paths:
+            entry = by_path.get(path, {"n_faces": 0, "width_px": None, "height_px": None})
+            scores = image_scores.get(path, {}) or {}
+            rows.append((
+                path,
+                Path(path).name,
+                entry["width_px"],
+                entry["height_px"],
+                int(entry["n_faces"]),
+                _maybe_float(scores.get("iqa")),
+                _maybe_float(scores.get("ava")),
+                _maybe_float(scores.get("sharpness")),
+                _maybe_float(scores.get("composite")),
+                scores.get("scene_cluster_id"),
+                1,  # filter_passed default — refined when filter wiring lands
+                now,
+            ))
+
+        # Pandera validation (spec-033 P-H). Empty DF still validates the contract.
+        df = pd.DataFrame(rows, columns=[
+            "image_path", "image_id", "width_px", "height_px", "n_faces",
+            "iqa_score", "ava_score", "sharpness_score", "composite_score",
+            "scene_cluster_id", "filter_passed", "created_at",
+        ])
+        IMAGES_SCHEMA.validate(df)
+
+        if rows:
+            conn.executemany(
+                "INSERT INTO images "
+                "(image_path, image_id, width_px, height_px, n_faces, "
+                " iqa_score, ava_score, sharpness_score, composite_score, "
+                " scene_cluster_id, filter_passed, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+
+    @staticmethod
+    def _write_scene_clusters(
+        conn: sqlite3.Connection,
+        scene_clusters: Optional[List[Dict]] = None,
+    ) -> None:
+        """Persist scene clusters to the ``scene_clusters`` table.
+
+        Empty until the scene-clustering producer side writes
+        ``context.scene_clusters: List[SceneClusterRecord]`` (out of scope for
+        spec-040 T2 — tracked as future scene-side parity work). Pandera-
+        validates the empty DataFrame so the contract is exercised even when
+        no rows land.
+
+        Each input dict must carry: ``scene_cluster_id`` (int), ``iteration``
+        (int), ``size`` (int), ``method`` (str). Optional: ``exemplar_image_path``
+        (str), ``avg_intra_distance`` (float).
+        """
+        rows: List[Tuple] = []
+        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        for sc in scene_clusters or []:
+            rows.append((
+                int(sc["scene_cluster_id"]),
+                int(sc.get("iteration", 0)),
+                int(sc["size"]),
+                str(sc.get("method", "")),
+                sc.get("exemplar_image_path"),
+                _maybe_float(sc.get("avg_intra_distance")),
+                sc.get("created_at", now),
+            ))
+        df = pd.DataFrame(rows, columns=[
+            "scene_cluster_id", "iteration", "size", "method",
+            "exemplar_image_path", "avg_intra_distance", "created_at",
+        ])
+        SCENE_CLUSTERS_SCHEMA.validate(df)
+        if rows:
+            conn.executemany(
+                "INSERT INTO scene_clusters "
+                "(scene_cluster_id, iteration, size, method, "
+                " exemplar_image_path, avg_intra_distance, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+
+    @staticmethod
+    def _write_scene_cluster_assignments(
+        conn: sqlite3.Connection,
+        scene_cluster_assignments: Optional[List[Dict]] = None,
+    ) -> None:
+        """Persist (image_path, scene_cluster_id, iteration) tuples.
+
+        Each input dict must carry ``image_path``, ``scene_cluster_id``,
+        ``iteration``. Optional: ``distance_to_centroid``. Pandera-validates
+        before INSERT.
+        """
+        rows: List[Tuple] = []
+        for sca in scene_cluster_assignments or []:
+            rows.append((
+                str(sca["image_path"]),
+                int(sca["scene_cluster_id"]),
+                int(sca.get("iteration", 0)),
+                _maybe_float(sca.get("distance_to_centroid")),
+            ))
+        df = pd.DataFrame(rows, columns=[
+            "image_path", "scene_cluster_id", "iteration", "distance_to_centroid",
+        ])
+        SCENE_CLUSTER_ASSIGNMENTS_SCHEMA.validate(df)
+        if rows:
+            conn.executemany(
+                "INSERT INTO scene_cluster_assignments "
+                "(image_path, scene_cluster_id, iteration, distance_to_centroid) "
+                "VALUES (?, ?, ?, ?)",
+                rows,
+            )
 
     # ------------------------------------------------------------------
     # Run metadata (absorbs merge_metadata.json + export_summary.json fields)

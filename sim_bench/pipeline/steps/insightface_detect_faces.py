@@ -160,6 +160,16 @@ class InsightFaceDetectFacesStep(BaseStep):
                 y = float(bbox.get("y_px", 0))
                 w = float(bbox.get("w_px", 0))
                 h = float(bbox.get("h_px", 0))
+                # spec-040 Phase 4 (schema v5) — bbox dict already carries normalized
+                # ratios (x, y, w, h are 0-1 image-relative); area_ratio = w_ratio * h_ratio.
+                # Image dims derived from pixel/ratio (consistent for w>0 and h>0).
+                x_ratio = float(bbox.get("x", 0.0))
+                y_ratio = float(bbox.get("y", 0.0))
+                w_ratio = float(bbox.get("w", 0.0))
+                h_ratio = float(bbox.get("h", 0.0))
+                area_ratio = w_ratio * h_ratio
+                img_w = int(round(w / w_ratio)) if w_ratio > 0 else None
+                img_h = int(round(h / h_ratio)) if h_ratio > 0 else None
                 landmarks_raw = face.get("landmarks")
                 landmarks = np.asarray(landmarks_raw, dtype=np.float32) if landmarks_raw else None
                 records.append(FaceRecord(
@@ -171,6 +181,13 @@ class InsightFaceDetectFacesStep(BaseStep):
                     image_path=image_path,
                     face_index=int(face.get("face_index", 0)),
                     det_score=float(face.get("confidence", 0.0)),
+                    area_ratio=area_ratio,
+                    bbox_x_ratio=x_ratio,
+                    bbox_y_ratio=y_ratio,
+                    bbox_w_ratio=w_ratio,
+                    bbox_h_ratio=h_ratio,
+                    image_width_px=img_w,
+                    image_height_px=img_h,
                 ))
                 face_id += 1
         return records
