@@ -4,6 +4,9 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
+import numpy as np
+
+from face_cluster.types import FaceRecord
 from sim_bench.pipeline.base import BaseStep, StepMetadata
 from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
@@ -124,6 +127,7 @@ class InsightFaceDetectFacesStep(BaseStep):
     def _store_results(self, context: PipelineContext, results: Dict[str, Dict[str, Any]], config: dict) -> None:
         """Store faces in context."""
         context.insightface_faces = results
+        context.face_records = self._build_face_records(results)
 
         cfg = {"detection_threshold": config.get("detection_threshold", 0.5),
                "min_face_size": config.get("min_face_size", 50)}
@@ -141,3 +145,32 @@ class InsightFaceDetectFacesStep(BaseStep):
 
         total_faces = sum(len(r.get('faces', [])) for r in results.values())
         logger.info(f"Detected {total_faces} faces across {len(results)} images")
+
+    # spec-040 A1: dual-write to context.face_records so the v2 clustering
+    # chain (face_clustering_steps + FCAppRunner) can read the same detector
+    # output without a translator step. Replaces the list rather than
+    # appending so cache re-runs do not duplicate records.
+    def _build_face_records(self, results: Dict[str, Dict[str, Any]]) -> List[FaceRecord]:
+        records: List[FaceRecord] = []
+        face_id = 0
+        for image_path, data in results.items():
+            for face in data.get("faces", []):
+                bbox = face.get("bbox", {})
+                x = float(bbox.get("x_px", 0))
+                y = float(bbox.get("y_px", 0))
+                w = float(bbox.get("w_px", 0))
+                h = float(bbox.get("h_px", 0))
+                landmarks_raw = face.get("landmarks")
+                landmarks = np.asarray(landmarks_raw, dtype=np.float32) if landmarks_raw else None
+                records.append(FaceRecord(
+                    face_id=face_id,
+                    image_id=Path(image_path).name,
+                    bbox=(x, y, x + w, y + h),
+                    landmarks=landmarks,
+                    area=w * h,
+                    image_path=image_path,
+                    face_index=int(face.get("face_index", 0)),
+                    det_score=float(face.get("confidence", 0.0)),
+                ))
+                face_id += 1
+        return records

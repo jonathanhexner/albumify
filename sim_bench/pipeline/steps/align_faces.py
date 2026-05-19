@@ -259,6 +259,14 @@ class AlignFacesStep(BaseStep):
         skip_filtered = config.get("skip_filtered", True)
         cache = get_image_cache()
 
+        # spec-040 A1: index face_records so align can mutate the Pydantic
+        # mirror in lockstep with the legacy aligned_faces dict.
+        record_index = {
+            (r.image_path, r.face_index): r
+            for r in (context.face_records or [])
+            if r.image_path is not None and r.face_index is not None
+        }
+
         aligned_faces = {}
         stats = {
             "total": 0,
@@ -329,6 +337,10 @@ class AlignFacesStep(BaseStep):
                 # Also store in face_info for easy access
                 face_info['aligned_crop'] = aligned
                 image_aligned.append(face_idx)
+
+                record = record_index.get((image_path, face_idx))
+                if record is not None:
+                    record.aligned_face = aligned
 
             # Progress update
             progress = (img_idx + 1) / total_images

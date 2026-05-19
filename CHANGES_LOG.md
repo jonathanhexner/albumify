@@ -2,6 +2,28 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-19 [FEATURE] spec-040 A1 — producer dual-write to context.face_records
+**Branch**: `unification/spec-040`
+**Files**:
+- `sim_bench/pipeline/steps/insightface_detect_faces.py` — `_store_results` now also builds `List[FaceRecord]` (bbox in pixel x1,y1,x2,y2, landmarks, area, image_path, face_index, det_score) and replaces `context.face_records`.
+- `sim_bench/pipeline/steps/align_faces.py` — after computing each aligned crop, finds the matching FaceRecord by `(image_path, face_index)` and sets `record.aligned_face`.
+- `sim_bench/pipeline/steps/extract_face_embeddings.py` — `_store_results` parses cache key `{path}:face_{idx}` and mirrors embeddings + L2-normalized embeddings onto matching FaceRecords.
+- NEW `tests/face_clustering/test_dual_write_producers.py` — 6 tests against real 3-image fixture (`test_data/face_clustering/person_{1,2,3}/`). Verifies face_records non-empty, count matches legacy `insightface_faces`, bbox/landmarks/aligned_face/embedding all populated, embedding_normalized is unit-norm, face_ids unique.
+
+**Change**: Producer steps now dual-write to both legacy dict-of-dicts (`insightface_faces`, `face_embeddings`) and the canonical Pydantic mirror (`context.face_records`). The v2 clustering chain (Phase 3 / FCAppRunner) is now reachable on real albums; before this, `face_records` was always empty in production and only the synthetic equivalence test could exercise the v2 path.
+
+**Reason**: Closes REVIEW.md finding A1 (CRITICAL) — "No producer writes to `context.face_records`". Locked "no bridges" constraint upheld: each producer writes Pydantic in-line from the same detector/aligner/embedder output it already touches; no separate translator step.
+
+**Test status**:
+  - New dual-write tests: 6/6 OK (105s — runs real InsightFace detector + aligner + embedder on 3 JPGs)
+  - Equivalence + unified chain: 5/5 OK (legacy path unchanged)
+  - Architecture suite: 40/40 OK
+
+**Out of scope** (flagged in plan, deferred):
+  - Score-derived FaceRecord fields (IQA / AVA / pose / eyes / expression) — QualityGater computes blur/pose itself from aligned_face, so the v2 chain works without these.
+  - DeprecationWarnings on legacy shim / bridge (REVIEW.md B1, B2).
+  - Real-fixture equivalence test (REVIEW.md A2) — unblocked by A1 but separate ticket.
+
 ### 2026-05-18 [FEATURE] spec-040 Phases 1–6 — strangler-fig unification (6 of 8 phases shipped)
 **Branch**: `unification/spec-040`
 **Commits**: `e496b30` (Phase 1) · `<phase 2>` · `<phase 3>` · `73eb484` (Phase 4) · `<phases 5+6>`

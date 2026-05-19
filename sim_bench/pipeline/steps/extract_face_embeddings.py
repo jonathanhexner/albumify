@@ -235,4 +235,28 @@ class ExtractFaceEmbeddingsStep(BaseStep):
 
         context.face_embeddings = dict(results)
 
+        # spec-040 A1: mirror embeddings onto context.face_records so the v2
+        # clustering chain has the data it needs. Cache key format is
+        # ``{image_path}:face_{face_index}`` — see _generate_cache_key.
+        record_index = {
+            (r.image_path, r.face_index): r
+            for r in (context.face_records or [])
+            if r.image_path is not None and r.face_index is not None
+        }
+        for key, embedding in results.items():
+            path_part, _, idx_part = key.rpartition(":face_")
+            if not idx_part:
+                continue
+            try:
+                face_idx = int(idx_part)
+            except ValueError:
+                continue
+            record = record_index.get((path_part, face_idx))
+            if record is None:
+                continue
+            record.embedding = embedding
+            norm = float(np.linalg.norm(embedding)) if embedding is not None else 0.0
+            if norm > 0:
+                record.embedding_normalized = embedding / norm
+
         logger.info(f"Stored {len(results)} face embeddings")
