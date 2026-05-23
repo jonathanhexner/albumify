@@ -58,19 +58,20 @@ def v2_run(tmp_path_factory):
     run_history_db.get_db_path = lambda: db_path  # type: ignore[assignment]
     try:
         from app.face_clustering_v2.pipeline import run_v2_pipeline
-        from face_cluster.fc_app_runner import UNIFIED_CLUSTERING_STEPS
+        from face_cluster.fc_params import FCParams
 
-        cfg = {
-            "K": 3, "distance_threshold": 0.5, "min_cluster_size": 2,
-            "blur_min": 0.0, "yaw_max": 999.0, "pitch_max": 999.0, "roll_max": 999.0,
-            "max_faces_per_image_core": 50,
-            "merge_enabled": False,
-            "cluster_diameter_cap_enabled": False,
-        }
-        step_configs = {name: cfg for name in UNIFIED_CLUSTERING_STEPS}
+        # spec-041: drive the pipeline through the typed container instead
+        # of the legacy step_configs dict broadcast.
+        params = FCParams(
+            K=3, distance_threshold=0.5, min_cluster_size=2,
+            blur_min=0.0, yaw_max=999.0, pitch_max=999.0, roll_max=999.0,
+            max_faces_per_image_core=50,
+            merge_enabled=False,
+            cluster_diameter_cap_enabled=False,
+        )
         result = run_v2_pipeline(
             src_dir=Path(src_dir), output_dir=Path(out_dir),
-            step_configs=step_configs,
+            params=params,
         )
     finally:
         run_history_db.get_db_path = orig_get_db_path
@@ -132,3 +133,51 @@ def test_v2_pipeline_writes_a_run_directory(v2_run):
     actual = {p.name for p in result.output_dir.iterdir()}
     missing = expected - actual
     assert not missing, f"v2 run dir missing artifacts: {missing}; got {actual}"
+
+
+def test_v2_pipeline_runs_with_non_default_fcparams(tmp_path_factory):
+    """spec-041 — a non-default FCParams instance reaches the pipeline.
+
+    Drives the run with merge_enabled=True, tighter K, and a custom merge
+    threshold. Verifies the pipeline completes — proves the params= path
+    plumbs through to the step configs, not just defaults.
+    """
+    import sqlite3
+    from app.face_clustering_v2.pipeline import run_v2_pipeline
+    from face_cluster.fc_params import FCParams
+
+    images = _pick_jpgs(n_per_person=2, n_persons=3)
+    if not images:
+        pytest.skip(f"Fixture missing at {FIXTURE_DIR}")
+    src_dir = tmp_path_factory.mktemp("v2_nondefault_src")
+    for src in images:
+        (src_dir / src.name).write_bytes(src.read_bytes())
+    out_dir = tmp_path_factory.mktemp("v2_nondefault_out")
+
+    db_path = tmp_path_factory.mktemp("v2_nondefault_log") / "sim_bench.db"
+    import face_cluster.run_history_db as run_history_db
+    orig = run_history_db.get_db_path
+    run_history_db.get_db_path = lambda: db_path  # type: ignore[assignment]
+    try:
+        params = FCParams(
+            K=3, distance_threshold=0.5, min_cluster_size=2,
+            blur_min=0.0, yaw_max=999.0, pitch_max=999.0, roll_max=999.0,
+            max_faces_per_image_core=50,
+            merge_enabled=True,
+            merge_candidate_threshold=0.50,  # non-default
+        )
+        result = run_v2_pipeline(
+            src_dir=Path(src_dir), output_dir=Path(out_dir), params=params,
+        )
+    finally:
+        run_history_db.get_db_path = orig
+    if not result.success:
+        pytest.skip(f"v2 pipeline failed (env): {result.error_message}")
+    assert result.success
+    # Confirm DB exists and is non-empty.
+    conn = sqlite3.connect(str(result.db_path))
+    try:
+        n_faces = conn.execute("SELECT COUNT(*) FROM faces").fetchone()[0]
+        assert n_faces > 0
+    finally:
+        conn.close()

@@ -16,6 +16,7 @@ Producer tag: ``fc_app_v2`` (vs legacy ``fc_app`` and Albumify ``albumify``).
 from __future__ import annotations
 
 import logging
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -23,6 +24,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import sim_bench.pipeline.steps.all_steps  # noqa: F401  -- registers steps
 from face_cluster.fc_app_runner import FCAppRunner, UNIFIED_CLUSTERING_STEPS
+from face_cluster.fc_params import FCParams
 from face_cluster.run_exporter import RunExporter
 from sim_bench.pipeline.config import PipelineConfig
 from sim_bench.pipeline.context import PipelineContext
@@ -67,15 +69,23 @@ def _discover_jpgs(src_dir: Path) -> List[Path]:
     )
 
 
+_DEPRECATION_WARNED = False
+
+
 def run_v2_pipeline(
     src_dir: Path,
     output_dir: Path,
     *,
+    params: Optional[FCParams] = None,
     step_configs: Optional[Dict[str, Dict[str, Any]]] = None,
     producer: str = "fc_app_v2",
     progress_cb: Optional[Callable[[str, float, str], None]] = None,
 ) -> V2RunResult:
     """Run the v2 pipeline end-to-end and write a v5 face_clustering.db.
+
+    Preferred call shape (spec-041):
+
+        result = run_v2_pipeline(src, out, params=FCParams(K=5, ...))
 
     Parameters
     ----------
@@ -85,9 +95,14 @@ def run_v2_pipeline(
     output_dir:
         Destination for the run artifacts (face_clustering.db, crops/, etc.).
         Created if missing.
+    params:
+        ``FCParams`` container holding the full clustering knob set. When
+        provided, ``step_configs`` is derived from ``params.to_step_configs()``.
+        Mutually exclusive with ``step_configs``.
     step_configs:
-        Per-step config dict (same shape passed to ``FCAppRunner.run``).
-        Producer steps use empty dicts when omitted.
+        Legacy per-step config dict. Deprecated in favor of ``params``;
+        emits ``DeprecationWarning`` once per process. Removed in a
+        future spec.
     producer:
         Producer tag written into the v5 ``run_metadata.producer`` column
         and the global ``action_log`` row. Defaults to ``fc_app_v2``.
@@ -95,6 +110,24 @@ def run_v2_pipeline(
         Optional ``(step_name, fraction, message) -> None`` callback for UI
         progress bars. Ignored if None.
     """
+    global _DEPRECATION_WARNED
+    if params is not None and step_configs is not None:
+        raise ValueError(
+            "run_v2_pipeline: pass either 'params' or 'step_configs', not both."
+        )
+    if params is not None:
+        step_configs = params.to_step_configs()
+    elif step_configs is not None:
+        if not _DEPRECATION_WARNED:
+            warnings.warn(
+                "run_v2_pipeline(step_configs=...) is deprecated; pass an "
+                "FCParams instance via params= instead (spec-041).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            _DEPRECATION_WARNED = True
+    # else: both None — defaults take effect inside FCAppRunner.
+
     src_dir = Path(src_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -163,22 +163,41 @@ class InsightFaceDetectFacesStep(BaseStep):
                 # spec-040 Phase 4 (schema v5) — bbox dict already carries normalized
                 # ratios (x, y, w, h are 0-1 image-relative); area_ratio = w_ratio * h_ratio.
                 # Image dims derived from pixel/ratio (consistent for w>0 and h>0).
-                x_ratio = float(bbox.get("x", 0.0))
-                y_ratio = float(bbox.get("y", 0.0))
-                w_ratio = float(bbox.get("w", 0.0))
-                h_ratio = float(bbox.get("h", 0.0))
+                #
+                # spec-041 hotfix: InsightFace returns slightly-negative ratios when
+                # a face's bbox extends past the image edge. Clamp to the visible
+                # portion of the image so Pandera's in_range(0, 1) check passes —
+                # the face is still detected, just its rectangle is reported as
+                # what's actually within frame.
+                x_raw = float(bbox.get("x", 0.0))
+                y_raw = float(bbox.get("y", 0.0))
+                w_raw = float(bbox.get("w", 0.0))
+                h_raw = float(bbox.get("h", 0.0))
+                x_ratio = max(0.0, min(1.0, x_raw))
+                y_ratio = max(0.0, min(1.0, y_raw))
+                # Shrink width/height by however much we clipped x/y so the bbox
+                # stays inside [0, 1].
+                w_ratio = max(0.0, min(1.0 - x_ratio, w_raw + (x_raw - x_ratio)))
+                h_ratio = max(0.0, min(1.0 - y_ratio, h_raw + (y_raw - y_ratio)))
                 area_ratio = w_ratio * h_ratio
                 img_w = int(round(w / w_ratio)) if w_ratio > 0 else None
                 img_h = int(round(h / h_ratio)) if h_ratio > 0 else None
                 landmarks_raw = face.get("landmarks")
                 landmarks = np.asarray(landmarks_raw, dtype=np.float32) if landmarks_raw else None
+                # spec-040 A1 bugfix: the embedding dual-write in
+                # extract_face_embeddings keys records by canonical forward-slash
+                # paths (see _generate_cache_key). Store the same canonical form
+                # here so the lookup succeeds on Windows — otherwise every
+                # FaceRecord.embedding_normalized stays None and kNN crashes
+                # with "inhomogeneous shape".
+                canonical_path = str(image_path).replace("\\", "/")
                 records.append(FaceRecord(
                     face_id=face_id,
                     image_id=Path(image_path).name,
                     bbox=(x, y, x + w, y + h),
                     landmarks=landmarks,
                     area=w * h,
-                    image_path=image_path,
+                    image_path=canonical_path,
                     face_index=int(face.get("face_index", 0)),
                     det_score=float(face.get("confidence", 0.0)),
                     area_ratio=area_ratio,

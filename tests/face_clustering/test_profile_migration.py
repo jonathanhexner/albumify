@@ -1,44 +1,22 @@
-"""spec-040 Phase 5b — test scripts/migrate_fc_profiles.py.
+"""spec-041 — tests for scripts/migrate_fc_profiles.py (FCParams form).
 
-Round-trip a flat legacy profile and a v2-shaped profile through the
-migrator and assert the right outcome:
+Round-trip a flat legacy profile through the migrator and assert:
 
-* Flat legacy profile → reshaped into ``{step_configs: {step: flat}, ...}``,
-  backup file written, `legacy_flat` preserved.
-* v2-shaped profile → left alone (idempotent re-run).
-* Migrated profile loads correctly through the new FC App's expected
-  step_configs flow (every clustering step gets the same flat dict).
+* Flat legacy profile → reshaped into ``FCParams.model_dump_json()`` shape,
+  backup file written, content validates back to FCParams.
+* Re-running on an already-migrated profile is a no-op (backup file present).
+* Dry-run does not touch the filesystem.
+* Invalid JSON / non-dict payloads are skipped, not crashed.
+* spec-040 v2 shape (``{step_configs: {...}}``) round-trips through the
+  ``_extract_flat`` path.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from face_cluster.fc_app_runner import UNIFIED_CLUSTERING_STEPS
-from scripts.migrate_fc_profiles import (
-    is_v2_shape,
-    migrate_one,
-    reshape_v1_to_v2,
-)
-
-
-def test_reshape_v1_to_v2_wraps_every_unified_step():
-    legacy = {"K": 5, "distance_threshold": 0.3, "merge_enabled": True}
-    out = reshape_v1_to_v2(legacy)
-    assert out["version"] == 2
-    assert set(out["step_configs"]) == set(UNIFIED_CLUSTERING_STEPS)
-    for name in UNIFIED_CLUSTERING_STEPS:
-        assert out["step_configs"][name] == legacy, (
-            f"step {name!r} did not receive the full legacy flat dict"
-        )
-    # legacy_flat preserved so a v1 export is reconstructible.
-    assert out["legacy_flat"] == legacy
-
-
-def test_is_v2_shape_recognizes_migrated_profiles():
-    assert is_v2_shape(reshape_v1_to_v2({"K": 5}))
-    assert not is_v2_shape({"K": 5, "distance_threshold": 0.3})
-    assert not is_v2_shape({})  # empty profile is treated as not v2
+from face_cluster.fc_params import FCParams
+from scripts.migrate_fc_profiles import migrate_one
 
 
 def test_migrate_one_writes_backup_and_overwrites(tmp_path: Path):
@@ -54,12 +32,16 @@ def test_migrate_one_writes_backup_and_overwrites(tmp_path: Path):
     assert json.loads(backup.read_text(encoding="utf-8")) == legacy
 
     new = json.loads(p.read_text(encoding="utf-8"))
-    assert is_v2_shape(new)
-    assert new["legacy_flat"] == legacy
+    # The migrated profile is a flat FCParams dump — every known field present.
+    assert new["K"] == 7
+    assert new["distance_threshold"] == 0.4
+    assert new["merge_enabled"] is False
+    # Round-trips through FCParams.
+    FCParams.model_validate(new)
 
 
 def test_migrate_one_is_idempotent(tmp_path: Path):
-    """Re-running the migrator on an already-v2 profile is a no-op."""
+    """Backup file presence is the idempotence signal."""
     p = tmp_path / "myprofile.json"
     legacy = {"K": 7, "distance_threshold": 0.4}
     p.write_text(json.dumps(legacy), encoding="utf-8")
@@ -84,3 +66,35 @@ def test_migrate_one_skips_invalid(tmp_path: Path):
     p = tmp_path / "broken.json"
     p.write_text("{not valid json", encoding="utf-8")
     assert migrate_one(p) == "invalid"
+
+
+def test_migrate_one_skips_non_dict_payload(tmp_path: Path):
+    p = tmp_path / "list.json"
+    p.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
+    assert migrate_one(p) == "invalid"
+
+
+def test_migrate_one_skips_unrecognized_fields(tmp_path: Path):
+    """A profile containing keys foreign to FCParams must be flagged invalid,
+    not silently dropped — extra='forbid' guarantees this."""
+    p = tmp_path / "weird.json"
+    p.write_text(json.dumps({"K": 5, "totally_unknown_knob": 42}), encoding="utf-8")
+    assert migrate_one(p) == "invalid"
+
+
+def test_migrate_one_handles_spec040_v2_shape(tmp_path: Path):
+    """spec-040 v2 shape (step_configs broadcast) → flat FCParams."""
+    p = tmp_path / "spec040.json"
+    flat = {"K": 9, "distance_threshold": 0.3}
+    legacy_v2 = {
+        "version": 2,
+        "step_configs": {"quality_gate_faces": flat, "build_face_knn_graph": flat},
+        "legacy_flat": flat,
+    }
+    p.write_text(json.dumps(legacy_v2), encoding="utf-8")
+    assert migrate_one(p) == "migrated"
+    new = json.loads(p.read_text(encoding="utf-8"))
+    assert new["K"] == 9
+    assert new["distance_threshold"] == 0.3
+    # Backup preserves the original spec-040 shape.
+    assert json.loads(p.with_suffix(".v1.json").read_text(encoding="utf-8")) == legacy_v2

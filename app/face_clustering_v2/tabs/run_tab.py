@@ -1,9 +1,13 @@
-"""spec-040 Phase 5b — Run tab for FC App v2.
+"""spec-041 — Run tab driven by FCParams metadata, no widget literals.
 
-Thin UI wrapper around ``app.face_clustering_v2.pipeline.run_v2_pipeline``.
-Collects source dir, output dir, and a few core config knobs; renders
-progress; reports back the result. Anything more involved (history,
-re-cluster, merge analysis) is deferred to follow-up tabs.
+Every UI-bound knob is declared in ``face_cluster.fc_params.FCParams``
+with a ``json_schema_extra`` block. The widget factory at
+``app/face_clustering_v2/widget_factory.py`` reads those hints and
+renders the right Streamlit control. This tab is just the layout —
+which groups to show in which expanders, in what order.
+
+Adding a new knob: add a Field to FCParams. The widget appears
+automatically in the group it declares.
 """
 from __future__ import annotations
 
@@ -11,7 +15,39 @@ from pathlib import Path
 
 import streamlit as st
 
+from app.face_clustering_v2._profile_bar import render_profile_bar
 from app.face_clustering_v2.pipeline import run_v2_pipeline
+from app.face_clustering_v2.widget_factory import (
+    build_params_from_state,
+    render_group,
+)
+
+
+# Display order of the expanders. Groups not listed here are skipped
+# (the merge / cap groups are gated by the merge_enabled checkbox).
+_GROUP_ORDER = ["cluster", "quality", "exemplars", "optional"]
+_GROUP_TITLES = {
+    "cluster":   "Stage 5 · Cluster",
+    "quality":   "Stage 3 · Quality Gate",
+    "exemplars": "Stage 6 · Exemplars",
+    "optional":  "Optional Stages",
+    "merge":     "Merge Parameters",
+    "cap":       "Diameter Cap (spec-031)",
+}
+_GROUP_EXPANDED = {
+    "cluster":   True,
+    "quality":   True,
+    "exemplars": False,
+    "optional":  True,
+}
+_GROUP_COLUMNS = {
+    "cluster":   3,
+    "quality":   3,
+    "exemplars": 3,
+    "optional":  3,
+    "merge":     2,
+    "cap":       2,
+}
 
 
 def render_run_tab() -> None:
@@ -19,59 +55,56 @@ def render_run_tab() -> None:
     st.caption(
         "Runs the unified spec-040 pipeline (producer chain + FCAppRunner). "
         "Writes a schema v5 face_clustering.db and a row in the global "
-        "action_log with `producer='fc_app_v2'`."
+        "action_log with `producer='fc_app_v2'`. Knobs are declared in "
+        "`face_cluster/fc_params.py` — this tab renders them via the widget factory."
     )
 
-    src = st.text_input(
-        "Source image directory",
-        value=str(st.session_state.get("v2_src_dir", "")),
-        help="Directory of JPG/PNG images. Subdirectories are not scanned.",
-        key="v2_src_input",
-    )
-    out = st.text_input(
-        "Output directory",
-        value=str(st.session_state.get("v2_out_dir", str(Path.home() / ".sim_bench" / "runs" / "v2_latest"))),
-        help="Destination for the v5 run artifacts.",
-        key="v2_out_input",
-    )
+    render_profile_bar()
 
-    st.markdown("**Core clustering config** (other knobs use defaults — see CONCRETE_PLAN Phase 5b).")
-    c1, c2, c3 = st.columns(3)
+    # --- I/O paths -------------------------------------------------------
+    c1, c2 = st.columns(2)
     with c1:
-        k = st.number_input("K (kNN neighbors)", min_value=1, max_value=50, value=5, step=1, key="v2_K")
+        src = st.text_input(
+            "Source image directory",
+            value=str(st.session_state.get("v2_src_dir", "")),
+            help="Directory of JPG/PNG images. Subdirectories are not scanned.",
+            key="v2_src_input",
+        )
     with c2:
-        thr = st.number_input("distance_threshold", min_value=0.05, max_value=1.0, value=0.35, step=0.05, key="v2_dt")
-    with c3:
-        min_cs = st.number_input("min_cluster_size", min_value=1, max_value=10, value=2, step=1, key="v2_mcs")
+        out = st.text_input(
+            "Output directory",
+            value=str(st.session_state.get(
+                "v2_out_dir",
+                str(Path.home() / ".sim_bench" / "runs" / "v2_latest"),
+            )),
+            help="Destination for the v5 run artifacts.",
+            key="v2_out_input",
+        )
 
-    merge_on = st.checkbox("merge_enabled (run conservative merger)", value=True, key="v2_merge")
-    cap_on = st.checkbox(
-        "cluster_diameter_cap_enabled (spec-031 safety rail)",
-        value=True, key="v2_cap",
-        help="Rejects merges whose combined cluster diameter exceeds the absolute ceiling.",
-    )
+    # --- Top-level knob groups ------------------------------------------
+    for group in _GROUP_ORDER:
+        with st.expander(_GROUP_TITLES[group], expanded=_GROUP_EXPANDED.get(group, False)):
+            render_group(group, columns=_GROUP_COLUMNS.get(group, 1))
 
-    if st.button("Run", type="primary", key="v2_run_btn"):
-        if not src or not Path(src).exists():
+    # --- Merge sub-panel (gated by merge_enabled) ------------------------
+    if st.session_state.get("v2_merge_enabled", False):
+        with st.expander(_GROUP_TITLES["merge"], expanded=True):
+            render_group("merge", columns=_GROUP_COLUMNS["merge"])
+        with st.expander(_GROUP_TITLES["cap"], expanded=False):
+            render_group("cap", columns=_GROUP_COLUMNS["cap"])
+
+    # --- Run -------------------------------------------------------------
+    run_disabled = not (src and out)
+    if st.button("Run", type="primary", key="v2_run_btn", disabled=run_disabled):
+        if not Path(src).exists():
             st.error(f"Source directory does not exist: {src}")
             return
         st.session_state.v2_src_dir = src
         st.session_state.v2_out_dir = out
 
-        cfg = {
-            "K": int(k), "distance_threshold": float(thr),
-            "min_cluster_size": int(min_cs),
-            "merge_enabled": bool(merge_on),
-            "cluster_diameter_cap_enabled": bool(cap_on),
-            # Permissive defaults for gates the InsightFace pipeline doesn't
-            # currently populate — matches face_cluster_bridge.build_fc_config.
-            "blur_min": 0.0,
-            "yaw_max": 999.0, "pitch_max": 999.0, "roll_max": 999.0,
-        }
-        # Apply same cfg to every clustering step (each step picks only its
-        # relevant fields via _build_fc_config).
-        from face_cluster.fc_app_runner import UNIFIED_CLUSTERING_STEPS
-        step_configs = {name: cfg for name in UNIFIED_CLUSTERING_STEPS}
+        params = build_params_from_state()
+        if params is None:
+            return  # build_params_from_state already emitted st.error
 
         progress = st.progress(0.0)
         status = st.empty()
@@ -87,7 +120,7 @@ def render_run_tab() -> None:
             result = run_v2_pipeline(
                 src_dir=Path(src),
                 output_dir=Path(out),
-                step_configs=step_configs,
+                params=params,
                 progress_cb=_cb,
             )
 

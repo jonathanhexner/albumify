@@ -200,7 +200,8 @@ introduces the change.
 <table>
   <thead><tr><th>Class</th><th>Location</th><th>Purpose</th></tr></thead>
   <tbody>
-    <tr><td><code>PipelineConfig</code></td><td>face_cluster/config.py</td><td>The 60+-field FC App configuration dataclass. Will be replaced by ClusterPeopleConfig + per-step models when migration completes.</td></tr>
+    <tr><td><code>PipelineConfig</code></td><td>face_cluster/config.py</td><td>The 60+-field FC App configuration dataclass. Algorithm-layer contract; consumed by clustering, merging, exemplar selection. <strong>spec-041:</strong> no longer constructed directly by UI / tests — built via <code>FCParams.to_fc_config()</code> at the boundary.</td></tr>
+    <tr><td><code>FCParams</code></td><td>face_cluster/fc_params.py</td><td><strong>spec-041</strong> Pydantic v2 user-facing container. Single source of defaults for the FC App v2 Run tab, the headless CLI (<code>scripts/run_v2.py</code>), and profile JSONs. Mirrors every tunable field on <code>FCConfig</code>; drift policed by <code>tests/architecture/test_fcparams_fcconfig_parity.py</code>. Boundary helpers: <code>to_fc_config()</code>, <code>to_step_configs()</code>, <code>load()</code>, <code>save()</code>.</td></tr>
     <tr><td><code>MergeDecisionRow</code></td><td>face_cluster/types.py</td><td>28-field row matching merge_decisions table column order exactly.</td></tr>
     <tr><td><code>GateResult</code></td><td>face_cluster/types.py</td><td>{value, threshold, passed} for one quality gate.</td></tr>
     <tr><td><code>QualityVerdict</code></td><td>face_cluster/types.py</td><td>Per-face dict of {gate_name → GateResult} (spec-012).</td></tr>

@@ -36,7 +36,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pytest
 
-from face_cluster.fc_app_runner import FCAppRunner, UNIFIED_CLUSTERING_STEPS
+from face_cluster.fc_app_runner import FCAppRunner
+from face_cluster.fc_params import FCParams
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.steps.cluster_people import FaceForClustering
 from sim_bench.pipeline.steps.face_cluster_bridge import run_face_cluster_knn
@@ -55,31 +56,36 @@ PRODUCER_STEPS = [
     "extract_face_embeddings",
 ]
 
-# Permissive clustering config: blur gate pinned 0 to match the bridge's
+# Permissive clustering params: blur gate pinned 0 to match the bridge's
 # build_fc_config pin (the InsightFace path has no blur scorer); pose gates
 # permissive so faces without populated pose are not dropped. K and threshold
 # chosen for a small (~9-face) real-embedding fixture.
-CANONICAL_CONFIG: Dict[str, float] = {
-    "K": 3,
-    "distance_threshold": 0.5,
-    "min_cluster_size": 2,
-    "blur_min": 0.0,
-    "yaw_max": 999.0,
-    "pitch_max": 999.0,
-    "roll_max": 999.0,
-    "max_faces_per_image_core": 50,
-    "merge_enabled": False,
-    "attach_enabled": False,
-}
+#
+# spec-041: both paths now consume the same FCParams instance via the boundary
+# helpers (to_fc_config / to_step_configs). Config drift between sides is
+# structurally impossible to write — a strictly stronger equivalence test
+# than the pre-spec-041 dict-of-dicts shape.
+CANONICAL_PARAMS = FCParams(
+    K=3,
+    distance_threshold=0.5,
+    min_cluster_size=2,
+    blur_min=0.0,
+    yaw_max=999.0,
+    pitch_max=999.0,
+    roll_max=999.0,
+    max_faces_per_image_core=50,
+    merge_enabled=False,
+    attach_enabled=False,
+)
 
 # Config matrix for the small-fixture sweep. Each entry exercises a
 # different part of the clustering surface; all must yield >= 0.95
 # agreement between legacy and v2.
-CONFIGS: List[Tuple[str, Dict]] = [
-    ("default", CANONICAL_CONFIG),
-    ("merge_on", {**CANONICAL_CONFIG, "merge_enabled": True}),
-    ("tighter_threshold", {**CANONICAL_CONFIG, "distance_threshold": 0.35}),
-    ("larger_K", {**CANONICAL_CONFIG, "K": 5}),
+CONFIGS: List[Tuple[str, FCParams]] = [
+    ("default", CANONICAL_PARAMS),
+    ("merge_on", CANONICAL_PARAMS.model_copy(update={"merge_enabled": True})),
+    ("tighter_threshold", CANONICAL_PARAMS.model_copy(update={"distance_threshold": 0.35})),
+    ("larger_K", CANONICAL_PARAMS.model_copy(update={"K": 5})),
 ]
 
 
@@ -263,30 +269,31 @@ def _pairwise_agreement(
 
 
 def _run_both_paths(
-    context: PipelineContext, config: Dict
+    context: PipelineContext, params: FCParams
 ) -> Tuple[Dict[Tuple[str, int], int], Dict[Tuple[str, int], int], int, int]:
-    """Run legacy bridge + v2 FCAppRunner on the same producer context.
+    """Run legacy bridge + v2 FCAppRunner from the same FCParams instance.
 
     Returns (legacy_labels, v2_labels, legacy_n_clusters, v2_n_clusters).
-    The contexts passed to each path are scratch instances; the shared
-    ``producer_context`` is not mutated.
+    Both sides consume the same params: legacy via ``model_dump()`` (the
+    bridge expects a flat dict), v2 via ``to_step_configs()``. That makes
+    config drift between sides impossible to write.
+
+    Scratch contexts are used so the shared ``producer_context`` is not
+    mutated.
     """
     legacy_faces, embeddings_norm = _build_legacy_inputs(context)
     assert legacy_faces, "legacy collection produced no faces from a non-empty producer context"
 
     legacy_scratch = PipelineContext()
     legacy_labels_arr, *_ = run_face_cluster_knn(
-        legacy_faces, embeddings_norm, config, legacy_scratch
+        legacy_faces, embeddings_norm, params.model_dump(), legacy_scratch
     )
     legacy_labels = _legacy_labels_by_identity(legacy_faces, legacy_labels_arr)
     legacy_n_clusters = len({int(x) for x in legacy_labels_arr} - {-1})
 
     v2_ctx = PipelineContext()
     v2_ctx.face_records = list(context.face_records)
-    v2_result = FCAppRunner().run(
-        v2_ctx,
-        step_configs={name: config for name in UNIFIED_CLUSTERING_STEPS},
-    )
+    v2_result = FCAppRunner().run(v2_ctx, step_configs=params.to_step_configs())
     assert v2_result.success, f"v2 runner failed: {v2_result.error_message}"
     v2_labels = _v2_labels_by_identity(v2_ctx)
 
@@ -298,18 +305,18 @@ def _run_both_paths(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize(
-    "config_id,config", CONFIGS, ids=[cid for cid, _ in CONFIGS]
+    "config_id,params", CONFIGS, ids=[cid for cid, _ in CONFIGS]
 )
-def test_legacy_and_v2_agree_on_real_fixture(producer_context, config_id, config):
+def test_legacy_and_v2_agree_on_real_fixture(producer_context, config_id, params):
     """spec-040 merge gate: real producer output -> two clustering paths -> >=95% agree.
 
     Same context state powers both paths (A1 dual-write enables this):
     legacy reads ``insightface_faces`` + ``face_embeddings``; v2 reads
-    ``face_records``. Parametrized across 4 configs so the merge and
-    high-K parts of the algorithm surface are also asserted, not just
-    the default config (see REVIEW.md C5).
+    ``face_records``. Parametrized across 4 FCParams instances so the
+    merge and high-K parts of the algorithm surface are also asserted,
+    not just the default params (see REVIEW.md C5).
     """
-    legacy_labels, v2_labels, _, _ = _run_both_paths(producer_context, config)
+    legacy_labels, v2_labels, _, _ = _run_both_paths(producer_context, params)
 
     legacy_keys = set(legacy_labels)
     v2_keys = set(v2_labels)
@@ -328,11 +335,11 @@ def test_legacy_and_v2_agree_on_real_fixture(producer_context, config_id, config
 
 
 @pytest.mark.parametrize(
-    "config_id,config", CONFIGS, ids=[cid for cid, _ in CONFIGS]
+    "config_id,params", CONFIGS, ids=[cid for cid, _ in CONFIGS]
 )
-def test_legacy_and_v2_produce_same_cluster_count(producer_context, config_id, config):
-    """Cluster counts within +/-1 between paths across all sweep configs."""
-    _, _, legacy_n, v2_n = _run_both_paths(producer_context, config)
+def test_legacy_and_v2_produce_same_cluster_count(producer_context, config_id, params):
+    """Cluster counts within +/-1 between paths across all sweep params."""
+    _, _, legacy_n, v2_n = _run_both_paths(producer_context, params)
     diff = abs(legacy_n - v2_n)
     assert diff <= 1, (
         f"[{config_id}] cluster count diverges by {diff}: "
@@ -357,7 +364,7 @@ def test_legacy_and_v2_agree_on_100_image_fixture(producer_context_100):
     equivalence at this size.
     """
     legacy_labels, v2_labels, legacy_n, v2_n = _run_both_paths(
-        producer_context_100, CANONICAL_CONFIG
+        producer_context_100, CANONICAL_PARAMS
     )
 
     legacy_keys = set(legacy_labels)

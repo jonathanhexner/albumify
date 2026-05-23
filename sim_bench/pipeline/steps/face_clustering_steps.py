@@ -8,10 +8,12 @@ individually-testable pipeline steps that operate on
 No translator / adapter class is added — producers populate face_records
 and each step here reads / mutates the same Pydantic objects.
 
-The steps are registered with the pipeline registry. They are NOT yet
-wired into ``configs/pipeline.yaml::default_pipeline`` (that wiring lands
-when the new FC App in spec-040 Phase 5 invokes them). Until then they
-exist as the contract surface and are exercised by their unit tests.
+spec-041 update: each step receives a full FCConfig-shaped dict via
+``FCParams.to_step_configs()`` broadcast. No per-step translator —
+each ``process()`` builds its own ``FCConfig(**config)`` directly,
+and defaults come from ``FCConfig.__init__`` itself.
+
+The steps are registered with the pipeline registry.
 """
 from __future__ import annotations
 
@@ -35,45 +37,6 @@ from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.registry import register_step
 
 logger = logging.getLogger(__name__)
-
-
-def _build_fc_config(config: dict) -> FCConfig:
-    """Translate step config dict → FCConfig dataclass (clustering algorithms expect it).
-
-    This is the ONE residual translation in spec-040: from the step's
-    dict config to the algorithm class's expected FCConfig dataclass.
-    Necessary because we are NOT rewriting the clustering algorithms
-    (locked decision: non-goal). When/if face_cluster algorithms migrate
-    to Pydantic in a future spec, this collapses.
-    """
-    return FCConfig(
-        K=config.get("K", 5),
-        distance_threshold=config.get("distance_threshold", 0.35),
-        min_cluster_size=config.get("min_cluster_size", 2),
-        yaw_max=float(config.get("yaw_max", 999.0)),
-        pitch_max=float(config.get("pitch_max", 999.0)),
-        roll_max=float(config.get("roll_max", 999.0)),
-        blur_min=float(config.get("blur_min", 0.0)),
-        max_faces_per_image_core=config.get("max_faces_per_image_core", 3),
-        det_score_min=config.get("det_score_min"),
-        split_enabled=config.get("split_enabled", False),
-        merge_enabled=config.get("merge_enabled", False),
-        attach_enabled=config.get("attach_enabled", False),
-        merge_candidate_threshold=config.get("merge_candidate_threshold", 0.45),
-        merge_exemplar_threshold=config.get("merge_exemplar_threshold", 0.35),
-        merge_use_cross_gate=config.get("merge_use_cross_gate", True),
-        merge_cross_threshold=config.get("merge_cross_threshold", 0.40),
-        merge_cross_max_size=config.get("merge_cross_max_size", 5),
-        merge_support_frac=config.get("merge_support_frac", 0.3),
-        merge_support_min=config.get("merge_support_min", 2),
-        merge_support_unique=config.get("merge_support_unique", False),
-        merge_margin=config.get("merge_margin", 0.05),
-        merge_diameter_expansion_factor=config.get("merge_diameter_expansion_factor", 1.5),
-        # spec-031 diameter cap — wired up in spec-040 T3 (REVIEW.md C3).
-        cluster_diameter_cap_enabled=config.get("cluster_diameter_cap_enabled", False),
-        max_full_diameter=float(config.get("max_full_diameter", 1.2)),
-        max_exemplar_diameter=float(config.get("max_exemplar_diameter", 0.8)),
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -101,12 +64,28 @@ class QualityGateFacesStep(BaseStep):
             context.core_indices = []
             context.holdout_indices = []
             return
-        gater = QualityGater(_build_fc_config(config))
+        gater = QualityGater(FCConfig(**config))
         core, holdout, _verdicts = gater.select_core_set(faces)
-        context.core_indices = list(core)
+        # Defensive: faces with no embedding must never enter the core set.
+        # If they do, downstream kNN builds np.array([None, ndarray, ...]) and
+        # fails with "inhomogeneous shape". Filter explicitly and log loud so
+        # a producer regression (cf. spec-040 A1 dual-write) is diagnosable.
+        n_dropped = 0
+        filtered_core: list[int] = []
+        for i in core:
+            if faces[i].embedding_normalized is None:
+                n_dropped += 1
+            else:
+                filtered_core.append(i)
+        if n_dropped:
+            logger.warning(
+                "quality_gate_faces: dropped %d core faces with None embedding_normalized "
+                "(producer dual-write regression?)", n_dropped,
+            )
+        context.core_indices = filtered_core
         context.holdout_indices = list(holdout)
         logger.info("quality_gate_faces: %d core / %d holdout / %d total",
-                    len(core), len(holdout), len(faces))
+                    len(filtered_core), len(holdout), len(faces))
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +109,7 @@ class BuildFaceKNNGraphStep(BaseStep):
         if not context.core_indices:
             context.graph_result = None
             return
-        context.graph_result = KNNGraphBuilder(_build_fc_config(config)).build_graph(
+        context.graph_result = KNNGraphBuilder(FCConfig(**config)).build_graph(
             context.face_records, context.core_indices
         )
 
@@ -157,7 +136,7 @@ class ClusterFaceComponentsStep(BaseStep):
             context.cluster_result = None
             return
         context.cluster_result = ConnectedComponentsClusterer(
-            _build_fc_config(config)
+            FCConfig(**config)
         ).cluster(context.graph_result, context.core_indices)
 
 
@@ -181,7 +160,7 @@ class SelectFaceExemplarsStep(BaseStep):
     def process(self, context: PipelineContext, config: dict) -> None:
         if context.cluster_result is None:
             return
-        cr, _ = D10ExemplarSelector(_build_fc_config(config)).select_exemplars(
+        cr, _ = D10ExemplarSelector(FCConfig(**config)).select_exemplars(
             context.cluster_result, context.graph_result
         )
         context.cluster_result = cr
@@ -208,7 +187,7 @@ class MergeFaceClustersStep(BaseStep):
         if context.cluster_result is None:
             context.merged_cluster_result = None
             return
-        fc_cfg = _build_fc_config(config)
+        fc_cfg = FCConfig(**config)
         if not fc_cfg.merge_enabled:
             context.merged_cluster_result = copy.deepcopy(context.cluster_result)
             context.merge_log = None
@@ -241,7 +220,7 @@ class AttachHoldoutFacesStep(BaseStep):
         )
 
     def process(self, context: PipelineContext, config: dict) -> None:
-        fc_cfg = _build_fc_config(config)
+        fc_cfg = FCConfig(**config)
         if not fc_cfg.attach_enabled:
             return
         cr = context.merged_cluster_result
@@ -294,7 +273,7 @@ class ApplyDiameterCapStep(BaseStep):
             decisions_to_dict_list,
         )
 
-        fc_cfg = _build_fc_config(config)
+        fc_cfg = FCConfig(**config)
         context.cap_decisions = []
 
         if not fc_cfg.cluster_diameter_cap_enabled:
@@ -365,7 +344,7 @@ class AssignPeopleClustersStep(BaseStep):
         if cr is None:
             context.people_clusters = {}
             return
-        fc_cfg = _build_fc_config(config)
+        fc_cfg = FCConfig(**config)
         uses_global = fc_cfg.attach_enabled and bool(context.holdout_indices)
 
         people: dict[int, list] = {}

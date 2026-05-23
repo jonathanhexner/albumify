@@ -2,6 +2,42 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-22 [FEATURE] spec-041 — FC App v2 configuration container + Run tab parity
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/fc_params.py` — `FCParams` (Pydantic v2, `extra='forbid'`) is now the single user-facing configuration container for the FC App v2. 42 fields mirror every tunable knob on `face_cluster.config.PipelineConfig` (`FCConfig`). Numeric fields carry `Field(ge=..., le=...)` ranges matching the original FC App slider bounds — out-of-range profile values raise `ValidationError` instead of being silently clamped. Boundary helpers: `to_fc_config()` (algorithm-layer translator), `to_step_configs()` (broadcast over `UNIFIED_CLUSTERING_STEPS`), `load(path)` / `save(path)` (profile JSON I/O).
+- NEW `tests/architecture/test_fcparams_fcconfig_parity.py` — drift guard: asserts `set(FCParams.model_fields) == set(FCConfig fields) - RUNTIME_FIELDS`. Fails at import time if anyone adds a knob to one side without the other.
+- NEW `tests/face_clustering/test_fcparams.py` — 17 unit tests: defaults, `extra='forbid'`, range validators (8 parametrized cases), JSON round-trip, `to_step_configs` independence, `to_fc_config` propagation, `load`/`save` round-trip.
+- `app/face_clustering_v2/pipeline.py` — `run_v2_pipeline` gains a `params: FCParams = None` kwarg (preferred). Legacy `step_configs=` kwarg retained for one release with a `DeprecationWarning`. Passing both raises `ValueError`.
+- NEW `tests/face_clustering/test_run_v2_pipeline_kwargs.py` — 4 tests pinning the kwarg contract.
+- `sim_bench/pipeline/steps/face_clustering_steps.py` — deleted `_build_fc_config` helper (~60 LOC removed). All 8 step `process()` bodies now call `FCConfig(**config)` directly. The `FCParams.to_step_configs()` broadcast guarantees every step receives a full param dict.
+- `tests/face_clustering/test_legacy_vs_v2_equivalence.py` — sweep migrated from 4 dict literals to 4 `FCParams` instances. Both sides now consume the same params (legacy via `model_dump()`, v2 via `to_step_configs()`) — config drift between legacy and v2 is now structurally impossible to write.
+- `app/face_clustering_v2/tabs/run_tab.py` — full knob parity with the original FC App's Run tab. 35 widgets organized into expanders matching the original's stage layout. Merge sub-panel reuses `app/shared/merge_controls.render_merge_params(key_prefix="v2_run_")`. Click-time construction inside `try/except ValidationError`.
+- `tests/face_clustering/test_fc_app_v2_e2e.py` — fixture migrated to `FCParams(...)`; new `test_v2_pipeline_runs_with_non_default_fcparams` confirms non-default values reach the steps.
+- REWRITTEN `scripts/migrate_fc_profiles.py` — collapsed from 115 LOC of custom v1/v2-shape logic to a thin `FCParams.model_validate(...)` wrapper. Handles both flat v1 profiles AND the transitional spec-040 `{step_configs: ...}` shape via a single `_extract_flat` helper.
+- REWRITTEN `tests/face_clustering/test_profile_migration.py` — 7 tests covering both legacy shapes, idempotence, dry-run, invalid JSON, non-dict payloads, unrecognized fields.
+- NEW `scripts/run_v2.py` — headless CLI runner. `--profile <path>`, Tier-1 inline overrides, `--save-profile`. Enables make-driven sweeps and reproducing UI runs from the shell.
+- NEW `tests/face_clustering/test_run_v2_script.py` — 4 tests: flag-only build, profile + override precedence, save-profile round-trip, full end-to-end fixture run.
+- `docs/architecture/classes.html` — `FCParams` added to §4; `PipelineConfig` note updated to clarify it's no longer the UI-facing surface.
+- NEW `specs/041-fc-params-container/spec.md` and `tasks.md` — full PRD + 8-phase / 27-task execution plan.
+
+**Change**: The FC App v2 now has knob parity with the original. Every clustering knob in `FCConfig` is exposed via a single typed Pydantic container, validated at construction, written to / read from profile JSONs, and consumed identically by the UI, the headless CLI, the e2e tests, and the equivalence sweep. The per-step translator (`_build_fc_config`) is gone — defaults live in `FCParams` only.
+
+**Reason**: spec-040 shipped v2 with a 7-widget Run tab and a free-form `step_configs: dict` interface. User feedback during burn-in: "I need to be able to run the app my way to verify it works." Threading 35 more individual widgets through `st.session_state` would have re-introduced the per-knob plumbing that spec-040 set out to eliminate. `FCParams` collapses defaults + validation + UI binding + profile I/O + test config construction into one contract.
+
+**Drift discipline**: `tests/architecture/test_fcparams_fcconfig_parity.py` runs at every test collection — adding a knob to `FCConfig` without the matching `FCParams` field fails CI loud, eliminating an entire class of silent-drop bugs.
+
+**Test status**:
+  - Phase 1 (FCParams + drift guard): 19/19 OK
+  - Phase 2 (params= kwarg): 4/4 OK
+  - Phase 3 (`_build_fc_config` deleted): 27/27 unified-step tests OK
+  - Phase 4 (equivalence sweep on FCParams): 8/8 OK on small fixture (slow 50-img test opt-in via `-m slow`)
+  - Phase 5 (Run tab parity): Playwright smoke OK; 5/5 e2e (incl. non-default FCParams)
+  - Phase 6 (profile migration): 7/7 OK
+  - Phase 7 (CLI runner): 4/4 OK including full fixture run
+
+---
+
 ### 2026-05-20 [FEATURE] spec-040 T4 — FC App v2 MVP UI (B4 closed)
 **Branch**: `unification/spec-040`
 **Files**:

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>spec-041 — Configuration Contract: Current State and Two Options</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 1200px; margin: 2em auto; padding: 0 1.5em; color: #222; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; }
+  h2 { margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: .2em; }
+  h3 { margin-top: 1.5em; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 1em 0; }
+  th, td { border: 1px solid #ccc; padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  tr:nth-child(even) td { background: #fafafa; }
+  code { background:#f3f3f3;padding:1px 5px;border-radius:3px; font-size: 12.5px; }
+  pre  { background:#f6f8fa;padding:12px;border-radius:6px; font-size: 12.5px; overflow-x: auto; border-left: 3px solid #ccc; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; margin-right:4px; }
+  .ok    { background:#c7f0c7;color:#14501e; }
+  .bad   { background:#ffd6d6;color:#6a0d0d; }
+  .warn  { background:#fff2c2;color:#6a4f00; }
+  .info  { background:#d4ecff;color:#14365e; }
+  .diagram { margin: 1.5em 0; padding: 1em; background: #fafbfc; border: 1px solid #e1e4e8; border-radius: 6px; overflow-x: auto; }
+  .caption { font-size: 12.5px; color: #666; margin-top: .4em; }
+  .callout { background: #fff8e1; border-left: 4px solid #f5b400; padding: 10px 14px; margin: 1em 0; }
+  .quote { border-left: 4px solid #999; padding: 6px 14px; margin: .8em 0; color: #555; font-style: italic; }
+</style>
+</head>
+<body>
+
+<h1>Configuration Contract — Where We Are, and Two Ways Forward</h1>
+<p><em>2026-05-23 · spec-041 follow-up · proposed by Jonathan Hexner: "one specification that everyone reads from"</em></p>
+
+<h2>1 · The bug you hit</h2>
+<p>You loaded <code>profile_1.json</code>, which contains <code>yaw_max: 999.0</code> — the "disable pose gating" sentinel. The page crashed:</p>
+<pre>streamlit.errors.StreamlitValueAboveMaxError: The value 999.0 is greater than the max_value 90.0.
+  ... in run_tab.py: yaw_max = st.slider("yaw_max °", 5.0, 90.0, 30.0, 1.0, ...)</pre>
+<p>Two layers disagreed on what was a legal <code>yaw_max</code>:</p>
+<table>
+  <tr><th>Layer</th><th>Says yaw_max is</th><th>Where it lives</th></tr>
+  <tr><td>Validation (FCParams)</td><td>any float in <code>[5.0, 999.0]</code></td><td><code>face_cluster/fc_params.py</code> · <code>Field(30.0, ge=5.0, le=999.0)</code></td></tr>
+  <tr><td>UI slider widget</td><td>any float in <code>[5.0, 90.0]</code></td><td><code>app/face_clustering_v2/tabs/run_tab.py</code> · <code>st.slider("yaw_max °", 5.0, 90.0, 30.0, 1.0)</code></td></tr>
+</table>
+<p>The profile was legal by the validation contract but illegal by the UI widget. <strong>There were two sources of truth, and they drifted.</strong> That's the architectural problem; the crash was the symptom.</p>
+
+<h2>2 · Every module that touches the contract today</h2>
+<table>
+  <thead><tr><th>Module</th><th>Role</th><th>Reads from</th><th>Writes to</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>face_cluster/fc_params.py</code></td>
+      <td><strong>The validation contract.</strong> Pydantic v2 model with <code>Field(default, ge=..., le=...)</code> for every knob.</td>
+      <td>nothing (it IS the source)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td><code>face_cluster/config.py</code> (<code>FCConfig</code>)</td>
+      <td>Algorithm-layer dataclass. Consumed inside steps. Field set kept in lockstep with FCParams by a drift test.</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td><code>app/face_clustering_v2/tabs/run_tab.py</code></td>
+      <td><strong>UI widget literals.</strong> Hand-written <code>st.slider</code>/<code>st.number_input</code>/<code>st.checkbox</code> per knob with hardcoded ranges/defaults.</td>
+      <td>nothing structural — defaults & ranges duplicated by hand</td>
+      <td><code>st.session_state[&lt;widget_key&gt;]</code></td>
+    </tr>
+    <tr>
+      <td><code>app/face_clustering_v2/_profile_bar.py</code></td>
+      <td>Save/Load buttons. <code>WIDGET_KEY_BY_FIELD</code> dict maps FCParams field → widget key.</td>
+      <td>FCParams (Load) / session_state (Save)</td>
+      <td>session_state (Load) / disk JSON (Save)</td>
+    </tr>
+    <tr>
+      <td><code>app/shared/merge_controls.py</code></td>
+      <td>Merge sub-panel — 18 widgets shared with the legacy FC App. Hardcoded ranges again.</td>
+      <td>—</td>
+      <td>session_state</td>
+    </tr>
+    <tr>
+      <td><code>app/face_clustering_v2/pipeline.py</code></td>
+      <td>Entry. <code>run_v2_pipeline(..., params: FCParams)</code>. Calls <code>params.to_step_configs()</code>.</td>
+      <td>FCParams</td>
+      <td>step configs → executor</td>
+    </tr>
+    <tr>
+      <td><code>scripts/run_v2.py</code></td>
+      <td>Headless CLI. Inline overrides + <code>--profile</code> JSON.</td>
+      <td>FCParams (load), argparse (overrides)</td>
+      <td>FCParams (final), optional saved profile JSON</td>
+    </tr>
+    <tr>
+      <td><code>scripts/migrate_fc_profiles.py</code></td>
+      <td>One-shot reshaper for legacy flat/spec-040 profile JSONs.</td>
+      <td>legacy JSON</td>
+      <td>FCParams JSON</td>
+    </tr>
+    <tr>
+      <td><code>~/.sim_bench/profiles_v2/*.json</code></td>
+      <td>User profiles. The Load/Save side of the contract.</td>
+      <td>(written by FCParams.save)</td>
+      <td>(read by FCParams.load)</td>
+    </tr>
+    <tr>
+      <td><code>tests/architecture/test_fcparams_fcconfig_parity.py</code></td>
+      <td>Drift guard: <code>set(FCParams.model_fields) == set(FCConfig fields) − RUNTIME</code>.</td>
+      <td>both models</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3 · Current architecture (the problem)</h2>
+
+<div class="diagram">
+<svg viewBox="0 0 1100 470" width="100%" style="max-width:1100px;">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+    <marker id="arrred" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <!-- FCParams (the contract) -->
+  <rect x="20" y="30" width="320" height="170" rx="8" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="180" y="55" font-weight="700" font-size="15" text-anchor="middle">FCParams (Pydantic)</text>
+  <text x="180" y="74" font-size="11" text-anchor="middle" fill="#555">face_cluster/fc_params.py</text>
+  <text x="180" y="98" font-size="11" text-anchor="middle" fill="#3c763d" font-weight="700">SOURCE OF TRUTH #1</text>
+  <text x="35" y="125" font-family="monospace" font-size="11">yaw_max: float = Field(</text>
+  <text x="55" y="142" font-family="monospace" font-size="11">30.0,</text>
+  <text x="55" y="158" font-family="monospace" font-size="11" fill="#3c763d" font-weight="700">ge=5.0, le=999.0</text>
+  <text x="35" y="174" font-family="monospace" font-size="11">)</text>
+  <text x="180" y="194" font-size="10.5" text-anchor="middle" fill="#666">"any float in [5, 999] is valid"</text>
+
+  <!-- Run tab widget literal (parallel truth) -->
+  <rect x="760" y="30" width="320" height="170" rx="8" fill="#fdd" stroke="#a94442" stroke-width="2"/>
+  <text x="920" y="55" font-weight="700" font-size="15" text-anchor="middle">Streamlit Run tab</text>
+  <text x="920" y="74" font-size="11" text-anchor="middle" fill="#555">app/face_clustering_v2/tabs/run_tab.py</text>
+  <text x="920" y="98" font-size="11" text-anchor="middle" fill="#a94442" font-weight="700">SOURCE OF TRUTH #2</text>
+  <text x="775" y="125" font-family="monospace" font-size="11">yaw_max = st.slider(</text>
+  <text x="795" y="142" font-family="monospace" font-size="11">"yaw_max °",</text>
+  <text x="795" y="158" font-family="monospace" font-size="11" fill="#a94442" font-weight="700">5.0, 90.0,</text>
+  <text x="795" y="174" font-family="monospace" font-size="11">30.0, 1.0)</text>
+  <text x="920" y="194" font-size="10.5" text-anchor="middle" fill="#666">"any float in [5, 90] is valid"</text>
+
+  <!-- DIVERGENCE banner -->
+  <rect x="380" y="100" width="340" height="40" rx="20" fill="#fff" stroke="#a94442" stroke-width="2" stroke-dasharray="4,3"/>
+  <text x="550" y="125" text-anchor="middle" font-weight="700" font-size="13" fill="#a94442">DIVERGENCE — ranges drift silently</text>
+
+  <!-- Profile JSON -->
+  <rect x="20" y="280" width="240" height="100" rx="8" fill="#fff3cd" stroke="#856404" stroke-width="2"/>
+  <text x="140" y="305" font-weight="700" font-size="14" text-anchor="middle">profile_1.json</text>
+  <text x="140" y="322" font-size="11" text-anchor="middle" fill="#555">~/.sim_bench/profiles_v2/</text>
+  <text x="35" y="346" font-family="monospace" font-size="11">{</text>
+  <text x="50" y="361" font-family="monospace" font-size="11" fill="#856404" font-weight="700">"yaw_max": 999.0</text>
+  <text x="35" y="375" font-family="monospace" font-size="11">}</text>
+
+  <!-- Validation OK arrow -->
+  <line x1="260" y1="320" x2="180" y2="200" stroke="#3c763d" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="180" y="245" text-anchor="middle" font-size="12" fill="#3c763d" font-weight="700">FCParams.load: OK</text>
+  <text x="180" y="262" text-anchor="middle" font-size="10.5" fill="#666">(999 ≤ le=999.0)</text>
+
+  <!-- Crash arrow -->
+  <line x1="260" y1="340" x2="760" y2="190" stroke="#c0392b" stroke-width="2.5" marker-end="url(#arrred)"/>
+  <text x="510" y="270" text-anchor="middle" font-size="13" fill="#c0392b" font-weight="700">→ st.session_state["v2_yaw_max"] = 999</text>
+  <text x="510" y="287" text-anchor="middle" font-size="11.5" fill="#c0392b">slider rejects: 999 &gt; max_value (90) → 💥 CRASH</text>
+
+  <!-- User actor -->
+  <circle cx="540" cy="420" r="22" fill="#fff" stroke="#444" stroke-width="2"/>
+  <text x="540" y="425" text-anchor="middle" font-size="13">👤</text>
+  <text x="540" y="460" text-anchor="middle" font-size="12.5">"why doesn't my Load button work?"</text>
+</svg>
+<div class="caption">Today: two independent sources of truth for the same parameter. A profile that satisfies validation can be illegal in the UI.</div>
+</div>
+
+<h2>4 · The goal: one specification</h2>
+<div class="callout">
+<strong>Your principle, rephrased:</strong> a parameter is defined <em>once</em>, in one document, including everything anyone needs to know about it — what it means, what values are legal, what range a UI should show, what its default is, and what widget type it deserves. Every consumer (validator, UI, profile loader, CLI, docs generator) reads from that single document.
+</div>
+
+<p>Today the document is split: FCParams has the validation half; widget literals in <code>run_tab.py</code> have the display half; profile JSONs implicitly inherit from FCParams. Two halves are missing one of the consumers, so they drift.</p>
+
+<h2>5 · Option A — collapse to one range, drop the sentinel</h2>
+
+<div class="diagram">
+<svg viewBox="0 0 1100 360" width="100%" style="max-width:1100px;">
+  <defs>
+    <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3c763d"/>
+    </marker>
+  </defs>
+
+  <!-- FCParams -->
+  <rect x="380" y="30" width="340" height="180" rx="8" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="550" y="55" font-weight="700" font-size="15" text-anchor="middle">FCParams — the only source</text>
+  <text x="550" y="74" font-size="11" text-anchor="middle" fill="#555">face_cluster/fc_params.py</text>
+  <text x="395" y="105" font-family="monospace" font-size="11.5">pose_gating_enabled: bool = False</text>
+  <text x="395" y="125" font-family="monospace" font-size="11.5">yaw_max:   float = Field(30, <tspan fill="#3c763d" font-weight="700">ge=5, le=90</tspan>)</text>
+  <text x="395" y="145" font-family="monospace" font-size="11.5">pitch_max: float = Field(25, <tspan fill="#3c763d" font-weight="700">ge=5, le=90</tspan>)</text>
+  <text x="395" y="165" font-family="monospace" font-size="11.5">roll_max:  float = Field(25, <tspan fill="#3c763d" font-weight="700">ge=5, le=90</tspan>)</text>
+  <text x="550" y="195" font-size="10.5" text-anchor="middle" fill="#3c763d">"off" expressed by the bool — no sentinel value needed.</text>
+
+  <!-- Widget block (still hand-written, but ranges match) -->
+  <rect x="60" y="270" width="280" height="70" rx="8" fill="#eaf3ff" stroke="#1f6feb" stroke-width="2"/>
+  <text x="200" y="295" font-weight="700" font-size="13.5" text-anchor="middle">Run tab widget</text>
+  <text x="200" y="315" font-family="monospace" font-size="11" text-anchor="middle">st.slider("yaw_max °", 5, 90, 30)</text>
+  <text x="200" y="332" font-size="10.5" text-anchor="middle" fill="#1f6feb">ranges still hand-written, but match FCParams</text>
+
+  <!-- Profile JSON -->
+  <rect x="400" y="270" width="280" height="70" rx="8" fill="#fff3cd" stroke="#856404" stroke-width="2"/>
+  <text x="540" y="295" font-weight="700" font-size="13.5" text-anchor="middle">profile_*.json</text>
+  <text x="540" y="313" font-family="monospace" font-size="11" text-anchor="middle">{ "pose_gating_enabled": false, ... }</text>
+  <text x="540" y="330" font-size="10.5" text-anchor="middle" fill="#856404">no more 999 sentinel — bool flag</text>
+
+  <!-- Pipeline -->
+  <rect x="740" y="270" width="280" height="70" rx="8" fill="#f0e6f8" stroke="#6f42c1" stroke-width="2"/>
+  <text x="880" y="295" font-weight="700" font-size="13.5" text-anchor="middle">Algorithm layer</text>
+  <text x="880" y="314" font-family="monospace" font-size="11" text-anchor="middle">if not pose_gating_enabled: skip</text>
+  <text x="880" y="330" font-size="10.5" text-anchor="middle" fill="#6f42c1">explicit branch, no sentinel sniffing</text>
+
+  <line x1="450" y1="210" x2="220" y2="270" stroke="#3c763d" stroke-width="2" marker-end="url(#arrA)"/>
+  <line x1="550" y1="210" x2="540" y2="270" stroke="#3c763d" stroke-width="2" marker-end="url(#arrA)"/>
+  <line x1="650" y1="210" x2="860" y2="270" stroke="#3c763d" stroke-width="2" marker-end="url(#arrA)"/>
+</svg>
+<div class="caption">Option A: one validation range (5–90), and "off" is a separate boolean field. The 999 sentinel disappears.</div>
+</div>
+
+<h3>What changes</h3>
+<table>
+  <tr><th>Layer</th><th>Change</th></tr>
+  <tr><td><code>FCParams</code></td><td>Tighten <code>yaw_max/pitch_max/roll_max</code> to <code>le=90.0</code>. Add <code>pose_gating_enabled: bool = False</code>.</td></tr>
+  <tr><td><code>FCConfig</code></td><td>Same — add <code>pose_gating_enabled</code>; tighten ranges.</td></tr>
+  <tr><td>Algorithm code</td><td>Quality gater replaces "yaw_max &gt;= 999 means off" with "if not <code>pose_gating_enabled</code>: skip". Cleaner semantics.</td></tr>
+  <tr><td>Run tab widget</td><td>Still hand-written; ranges now match FCParams by construction (because FCParams shrunk).</td></tr>
+  <tr><td>Existing profiles</td><td>Anything with <code>yaw_max=999</code> fails validation. Migration script needs to convert <code>999 → pose_gating_enabled=False</code>.</td></tr>
+</table>
+
+<h3>Strengths and weaknesses</h3>
+<p><span class="pill ok">PRO</span> Cleanest contract — no magic numbers, no UI/validation split.</p>
+<p><span class="pill ok">PRO</span> The 999 sentinel was always a code smell; this removes it.</p>
+<p><span class="pill bad">CON</span> Breaks existing profiles. <code>profile_1.json</code> as I wrote it is invalid under this option.</p>
+<p><span class="pill bad">CON</span> Doesn't solve the <em>general</em> problem — widget ranges are still hand-written in <code>run_tab.py</code>. If someone tightens FCParams.K's range tomorrow without touching the widget, drift recurs. <strong>This is the bigger structural concern.</strong></p>
+<p><span class="pill warn">CAVEAT</span> Solves THIS class of bug (sentinel-vs-slider). Does not solve "two parallel sources of truth for ranges".</p>
+
+<h2>6 · Option B — FCParams owns validation <em>and</em> UI hints</h2>
+
+<div class="diagram">
+<svg viewBox="0 0 1100 480" width="100%" style="max-width:1100px;">
+  <defs>
+    <marker id="arrB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3c763d"/>
+    </marker>
+  </defs>
+
+  <!-- FCParams (the only source, now richer) -->
+  <rect x="280" y="20" width="540" height="220" rx="8" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="550" y="45" font-weight="700" font-size="16" text-anchor="middle">FCParams — single document, two layers of metadata</text>
+  <text x="550" y="64" font-size="11" text-anchor="middle" fill="#555">face_cluster/fc_params.py</text>
+  <text x="295" y="92" font-family="monospace" font-size="11.5">yaw_max: float = Field(</text>
+  <text x="315" y="110" font-family="monospace" font-size="11.5">30.0,</text>
+  <text x="315" y="128" font-family="monospace" font-size="11.5" fill="#3c763d" font-weight="700">ge=5.0, le=999.0,           # validation</text>
+  <text x="315" y="146" font-family="monospace" font-size="11.5" fill="#1f6feb" font-weight="700">json_schema_extra={</text>
+  <text x="335" y="164" font-family="monospace" font-size="11.5" fill="#1f6feb">"ui_widget": "number_input",</text>
+  <text x="335" y="182" font-family="monospace" font-size="11.5" fill="#1f6feb">"ui_min": 5.0, "ui_max": 90.0,  # display</text>
+  <text x="335" y="200" font-family="monospace" font-size="11.5" fill="#1f6feb">"ui_step": 1.0,</text>
+  <text x="335" y="218" font-family="monospace" font-size="11.5" fill="#1f6feb">"ui_help": "Max yaw angle…",</text>
+  <text x="315" y="234" font-family="monospace" font-size="11.5" fill="#1f6feb">})</text>
+
+  <!-- Widget factory (NEW) -->
+  <rect x="60" y="290" width="280" height="120" rx="8" fill="#eaf3ff" stroke="#1f6feb" stroke-width="2"/>
+  <text x="200" y="315" font-weight="700" font-size="14" text-anchor="middle">widget_factory.py (NEW)</text>
+  <text x="200" y="333" font-size="11" text-anchor="middle" fill="#555">app/face_clustering_v2/</text>
+  <text x="80" y="358" font-family="monospace" font-size="11">def render(name):</text>
+  <text x="95" y="374" font-family="monospace" font-size="11">f = FCParams.model_fields[name]</text>
+  <text x="95" y="390" font-family="monospace" font-size="11">extra = f.json_schema_extra</text>
+  <text x="95" y="406" font-family="monospace" font-size="11">return st.&lt;widget&gt;(... from extra)</text>
+
+  <!-- Run tab (now thin) -->
+  <rect x="400" y="290" width="280" height="120" rx="8" fill="#fff" stroke="#444" stroke-width="2"/>
+  <text x="540" y="315" font-weight="700" font-size="14" text-anchor="middle">Run tab</text>
+  <text x="540" y="333" font-size="11" text-anchor="middle" fill="#555">app/face_clustering_v2/tabs/run_tab.py</text>
+  <text x="540" y="362" font-family="monospace" font-size="11.5" text-anchor="middle">for name in UI_FIELDS:</text>
+  <text x="540" y="380" font-family="monospace" font-size="11.5" text-anchor="middle">render(name)</text>
+  <text x="540" y="402" font-size="10.5" text-anchor="middle" fill="#666">≈ 5 LOC instead of 200</text>
+
+  <!-- Profile JSON -->
+  <rect x="740" y="290" width="280" height="120" rx="8" fill="#fff3cd" stroke="#856404" stroke-width="2"/>
+  <text x="880" y="315" font-weight="700" font-size="14" text-anchor="middle">profile_*.json</text>
+  <text x="880" y="345" font-family="monospace" font-size="11.5" text-anchor="middle">{ "yaw_max": 999.0, ... }</text>
+  <text x="880" y="370" font-size="11" text-anchor="middle" fill="#856404">unchanged — still valid</text>
+  <text x="880" y="388" font-size="10.5" text-anchor="middle" fill="#666">profile loader sets session_state;</text>
+  <text x="880" y="402" font-size="10.5" text-anchor="middle" fill="#666">widget accepts 999 because ui_max=90 but ge/le allows it</text>
+
+  <!-- arrows from FCParams to consumers -->
+  <line x1="380" y1="240" x2="220" y2="290" stroke="#3c763d" stroke-width="2" marker-end="url(#arrB)"/>
+  <line x1="550" y1="240" x2="540" y2="290" stroke="#3c763d" stroke-width="2" marker-end="url(#arrB)"/>
+  <line x1="720" y1="240" x2="860" y2="290" stroke="#3c763d" stroke-width="2" marker-end="url(#arrB)"/>
+
+  <!-- Footer -->
+  <text x="550" y="450" text-anchor="middle" font-size="12.5" fill="#3c763d" font-weight="700">
+    All three consumers read from one place. Adding a knob = adding one Field. No widget literal needed.
+  </text>
+</svg>
+<div class="caption">Option B: validation bounds AND display hints both live in FCParams, side by side. The widget factory reads <code>json_schema_extra</code> and builds the right Streamlit control.</div>
+</div>
+
+<h3>What changes</h3>
+<table>
+  <tr><th>Layer</th><th>Change</th></tr>
+  <tr><td><code>FCParams</code></td><td>Each field gets <code>json_schema_extra={"ui_widget": ..., "ui_min": ..., "ui_max": ..., "ui_step": ..., "ui_help": ..., "ui_group": ...}</code>. Validation ranges (<code>ge</code>/<code>le</code>) stay as-is.</td></tr>
+  <tr><td><code>FCConfig</code></td><td>No change.</td></tr>
+  <tr><td>Run tab</td><td>200-LOC widget block collapses to a ~30-LOC loop over <code>FCParams.model_fields</code>, grouped by <code>ui_group</code>.</td></tr>
+  <tr><td>Profile JSON</td><td>No change. <code>profile_1.json</code> with <code>yaw_max=999</code> still valid (Pydantic validation), still loadable (number_input has min=5, max=90 for display but accepts typed values up to 999).</td></tr>
+  <tr><td>Algorithm code</td><td>No change. 999 sentinel still works.</td></tr>
+  <tr><td>NEW <code>widget_factory.py</code></td><td>~80 LOC. Reads <code>model_fields[name]</code>, returns the appropriate <code>st.&lt;widget&gt;</code> call.</td></tr>
+  <tr><td>NEW arch test</td><td>"Every UI-bound field has both <code>ge</code>/<code>le</code> AND <code>ui_min</code>/<code>ui_max</code>, and <code>ui_min ≥ ge</code>, <code>ui_max ≤ le</code>." Prevents drift at PR time.</td></tr>
+</table>
+
+<h3>Strengths and weaknesses</h3>
+<p><span class="pill ok">PRO</span> One file is the single source of truth for everything user-facing about every knob.</p>
+<p><span class="pill ok">PRO</span> Solves the <em>general</em> problem — applies to every new field automatically, not just the three pose ones.</p>
+<p><span class="pill ok">PRO</span> Backward compatible: existing profiles still load, sentinels still work.</p>
+<p><span class="pill ok">PRO</span> The legacy FC App can adopt the same factory later — one widget block for both apps.</p>
+<p><span class="pill ok">PRO</span> Auto-generated docs become possible (<code>docs/architecture/parameters.html</code> from <code>FCParams.model_fields</code>).</p>
+<p><span class="pill warn">CON</span> More upfront work (~1.5h vs. ~15 min for Option A's hotfix).</p>
+<p><span class="pill warn">CON</span> Adds Pydantic-specific idiom (<code>json_schema_extra</code>) — slight learning curve.</p>
+
+<h2>7 · Side-by-side comparison</h2>
+<table>
+  <thead>
+    <tr><th>Concern</th><th>Today (broken)</th><th>Option A</th><th>Option B (recommended)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Where do defaults live?</td><td>FCParams + UI literals (duplicated)</td><td>FCParams only</td><td>FCParams only</td></tr>
+    <tr><td>Where do validation ranges live?</td><td>FCParams</td><td>FCParams</td><td>FCParams (<code>ge</code>/<code>le</code>)</td></tr>
+    <tr><td>Where do UI ranges live?</td><td>UI literals</td><td>FCParams (tightened to display range)</td><td>FCParams (<code>json_schema_extra.ui_*</code>)</td></tr>
+    <tr><td>Adding a new knob touches…</td><td>FCParams + UI literal + sometimes step</td><td>FCParams + UI literal</td><td><strong>only FCParams</strong></td></tr>
+    <tr><td>Drift detection</td><td>None — slips silently</td><td>FCParams shrinks the range so widget can't disagree</td><td>Arch test enforces <code>ui_min ≥ ge</code>, <code>ui_max ≤ le</code></td></tr>
+    <tr><td>profile_1.json (<code>yaw_max=999</code>)</td><td>UI crashes</td><td>Invalid → migration needed</td><td>Still valid, loads cleanly</td></tr>
+    <tr><td>Effort</td><td>—</td><td>~30 min + profile migration</td><td>~1.5 hours, no migration</td></tr>
+    <tr><td>Generalises to other knobs</td><td>No</td><td>Partially (still hand-written widgets)</td><td><strong>Yes — works for every new field automatically</strong></td></tr>
+    <tr><td>Future: a 3rd app (e.g. Albumify) wants the same widgets</td><td>3rd copy of literals</td><td>3rd copy of literals</td><td><strong>Imports the factory — done</strong></td></tr>
+  </tbody>
+</table>
+
+<h2>8 · Recommendation</h2>
+<p>Your stated goal — <em>"one specification that everyone reads from, this is true for any parameter in any GUI"</em> — is exactly Option B. Option A solves the immediate yaw_max crash but leaves the general drift problem intact, and the 999-sentinel removal makes existing profiles incompatible.</p>
+
+<p>Option B has the property you described: <strong>one file</strong> (<code>fc_params.py</code>) describes the whole user surface; everything else — the Streamlit UI, the CLI, the profile loader, future docs generators, future apps — reads from that file.</p>
+
+<h3>Concrete implementation plan if you sign off on Option B</h3>
+<ol>
+  <li><strong>Extend FCParams</strong> — add <code>json_schema_extra</code> to every UI-bound field (~35 fields). The non-bound fields like <code>d10_k</code>, <code>K_attach</code>, etc. are left untouched and stay invisible to the UI.</li>
+  <li><strong>Write <code>app/face_clustering_v2/widget_factory.py</code></strong> — one function <code>render_field(name) -&gt; value</code> that builds the right <code>st.&lt;widget&gt;</code> call from the metadata. Grouping logic uses <code>ui_group</code>.</li>
+  <li><strong>Replace the run_tab.py widget block</strong> with a loop over <code>FCParams.model_fields</code>, grouped by <code>ui_group</code>.</li>
+  <li><strong>Add arch test</strong> <code>tests/architecture/test_fcparams_ui_hints_consistent.py</code>: every UI-bound field has both validation bounds AND UI bounds, and they're compatible.</li>
+  <li><strong>Update <code>_profile_bar.py</code></strong> — the <code>WIDGET_KEY_BY_FIELD</code> dict goes away; the factory uses a deterministic key derived from the field name (<code>f"v2_{name}"</code>).</li>
+  <li><strong>Add Playwright regression</strong> driving Load on a profile whose values sit at every range edge (the test that would have caught yesterday's crash).</li>
+</ol>
+
+<p>Estimated effort: ~1.5 hours including the test. Net effect: <code>run_tab.py</code> drops from ~200 LOC to ~50 LOC; <code>_profile_bar.py</code>'s mapping dict (35 lines) disappears; the legacy merge sub-panel (<code>merge_controls.py</code>) is unchanged in this step but can be migrated to the same factory later for full uniformity.</p>
+
+<div class="callout">
+<strong>One ask before I proceed:</strong> the existing legacy FC App also has the same widget-literal pattern (<code>app/face_clustering/tabs/run_tab.py</code> + <code>app/shared/merge_controls.py</code>). Option B lets the legacy app eventually adopt the same factory. <strong>Should this spec target both apps now (more work, full uniformity), or just v2 now and legacy in a follow-up?</strong> I'd recommend just v2 first — get the pattern right, then migrate legacy when nothing's broken.
+</div>
+
+</body>
+</html>
