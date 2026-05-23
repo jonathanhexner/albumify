@@ -43,6 +43,7 @@ from pydantic import ValidationError  # noqa: E402
 
 from app.face_clustering_v2.pipeline import run_v2_pipeline  # noqa: E402
 from face_cluster.fc_params import FCParams  # noqa: E402
+from sim_bench.logging_setup import setup_logging  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,9 @@ def main(argv: Optional[list[str]] = None) -> int:
                         help="Shorthand for cluster_diameter_cap_enabled=True.")
 
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    # spec-041 follow-up: align logging across surfaces. Writes to
+    # logs/<timestamp>/cli_run_v2.log alongside Albumify / FC apps.
+    setup_logging("cli_run_v2")
 
     if not args.src.exists():
         logger.error("Source directory does not exist: %s", args.src)

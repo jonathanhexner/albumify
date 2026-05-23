@@ -92,9 +92,16 @@ def main() -> int:
         page.get_by_text(PROFILE_NAME, exact=False).first.click()
         page.wait_for_timeout(300)
 
-        # Click Load.
+        # Click Load. Quality Gate is `expanded=True` by default in run_tab.py
+        # (and merge_enabled=True in our smoke profile triggers the merge
+        # expander too), so the yaw_max / merge widgets are instantiated on
+        # the rerun. If any of them is fed a session_state value outside its
+        # widget bounds, Streamlit raises StreamlitValueAboveMaxError /
+        # StreamlitValueBelowMinError and the error markdown shows up in the
+        # body. No expander-clicking needed — Streamlit lazy-renders content
+        # ONLY for collapsed sections; expanded ones render eagerly.
         page.get_by_role("button", name="Load").click()
-        page.wait_for_timeout(1500)  # rerun
+        page.wait_for_timeout(2000)  # rerun + widget instantiation
 
         body = page.locator("body").inner_text()
         # Streamlit's red exception box has a deterministic heading.
@@ -111,6 +118,13 @@ def main() -> int:
                 "This is the regression class that previously slipped: a profile "
                 "with a value at the FCParams range edge crashed the widget."
             )
+
+        # Positive assertion: the yaw_max widget label is present in the body.
+        # If the widget had crashed, the label wouldn't render.
+        assert "yaw_max" in body, (
+            "yaw_max widget not visible after Load — Quality Gate section "
+            "may not have rendered (default-expanded section content missing)."
+        )
 
         page.screenshot(path="tests/manual/_v2_load_smoke.png", full_page=True)
         b.close()

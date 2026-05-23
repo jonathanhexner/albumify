@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>"core_indices is empty" — full chain analysis</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 1200px; margin: 2em auto; padding: 0 1.5em; color: #222; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; }
+  h2 { margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: .2em; }
+  h3 { margin-top: 1.5em; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 1em 0; }
+  th, td { border: 1px solid #ccc; padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  code { background:#f3f3f3;padding:1px 5px;border-radius:3px; font-size: 12.5px; }
+  pre  { background:#f6f8fa;padding:12px;border-radius:6px; font-size: 12.5px; overflow-x: auto; border-left: 3px solid #ccc; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+  .ok    { background:#c7f0c7;color:#14501e; }
+  .bad   { background:#ffd6d6;color:#6a0d0d; }
+  .warn  { background:#fff2c2;color:#6a4f00; }
+  .diagram { margin: 1.5em 0; padding: 1em; background: #fafbfc; border: 1px solid #e1e4e8; border-radius: 6px; overflow-x: auto; }
+  .caption { font-size: 12.5px; color: #666; margin-top: .4em; }
+  .callout { background: #fff8e1; border-left: 4px solid #f5b400; padding: 10px 14px; margin: 1em 0; }
+</style>
+</head>
+<body>
+
+<h1>What happened: "core_indices is empty" at <code>build_face_knn_graph</code></h1>
+<p><em>2026-05-24 · spec-041 follow-up · post-mortem of the second pre-fix crash you saw</em></p>
+
+<div class="callout">
+<strong>TL;DR:</strong> Same root cause as the <code>inhomogeneous shape</code> crash from earlier this session — a path-key mismatch between
+the InsightFace detector and the embedding cache writer left every <code>FaceRecord.embedding_normalized = None</code>. The defensive filter
+I'd added to the quality-gate step then dropped all 186 faces, leaving <code>core_indices = []</code>. The next step's input
+validator caught the empty list and aborted with the message you saw. <strong>Root cause is already fixed</strong>
+(canonical-path normalization landed earlier this session); the error reproduces only against a Python process started
+<em>before</em> that fix.
+</div>
+
+<h2>1 · The chain (8 steps) and where it broke</h2>
+
+<div class="diagram">
+<svg viewBox="0 0 1180 660" width="100%" style="max-width:1180px;">
+  <defs>
+    <marker id="ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3c763d"/>
+    </marker>
+    <marker id="bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <!-- Producer chain (left column) -->
+  <text x="220" y="32" font-weight="700" font-size="14" text-anchor="middle">Producer chain</text>
+
+  <rect x="60" y="50" width="320" height="50" rx="6" fill="#dff0d8" stroke="#3c763d" stroke-width="1.5"/>
+  <text x="220" y="73" text-anchor="middle" font-size="13" font-weight="700">1. detect_persons</text>
+  <text x="220" y="90" text-anchor="middle" font-size="11" fill="#3c763d">OK · context.person_detections populated</text>
+
+  <rect x="60" y="115" width="320" height="80" rx="6" fill="#fdd" stroke="#a94442" stroke-width="2.5"/>
+  <text x="220" y="138" text-anchor="middle" font-size="13" font-weight="700">2. insightface_detect_faces</text>
+  <text x="220" y="156" text-anchor="middle" font-size="11" fill="#a94442" font-weight="700">step succeeds — but writes raw Windows path:</text>
+  <text x="220" y="174" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#a94442">FaceRecord.image_path = "D:\Budapest\img.jpg"</text>
+  <text x="220" y="188" text-anchor="middle" font-size="10.5" fill="#a94442">↑ THE BUG (pre-fix; backslash, not forward slash)</text>
+
+  <rect x="60" y="210" width="320" height="50" rx="6" fill="#dff0d8" stroke="#3c763d" stroke-width="1.5"/>
+  <text x="220" y="233" text-anchor="middle" font-size="13" font-weight="700">3. detect_face_orientation</text>
+  <text x="220" y="250" text-anchor="middle" font-size="11" fill="#3c763d">OK · pose annotated</text>
+
+  <rect x="60" y="275" width="320" height="50" rx="6" fill="#dff0d8" stroke="#3c763d" stroke-width="1.5"/>
+  <text x="220" y="298" text-anchor="middle" font-size="13" font-weight="700">4. align_faces</text>
+  <text x="220" y="315" text-anchor="middle" font-size="11" fill="#3c763d">OK · aligned crops in context</text>
+
+  <rect x="60" y="340" width="320" height="100" rx="6" fill="#fdd" stroke="#a94442" stroke-width="2.5"/>
+  <text x="220" y="363" text-anchor="middle" font-size="13" font-weight="700">5. extract_face_embeddings</text>
+  <text x="220" y="381" text-anchor="middle" font-size="11" fill="#a94442">embeddings extracted OK</text>
+  <text x="220" y="399" text-anchor="middle" font-size="11" fill="#a94442">cache key uses canonical path (forward /):</text>
+  <text x="220" y="415" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#a94442">"D:/Budapest/img.jpg:face_0"</text>
+  <text x="220" y="432" text-anchor="middle" font-size="10.5" fill="#a94442">A1 dual-write looks up (image_path, face_idx) — MISS</text>
+
+  <!-- Clustering chain (right column) -->
+  <text x="800" y="32" font-weight="700" font-size="14" text-anchor="middle">Clustering chain (FCAppRunner)</text>
+
+  <rect x="640" y="50" width="320" height="80" rx="6" fill="#fdd" stroke="#a94442" stroke-width="2.5"/>
+  <text x="800" y="73" text-anchor="middle" font-size="13" font-weight="700">6. quality_gate_faces</text>
+  <text x="800" y="91" text-anchor="middle" font-size="11" fill="#a94442" font-weight="700">runs the defensive filter:</text>
+  <text x="800" y="107" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#a94442">if face.embedding_normalized is None: drop</text>
+  <text x="800" y="122" text-anchor="middle" font-size="11" fill="#a94442" font-weight="700">186 of 186 dropped → core_indices = []</text>
+
+  <rect x="640" y="145" width="320" height="100" rx="6" fill="#ffd6d6" stroke="#c0392b" stroke-width="3"/>
+  <text x="800" y="168" text-anchor="middle" font-size="13" font-weight="700">7. build_face_knn_graph 💥</text>
+  <text x="800" y="186" text-anchor="middle" font-size="11" fill="#c0392b" font-weight="700">PipelineExecutor pre-step validator runs:</text>
+  <text x="800" y="201" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#c0392b">requires={"face_records", "core_indices"}</text>
+  <text x="800" y="217" text-anchor="middle" font-family="monospace" font-size="10.5" fill="#c0392b">core_indices is [] — empty list → fail</text>
+  <text x="800" y="234" text-anchor="middle" font-size="11" fill="#c0392b" font-weight="700">"Validation failed: Required context key is empty: core_indices"</text>
+
+  <rect x="640" y="260" width="320" height="40" rx="6" fill="#eee" stroke="#888" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="800" y="282" text-anchor="middle" font-size="12" fill="#666">8. (cluster_face_components) — never reached</text>
+
+  <rect x="640" y="310" width="320" height="40" rx="6" fill="#eee" stroke="#888" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="800" y="332" text-anchor="middle" font-size="12" fill="#666">… 5 more steps never reached …</text>
+
+  <!-- Data flow arrow -->
+  <line x1="380" y1="390" x2="640" y2="89" stroke="#a94442" stroke-width="2.5" marker-end="url(#bad)" stroke-dasharray="6,3"/>
+  <text x="510" y="237" text-anchor="middle" font-size="12" fill="#a94442" font-weight="700">FaceRecord with None embedding_normalized</text>
+
+  <!-- Bottom — root cause -->
+  <rect x="80" y="480" width="1020" height="160" rx="8" fill="#fff8e1" stroke="#856404" stroke-width="2"/>
+  <text x="590" y="505" text-anchor="middle" font-weight="700" font-size="14">The root cause — one path string, two encodings</text>
+
+  <text x="100" y="535" font-family="monospace" font-size="12">Step 2 wrote:</text>
+  <text x="240" y="535" font-family="monospace" font-size="12" fill="#a94442" font-weight="700">FaceRecord.image_path = "D:\Budapest\img.jpg"  ← Windows backslash</text>
+
+  <text x="100" y="558" font-family="monospace" font-size="12">Step 5 keyed:</text>
+  <text x="240" y="558" font-family="monospace" font-size="12" fill="#a94442" font-weight="700">cache_key.split(":face_")[0] = "D:/Budapest/img.jpg"  ← forward slash</text>
+
+  <text x="100" y="585" font-family="monospace" font-size="12">A1 dual-write lookup:</text>
+  <text x="270" y="585" font-family="monospace" font-size="12">record_index.get(("D:/Budapest/img.jpg", 0))</text>
+  <text x="690" y="585" font-family="monospace" font-size="12" fill="#a94442" font-weight="700">→ None for every face</text>
+
+  <text x="100" y="612" font-family="monospace" font-size="12">Net effect:</text>
+  <text x="240" y="612" font-family="monospace" font-size="12">186 FaceRecords created · 0 attached embeddings · 0 surviving the quality gate · empty core_indices · kNN aborts.</text>
+</svg>
+<div class="caption">All 8 unified clustering steps shown. The bug lives in step 2; its consequence cascades through 5 and surfaces as an apparently-clean error at step 7. None of the intermediate steps logged anything alarming — that's the diagnosability gap the logging alignment closes.</div>
+</div>
+
+<h2>2 · Why this looked different from the <code>inhomogeneous shape</code> crash</h2>
+
+<p>Both crashes have the same root cause but surface at different steps depending on what other fixes are present:</p>
+
+<table>
+  <thead>
+    <tr><th>Defensive filter in quality_gate?</th><th>What happens</th><th>Error site</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>No (your earliest run)</td>
+      <td>Faces with None embeddings pass through quality gate; kNN tries <code>np.array([None, ndarray, None, ...])</code></td>
+      <td><code>build_face_knn_graph</code>: <code>ValueError: inhomogeneous shape (186,)</code></td>
+    </tr>
+    <tr>
+      <td>Yes (your second run, after my hotfix landed)</td>
+      <td>Filter drops all 186 None-embedding faces; <code>core_indices = []</code></td>
+      <td><code>build_face_knn_graph</code>: <code>Required context key is empty: core_indices</code></td>
+    </tr>
+    <tr>
+      <td>Yes + canonical-path fix (current state)</td>
+      <td>FaceRecord.image_path is forward-slashed; A1 dual-write matches; embeddings attach normally</td>
+      <td>None — runs to completion on your album (33 clusters from 340 faces)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>So the two crashes were the same bug, caught at two different points by two different safety mechanisms. The newer
+"empty core_indices" error is strictly preferable to the numpy crash — it identifies <em>which step</em> is unhappy and
+<em>which context key</em> is missing. But neither error told you <em>why</em> the embeddings hadn't attached. That's
+where logging comes in.</p>
+
+<h2>3 · What the aligned logging would have shown</h2>
+
+<p>After the logging alignment (now in <code>logs/&lt;ts&gt;/fc_app_v2.log</code> for the v2 app), the file would contain
+these lines in order — making the cascade diagnosable post-mortem:</p>
+
+<pre>2026-05-22 22:00:21 - sim_bench.pipeline.steps.insightface_detect_faces - INFO - Detected 186 faces across 122 images
+2026-05-22 22:01:48 - sim_bench.pipeline.steps.extract_face_embeddings - INFO - Stored 186 face embeddings   ← writes succeeded
+2026-05-22 22:01:48 - sim_bench.pipeline.steps.face_clustering_steps - WARNING - quality_gate_faces: dropped 186 core faces with None embedding_normalized (producer dual-write regression?)
+2026-05-22 22:01:48 - sim_bench.pipeline.steps.face_clustering_steps - INFO - quality_gate_faces: 0 core / 55 holdout / 186 total
+2026-05-22 22:01:48 - sim_bench.pipeline.executor - ERROR - Step 'build_face_knn_graph' failed: Validation failed: Required context key is empty: core_indices</pre>
+
+<p>The <code>WARNING</code> line is the diagnosis: "186 dropped with None embedding_normalized — producer dual-write
+regression?" — a sentence I wrote into the defensive filter <em>specifically</em> so the next person hitting this knows
+where to look. Without persisted logs, that line was silently lost when you closed the terminal. With aligned logging,
+it's pinned to a timestamped file you can grep.</p>
+
+<h2>4 · The fix already in place</h2>
+
+<p><code>sim_bench/pipeline/steps/insightface_detect_faces.py</code> around line 181, landed earlier this session:</p>
+
+<pre># spec-040 A1 bugfix: the embedding dual-write in extract_face_embeddings
+# keys records by canonical forward-slash paths (see _generate_cache_key).
+# Store the same canonical form here so the lookup succeeds on Windows.
+canonical_path = str(image_path).replace("\\", "/")
+records.append(FaceRecord(
+    ...
+    image_path=canonical_path,
+    ...
+))</pre>
+
+<p>Verified by the 2026-05-23 real-album run (122 images, 340 faces, 33 clusters, zero alignment/cluster errors past
+this point).</p>
+
+<h2>5 · Lessons for the architecture</h2>
+
+<table>
+  <thead><tr><th>Issue surfaced</th><th>Mechanism that catches it next time</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>A producer and a consumer disagree on a path-key encoding</td>
+      <td>Defensive filter in <code>quality_gate_faces</code> already logs WARNING with a pointer to "producer dual-write regression?"</td>
+    </tr>
+    <tr>
+      <td>The warning is lost when the terminal closes</td>
+      <td>Logging alignment — every surface now persists to <code>logs/&lt;ts&gt;/&lt;surface&gt;.log</code></td>
+    </tr>
+    <tr>
+      <td>Step validator's error message names a context key but not the upstream step that should have populated it</td>
+      <td>Open follow-up: the executor's validator could include "produced by step X" in its error. Tracked as a small enhancement to <code>sim_bench/pipeline/executor.py</code>.</td>
+    </tr>
+    <tr>
+      <td>"Empty" vs "missing" context keys are different conditions but produce similar errors</td>
+      <td>Pandera-style schema on PipelineContext (out of scope for now) — would express "core_indices: non-empty list of int" as a typed constraint instead of an ad-hoc validator string.</td>
+    </tr>
+  </tbody>
+</table>
+
+</body>
+</html>

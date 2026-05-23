@@ -25,6 +25,12 @@ _repo_root = Path(__file__).resolve().parents[2]
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
+# spec-041 follow-up: align logging with Albumify / CLI. Writes to
+# logs/<timestamp>/fc_app_v2.log; module loggers in face_cluster/* and
+# sim_bench/pipeline/* inherit handlers automatically.
+from sim_bench.logging_setup import setup_logging
+setup_logging("fc_app_v2")
+
 import streamlit as st
 
 from app.face_clustering_v2.tabs.run_tab import render_run_tab

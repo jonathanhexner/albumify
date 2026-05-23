@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Logging Alignment — Albumify vs FC App v2</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 1180px; margin: 2em auto; padding: 0 1.5em; color: #222; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; }
+  h2 { margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: .2em; }
+  h3 { margin-top: 1.5em; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 1em 0; }
+  th, td { border: 1px solid #ccc; padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  tr:nth-child(even) td { background: #fafafa; }
+  code { background:#f3f3f3;padding:1px 5px;border-radius:3px; font-size: 12.5px; }
+  pre  { background:#f6f8fa;padding:12px;border-radius:6px; font-size: 12.5px; overflow-x: auto; border-left: 3px solid #ccc; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; margin-right:4px; }
+  .ok    { background:#c7f0c7;color:#14501e; }
+  .bad   { background:#ffd6d6;color:#6a0d0d; }
+  .warn  { background:#fff2c2;color:#6a4f00; }
+  .diagram { margin: 1.5em 0; padding: 1em; background: #fafbfc; border: 1px solid #e1e4e8; border-radius: 6px; overflow-x: auto; }
+  .caption { font-size: 12.5px; color: #666; margin-top: .4em; }
+  .callout { background: #fff8e1; border-left: 4px solid #f5b400; padding: 10px 14px; margin: 1em 0; }
+</style>
+</head>
+<body>
+
+<h1>Logging — Where Albumify Writes, Why v2 Is Silent, and How to Align</h1>
+<p><em>2026-05-24 · spec-041 follow-up · same "one standard" principle, applied to logs</em></p>
+
+<h2>1 · What's already in the repo</h2>
+
+<p>Albumify (the FastAPI app) does have proper file logging — set up in <code>sim_bench/api/logging.py</code>:</p>
+
+<pre>def setup_logging(base_dir="logs", level=INFO, console=True) -&gt; Path:
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_dir = Path(base_dir) / timestamp                # logs/2026-05-24_10-30-00/
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "api.log"
+
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file, encoding='utf-8'),    # → file
+            logging.StreamHandler(),                            # → console
+        ],
+        force=True,
+    )
+    return log_dir</pre>
+
+<p>This is called once at FastAPI startup. Critically it configures the <strong>root logger</strong>, so every <code>logging.getLogger(__name__)</code> in the process — in <code>face_cluster/*</code>, <code>sim_bench/pipeline/*</code>, anywhere — automatically inherits both handlers. No per-module wiring needed.</p>
+
+<p>That's why your <code>logs/</code> folder is full of <code>2026-01-30_10-41-26/</code>-style subdirs each containing <code>api.log</code>. Every FastAPI process leaves a tracked subdir behind.</p>
+
+<h2>2 · Why v2 is silent</h2>
+
+<p><strong>v2 never calls <code>setup_logging</code>.</strong> Look at <code>app/face_clustering_v2/main.py</code>:</p>
+
+<pre>import streamlit as st
+from app.face_clustering_v2.tabs.run_tab import render_run_tab
+# ... no logging setup, ever ...
+st.set_page_config(...)
+st.title("Face Clustering — v2 (spec-040)")
+render_run_tab()</pre>
+
+<p>When the v2 process starts, the root logger has whatever default config Python ships with (a <code>StreamHandler</code> writing to <code>stderr</code> at WARNING level). Every <code>logger.info(...)</code> below WARNING is silently dropped; every <code>logger.warning(...)</code> goes to stderr — which Streamlit captures and prints to the terminal that launched it. <strong>Nothing reaches disk.</strong></p>
+
+<h2>3 · Current state (asymmetric)</h2>
+
+<div class="diagram">
+<svg viewBox="0 0 1180 380" width="100%" style="max-width:1180px;">
+  <defs>
+    <marker id="ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3c763d"/>
+    </marker>
+    <marker id="bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <!-- Albumify side -->
+  <rect x="20" y="20" width="560" height="320" rx="10" fill="#fafafa" stroke="#888" stroke-width="1"/>
+  <text x="300" y="45" text-anchor="middle" font-weight="700" font-size="15">Albumify (FastAPI)</text>
+
+  <rect x="50" y="65" width="220" height="56" rx="6" fill="#eaf3ff" stroke="#1f6feb" stroke-width="2"/>
+  <text x="160" y="88" text-anchor="middle" font-size="12.5" font-weight="700">sim_bench/api/main.py</text>
+  <text x="160" y="108" text-anchor="middle" font-size="11" fill="#1f6feb">calls setup_logging() on startup</text>
+
+  <rect x="330" y="65" width="220" height="56" rx="6" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="440" y="88" text-anchor="middle" font-size="12.5" font-weight="700">root logger configured</text>
+  <text x="440" y="108" text-anchor="middle" font-size="11" fill="#3c763d">FileHandler + StreamHandler</text>
+
+  <line x1="270" y1="93" x2="330" y2="93" stroke="#3c763d" stroke-width="2" marker-end="url(#ok)"/>
+
+  <rect x="50" y="160" width="220" height="56" rx="6" fill="#fff" stroke="#444" stroke-width="1.5"/>
+  <text x="160" y="183" text-anchor="middle" font-size="12.5" font-weight="700">face_cluster/*</text>
+  <text x="160" y="203" text-anchor="middle" font-size="11" fill="#444">logger = getLogger(__name__)</text>
+
+  <rect x="50" y="240" width="220" height="56" rx="6" fill="#fff" stroke="#444" stroke-width="1.5"/>
+  <text x="160" y="263" text-anchor="middle" font-size="12.5" font-weight="700">sim_bench/pipeline/*</text>
+  <text x="160" y="283" text-anchor="middle" font-size="11" fill="#444">logger = getLogger(__name__)</text>
+
+  <line x1="270" y1="188" x2="330" y2="160" stroke="#3c763d" stroke-width="2" marker-end="url(#ok)"/>
+  <line x1="270" y1="268" x2="330" y2="200" stroke="#3c763d" stroke-width="2" marker-end="url(#ok)"/>
+
+  <rect x="330" y="160" width="220" height="160" rx="6" fill="#fff3cd" stroke="#856404" stroke-width="2"/>
+  <text x="440" y="185" text-anchor="middle" font-size="13" font-weight="700">logs/2026-05-24_HH-MM-SS/</text>
+  <text x="440" y="208" text-anchor="middle" font-family="monospace" font-size="11.5">api.log</text>
+  <text x="440" y="240" text-anchor="middle" font-size="11" fill="#666">tracked, searchable,</text>
+  <text x="440" y="258" text-anchor="middle" font-size="11" fill="#666">survives the process exit</text>
+  <text x="440" y="290" text-anchor="middle" font-size="11" fill="#3c763d" font-weight="700">all module logs land here</text>
+
+  <!-- v2 side -->
+  <rect x="600" y="20" width="560" height="320" rx="10" fill="#fafafa" stroke="#888" stroke-width="1"/>
+  <text x="880" y="45" text-anchor="middle" font-weight="700" font-size="15">FC App v2 (Streamlit)</text>
+
+  <rect x="630" y="65" width="220" height="56" rx="6" fill="#fdd" stroke="#a94442" stroke-width="2"/>
+  <text x="740" y="88" text-anchor="middle" font-size="12.5" font-weight="700">app/face_clustering_v2/main.py</text>
+  <text x="740" y="108" text-anchor="middle" font-size="11" fill="#a94442">no setup_logging call</text>
+
+  <rect x="910" y="65" width="220" height="56" rx="6" fill="#fdd" stroke="#a94442" stroke-width="2"/>
+  <text x="1020" y="88" text-anchor="middle" font-size="12.5" font-weight="700">root logger UNCONFIGURED</text>
+  <text x="1020" y="108" text-anchor="middle" font-size="11" fill="#a94442">default = stderr@WARNING</text>
+
+  <line x1="850" y1="93" x2="910" y2="93" stroke="#c0392b" stroke-width="2" marker-end="url(#bad)" stroke-dasharray="6,3"/>
+
+  <rect x="630" y="160" width="220" height="56" rx="6" fill="#fff" stroke="#444" stroke-width="1.5"/>
+  <text x="740" y="183" text-anchor="middle" font-size="12.5" font-weight="700">face_cluster/*</text>
+  <text x="740" y="203" text-anchor="middle" font-size="11" fill="#444">logger = getLogger(__name__)</text>
+
+  <rect x="630" y="240" width="220" height="56" rx="6" fill="#fff" stroke="#444" stroke-width="1.5"/>
+  <text x="740" y="263" text-anchor="middle" font-size="12.5" font-weight="700">sim_bench/pipeline/*</text>
+  <text x="740" y="283" text-anchor="middle" font-size="11" fill="#444">logger = getLogger(__name__)</text>
+
+  <line x1="850" y1="188" x2="910" y2="180" stroke="#c0392b" stroke-width="2" marker-end="url(#bad)" stroke-dasharray="6,3"/>
+  <line x1="850" y1="268" x2="910" y2="220" stroke="#c0392b" stroke-width="2" marker-end="url(#bad)" stroke-dasharray="6,3"/>
+
+  <rect x="910" y="160" width="220" height="160" rx="6" fill="#fff" stroke="#c0392b" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="1020" y="195" text-anchor="middle" font-size="13" font-weight="700" fill="#c0392b">(no log file)</text>
+  <text x="1020" y="225" text-anchor="middle" font-size="11" fill="#666">stderr → terminal stdout</text>
+  <text x="1020" y="247" text-anchor="middle" font-size="11" fill="#666">disappears when you close it</text>
+  <text x="1020" y="280" text-anchor="middle" font-size="11" fill="#c0392b" font-weight="700">INFO logs silently dropped</text>
+</svg>
+<div class="caption">Today: same module code, two different fates depending on which app started the process. Albumify's <code>setup_logging</code> configures the root logger; v2 doesn't, so its logs evaporate.</div>
+</div>
+
+<h2>4 · The proposed alignment</h2>
+
+<p><strong>One shared module, every surface calls it on startup.</strong></p>
+
+<h3>Step 1: extract the API-specific logger into a shared module</h3>
+
+<p>Rename <code>sim_bench/api/logging.py</code> → <code>sim_bench/logging_setup.py</code> (or similar). It's not API-specific; the only reason it lives under <code>api/</code> is historical.</p>
+
+<pre># sim_bench/logging_setup.py
+def setup_logging(surface: str, *, base_dir="logs", level=INFO, console=True) -&gt; Path:
+    """
+    Configure the root logger to write to logs/&lt;timestamp&gt;/&lt;surface&gt;.log.
+
+    surface: "api" | "fc_app_v2" | "fc_app_legacy" | "cli_run_v2" | ...
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_dir = Path(base_dir) / timestamp
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / f"{surface}.log"
+
+    handlers = [logging.FileHandler(log_file, encoding='utf-8')]
+    if console:
+        handlers.append(logging.StreamHandler())
+
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=handlers,
+        force=True,
+    )
+    return log_dir</pre>
+
+<h3>Step 2: every entry point calls it with its surface name</h3>
+
+<table>
+  <thead><tr><th>Surface</th><th>Entry point</th><th>Call</th><th>Log file</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Albumify FastAPI</td>
+      <td><code>sim_bench/api/main.py</code></td>
+      <td><code>setup_logging("api")</code></td>
+      <td><code>logs/&lt;ts&gt;/api.log</code></td>
+    </tr>
+    <tr>
+      <td>FC App v2 (Streamlit)</td>
+      <td><code>app/face_clustering_v2/main.py</code></td>
+      <td><code>setup_logging("fc_app_v2")</code></td>
+      <td><code>logs/&lt;ts&gt;/fc_app_v2.log</code></td>
+    </tr>
+    <tr>
+      <td>Original FC App (Streamlit)</td>
+      <td><code>app/face_clustering/main.py</code></td>
+      <td><code>setup_logging("fc_app_legacy")</code></td>
+      <td><code>logs/&lt;ts&gt;/fc_app_legacy.log</code></td>
+    </tr>
+    <tr>
+      <td>Headless CLI</td>
+      <td><code>scripts/run_v2.py</code></td>
+      <td><code>setup_logging("cli_run_v2")</code></td>
+      <td><code>logs/&lt;ts&gt;/cli_run_v2.log</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Step 3: aligned diagram</h3>
+
+<div class="diagram">
+<svg viewBox="0 0 1180 380" width="100%" style="max-width:1180px;">
+  <defs>
+    <marker id="ok2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3c763d"/>
+    </marker>
+  </defs>
+
+  <!-- Shared setup module on top -->
+  <rect x="380" y="20" width="420" height="58" rx="8" fill="#eaf3ff" stroke="#1f6feb" stroke-width="2.5"/>
+  <text x="590" y="45" text-anchor="middle" font-weight="700" font-size="14">sim_bench/logging_setup.py</text>
+  <text x="590" y="65" text-anchor="middle" font-size="11.5" fill="#1f6feb">single source for log format, level, file naming, dir layout</text>
+
+  <!-- Four entry points -->
+  <rect x="20"  y="120" width="260" height="58" rx="6" fill="#fff" stroke="#444"/>
+  <text x="150" y="145" text-anchor="middle" font-size="12" font-weight="700">sim_bench/api/main.py</text>
+  <text x="150" y="165" text-anchor="middle" font-family="monospace" font-size="11">setup_logging("api")</text>
+
+  <rect x="300" y="120" width="260" height="58" rx="6" fill="#fff" stroke="#444"/>
+  <text x="430" y="145" text-anchor="middle" font-size="12" font-weight="700">app/face_clustering_v2/main.py</text>
+  <text x="430" y="165" text-anchor="middle" font-family="monospace" font-size="11">setup_logging("fc_app_v2")</text>
+
+  <rect x="580" y="120" width="260" height="58" rx="6" fill="#fff" stroke="#444"/>
+  <text x="710" y="145" text-anchor="middle" font-size="12" font-weight="700">app/face_clustering/main.py</text>
+  <text x="710" y="165" text-anchor="middle" font-family="monospace" font-size="11">setup_logging("fc_app_legacy")</text>
+
+  <rect x="860" y="120" width="260" height="58" rx="6" fill="#fff" stroke="#444"/>
+  <text x="990" y="145" text-anchor="middle" font-size="12" font-weight="700">scripts/run_v2.py</text>
+  <text x="990" y="165" text-anchor="middle" font-family="monospace" font-size="11">setup_logging("cli_run_v2")</text>
+
+  <line x1="150" y1="120" x2="450" y2="78" stroke="#1f6feb" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="430" y1="120" x2="540" y2="78" stroke="#1f6feb" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="710" y1="120" x2="640" y2="78" stroke="#1f6feb" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="990" y1="120" x2="730" y2="78" stroke="#1f6feb" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <!-- root logger -->
+  <rect x="380" y="220" width="420" height="50" rx="6" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="590" y="244" text-anchor="middle" font-size="13" font-weight="700">root logger (configured once per process)</text>
+  <text x="590" y="262" text-anchor="middle" font-size="11" fill="#3c763d">FileHandler → logs/&lt;ts&gt;/&lt;surface&gt;.log · StreamHandler → terminal</text>
+
+  <line x1="150" y1="178" x2="450" y2="220" stroke="#3c763d" stroke-width="1.5" marker-end="url(#ok2)"/>
+  <line x1="430" y1="178" x2="540" y2="220" stroke="#3c763d" stroke-width="1.5" marker-end="url(#ok2)"/>
+  <line x1="710" y1="178" x2="640" y2="220" stroke="#3c763d" stroke-width="1.5" marker-end="url(#ok2)"/>
+  <line x1="990" y1="178" x2="730" y2="220" stroke="#3c763d" stroke-width="1.5" marker-end="url(#ok2)"/>
+
+  <!-- module loggers inherit -->
+  <rect x="80"  y="310" width="300" height="50" rx="6" fill="#fff" stroke="#444" stroke-width="1.5"/>
+  <text x="230" y="334" text-anchor="middle" font-size="12.5" font-weight="700">face_cluster/* loggers</text>
+  <text x="230" y="352" text-anchor="middle" font-size="11" fill="#3c763d">inherit handlers from root automatically</text>
+
+  <rect x="800" y="310" width="300" height="50" rx="6" fill="#fff" stroke="#444" stroke-width="1.5"/>
+  <text x="950" y="334" text-anchor="middle" font-size="12.5" font-weight="700">sim_bench/pipeline/* loggers</text>
+  <text x="950" y="352" text-anchor="middle" font-size="11" fill="#3c763d">same — no per-module wiring</text>
+
+  <line x1="380" y1="270" x2="230" y2="310" stroke="#3c763d" stroke-width="1.5" marker-end="url(#ok2)"/>
+  <line x1="800" y1="270" x2="950" y2="310" stroke="#3c763d" stroke-width="1.5" marker-end="url(#ok2)"/>
+</svg>
+<div class="caption">After alignment: every entry point calls the same <code>setup_logging</code> with its surface name. Same format, same dir layout, same handlers. Module-level <code>getLogger(__name__)</code> calls inherit automatically — no per-module wiring needed.</div>
+</div>
+
+<h2>5 · What changes</h2>
+
+<table>
+  <thead><tr><th>File</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>sim_bench/logging_setup.py</code></td><td>NEW (or rename of <code>sim_bench/api/logging.py</code>). Add <code>surface: str</code> parameter; otherwise same logic.</td></tr>
+    <tr><td><code>sim_bench/api/main.py</code></td><td>One line change: <code>setup_logging("api")</code> instead of <code>setup_logging()</code>. Import path updated.</td></tr>
+    <tr><td><code>app/face_clustering_v2/main.py</code></td><td>Add 2 lines at the top: <code>from sim_bench.logging_setup import setup_logging; setup_logging("fc_app_v2")</code>.</td></tr>
+    <tr><td><code>app/face_clustering/main.py</code></td><td>Same 2 lines with <code>surface="fc_app_legacy"</code>.</td></tr>
+    <tr><td><code>scripts/run_v2.py</code></td><td>Replace the local <code>logging.basicConfig(...)</code> with <code>setup_logging("cli_run_v2")</code>.</td></tr>
+    <tr><td><code>tests/architecture/test_logging_aligned.py</code> (NEW)</td><td>Arch test: every entry point in the table above calls <code>setup_logging</code>. Failing this test means a new surface bypassed the standard.</td></tr>
+  </tbody>
+</table>
+
+<h2>6 · The principle</h2>
+
+<div class="callout">
+This is the same principle as FCParams → UI_SPEC: <strong>one document defines the standard; every surface reads from it.</strong> The FCParams refactor put the parameter contract in one place. This puts the logging contract in one place. Both follow the rule you stated: "one specification that everyone reads from, true for any parameter in any GUI" — extended naturally to "true for any side-effect any surface emits."
+</div>
+
+<h3>What an arch test would enforce</h3>
+
+<pre>def test_every_entry_point_calls_setup_logging():
+    """Lock in the alignment — adding a new app/script without calling
+    setup_logging is a check-list failure at PR time."""
+    ENTRY_POINTS = {
+        "sim_bench/api/main.py":              "api",
+        "app/face_clustering_v2/main.py":     "fc_app_v2",
+        "app/face_clustering/main.py":        "fc_app_legacy",
+        "scripts/run_v2.py":                  "cli_run_v2",
+    }
+    for path, surface in ENTRY_POINTS.items():
+        src = Path(path).read_text(encoding="utf-8")
+        assert "setup_logging(" in src, f"{path} does not call setup_logging"
+        assert f'"{surface}"' in src or f"'{surface}'" in src, (
+            f"{path} calls setup_logging but not with surface={surface!r}"
+        )</pre>
+
+<h2>7 · Effort</h2>
+
+<ul>
+  <li><strong>Rename + parameterize</strong> the existing module: ~10 minutes.</li>
+  <li><strong>Wire each entry point</strong>: ~5 lines per file × 4 files = ~20 minutes.</li>
+  <li><strong>Arch test</strong>: ~10 minutes.</li>
+  <li><strong>Verify</strong>: launch each surface, confirm a <code>logs/&lt;ts&gt;/&lt;surface&gt;.log</code> file appears: ~10 minutes.</li>
+</ul>
+
+<p><strong>Total: ~45 minutes.</strong> Want me to apply it?</p>
+
+</body>
+</html>

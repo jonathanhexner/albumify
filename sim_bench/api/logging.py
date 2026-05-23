@@ -1,75 +1,42 @@
-"""Logging configuration for the API."""
+"""Backward-compat shim. Moved to ``sim_bench.logging_setup``.
 
-import logging
-from datetime import datetime
+This module used to host ``setup_logging`` for the FastAPI app, with
+the log file name hardcoded to ``api.log``. spec-041 follow-up moved
+the logic up one level and parameterized it by ``surface`` so every
+entry point in the repo uses the same convention. Old call sites that
+do ``setup_logging()`` without a surface name continue to work and
+default to ``surface="api"``.
+
+Prefer ``from sim_bench.logging_setup import setup_logging`` in new code.
+"""
+from __future__ import annotations
+
+import warnings
 from pathlib import Path
-from typing import Optional
 
-# Module-level reference to current log directory
-_current_log_dir: Optional[Path] = None
+from sim_bench.logging_setup import (  # noqa: F401
+    get_log_dir,
+    get_logger,
+    setup_logging as _setup_logging,
+)
 
 
-def setup_logging(
-    base_dir: str = "logs",
-    level: int = logging.INFO,
-    console: bool = True
-) -> Path:
-    """
-    Configure logging with timestamped folder.
-
-    Creates: logs/2024-01-30_10-30-00/api.log
-
-    Args:
-        base_dir: Base directory for logs (default: "logs")
-        level: Logging level (default: INFO)
-        console: Whether to also log to console (default: True)
-
-    Returns:
-        Path to the log directory for this run
-    """
-    global _current_log_dir
-
-    # Create timestamped folder
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_dir = Path(base_dir) / timestamp
-    log_dir.mkdir(parents=True, exist_ok=True)
-    _current_log_dir = log_dir
-
-    log_file = log_dir / "api.log"
-
-    # Configure root logger
-    handlers = [logging.FileHandler(log_file, encoding='utf-8')]
-    if console:
-        handlers.append(logging.StreamHandler())
-
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        handlers=handlers,
-        force=True  # Override any existing config
+def setup_logging(*, base_dir: str = "logs", level=None, console: bool = True) -> Path:
+    """Back-compat wrapper. New code should import from
+    ``sim_bench.logging_setup`` and pass ``surface=`` explicitly."""
+    warnings.warn(
+        "sim_bench.api.logging.setup_logging is deprecated; use "
+        "sim_bench.logging_setup.setup_logging(surface='api', ...) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    import logging as _logging
+    return _setup_logging(
+        "api",
+        base_dir=base_dir,
+        level=level if level is not None else _logging.INFO,
+        console=console,
     )
 
-    # Quiet noisy third-party loggers
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    return log_dir
-
-
-def get_log_dir() -> Optional[Path]:
-    """Get the current log directory for this run."""
-    return _current_log_dir
-
-
-def get_logger(name: str) -> logging.Logger:
-    """
-    Get a logger by name.
-
-    Convenience wrapper for logging.getLogger().
-
-    Usage:
-        from sim_bench.api.logging import get_logger
-        logger = get_logger(__name__)
-    """
-    return logging.getLogger(name)
+__all__ = ["setup_logging", "get_log_dir", "get_logger"]
