@@ -19,7 +19,10 @@ from face_cluster.config import PipelineConfig
 from face_cluster.export import export_merged_results
 from face_cluster.merge import ConservativeMerger
 from face_cluster.types import ClusterResult, FaceRecord, GraphResult
-from face_cluster.analysis_views import MergeAnalysisView, MergeDecisionRow, _parse_merge_log
+from face_cluster.analysis_views import MergeAnalysisView, MergeDecisionRow
+# spec-042 T001: private helpers moved from analysis_views to views.merge_view
+# in an earlier refactor; this test file was left out of the update.
+from face_cluster.views.merge_view import _parse_merge_log
 from face_cluster.pipeline import PipelineResult
 
 
@@ -246,7 +249,7 @@ class ut_MergeAnalysisViewGateCounts:
         )
         result.merge_log = None  # bypass _parse_merge_log
         # Construct view directly
-        from face_cluster.analysis_views import _compute_gate_stats
+        from face_cluster.views.merge_view import _compute_gate_stats
         counts, sole = _compute_gate_stats(rejections)
         assert counts["exemplar"] == 2
         assert counts["support"] == 1
@@ -258,7 +261,7 @@ class ut_MergeAnalysisViewGateCounts:
 
     def test_sole_blocker_multi_fail_not_counted(self):
         """Sole-blocker should not count when multiple gates fail."""
-        from face_cluster.analysis_views import _compute_gate_stats
+        from face_cluster.views.merge_view import _compute_gate_stats
         rejections = [
             self._make_rejection(False, False, True, True),  # two gates fail
         ]
@@ -626,7 +629,7 @@ class ut_MLMergeView:
 
     def test_probability_to_gate_mapping(self):
         """_prob_to_gate_count maps probabilities to correct gate counts."""
-        from face_cluster.analysis_views import _prob_to_gate_count
+        from face_cluster.views.merge_view import _prob_to_gate_count
 
         assert _prob_to_gate_count(0.85) == 4
         assert _prob_to_gate_count(0.65) == 3
