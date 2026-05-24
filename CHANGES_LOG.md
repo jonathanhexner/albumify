@@ -2,6 +2,42 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-25 [FEATURE] spec-042 H1-H5 — History tab pilot (v2 rebuild against spec-041 contracts)
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/views/_specs.py` — `ColumnSpec` dataclass + `rows_to_records` helper. Declarative-spec vocabulary for the v2 view layer (same pattern as `UI_SPEC` for params). Backend layer, Streamlit-free.
+- NEW `face_cluster/views/history.py` — `HistoryService` class + 7 typed dataclasses (`HistoryQuery`, `RunSummary`, `RunDetail`, `LoadedRun`, `ActionRow`, plus `RUN_COLUMNS`/`ACTION_COLUMNS` and `ActionTypeFormat` typed dispatch). 7 service methods: `list_runs`, `list_albums`, `get_run_detail`, `list_other_actions`, `get_action_payload`, `update_comment`, `load_run`. All methods take typed inputs and return typed outputs — no `dict` returns. Reuses the existing `face_cluster.run_history.search()` / `run_history_db` helpers underneath; adds the join logic for parent_row + config_delta + pipeline_run.json parsing.
+- `app/face_clustering_v2/widget_factory.py` — added `render_field(name, readonly=True, value_override=...)` mode. Renders a label/value display without a widget. Used by History detail to show "what config this run used" by iterating `UI_SPEC` instead of hand-rolling per-field `cfg.get('field', '?')` literals.
+- NEW `app/face_clustering_v2/components/` directory with 5 single-responsibility components: `run_filter_bar.py` (3 widgets → HistoryQuery), `run_table.py` (generic ColumnSpec-driven table with selection), `run_detail.py` (header + read-only config view + summary + log + files), `load_button.py` (3-state Load button), `actions_table.py` (recent non-pipeline actions sub-table).
+- NEW `app/face_clustering_v2/tabs/history_tab.py` — ~50 LOC of orchestration only. Calls service → hands typed output to components.
+- `app/face_clustering_v2/main.py` — wired `History` as the 3rd tab.
+- NEW `tests/face_clustering/views/_seed.py` — row factories (`make_action`, `insert_action`, `seed_runs`) for synthetic action_log rows. Shared across future view-service tests.
+- NEW `tests/face_clustering/views/test_history_service_synthetic.py` — 31 tests covering every public method's contract with in-memory SQLite. Above the 26-case PRD minimum. Tests `list_runs` filter combinations (album / date_from / date_to / text / AND-not-OR / newest-first), `list_albums` (distinct + sorted + empty), `get_run_detail` (full shape, parent + config_delta, raises on missing id, parses pipeline_run.json), `update_comment` (persists, idempotent, rejects overlength), `load_run` (raises on incomplete / missing artifacts / missing output_dir), `list_other_actions` (type filter + limit + ActionTypeFormat dispatch), `get_action_payload`, plus per-action-type formatter tests.
+- NEW `tests/face_clustering/views/test_history_service_real.py` — 4 smoke tests against the user's actual `~/.sim_bench/sim_bench.db`. Skip cleanly when DB or Budapest run dir absent. Construct service with explicit `db_path` to bypass the session monkeypatch in `tests/face_clustering/conftest.py` (which only redirects one of two `get_db_path` bindings — pre-existing).
+- `tests/conftest.py` — added `v2_budapest_run_dir` session fixture (skips when absent) and `synthetic_action_log_db` function fixture (per-test in-memory DB).
+- NEW `tests/architecture/test_v2_layering.py` — enforces the two-layer split: `face_cluster/views/*` MUST NOT import Streamlit; `app/face_clustering_v2/tabs/*` MUST NOT bypass services (no sqlite3 / run_history_db direct imports / inline JSON parsing).
+- NEW `tests/architecture/test_v2_module_docstrings.py` — every public class/function in new v2 code must have a docstring. Legacy files on an allowlist (cleared as they're rebuilt).
+- NEW `tests/manual/_v2_history_smoke.py` — Playwright smoke against live Streamlit on 8889. Verifies History tab renders + filter widgets visible + no Streamlit exception markdown. Screenshot captured.
+- NEW `specs/042-fc-app-v2-tab-parity/` — full PRD + tasks + History tab detailed plan (drafts committed earlier in `d80792c`).
+
+**Change**: First tab of the v2 rebuild ships. The History tab is a 1:1 user-facing behavioral match of the legacy `app/face_clustering/tabs/history_tab.py` (365 LOC mixing 7 responsibilities, zero unit tests, 16 hand-rolled `cfg.get('field')` literals) — re-implemented as a ~50 LOC orchestrator + 5 single-responsibility components + a 7-method typed service backed by 31 synthetic-data unit tests + 4 real-fixture smoke tests + 2 architecture tests enforcing the layering and documentation contract.
+
+**Reason**: spec-042 pilots the rebuild pattern that every other tab will follow. The legacy History tab was the worst candidate (most LOC, most responsibilities, most field-name duplication); proving the spec-041 contracts (FCParams, UI_SPEC, widget_factory, RunStore) can transform *it* into the new shape de-risks the seven remaining tab ports.
+
+**Verification**:
+- 31/31 synthetic-data unit tests pass in 1.76s
+- 4/4 real-fixture integration tests pass against the user's actual action_log (28 rows from this week's runs visible)
+- 3/3 architecture tests (layering + docstrings) green
+- Playwright smoke against live Streamlit on port 8889: History tab visible as 3rd tab; clicking it renders filter bar (Album / Date range / Search) + "Pipeline Runs (28)" subheader + 28-row table with the right columns; no Streamlit exception markdown; full-page screenshot captured.
+- Total LOC: 50 (tab) + 5*~80 (components) + ~400 (service) + ~700 (tests) — much smaller than 365 legacy + 0 tests, with each layer independently testable.
+
+**Out of scope (deferred per spec-042)**:
+- The 7 remaining tabs (Cluster Analysis, Recluster, Face Analysis, Merged Clusters, Quality, Gallery, Overview). Each follows the History template.
+- Retiring `app/face_clustering/`. Gated on 2-week burn-in after spec-042 lands.
+- The pre-existing `face_cluster.run_history` / `run_history_db` "two `get_db_path` bindings" issue surfaced during testing. Real-fixture tests work around it by passing explicit `db_path`; a proper fix is a follow-up sighting candidate.
+
+---
+
 ### 2026-05-22 [FEATURE] spec-041 — FC App v2 configuration container + Run tab parity
 **Branch**: `unification/spec-040`
 **Files**:

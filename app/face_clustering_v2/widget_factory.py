@@ -73,10 +73,25 @@ def _ui_default(field_name: str) -> Any:
     return default
 
 
-def render_field(field_name: str) -> Any:
+def render_field(
+    field_name: str,
+    *,
+    readonly: bool = False,
+    value_override: Any = None,
+) -> Any:
     """Render the widget for an FCParams field and return its value.
 
-    Raises KeyError if the field has no ``UI_SPEC`` entry (caller bug).
+    Args:
+        field_name: name of a UI-bound field on ``FCParams``.
+        readonly: when True, render as a non-editable display. Used by
+            the History tab to show "what config this run used". Pure
+            label/value pair (st.text); not an input. No session_state
+            interaction. Returns ``value_override`` (or the field default).
+        value_override: when ``readonly=True``, the value to display.
+            Ignored in editable mode (session_state and default own that).
+
+    Raises:
+        KeyError if the field has no ``UI_SPEC`` entry (caller bug).
     """
     if field_name not in UI_SPEC:
         raise KeyError(
@@ -86,6 +101,19 @@ def render_field(field_name: str) -> Any:
         )
     info = FCParams.model_fields[field_name]
     spec: FieldUI = UI_SPEC[field_name]
+
+    # Readonly path: just a label + value display. No widget, no
+    # session_state, no validation bounds. Used by view-side
+    # "read past run's config" displays — see HISTORY_TAB_PRD §7.
+    if readonly:
+        display_value = value_override if value_override is not None else info.default
+        if spec.zero_is_none and display_value is None:
+            display_value = _zero_for(spec.step)
+        # Render as a label : value line. st.text preserves alignment;
+        # st.markdown could be used for richer formatting later.
+        st.text(f"{spec.label}: {display_value}")
+        return display_value
+
     lo, hi = _bounds(info)
     label = spec.label
     help_text = info.description or None
