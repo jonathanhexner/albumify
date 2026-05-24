@@ -24,6 +24,7 @@ from typing import List
 import numpy as np
 
 from face_cluster.attach import HoldoutAttacher
+from face_cluster.cluster_diameter_cap import apply_diameter_cap, decisions_to_dict_list
 from face_cluster.clustering import ConnectedComponentsClusterer
 from face_cluster.config import PipelineConfig as FCConfig
 from face_cluster.exemplars import D10ExemplarSelector
@@ -177,7 +178,9 @@ class MergeFaceClustersStep(BaseStep):
             display_name="Merge face clusters",
             description="Conservative 4-gate merge of nearby clusters.",
             category="clustering",
-            requires={"cluster_result"},
+            # spec-041 audit fix: merger.merge_clusters_with_logging takes
+            # (cluster_result, graph_result) — graph_result was undeclared.
+            requires={"cluster_result", "graph_result"},
             produces={"merged_cluster_result", "merge_log", "merge_metadata"},
             depends_on=["select_face_exemplars"],
             config_schema={"type": "object"},
@@ -213,7 +216,16 @@ class AttachHoldoutFacesStep(BaseStep):
             display_name="Attach holdout faces",
             description="Attach quality-failed (holdout) faces to existing clusters.",
             category="clustering",
-            requires={"merged_cluster_result"},
+            # spec-041 audit fix: attacher.attach_holdouts reads
+            # face_records, core_indices, holdout_indices, graph_result —
+            # all four were undeclared.
+            requires={
+                "merged_cluster_result",
+                "face_records",
+                "core_indices",
+                "holdout_indices",
+                "graph_result",
+            },
             produces={"merged_cluster_result"},
             depends_on=["merge_face_clusters"],
             config_schema={"type": "object"},
@@ -247,8 +259,17 @@ class ApplyDiameterCapStep(BaseStep):
             display_name="Apply diameter cap",
             description="spec-031 absolute diameter ceiling; reverts violating merges.",
             category="clustering",
-            requires={"merged_cluster_result"},
-            produces={"cap_decisions", "cap_summary"},
+            # spec-041 audit fix: cap algorithm reads merged_cluster_result
+            # AND cluster_result (pre-merge baseline), plus face_records and
+            # core_indices to build the per-cluster face subset. Also
+            # OVERWRITES merged_cluster_result when caps fire.
+            requires={
+                "merged_cluster_result",
+                "cluster_result",
+                "face_records",
+                "core_indices",
+            },
+            produces={"cap_decisions", "cap_summary", "merged_cluster_result"},
             depends_on=["attach_holdout_faces"],
             config_schema={"type": "object"},
         )
@@ -268,11 +289,6 @@ class ApplyDiameterCapStep(BaseStep):
         clustering unchanged but populate ``cap_summary`` so consumers can
         tell the difference between "off" and "ran but kept everything".
         """
-        from face_cluster.cluster_diameter_cap import (
-            apply_diameter_cap,
-            decisions_to_dict_list,
-        )
-
         fc_cfg = FCConfig(**config)
         context.cap_decisions = []
 
@@ -333,7 +349,16 @@ class AssignPeopleClustersStep(BaseStep):
             display_name="Assign people clusters",
             description="Materialize the final cluster_id → [FaceRecord] mapping.",
             category="clustering",
-            requires={"merged_cluster_result"},
+            # spec-041 audit fix: reads merged_cluster_result (preferred)
+            # or cluster_result (fallback), plus face_records / core_indices
+            # / holdout_indices to map cluster-local indices back to faces.
+            requires={
+                "merged_cluster_result",
+                "cluster_result",
+                "face_records",
+                "core_indices",
+                "holdout_indices",
+            },
             produces={"people_clusters"},
             depends_on=["apply_diameter_cap"],
             config_schema={"type": "object"},

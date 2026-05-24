@@ -18,7 +18,7 @@ class DiscoverImagesStep(BaseStep):
             description="Scan source directory for image files (jpg, jpeg, png, heic, raw).",
             category="discovery",
             requires=set(),
-            produces={"image_paths"},
+            produces={"image_paths", "active_images"},
             depends_on=[],
             config_schema={
                 "type": "object",

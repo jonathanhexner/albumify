@@ -42,8 +42,12 @@ class ExtractFaceEmbeddingsStep(BaseStep):
             display_name="Extract Face Embeddings",
             description="Extract face embeddings from aligned face crops.",
             category="people",
-            requires={"aligned_faces"},
-            produces={"face_embeddings"},
+            # spec-041 audit fix: also reads context.face_records (the A1
+            # dual-write loop) and mutates each FaceRecord's embedding /
+            # embedding_normalized fields. Declaring both sides so the
+            # telemetry and dependency resolution are honest.
+            requires={"aligned_faces", "face_records"},
+            produces={"face_embeddings", "face_records"},
             depends_on=["align_faces"],
             config_schema={
                 "type": "object",

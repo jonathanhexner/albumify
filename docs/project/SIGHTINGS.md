@@ -31,6 +31,159 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-069: Quality gate has no per-gate rejection diagnostics
+**Status**: RESOLVED (initial fix)
+**Severity**: Medium (diagnostics — bad bugs surface but take 30 min to root-cause without this)
+**Reported**: 2026-05-25
+**Persona**: ML Engineer / Pipeline owner
+
+**Problem Description**:
+When `QualityGater.select_core_set` returns 0 core candidates, the log line is
+just `"Quality gating: 0 core, N holdout faces"` — no breakdown of which gate
+fired. The user (and the next person debugging this) has to grep per-face
+DEBUG logs or read source to figure out whether blur, pose, area, or det_score
+was the rejector. This session hit the same class of failure twice:
+- 2026-05-24 morning: pose gate rejecting all 340 faces (`require_pose=True`)
+- 2026-05-24 evening: blur gate rejecting all 340 faces (`blur_min=50`, no producer for blur)
+
+In both cases the WARNING came from the gate-specific code (pose has one,
+blur didn't), not from a generic "0 core" diagnostic.
+
+**Fix landed in spec-041 follow-up**:
+`face_cluster/quality.py::select_core_set` now tracks per-gate rejection
+counts during the loop and emits a single WARNING when `n_core == 0`:
+
+```
+Quality gate rejected ALL 285 candidates. Per-gate rejection
+(faces failing each gate; a face may fail multiple): blur=285/285, area=12/285
+```
+
+The sorted-by-count format puts the dominant rejector first.
+
+**Follow-up tracked separately**: structurally, gates that depend on producer
+outputs that don't exist (pose, blur) should be auto-disabled with a WARNING,
+not just produce 0 core. SIGHTING-067 (pose) and SIGHTING-068 (blur) cover
+the data-side fixes. This sighting covered the diagnostic gap, now closed.
+
+---
+
+### SIGHTING-068: Blur gate is inert — `face.blur_score` is always 0.0 (no producer step)
+**Status**: OPEN (immediate symptom papered over; root fix deferred)
+**Severity**: Medium (symmetric to SIGHTING-067; `blur_min > 0` causes "0 core faces" on any real album under the InsightFace pipeline)
+**Reported**: 2026-05-25
+**Persona**: ML Engineer / Pipeline owner
+
+**Problem Description**:
+`face_cluster.quality.QualityGater._add_blur_gate` reads `face.blur_score` and
+applies `blur_min`. But the v2 producer chain (and the Albumify chain through
+the bridge) has **no blur scorer**:
+
+- `insightface_detect_faces._serialize_face` writes `{face_index, bbox, confidence, landmarks, person_bbox, face_occluded}` — no blur.
+- `align_faces`, `detect_face_orientation`, `extract_face_embeddings` — none compute blur.
+- `FaceRecord.blur_score` defaults to `0.0`.
+
+Result: with `FCParams.blur_min = 50.0` (the default), the gate rejects every face. With `blur_min = 0.0`, the threshold is inert.
+
+The legacy bridge (`face_cluster_bridge.build_fc_config`) papers over this by hardcoding `blur_min=0.0` regardless of the caller's config, with an explicit comment pointing at the 100%-rejection regression that motivated the pin. v2 inherited the gate code but not the pin.
+
+**Symptoms**:
+- v2 Run with `blur_min > 0` (e.g., the FCParams default of 50.0) and `require_pose=False`:
+  ```
+  face_cluster.quality - INFO - Quality gating: 0 core, 340 holdout faces
+  ```
+- Without the diagnostic from SIGHTING-069, the gate identity is invisible — looks like the same crash as the pose case.
+
+**Immediate paper-over (landed)**:
+`select_core_set` detects when `n_with_blur == 0 AND blur_min > 0`, emits a
+WARNING, and overrides `blur_min` to 0 for this run via a new
+`self._effective_blur_min` attribute. Symmetric to the pose vacuous-pass:
+
+```
+WARNING — Blur gate: NOT WIRED — face.blur_score is 0.0 for all 340 faces
+(no producer step computes blur today). Threshold blur_min=50.0 would reject
+every face; bypassing it for this run. Add an insightface_score_blur step to
+enable.
+```
+
+Pipeline now runs end-to-end with default settings — no more silent
+"0 core faces" mystery.
+
+**Real fix (deferred)** — same three options as SIGHTING-067:
+- **A** (Laplacian variance on the aligned crop): the `QualityGater.compute_blur_scores` method already exists with a working Laplacian implementation. Wire it as a new `insightface_score_blur` step BEFORE quality gating. ~30 LOC.
+- **B**: extend `insightface_score_pose` to also compute blur from the same face crop (shares I/O). One step, two scores.
+- **C**: leave the paper-over in place and remove `blur_min` from the FCParams UI as a "not implemented" knob until A or B lands. Cheap but dishonest.
+
+Pick A unless someone has a reason to prefer B.
+
+**Workaround until fixed**: set `blur_min = 0.0` in the FCParams profile (this is what profile_1.json does).
+
+**Test that would catch a regression**: integration test on a real album asserting `n_core > 0` when `blur_min > 0` is configured AND there's at least one face. If a future change populates `blur_score` (so the threshold becomes effective) AND the threshold is too strict, the test fails — same regression-protection pattern as SIGHTING-067.
+
+---
+
+### SIGHTING-067: Pose gate is inert — `FaceRecord.pose` is never populated on either path
+**Status**: OPEN
+**Severity**: Medium (pose-based quality filtering is silently disabled on both Albumify AND v2 today; `require_pose=True` causes "0 core faces" on any real album)
+**Reported**: 2026-05-24
+**Updated**: 2026-05-24 — full audit across Albumify, v2, and the legacy MediaPipe path
+**Persona**: ML Engineer / Pipeline owner
+
+**Problem Description**:
+`face_cluster.quality.QualityGater._add_pose_gates` reads `face.pose` (a `Tuple[float, float, float]` of yaw/pitch/roll) to decide whether each face passes the angular thresholds. `FaceRecord.pose` is **`None` for every face**, on both the v2 pipeline AND the legacy Albumify-through-bridge path.
+
+Consequence — line 287 of `quality.py`:
+```python
+if face.pose is None:
+    passed = not self.config.require_pose
+```
+- `require_pose=True` → every face rejected by the pose gate → `core_indices = []` → `build_face_knn_graph` aborts with "Required context key is empty: core_indices".
+- `require_pose=False` → every face vacuously passes; thresholds inert.
+
+**Why both paths are broken** — full audit:
+
+There are at least three "pose" things in the codebase. None of them currently reach `FaceRecord.pose`:
+
+| Pose surface | Where it lives | Populated? | Reaches `FaceRecord.pose`? |
+|---|---|---|---|
+| `context.face_pose_scores` (scalar 0-1 frontal score keyed by face_key) | written by `insightface_score_pose` step (active in Albumify) | Yes | No — it's a scalar from 5-point landmark geometry, not yaw/pitch/roll |
+| `face.pose = PoseEstimate(yaw, pitch, roll, frontal_score)` | written by `score_face_pose` (MediaPipe) and `score_face_quality` | Yes, but only on `CroppedFace` / `FaceForClustering` objects | No — different type from `FaceRecord` |
+| `face_cluster_bridge.faces_to_face_records` pose plumbing (lines 111-118) | reads `if_face["pose_scores"]` or `if_face["scores"]["pose"]` as a `{yaw, pitch, roll}` dict | Code is correct but **the upstream key is never written** | No — dead code path |
+
+The bridge's pose-plumbing code looks for `pose_scores` (a `{yaw, pitch, roll}` dict) inside the per-face dicts of `context.insightface_faces`. But `insightface_detect_faces._serialize_face` only writes `{face_index, bbox, confidence, landmarks, person_bbox, face_occluded}` — no `pose_scores`, no `scores.pose`. The bridge's `getattr(face, "pose", None)` also returns None because `FaceForClustering` doesn't carry pose either. So the path through the bridge is **structurally dead**: the code is correct, the data never arrives.
+
+The `detect_face_orientation` step in the v2 producer chain is named confusingly — it computes the 0°/90°/180°/270° image rotation needed to make the face upright (for alignment), not the head-pose yaw/pitch/roll angles.
+
+The `face_cluster.quality.PoseEstimator` class instantiates SixDRepNet on-demand when `use_pose_estimation=True` is passed to `QualityGater`, but **no caller in the codebase passes that flag today** (the unified clustering chain instantiates `QualityGater(_build_fc_config(config))` only).
+
+**Symptoms**:
+- Loading any "strict pose" profile and hitting Run produces:
+  `Run failed: ... build_face_knn_graph failed: Validation failed: Required context key is empty: core_indices`
+- The previously-misleading log line `"Pose angle filter: ACTIVE (InsightFace 1k3d68)"` claimed pose was being filtered when in practice pose was never present.
+  (Fixed in spec-041 follow-up: now emits a `WARNING: Pose gate NOT WIRED …` line.)
+- Same behavior on Albumify and v2 — `require_pose=True` causes 0 core faces on both.
+
+**Steps to Reproduce**:
+1. In v2 Run tab, set `require_pose=True`, yaw_max=30, pitch_max=30, roll_max=30.
+2. Run on any album.
+3. Observe "Quality gating: 0 core, N holdout" in the log.
+4. Repeat on Albumify with `cluster_people.require_pose: true` in the config — same result.
+
+**Suggested Resolutions** — pick one:
+
+- **A** (cheapest, fixes both paths at once): extend `insightface_score_pose._store_results` to also write the *actual* yaw/pitch/roll dict back into `context.insightface_faces[path]["faces"][i]["pose_scores"]`. The bridge's existing plumbing code (`face_cluster_bridge.py:111-118`) will pick it up unmodified. Mirror the same write to v2's `_build_face_records` via a new `extract_face_pose` producer step that reads the same data. Requires InsightFace to expose yaw/pitch/roll on its `Face` object — confirm the buffalo_l pack's output structure.
+
+- **B** (independent of InsightFace internals): add a new `extract_face_pose` step using SixDRepNet on the aligned crop. The `face_cluster.quality.PoseEstimator` class already exists — wire it into the producer chain instead of the gate. ~50 LOC.
+
+- **C** (no new producer step): make the existing `insightface_score_pose` produce `(yaw, pitch, roll)` tuples from the landmarks geometry itself (today it only outputs a scalar derived from those landmarks). The math for `yaw` is already inline in `_compute_pose_score`; extend with pitch and roll, store as dict.
+
+Pick A or C if we want the cheapest fix that exercises Albumify too. Pick B if we don't trust the landmark-based math.
+
+**Workaround until fixed**: set `require_pose=False` in the FCParams profile (this is the default in `profile_1.json`). The pose threshold knobs (yaw_max/pitch_max/roll_max) are then inert — pose-based quality filtering is silently disabled.
+
+**Test that would catch a regression of this finding**: integration test on a real album that asserts `n_core > 0` when `require_pose=True` is configured. If the next person flips `require_pose=True` and re-runs without doing one of A/B/C, the test fails loud.
+
+---
+
 ### SIGHTING-066: Scene side has no structured persistence — no `images`, no `scene_clusters`, no scene-embedding npy
 **Status**: OPEN
 **Severity**: Medium (structural symmetry violation; analyst can't query "show me all images in scene cluster 3")

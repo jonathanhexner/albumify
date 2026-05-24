@@ -27,7 +27,10 @@ class InsightFaceDetectFacesStep(BaseStep):
             description="Detect faces using InsightFace and associate with persons.",
             category="people",
             requires={"image_paths"},
-            produces={"faces"},  # Common interface
+            # spec-041 audit fix: declares the keys this step actually writes.
+            # Previously declared {"faces"}, which doesn't exist on the context —
+            # caught by the new per-step in/out telemetry.
+            produces={"insightface_faces", "face_records"},
             depends_on=["detect_persons"],
             config_schema={
                 "type": "object",
