@@ -43,6 +43,7 @@
 <a href="#A3">Testing</a>
 <a href="#A4">Arch Tests</a>
 <a href="#A5">Doc Contract</a>
+<a href="#A6">Tab Migration</a>
 <a href="#B0">Repository</a>
 <a href="#B1">DI</a>
 <a href="#B2">Errors</a>
@@ -107,6 +108,14 @@
   <td>Enforced for new v2 code; legacy code on an allowlist. No rule to retire allowlist entries.</td>
   <td><code>tests/architecture/test_v2_module_docstrings.py</code>; CLAUDE.md</td>
   <td>30 min</td>
+</tr>
+<tr>
+  <td>A6</td>
+  <td><a href="#A6">Per-tab migration discipline (3 architectural-layer tests + working code throughout)</a></td>
+  <td><span class="pill ok">CODIFY</span></td>
+  <td>spec-042 H1 followed this for the History tab implicitly. The rule isn't named: every migrated tab must ship with tests at the DB, Backend, and Frontend layers — and the migration is tab-by-tab while legacy AND v2 stay runnable at every commit.</td>
+  <td><code>WORKFLOW.md</code>; <code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>; per-tab spec sections</td>
+  <td>30 min (doc) + binding-rule going forward</td>
 </tr>
 <tr>
   <td>B0</td>
@@ -326,6 +335,105 @@ def render_summary(row):
 
 <hr/>
 
+<h2 id="A6">A6. Per-tab migration discipline — three architectural-layer tests + working code throughout <span class="pill ok">CODIFY</span></h2>
+
+<h3>What we have today</h3>
+<p>spec-042 H1 (History tab) followed this discipline implicitly:</p>
+<ul>
+  <li>Migration is one tab at a time. v2 grew from 2 tabs → 3 tabs in a single commit (<code>807053c</code>).</li>
+  <li>Legacy <code>app/face_clustering/main.py</code> (~11 tabs) stayed runnable throughout. Untouched.</li>
+  <li>v2 <code>app/face_clustering_v2/main.py</code> stayed runnable at every intermediate state — H1, H2, H3 each ended green.</li>
+  <li>Tests landed at three architectural layers: service unit + real-fixture + Playwright UI smoke.</li>
+</ul>
+<p>The "tab-by-tab while never breaking either app" is the strangler-fig pattern made operational. The "three architectural-layer tests" is what proved each tab actually works against its own data, not just compiles.</p>
+
+<h3>Why it matters going forward</h3>
+<p>Seven tabs remain to migrate in spec-042. Without this discipline made explicit:</p>
+<ul>
+  <li>Someone batches multiple tabs in one PR, gets stuck on one, and now nothing ships.</li>
+  <li>Tests get written at the layer the author thinks is "enough" — usually UI smoke or service alone. The other layer's bugs ship.</li>
+  <li>A migration breaks the legacy app silently (someone accidentally edits a shared module) and is only noticed days later.</li>
+</ul>
+<p>With it: every tab migration is a small, complete, independently-shippable unit. Each PR is a checkpoint where both apps run, all tests pass, and the new tab is fully covered at every layer it touches.</p>
+
+<h3>The standard</h3>
+
+<h4>The three-layer test gate</h4>
+<p>Every tab migration ships with tests at <strong>three architectural layers</strong>:</p>
+
+<table>
+<thead><tr><th>Layer</th><th>What it tests</th><th>Lives in</th><th>Required?</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>DB / Repository</strong></td>
+  <td>SQL queries return the right rows on synthetic DBs. Schema-shape assumptions. Mutation idempotence.</td>
+  <td><code>tests/face_clustering/repositories/test_&lt;repo&gt;_synthetic.py</code></td>
+  <td>YES — at least 5 cases per Repository (find / find_one / count / one mutation / one edge case)</td>
+</tr>
+<tr>
+  <td><strong>Backend / Service</strong></td>
+  <td>Business logic, composition of Repositories, error handling, typed return shapes.</td>
+  <td><code>tests/face_clustering/views/test_&lt;service&gt;_synthetic.py</code><br/><code>tests/face_clustering/views/test_&lt;service&gt;_real.py</code></td>
+  <td>YES — at least 10 synthetic cases + 2 real-fixture smoke cases per Service</td>
+</tr>
+<tr>
+  <td><strong>Frontend / UI</strong></td>
+  <td>The tab renders against real data. Filter widgets visible. No Streamlit exception markdown on the page.</td>
+  <td><code>tests/manual/_v2_&lt;tab&gt;_smoke.py</code></td>
+  <td>YES — 1 Playwright smoke per tab, opt-in, screenshot captured</td>
+</tr>
+</tbody>
+</table>
+
+<p>This is layer-orthogonal to A3 (test fidelity pyramid):</p>
+
+<table>
+<thead><tr><th>Layer ↓ / Fidelity →</th><th>Synthetic (fast)</th><th>Real fixture (smoke)</th><th>Playwright UI</th></tr></thead>
+<tbody>
+<tr><td><strong>Repository</strong></td><td>✅ required</td><td>optional</td><td>—</td></tr>
+<tr><td><strong>Service</strong></td><td>✅ required</td><td>✅ required</td><td>—</td></tr>
+<tr><td><strong>Frontend</strong></td><td>—</td><td>—</td><td>✅ required</td></tr>
+</tbody>
+</table>
+
+<p>Cells marked "—" don't make sense (a Repository has no UI; a Playwright test is by definition not against synthetic data). Cells marked "optional" are valuable but not gate-blocking.</p>
+
+<h4>The incremental-migration rule</h4>
+<p>Three sub-rules, all binding:</p>
+<ol>
+  <li><strong>One tab per commit (or PR).</strong> Never batch unrelated tabs. Each tab migration is its own atomic unit.</li>
+  <li><strong>Legacy app stays runnable at every commit.</strong> <code>.venv/Scripts/streamlit run app/face_clustering/main.py</code> must work after the merge. The legacy app is the safety net — it's how a user gets unblocked if v2 has a regression.</li>
+  <li><strong>v2 app stays runnable at every commit.</strong> Whatever tabs have been migrated, the v2 app loads cleanly and shows them. No commit may break a previously-shipped v2 tab.</li>
+</ol>
+
+<h3>Audit: History tab against the standard</h3>
+<p>How spec-042 H1 already maps:</p>
+
+<table>
+<thead><tr><th>Gate</th><th>History tab status</th></tr></thead>
+<tbody>
+<tr><td>Repository synthetic tests</td><td>⚠️ MISSING — no Repository yet; the persistence layer is still module-level free functions. Spec-043 (B0) addresses this. After spec-043, History will need a Repository-layer test added.</td></tr>
+<tr><td>Service synthetic tests</td><td>✅ 31 tests in <code>test_history_service_synthetic.py</code></td></tr>
+<tr><td>Service real-fixture tests</td><td>✅ 4 tests in <code>test_history_service_real.py</code></td></tr>
+<tr><td>Frontend Playwright smoke</td><td>✅ <code>tests/manual/_v2_history_smoke.py</code> + screenshot</td></tr>
+<tr><td>One-tab-per-commit</td><td>✅ <code>807053c</code> only adds History; doesn't touch other tabs</td></tr>
+<tr><td>Legacy app stays runnable</td><td>✅ Legacy untouched</td></tr>
+<tr><td>v2 app stays runnable</td><td>✅ Existing Run + Clusters tabs unaffected</td></tr>
+</tbody>
+</table>
+
+<p>So History tab is "mostly" compliant; the only missing gate is the Repository layer, which materializes when spec-043 lands.</p>
+
+<h3>What to codify</h3>
+<ul>
+  <li>Add the three-layer test gate + incremental migration rule to <code>WORKFLOW.md</code> as a phase-0 checkpoint for every tab/feature spec.</li>
+  <li>Add to the Code Review checklist §5 explicit gate: <em>"Does this PR ship tests at all three architectural layers (DB / Backend / Frontend) that the feature touches?"</em></li>
+  <li>Add to spec-042's per-tab plan: each remaining tab's task list explicitly enumerates the Repository / Service / Frontend tests it owes.</li>
+  <li>Document that the migration order is: <strong>(1)</strong> Repository (if new persistence access needed); <strong>(2)</strong> Service + its tests; <strong>(3)</strong> Components + tab orchestrator; <strong>(4)</strong> Playwright smoke; <strong>(5)</strong> wire into <code>main.py</code>. Wiring last keeps the v2 app runnable throughout.</li>
+</ul>
+
+<hr/>
+
 <h2 id="B0">B0. Repository pattern — persistence as classes, not free functions <span class="pill partial">FIX</span></h2>
 
 <h3>What we have today</h3>
@@ -355,44 +463,89 @@ face_cluster/run_history_db.py    — 457 LOC, ~12 public free functions
 </ol>
 
 <h3>The standard</h3>
-<p>Two-class pattern at the persistence layer:</p>
+<p>Three rules:</p>
+<ol>
+  <li><strong>Persistence layer is a class</strong>, not module-level free functions.</li>
+  <li><strong>Constructor takes a typed Config dataclass</strong>, not individual kwargs. Adding a new option = adding a field to the Config; existing callers unchanged.</li>
+  <li><strong>Query methods take composable criteria</strong> (typed dataclass with optional fields). Adding a new filter axis = adding a field to the criteria; no new method needed.</li>
+</ol>
+
 <pre># face_cluster/repositories/run_history_repo.py
+
+@dataclass(frozen=True, slots=True)
+class RunHistoryRepoConfig:
+    """Repository constructor configuration. Every field has a default,
+    so adding a new field is non-breaking for existing callers."""
+    db_path: Optional[Path] = None
+    auto_migrate: bool = True
+    read_only: bool = False
+    log_queries: bool = False
+    connection_timeout_s: float = 5.0
+
+
+@dataclass(frozen=True, slots=True)
+class RunHistoryCriteria:
+    """Composable filter for run history queries. AND across fields."""
+    ids: Optional[list[int]] = None
+    parent_run_id: Optional[int] = None
+    album: Optional[str] = None
+    status: Optional[str] = None
+    producer: Optional[str] = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+    text: Optional[str] = None
+    text_fields: tuple[str, ...] = ("album", "run_name", "comment")
+    limit: int = 500
+    offset: int = 0
+    order_by: Literal["started_at_desc", "started_at_asc"] = "started_at_desc"
+
+
 class RunHistoryRepository:
-    """Read + write access to the action_log table.
+    """Read + write access to the action_log table. Thin SQL wrapper.
+    Knows the schema; knows nothing about views, Streamlit, or services."""
 
-    Owns: a connection path to ~/.sim_bench/sim_bench.db. Thin SQL
-    wrapper — knows the schema and how to query it; knows nothing
-    about views, Streamlit, or business logic. *Service classes
-    compose this.
-    """
-    def __init__(self, db_path: Optional[Path] = None):
-        self._db_path_override = db_path
+    def __init__(self, config: Optional[RunHistoryRepoConfig] = None):
+        self._config = config or RunHistoryRepoConfig()
 
-    def _path(self) -> Path:
-        # Lazy resolve so monkeypatching the default still works.
-        return self._db_path_override or _resolve_default_path()
-
-    # Reads
-    def search(self, filters: HistoryFilters) -> list[RunRow]: ...
+    # Composable query API
+    def find(self, criteria: RunHistoryCriteria) -> list[RunRow]: ...
+    def find_one(self, criteria: RunHistoryCriteria) -> Optional[RunRow]: ...
+    def count(self, criteria: RunHistoryCriteria) -> int: ...
     def distinct_albums(self) -> list[str]: ...
-    def get_by_id(self, run_id: int) -> Optional[RunRow]: ...
-    def list_actions(self, types, limit) -> list[ActionDict]: ...
-    def get_action(self, action_id: int) -> Optional[ActionDict]: ...
 
-    # Mutations
-    def start_action(self, action_type, payload) -> int: ...
-    def complete_action(self, action_id, result) -> None: ...
-    def fail_action(self, action_id, error) -> None: ...
-    def update_comment(self, action_id, comment) -> None: ...</pre>
-<p>Then the Service composes the Repository, not the raw modules:</p>
+    # Convenience for the common single-id case
+    def get_by_id(self, run_id: int) -> Optional[RunRow]:
+        return self.find_one(RunHistoryCriteria(ids=[run_id]))
+
+    # Mutations — named verbs per B3
+    def start_action(self, action_type: str, payload: dict) -> int: ...
+    def complete_action(self, action_id: int, result: dict) -> None: ...
+    def fail_action(self, action_id: int, error: str) -> None: ...
+    def update_comment(self, action_id: int, comment: str) -> None: ...</pre>
+
+<p>Then the Service composes the Repository:</p>
 <pre># face_cluster/views/history.py
 class HistoryService:
     def __init__(self, repo: Optional[RunHistoryRepository] = None):
         self._repo = repo or RunHistoryRepository()
 
     def list_runs(self, query: HistoryQuery) -> list[RunRow]:
-        filters = HistoryFilters(...)
-        return self._repo.search(filters)  # single delegation, no db_path</pre>
+        criteria = RunHistoryCriteria(
+            album=query.album, date_from=query.date_from,
+            date_to=query.date_to, text=query.text,
+        )
+        return self._repo.find(criteria)</pre>
+
+<h4>Why typed Config + criteria, not kwargs or dicts</h4>
+<p>Same principle as A2 (declarative specs) and B4 (typed boundaries): when an interface might grow, the typed object IS the interface; the consuming methods stay stable. Imagine adding <code>cache_strategy</code>, <code>retry_policy</code>, <code>read_only</code>, <code>connection_pool_size</code> to the Repository constructor over time. With explicit kwargs, every consumer (services, CLI, tests) gets touched each time. With a Config dataclass, none change unless they care about the new field.</p>
+<p>Two arch tests for spec-043:</p>
+<pre>def test_repositories_take_typed_config():
+    """*Repository classes either take no args or one positional/keyword
+    arg that's a frozen dataclass. Forbids growing kwarg lists."""
+
+def test_repositories_have_no_module_level_free_functions():
+    """face_cluster/repositories/*.py exposes only classes, dataclasses,
+    and module-level constants. Forbids the legacy free-function shape."""</pre>
 
 <h3>Why "Repository" is the right name</h3>
 <p>The pattern is well-established in layered architectures (DDD, .NET, Spring). A Repository:</p>

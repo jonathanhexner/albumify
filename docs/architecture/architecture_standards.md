@@ -21,7 +21,8 @@ Grouped by maturity:
 | A3 | Three-layer testing pyramid | CODIFY | synthetic unit / real-fixture smoke / Playwright UI for any user-facing feature |
 | A4 | Arch tests are part of every spec | CODIFY | An invariant without a test is documentation, not architecture |
 | A5 | Documentation contract | CODIFY | Every public class/function has a docstring; allowlist for legacy shrinks monotonically |
-| B0 | **Repository pattern** | FIX | Persistence layer is classes (`*Repository`), not module-level free functions |
+| A6 | Per-tab migration discipline | CODIFY | Each migrated tab ships with DB + Backend + Frontend tests; migration is tab-by-tab with both apps runnable throughout |
+| B0 | **Repository pattern** | FIX | Persistence layer is classes (`*Repository`), not free functions; constructor takes a typed Config dataclass; queries take composable typed criteria |
 | B1 | Constructor injection; no shadowed imports | FIX | Functions used as injection points are called via module-attribute access |
 | B2 | Error model standardization | FIX | Services raise from a `ServiceError` hierarchy (NotFound / Validation / Conflict) — not plain `ValueError` |
 | B3 | Service vocabulary | FIX | Five-verb taxonomy: `list_*` / `get_*` / `create_*` / `update_*` / `delete_*` + named composites |
@@ -55,9 +56,76 @@ An architectural invariant without a test is documentation, not architecture. Ea
 
 Every public class and function in new v2 code has a docstring stating contract (Args / Returns / Side effects). Functions over 30 LOC get split. No `fc1, fc2, fc3` placeholder variable names. No ASCII section dividers substituting for function decomposition. The `test_v2_module_docstrings.py` arch test checks presence (not prose quality); reviewers handle prose. Legacy files on an explicit allowlist; the allowlist shrinks monotonically as files are touched.
 
+### A6 — Per-tab migration discipline (3 architectural-layer tests + working code throughout) <a name="a6"></a>
+
+Two intertwined rules for every tab migration:
+
+**(1) Three-layer test gate.** Each tab migration ships with tests at all three architectural layers. The matrix is layer-orthogonal to A3's fidelity pyramid:
+
+| Layer | Fidelity | Required? | Lives in |
+|---|---|---|---|
+| **DB / Repository** | Synthetic (in-memory DB) | YES — ≥5 cases per Repository | `tests/face_clustering/repositories/test_<repo>_synthetic.py` |
+| **Backend / Service** | Synthetic + real-fixture | YES — ≥10 synthetic + ≥2 real per Service | `tests/face_clustering/views/test_<service>_*.py` |
+| **Frontend / UI** | Playwright (opt-in) | YES — 1 smoke per tab | `tests/manual/_v2_<tab>_smoke.py` |
+
+One layer missing = migration not complete. The Code Review gate checks this explicitly.
+
+**(2) Incremental migration; both apps stay runnable throughout.**
+
+- One tab per commit (or PR). Never batch unrelated tabs.
+- Legacy `app/face_clustering/main.py` must run after every merge — it's the safety net if v2 regresses.
+- v2 `app/face_clustering_v2/main.py` must run after every merge with all previously-migrated tabs intact.
+- Migration order per tab: (1) Repository, (2) Service + tests, (3) Components + tab orchestrator, (4) Playwright smoke, (5) wire into `main.py`. Wiring last keeps v2 runnable throughout.
+
+This is the strangler-fig pattern made operational. The legacy app is retired only after all tabs migrate and a burn-in period passes.
+
 ### B0 — Repository pattern (persistence as classes, not free functions) <a name="b0"></a>
 
-The `face_cluster.run_history` + `run_history_db` modules are 600 LOC of module-level free functions each taking `db_path=None`. `HistoryService` ends up threading a constructor-held `db_path` to every underlying call. The lower layer should own this — as a `RunHistoryRepository` class. Owns DB connection path; thin SQL wrapper; knows the schema and nothing else. Returns typed domain objects, not raw rows. Service composes one or more Repositories via constructor injection. **Scope: spec-043 candidate** (4-6h refactor with real blast radius across legacy callers).
+The `face_cluster.run_history` + `run_history_db` modules are 600 LOC of module-level free functions each taking `db_path=None`. `HistoryService` ends up threading a constructor-held `db_path` to every underlying call. The lower layer should own this. Three rules for the Repository pattern:
+
+1. **Persistence layer is a class** (`*Repository`), not module-level free functions.
+2. **Constructor takes a typed Config dataclass**, not individual kwargs. Adding a new option (`auto_migrate`, `read_only`, `cache_strategy`, ...) becomes a field on the Config; existing callers stay unchanged.
+3. **Query methods take composable criteria** (typed dataclass with optional fields). Adding a new filter axis becomes a field on the criteria, not a new method.
+
+Pattern:
+
+```python
+@dataclass(frozen=True, slots=True)
+class RunHistoryRepoConfig:
+    db_path: Optional[Path] = None
+    auto_migrate: bool = True
+    read_only: bool = False
+    log_queries: bool = False
+    connection_timeout_s: float = 5.0
+
+
+@dataclass(frozen=True, slots=True)
+class RunHistoryCriteria:
+    ids: Optional[list[int]] = None
+    album: Optional[str] = None
+    date_from: Optional[date] = None
+    # ... all optional, all composable, AND-combined
+    limit: int = 500
+
+
+class RunHistoryRepository:
+    def __init__(self, config: Optional[RunHistoryRepoConfig] = None):
+        self._config = config or RunHistoryRepoConfig()
+
+    def find(self, criteria: RunHistoryCriteria) -> list[RunRow]: ...
+    def find_one(self, criteria: RunHistoryCriteria) -> Optional[RunRow]: ...
+    def count(self, criteria: RunHistoryCriteria) -> int: ...
+    def get_by_id(self, run_id: int) -> Optional[RunRow]:
+        return self.find_one(RunHistoryCriteria(ids=[run_id]))
+    # mutations — named verbs, not composable
+    def update_comment(self, action_id: int, comment: str) -> None: ...
+```
+
+Two arch tests for spec-043:
+- `test_repositories_take_typed_config()` — `*Repository.__init__` takes either nothing or one frozen-dataclass arg.
+- `test_repositories_have_no_module_level_free_functions()` — `face_cluster/repositories/*.py` exposes only classes, dataclasses, and constants.
+
+**Scope: spec-043 candidate** (4-6h refactor with real blast radius across legacy callers).
 
 ### B1 — Constructor injection; no shadowed module imports
 
