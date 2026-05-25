@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 
+from face_cluster.repositories import RunHistoryRepoConfig, RunHistoryRepository
 from face_cluster.views.history import HistoryQuery, HistoryService
 
 
@@ -40,7 +41,9 @@ def real_service() -> HistoryService:
     db = _real_db_path()
     if not db.exists():
         pytest.skip(f"Real action_log DB not present at {db}")
-    return HistoryService(db_path=db)
+    return HistoryService(
+        repo=RunHistoryRepository(RunHistoryRepoConfig(db_path=db)),
+    )
 
 
 def test_list_runs_returns_at_least_one_row(real_service, v2_budapest_run_dir):

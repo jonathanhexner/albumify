@@ -1,19 +1,43 @@
 """Typed search helper for the action_log history table.
 
-Usage:
+.. deprecated:: spec-043
+    Use :class:`face_cluster.repositories.RunHistoryRepository` instead.
+    This module's free functions remain for backward compatibility with
+    legacy callers; removal is tracked as a follow-up after the
+    spec-043 burn-in period.
+
+Usage (deprecated):
     from face_cluster.run_history import search, HistoryFilters, RunRow
     rows = search(HistoryFilters(album="Noa2_5"), db_path=None)
+
+Replacement (preferred):
+    from face_cluster.repositories import (
+        RunHistoryRepository, RunHistoryRepoConfig, RunHistoryCriteria,
+    )
+    repo = RunHistoryRepository(RunHistoryRepoConfig(db_path=None))
+    rows = repo.find(RunHistoryCriteria(album="Noa2_5"))
 """
 from __future__ import annotations
 
 import json
 import sqlite3
+import warnings
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
 from face_cluster.run_history_db import get_db_path, init_table
+
+# spec-043: emit once per process. Visible in test output / CI logs;
+# doesn't flood production. Future PR adding a new caller surfaces this.
+warnings.warn(
+    "face_cluster.run_history is deprecated; use "
+    "face_cluster.repositories.RunHistoryRepository instead. "
+    "Tracked for removal after the spec-043 burn-in period.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 _TABLE = "action_log"
 _UNKNOWN_ALBUM = "(unknown)"
@@ -43,6 +67,12 @@ class RunRow:
     comment: Optional[str] = None
     config_json: Optional[str] = None
     n_core: Optional[int] = None
+    # spec-043: payload_json exposed so the Repository's find() can populate
+    # it for callers that need the raw action payload (e.g., HistoryService
+    # formatting non-pipeline actions). Pre-spec-043 callers ignored it.
+    payload_json: Optional[str] = None
+    producer: Optional[str] = None
+    error: Optional[str] = None
 
     @property
     def display_album(self) -> str:
@@ -51,6 +81,16 @@ class RunRow:
     @property
     def config(self) -> dict:
         return json.loads(self.config_json) if self.config_json else {}
+
+    @property
+    def payload(self) -> dict:
+        """Parsed payload_json. Empty dict when None/missing/malformed."""
+        if not self.payload_json:
+            return {}
+        try:
+            return json.loads(self.payload_json)
+        except Exception:
+            return {}
 
 
 @dataclass
@@ -92,6 +132,9 @@ def _row_to_run_row(row: sqlite3.Row) -> RunRow:
         comment=d.get("comment"),
         config_json=d.get("config_json"),
         n_core=d.get("n_core"),
+        payload_json=d.get("payload_json"),
+        producer=d.get("producer"),
+        error=d.get("error"),
     )
 
 

@@ -139,9 +139,11 @@ def run_v2_pipeline(
     # Action log row — survives the run even on error so the UI can render
     # history. Producer column makes the new FC App's runs distinguishable
     # from legacy and Albumify rows.
+    # spec-043: routed through RunHistoryRepository instead of the deprecated
+    # run_history_db free functions.
     try:
-        from face_cluster import run_history_db
-        action_id = run_history_db.start_action("fc_app_v2_run", payload={
+        from face_cluster.repositories import RunHistoryRepository
+        action_id = RunHistoryRepository().start_action("fc_app_v2_run", payload={
             "run_id": run_id,
             "source_dir": str(src_dir),
             "output_dir": str(output_dir),
@@ -272,11 +274,14 @@ def _safe_complete_action(
     result_fields: Optional[Dict[str, Any]] = None,
     message: Optional[str] = None,
 ) -> None:
+    # spec-043: routed through RunHistoryRepository instead of the deprecated
+    # run_history_db free functions.
     try:
-        from face_cluster import run_history_db
+        from face_cluster.repositories import RunHistoryRepository
+        repo = RunHistoryRepository()
         if ok:
-            run_history_db.complete_action(action_id, result_fields=result_fields)
+            repo.complete_action(action_id, result_fields=result_fields)
         else:
-            run_history_db.fail_action(action_id, message or "unknown error")
+            repo.fail_action(action_id, message or "unknown error")
     except Exception as e:  # pragma: no cover
         logger.warning("action_log complete failed (non-fatal): %s", e)

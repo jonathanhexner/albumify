@@ -2,6 +2,44 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-25 [REFACTOR] spec-043 — Repository pattern for face_cluster persistence
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/repositories/__init__.py`, `_errors.py`, `run_history_repo.py` — Replaces ~600 LOC of module-level free functions in `face_cluster/run_history.py` + `run_history_db.py` with one `RunHistoryRepository` class. Typed `RunHistoryRepoConfig` (Config dataclass) in `__init__`; typed `RunHistoryCriteria` in query methods (`find` / `find_one` / `count` / `distinct_albums` / `get_by_id`). Mutation methods (`start_action` / `complete_action` / `fail_action` / `update_comment`) raise typed `NotFoundError` / `ValidationError` from the new `RepositoryError` hierarchy. Forward-looking `RunHistoryRepoConfig` fields (`auto_migrate`, `read_only`, `log_queries`, `connection_timeout_s`) declared with defaults so adding options is non-breaking.
+- `face_cluster/run_history.py` — `RunRow` extended with `payload_json`, `producer`, `error` fields + `payload` property (so Repository's `find()` returns rows with payload accessible without a second query). Module emits `DeprecationWarning` on import; free functions still work for legacy callers.
+- `face_cluster/run_history_db.py` — module emits `DeprecationWarning` for the CRUD free functions; `get_db_path()` is NOT deprecated (Repository defaults to it).
+- `face_cluster/views/history.py` — `HistoryService` migrated: `__init__(repo: Optional[RunHistoryRepository] = None)` instead of `db_path`. Every method delegates to `self._repo`. The legacy `db_path` threading is gone. The 31 existing service tests continue to pass — they're the contract guard.
+- `app/face_clustering_v2/pipeline.py` — `_safe_complete_action` and the inline `start_action` site now route through `RunHistoryRepository` instead of the deprecated free functions.
+- `tests/face_clustering/views/test_history_service_synthetic.py` + `test_history_service_real.py` — test setup updated to construct `HistoryService(repo=RunHistoryRepository(RunHistoryRepoConfig(db_path=...)))`. Assertions unchanged.
+- NEW `tests/face_clustering/repositories/__init__.py` + `test_run_history_repo_synthetic.py` — **33 unit tests** covering every public method's contract against synthetic in-memory DBs. Above the 24-case spec minimum. ~1.4s.
+- NEW `tests/face_clustering/repositories/test_run_history_repo_real.py` — 3 smoke tests against `~/.sim_bench/sim_bench.db`.
+- NEW `tests/architecture/test_repositories.py` — 3 arch tests: `test_repository_classes_exist`, `test_repositories_take_typed_config` (forbids growing kwarg lists), `test_repositories_module_has_no_public_free_functions` (forbids the legacy shape).
+- `tests/face_clustering/conftest.py` — session-fixture docstring updated to reflect the new world. Fixture stays as a safety net for default-Repository tests; tests that pass explicit `db_path` are unaffected by it.
+- `specs/043-repository-pattern/spec.md` + `tasks.md` — full PRD + 8-phase task list (drafts committed earlier in `7f57afa`).
+- `specs/042-fc-app-v2-tab-parity/ARCHITECTURE_STANDARDS.html` — A6 History-tab audit table updated: Repository tests row goes from ⚠️ MISSING to ✅.
+
+**Change**: Persistence layer is now a class. `RunHistoryRepository` owns the `db_path` per-instance via a typed Config; query methods take composable typed criteria; mutations raise typed errors. The `HistoryService` (spec-042 H1) and the v2 pipeline (spec-040 T4) now compose the Repository via constructor injection. Legacy free functions still work (with `DeprecationWarning`) for the seven legacy-app callers that haven't been migrated yet — those get retired with the legacy app in a future spec.
+
+**Reason**: codifies B0 of the architecture standards (commit `0664252`). Closes the `from X import get_db_path` shadowed-binding trap that bit us during spec-042 H1. Unblocks the next seven tab migrations — each future `*Service` composes a Repository instead of threading `db_path`.
+
+**Build → Test → Migrate discipline** (per spec-043 §7 + A6): Phase 1 built the new code with no consumers. Phase 2 tested it against synthetic data (33/33 pass). Phase 3 smoked it against real data (3/3 pass). Phase 4 migrated `HistoryService` only after Phase 2-3 were green. Each phase ended with both apps runnable and all prior tests still passing.
+
+**Verification**:
+- 33/33 Repository synthetic tests pass (1.4s)
+- 3/3 Repository real-fixture tests pass against the dev `~/.sim_bench/sim_bench.db`
+- 31/31 HistoryService synthetic tests pass with the migrated Service (contract guard — same assertions, new wiring)
+- 4/4 HistoryService real-fixture tests pass
+- 3/3 new arch tests green
+- 141/141 across the wider spec-040/041/042/043 surface (incl. full v2 pipeline E2E `test_run_v2_script.py::test_full_run_against_fixture`)
+- 2 `DeprecationWarning` emissions visible in pytest output (one per legacy module, once per process)
+
+**Out of scope (tracked as follow-ups)**:
+- Removal of `face_cluster/run_history.py` and `face_cluster/run_history_db.py` — gated on 2-week burn-in.
+- Migration of the 4 legacy-app callers in `app/face_clustering/` (history_tab, ml_training_tab, run_panels, state.py). They still work via the deprecated free functions; they'll be migrated when their corresponding v2 tabs ship (spec-042 H2+).
+- Generalizing the Repository pattern to other persistence (face_clustering.db, embeddings.npy) — each per-tab spec adds its own Repository.
+
+---
+
 ### 2026-05-25 [FEATURE] spec-042 H1-H5 — History tab pilot (v2 rebuild against spec-041 contracts)
 **Branch**: `unification/spec-040`
 **Files**:

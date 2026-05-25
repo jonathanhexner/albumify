@@ -21,8 +21,13 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from face_cluster import run_history, run_history_db
 from face_cluster.config_diff import ConfigDelta, compute as _config_diff_compute
+from face_cluster.repositories import (
+    NotFoundError as _RepoNotFoundError,
+    RunHistoryCriteria,
+    RunHistoryRepoConfig,
+    RunHistoryRepository,
+)
 from face_cluster.run_history import RunRow
 from face_cluster.views._specs import ColumnSpec
 
@@ -248,23 +253,28 @@ _REQUIRED_ARTIFACTS: tuple[str, ...] = (
 class HistoryService:
     """Query and mutate the global ``action_log`` DB.
 
-    Owns: a connection path to ``~/.sim_bench/sim_bench.db`` (or a test
-    override via ``db_path``). Streamlit-free; safe to call from CLI,
-    pytest, or a FastAPI handler.
+    Composes a :class:`RunHistoryRepository` via constructor injection.
+    Streamlit-free; safe to call from CLI, pytest, or a FastAPI handler.
 
     Read methods (``list_*`` / ``get_*``) are pure given DB state.
-    Mutation methods (``update_*``) name their side effects in the
-    docstring.
+    Mutation methods (``update_*`` / ``load_*``) name their side
+    effects in the docstring.
+
+    spec-043 migration: previously held a ``self._db_path`` and threaded
+    it through every legacy free-function call. Now holds one Repository
+    instance and delegates; ``db_path`` is a Repository concern.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
-        """Initialize with an optional DB path override (used in tests).
+    def __init__(self, repo: Optional[RunHistoryRepository] = None):
+        """Initialize with an optional Repository (tests inject; production
+        gets the default).
 
         Args:
-            db_path: path to a SQLite file with the action_log schema.
-                When None, uses the global default (``~/.sim_bench/sim_bench.db``).
+            repo: a configured :class:`RunHistoryRepository`. When None,
+                a default Repository is created pointing at the global
+                ``~/.sim_bench/sim_bench.db``.
         """
-        self._db_path = db_path
+        self._repo = repo or RunHistoryRepository()
 
     # ------------------------------------------------------------------ read
 
@@ -279,13 +289,13 @@ class HistoryService:
 
         Side effects: none.
         """
-        filters = run_history.HistoryFilters(
+        criteria = RunHistoryCriteria(
             album=query.album,
             date_from=query.date_from,
             date_to=query.date_to,
             text=query.text,
         )
-        return run_history.search(filters, db_path=self._db_path)
+        return self._repo.find(criteria)
 
     def list_albums(self) -> List[str]:
         """Distinct album names ever recorded, sorted.
@@ -294,7 +304,7 @@ class HistoryService:
 
         Side effects: none.
         """
-        return run_history.distinct_albums(db_path=self._db_path)
+        return self._repo.distinct_albums()
 
     def get_run_detail(self, run_id: int) -> RunDetail:
         """Full detail for one run.
@@ -313,7 +323,7 @@ class HistoryService:
         Side effects: none. Reads pipeline_run.json from the run's
         output_dir when present.
         """
-        row = run_history.get_run_by_id(run_id, db_path=self._db_path)
+        row = self._repo.get_by_id(run_id)
         if row is None:
             raise ValueError(f"No run with id={run_id}")
 
@@ -341,7 +351,7 @@ class HistoryService:
         parent_row: Optional[RunRow] = None
         config_delta: List[ConfigDelta] = []
         if row.parent_run_id is not None:
-            parent_row = run_history.get_run_by_id(row.parent_run_id, db_path=self._db_path)
+            parent_row = self._repo.get_by_id(row.parent_run_id)
             if parent_row is not None:
                 config_delta = _config_diff_compute(parent_row.config or {}, config)
 
@@ -370,26 +380,26 @@ class HistoryService:
             list of ``ActionRow``. The ``details`` field is formatted by
             ``ActionTypeFormat`` from each row's ``payload_json``.
         """
-        raw_rows = run_history_db.list_actions(
-            types=list(action_types),
+        rows = self._repo.find(RunHistoryCriteria(
+            action_types=list(action_types),
             limit=limit,
-            db_path=self._db_path,
-        )
+        ))
         out: List[ActionRow] = []
-        for raw in raw_rows:
-            try:
-                payload = json.loads(raw.get("payload_json") or "{}")
-            except Exception:
-                payload = {}
-            details = ActionTypeFormat.format(raw["action_type"], payload, raw)
+        for row in rows:
+            payload = row.payload
+            # ActionTypeFormat expects a dict-like row for n_clusters access;
+            # build a minimal dict view from the RunRow so the formatter
+            # signature (kept stable) still works.
+            row_view = {"n_clusters": row.n_clusters}
+            details = ActionTypeFormat.format(row.action_type, payload, row_view)
             out.append(ActionRow(
-                id=raw["id"],
-                started_at=raw.get("started_at"),
-                action_type=raw["action_type"],
-                status=raw.get("status", ""),
-                duration_s=raw.get("duration_s"),
+                id=row.id,
+                started_at=row.started_at,
+                action_type=row.action_type,
+                status=row.status,
+                duration_s=row.duration_s,
                 details=details,
-                error=raw.get("error"),
+                error=row.error,
             ))
         return out
 
@@ -403,13 +413,10 @@ class HistoryService:
             Parsed payload dict, or empty dict if the row is missing,
             payload_json is NULL, or JSON parsing fails.
         """
-        raw = run_history_db.get_action(action_id, db_path=self._db_path)
-        if raw is None:
+        row = self._repo.get_by_id(action_id)
+        if row is None:
             return {}
-        try:
-            return json.loads(raw.get("payload_json") or "{}")
-        except Exception:
-            return {}
+        return row.payload
 
     # ------------------------------------------------------------- mutation
 
@@ -418,15 +425,26 @@ class HistoryService:
 
         Args:
             run_id: action_log primary key.
-            comment: free-text, max 2048 chars (enforced by run_history_db).
+            comment: free-text, max 2048 chars (enforced by the Repository).
 
         Raises:
-            ValueError: when comment exceeds 2048 characters.
+            ValueError: when comment exceeds 2048 characters or the run
+                does not exist. (Translated from the Repository's
+                ``ValidationError`` / ``NotFoundError`` to preserve the
+                pre-spec-043 contract.)
 
         Side effects: UPDATEs ``action_log.comment`` for ``run_id``.
         Idempotent — same comment twice = same final state.
         """
-        run_history_db.update_comment(run_id, comment, db_path=self._db_path)
+        from face_cluster.repositories import ValidationError as _RepoValErr
+        try:
+            self._repo.update_comment(run_id, comment)
+        except (_RepoValErr, _RepoNotFoundError) as e:
+            # Preserve the pre-migration contract: callers catch
+            # ``ValueError``. Once spec-042 B2 (ServiceError hierarchy)
+            # lands, this translation can go away — Service methods will
+            # propagate Repository errors directly.
+            raise ValueError(str(e)) from e
 
     def load_run(self, run_id: int) -> LoadedRun:
         """Load a completed run's pipeline result into a typed container.

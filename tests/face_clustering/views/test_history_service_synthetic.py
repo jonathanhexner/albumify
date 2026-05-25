@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from face_cluster.repositories import RunHistoryRepoConfig, RunHistoryRepository
 from face_cluster.views.history import (
     ActionTypeFormat,
     HistoryQuery,
@@ -27,25 +28,34 @@ from face_cluster.views.history import (
 from tests.face_clustering.views._seed import insert_action, seed_runs
 
 
+def _service(db_path):
+    """spec-043 migration helper: construct a HistoryService with an
+    in-memory-ish Repository wired to ``db_path``. Replaces the
+    pre-migration ``HistoryService(db_path=...)`` shape."""
+    return HistoryService(
+        repo=RunHistoryRepository(RunHistoryRepoConfig(db_path=db_path)),
+    )
+
+
 # ===========================================================================
 # list_runs — filter + ordering
 # ===========================================================================
 
 def test_list_runs_empty_db_returns_empty_list(synthetic_action_log_db):
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     assert service.list_runs(HistoryQuery()) == []
 
 
 def test_list_runs_no_filters_returns_all(synthetic_action_log_db):
     seed_runs(synthetic_action_log_db, albums=("Budapest", "Paris"), runs_per_album=3)
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_runs(HistoryQuery())
     assert len(rows) == 6
 
 
 def test_list_runs_filter_by_album(synthetic_action_log_db):
     seed_runs(synthetic_action_log_db, albums=("Budapest", "Paris"), runs_per_album=3)
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_runs(HistoryQuery(album="Budapest"))
     assert len(rows) == 3
     assert all(r.display_album == "Budapest" for r in rows)
@@ -55,7 +65,7 @@ def test_list_runs_filter_by_date_from(synthetic_action_log_db):
     base = datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc)
     insert_action(synthetic_action_log_db, started_at=base, source_album="A")
     insert_action(synthetic_action_log_db, started_at=base + timedelta(days=20), source_album="B")
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_runs(HistoryQuery(date_from=date(2026, 5, 20)))
     assert len(rows) == 1
     assert rows[0].display_album == "B"
@@ -68,7 +78,7 @@ def test_list_runs_filter_by_date_to_inclusive(synthetic_action_log_db):
     insert_action(synthetic_action_log_db,
                   started_at=base + timedelta(days=1, minutes=1),
                   source_album="B")
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_runs(HistoryQuery(date_to=date(2026, 5, 20)))
     assert [r.display_album for r in rows] == ["A"]
 
@@ -76,7 +86,7 @@ def test_list_runs_filter_by_date_to_inclusive(synthetic_action_log_db):
 def test_list_runs_text_filter_matches_album(synthetic_action_log_db):
     insert_action(synthetic_action_log_db, source_album="BudapestTrip")
     insert_action(synthetic_action_log_db, source_album="Paris")
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_runs(HistoryQuery(text="Buda"))
     assert len(rows) == 1
     assert rows[0].display_album == "BudapestTrip"
@@ -85,7 +95,7 @@ def test_list_runs_text_filter_matches_album(synthetic_action_log_db):
 def test_list_runs_text_filter_matches_run_name(synthetic_action_log_db):
     insert_action(synthetic_action_log_db, source_album="A", run_name="exp-merge-1")
     insert_action(synthetic_action_log_db, source_album="A", run_name="baseline")
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_runs(HistoryQuery(text="merge"))
     assert len(rows) == 1
     assert rows[0].run_name == "exp-merge-1"
@@ -94,7 +104,7 @@ def test_list_runs_text_filter_matches_run_name(synthetic_action_log_db):
 def test_list_runs_text_filter_matches_comment(synthetic_action_log_db):
     insert_action(synthetic_action_log_db, source_album="A", comment="best merge so far")
     insert_action(synthetic_action_log_db, source_album="A", comment="baseline")
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_runs(HistoryQuery(text="best"))
     assert len(rows) == 1
     assert rows[0].comment == "best merge so far"
@@ -109,7 +119,7 @@ def test_list_runs_multi_filter_is_AND_not_OR(synthetic_action_log_db):
     # Budapest yesterday
     insert_action(synthetic_action_log_db, source_album="Budapest",
                   started_at=base - timedelta(days=1))
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_runs(HistoryQuery(
         album="Budapest", date_from=date(2026, 5, 25),
     ))
@@ -126,7 +136,7 @@ def test_list_runs_newest_first(synthetic_action_log_db):
                   started_at=base + timedelta(days=5), run_name="middle")
     insert_action(synthetic_action_log_db, source_album="A",
                   started_at=base + timedelta(days=10), run_name="newest")
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_runs(HistoryQuery())
     assert [r.run_name for r in rows] == ["newest", "middle", "oldest"]
 
@@ -139,12 +149,12 @@ def test_list_albums_distinct_and_sorted(synthetic_action_log_db):
     seed_runs(synthetic_action_log_db,
               albums=("Budapest", "Paris", "Budapest", "Athens"),
               runs_per_album=1)
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     assert service.list_albums() == ["Athens", "Budapest", "Paris"]
 
 
 def test_list_albums_empty_db_returns_empty_list(synthetic_action_log_db):
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     assert service.list_albums() == []
 
 
@@ -159,7 +169,7 @@ def test_get_run_detail_returns_full_shape(synthetic_action_log_db):
         run_name="exp-1",
         config_json=json.dumps({"K": 5, "distance_threshold": 0.35}),
     )
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     detail = service.get_run_detail(rid)
     assert isinstance(detail, RunDetail)
     assert detail.row.id == rid
@@ -184,7 +194,7 @@ def test_get_run_detail_with_parent_computes_config_delta(synthetic_action_log_d
         config_json=json.dumps({"K": 7, "distance_threshold": 0.35}),
         parent_run_id=parent_id,
     )
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     detail = service.get_run_detail(child_id)
     assert detail.parent_row is not None
     assert detail.parent_row.id == parent_id
@@ -194,7 +204,7 @@ def test_get_run_detail_with_parent_computes_config_delta(synthetic_action_log_d
 
 
 def test_get_run_detail_raises_on_missing_id(synthetic_action_log_db):
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     with pytest.raises(ValueError, match="No run with id=999999"):
         service.get_run_detail(999999)
 
@@ -217,7 +227,7 @@ def test_get_run_detail_parses_pipeline_run_json(synthetic_action_log_db, tmp_pa
     }
     (out_dir / "pipeline_run.json").write_text(json.dumps(prun), encoding="utf-8")
     rid = insert_action(synthetic_action_log_db, output_dir=str(out_dir))
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     detail = service.get_run_detail(rid)
     assert detail.summary is not None
     assert detail.summary.n_faces == 340
@@ -233,14 +243,14 @@ def test_get_run_detail_parses_pipeline_run_json(synthetic_action_log_db, tmp_pa
 
 def test_update_comment_persists(synthetic_action_log_db):
     rid = insert_action(synthetic_action_log_db)
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     service.update_comment(rid, "important run")
     assert service.get_run_detail(rid).row.comment == "important run"
 
 
 def test_update_comment_idempotent(synthetic_action_log_db):
     rid = insert_action(synthetic_action_log_db)
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     service.update_comment(rid, "foo")
     service.update_comment(rid, "foo")
     assert service.get_run_detail(rid).row.comment == "foo"
@@ -248,7 +258,7 @@ def test_update_comment_idempotent(synthetic_action_log_db):
 
 def test_update_comment_rejects_overlength(synthetic_action_log_db):
     rid = insert_action(synthetic_action_log_db)
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     with pytest.raises(ValueError, match="exceeds"):
         service.update_comment(rid, "x" * 2049)
 
@@ -259,14 +269,14 @@ def test_update_comment_rejects_overlength(synthetic_action_log_db):
 
 def test_load_run_raises_on_incomplete_run(synthetic_action_log_db):
     rid = insert_action(synthetic_action_log_db, status="failed")
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     with pytest.raises(ValueError, match="not complete"):
         service.load_run(rid)
 
 
 def test_load_run_raises_when_output_dir_missing(synthetic_action_log_db):
     rid = insert_action(synthetic_action_log_db, status="complete", output_dir=None)
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     with pytest.raises(ValueError, match="no output_dir"):
         service.load_run(rid)
 
@@ -279,7 +289,7 @@ def test_load_run_raises_when_artifacts_missing(synthetic_action_log_db, tmp_pat
         status="complete",
         output_dir=str(out_dir),
     )
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     with pytest.raises(ValueError, match="missing required artifacts"):
         service.load_run(rid)
 
@@ -295,7 +305,7 @@ def test_list_other_actions_filters_by_type(synthetic_action_log_db):
     insert_action(synthetic_action_log_db, action_type="fc_app_v2_run")
     insert_action(synthetic_action_log_db, action_type="ml_train",
                   payload_json=json.dumps({"model_type": "lr", "accuracy": 0.85}))
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_other_actions()
     types = {r.action_type for r in rows}
     assert types == {"merge_apply", "ml_train"}  # fc_app_v2_run excluded
@@ -305,7 +315,7 @@ def test_list_other_actions_honors_limit(synthetic_action_log_db):
     for _ in range(150):
         insert_action(synthetic_action_log_db, action_type="profile_save",
                       payload_json=json.dumps({"profile_name": "p"}))
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_other_actions(limit=50)
     assert len(rows) == 50
 
@@ -315,7 +325,7 @@ def test_list_other_actions_details_formatted_by_type(synthetic_action_log_db):
                   n_clusters=25,
                   payload_json=json.dumps({"round": 2, "n_approved": 5,
                                             "clusters_before": 30}))
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     rows = service.list_other_actions()
     assert "round=2" in rows[0].details
     assert "approved=5" in rows[0].details
@@ -329,12 +339,12 @@ def test_list_other_actions_details_formatted_by_type(synthetic_action_log_db):
 def test_get_action_payload_returns_parsed_dict(synthetic_action_log_db):
     rid = insert_action(synthetic_action_log_db,
                         payload_json=json.dumps({"foo": "bar", "n": 42}))
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     assert service.get_action_payload(rid) == {"foo": "bar", "n": 42}
 
 
 def test_get_action_payload_missing_id_returns_empty_dict(synthetic_action_log_db):
-    service = HistoryService(db_path=synthetic_action_log_db)
+    service = _service(synthetic_action_log_db)
     assert service.get_action_payload(999999) == {}
 
 

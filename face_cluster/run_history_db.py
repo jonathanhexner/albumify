@@ -4,30 +4,51 @@ All actions (pipeline runs, reclusters, merge applies, profile saves, ML trainin
 model loads) are written to a single `action_log` table in the shared SQLite DB at
 ~/.sim_bench/sim_bench.db.
 
-Usage — context manager (recommended):
-    from face_cluster.run_history_db import log_action
+.. deprecated:: spec-043
+    The module-level free functions in this module are deprecated. Use
+    :class:`face_cluster.repositories.RunHistoryRepository` for all new
+    callers — it owns its own ``db_path`` via a typed Config, raises
+    typed errors (``NotFoundError`` / ``ValidationError``), and is
+    testable without monkeypatching ``get_db_path``. The free functions
+    remain here for backward compatibility through a burn-in period;
+    removal is tracked as a follow-up.
 
-    with log_action("recluster", payload={"source_dir": src, "config": cfg}) as action_id:
-        result = pipeline.recluster(src, out)
-    # complete_action is called automatically with no extra fields.
-    # On exception, fail_action is called with the traceback.
-
-Usage — manual:
+Usage (deprecated):
+    from face_cluster.run_history_db import start_action, update_comment
     action_id = start_action("merge_apply", payload={...})
-    ...
-    complete_action(action_id, {"n_clusters": 12, "n_noise": 3})
+
+Usage (preferred):
+    from face_cluster.repositories import RunHistoryRepository
+    repo = RunHistoryRepository()
+    action_id = repo.start_action("merge_apply", payload={...})
+
+The ``get_db_path()`` helper is NOT deprecated — Repository instances
+default to it when no explicit ``db_path`` is configured.
 """
 from __future__ import annotations
 
 import json
 import logging
 import sqlite3
+import warnings
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# spec-043: emit once per process. The CRUD free functions are deprecated;
+# get_db_path() is not.
+warnings.warn(
+    "face_cluster.run_history_db CRUD free functions (start_action, "
+    "complete_action, fail_action, update_comment, list_actions, "
+    "get_action, log_action, upsert_run, purge_stale_runs) are deprecated; "
+    "use face_cluster.repositories.RunHistoryRepository instead. "
+    "Tracked for removal after the spec-043 burn-in period.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # ---------------------------------------------------------------------------
 # Schema
