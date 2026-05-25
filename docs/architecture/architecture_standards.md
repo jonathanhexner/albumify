@@ -1,0 +1,162 @@
+# Architecture Standards
+
+> **Canonical index of the architectural patterns this repo follows.** Every new feature spec references this document and identifies which patterns it builds on.
+>
+> Detailed rationale, diagrams, and per-pattern transformations live in [ARCHITECTURE_STANDARDS.html](../../specs/042-fc-app-v2-tab-parity/ARCHITECTURE_STANDARDS.html) (open in a browser — has SVG diagrams). This page is the navigable summary.
+
+---
+
+## Quick reference — the 14 patterns
+
+Grouped by maturity:
+
+- **CODIFY** (already in use; binding for new code)
+- **FIX** (defects found in practice; codify the absence of them as forbidden patterns)
+- **ADOPT** (new patterns to introduce as features need them)
+
+| #  | Pattern | Status | One-line summary |
+|----|---|---|---|
+| A1 | Four-layer architecture | CODIFY | DB / contracts / service / UI — strict directional dependencies, enforced by arch tests |
+| A2 | Declarative specs over repetitive code | CODIFY | When N lines vary only by a field name, replace with a typed spec list + one renderer |
+| A3 | Three-layer testing pyramid | CODIFY | synthetic unit / real-fixture smoke / Playwright UI for any user-facing feature |
+| A4 | Arch tests are part of every spec | CODIFY | An invariant without a test is documentation, not architecture |
+| A5 | Documentation contract | CODIFY | Every public class/function has a docstring; allowlist for legacy shrinks monotonically |
+| B0 | **Repository pattern** | FIX | Persistence layer is classes (`*Repository`), not module-level free functions |
+| B1 | Constructor injection; no shadowed imports | FIX | Functions used as injection points are called via module-attribute access |
+| B2 | Error model standardization | FIX | Services raise from a `ServiceError` hierarchy (NotFound / Validation / Conflict) — not plain `ValueError` |
+| B3 | Service vocabulary | FIX | Five-verb taxonomy: `list_*` / `get_*` / `create_*` / `update_*` / `delete_*` + named composites |
+| B4 | Shared types live in `face_cluster/types.py` | FIX | Types crossing layer boundaries don't live in the producing module (avoids back-edge imports) |
+| C1 | Pipeline-of-operations as a reusable building block | ADOPT | `sim_bench/pipeline/` is domain-agnostic; reach for it whenever there are 3+ sequential stages |
+| C2 | Forward-only idempotent migrations | ADOPT | Schema, profile, config migrations all follow: detect-current → backup → mutate. One pattern. |
+| C3 | Service-level telemetry | ADOPT | `@logged_service_method` decorator on every public service method; mirrors step in/out logging |
+| C4 | Visual mockup before code | ADOPT | Every UI-touching spec includes an ASCII layout per region |
+
+---
+
+## The principles in one paragraph each
+
+### A1 — Four-layer architecture <a name="a1"></a>
+
+DB access (storage I/O) → App contracts (typed dataclasses + declarative specs) → Backend services (`*Service` classes that compose Repositories and produce typed results) → Streamlit UI (the *only* layer that imports `streamlit`). The `test_v2_layering.py` arch test catches violations at PR time: views never import Streamlit; tabs never import `sqlite3` / DB modules / parse JSON inline. The result is that FastAPI, the headless CLI, and the future React/Qt frontend can all plug in at layer 3 without re-implementing data access.
+
+### A2 — Declarative specs over repetitive code
+
+When you write three lines that all look like `do_something(field_X)` with only the field name varying, stop. Define a typed spec; have one renderer iterate over it. The repo proves this twice: `UI_SPEC` (per-FCParams-field widget metadata, spec-041) and `ColumnSpec` (per-column table metadata, spec-042). Both eliminated 16+ hand-rolled `cfg.get('field', '?')`-style literals. The pattern generalizes to every future "list of fields with metadata" — filter chips, summary cards, face grids.
+
+### A3 — Three-layer testing pyramid
+
+Synthetic unit tests against in-memory fixtures (fast, deterministic, edge-case-friendly) carry correctness. Real-fixture integration tests (against the canonical run dir) catch schema drift. Playwright UI smoke (opt-in, screenshot-captured) catches widget-binding regressions that pass unit tests but break visual rendering. The pilot for this pyramid is the History tab: 31 synthetic + 4 real + 1 UI smoke. Going forward, every backend service and UI tab follows the same three-layer split.
+
+### A4 — Arch tests are part of every spec
+
+An architectural invariant without a test is documentation, not architecture. Each constraint (FCParams ↔ FCConfig parity, UI_SPEC references FCParams fields, logging alignment, layering, docstring presence) was codified as `tests/architecture/test_<concern>.py` *at the moment* the constraint was introduced. The pattern is now binding: every new spec lists its architectural invariants and writes the test before the implementation. The Code Review gate asks: *"for each constraint in this spec, name the test that would fail if it were violated."*
+
+### A5 — Documentation contract
+
+Every public class and function in new v2 code has a docstring stating contract (Args / Returns / Side effects). Functions over 30 LOC get split. No `fc1, fc2, fc3` placeholder variable names. No ASCII section dividers substituting for function decomposition. The `test_v2_module_docstrings.py` arch test checks presence (not prose quality); reviewers handle prose. Legacy files on an explicit allowlist; the allowlist shrinks monotonically as files are touched.
+
+### B0 — Repository pattern (persistence as classes, not free functions) <a name="b0"></a>
+
+The `face_cluster.run_history` + `run_history_db` modules are 600 LOC of module-level free functions each taking `db_path=None`. `HistoryService` ends up threading a constructor-held `db_path` to every underlying call. The lower layer should own this — as a `RunHistoryRepository` class. Owns DB connection path; thin SQL wrapper; knows the schema and nothing else. Returns typed domain objects, not raw rows. Service composes one or more Repositories via constructor injection. **Scope: spec-043 candidate** (4-6h refactor with real blast radius across legacy callers).
+
+### B1 — Constructor injection; no shadowed module imports
+
+Functions used as injection points are called via module-attribute access (`run_history_db.get_db_path()`) — not bound names imported at module top via `from X import Y`. Module attributes always reflect the current binding; `from X import Y` captures the original at import time and silently escapes monkeypatches. We hit this in spec-042 H1: half the integration tests passed for the wrong reason. Subsumed by B0 for the persistence layer; remains a general rule.
+
+### B2 — Error model standardization
+
+A small hierarchy in `face_cluster/views/_errors.py`:
+
+```python
+class ServiceError(Exception):
+    """Base. Carries a `user_message` safe to display to end users."""
+
+class NotFoundError(ServiceError): pass
+class ValidationError(ServiceError): pass
+class ConflictError(ServiceError): pass
+```
+
+Services raise from these — never `ValueError` / `RuntimeError`. UI catches `ServiceError` once and renders `user_message`. Future FastAPI maps `NotFoundError → 404`, `ValidationError → 400`, `ConflictError → 409` with no per-endpoint logic.
+
+### B3 — Service vocabulary (CRUD-like naming)
+
+Five verbs with explicit semantics:
+
+| Prefix | Semantics | Side effects | Example |
+|---|---|---|---|
+| `list_*` | Return zero+ entities matching a query | No | `list_runs(query)` |
+| `get_*` | Return exactly one entity; raise NotFoundError if absent | No | `get_run_detail(id)` |
+| `create_*` | Insert a new entity; return its typed representation | Yes | `create_profile(spec)` |
+| `update_*` | Mutate an existing entity | Yes | `update_comment(id, text)` |
+| `delete_*` | Remove an entity; idempotent | Yes | `delete_run(id)` |
+
+Composite operations get a meaningful verb but document themselves explicitly (e.g., `HistoryService.load_run` reads DB + filesystem + reconstructs).
+
+### B4 — Shared types live in `face_cluster/types.py`
+
+Any type used at a layer boundary lives in `face_cluster/types.py` (or a sibling shared module), not in the module that produces it. Today: `FaceRecord`, `ClusterResult`, `GraphResult`. Going forward: `PipelineResult` (currently in `face_cluster/pipeline.py`, forced `LoadedRun.pipeline_result: Any` because views couldn't import it without a back-edge). This rule eliminates `Any` punts.
+
+### C1 — Pipeline-of-operations as a reusable building block
+
+`sim_bench/pipeline/` is domain-agnostic — typed step metadata, dependency-resolving executor, per-step in/out telemetry, idempotent registration. Currently used only by face clustering. Going forward: anytime an operation has 3+ sequential stages with named inputs and outputs, reach for the pipeline framework instead of hand-rolling a sequence. Examples on the horizon: run loading, bulk export, multi-step migrations, test data builders. Cost: ~10 LOC of step definitions vs ~40 LOC of hand-rolled sequence; you get telemetry / dependency resolution / error reporting for free.
+
+### C2 — Forward-only idempotent migrations
+
+One pattern, three rules:
+
+1. **Forward-only** — no rollback. Reverse goes through restore-from-backup.
+2. **Idempotent** — running twice produces the same end state as once.
+3. **Backup before mutate** — backup is the rollback story.
+
+Template:
+
+```python
+def migrate_one(thing) -> Literal["migrated", "already_current", "invalid"]:
+    if not parseable(thing): return "invalid"
+    if is_already_current(thing): return "already_current"
+    backup(thing)
+    convert_in_place(thing)
+    return "migrated"
+```
+
+Existing examples: DB schema (`run_history_db.init_table` + `_migrate_013` ALTER pattern), profile JSON (`scripts/migrate_fc_profiles.py`). Going forward: every persistent-data format change follows this shape.
+
+### C3 — Service-level telemetry mirroring step in/out
+
+Pipeline steps log `<step>: in[...] -> out[...] (Xms)` for every invocation. Service methods don't have an equivalent today. Plan: a `@logged_service_method` decorator that emits the equivalent for every public service method — class + method name, redacted args, return shape (or raised `ServiceError` type), elapsed wall-clock. Combined with the aligned logging from spec-041, every service call lands in `logs/<ts>/<surface>.log` and post-mortems become a single grep.
+
+### C4 — Visual mockup before code
+
+Every UI-touching spec includes an ASCII mockup of every tab/page/region it adds. Mockup shows section headers, widget placements, sample data shape, interaction notes. ASCII over screenshots because it's diffable, editable in markdown, and forces conceptual clarity (which sections exist, in what order) rather than pixel-level. The HISTORY_TAB_PRD §3 is the canonical example — anchored the implementation; zero "what should this look like" debates during coding.
+
+---
+
+## How to use this document
+
+When writing a new feature spec:
+
+1. Read [WORKFLOW.md](../../WORKFLOW.md) for the spec/tasks process.
+2. Identify which architectural patterns this feature uses. Reference them by code (A1, B0, C2) in your spec's §Design section.
+3. For every architectural invariant your feature introduces, add an entry to `tests/architecture/`. Reference it from your tasks list.
+4. If your feature is UI-touching, include a §Visual Specification with an ASCII mockup (C4).
+5. If your feature needs persistence, build on a Repository (B0) — don't write new module-level free functions.
+6. If your feature needs configuration, mirror the FCParams pattern (A2) — a typed model with field-level metadata; no `cfg.get('field')` literals anywhere.
+
+When reviewing a PR:
+
+1. Open the Code Review checklist at [docs/guides/CODE_REVIEW_CHECKLIST.md](../guides/CODE_REVIEW_CHECKLIST.md).
+2. For each pattern this feature touches, verify the relevant arch test exists and passes.
+3. Spot-check the documentation contract (A5): every public def has a docstring.
+4. Flag any module-level free functions that should be Repositories or Services.
+
+---
+
+## Cross-references
+
+- **Detailed proposal** (this doc's source of truth, with diagrams and per-pattern transformations): [`specs/042-fc-app-v2-tab-parity/ARCHITECTURE_STANDARDS.html`](../../specs/042-fc-app-v2-tab-parity/ARCHITECTURE_STANDARDS.html)
+- **Workflow** for new specs: [`WORKFLOW.md`](../../WORKFLOW.md)
+- **Code review checklist**: [`docs/guides/CODE_REVIEW_CHECKLIST.md`](../guides/CODE_REVIEW_CHECKLIST.md)
+- **Testing rules**: [`docs/guides/TESTING_RULES.md`](../guides/TESTING_RULES.md)
+- **System architecture overview**: [`docs/architecture/overview.md`](overview.md)
+
+The HTML version contains SVG diagrams (four-layer stack, pipeline reuse) and detailed transformation examples. This Markdown version is the navigable summary you read first.

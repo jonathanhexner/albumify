@@ -43,6 +43,7 @@
 <a href="#A3">Testing</a>
 <a href="#A4">Arch Tests</a>
 <a href="#A5">Doc Contract</a>
+<a href="#B0">Repository</a>
 <a href="#B1">DI</a>
 <a href="#B2">Errors</a>
 <a href="#B3">Service Vocab</a>
@@ -108,12 +109,20 @@
   <td>30 min</td>
 </tr>
 <tr>
+  <td>B0</td>
+  <td><a href="#B0">Repository pattern (persistence as classes, not free functions)</a></td>
+  <td><span class="pill partial">FIX</span></td>
+  <td><code>face_cluster.run_history</code> + <code>run_history_db</code> are 600 LOC of module-level free functions each taking <code>db_path=None</code>. <code>HistoryService</code> wraps them to add a constructor-held <code>db_path</code> — papering over what should be the lower layer's responsibility. Inconsistent with the <code>*Service</code> standard we just established.</td>
+  <td><code>face_cluster/run_history.py</code>; <code>face_cluster/run_history_db.py</code>; <code>face_cluster/views/history.py</code>; ~6 legacy app call sites; new arch test</td>
+  <td>4-6h (own spec)</td>
+</tr>
+<tr>
   <td>B1</td>
   <td><a href="#B1">Constructor injection; no shadowed module imports</a></td>
   <td><span class="pill partial">FIX</span></td>
-  <td><code>face_cluster.run_history</code> imports <code>get_db_path</code> by name; monkeypatch on the source module misses this binding (we tripped on this in H1).</td>
+  <td>Subsumed by B0 (Repository) for the persistence layer; remains a general rule for any module that participates in test doubles.</td>
   <td><code>face_cluster/run_history.py</code>; new arch test</td>
-  <td>1h</td>
+  <td>1h (after B0)</td>
 </tr>
 <tr>
   <td>B2</td>
@@ -314,6 +323,124 @@ def render_summary(row):
   <li><strong>New code is never added to the allowlist.</strong> If a new module needs a docstring exemption, the spec must justify it.</li>
 </ol>
 <p>Add both rules to <code>CLAUDE.md</code> §General + the Code Review checklist §7 (documentation).</p>
+
+<hr/>
+
+<h2 id="B0">B0. Repository pattern — persistence as classes, not free functions <span class="pill partial">FIX</span></h2>
+
+<h3>What we have today</h3>
+<p>Two modules underneath every view service:</p>
+<pre>face_cluster/run_history.py       — 154 LOC, 3 public free functions
+face_cluster/run_history_db.py    — 457 LOC, ~12 public free functions
+</pre>
+<p>Both follow the same shape: every public function takes an optional <code>db_path: Optional[Path] = None</code>, opens a connection, queries, closes. The "which DB" is conceptually shared state pretending to be a per-call argument. Then <code>HistoryService</code> wraps them like this:</p>
+<pre>class HistoryService:
+    def __init__(self, db_path=None):
+        self._db_path = db_path
+
+    def list_runs(self, query):
+        return run_history.search(filters, <strong>db_path=self._db_path</strong>)
+
+    def update_comment(self, run_id, comment):
+        return run_history_db.update_comment(run_id, comment, <strong>db_path=self._db_path</strong>)
+    # ...threads self._db_path to every call</pre>
+<p>That's 6 module-level functions taking the same argument from one instance variable. The Service is papering over what should be the lower layer's responsibility.</p>
+
+<h3>The deeper issue this surfaces</h3>
+<p>spec-042 §4.2 declares "every backend service is a class with typed methods" as the standard. But the layers <em>underneath</em> the standard — <code>run_history</code> + <code>run_history_db</code> — don't follow it. The inconsistency causes three observable problems:</p>
+<ol>
+  <li><strong>The <code>from X import get_db_path</code> trap.</strong> <code>run_history.py</code> binds <code>get_db_path</code> at import time. Monkeypatching the source module misses this binding. We tripped on this in spec-042 H1 — half the integration tests passed for the wrong reason. A class with <code>self._db_path</code> has no such trap.</li>
+  <li><strong>Test fixtures need workarounds.</strong> The session fixture in <code>tests/face_clustering/conftest.py</code> monkeypatches one of two <code>get_db_path</code> bindings. Real-fixture tests have to bypass it with explicit <code>db_path=</code> kwargs. The workaround is invisible — future tests won't know to do this.</li>
+  <li><strong>Composability is awkward.</strong> A future <code>ClusterAnalysisService</code> will need to query both the global action_log AND a per-run face_clustering.db. With free functions, that's two parallel sets of free-function modules. With Repository classes, it's two injected dependencies — straightforward.</li>
+</ol>
+
+<h3>The standard</h3>
+<p>Two-class pattern at the persistence layer:</p>
+<pre># face_cluster/repositories/run_history_repo.py
+class RunHistoryRepository:
+    """Read + write access to the action_log table.
+
+    Owns: a connection path to ~/.sim_bench/sim_bench.db. Thin SQL
+    wrapper — knows the schema and how to query it; knows nothing
+    about views, Streamlit, or business logic. *Service classes
+    compose this.
+    """
+    def __init__(self, db_path: Optional[Path] = None):
+        self._db_path_override = db_path
+
+    def _path(self) -> Path:
+        # Lazy resolve so monkeypatching the default still works.
+        return self._db_path_override or _resolve_default_path()
+
+    # Reads
+    def search(self, filters: HistoryFilters) -> list[RunRow]: ...
+    def distinct_albums(self) -> list[str]: ...
+    def get_by_id(self, run_id: int) -> Optional[RunRow]: ...
+    def list_actions(self, types, limit) -> list[ActionDict]: ...
+    def get_action(self, action_id: int) -> Optional[ActionDict]: ...
+
+    # Mutations
+    def start_action(self, action_type, payload) -> int: ...
+    def complete_action(self, action_id, result) -> None: ...
+    def fail_action(self, action_id, error) -> None: ...
+    def update_comment(self, action_id, comment) -> None: ...</pre>
+<p>Then the Service composes the Repository, not the raw modules:</p>
+<pre># face_cluster/views/history.py
+class HistoryService:
+    def __init__(self, repo: Optional[RunHistoryRepository] = None):
+        self._repo = repo or RunHistoryRepository()
+
+    def list_runs(self, query: HistoryQuery) -> list[RunRow]:
+        filters = HistoryFilters(...)
+        return self._repo.search(filters)  # single delegation, no db_path</pre>
+
+<h3>Why "Repository" is the right name</h3>
+<p>The pattern is well-established in layered architectures (DDD, .NET, Spring). A Repository:</p>
+<ul>
+  <li>Owns persistence I/O (SQL, file system, network)</li>
+  <li>Returns typed domain objects (not raw rows or dicts)</li>
+  <li>Knows the schema, nothing else</li>
+  <li>Has no awareness of views, services, or business rules</li>
+  <li>Is the only layer that imports <code>sqlite3</code> / <code>requests</code> / etc.</li>
+</ul>
+<p>Service composes one or more Repositories. UI composes Service(s). Tests inject test-double Repositories.</p>
+
+<h3>The transformation</h3>
+<table>
+<tr><th>Aspect</th><th>Before</th><th>After</th></tr>
+<tr><td>Persistence shape</td><td>~600 LOC module-level functions</td><td><code>RunHistoryRepository</code> class, same LOC</td></tr>
+<tr><td>Test setup</td><td><code>HistoryService(db_path=tmp)</code> + autouse session monkeypatch</td><td><code>HistoryService(repo=RunHistoryRepository(db_path=tmp))</code></td></tr>
+<tr><td>Test isolation</td><td>Real-fixture tests bypass with explicit kwargs</td><td>Test repo and real repo are different instances; no monkeypatch needed</td></tr>
+<tr><td>New Repository (next tab)</td><td>Another set of free functions + threading</td><td>Inject a second Repository alongside the first</td></tr>
+<tr><td>Layer ownership of <code>db_path</code></td><td>Shared between Service and module functions</td><td>Repository owns it; Service composes</td></tr>
+</table>
+
+<h3>Why it earns its keep going forward</h3>
+<p>Every future tab will have one or more services that need persistence. Without Repository:</p>
+<ul>
+  <li>Each Service threads <code>db_path</code> to every underlying call (boilerplate).</li>
+  <li>Each Service repeats the "translate query dataclass → filters → call free function" pattern (boilerplate × 3).</li>
+  <li>Each new persistence module repeats the "shadowed import" trap.</li>
+</ul>
+<p>With Repository:</p>
+<ul>
+  <li>Service holds one or more <code>self._repo</code> instances.</li>
+  <li>The "which DB" question is answered once at construction.</li>
+  <li>Tests inject a test-double or temp-DB-backed repo.</li>
+  <li>Future surfaces (FastAPI, CLI) compose the same Repositories without touching the Services.</li>
+</ul>
+
+<h3>What this looks like as a spec</h3>
+<p>This is the right scope for <strong>spec-043 "Repository pattern for face_cluster persistence"</strong>. Scope:</p>
+<ol>
+  <li>Create <code>face_cluster/repositories/run_history_repo.py</code> (or similar location) consolidating <code>run_history.py</code> read functions + <code>run_history_db.py</code> CRUD functions into one <code>RunHistoryRepository</code> class.</li>
+  <li>Migrate <code>HistoryService</code> to inject a repository via constructor.</li>
+  <li>Migrate the ~6 legacy app call sites in <code>app/face_clustering/</code> that still call the free functions directly.</li>
+  <li>Update the session fixture in <code>tests/face_clustering/conftest.py</code> — likely simpler or removable.</li>
+  <li>Add arch test: <em>"persistence-layer modules must expose Repository classes; module-level free functions returning DB rows are forbidden."</em></li>
+  <li>Document the pattern in the architecture standards and reference it from CLAUDE.md.</li>
+</ol>
+<p>Effort: ~4-6h. Should be done before the next tab port (Cluster Analysis) so the second Service builds on the right foundation, not a workaround.</p>
 
 <hr/>
 
