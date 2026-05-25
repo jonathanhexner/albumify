@@ -11,8 +11,8 @@
 ---
 
 ## spec-044 follow-ups (from REVIEW.md, 2026-05-25)
-- [ ] F-1 docs/architecture/classes.html: add RunHistoryRepository section (spec-043 oversight) + ColumnDef row (spec-044 addition). Cross-link to architecture_standards.md §B0 / §B0.1. | 2026-05-25 | unassigned
-- [ ] F-2 docs/architecture/db_global.html action_log section: replace "module-level functions (no class wrapper)" with RunHistoryRepository (lines ~283, 285); add producer column row to the column table (~line 297). | 2026-05-25 | unassigned
+- [x] F-1 docs/architecture/classes.html: add RunHistoryRepository section (spec-043 oversight) + ColumnDef row (spec-044 addition). Cross-link to architecture_standards.md §B0 / §B0.1. | 2026-05-25 | Claude
+- [x] F-2 docs/architecture/db_global.html action_log section: replace "module-level functions (no class wrapper)" with RunHistoryRepository (lines ~283, 285); add producer column row to the column table (~line 297). | 2026-05-25 | Claude
 - [~] F-3 (deferred) face_cluster/repositories/run_history_repo.py is 699 LOC; extract ColumnDef + _COLUMNS + generated constants + _start_action_value to sibling _columns.py when the next Repository materializes (e.g., ClusterAnalysisRepository). ~120 LOC carve-out. | 2026-05-25 | unassigned
 
 ---

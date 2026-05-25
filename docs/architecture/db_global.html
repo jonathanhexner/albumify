@@ -46,14 +46,14 @@
 <p class="subtitle">Shared SQLite database for cross-run state · Last updated: 2026-05-16</p>
 
 <div class="source-of-truth">
-<b>⚠️ Source of truth.</b> Schemas defined across <code>sim_bench/api/database/models.py</code> (SQLAlchemy, 8 tables), <code>face_cluster/run_history_db.py</code>, and <code>face_cluster/training_db.py</code> (sqlite3, 3 tables). <b>Any change to a table in this file requires updating this document in the same PR</b> (CODE_REVIEW_CHECKLIST §7).
+<b>⚠️ Source of truth.</b> Schemas defined across <code>sim_bench/api/database/models.py</code> (SQLAlchemy, 8 tables), <code>face_cluster/repositories/run_history_repo.py</code> (spec-043 / spec-044 column registry for <code>action_log</code>), and <code>face_cluster/training_db.py</code> (sqlite3, 2 tables). <b>Any change to a table in this file requires updating this document in the same PR</b> (CODE_REVIEW_CHECKLIST §7).
 </div>
 
 <div class="callout">
 <b>One file, two access paths.</b> The same SQLite file is opened by two different drivers:
 <ul>
   <li><b>SQLAlchemy ORM</b> via <code>sim_bench/api/database/session.py</code> — 8 tables managed by ORM models in <code>sim_bench/api/database/models.py</code> with idempotent column migrations.</li>
-  <li><b>Raw <code>sqlite3</code></b> via <code>face_cluster/{run_history_db,training_db}.py</code> — 3 tables managed by <code>CREATE TABLE IF NOT EXISTS</code> + idempotent <code>ALTER TABLE</code> migrations.</li>
+  <li><b>Raw <code>sqlite3</code></b> via <code>face_cluster/repositories/run_history_repo.py</code> (action_log) and <code>face_cluster/training_db.py</code> (merge_training_data, trained_models) — 3 tables managed by <code>CREATE TABLE IF NOT EXISTS</code> + idempotent <code>ALTER TABLE</code> migrations.</li>
 </ul>
 The two access paths do not share Base / metadata. They coexist because the face_cluster modules predate the API layer; merging them is a low-priority refactor (post-spec-040 follow-up).
 </div>
@@ -104,7 +104,7 @@ For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html
     <tr><td><a href="#universal_cache">universal_cache</a></td><td><code>UniversalCacheHandler.store_to_cache</code></td><td>Inside any cacheable <code>BaseStep</code>.</td></tr>
     <tr><td><a href="#user_events">user_events</a></td><td><code>EventService</code></td><td>From every tracked user action / undo / AI call.</td></tr>
     <tr><td><a href="#face_overrides">face_overrides</a></td><td><code>FaceService</code></td><td>On user face actions (assign / untag / not_a_face).</td></tr>
-    <tr><td><a href="#action_log">action_log</a></td><td><code>face_cluster.run_history_db</code> (module functions)</td><td>Begin/end of every face_cluster run. Producer-tag column distinguishes legacy vs v2 (spec-040 Phase 4).</td></tr>
+    <tr><td><a href="#action_log">action_log</a></td><td><code>face_cluster.repositories.RunHistoryRepository</code> (spec-043; legacy <code>face_cluster.run_history_db</code> wrappers deprecated)</td><td>Begin/end of every face_cluster run. <code>producer</code> column distinguishes legacy vs v2 (spec-040 Phase 4). Schema generated from the <code>_COLUMNS</code> registry (spec-044).</td></tr>
     <tr><td><a href="#merge_training_data">merge_training_data</a></td><td><code>face_cluster.training_db.upsert_training_samples</code></td><td>From Merge Label Verification tab + ml_trainer harvesting.</td></tr>
     <tr><td><a href="#trained_models">trained_models</a></td><td><code>face_cluster.training_db.register_model</code> (called by <code>MergeTrainer.train</code>)</td><td>On training completion.</td></tr>
   </tbody>
@@ -277,18 +277,19 @@ For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html
 </div>
 
 <div class="group">
-<h3>face_cluster tables — raw sqlite3 (<code>face_cluster/{run_history_db,training_db}.py</code>)</h3>
-<p>Same SQLite file, but accessed without SQLAlchemy. Migrations are <code>CREATE TABLE IF NOT EXISTS</code> + idempotent <code>ALTER TABLE</code> in module init.</p>
+<h3>face_cluster tables — raw sqlite3 (<code>face_cluster/repositories/run_history_repo.py</code>, <code>face_cluster/training_db.py</code>)</h3>
+<p>Same SQLite file, but accessed without SQLAlchemy. Migrations are <code>CREATE TABLE IF NOT EXISTS</code> + idempotent <code>ALTER TABLE</code> at first <code>RunHistoryRepository</code> connect (action_log) or at training_db module init (training tables).</p>
 
-<h2 id="action_log">action_log <span class="src">run_history_db.py</span></h2>
+<h2 id="action_log">action_log <span class="src">repositories/run_history_repo.py</span></h2>
 <p>Run history for face_cluster pipeline invocations (FC App + recluster + remerge). Independent of the API's <code>pipeline_runs</code> table.</p>
-<p class="callout"><b>Writer module / functions</b>: <code>face_cluster.run_history_db</code> — module-level functions (no class wrapper today). <code>begin_action()</code> inserts the row at run start; <code>end_action()</code> updates <code>status</code> / <code>ended_at</code> / <code>duration_s</code> / <code>error</code> / hot-field summary at end. Called from <code>face_cluster_legacy.pipeline.FaceClusteringPipeline</code> (legacy FC App) and <code>face_cluster.fc_app_runner</code> (new FC App, spec-040 Phase 5). After spec-040 schema v5: a new <code>producer</code> column distinguishes the two.</p>
+<p class="callout"><b>Writer class / methods</b>: <code>face_cluster.repositories.RunHistoryRepository</code> (spec-043). <code>start_action(action_type, *, payload)</code> inserts the row at run start; <code>complete_action(id, *, result_fields, payload_update)</code> updates <code>status='complete'</code> / <code>ended_at</code> / <code>duration_s</code> / hot-field summary at end; <code>fail_action(id, error_text)</code> records <code>status='failed'</code> with the error. Called from <code>face_cluster_legacy.pipeline.FaceClusteringPipeline</code> (legacy FC App), <code>face_cluster.fc_app_runner</code> (new FC App, spec-040 Phase 5), and <code>face_cluster.views.history.HistoryService</code>. The legacy module-level wrappers in <code>face_cluster.run_history_db</code> (<code>begin_action</code> / <code>end_action</code> / etc.) still work for un-migrated callers but emit a <code>DeprecationWarning</code>; removal is gated on a one-burn-in window.</p>
+<p class="callout"><b>Schema source of truth</b>: <code>_COLUMNS: list[ColumnDef]</code> at the top of <code>repositories/run_history_repo.py</code> (spec-044). CREATE TABLE, ALTER migration, hot-field writes, and equality-filter WHERE clauses are all derived. Adding a column requires editing <code>_COLUMNS</code> + <code>RunRow</code>; 4 drift-guard arch tests in <code>tests/architecture/test_run_history_repo_column_registry.py</code> enforce this. See <a href="architecture_standards.md">architecture_standards.md §B0.1</a>.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
     <tr><td><code>id</code> <span class="pill pk">PK</span> auto</td><td>INTEGER</td><td>Surrogate.</td></tr>
-    <tr><td><code>action_type</code></td><td>TEXT</td><td>e.g. <code>full_run</code>, <code>recluster</code>, <code>remerge</code>, <code>manual_merge</code>.</td></tr>
-    <tr><td><code>status</code></td><td>TEXT</td><td>running / completed / failed.</td></tr>
+    <tr><td><code>action_type</code></td><td>TEXT</td><td>e.g. <code>full_run</code>, <code>recluster</code>, <code>remerge</code>, <code>manual_merge</code>, <code>fc_app_v2_run</code>.</td></tr>
+    <tr><td><code>status</code></td><td>TEXT</td><td>running / complete / failed / reserved.</td></tr>
     <tr><td><code>started_at, ended_at, duration_s</code></td><td>TEXT / TEXT / REAL</td><td>Timing.</td></tr>
     <tr><td><code>error</code></td><td>TEXT</td><td class="nullable">Failure message.</td></tr>
     <tr><td><code>run_id</code></td><td>TEXT</td><td>Stable identifier matching the per-run dir name.</td></tr>
@@ -299,10 +300,11 @@ For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html
     <tr><td><code>run_name, parent_run_id, run_kind</code></td><td>TEXT / INTEGER / TEXT</td><td>spec-013 hierarchy fields.</td></tr>
     <tr><td><code>comment</code></td><td>TEXT</td><td>User-attached comment (max 2048 chars).</td></tr>
     <tr><td><code>config_json</code></td><td>TEXT</td><td>JSON-encoded effective config.</td></tr>
+    <tr><td><code>producer</code></td><td>TEXT</td><td>spec-040 Phase 4 — distinguishes <code>legacy</code> from <code>fc_app_v2</code> producers; used by Repository filtering (<code>RunHistoryCriteria.producer</code>).</td></tr>
     <tr><td><code>payload_json</code></td><td>TEXT</td><td>Extra metadata.</td></tr>
   </tbody>
 </table>
-<p><b>Indexes:</b> <code>idx_action_log_started (started_at DESC)</code>, <code>idx_action_log_type (action_type, started_at DESC)</code>.</p>
+<p><b>Indexes:</b> <code>idx_action_log_started (started_at DESC)</code>, <code>idx_action_log_type (action_type, started_at DESC)</code>, <code>idx_action_log_source_album</code>, <code>idx_action_log_comment</code>.</p>
 <p class="callout"><b>Overlap with <code>pipeline_runs</code>:</b> the API's <code>pipeline_runs</code> table is for Albumify; <code>action_log</code> is for the FC App standalone path. They do not share rows. A run that goes through Albumify writes to <code>pipeline_runs</code>; an FC App run writes to <code>action_log</code>. Both record an <code>fc_export_dir</code> pointing at the same on-disk artifact layout.</p>
 
 <h2 id="merge_training_data">merge_training_data <span class="src">training_db.py</span></h2>
@@ -387,7 +389,8 @@ For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html
   <li><a href="data_flow.html">data_flow.html</a> — face-clustering data flow.</li>
   <li><a href="index.html">index.html</a> — architecture documentation index.</li>
   <li><code>sim_bench/api/database/models.py</code> — SQLAlchemy ORM source of truth for the API tables.</li>
-  <li><code>face_cluster/run_history_db.py</code>, <code>face_cluster/training_db.py</code> — raw-sqlite3 schemas.</li>
+  <li><code>face_cluster/repositories/run_history_repo.py</code> — raw-sqlite3 schema + Repository for <code>action_log</code> (spec-043 / spec-044).</li>
+  <li><code>face_cluster/training_db.py</code> — raw-sqlite3 schema for <code>merge_training_data</code> and <code>trained_models</code>.</li>
 </ul>
 
 </body>
