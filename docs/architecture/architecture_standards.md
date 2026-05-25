@@ -23,6 +23,7 @@ Grouped by maturity:
 | A5 | Documentation contract | CODIFY | Every public class/function has a docstring; allowlist for legacy shrinks monotonically |
 | A6 | Per-tab migration discipline | CODIFY | Each migrated tab ships with DB + Backend + Frontend tests; migration is tab-by-tab with both apps runnable throughout |
 | B0 | **Repository pattern** | FIX | Persistence layer is classes (`*Repository`), not free functions; constructor takes a typed Config dataclass; queries take composable typed criteria |
+| B0.1 | **Column Registry** (spec-044) | CODIFY | A Repository's schema is one `_COLUMNS: list[ColumnDef]` table; CREATE / ALTER / hot-fields / filters are derived. Adding a column is 2 edits, not 9. |
 | B1 | Constructor injection; no shadowed imports | FIX | Functions used as injection points are called via module-attribute access |
 | B2 | Error model standardization | FIX | Services raise from a `ServiceError` hierarchy (NotFound / Validation / Conflict) — not plain `ValueError` |
 | B3 | Service vocabulary | FIX | Five-verb taxonomy: `list_*` / `get_*` / `create_*` / `update_*` / `delete_*` + named composites |
@@ -126,6 +127,42 @@ Two arch tests for spec-043:
 - `test_repositories_have_no_module_level_free_functions()` — `face_cluster/repositories/*.py` exposes only classes, dataclasses, and constants.
 
 **Scope: spec-043 candidate** (4-6h refactor with real blast radius across legacy callers).
+
+#### B0.1 — Column Registry (spec-044) <a name="b0-1"></a>
+
+A Repository's per-column schema is described by a single `_COLUMNS: list[ColumnDef]` table inside the Repository module. CREATE TABLE, ALTER migrations, hot-field writes, and equality-filter `WHERE` clauses are all *derived* from it — never hand-maintained in parallel.
+
+```python
+@dataclass(frozen=True, slots=True)
+class ColumnDef:
+    name: str
+    sql_type: str
+    initial: bool = True       # in CREATE TABLE vs. added via ALTER
+    nullable: bool = True
+    default_sql: Optional[str] = None
+    primary_key: bool = False
+    hot: bool = False          # writable via start/complete (payload-driven)
+    filterable: bool = False   # equality filter in find()
+
+_COLUMNS = [
+    ColumnDef("id",          "INTEGER", primary_key=True, nullable=False),
+    ColumnDef("action_type", "TEXT",    nullable=False, filterable=True),
+    # ...
+    ColumnDef("producer",    "TEXT",    initial=False, hot=True, filterable=True),
+]
+```
+
+**The 2-touch-point rule.** Adding a new column requires editing exactly two places: `_COLUMNS` and the typed row dataclass (`RunRow`). Drift-guard arch tests fail loudly if you forget either:
+
+- `test_runrow_fields_match_columns_registry` — every column has a matching `RunRow` field.
+- `test_filterable_columns_have_matching_criteria_fields` — every `filterable=True` column has a matching `*Criteria` field (or a documented alias).
+- `test_initial_and_migration_partition_is_complete` — no column is both initial and migration.
+- `test_only_nullable_hot_fields` — hot columns must be nullable (payload may omit the key).
+
+Special cases that don't fit the generic loop (e.g. `text` substring search, `date_from`/`date_to` range, list-IN filters like `action_types`) stay hardcoded in `_build_where`; they are explicitly documented and excluded from the generic loop. `_FILTERABLE_ALIASES` maps column → criteria field when the names differ (e.g. `source_album` ↔ `criteria.album`).
+
+**Scope: applies to every future Repository.** The drift guards are cheap; the cost of forgetting to update one of 9 hand-maintained constants is a silent bug at runtime.
+
 
 ### B1 — Constructor injection; no shadowed module imports
 

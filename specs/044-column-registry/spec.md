@@ -1,6 +1,6 @@
 # spec-044 — Column Registry for RunHistoryRepository
 
-Status: **Draft**
+Status: **Code Review**
 Author: Jonathan Hexner
 Created: 2026-05-25
 Predecessors: [spec-043](../043-repository-pattern/spec.md) (Repository pattern)

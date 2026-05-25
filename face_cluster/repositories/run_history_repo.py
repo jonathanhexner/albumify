@@ -1,4 +1,4 @@
-"""spec-043 — RunHistoryRepository: typed persistence access to action_log.
+"""spec-043 / spec-044 — RunHistoryRepository: typed persistence access to action_log.
 
 Replaces the ~600 LOC of module-level free functions in
 ``face_cluster/run_history.py`` and ``face_cluster/run_history_db.py``
@@ -16,6 +16,28 @@ Three rules followed verbatim:
 Services (``face_cluster.views.history.HistoryService``) compose this
 via constructor injection. Legacy free functions still work (with a
 ``DeprecationWarning``); removal is a follow-up spec after burn-in.
+
+Column Registry (spec-044)
+==========================
+
+``_COLUMNS`` is the single source of truth for the ``action_log``
+schema. ``ColumnDef`` carries per-column metadata: SQL type, whether
+the column is part of the initial CREATE or an ALTER migration,
+nullability, default, whether it is a "hot" field (writable via
+``start_action`` / ``complete_action``), and whether ``find()`` can
+filter on it. From ``_COLUMNS`` we derive:
+
+- ``_create_table_sql()`` — the CREATE TABLE statement.
+- ``_MIGRATION_COLUMNS`` — the ALTER TABLE list for older DBs.
+- ``_HOT_FIELDS`` — the columns ``start_action`` and ``complete_action``
+  read/write through the ``payload`` / ``result_fields`` dicts.
+- ``_FILTERABLE_FIELDS`` — the equality-filter columns ``_build_where``
+  iterates.
+
+**Adding a column** is a 2-touch-point edit: extend ``_COLUMNS`` and
+extend ``RunRow``. The drift-guard tests in
+``tests/architecture/test_run_history_repo_column_registry.py`` will
+fail if the two get out of sync.
 """
 from __future__ import annotations
 
@@ -113,55 +135,143 @@ class RunHistoryCriteria:
 
 
 # ---------------------------------------------------------------------------
-# Schema migration (mirrors face_cluster.run_history_db)
+# Column registry (spec-044) — single source of truth for action_log columns
 # ---------------------------------------------------------------------------
 
-_CREATE_SQL = f"""
-CREATE TABLE IF NOT EXISTS {_TABLE} (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    action_type     TEXT    NOT NULL,
-    status          TEXT    NOT NULL DEFAULT 'running',
-    started_at      TEXT    NOT NULL,
-    ended_at        TEXT,
-    duration_s      REAL,
-    error           TEXT,
-    run_id          TEXT,
-    source_dir      TEXT,
-    output_dir      TEXT,
-    album           TEXT,
-    n_faces         INTEGER,
-    n_clusters      INTEGER,
-    n_noise         INTEGER,
-    log_file        TEXT,
-    payload_json    TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_action_log_started
-    ON {_TABLE}(started_at DESC);
-CREATE INDEX IF NOT EXISTS idx_action_log_type
-    ON {_TABLE}(action_type, started_at DESC);
-"""
+@dataclass(frozen=True, slots=True)
+class ColumnDef:
+    """One column on the ``action_log`` table.
 
-# Columns added via ALTER TABLE (idempotent migration); mirrors
-# face_cluster.run_history_db._ALTER_COLUMNS.
-_ALTER_COLUMNS: list[tuple[str, str]] = [
-    ("source_album",  "TEXT"),
-    ("run_name",      "TEXT"),
-    ("parent_run_id", "INTEGER"),
-    ("run_kind",      "TEXT"),
-    ("comment",       "TEXT"),
-    ("config_json",   "TEXT"),
-    ("n_core",        "INTEGER"),
-    ("producer",      "TEXT"),
+    Adding a column = add a ``ColumnDef`` to ``_COLUMNS`` + add a field
+    to ``RunRow``. Everything else (CREATE TABLE, ALTER migration, hot
+    fields, filterable fields, INSERT, UPDATE COALESCE) is generated.
+
+    Attributes:
+        name: SQL column name. Matches the ``RunRow`` field name.
+        sql_type: ``"INTEGER" | "TEXT" | "REAL"``.
+        initial: True if the column is in the initial CREATE TABLE.
+            False = added via ALTER TABLE in the idempotent migration.
+        nullable: True (default) for all except id / NOT NULL columns.
+        default_sql: SQL DEFAULT expression for CREATE TABLE
+            (e.g. ``"'running'"``). Single-quoted for string defaults.
+        primary_key: True for the id column.
+        hot: True if writable via ``start_action(payload=...)`` and
+            ``complete_action(result_fields=...)``. The COALESCE-update
+            pattern is auto-emitted for these columns.
+        filterable: True if ``RunHistoryCriteria`` has a matching field;
+            ``_build_where`` emits a ``col = ?`` clause when the criteria
+            value is non-None. Allowlisted special cases (e.g.
+            ``criteria.album`` → column ``source_album``) are documented
+            in ``_FILTERABLE_ALIASES`` rather than here.
+    """
+    name: str
+    sql_type: str
+    initial: bool = True
+    nullable: bool = True
+    default_sql: Optional[str] = None
+    primary_key: bool = False
+    hot: bool = False
+    filterable: bool = False
+
+
+# The single source of truth. 24 columns.
+_COLUMNS: List[ColumnDef] = [
+    # Identity + lifecycle
+    ColumnDef("id",            "INTEGER", primary_key=True, nullable=False),
+    ColumnDef("action_type",   "TEXT",    nullable=False, filterable=True),
+    ColumnDef("status",        "TEXT",    nullable=False, default_sql="'running'", filterable=True),
+    ColumnDef("started_at",    "TEXT",    nullable=False),
+    ColumnDef("ended_at",      "TEXT"),
+    ColumnDef("duration_s",    "REAL"),
+    ColumnDef("error",         "TEXT"),
+
+    # Hot fields (writable via start/complete)
+    ColumnDef("run_id",        "TEXT",    hot=True),
+    ColumnDef("source_dir",    "TEXT",    hot=True),
+    ColumnDef("output_dir",    "TEXT",    hot=True),
+    ColumnDef("album",         "TEXT",    hot=True),
+    ColumnDef("n_faces",       "INTEGER", hot=True),
+    ColumnDef("n_clusters",    "INTEGER", hot=True),
+    ColumnDef("n_noise",       "INTEGER", hot=True),
+    ColumnDef("log_file",      "TEXT",    hot=True),
+
+    # Payload (initial column; special-case serialization, so not "hot").
+    ColumnDef("payload_json",  "TEXT"),
+
+    # spec-013 (added via ALTER)
+    ColumnDef("source_album",  "TEXT",    initial=False, hot=True, filterable=True),
+    ColumnDef("run_name",      "TEXT",    initial=False, hot=True),
+    ColumnDef("parent_run_id", "INTEGER", initial=False, hot=True, filterable=True),
+    ColumnDef("run_kind",      "TEXT",    initial=False, hot=True),
+    ColumnDef("comment",       "TEXT",    initial=False, hot=True),
+    ColumnDef("config_json",   "TEXT",    initial=False, hot=True),
+    ColumnDef("n_core",        "INTEGER", initial=False, hot=True),
+
+    # spec-040 T4 (producer column)
+    ColumnDef("producer",      "TEXT",    initial=False, hot=True, filterable=True),
 ]
 
-# Fields the legacy code calls "hot" — top-level columns that can be
-# populated by start_action / complete_action result_fields.
-_HOT_FIELDS = (
-    "run_id", "source_dir", "output_dir", "album",
-    "n_faces", "n_clusters", "n_noise", "log_file",
-    "source_album", "run_name", "parent_run_id", "run_kind",
-    "comment", "config_json", "n_core", "producer",
-)
+
+# Filterable-column aliases — where ``RunHistoryCriteria`` field name
+# differs from the SQL column name. Allowlist used by ``_build_where``.
+# Format: {column_name: criteria_field_name}.
+_FILTERABLE_ALIASES: dict[str, str] = {
+    "source_album": "album",   # criteria.album -> WHERE source_album = ?
+    "action_type":  "action_types",  # criteria.action_types is a list filter
+}
+
+
+def _create_table_sql() -> str:
+    """Generate CREATE TABLE statement from columns where ``initial=True``."""
+    cols_sql: list[str] = []
+    for c in _COLUMNS:
+        if not c.initial:
+            continue
+        parts = [c.name, c.sql_type]
+        if c.primary_key:
+            parts.append("PRIMARY KEY AUTOINCREMENT")
+        elif not c.nullable:
+            parts.append("NOT NULL")
+        if c.default_sql:
+            parts.append(f"DEFAULT {c.default_sql}")
+        cols_sql.append(" ".join(parts))
+    return (
+        f"CREATE TABLE IF NOT EXISTS {_TABLE} (\n  "
+        + ",\n  ".join(cols_sql)
+        + "\n);\n"
+        f"CREATE INDEX IF NOT EXISTS idx_action_log_started\n"
+        f"    ON {_TABLE}(started_at DESC);\n"
+        f"CREATE INDEX IF NOT EXISTS idx_action_log_type\n"
+        f"    ON {_TABLE}(action_type, started_at DESC);\n"
+    )
+
+
+# Generated constants — derived from _COLUMNS. Single source of truth.
+_MIGRATION_COLUMNS: list[tuple[str, str]] = [
+    (c.name, c.sql_type) for c in _COLUMNS if not c.initial
+]
+_HOT_FIELDS: tuple[str, ...] = tuple(c.name for c in _COLUMNS if c.hot)
+_FILTERABLE_FIELDS: tuple[str, ...] = tuple(c.name for c in _COLUMNS if c.filterable)
+_INSERT_COLUMNS: tuple[ColumnDef, ...] = tuple(c for c in _COLUMNS if not c.primary_key)
+
+
+def _start_action_value(col: ColumnDef, action_type: str, payload: dict) -> Any:
+    """Per-column value resolver for ``start_action`` INSERT.
+
+    Lifecycle columns get computed values; rest read from payload.
+    """
+    name = col.name
+    if name == "action_type":
+        return action_type
+    if name == "status":
+        return "running"
+    if name == "started_at":
+        return _now_iso()
+    if name == "payload_json":
+        return json.dumps(payload)
+    if name in ("ended_at", "duration_s", "error"):
+        return None
+    return payload.get(name)
 
 
 # ---------------------------------------------------------------------------
@@ -221,9 +331,9 @@ class RunHistoryRepository:
 
     def _migrate(self, conn: sqlite3.Connection) -> None:
         """Idempotent schema migration. Creates table + adds missing columns."""
-        conn.executescript(_CREATE_SQL)
+        conn.executescript(_create_table_sql())
         existing = {row[1] for row in conn.execute(f"PRAGMA table_info({_TABLE})")}
-        for col, col_type in _ALTER_COLUMNS:
+        for col, col_type in _MIGRATION_COLUMNS:
             if col not in existing:
                 conn.execute(f"ALTER TABLE {_TABLE} ADD COLUMN {col} {col_type}")
         conn.execute(
@@ -339,26 +449,17 @@ class RunHistoryRepository:
         """
         self._check_writable()
         payload = payload or {}
-        hot = {k: payload.get(k) for k in _HOT_FIELDS}
+        col_names = [c.name for c in _INSERT_COLUMNS]
+        placeholders = ",".join("?" * len(col_names))
+        sql = (
+            f"INSERT INTO {_TABLE} ({', '.join(col_names)}) "
+            f"VALUES ({placeholders})"
+        )
+        values = tuple(
+            _start_action_value(c, action_type, payload) for c in _INSERT_COLUMNS
+        )
         with self._connect() as conn:
-            cur = conn.execute(
-                f"""INSERT INTO {_TABLE}
-                    (action_type, status, started_at,
-                     run_id, source_dir, output_dir, album,
-                     n_faces, n_clusters, n_noise, log_file,
-                     source_album, run_name, parent_run_id, run_kind,
-                     comment, config_json, n_core, producer,
-                     payload_json)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (
-                    action_type, "running", _now_iso(),
-                    hot["run_id"], hot["source_dir"], hot["output_dir"], hot["album"],
-                    hot["n_faces"], hot["n_clusters"], hot["n_noise"], hot["log_file"],
-                    hot["source_album"], hot["run_name"], hot["parent_run_id"], hot["run_kind"],
-                    hot["comment"], hot["config_json"], hot["n_core"], hot["producer"],
-                    json.dumps(payload),
-                ),
-            )
+            cur = conn.execute(sql, values)
             conn.commit()
             return int(cur.lastrowid)
 
@@ -403,38 +504,16 @@ class RunHistoryRepository:
             payload = json.loads(row["payload_json"] or "{}")
             if payload_update:
                 payload.update(payload_update)
-            hot = {k: result_fields.get(k) for k in _HOT_FIELDS}
-            conn.execute(
-                f"""UPDATE {_TABLE} SET
-                    status='complete', ended_at=?, duration_s=?,
-                    run_id=COALESCE(?,run_id),
-                    source_dir=COALESCE(?,source_dir),
-                    output_dir=COALESCE(?,output_dir),
-                    album=COALESCE(?,album),
-                    n_faces=COALESCE(?,n_faces),
-                    n_clusters=COALESCE(?,n_clusters),
-                    n_noise=COALESCE(?,n_noise),
-                    log_file=COALESCE(?,log_file),
-                    source_album=COALESCE(?,source_album),
-                    run_name=COALESCE(?,run_name),
-                    parent_run_id=COALESCE(?,parent_run_id),
-                    run_kind=COALESCE(?,run_kind),
-                    comment=COALESCE(?,comment),
-                    config_json=COALESCE(?,config_json),
-                    n_core=COALESCE(?,n_core),
-                    producer=COALESCE(?,producer),
-                    payload_json=?
-                    WHERE id=?""",
-                (
-                    ended, duration,
-                    hot["run_id"], hot["source_dir"], hot["output_dir"], hot["album"],
-                    hot["n_faces"], hot["n_clusters"], hot["n_noise"], hot["log_file"],
-                    hot["source_album"], hot["run_name"], hot["parent_run_id"], hot["run_kind"],
-                    hot["comment"], hot["config_json"], hot["n_core"], hot["producer"],
-                    json.dumps(payload),
-                    action_id,
-                ),
-            )
+            set_parts = ["status='complete'", "ended_at=?", "duration_s=?"]
+            values: list[Any] = [ended, duration]
+            for name in _HOT_FIELDS:
+                set_parts.append(f"{name}=COALESCE(?,{name})")
+                values.append(result_fields.get(name))
+            set_parts.append("payload_json=?")
+            values.append(json.dumps(payload))
+            values.append(action_id)
+            sql = f"UPDATE {_TABLE} SET {', '.join(set_parts)} WHERE id=?"
+            conn.execute(sql, tuple(values))
             conn.commit()
 
     def fail_action(
@@ -559,18 +638,17 @@ class RunHistoryRepository:
             placeholders = ",".join("?" for _ in criteria.ids)
             clauses.append(f"id IN ({placeholders})")
             params.extend(criteria.ids)
-        if criteria.parent_run_id is not None:
-            clauses.append("parent_run_id = ?")
-            params.append(criteria.parent_run_id)
-        if criteria.album:
-            clauses.append("source_album = ?")
-            params.append(criteria.album)
-        if criteria.status:
-            clauses.append("status = ?")
-            params.append(criteria.status)
-        if criteria.producer:
-            clauses.append("producer = ?")
-            params.append(criteria.producer)
+
+        for col_name in _FILTERABLE_FIELDS:
+            criteria_field = _FILTERABLE_ALIASES.get(col_name, col_name)
+            if criteria_field == "action_types":
+                continue
+            value = getattr(criteria, criteria_field)
+            if value is None or value == "":
+                continue
+            clauses.append(f"{col_name} = ?")
+            params.append(value)
+
         if criteria.action_types:
             placeholders = ",".join("?" for _ in criteria.action_types)
             clauses.append(f"action_type IN ({placeholders})")

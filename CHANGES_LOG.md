@@ -2,6 +2,33 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-25 [REFACTOR] spec-044 — Column Registry for RunHistoryRepository
+**Branch**: `unification/spec-040`
+**Files**:
+- `face_cluster/repositories/run_history_repo.py` — Replaced 9 hand-maintained constants (`_CREATE_SQL`, `_ALTER_COLUMNS`, `_HOT_FIELDS`, hardcoded INSERT/UPDATE column lists, hardcoded WHERE clauses) with one `_COLUMNS: list[ColumnDef]` table. New frozen-slotted `ColumnDef` carries per-column metadata (`sql_type`, `initial`, `nullable`, `default_sql`, `primary_key`, `hot`, `filterable`). `_create_table_sql()`, `_MIGRATION_COLUMNS`, `_HOT_FIELDS`, `_FILTERABLE_FIELDS` are now derived. `start_action` / `complete_action` / `_build_where` iterate `_COLUMNS` instead of duplicating its contents. New `_start_action_value()` helper isolates the lifecycle special-cases. `_FILTERABLE_ALIASES` maps `source_album` ↔ `criteria.album` / `action_type` ↔ `criteria.action_types`. Module docstring extended with a "Column Registry" section.
+- NEW `tests/architecture/test_run_history_repo_column_registry.py` — 4 permanent drift-guard tests: `test_runrow_fields_match_columns_registry`, `test_filterable_columns_have_matching_criteria_fields`, `test_initial_and_migration_partition_is_complete`, `test_only_nullable_hot_fields`. Catches column-registry drift at PR time.
+- `docs/architecture/architecture_standards.md` — new §B0.1 "Column Registry" sub-section documenting the 2-touch-point rule + the 4 drift-guard tests as a binding standard for every future Repository.
+- `specs/044-column-registry/spec.md` + `tasks.md` — full PRD + 6-phase task list (drafts committed earlier in `d86dc17`).
+
+**Change**: Adding a column to `action_log` now requires editing exactly 2 places (`_COLUMNS` + `RunRow`) instead of 9. The same schema metadata feeds the CREATE TABLE generator, the ALTER migration loop, the hot-field INSERT/UPDATE writers, and the equality-filter WHERE-clause builder. Special cases (text substring search, date ranges, `action_types` IN, `ids` IN) stay hardcoded in `_build_where` and are explicitly documented.
+
+**Reason**: spec-043 left 9 places where adding a column would silently break behavior — each had to be hand-maintained in parallel. spec-044 collapses them to a single declarative table. The pattern is now codified in B0.1 of the architecture standards and will apply to every future Repository.
+
+**Build → Test → Migrate discipline** (per spec-044 §D1): Phase 1 built `ColumnDef` + `_COLUMNS` alongside the hand-written constants. Phase 2 added 4 permanent drift-guard arch tests + 3 temporary equivalence assertions proving generated == hand-written. Phase 3 swapped the constants once equivalence was proven (temporary tests deleted). Phase 4 rewrote `start_action`, `complete_action`, `_build_where` to iterate the registry. All 75 Repository + view + arch tests stay green at every phase.
+
+**Verification**:
+- 4/4 new column-registry drift-guard arch tests pass
+- 36/36 Repository tests (33 synthetic + 3 real-fixture) still pass — Repository external contract is unchanged
+- 35/35 HistoryService tests (31 synthetic + 4 real-fixture) still pass — Service-layer composition is unchanged
+- 138/138 across the wider face_clustering + architecture surfaces (`pytest tests/face_clustering/ tests/architecture/`, 25s)
+
+**Out of scope (tracked as follow-ups)**:
+- Auto-generating `RunRow` from `_COLUMNS` via `make_dataclass()` — loses IDE autocomplete; the drift-guard arch test catches the divergence instead.
+- Extracting `ColumnDef` to a shared module for use by future Repositories — premature; wait for a second consumer.
+- Generalizing `RunHistoryCriteria` to be code-generated from filterable columns — the typed dataclass + manual special-cases is acceptable.
+
+---
+
 ### 2026-05-25 [REFACTOR] spec-043 — Repository pattern for face_cluster persistence
 **Branch**: `unification/spec-040`
 **Files**:
