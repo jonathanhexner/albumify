@@ -2,6 +2,25 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-28 [REFACTOR] NOISE_LABEL contract + fix test_selected_from_each_cluster
+**Branch**: `unification/spec-040`
+**Files**:
+- ADDED `sim_bench/pipeline/clustering_labels.py` — single source of truth: `NOISE_LABEL: int = -1` (HDBSCAN/sklearn convention, no translation layer at the algorithm boundary) and `is_noise(cluster_id)` predicate.
+- UPDATED 6 step files in `sim_bench/pipeline/steps/` to import and use `NOISE_LABEL` / `is_noise()` in place of bare `-1` (9 sites): `cluster_scenes.py`, `select_best.py`, `cluster_people.py`, `compute_debug_distances.py`, `export_for_labeling.py`, `identity_refinement.py`.
+- UPDATED `tests/pipeline/test_integration.py::test_selected_from_each_cluster` — pinned `cluster_scenes.min_cluster_size=2` and `select_best.include_noise=False` so the producer-side cluster contract can't drift under the test; assertion changed from broken equality (`len(selected) == len(scene_clusters)` which counted the noise bucket as a cluster AND assumed one pick per cluster) to coverage: every real cluster id is represented in the selected set. Uses `NOISE_LABEL` / `is_noise()` so the test and producers share one definition.
+- WROTE `specs/040-unified-pipeline-framework/TEST_INTEGRATION_FAILURE.html` — root-cause analysis of the failure.
+**Reason**: `tests/pipeline/test_integration.py::TestFullPipeline::test_selected_from_each_cluster` was failing on `assert 5 == 3`. Two independent bugs in the assertion: (1) `len(context.scene_clusters)` included the `-1` noise bucket as a "cluster" — the producer itself excludes it (`cluster_scenes.py` `k >= 0`); (2) the assertion assumed exactly-one-pick-per-cluster, but `SelectBestStep` defaults `max_images_per_cluster=2`. Root cause was the absence of a contract for the noise label: `-1` was a magic number repeated across 9 pipeline-step sites with predictable drift between sides. Scope intentionally kept to `sim_bench/pipeline/`; the ~14 `n_noise = (labels == -1).sum()` sites inside `face_cluster/` will adopt the constant when those modules are next touched (separate sighting).
+**Verification**: 31 tests green: `tests/pipeline/test_integration.py` (8), `tests/pipeline/test_steps.py` (15), `tests/face_clustering/test_legacy_vs_v2_equivalence.py` (8). Pre-fix the integration suite had 1 hard failure.
+
+### 2026-05-28 [BUGFIX] spec-040 Phase 6 — relax BaseStep.validate so empty collections are valid
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `sim_bench/pipeline/base.py` — `BaseStep.validate()` now only flags `None` for required keys. The previous "empty list/dict/set == error" rule was removed because it conflated "producer never ran" with "producer ran and emitted nothing".
+- UPDATED `tests/pipeline/test_steps.py` — two stale tests that asserted validate-fails-on-empty-collection flipped to assert validate-passes-on-empty.
+- UPDATED `tests/pipeline/test_integration.py::test_missing_dependency_validation_fails` — now explicitly nulls `image_paths` to exercise the "missing required key" path (since default is `[]`, not `None`).
+**Reason**: All 8 cases of `tests/face_clustering/test_legacy_vs_v2_equivalence.py` were failing on the v2 path with `Required context key is empty: holdout_indices`. On the 6-face small fixture with the permissive `CANONICAL_PARAMS` gates, every face passes quality and `quality_gate_faces` legitimately writes `holdout_indices=[]`. The validator rejected that empty list before `AttachHoldoutFacesStep.process()` (which already has its own `if not context.holdout_indices: return` guard) could run. Regression introduced by spec-041 audit-fix commit `c9ec26c` which added `holdout_indices` to `requires` without accounting for the empty-list semantics. Considered narrower fixes (drop the key from `requires`, or per-key `allow_empty` metadata) but the global rule was always semantically wrong — empty collection is a valid produced value, not a missing dependency. Long-term path is Pydantic/Pandera per-key contracts; deferred.
+**Verification**: 8 previously-failing equivalence cases now pass; 30 other pipeline tests still green. One pre-existing unrelated failure (`test_selected_from_each_cluster`, DINOv2 cluster-count assertion) confirmed unchanged. Also wrote `specs/040-unified-pipeline-framework/EQUIVALENCE_FAILURE.html` documenting the class-level cause.
+
 ### 2026-05-25 [REFACTOR] spec-044 — Column Registry for RunHistoryRepository
 **Branch**: `unification/spec-040`
 **Files**:

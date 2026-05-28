@@ -6,6 +6,7 @@ from typing import Optional, List, Tuple
 import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
+from sim_bench.pipeline.clustering_labels import is_noise
 from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.scoring.quality_strategy import (
@@ -208,7 +209,7 @@ class SelectBestStep(BaseStep):
         if use_face_subclusters and context.face_clusters:
             # Process subclusters within each scene
             for scene_id, subclusters in context.face_clusters.items():
-                if scene_id == -1 and not include_noise:
+                if is_noise(scene_id) and not include_noise:
                     continue
 
                 for subcluster_id, subcluster in subclusters.items():
@@ -234,7 +235,7 @@ class SelectBestStep(BaseStep):
         else:
             # Fall back to scene clusters
             for cluster_id, image_paths in context.scene_clusters.items():
-                if cluster_id == -1 and not include_noise:
+                if is_noise(cluster_id) and not include_noise:
                     continue
 
                 total_clusters += 1

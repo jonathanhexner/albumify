@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>test_integration::test_selected_from_each_cluster — failure analysis</title>
+<style>
+  body { font: 14px/1.45 system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  h2 { font-size: 14px; margin: 22px 0 6px; text-transform: uppercase; letter-spacing: .05em; color: #555; }
+  pre, code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+  pre { background: #f6f6f6; border: 1px solid #ddd; border-radius: 4px; padding: 10px 12px; overflow-x: auto; font-size: 12px; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .card { border: 1px solid #c8c8c8; border-radius: 6px; padding: 10px 12px; background: #fafafa; flex: 1; min-width: 260px; }
+  .card.bad  { border-color: #c0392b; background: #fdecea; }
+  .card.good { border-color: #2e7d32; background: #e9f5ea; }
+  .card h3 { margin: 0 0 4px; font-size: 13px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .card .where { font-size: 11px; color: #666; margin-bottom: 6px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .verdict { background: #fdecea; border-left: 4px solid #c0392b; padding: 10px 14px; margin: 16px 0; }
+  table { border-collapse: collapse; margin-top: 6px; font-size: 12px; }
+  th, td { border: 1px solid #c8c8c8; padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: #eee; }
+  .bad { color: #c0392b; font-weight: 600; }
+  .ok  { color: #2e7d32; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1><code>test_selected_from_each_cluster</code> — failure analysis</h1>
+<p style="color:#555;margin-top:0;">
+  File: <code>tests/pipeline/test_integration.py:106-128</code>. Pre-existing — not introduced by the recent <code>BaseStep.validate()</code> change. Failure is a flawed test invariant, not a product bug.
+</p>
+
+<h2>How to run it</h2>
+<pre># whole file (~15s after DINOv2 model is cached locally)
+.venv/Scripts/python -m pytest tests/pipeline/test_integration.py -v
+
+# just this one
+.venv/Scripts/python -m pytest tests/pipeline/test_integration.py::TestFullPipeline::test_selected_from_each_cluster -v
+</pre>
+<p style="color:#555;">First run downloads the DINOv2-base weights via torch.hub (a few hundred MB into <code>~/.cache/torch/hub/</code>). Subsequent runs are fast.</p>
+
+<h2>What the test exercises</h2>
+<p>Runs the Albumify scene-selection pipeline end-to-end on the 10-image <code>samples/ukbench/</code> fixture:</p>
+<pre>discover_images -> score_iqa -> filter_quality -> extract_scene_embedding
+                 -> cluster_scenes -> select_best   (include_noise=True)</pre>
+<p>Stated purpose (from docstring): <em>"At least one image should be selected from each cluster."</em></p>
+
+<h2>The failure</h2>
+<pre>AssertionError: assert 5 == 3
+  len(context.selected_images) == num_clusters
+  where num_clusters = len(context.scene_clusters)</pre>
+
+<h2>The actual end state (reproduced)</h2>
+<table>
+  <tr><th>Key</th><th>Value</th></tr>
+  <tr><td><code>context.scene_clusters</code> keys</td><td><code>[0, 1, -1]</code></td></tr>
+  <tr><td>cluster sizes</td><td><code>{0: 4, 1: 4, -1: 2}</code> &nbsp;(HDBSCAN found 2 real clusters of 4 imgs each + 2 noise)</td></tr>
+  <tr><td><code>len(scene_clusters)</code></td><td><code>3</code> &nbsp;← counts the <code>-1</code> noise bucket as a "cluster"</td></tr>
+  <tr><td><code>selected_images</code></td><td><code>[00001, 00003, 00004, 00007, 00008]</code> &nbsp;(5 images)</td></tr>
+</table>
+
+<h2>Cast</h2>
+<div class="row">
+
+  <div class="card">
+    <h3>ClusterScenesStep</h3>
+    <div class="where">sim_bench/pipeline/steps/cluster_scenes.py:71-79</div>
+    Writes <code>context.scene_clusters: dict[int, list[str]]</code>.
+    The dict's keys include label <code>-1</code> for HDBSCAN noise alongside real cluster ids:
+    <pre>num_clusters = len([k for k in clusters if k &gt;= 0])  # internal log
+context.scene_clusters = clusters                       # but stored WITH -1</pre>
+    So <code>len(context.scene_clusters)</code> = real-clusters + (1 if any noise).
+  </div>
+
+  <div class="card">
+    <h3>SelectBestStep</h3>
+    <div class="where">sim_bench/pipeline/steps/select_best.py:176, 234-256</div>
+    Default <code>max_images_per_cluster = 2</code>. With <code>include_noise=True</code>, the <code>-1</code> bucket is processed like any other cluster, contributing up to 2 picks. With the ukbench fixture the runtime split is:
+    <pre>cluster 0 (4 imgs) -> picks 2
+cluster 1 (4 imgs) -> picks 2
+cluster -1 (2 imgs, noise) -> picks 1
+total selected = 5</pre>
+  </div>
+
+</div>
+
+<h2>Why the assertion is wrong (two independent bugs in one line)</h2>
+
+<div class="row">
+  <div class="card bad">
+    <h3>Bug 1 — counts noise as a cluster</h3>
+    <div class="where">test_integration.py:127</div>
+    <code>num_clusters = len(context.scene_clusters)</code> includes the <code>-1</code> noise key. Should be <code>len([k for k in context.scene_clusters if k != -1])</code>, matching the producer's own definition (cluster_scenes.py:97).
+  </div>
+
+  <div class="card bad">
+    <h3>Bug 2 — assumes 1-per-cluster, but step picks up to <code>max_images_per_cluster</code></h3>
+    <div class="where">test_integration.py:128 vs select_best.py:176</div>
+    <code>assert len(selected_images) == num_clusters</code> would only hold if every cluster contributed exactly one selection. <code>SelectBestStep</code>'s default is <code>2</code>, so with any cluster of size ≥ 2 it picks 2 — the equality is impossible to maintain.
+  </div>
+</div>
+
+<p style="margin-top:8px;color:#555;">
+  The docstring (<em>"At least one image should be selected from each cluster"</em>) describes a different, weaker invariant than the assertion. The assertion was written as if equality held; it doesn't.
+</p>
+
+<h2>Verdict</h2>
+<div class="verdict">
+  <strong>Stale test, not a regression.</strong> Git log shows the test hasn't been touched since commit <code>3c30737</code> (unrelated cluster-debug-view work, well before spec-040). It has been failing as long as <code>SelectBestStep</code>'s <code>max_images_per_cluster</code> default has been &gt; 1 and HDBSCAN has produced any noise. Nothing in the current branch caused it.
+</div>
+
+<h2>Three ways to fix — pick one</h2>
+<table>
+  <thead><tr><th>Option</th><th>Change</th><th>What it really asserts</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A · Match the docstring</strong></td>
+      <td>Iterate <code>scene_clusters</code>, exclude <code>-1</code>, and assert each real cluster contributes at least one image to <code>selected_images</code>.</td>
+      <td>"every real cluster is represented" — the invariant the docstring promises.</td>
+    </tr>
+    <tr>
+      <td><strong>B · Force one-per-cluster and keep the equality</strong></td>
+      <td>Pass <code>"select_best": {"max_images_per_cluster": 1, "include_noise": False}</code>, change RHS to <code>len([k for k in scene_clusters if k != -1])</code>.</td>
+      <td>"with these tightened configs, picks == real clusters" — narrow but unambiguous.</td>
+    </tr>
+    <tr>
+      <td><strong>C · Delete</strong></td>
+      <td>The neighbouring <code>test_pipeline_produces_expected_outputs</code> already asserts <code>scene_clusters</code> and <code>selected_images</code> are non-empty; this test adds little once the assertion is rewritten.</td>
+      <td>Nothing; coverage drops slightly.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p style="margin-top:14px;color:#555;">Recommendation: <strong>A</strong> — preserves the original intent at minimal cost; the failure mode it would catch (a cluster being dropped by <code>select_best</code>) is a real risk worth covering.</p>
+
+</body>
+</html>

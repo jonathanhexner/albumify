@@ -8,6 +8,7 @@ import logging
 import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
+from sim_bench.pipeline.clustering_labels import NOISE_LABEL, is_noise
 from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.context import PipelineContext
 
@@ -95,8 +96,8 @@ class ExportForLabelingStep(BaseStep):
         logger.info(f"  Saved debug neighbors to {debug_json.name}")
 
         # 5. Generate export_summary.json
-        # Count noise: faces with cluster_id == -1 in the dataframe
-        n_noise = int((faces_df['cluster_id'] == -1).sum())
+        # Count noise: faces with the NOISE_LABEL cluster_id in the dataframe.
+        n_noise = int((faces_df['cluster_id'] == NOISE_LABEL).sum())
 
         # Add validation checks to summary
         validations = {
@@ -169,13 +170,13 @@ class ExportForLabelingStep(BaseStep):
         # Build face_id -> cluster_id mapping
         face_id_to_cluster = {}
         for i, label in enumerate(cluster_result.labels):
-            if label != -1:  # Not noise
+            if not is_noise(label):
                 face_id_to_cluster[i] = label
 
         faces_data = []
         for face_record in face_records:
             face_id = face_record.face_id
-            cluster_id = face_id_to_cluster.get(face_id, -1)
+            cluster_id = face_id_to_cluster.get(face_id, NOISE_LABEL)
 
             faces_data.append({
                 'face_id': face_id,

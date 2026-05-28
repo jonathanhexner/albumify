@@ -7,6 +7,7 @@ from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.config import PipelineConfig
 from sim_bench.pipeline.executor import PipelineExecutor
 from sim_bench.pipeline.registry import get_registry
+from sim_bench.pipeline.clustering_labels import NOISE_LABEL, is_noise
 
 import sim_bench.pipeline.steps.all_steps
 
@@ -104,7 +105,19 @@ class TestFullPipeline:
             assert Path(image_path).exists(), f"Selected image doesn't exist: {image_path}"
 
     def test_selected_from_each_cluster(self, executor, context):
-        """At least one image should be selected from each cluster."""
+        """select_best must cover every real scene cluster.
+
+        Coverage contract — each non-noise cluster contributes at least one
+        image to context.selected_images. We don't pin max_images_per_cluster
+        on purpose: the selector is free to pick 1 or N per cluster; the only
+        thing we care about here is that no real cluster is dropped.
+
+        Two configs ARE pinned to lock the contract under test:
+        - cluster_scenes.min_cluster_size = 2 (the producer's definition of
+          "what counts as a cluster" must not drift under us)
+        - select_best.include_noise = False (the NOISE_LABEL bucket is not a
+          cluster and is not expected to contribute selections)
+        """
         steps = [
             "discover_images",
             "score_iqa",
@@ -117,15 +130,28 @@ class TestFullPipeline:
         config = PipelineConfig(
             step_configs={
                 "filter_quality": {"min_iqa_score": 0.0, "min_sharpness": 0.0},
-                "select_best": {"include_noise": True}
+                "cluster_scenes": {"min_cluster_size": 2},
+                "select_best": {"include_noise": False},
             }
         )
 
         executor.execute(context, steps, config)
 
-        # Number of selected images should match number of clusters
-        num_clusters = len(context.scene_clusters)
-        assert len(context.selected_images) == num_clusters
+        real_cluster_ids = {cid for cid in context.scene_clusters if not is_noise(cid)}
+        assert real_cluster_ids, (
+            "Test precondition: cluster_scenes produced no real clusters on the "
+            "ukbench fixture — the coverage assertion would be vacuous."
+        )
+
+        selected_cluster_ids = {
+            context.scene_cluster_labels[p] for p in context.selected_images
+        }
+        missing = real_cluster_ids - selected_cluster_ids
+        assert not missing, (
+            f"select_best dropped clusters: {sorted(missing)}. "
+            f"real clusters={sorted(real_cluster_ids)}, "
+            f"covered={sorted(selected_cluster_ids - {NOISE_LABEL})}"
+        )
 
     def test_progress_callback_called(self, executor, context):
         """Progress callback should be called during execution."""
@@ -172,17 +198,22 @@ class TestPipelineErrorHandling:
         assert result.error_message is not None
 
     def test_missing_dependency_validation_fails(self, executor, context):
-        """Running a step without its dependencies should fail validation."""
-        # Try to run score_iqa without discover_images (no auto_resolve)
-        # The executor uses auto_resolve by default, so this tests the validation
+        """Step validation flags a None-valued required key.
+
+        PipelineContext defaults image_paths to [] (not None), so to exercise
+        the "missing required key" path we have to null it explicitly. Empty
+        collections are no longer flagged — that conflated "producer never
+        ran" with "producer ran and emitted nothing".
+        """
         context_empty = PipelineContext(source_directory=SAMPLES_DIR)
-        # Manually clear image_paths to simulate missing dependency
+        context_empty.image_paths = None  # type: ignore[assignment]
 
         registry = get_registry()
         step = registry.get("score_iqa")
         errors = step.validate(context_empty)
 
         assert len(errors) > 0
+        assert "image_paths" in errors[0]
 
 
 class TestAutoResolve:

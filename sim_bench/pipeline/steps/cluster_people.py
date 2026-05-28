@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
+from sim_bench.pipeline.clustering_labels import NOISE_LABEL, is_noise
 from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.steps.configs._validate import validate_step_config
@@ -147,7 +148,7 @@ class ClusterPeopleStep(BaseStep):
         clusters = {}
         noise_count = 0
         for face in faces_with_embeddings:
-            if face.cluster_id == -1:
+            if is_noise(face.cluster_id):
                 noise_count += 1
                 continue
             if face.cluster_id not in clusters:
@@ -155,13 +156,13 @@ class ClusterPeopleStep(BaseStep):
             clusters[face.cluster_id].append(face)
 
         if noise_count:
-            logger.info(f"Excluded {noise_count} noise faces (label=-1) from people clusters")
+            logger.info(f"Excluded {noise_count} noise faces (label={NOISE_LABEL}) from people clusters")
 
         # Emit per-face StepDecision records
         cfg = {"method": method}
         for face in faces_with_embeddings:
             face_key = f"{face.original_path}:face_{face.face_index}"
-            if face.cluster_id == -1:
+            if is_noise(face.cluster_id):
                 decision, reason = "noise", "Not assigned to any person (noise)"
             else:
                 cluster_size = len(clusters.get(face.cluster_id, []))

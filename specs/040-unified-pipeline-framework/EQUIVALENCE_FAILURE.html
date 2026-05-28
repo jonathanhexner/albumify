@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>spec-040 equivalence test failure — class map</title>
+<style>
+  body { font: 14px/1.45 system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  h2 { font-size: 14px; margin: 24px 0 6px; text-transform: uppercase; letter-spacing: .05em; color: #555; }
+  .row { display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; }
+  .card { border: 1px solid #c8c8c8; border-radius: 6px; padding: 10px 12px; background: #fafafa; min-width: 240px; flex: 1; }
+  .card.bad  { border-color: #c0392b; background: #fdecea; }
+  .card.good { border-color: #2e7d32; background: #e9f5ea; }
+  .card.rule { border-color: #b8860b; background: #fff7e0; }
+  .card h3 { margin: 0 0 4px; font-size: 13px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .card .where { font-size: 11px; color: #666; margin-bottom: 6px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .card ul { margin: 4px 0 0; padding-left: 18px; }
+  .card li { margin: 2px 0; }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; background: #eee; padding: 1px 4px; border-radius: 3px; }
+  .arrow { font-family: ui-monospace, Menlo, Consolas, monospace; color: #333; padding: 8px 4px; display: flex; align-items: center; }
+  .verdict { background: #fdecea; border-left: 4px solid #c0392b; padding: 10px 14px; margin: 16px 0; }
+  .ok { color: #2e7d32; font-weight: 600; }
+  .bad { color: #c0392b; font-weight: 600; }
+  table { border-collapse: collapse; margin-top: 6px; font-size: 12px; }
+  th, td { border: 1px solid #c8c8c8; padding: 4px 8px; text-align: left; }
+  th { background: #eee; }
+</style>
+</head>
+<body>
+
+<h1>spec-040 equivalence test failure — class map</h1>
+<p style="color:#555;margin-top:0;">
+  <code>tests/face_clustering/test_legacy_vs_v2_equivalence.py</code> — all 8 small-fixture cases fail on the v2 path with
+  <br>
+  <code>Validation failed: Required context key is empty: holdout_indices</code>.
+</p>
+<p style="background:#e9f5ea;border-left:4px solid #2e7d32;padding:10px 14px;margin:14px 0;">
+  <strong>RESOLVED 2026-05-28</strong> — fix B applied: <code>BaseStep.validate()</code> now only flags <code>None</code> for required keys; empty collections are valid produced values. All 8 cases green. See <code>CHANGES_LOG.md</code> 2026-05-28 entry.
+</p>
+
+<h2>Cast of classes</h2>
+<div class="row">
+
+  <div class="card">
+    <h3>PipelineContext</h3>
+    <div class="where">sim_bench/pipeline/context.py</div>
+    Holds:
+    <ul>
+      <li><code>face_records: list[FaceRecord]</code></li>
+      <li><code>core_indices: list[int]</code> — faces that passed the quality gate</li>
+      <li><code>holdout_indices: list[int]</code> — faces that <em>failed</em> the gate (may legitimately be <code>[]</code>)</li>
+      <li><code>graph_result</code>, <code>cluster_result</code>, <code>merged_cluster_result</code></li>
+      <li><code>people_clusters: dict[int, list[FaceRecord]]</code> — final output read by the test</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>StepMetadata</h3>
+    <div class="where">sim_bench/pipeline/base.py</div>
+    Per-step contract. Relevant field:
+    <ul>
+      <li><code>requires: set[str]</code> — context keys the step reads. Drives validation.</li>
+    </ul>
+  </div>
+
+  <div class="card rule">
+    <h3>BaseStep.validate()</h3>
+    <div class="where">sim_bench/pipeline/base.py:90-99</div>
+    The rule that fires the failure:
+    <ul>
+      <li><code>value is None</code> → "Missing required context key"</li>
+      <li><code>len(value) == 0</code> on list/dict/set → "Required context key is empty" &nbsp;<span class="bad">← the bug</span></li>
+    </ul>
+    Treats "empty collection" the same as "missing". For <code>holdout_indices</code> that conflation is wrong — empty is a valid produced value.
+  </div>
+
+</div>
+
+<h2>Producer → consumer flow for <code>holdout_indices</code></h2>
+<div class="row">
+
+  <div class="card good">
+    <h3>QualityGateFacesStep <span style="font-weight:normal;color:#555;">(producer)</span></h3>
+    <div class="where">sim_bench/pipeline/steps/face_clustering_steps.py:46-89</div>
+    Always writes both keys, possibly empty:
+    <ul>
+      <li><code>context.core_indices    = [...]</code></li>
+      <li><code>context.holdout_indices = [...]</code> &nbsp;← <strong>empty when every face passes the gate</strong> (this is the test situation: 6 faces, permissive gates → 6 core / 0 holdout)</li>
+    </ul>
+  </div>
+
+  <div class="arrow">→</div>
+
+  <div class="card bad">
+    <h3>AttachHoldoutFacesStep <span style="font-weight:normal;color:#555;">(consumer #1)</span></h3>
+    <div class="where">sim_bench/pipeline/steps/face_clustering_steps.py:212-248</div>
+    <code>requires</code> contains <code>holdout_indices</code>.
+    Body already handles empty correctly: <code>if cr is None or not context.holdout_indices: return</code>.
+    But <strong>validate() rejects the empty list before <code>process()</code> ever runs</strong>. &nbsp;<span class="bad">FAILS</span>
+  </div>
+
+  <div class="card bad">
+    <h3>AssignPeopleClustersStep <span style="font-weight:normal;color:#555;">(consumer #2)</span></h3>
+    <div class="where">sim_bench/pipeline/steps/face_clustering_steps.py:336-393</div>
+    Same shape: <code>requires</code> contains <code>holdout_indices</code>; body tolerates empty (<code>uses_global = ... and bool(context.holdout_indices)</code>).
+    Doesn't fire today because <code>fail_fast=True</code> stops the chain at the previous step, but the same validator would reject it. &nbsp;<span class="bad">LATENT</span>
+  </div>
+
+</div>
+
+<h2>Verdict</h2>
+<div class="verdict">
+  <strong>One regression, two locations.</strong>
+  spec-041 audit-fix commit <code>c9ec26c</code> tightened <code>requires</code> on the two steps above to document real reads —
+  correct intent, but it collided with <code>BaseStep.validate()</code>'s "empty == error" rule for a key whose empty state is legal.
+  spec-040 status table currently marks Phase 6 ✅; that row is stale and Phase 7 / merge-to-main is unenforceable until this is fixed.
+</div>
+
+<h2>Three fixes — pick one</h2>
+<table>
+  <thead>
+    <tr><th>Option</th><th>Change</th><th>Blast radius</th><th>Risk</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>A · Narrow</strong></td>
+      <td>Drop <code>holdout_indices</code> from the two steps' <code>requires</code>. Keep <code>depends_on=["quality_gate_faces"]</code> so the producer-ran guarantee remains.</td>
+      <td>2 lines, 2 steps.</td>
+      <td>Lowest. Loses one diagnostic ("we read this key") for those two steps.</td>
+    </tr>
+    <tr>
+      <td><strong>B · Broad</strong></td>
+      <td>Change <code>BaseStep.validate()</code> so "required" means "not None"; empty collections become valid.</td>
+      <td>One file, every step inherits.</td>
+      <td>Medium. Need to audit any step that currently relies on empty-as-error.</td>
+    </tr>
+    <tr>
+      <td><strong>C · Hybrid</strong></td>
+      <td>Add <code>StepMetadata.allow_empty: set[str]</code>; list <code>holdout_indices</code> there for the two steps.</td>
+      <td>Metadata-schema change + 2 steps.</td>
+      <td>Heaviest for a single bug; most explicit.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p style="margin-top:14px;color:#555;">Recommendation: <strong>A</strong>. The semantic gap is real (B would be better long-term) but A is the minimum that turns Phase 6 green and unblocks the burn-in clock; B is a follow-up sighting if we want it.</p>
+
+</body>
+</html>

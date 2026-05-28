@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
+from sim_bench.pipeline.clustering_labels import is_noise
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.steps.attachment_strategies import (
@@ -243,12 +244,12 @@ class IdentityRefinementStep(BaseStep):
         self._log_stats(stats)
 
     def _separate_noise(self, clusters: Dict[int, list]) -> tuple:
-        """Separate core clusters from noise (cluster_id=-1)."""
+        """Separate core clusters from noise (the NOISE_LABEL bucket)."""
         core_clusters = {}
         noise_faces = []
 
         for cluster_id, faces in clusters.items():
-            if cluster_id == -1:
+            if is_noise(cluster_id):
                 noise_faces.extend(faces)
             else:
                 core_clusters[cluster_id] = faces

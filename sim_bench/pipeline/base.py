@@ -88,14 +88,20 @@ class BaseStep(ABC):
         return self._metadata
 
     def validate(self, context: "PipelineContext") -> list[str]:
-        """Default validation checks that required context keys exist."""
+        """Default validation: required context keys must exist (not None).
+
+        Empty collections are valid produced values (e.g. quality_gate_faces
+        legitimately writes holdout_indices=[] when every face passes). Steps
+        that need non-empty input must guard in their own process() body — or
+        override validate() — rather than relying on the framework. The "empty
+        == error" rule was removed because it conflated "producer never ran"
+        with "producer ran and had nothing to emit".
+        """
         errors = []
         for key in self._metadata.requires:
             value = getattr(context, key, None)
             if value is None:
                 errors.append(f"Missing required context key: {key}")
-            elif isinstance(value, (list, dict, set)) and len(value) == 0:
-                errors.append(f"Required context key is empty: {key}")
         return errors
     
     def process(self, context: "PipelineContext", config: dict) -> None:
