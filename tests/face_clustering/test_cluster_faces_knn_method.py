@@ -128,43 +128,13 @@ class ut_FaceClusterKNNMethod:
         labels = step._run_face_cluster_knn(faces, embeddings_norm, config, _FakeContext())
         assert len(labels) == n
 
-    def test_quality_gating_holdout(self):
-        """Faces with zero blur_score should be held out (label=-1) when blur_min > 0."""
-        n = 10
-        embeddings = _make_identity_embeddings(5, 2)
-        faces = _make_faces(n)
-        for i in range(n):
-            faces[i].embedding = embeddings[i]
-        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-        norms[norms == 0] = 1
-        embeddings_norm = embeddings / norms
-
-        step = ClusterPeopleStep()
-        config = {
-            "K": 3, "distance_threshold": 0.5, "min_cluster_size": 2,
-            "blur_min": 50.0,     # faces have blur_score=0 → all held out
-            "yaw_max": 180.0, "pitch_max": 180.0,
-        }
-        labels = step._run_face_cluster_knn(faces, embeddings_norm, config, _FakeContext())
-        # All faces have blur_score=0 (default), so all should be holdout
-        assert all(l == -1 for l in labels), (
-            f"Expected all holdout labels, got {labels}"
-        )
-
-    def test_faces_to_face_records_bridge(self):
-        """Bridge function produces FaceRecord objects with correct fields."""
-        from face_cluster.types import FaceRecord
-        faces = _make_faces(3)
-        embeddings = np.random.randn(3, 512).astype(np.float32)
-        for i in range(3):
-            faces[i].embedding = embeddings[i]
-        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-        embeddings_norm = embeddings / norms
-
-        records = ClusterPeopleStep._faces_to_face_records(faces, embeddings_norm)
-        assert len(records) == 3
-        assert isinstance(records[0], FaceRecord)
-        assert records[0].face_id == 0
-        assert records[0].image_path == str(faces[0].original_path)
-        assert records[0].embedding is not None
-        assert records[0].embedding_normalized is not None
+    # Deleted 2026-05-29 (SIGHTING-071): test_quality_gating_holdout and
+    # test_faces_to_face_records_bridge were calling code paths that no
+    # longer exist after spec-040's pipeline unification:
+    #   - The blur gate moved out of ClusterPeopleStep into the standalone
+    #     `quality_gate` step (spec-053). Coverage of blur enforcement is
+    #     in tests/face_clustering/test_quality_gate_step.py
+    #     ::test_blur_gate_actually_filters_when_min_is_high.
+    #   - `_faces_to_face_records` was removed; face-to-record conversion
+    #     happens in producer steps now. No replacement test needed —
+    #     producer step coverage exists separately.
