@@ -2,6 +2,15 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [DOCS] spec-045 — fill PRD gaps + per-phase validation gates + legacy-vs-v2 HTML
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `specs/045-cluster-analysis-tab/spec.md` — added §5 (Data contracts detailed), §6 (Service contract), §7 (Tab orchestrator skeleton with §7.2 run-dir resolver that reconciles with spec-050), §8 (Test inventory: 12 Repo synthetic / 3 Repo real / 12 Service synthetic / 4 Service real / 5 arch / Playwright smoke). Updated header: predecessors now cite spec-048 + spec-050 + commit `9824d84` (NOISE_LABEL), with a commit-ordering prerequisite note.
+- UPDATED `specs/045-cluster-analysis-tab/tasks.md` — replaced prose "Checkpoint" lines with concrete per-phase **Validation gates** (pytest command + expected pass count) for all 8 phases, matching the spec-046 pattern. T002 grew `include_noise` field and the no-bare-`-1` constraint. T050 now references §7.2 single-source-of-truth for run-dir resolution.
+- ADDED `specs/045-cluster-analysis-tab/LEGACY_VS_V2_CLUSTER_TAB.html` — side-by-side: legacy 383-LOC monolith vs spec-045 4-layer split. Code-shape diff, layering diagram, concrete `_compute_force_merge_preview` → `preview_force_merge` rewrite, user-facing gains/losses table, migration risks.
+**Reason**: PRD review surfaced 3 blockers before Phase 1 could start. (1) tasks.md referenced 13 numbered subsections (spec.§5.3, §5.4, §6.1, §7.1, §8.1–§8.6) that didn't exist in spec.md — the plan was unexecutable as written. (2) Phase checkpoints were prose, not commands — no binary signal whether a phase passed. (3) The existing `TAB_DESIGN_COMPARISON.html` compares History vs Cluster Analysis (two new tabs); the legacy-vs-v2 comparison the migration actually needs was missing. Recent context also unfolded into the spec: spec-050 run-picker reconciliation, NOISE_LABEL contract adoption (no bare `-1` in the new Repository/Service), spec-046/048 commit-ordering prerequisite.
+**Verification**: Docs-only change; CLAUDE.md §Implementation gate exemption applies (no `/code-review`, no test run). Cross-references between spec.md / tasks.md / HTML manually checked.
+
 ### 2026-05-28 [REFACTOR] NOISE_LABEL contract + fix test_selected_from_each_cluster
 **Branch**: `unification/spec-040`
 **Files**:

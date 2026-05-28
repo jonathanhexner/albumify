@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>History vs Cluster Analysis — Tab Design Comparison</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1200px; margin: 1.5em auto; padding: 0 1.5em;
+         color: #222; line-height: 1.55; background:#fafbfc; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; margin-bottom: .2em; }
+  h1 + .subtitle { color: #666; margin-top: 0; font-style: italic; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .25em; margin-top: 2em; }
+  h3 { color: #1f5fc7; margin-top: 1.6em; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; font-size: 13px;
+          background: #fff; }
+  th, td { border: 1px solid #ddd; padding: 7px 10px; text-align: left;
+           vertical-align: top; }
+  th { background: #f4f4f6; font-weight: 600; }
+  code { background:#eef0f4; padding: 1px 4px; border-radius: 3px;
+         font-size: 12px; font-family: Consolas, monospace; }
+  .same { background: #f4f9f4; }
+  .diff { background: #fff6e8; }
+  .big-diff { background: #ffe9d6; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 9px;
+          font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .pill-same { background:#e3f5e0; color:#236623; }
+  .pill-diff { background:#fff3cd; color:#856404; }
+  .pill-big  { background:#ffe1c4; color:#8a4500; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: .8em 0 1.2em;
+            font-size: 13px; }
+  .callout { background: #f6f7fa; border-left: 4px solid #4a72c4;
+             padding: .7em 1em; margin: 1em 0; border-radius: 0 4px 4px 0;
+             font-size: 14px; }
+  .layer-diagram {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 16px;
+    margin: 1em 0;
+    font-family: Consolas, monospace;
+    font-size: 12.5px;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .toc { background:#fff; border:1px solid #ddd; padding: 8px 14px;
+         border-radius: 4px; margin: 1em 0; font-size: 14px; }
+  .toc a { text-decoration:none; color:#1f5fc7; margin-right: 12px; }
+  .key-insight { background: #fffbe6; border:1px solid #e6d27a;
+                 padding: .9em 1.2em; border-radius: 4px; margin: 1.2em 0;
+                 font-size: 14px; }
+</style>
+</head>
+<body>
+
+<h1>History vs Cluster Analysis — Tab Design Comparison</h1>
+<p class="subtitle">Per-layer side-by-side: where the two tabs share design, where they diverge, and what the divergence tells us about the framework that's emerging from spec-042.</p>
+
+<div class="legend">
+  <span><span class="pill pill-same">SAME</span> identical pattern, just different types</span>
+  <span><span class="pill pill-diff">DIFFERS</span> meaningful design difference; both fit the framework</span>
+  <span><span class="pill pill-big">BIG DIFF</span> conceptual difference that introduces a new pattern</span>
+</div>
+
+<div class="toc">
+<b>Sections:</b>
+<a href="#tldr">TL;DR</a>
+<a href="#stack">Stack at a glance</a>
+<a href="#layer-by-layer">Layer-by-layer comparison</a>
+<a href="#insight">The key conceptual difference</a>
+<a href="#implications">Implications for the framework</a>
+</div>
+
+<h2 id="tldr">TL;DR</h2>
+
+<div class="key-insight">
+<b>Same architectural skeleton; different bones inside.</b>
+Both tabs follow the Tab&nbsp;→&nbsp;Service&nbsp;→&nbsp;Repository&nbsp;→&nbsp;DB layering established by spec-042 §B0. But two genuine design differences emerge:
+<ol>
+  <li><b>The Repository plays two different roles.</b> History's Repository <i>owns</i> the schema for <code>action_log</code>. Cluster Analysis's Repository <i>composes</i> a pre-existing schema owner (<code>RunStore</code>). This produces two Repository flavors worth naming.</li>
+  <li><b>Heavy compute introduces a new layer.</b> Cluster Analysis's Service has to manage async compute (distance matrices take seconds). That introduces <code>AsyncHandle[T]</code> as shared library code — a new piece of the framework History didn't need.</li>
+</ol>
+</div>
+
+<h2 id="stack">Stack at a glance</h2>
+
+<div class="layer-diagram">+--------------------------------------------------------------------------+
+|                  TAB LAYER  (Streamlit; orchestration only)              |
+|  history_tab.py                       cluster_analysis_tab.py            |
++--------------------------------------------------------------------------+
+|                  COMPONENT LAYER  (Streamlit; typed inputs)              |
+|  run_filter_bar / run_table /         cluster_picker / cluster_metrics / |
+|  run_detail / load_button /           face_grid / nearest_clusters /     |
+|  actions_table                        force_merge / cluster_debug        |
++--------------------------------------------------------------------------+
+|                  SERVICE LAYER  (Streamlit-free; domain logic)           |
+|  HistoryService                       ClusterAnalysisService             |
+|    - list_runs / get_run_detail         - list_clusters / get_cluster_ids|
+|    - update_comment / load_run          - compute_detail_async         <-+ NEW: AsyncHandle pattern
+|                                         - preview_force_merge            |
+|                                         - apply_force_merge              |
++--------------------------------------------------------------------------+
+|                  REPOSITORY LAYER  (DB access; typed Config + Criteria)  |
+|  RunHistoryRepository                 ClusterAnalysisRepository          |
+|    - owns action_log schema             - composes RunStore             <-+ NEW: query-shape Repository
+|    - _COLUMNS registry (B0.1)           - no schema ownership; no B0.1   |
+|    - find / find_one / count            - get_cluster_rows /             |
+|    - start/complete/fail_action /         find_assignments /             |
+|      update_comment                       get_face_records /             |
+|                                           save_manual_merge_snapshot     |
++--------------------------------------------------------------------------+
+|                  PERSISTENCE                                             |
+|  ~/.sim_bench/sim_bench.db            &lt;run_dir&gt;/face_clustering.db       |
+|    one table: action_log                six tables (faces, clusters,     |
+|    one app-wide DB                      cluster_assignments, ...)        |
+|                                       &lt;run_dir&gt;/embeddings.npy        <-+ NEW: non-relational sidecar
++--------------------------------------------------------------------------+</div>
+
+<p>Same shape top-to-bottom. The <b>new pieces</b> (highlighted right-side) only show up below the Component layer.</p>
+
+<h2 id="layer-by-layer">Layer-by-layer comparison</h2>
+
+<h3>1 · Tab layer <span class="pill pill-same">SAME</span></h3>
+
+<table>
+  <thead><tr><th>Aspect</th><th>History</th><th>Cluster Analysis</th></tr></thead>
+  <tbody>
+    <tr><td>File</td><td><code>app/face_clustering_v2/tabs/history_tab.py</code></td><td><code>app/face_clustering_v2/tabs/cluster_analysis_tab.py</code></td></tr>
+    <tr><td>Role</td><td colspan="2">Pure orchestration: gather state, call Service, render via components. <i>No SQL, no JSON parsing, no field-name string literals.</i></td></tr>
+    <tr><td>Target LOC</td><td>~60</td><td>≤80 (heavier due to async handle wiring)</td></tr>
+    <tr><td>Pattern</td><td colspan="2"><code>service = Service(repo)</code> → render components with typed view objects</td></tr>
+  </tbody>
+</table>
+
+<h3>2 · Component layer <span class="pill pill-same">SAME</span></h3>
+
+<table>
+  <thead><tr><th>History components</th><th>Cluster Analysis components</th></tr></thead>
+  <tbody>
+    <tr><td><code>run_filter_bar.py</code> — filter widgets</td><td><code>cluster_picker.py</code> — selectbox</td></tr>
+    <tr><td><code>run_table.py</code> — tabular list</td><td><code>cluster_metrics.py</code> — 5-metric strip + banners</td></tr>
+    <tr><td><code>run_detail.py</code> — detail panel</td><td><code>face_grid.py</code> — 8-col thumbnail grid</td></tr>
+    <tr><td><code>load_button.py</code> — mutation trigger</td><td><code>nearest_clusters.py</code> — sub-list with jump-to</td></tr>
+    <tr><td><code>actions_table.py</code> — ancillary actions</td><td><code>force_merge.py</code> — preview + confirm widget</td></tr>
+    <tr><td>—</td><td><code>cluster_debug.py</code> — graph diagnostics</td></tr>
+  </tbody>
+</table>
+<p class="callout">
+Both decompose into 5–6 small components that take typed view objects. Names differ; pattern is identical. No <code>cfg.get()</code> literals in either.
+</p>
+
+<h3>3 · Service layer <span class="pill pill-diff">DIFFERS</span></h3>
+
+<table>
+  <thead><tr><th>Aspect</th><th>History (<code>HistoryService</code>)</th><th>Cluster Analysis (<code>ClusterAnalysisService</code>)</th></tr></thead>
+  <tbody>
+    <tr><td>Composition</td><td><code>HistoryService(repo)</code></td><td><code>ClusterAnalysisService(repo)</code></td></tr>
+    <tr><td>Query verbs</td><td><code>list_runs(query)</code>, <code>get_run_detail(id)</code>, <code>load_run(id)</code></td><td><code>list_clusters()</code>, <code>get_cluster_ids()</code></td></tr>
+    <tr class="diff"><td>Heavy compute</td><td>None. All queries are sub-100ms SQL → format → return.</td>
+        <td><b>Yes</b> — <code>compute_detail_async(cluster_id)</code>, <code>compute_debug_async(cluster_id)</code>. Wrapped in <code>AsyncHandle[T]</code>.</td></tr>
+    <tr><td>Mutation verbs</td><td><code>update_comment(id, text)</code> — in-place row edit</td>
+        <td><code>preview_force_merge(a, b)</code>, <code>apply_force_merge(a, b, merge_round=)</code></td></tr>
+    <tr class="big-diff"><td>Mutation flavor</td>
+        <td>In-place: modifies one column on one row.</td>
+        <td><b>Snapshot creation</b>: writes a <i>new</i> <code>merge_snap_{round}/</code> run directory. The old run dir is untouched.</td></tr>
+  </tbody>
+</table>
+
+<h3>4 · Repository layer <span class="pill pill-big">BIG DIFF</span></h3>
+
+<table>
+  <thead><tr><th>Aspect</th><th>History (<code>RunHistoryRepository</code>)</th><th>Cluster Analysis (<code>ClusterAnalysisRepository</code>)</th></tr></thead>
+  <tbody>
+    <tr><td>Construction</td>
+        <td><code>RunHistoryRepository(config)</code> where <code>config: RunHistoryRepoConfig</code></td>
+        <td><code>ClusterAnalysisRepository(config)</code> where <code>config: ClusterAnalysisRepoConfig</code></td></tr>
+    <tr><td>Composable filters</td>
+        <td><code>RunHistoryCriteria</code></td>
+        <td><code>ClusterAnalysisCriteria</code></td></tr>
+    <tr><td>Error model</td>
+        <td colspan="2"><code>NotFoundError</code> / <code>ValidationError</code> from <code>repositories/_errors.py</code> (B2)</td></tr>
+    <tr class="big-diff"><td><b>Schema ownership</b></td>
+        <td><b>Owns</b> the <code>action_log</code> schema. Runs <code>CREATE TABLE</code> + idempotent <code>ALTER</code> migrations on first connect.</td>
+        <td><b>Does NOT own</b> the <code>face_clustering.db</code> schema. <code>RunStore</code> owns it (<code>PRAGMA user_version</code> + <code>EXPECTED_ARTIFACTS</code> check on construction). This Repository <i>composes</i> RunStore internally.</td></tr>
+    <tr class="big-diff"><td><b>Column Registry (B0.1)</b></td>
+        <td><b>Yes</b> — <code>_COLUMNS: list[ColumnDef]</code> is the single source of truth; CREATE / ALTER / hot fields / filters all derived.</td>
+        <td><b>No</b> — there's no schema to declare. RunStore validates against the on-disk schema; this Repository just shapes queries.</td></tr>
+    <tr><td>Lifetime</td>
+        <td>One per app, long-lived. <code>HistoryService</code> holds the reference for the whole session.</td>
+        <td>One per tab render — constructed from <code>st.session_state.current_run_dir</code>. Cheap to construct (RunStore validates on init).</td></tr>
+    <tr><td>Tables touched</td>
+        <td>1 (<code>action_log</code>)</td>
+        <td>6 (<code>faces</code>, <code>clusters</code>, <code>cluster_assignments</code>, <code>merge_decisions</code>, <code>filter_decisions</code>, <code>run_metadata</code>)</td></tr>
+    <tr class="diff"><td>Non-relational sidecar</td>
+        <td>None</td>
+        <td><code>embeddings.npy</code> (NumPy float32 matrix; aligned to <code>face_id</code> via <code>embedding_face_ids.npy</code>). Repository's <code>get_face_records()</code> attaches them.</td></tr>
+  </tbody>
+</table>
+
+<h3>5 · Persistence <span class="pill pill-diff">DIFFERS</span></h3>
+
+<table>
+  <thead><tr><th>Aspect</th><th>History</th><th>Cluster Analysis</th></tr></thead>
+  <tbody>
+    <tr><td>DB location</td>
+        <td><code>~/.sim_bench/sim_bench.db</code> (one DB per machine)</td>
+        <td><code>&lt;run_dir&gt;/face_clustering.db</code> (one DB per run)</td></tr>
+    <tr><td>Tables</td>
+        <td>1 (<code>action_log</code>)</td>
+        <td>6 — a relational graph: <code>faces → cluster_assignments → clusters</code>, with <code>merge_decisions</code> + <code>filter_decisions</code> + <code>run_metadata</code></td></tr>
+    <tr><td>Migrations</td>
+        <td>Idempotent <code>ALTER TABLE</code> on first connect (managed by the Repository's <code>_migrate</code>).</td>
+        <td><code>PRAGMA user_version</code> check + <code>EXPECTED_ARTIFACTS</code> file-list check, both done by RunStore on construction. Mismatch raises <code>RunStoreError</code> — no auto-migrate.</td></tr>
+    <tr><td>Writers</td>
+        <td><code>RunHistoryRepository</code> — the only writer.</td>
+        <td><code>RunExporter</code> (initial write at pipeline end) and the manual-merge snapshot path. The new Repository writes the latter; <code>RunExporter</code> remains the initial-write owner.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="insight">The key conceptual difference</h2>
+
+<div class="key-insight">
+<b>History's Repository is the <i>source of truth</i> for its schema.<br>
+Cluster Analysis's Repository is a <i>typed query wrapper</i> over a schema owned by RunStore.</b>
+<br><br>
+This is the first time the codebase has both flavors visibly side-by-side. They're both legitimate. They obey the same external contract (B0 — typed Config, composable Criteria, typed errors). But they differ in how they relate to the schema beneath them.
+</div>
+
+<table>
+  <thead><tr><th></th><th>"Schema-owning" Repository <small>(propose: B0a)</small></th><th>"Query-shape" Repository <small>(propose: B0b)</small></th></tr></thead>
+  <tbody>
+    <tr><td><b>Owns CREATE TABLE</b></td><td>Yes</td><td>No</td></tr>
+    <tr><td><b>Runs migrations</b></td><td>Yes</td><td>No (delegates to the schema owner)</td></tr>
+    <tr><td><b>Column Registry (B0.1) applies</b></td><td>Yes</td><td>No (nothing to declare)</td></tr>
+    <tr><td><b>Composes another reader?</b></td><td>No</td><td>Yes — composes a schema owner (e.g., RunStore)</td></tr>
+    <tr><td><b>F-3 candidate</b></td><td>Yes — these benefit from a shared <code>ColumnDef</code> module once there are ≥2 of them</td><td>No — never needs <code>ColumnDef</code></td></tr>
+    <tr><td><b>Example</b></td><td><code>RunHistoryRepository</code> (spec-043 / spec-044)</td><td><code>ClusterAnalysisRepository</code> (spec-045)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="implications">Implications for the framework</h2>
+
+<ol>
+  <li><b>B0.1 (Column Registry) is conditional, not universal.</b> The architecture standard should say "B0.1 applies to schema-owning Repositories" — query-shape Repositories opt out by construction. Worth a one-line clarification in <code>architecture_standards.md</code>.</li>
+  <li><b>F-3 still hasn't fired.</b> The "next Repository" turned out to be query-shape, so the extraction trigger is still pending. F-3 fires when the <i>next schema-owning Repository</i> appears (candidates: a future <code>FaceLabelsRepository</code> for v2 manual labels, or anything else that introduces a new SQLite table set).</li>
+  <li><b>AsyncHandle is a new framework piece.</b> Heavy-compute tabs need it; light-compute tabs don't. We're adding it in spec-045 because Cluster Analysis is the first heavy-compute tab. Future heavy-compute tabs (Face Analysis, Merged Clusters' diff view) reuse it for free.</li>
+  <li><b>Snapshot-creating mutations are a third mutation flavor.</b> History had in-place edits (<code>update_comment</code>) and pipeline-row inserts (<code>start_action</code> / <code>complete_action</code>). Cluster Analysis adds <i>snapshot creation</i> — a mutation that produces a <i>new persistence root</i> rather than modifying the existing one. This generalizes to: Recluster, Remerge, anything that "forks a run." Worth naming explicitly in <code>architecture_standards.md</code> §B3 (service vocabulary).</li>
+  <li><b>The "Service builds a minimal PipelineResult to feed legacy compute classmethods" hack is the seam where the rebuild meets legacy code.</b> Eventually <code>ClusterView.compute</code> / <code>ClusterDebugView.compute</code> should take typed inputs (<code>ClusterResult</code> + <code>List[FaceRecord]</code> + run config) directly. Filed as Open Question 5 in the spec; tracked as a follow-up.</li>
+</ol>
+
+<div class="callout">
+<b>Bottom line</b>: spec-042's Tab → Service → Repository pattern generalizes cleanly. The new pieces (B0a/B0b distinction, AsyncHandle, snapshot mutations) are real and worth codifying — but they're refinements within the existing skeleton, not departures from it.
+</div>
+
+</body>
+</html>
+</content>
+</invoke>
