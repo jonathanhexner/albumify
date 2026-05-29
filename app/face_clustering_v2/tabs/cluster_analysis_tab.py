@@ -33,10 +33,19 @@ def render_cluster_analysis_tab() -> None:
     st.header("Cluster Analysis")
     run_dir = _resolve_current_run_dir()
     if run_dir is None:
-        st.info("No run loaded. Open the **History** tab and click *Load into analysis tabs*.")
+        st.info(
+            "No completed run available yet. "
+            "Either run a fresh pipeline from the **Run** tab, or open the "
+            "**History** tab and click *Load into analysis tabs* on a "
+            "completed run. (A run that's still in progress or failed before "
+            "writing its DB is skipped here.)"
+        )
         return
 
     service = _get_service(run_dir)
+    if service is None:
+        # _get_service already showed an st.error; bail out gracefully.
+        return
     rows = service.list_clusters()
     cluster_id = render_cluster_picker(rows)
     if cluster_id is None:
@@ -53,6 +62,18 @@ def render_cluster_analysis_tab() -> None:
     render_cluster_debug(debug_handle)
 
 
+def _run_dir_is_loadable(path: Path) -> bool:
+    """True iff ``path`` is a complete run dir the Repository can open.
+
+    spec-050's run_tab writes ``v2_last_run_dir`` BEFORE the pipeline runs
+    (deliberate — failures leave a recoverable pointer). If the pipeline
+    crashed mid-run or hasn't finished, the dir exists but the DB doesn't.
+    The resolver must skip those and fall through to the next session key
+    rather than handing the Repository a half-baked run dir.
+    """
+    return path.is_dir() and (path / "face_clustering.db").is_file()
+
+
 def _resolve_current_run_dir() -> Optional[Path]:
     """Single source of truth for which run this tab is looking at.
 
@@ -63,27 +84,44 @@ def _resolve_current_run_dir() -> Optional[Path]:
       3. ``active_run_dir`` (legacy History session-state key, still emitted
          by load_button alongside current_run_dir for backward compat).
       4. None.
+
+    Skips keys whose value points at an in-progress / failed run dir
+    (no face_clustering.db yet) — falls through to the next key instead.
     """
     for key in ("current_run_dir", "v2_last_run_dir", "active_run_dir"):
         value = st.session_state.get(key)
-        if value:
-            path = Path(value)
-            if path.is_dir():
-                return path
+        if value and _run_dir_is_loadable(Path(value)):
+            return Path(value)
     return None
 
 
-def _get_service(run_dir: Path) -> ClusterAnalysisService:
-    """Build a Service for ``run_dir``. Lazily caches on the run_dir key so
-    repeated reruns within the same dir reuse the same Repository instance
-    (RunStore opens its own sqlite connections per call — caching the
-    Repository is cheap and avoids re-validating the run dir on every poll).
+def _get_service(run_dir: Path) -> Optional[ClusterAnalysisService]:
+    """Build a Service for ``run_dir``. Lazily caches on the run_dir key.
+
+    Returns None if construction fails (e.g., dir was deleted or the
+    RunStore validation rejects the schema). Surfaces the underlying
+    error via ``st.error`` so the user sees what went wrong instead of
+    a Streamlit traceback overlay.
+
+    The resolver pre-filters dirs without a face_clustering.db; this
+    try/except is belt-and-braces for race conditions (dir disappears
+    between resolver check and Repository construction) and for the
+    deeper RunStore validation (schema version mismatch, missing
+    pipeline_run.json, etc.).
     """
     cache_key = f"_cluster_analysis_service::{run_dir}"
     cached = st.session_state.get(cache_key)
     if cached is not None:
         return cached
-    repo = ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir=run_dir))
+    try:
+        repo = ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir=run_dir))
+    except Exception as exc:  # noqa: BLE001
+        st.error(
+            f"Cannot open run at `{run_dir}`: {exc}. "
+            "If the run failed mid-pipeline, the dir is left empty for "
+            "debugging — load a completed run from the History tab instead."
+        )
+        return None
     service = ClusterAnalysisService(repo)
     st.session_state[cache_key] = service
     return service

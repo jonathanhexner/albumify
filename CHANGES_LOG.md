@@ -2,6 +2,20 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [BUGFIX] spec-045 — Cluster Analysis tab crash on allocated-but-empty run dir + spec-060 draft
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `app/face_clustering_v2/tabs/cluster_analysis_tab.py`:
+  - New `_run_dir_is_loadable(path: Path) -> bool` predicate — checks `path.is_dir() AND (path / "face_clustering.db").is_file()`.
+  - `_resolve_current_run_dir()` now skips session-state keys whose value points at a not-yet-loadable run dir (falls through to the next key instead of handing the Repository an empty dir).
+  - `_get_service(run_dir)` now wraps Repository construction in try/except → friendly `st.error` instead of a Streamlit traceback overlay; returns `Optional[ClusterAnalysisService]`.
+  - `render_cluster_analysis_tab()` handles `service is None` gracefully; empty-state message expanded to explain when in-progress / failed runs are skipped.
+- NEW `tests/face_clustering/test_cluster_analysis_tab_resolver.py` (~70 LOC, 5 cases) — pins the `_run_dir_is_loadable` contract: false for missing dir / empty dir / dir-with-other-files-but-no-DB / DB-as-dir; true only for dir + DB file.
+- NEW `specs/060-v2-e2e-gold-standard/spec.md` (~110 lines) — PRD for an opt-in `pytest -m slow` end-to-end gate against a real album (env-var-resolved). 3 phases: pipeline smoke → Streamlit AppTest per tab → quality regression band (deferred to spec-061). 8 acceptance criteria. Status: Draft.
+- NEW `specs/060-v2-e2e-gold-standard/tasks.md` (~125 lines) — 5 phases, per-phase validation gates with concrete pytest commands. Total ~5-7 h.
+**Reason**: User hit `ValueError: face_clustering.db not found in run_dir: ...6d59eb03...` when opening the Cluster Analysis tab against a Budapest run that hadn't completed yet. Root cause: spec-050's run_tab writes `v2_last_run_dir` BEFORE the pipeline runs (deliberate — failure-recovery pointer); my spec-045 resolver naively saw that key, pointed at the empty UUID dir, and the Repository's validation (correctly) rejected the missing DB — but the ValueError propagated to Streamlit as a crash overlay. The fix layers two defenses: resolver pre-filters dirs without the DB; `_get_service` wraps construction in try/except as belt-and-braces for race conditions (dir vanishes between resolver check and Repository construction). spec-060 is the structural answer: every "considerable change" gets caught by an automated E2E test, not by the user clicking through the app.
+**Verification**: `pytest tests/face_clustering/test_cluster_analysis_tab_resolver.py tests/face_clustering/views/ tests/face_clustering/repositories/ tests/architecture/ -q` → **207/207 pass** (was 202; +5 new resolver tests). No regression; bug fix is small + isolated. spec-060 is draft only — no code; CLAUDE.md exemption applies.
+
 ### 2026-05-29 [REFACTOR] spec-045 polish — docs + FaceRow.from_face + area_ratio + DUP-1
 **Branch**: `unification/spec-040`
 **Files**:
