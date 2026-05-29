@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from face_cluster.db.schema import SCHEMA_DDL, SCHEMA_VERSION
+from sim_bench.run_db._schema import SCHEMA_DDL, SCHEMA_VERSION
 
 # Import the shared synthetic builder so this test is self-contained.
 # Same fixture the Repository synthetic tests use, plus we apply the

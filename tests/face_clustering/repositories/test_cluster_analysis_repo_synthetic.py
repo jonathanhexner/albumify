@@ -18,7 +18,7 @@ from typing import List, Tuple
 import numpy as np
 import pytest
 
-from face_cluster.db.schema import SCHEMA_DDL, SCHEMA_VERSION
+from sim_bench.run_db._schema import SCHEMA_DDL, SCHEMA_VERSION
 from face_cluster.repositories._errors import ValidationError
 from face_cluster.repositories.cluster_analysis_repo import (
     ClusterAnalysisCriteria,

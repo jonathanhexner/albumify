@@ -39,7 +39,7 @@ def _safe_json(s: Optional[str]) -> Dict:
 
 import numpy as np
 
-from face_cluster.db import EXPECTED_ARTIFACTS, SCHEMA_VERSION
+from sim_bench.run_db._schema import EXPECTED_ARTIFACTS, SCHEMA_VERSION
 from face_cluster.image_detail import FaceDetail, FaceFilterDecision, ImageDetail
 from face_cluster.types import (
     ClusterResult,
@@ -275,6 +275,12 @@ class RunStore:
                 face_index=r["face_index"],
                 det_score=r["det_score"],
                 rejection_reason=r["rejection_reason"],
+                # SIGHTING-080 follow-up 2026-05-29: surface the crop path
+                # so v2 UI components can display thumbnails without
+                # guessing the filename pattern (was hardcoded as
+                # face_{id:04d}.jpg in face_grid; real writer uses
+                # face_{id:04d}_aligned.jpg).
+                crop_path=r["crop_path"] if r["crop_path"] else None,
             ))
         return records
 

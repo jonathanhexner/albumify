@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 from face_cluster import FaceClusteringPipeline, PipelineConfig
-from face_cluster.db.schema import SCHEMA_VERSION
+from sim_bench.run_db._schema import SCHEMA_VERSION
 from face_cluster.export import export_merged_results
 from face_cluster.loader import load_pipeline_result
 from face_cluster.types import ClusterResult, FaceRecord

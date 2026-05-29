@@ -6,7 +6,7 @@ that breaks on the next bump is the prompt to update the history.
 """
 from __future__ import annotations
 
-from face_cluster.db.schema import SCHEMA_HISTORY, SCHEMA_VERSION
+from sim_bench.run_db._schema import SCHEMA_HISTORY, SCHEMA_VERSION
 
 
 def test_schema_version_is_in_history() -> None:

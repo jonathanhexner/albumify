@@ -59,7 +59,7 @@ def test_image_detail_queries_load_bearing_tables():
 
 def _build_synthetic_run(run_dir: Path) -> None:
     """Construct a minimal v4 run dir with one image, two faces, decisions."""
-    from face_cluster.db import SCHEMA_DDL, SCHEMA_VERSION
+    from sim_bench.run_db._schema import SCHEMA_DDL, SCHEMA_VERSION
 
     run_dir.mkdir(parents=True, exist_ok=True)
     db_path = run_dir / "face_clustering.db"

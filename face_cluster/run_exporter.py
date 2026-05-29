@@ -35,12 +35,14 @@ from PIL import Image
 import pandas as pd
 
 from face_cluster.db import (
-    EXPECTED_ARTIFACTS,
     FACES_SCHEMA,
     FACE_SCORES_SCHEMA,
     IMAGES_SCHEMA,
     SCENE_CLUSTERS_SCHEMA,
     SCENE_CLUSTER_ASSIGNMENTS_SCHEMA,
+)
+from sim_bench.run_db._schema import (
+    EXPECTED_ARTIFACTS,
     SCHEMA_DDL,
     SCHEMA_VERSION,
 )
