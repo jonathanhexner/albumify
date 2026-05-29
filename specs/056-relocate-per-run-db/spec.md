@@ -1,7 +1,7 @@
 # spec-056 — Relocate per-run-DB layer to `sim_bench/`
 
 **Created**: 2026-05-29
-**Status**: Draft
+**Status**: Implemented (2026-05-29)
 **Predecessors**: spec-053 (RunExportInputs boundary), spec-054 (SCHEMA_HISTORY)
 **Successors**: spec-057 (RunExporter split), spec-058 (per-run ORM models), spec-059 (RunStore + CARepo on SQLAlchemy)
 **Trigger**: Review of specs 057-059 surfaced that the per-run-DB layer (which holds `images` + `scene_clusters` + `run_metadata` in addition to face-clustering tables) is broader than face-clustering — it logically belongs under `sim_bench/`, and albumify will eventually consume it. Relocating BEFORE the refactor work avoids a two-valid-paths window and keeps each subsequent spec single-purpose.

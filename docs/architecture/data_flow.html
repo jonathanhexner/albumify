@@ -162,7 +162,7 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
 <div class="arrow">▼</div>
 
 <div class="stage db">
-  <div class="head"><span class="name">I · RunExporter writes</span><span class="src">face_cluster/run_exporter.py</span></div>
+  <div class="head"><span class="name">I · RunExporter writes</span><span class="src">sim_bench/run_db/exporter.py</span></div>
   <div class="body">
     Builds <code>face_rows</code>, <code>score_rows</code> as List[Tuple]<br>
     → <code>FACES_SCHEMA.validate(pd.DataFrame(face_rows, columns=...))</code><br>
@@ -176,13 +176,13 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
 
 <div class="stage db">
   <div class="head"><span class="name">J · SQLite</span><span class="src">&lt;run_dir&gt;/_v4/face_clustering.db</span></div>
-  <div class="body">7 tables. DDL per-table in <code>face_cluster/db/schema.py</code>; <code>SCHEMA_VERSION = 4</code>. Field reference: <a href="db_schemas.html">db_schemas.html</a>.</div>
+  <div class="body">7 tables. DDL per-table in <code>sim_bench/run_db/_schema.py</code>; <code>SCHEMA_VERSION = 4</code>. Field reference: <a href="db_schemas.html">db_schemas.html</a>.</div>
 </div>
 
 <div class="arrow">▼</div>
 
 <div class="stage face">
-  <div class="head"><span class="name">K · RunStore.image_detail (read side)</span><span class="src">face_cluster/run_store.py</span></div>
+  <div class="head"><span class="name">K · RunStore.image_detail (read side)</span><span class="src">sim_bench/run_db/store.py</span></div>
   <div class="body">
     Single SQL JOIN: faces + cluster_assignments + filter_decisions<br>
     → <code>ImageDetail(faces=[FaceDetail(...), ...], image_filter_decisions=[FaceFilterDecision(...), ...])</code>
@@ -240,7 +240,7 @@ plus an E2E acceptance test (specs/035).
    - preview_force_merge / apply_force_merge
             |
             v
-  ClusterAnalysisRepository             <-- face_cluster/repositories/cluster_analysis_repo.py
+  ClusterAnalysisRepository             <-- sim_bench/db/face_clustering/cluster_analysis_repo.py
    - get_cluster_rows / find_assignments      (own SQL)
    - get_face_records / get_run_metadata /    (delegate to RunStore)
      get_merge_log / get_cluster_result

@@ -48,7 +48,7 @@
 
 <div class="source-of-truth">
 <b>⚠️ Source of truth.</b> This document is the canonical field-by-field reference.
-The DDL lives in <code>face_cluster/db/schema.py</code>; the Pandera validators in
+The DDL lives in <code>sim_bench/run_db/_schema.py</code>; the Pandera validators in
 <code>face_cluster/db/validators.py</code>. <b>Any change to either must update this
 document in the same PR</b> (CODE_REVIEW_CHECKLIST §7 / WORKFLOW.md gate).
 </div>
@@ -66,14 +66,14 @@ decision in <code>specs/033-data-integrity/MASTER_PLAN.md</code>.
 <b>Implementation layer: raw <code>sqlite3</code>, no ORM.</b>
 <ul style="margin: .3em 0;">
   <li><b>Why no ORM</b>: per-run DB is write-once-read-many. Each run produces a fresh DB; no in-run migrations needed. Bulk <code>conn.executemany(tuples)</code> outperforms ORM object construction.</li>
-  <li><b>Schema source of truth</b>: <code>face_cluster/db/schema.py</code> holds CREATE TABLE strings (one per table). <code>SCHEMA_DDL</code> concatenates them for <code>executescript()</code>.</li>
+  <li><b>Schema source of truth</b>: <code>sim_bench/run_db/_schema.py</code> holds CREATE TABLE strings (one per table). <code>SCHEMA_DDL</code> concatenates them for <code>executescript()</code>.</li>
   <li><b>Validation</b>: not via SQLAlchemy. Two layers instead:
     <ul>
       <li><b>Object boundary</b> — Pydantic (<code>FaceRecord</code>, <code>MergeDecisionRow</code> dataclass, etc.) at construction.</li>
       <li><b>DataFrame boundary</b> — Pandera (<code>FACES_SCHEMA</code>, <code>FACE_SCORES_SCHEMA</code>, <code>FILTER_DECISIONS_SCHEMA</code> in <code>face_cluster/db/validators.py</code>) just before INSERT.</li>
     </ul>
   </li>
-  <li><b>Single writer class</b>: <code>face_cluster.run_exporter.RunExporter</code> (spec-030 contract).</li>
+  <li><b>Single writer class</b>: <code>sim_bench.run_db.exporter.RunExporter</code> (spec-030 contract).</li>
   <li>This is a deliberate choice — not legacy state. Spec-040 preserves it.</li>
 </ul>
 </div>
@@ -119,7 +119,7 @@ action_log, training data, etc.) see <a href="db_global.html">db_global.html</a>
 </div>
 
 <h2>Writer classes at a glance</h2>
-<p>Per-run DB is written by exactly <b>one class</b>: <code>face_cluster.run_exporter.RunExporter</code>. Each table is handled by one method on that class:</p>
+<p>Per-run DB is written by exactly <b>one class</b>: <code>sim_bench.run_db.exporter.RunExporter</code>. Each table is handled by one method on that class:</p>
 <table>
   <thead><tr><th>Table</th><th>Writer method (class.method)</th><th>Notes</th></tr></thead>
   <tbody>
@@ -137,7 +137,7 @@ action_log, training data, etc.) see <a href="db_global.html">db_global.html</a>
 </table>
 <p><b>Upstream producers</b> (the classes that compute values that <code>RunExporter</code> persists) vary per column — see each table for details. The single-writer contract is part of spec-030; spec-040 preserves it.</p>
 
-<h2 id="faces">faces<span class="src">DDL: face_cluster/db/schema.py::FACES_DDL · Pandera: db/validators.py::FACES_SCHEMA</span></h2>
+<h2 id="faces">faces<span class="src">DDL: sim_bench/run_db/_schema.py::FACES_DDL · Pandera: db/validators.py::FACES_SCHEMA</span></h2>
 <p>One row per detected face in the run. <b>21 columns</b>.</p>
 
 <div class="callout" style="background:#f0f7ff; border-left-color:#1f5fc7;">
@@ -371,7 +371,7 @@ When Producer (Albumify) ≠ Producer (FC App), you're looking at the duplicatio
     <tr><td><code>n_clusters_base, n_clusters_final</code></td><td>INTEGER</td><td>Cluster counts before/after merge.</td><td>Computed from <code>base_cluster_result.n_clusters</code> / <code>merged_cluster_result.n_clusters</code>.</td></tr>
     <tr><td><code>n_merges, n_iterations</code></td><td>INTEGER</td><td>Merge stats.</td><td>Computed from <code>merge_log</code>.</td></tr>
     <tr><td><code>started_at, finished_at</code></td><td>TEXT (ISO 8601)</td><td>Wall-clock bounds.</td><td>Caller (input args).</td></tr>
-    <tr><td><code>schema_version</code></td><td>INTEGER</td><td>Pinned to <code>SCHEMA_VERSION = 4</code>.</td><td>Constant from <code>face_cluster.db.schema.SCHEMA_VERSION</code>.</td></tr>
+    <tr><td><code>schema_version</code></td><td>INTEGER</td><td>Pinned to <code>SCHEMA_VERSION = 4</code>.</td><td>Constant from <code>sim_bench.run_db._schema.SCHEMA_VERSION</code>.</td></tr>
   </tbody>
 </table>
 
@@ -381,7 +381,7 @@ When Producer (Albumify) ≠ Producer (FC App), you're looking at the duplicatio
 DDL + Pandera schemas landed in spec-040 Phase 4 (commit <code>73eb484</code>); the matching write methods landed in T2 (REVIEW.md B3/B6, 2026-05-20). On every Albumify run the <code>images</code> table now has one row per discovered image (n_faces=0 included), the <code>faces.*_ratio</code> columns are populated by the InsightFace producer, and the scene tables are present but empty (scene-side producer is a follow-up). Storage layer: raw <code>sqlite3</code> + Pydantic + Pandera (same convention as the existing tables — no ORM).
 </div>
 
-<h3 id="images-target">images <span class="src">spec-040 Phase 4 + T2 · DDL: face_cluster/db/schema.py::IMAGES_DDL · Writer: face_cluster/run_exporter.py::RunExporter._write_images</span></h3>
+<h3 id="images-target">images <span class="src">spec-040 Phase 4 + T2 · DDL: sim_bench/run_db/_schema.py::IMAGES_DDL · Writer: sim_bench/run_db/exporter.py::RunExporter._write_images</span></h3>
 <p>One row per image in the run. Replaces the 4 image-level columns denormalized onto <code>faces</code> today (SIGHTING-065). Images with zero detected faces still get a row (n_faces=0).</p>
 <p class="callout"><b>Writer</b>: <code>RunExporter._write_images</code>. Reads <code>image_paths</code> param (from <code>PipelineContext.image_paths</code>) for the canonical image set, joined with face counts derived from <code>faces</code> list, joined with <code>image_scores</code> param for iqa / ava / sharpness / scene. Pandera-validates via <code>IMAGES_SCHEMA</code> on every call (empty df included).</p>
 
@@ -476,7 +476,7 @@ DDL + Pandera schemas landed in spec-040 Phase 4 (commit <code>73eb484</code>); 
   <li><a href="classes.html">classes.html</a> — Pydantic / Pandera / dataclass inventory</li>
   <li><a href="data_flow.html">data_flow.html</a> — one face end-to-end</li>
   <li><a href="index.html">index.html</a> — architecture documentation index</li>
-  <li><code>face_cluster/db/schema.py</code> — DDL source of truth</li>
+  <li><code>sim_bench/run_db/_schema.py</code> — DDL source of truth</li>
   <li><code>face_cluster/db/validators.py</code> — Pandera source of truth</li>
   <li><code>specs/034-pipeline-context-contract/spec.md</code> — context-state contract (the in-memory side)</li>
 </ul>

@@ -2,6 +2,19 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [REFACTOR] spec-056 — Relocate per-run-DB layer to sim_bench/
+**Branch**: `unification/spec-040`
+**Commits**: f4e5dbb (PR1), ee7d8fd (PR2), a294899 (PR3), d91e881 (PR4)
+**Files moved**:
+- `face_cluster/db/schema.py` → `sim_bench/run_db/_schema.py` (PR1)
+- `face_cluster/repositories/cluster_analysis_repo.py` → `sim_bench/db/face_clustering/cluster_analysis_repo.py` (PR2)
+- `face_cluster/run_store.py` → `sim_bench/run_db/store.py` (PR3)
+- `face_cluster/run_exporter.py` → `sim_bench/run_db/exporter.py` (PR4)
+**Files updated**: 32 importers across `app/`, `face_cluster/`, `sim_bench/pipeline/`, `tests/`; 4 architecture-doc HTMLs; `face_cluster/db/__init__.py` (dropped schema re-exports, kept Pandera validator re-exports).
+**New**: `tests/architecture/test_no_face_cluster_per_run_db_paths.py` — arch guard with parametrized assertion that none of the four legacy import paths can be reintroduced. Allow-list shrinks per-PR; ends empty after PR4.
+**Reason**: Review of specs 057-059 surfaced that the per-run-DB layer (`face_clustering.db` — holds `images` + `scene_clusters` + `run_metadata` in addition to face-clustering tables) is broader than face-clustering. It logically belongs under `sim_bench/` (infrastructure), with `face_cluster/` reserved for algorithm code. Relocating BEFORE the 057/058/059 refactor work avoids a two-valid-paths window and keeps each subsequent spec single-purpose.
+**Verification**: 273 tests green across the touched suites; new arch guard enforces the invariant. spec.md status `Draft` → `Implemented`; REVIEW.md walks all 8 checklist sections (1 pass-with-followup tracked into spec-057).
+
 ### 2026-05-29 [BUGFIX] SIGHTING-080 follow-ups — loader v5 path + History-tab AppTest cases + postmortem
 **Branch**: `unification/spec-040`
 **Files**:
@@ -55,6 +68,20 @@
 **Files**: `app/face_clustering_v2/tabs/run_tab.py`, `docs/project/SIGHTINGS.md`
 **Change**: Removed the `disabled=run_disabled` gate on the v2 Run button. Validation now runs inside the click handler with an explicit `st.error("Source directory and album name are both required.")` when either field is empty.
 **Reason**: User reported the Run button only enabled after checking `cluster_diameter_cap_enabled`. The cap state has no code-level connection to the button; the real cause was Streamlit's `st.text_input` committing on blur/Enter only — so `run_disabled = not (src and album.strip())` saw `album == ""` while the user was mid-typing. Clicking the cap checkbox forced a focus change → commit → rerun → button enabled. An always-enabled button with click-time validation gives an explicit error instead of a silently-greyed UI.
+
+### 2026-05-29 [BUGFIX] spec-045 — Cluster Analysis tab crash on no-op merge run (SIGHTING-078 workaround)
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/repositories/cluster_analysis_repo.py`:
+  - `get_cluster_result(iteration="final")` now resolves "final" locally via the Repository's own `_resolve_iteration` (which queries the `clusters` table directly) and passes the integer to `RunStore.clusters(int)`. Bypasses RunStore's broken `_resolve_iteration("final")` which uses `MAX(iteration) FROM merge_decisions` — wrong when the merger ran but merged nothing.
+- UPDATED `app/face_clustering_v2/tabs/cluster_analysis_tab.py`:
+  - Added module logger; `_get_service` now `logger.exception(...)` on Repository construction failure so the underlying error reaches `logs/<ts>/fc_app_v2.log` (user reported "why am I not seeing it in my logger" — this closes that gap for future failures).
+- UPDATED `tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py`:
+  - New regression test `test_get_cluster_result_final_when_merger_ran_but_merged_nothing` reproduces the user's Budapest crash shape (clusters at iteration=0; merge_decisions row at iteration=1 with `actually_merged=0`); asserts `get_cluster_result("final")` returns the iteration-0 ClusterResult instead of raising.
+  - Added `_add_no_op_merge_round(run_dir)` helper for the fixture.
+- UPDATED `docs/project/SIGHTINGS.md` — new **SIGHTING-078** filed against `RunStore` with full repro, workaround pointer, and resolution options.
+**Reason**: User opened the v2 Cluster Analysis tab against a completed Budapest run (run_id `52a70e6f...`) and hit `RunStoreError: no clusters recorded for iteration 1`. Direct DB inspection confirmed: clusters table had 15 rows at iteration=0; merge_decisions had 3 rows at iteration=1 (merger considered 3 pairs, merged none); pipeline_run.json status=complete. RunStore's "final" resolver picked the merge_decisions max (1) but clusters table had no rows there. The 2026-05-29 earlier fix (`_run_dir_is_loadable` predicate) prevented the empty-dir crash but not this deeper schema-shape mismatch — synthetic tests had 0 merge_decisions rows so this code path was never exercised. Workaround at the Repository level (cheap, isolated, regression-tested); root fix belongs in RunStore (SIGHTING-078).
+**Verification**: `pytest tests/face_clustering/repositories/ tests/face_clustering/views/ tests/architecture/ tests/face_clustering/test_cluster_analysis_tab_resolver.py -q` → **208/208 pass** (was 207; +1 new regression test). New test exercises the exact "merger ran, merged nothing" shape that's common on well-clustered runs. **User must restart `streamlit run` to pick up the fix** — Streamlit hot-reloads .py files but `st.session_state` caches the Service instance from the prior code path.
 
 ### 2026-05-29 [BUGFIX] spec-045 — Cluster Analysis tab crash on allocated-but-empty run dir + spec-060 draft
 **Branch**: `unification/spec-040`

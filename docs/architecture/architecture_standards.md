@@ -182,7 +182,7 @@ Not every Repository owns a schema. spec-045 introduced the **query-shape** flav
 | **B0a — schema-owning** | yes | yes (under `alembic/versions/`) | yes, with a real SQLAlchemy `Session` | `RunHistoryRepository` (spec-043/046) — owns the `action_log` table |
 | **B0b — query-shape** | no | no (DDL is owned elsewhere — RunStore in spec-045) | yes, but constructed with `session=None` (uses the base class for error-translation idioms only) | `ClusterAnalysisRepository` (spec-045) — composes `RunStore` on per-run `face_clustering.db` |
 
-The distinction matters because the per-run `face_clustering.db` has a per-run lifecycle (created by `RunExporter`, validated by `RunStore`'s `PRAGMA user_version` + `EXPECTED_ARTIFACTS`). It is not Alembic-managed — adding a column means editing `face_cluster/db/schema.py` and bumping `SCHEMA_VERSION`, not generating a migration. A B0b Repository over that DB doesn't claim DDL responsibility it can't carry; it just adds typed reads on top.
+The distinction matters because the per-run `face_clustering.db` has a per-run lifecycle (created by `RunExporter`, validated by `RunStore`'s `PRAGMA user_version` + `EXPECTED_ARTIFACTS`). It is not Alembic-managed — adding a column means editing `sim_bench/run_db/_schema.py` and bumping `SCHEMA_VERSION`, not generating a migration. A B0b Repository over that DB doesn't claim DDL responsibility it can't carry; it just adds typed reads on top.
 
 Distinguishing rule: a Repository whose construction signature is `(self, config: SomeConfig)` and whose constructor opens a `RunStore` or other read-side composition is B0b. A Repository whose constructor takes a `Session` (or whose ORM models live under `face_cluster/repositories/models/`) is B0a.
 
