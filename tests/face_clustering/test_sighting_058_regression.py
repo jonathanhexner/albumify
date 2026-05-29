@@ -29,7 +29,7 @@ import numpy as np
 import pytest
 
 from face_cluster.loader import load_pipeline_result
-from face_cluster.run_exporter import RunExporter
+from sim_bench.run_db.exporter import RunExporter
 from face_cluster.types import ClusterResult, FaceRecord
 from face_cluster.views.merge_view import MergeAnalysisView
 

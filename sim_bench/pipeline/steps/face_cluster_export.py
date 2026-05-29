@@ -15,7 +15,7 @@ from PIL import Image, ImageOps
 
 from face_cluster.export import export_results, export_merged_results
 from face_cluster.result_db import write_results_db
-from face_cluster.run_exporter import RunExporter
+from sim_bench.run_db.exporter import RunExporter
 from sim_bench.pipeline.context import PipelineContext
 
 logger = logging.getLogger(__name__)

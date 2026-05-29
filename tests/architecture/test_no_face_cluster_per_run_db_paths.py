@@ -24,9 +24,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Paths NOT YET migrated by spec-056 (shrinks with each PR).
-ALLOW_LIST = {
-    "face_cluster.run_exporter",
-}
+ALLOW_LIST: set[str] = set()
 
 # All four relocation targets — every PR removes one entry from ALLOW_LIST.
 LEGACY_PATHS = {

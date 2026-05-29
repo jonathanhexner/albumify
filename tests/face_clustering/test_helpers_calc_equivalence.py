@@ -27,7 +27,7 @@ from face_cluster.exemplars import (
 from face_cluster.knn_graph import KNNGraphBuilder, KNNGraphInputs
 from face_cluster.merge import ConservativeMerger, MergeInputs
 from face_cluster.quality import QualityGateInputs, QualityGater
-from face_cluster.run_exporter import RunExportInputs, RunExporter
+from sim_bench.run_db.exporter import RunExportInputs, RunExporter
 from face_cluster.types import ClusterResult, FaceRecord
 
 

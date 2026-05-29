@@ -99,7 +99,7 @@ def test_face_scores_schema_accepts_nullable_columns():
 
 def test_exporter_invokes_faces_schema():
     """spec-033 P-H: the WRITER must call FACES_SCHEMA, not just import it."""
-    from face_cluster import run_exporter
+    from sim_bench.run_db import exporter as run_exporter
     src = inspect.getsource(run_exporter._write_faces_and_scores
                             if hasattr(run_exporter, "_write_faces_and_scores")
                             else run_exporter.RunExporter._write_faces_and_scores)
@@ -111,7 +111,7 @@ def test_exporter_invokes_faces_schema():
 
 def test_exporter_invokes_face_scores_schema():
     """Mirror: FACE_SCORES_SCHEMA must be called from the writer."""
-    from face_cluster import run_exporter
+    from sim_bench.run_db import exporter as run_exporter
     src = inspect.getsource(run_exporter.RunExporter._write_faces_and_scores)
     assert re.search(r"FACE_SCORES_SCHEMA\.validate\b", src), (
         "RunExporter._write_faces_and_scores must call FACE_SCORES_SCHEMA.validate."

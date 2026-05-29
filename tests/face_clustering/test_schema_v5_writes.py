@@ -103,7 +103,7 @@ def test_image_dims_populated_on_face_records(producer_context):
 
 def test_run_exporter_writes_images_and_ratios(producer_context, tmp_path):
     """End-to-end: run the exporter, read the DB, assert v5 tables populated."""
-    from face_cluster.run_exporter import RunExporter
+    from sim_bench.run_db.exporter import RunExporter
     from face_cluster.types import ClusterResult
     import numpy as np
 
@@ -175,7 +175,7 @@ def test_pandera_contracts_pass_on_empty_inputs(tmp_path):
     This is the contract-exerciser REVIEW.md B6 asked for: the schemas can
     no longer be dead code; they're called on every export(), empty or not.
     """
-    from face_cluster.run_exporter import RunExporter
+    from sim_bench.run_db.exporter import RunExporter
     from face_cluster.types import ClusterResult
 
     import numpy as np

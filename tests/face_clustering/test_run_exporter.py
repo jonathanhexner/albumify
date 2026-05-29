@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 from face_cluster.config import PipelineConfig
-from face_cluster.run_exporter import (
+from sim_bench.run_db.exporter import (
     EXPECTED_ARTIFACTS,
     SCHEMA_VERSION,
     RunExporter,

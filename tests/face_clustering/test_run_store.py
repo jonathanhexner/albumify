@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 
 from face_cluster.config import PipelineConfig
-from face_cluster.run_exporter import RunExporter
+from sim_bench.run_db.exporter import RunExporter
 from sim_bench.run_db.store import (
     EmbeddingMatrix,
     RunMetadata,

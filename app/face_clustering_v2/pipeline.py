@@ -25,7 +25,7 @@ from typing import Any, Callable, Dict, List, Optional
 import sim_bench.pipeline.steps.all_steps  # noqa: F401  -- registers steps
 from face_cluster.fc_app_runner import FCAppRunner, UNIFIED_CLUSTERING_STEPS
 from face_cluster.fc_params import FCParams
-from face_cluster.run_exporter import RunExporter
+from sim_bench.run_db.exporter import RunExporter
 from sim_bench.pipeline.config import PipelineConfig
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.executor import PipelineExecutor

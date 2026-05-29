@@ -197,7 +197,7 @@ class ut_MergeStageE2E:
         v4 = merged_pipeline_result.output_dir / "_v4"
         assert v4.exists(), "spec-030 Phase 1 dual-write missing"
         names = sorted(p.name for p in v4.iterdir())
-        from face_cluster.run_exporter import EXPECTED_ARTIFACTS
+        from sim_bench.run_db._schema import EXPECTED_ARTIFACTS
         assert names == sorted(EXPECTED_ARTIFACTS), (
             f"v4 subdir listdir mismatch: got {names}, expected {sorted(EXPECTED_ARTIFACTS)}"
         )

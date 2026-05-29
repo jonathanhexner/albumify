@@ -144,8 +144,8 @@ ALLOW_LIST: dict[str, str] = {
         "manual merge writer",
     "face_cluster/merge.py":
         "cluster-level operator (operates on cluster results)",
-    "face_cluster/run_exporter.py":
-        "exporter (spec-030, post-pipeline)",
+    "sim_bench/run_db/exporter.py":
+        "exporter (spec-030, post-pipeline; relocated by spec-056)",
     "face_cluster/exemplars.py":
         "exemplar selection (post-filter)",
     "face_cluster/cluster_diameter_cap.py":
