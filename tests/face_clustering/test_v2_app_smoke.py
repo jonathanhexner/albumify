@@ -187,6 +187,46 @@ def test_history_tab_renders_without_exception_with_v2_run_seeded(
 
 
 @pytest.mark.slow
+def test_cluster_analysis_face_grid_resolves_real_crop_thumbnails(no_op_merge_run_dir):
+    """STOPGAP regression: face_grid renders thumbnails when the writer's
+    filename pattern (``face_{id:04d}_aligned.jpg``) exists on disk under
+    ``crops/``. The proper data flow (FaceRow.crop_path surfaced from
+    FaceRecord) is deferred until specs 056-058 settle — see the TODO in
+    face_grid.py.
+
+    Assertion: at least one of the cluster's faces has a resolvable crop
+    file under ``run_dir/crops/`` using the hardcoded suffix pattern.
+    """
+    from sim_bench.db.face_clustering.cluster_analysis_repo import (
+        ClusterAnalysisRepoConfig,
+        ClusterAnalysisRepository,
+    )
+    from face_cluster.views.cluster_analysis import ClusterAnalysisService
+
+    repo = ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir=no_op_merge_run_dir))
+    service = ClusterAnalysisService(repo)
+    rows = service.list_clusters()
+    if not rows:
+        pytest.skip("Synthetic fixture has no real clusters — face-grid contract is vacuous.")
+
+    view = service.compute_detail(cluster_id=rows[0].cluster_id)
+    assert view.faces, "ClusterView.faces is empty — face grid would render nothing."
+
+    crops_dir = no_op_merge_run_dir / "crops"
+    existing = [
+        crops_dir / f"face_{f.face_id:04d}_aligned.jpg"
+        for f in view.faces
+        if (crops_dir / f"face_{f.face_id:04d}_aligned.jpg").is_file()
+    ]
+    assert existing, (
+        f"No crop file resolved under {crops_dir} for any face in cluster "
+        f"{rows[0].cluster_id}. Tried pattern face_{{id:04d}}_aligned.jpg. "
+        f"Sample face_ids: {[f.face_id for f in view.faces[:3]]}. "
+        f"Dir contents: {sorted(p.name for p in crops_dir.iterdir())[:5] if crops_dir.exists() else 'MISSING'}"
+    )
+
+
+@pytest.mark.slow
 def test_cluster_analysis_metrics_actually_render(no_op_merge_run_dir):
     """SIGHTING-079 regression: previously the tab reached
     "Analysing cluster…" and never advanced — AsyncHandle started a

@@ -32,9 +32,24 @@ def render_face_grid(view: ClusterView, *, run_dir: Path) -> None:
         cols = st.columns(GRID_COLS)
         for j, face in enumerate(faces[i : i + GRID_COLS]):
             with cols[j]:
-                crop = crops_dir / f"face_{face.face_id:04d}.jpg"
-                if crop.exists():
-                    st.image(str(crop), width=110)
+                # STOPGAP (2026-05-29): the v5 writer names crops
+                # ``face_{id:04d}_aligned.jpg`` but FaceRow doesn't carry the
+                # crop path yet (the proper fix — surfacing FaceRecord.crop_path
+                # onto FaceRow — collides with the in-flight spec-056/057/058
+                # refactor on FaceRecord/RunStore/Pandera). Hardcoding the
+                # suffix here is brittle; revisit after specs 056-058 land.
+                # TODO(spec-061 audit): replace with face.crop_path once the
+                # refactor settles and the field can be safely added.
+                crop = crops_dir / f"face_{face.face_id:04d}_aligned.jpg"
+                if crop.is_file():
+                    # Defensive: bad / corrupted crop must NOT crash the whole
+                    # page (PIL raises UnidentifiedImageError for empty / non-image
+                    # files; that error bubbles up to st.exception and red-boxes
+                    # the whole render). Skip silently — caption still shows.
+                    try:
+                        st.image(str(crop), width=110)
+                    except Exception:
+                        pass
                 role_tag = {"exemplar": "EX", "core": "", "attached": "·"}.get(face.role, "")
                 outlier_tag = "!" if face.is_outlier else ""
                 area_tag = f" A={face.area_ratio:.1%}" if face.area_ratio is not None else ""

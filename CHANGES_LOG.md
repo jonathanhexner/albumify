@@ -2,6 +2,18 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [BUGFIX] face_grid thumbnails + FaceRecord.crop_path contract gap + spec-062 draft + executive report
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/types.py`: added `FaceRecord.crop_path: Optional[str] = None`. **HEAD-level contract gap fix.** `sim_bench/run_db/store.py` (committed by spec-056 PR3) was already passing `crop_path=...` to FaceRecord, but FaceRecord didn't have the field — only worked because the synthetic test fixture happened to write empty strings (falsy → None → kwarg dropped). Real run dirs (the user's Budapest run) have populated `crop_path` → load crashed with `ValidationError: Extra inputs are not permitted [crop_path]`. Field added.
+- UPDATED `app/face_clustering_v2/components/face_grid.py`: stopgap fix for "Cluster Analysis renders captions but no thumbnails." The writer produces `face_{id:04d}_aligned.jpg` but the component was constructing `face_{id:04d}.jpg`. Hardcoded the correct suffix (TODO: replace with `face.crop_path` once specs 056-058 settle). Wrapped `st.image` in try/except so a corrupt crop (e.g., 0-byte file → PIL UnidentifiedImageError) doesn't crash the entire page render.
+- UPDATED `tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py`: synthetic fixture now writes 0-byte placeholder JPEGs at `crops/face_{id:04d}_aligned.jpg` + populates the DB column. Exposed the FaceRecord contract gap that the old empty-string fixture was masking.
+- UPDATED `tests/face_clustering/test_v2_app_smoke.py`: +1 case `test_cluster_analysis_face_grid_resolves_real_crop_thumbnails` — asserts at least one face's crop file resolves under `run_dir/crops/`. Would have caught today's thumbnail bug before commit.
+- NEW `specs/042-fc-app-v2-tab-parity/EXECUTIVE_REPORT_2026-05-29.html`: plain-English summary of the four sightings this week (078, 079, 080 + today's face-grid bug + HEAD-level contract gap), what was done, why testing missed them, and proposed next steps.
+- NEW `specs/062-v2-click-every-button-e2e/{spec,tasks}.md`: PRD + tasks for a Playwright "click every visible button" gate. AppTest only catches crashes, not "button does nothing / shows wrong text / picker stays empty" — this spec closes that gap. Status: Draft, ~8-12h estimated.
+**Reason**: User reported "Cluster Analysis renders no face thumbnails." Investigation traced to a UI-layer filename mismatch AND surfaced a deeper HEAD-level contract gap from spec-056's relocation (store.py passes `crop_path=` kwarg; FaceRecord didn't accept it). My earlier attempt to fix this by adding `FaceRow.crop_path` and propagating through `FaceRow.from_face` was rolled back per user request to minimize collision with the in-flight spec-056/057/058 refactor; the smaller stopgap (hardcoded suffix in face_grid + FaceRecord field to close the gap spec-056 left open) is what shipped.
+**Verification**: 230/230 tests green across views + repositories + architecture + AppTest. Direct script verified against user's actual run dir (`e51497605...`): 24/24 face thumbnails resolve to real files.
+
 ### 2026-05-29 [REFACTOR] spec-056 — Relocate per-run-DB layer to sim_bench/
 **Branch**: `unification/spec-040`
 **Commits**: f4e5dbb (PR1), ee7d8fd (PR2), a294899 (PR3), d91e881 (PR4)

@@ -112,6 +112,13 @@ class FaceRecord(BaseModel):
     bbox_h_ratio: Optional[float] = None
     image_width_px: Optional[int] = None
     image_height_px: Optional[int] = None
+    # 2026-05-29: HEAD's sim_bench/run_db/store.py (spec-056 commit) was
+    # already passing crop_path=... to FaceRecord(...); the field was
+    # missing here, so any row with a non-empty crop_path DB value
+    # crashed FaceRecord validation. Field added to close the contract
+    # mismatch — does NOT change exporter / Pandera surface (validates
+    # DataFrames, not Pydantic field count).
+    crop_path: Optional[str] = None
 
     @field_validator("pose")
     @classmethod

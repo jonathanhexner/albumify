@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Executive report — v2 app, week of 2026-05-29</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 980px; margin: 1.4em auto; padding: 0 1.4em;
+         color: #1a1a1a; line-height: 1.55; background:#fafbfc; font-size: 15px; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .25em; margin-bottom: .1em; }
+  h1 + .subtitle { color: #666; margin-top: .1em; font-style: italic; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 1.6em;
+       font-size: 18px; }
+  table { border-collapse: collapse; margin: .6em 0; width: 100%; font-size: 14px; background:#fff; }
+  th, td { border:1px solid #ddd; padding:7px 10px; text-align:left; vertical-align:top; }
+  th { background:#f4f4f6; font-weight:600; }
+  code { background:#eef0f4; padding:1px 5px; border-radius:3px; font-size:13px; font-family:Consolas, monospace; }
+  pre { background:#fff; border:1px solid #ddd; border-radius:4px; padding:10px 12px;
+        font-size:13px; overflow-x:auto; font-family:Consolas, monospace; }
+  .verdict { background:#fdecea; border-left:4px solid #c0392b; padding:.9em 1.1em; margin:1em 0; }
+  .ok-box { background:#e9f5ea; border-left:4px solid #2e7d32; padding:.9em 1.1em; margin:1em 0; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px; font-size:12px; font-weight:600; }
+  .ok { background:#e3f5e0; color:#236623; }
+  .bad { background:#fde2e2; color:#8a2e2e; }
+  .note { background:#fff3cd; color:#856404; }
+</style>
+</head>
+<body>
+
+<h1>Executive report — v2 app, week of 2026-05-29</h1>
+<p class="subtitle">Plain-English summary of what broke this week, why, and what to do about it.</p>
+
+<h2>1. What you asked. What I delivered.</h2>
+
+<p><b>You ran the v2 app.</b> Four different things crashed or failed silently across the week. Each time you reported it, I traced the cause, shipped a fix, added a test. Then a new symptom appeared. You correctly noticed this was becoming a pattern.</p>
+
+<table>
+  <thead><tr><th>Date / your report</th><th>Sighting</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>"ValueError: face_clustering.db not found" on every interaction</td><td><b>078</b> RunStore "final" iteration crash on no-op merge runs</td><td><span class="pill ok">FIXED</span> committed + pushed</td></tr>
+    <tr><td>"Tab loads but shows 'Analysing cluster…' forever"</td><td><b>079</b> AsyncHandle ported from legacy without Streamlit's polling loop</td><td><span class="pill ok">FIXED</span> committed + pushed</td></tr>
+    <tr><td>"Status: complete but History won't load — missing faces.csv"</td><td><b>080</b> History tab artifact gate still hardcoded for legacy v4 CSVs</td><td><span class="pill ok">FIXED</span> committed + pushed</td></tr>
+    <tr><td>"Cluster Analysis renders but no face thumbnails — only captions"</td><td><b>(today)</b> face_grid guessed the filename; correct pattern is <code>face_{id:04d}_aligned.jpg</code>, not <code>face_{id:04d}.jpg</code></td><td><span class="pill ok">FIXED</span> stopgap (hardcoded suffix + defensive try/except); proper fix deferred behind specs 056-058</td></tr>
+    <tr><td>(latent, surfaced while fixing the above)</td><td><b>(HEAD-level contract mismatch)</b> <code>sim_bench/run_db/store.py</code> committed by spec-056 passes <code>crop_path=...</code> to <code>FaceRecord</code> but <code>FaceRecord</code> doesn't have that field. Worked only because the synthetic test fixture happened to use empty strings.</td><td><span class="pill ok">FIXED</span> field added; your real Budapest run would have crashed loading without it</td></tr>
+  </tbody>
+</table>
+
+<h2>2. Why does it feel like everything is broken?</h2>
+
+<div class="verdict">
+<b>Honest answer: because the v2 app is half-built on top of a system mid-refactor, and the tests we wrote don't actually run the app.</b> Three concrete reasons stacked:
+<ol>
+  <li><b>Two on-disk layouts coexist.</b> Old runs wrote <code>faces.csv</code> + <code>clusters.csv</code> + an in-DB <code>embeddings</code> table. spec-040 (months ago) replaced both with one <code>face_clustering.db</code> + <code>embeddings.npy</code>. Every v2 component was written against <i>some</i> understanding of which layout to expect; the four sightings this week were components written against the wrong one.</li>
+  <li><b>Tests verified contracts, not user actions.</b> The synthetic fixtures used to write empty strings into the <code>crop_path</code> DB column, which made every test pass while masking that <code>FaceRecord</code> wouldn't accept the field. The unit tests were genuinely green — they just weren't testing the thing the user clicks.</li>
+  <li><b>Specs 056-058 are mid-flight.</b> Files are moving (<code>face_cluster/run_store.py</code> → <code>sim_bench/run_db/store.py</code>; <code>face_cluster/repositories/cluster_analysis_repo.py</code> → <code>sim_bench/db/face_clustering/cluster_analysis_repo.py</code>). When a file moves with a behavior change baked in (the new <code>crop_path</code> kwarg in <code>store.py</code>), the contract on the receiving end (<code>FaceRecord</code>) gets out of sync. That's how HEAD ended up with a latent bug nobody noticed until I poked it.</li>
+</ol>
+</div>
+
+<h2>3. What I changed in this last session, exactly</h2>
+
+<table>
+  <thead><tr><th>File</th><th>Change</th><th>Why</th><th>Risk to specs 056-058</th></tr></thead>
+  <tbody>
+    <tr><td><code>face_cluster/types.py</code></td><td>Added <code>FaceRecord.crop_path: Optional[str] = None</code></td><td>HEAD's <code>store.py</code> was already passing this kwarg; field was missing — your real run would crash without it</td><td><b>NONE</b> — fixes a latent bug spec-056 left in HEAD; spec-058's ORM models will need this field anyway</td></tr>
+    <tr><td><code>app/face_clustering_v2/components/face_grid.py</code></td><td>Hardcoded the writer's filename pattern (<code>face_{id:04d}_aligned.jpg</code>); wrapped <code>st.image</code> in try/except so a corrupt crop doesn't crash the whole page</td><td>Component used to construct <code>face_{id:04d}.jpg</code> which doesn't match what the writer produces</td><td>NONE — UI-layer leaf; will be revisited after specs 056-058 land</td></tr>
+    <tr><td><code>tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py</code></td><td>Synthetic fixture writes 0-byte placeholder crop files AND populates the <code>crop_path</code> DB column with the writer's pattern</td><td>Exposes the contract gap that masking-via-empty-strings was hiding</td><td>NONE — test fixture only</td></tr>
+    <tr><td><code>tests/face_clustering/test_v2_app_smoke.py</code></td><td>+1 test: <code>test_cluster_analysis_face_grid_resolves_real_crop_thumbnails</code></td><td>Verifies a crop file actually resolves under <code>crops/</code> for at least one face</td><td>NONE — test only</td></tr>
+    <tr><td><code>specs/061-v5-readpath-audit/</code></td><td>Filed earlier as Draft (commit <code>917df1a</code>)</td><td>The structural answer to "stop finding these one at a time"</td><td>NONE — markdown only</td></tr>
+  </tbody>
+</table>
+
+<p>I <b>reverted</b> these earlier-attempted changes after you said "restore anything you may have broken":</p>
+<ul>
+  <li>Adding <code>FaceRow.crop_path</code> + propagation through <code>_face_row</code> / <code>face_view.py</code> — collides with view-layer contracts and isn't necessary if the component hardcodes the filename.</li>
+  <li>(Eventually) the <code>FaceRecord.crop_path</code> field — but I re-added it after confirming HEAD itself is broken without it.</li>
+</ul>
+
+<h2>4. State right now</h2>
+
+<div class="ok-box">
+<b>153 tests green</b> across pandera + architecture + view + repository + AppTest suites. The Cluster Analysis tab now renders against your real Budapest run with 24/24 crop files resolving (verified by direct script). The History tab's "Load Run" works for v2 runs.
+<br><br>
+<b>Your action:</b> <code>Ctrl+C</code> the running <code>streamlit run app/face_clustering_v2/main.py</code>, then re-run it. Then load any v2 run from History → switch to Cluster Analysis → you should see metrics, thumbnails (with EX/role tags + distances), nearest clusters, force-merge, and graph debug. If anything's still off, paste the new error.
+</div>
+
+<h2>5. Why testing keeps missing this</h2>
+
+<table>
+  <thead><tr><th>Test layer</th><th>What it catches</th><th>What it misses</th></tr></thead>
+  <tbody>
+    <tr><td>Unit (synthetic)</td><td>Method contracts on small inputs</td><td>Real-world data shapes (the synthetic fixture wrote empty <code>crop_path</code>s; real runs have populated ones)</td></tr>
+    <tr><td>Service real-fixture</td><td>"Service can read the user's Budapest run"</td><td>Doesn't render anything — no idea whether the tab actually shows the right thing</td></tr>
+    <tr><td>Architecture</td><td>Layering invariants (no DB in tabs, etc.)</td><td>Behavior bugs by design</td></tr>
+    <tr><td>AppTest (this week)</td><td>"Page renders without raising an exception"</td><td>"Page renders <i>what the user expects to see</i>" — captions vs thumbnails, button enabled vs disabled, etc.</td></tr>
+    <tr><td>Playwright (not yet)</td><td>What the user actually sees in a real browser</td><td>— this is the gap your "click every button" spec closes</td></tr>
+  </tbody>
+</table>
+
+<h2>6. Pattern: four sightings in one week, all the same shape</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Latent assumption that broke when v2 hit reality</th></tr></thead>
+  <tbody>
+    <tr><td>078</td><td>"Final iteration" = max iteration in <code>merge_decisions</code> — wrong when merger ran but merged nothing</td></tr>
+    <tr><td>079</td><td>Async pattern ported from legacy, but Streamlit doesn't poll background threads</td></tr>
+    <tr><td>080</td><td>Required artifacts list still hardcoded for legacy v4 CSVs</td></tr>
+    <tr><td>Today</td><td>Crop filename pattern constructed in the UI without knowing the writer's actual format</td></tr>
+    <tr><td>(latent)</td><td>spec-056 added a kwarg to a Pydantic constructor without adding the field</td></tr>
+  </tbody>
+</table>
+
+<p>The structural answer is spec-061 (audit every v2 read path against the v5 reality) <i>plus</i> the spec coming next: a Playwright "click every button" gate. The audit catches latent contract drift; the click test catches "user can't see the thing."</p>
+
+<h2>7. Next concrete steps (proposed, your call)</h2>
+
+<ol>
+  <li><b>Commit what's now stable</b> (FaceRecord.crop_path field + face_grid stopgap + tests). This unblocks your app right now. ~1 commit.</li>
+  <li><b>File the new spec</b> (<code>specs/062-v2-click-every-button-e2e/</code>, draft in this same message) that designs the Playwright gate: one test per visible interactive element, asserts the visible effect.</li>
+  <li><b>Let specs 056-058 land cleanly</b> without me touching their files except where strictly necessary. After they're in, revisit the face_grid stopgap (surface <code>FaceRow.crop_path</code> properly).</li>
+  <li><b>Run spec-061 audit</b> as soon as 056-058 settle. The audit + the Playwright gate together should keep this week from repeating.</li>
+</ol>
+
+<p style="margin-top:1.6em; color:#888; font-size:12px;">References: <code>docs/project/SIGHTINGS.md</code> entries 078, 079, 080 · <code>specs/045-cluster-analysis-tab/SIGHTING_078_POSTMORTEM.html</code> · <code>specs/042-fc-app-v2-tab-parity/SIGHTING_080_POSTMORTEM.html</code> · <code>specs/061-v5-readpath-audit/</code> · this report.</p>
+
+</body>
+</html>
