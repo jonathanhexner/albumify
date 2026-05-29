@@ -9,7 +9,7 @@ import numpy as np
 from face_cluster.pipeline import PipelineResult
 from face_cluster.views._base import (
     FaceRow, NearestClusterRow,
-    _embeddings_matrix, _pairwise_distances, _exemplar_dist, _dist_to_centroid, _face_row,
+    _embeddings_matrix, _pairwise_distances, _exemplar_dist, _dist_to_centroid,
 )
 
 
@@ -67,7 +67,7 @@ class ClusterView:
         for j, i in enumerate(member_indices):
             face = faces[i]
             is_core = face.is_core
-            fr = _face_row(
+            fr = FaceRow.from_face(
                 face=face,
                 cluster_id=cluster_id,
                 dist_to_exemplar=float(d_exemplar[j]),

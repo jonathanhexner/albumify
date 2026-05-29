@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from face_cluster.views._async import AsyncHandle
-from face_cluster.views._base import ClusterRow
+from face_cluster.views._base import ClusterRow, _embeddings_matrix, _pairwise_distances
 from face_cluster.views.cluster_debug_view import ClusterDebugView
 from face_cluster.views.cluster_view import ClusterView
 
@@ -240,23 +240,16 @@ class ClusterAnalysisService:
         )
 
     def _distance_matrix(self, result):
-        """Pairwise distance matrix over result.faces (n × n). Returns None
-        when fewer than 2 faces have embeddings."""
-        import numpy as np
+        """Pairwise distance matrix over ``result.faces`` (n × n). Returns
+        None when fewer than 2 faces have embeddings.
 
+        Thin wrapper around the shared helpers in ``views._base`` (DUP-1
+        resolved 2026-05-29 — was a 13-LOC duplicate of those primitives)."""
         faces = result.faces
-        n = len(faces)
-        if n < 2:
+        if len(faces) < 2:
             return None
-        dim = next((f.embedding_normalized.shape[0] for f in faces if f.embedding_normalized is not None), None)
-        if dim is None:
-            return None
-        embs = np.zeros((n, dim), dtype=np.float32)
-        for i, f in enumerate(faces):
-            if f.embedding_normalized is not None:
-                embs[i] = f.embedding_normalized
-        sims = embs @ embs.T
-        return np.clip(1.0 - sims, 0.0, 2.0)
+        mat = _embeddings_matrix(faces, list(range(len(faces))))
+        return _pairwise_distances(mat) if mat is not None else None
 
 
 __all__ = [

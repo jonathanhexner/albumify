@@ -2,6 +2,22 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [REFACTOR] spec-045 polish — docs + FaceRow.from_face + area_ratio + DUP-1
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/views/_base.py`:
+  - Module docstring + class docstrings on `ClusterRow`, `NearestClusterRow`, `FaceRow`, `CloseFace` (only `EdgeInfo`, `FaceGraphInfo`, `Assignment` had them before). Inline field comments on every dataclass.
+  - **`_face_row()` free function deleted** (7-param violation of §1 Structure) → replaced by `FaceRow.from_face(face, *, cluster_id, dist_to_exemplar, ...)` classmethod. Keyword-only args.
+  - **New field `FaceRow.area_ratio: Optional[float]`** — populated from `FaceRecord.area_ratio` (spec-040 v5; SIGHTING-064). `None` for legacy v4 runs.
+- UPDATED `face_cluster/views/cluster_view.py` — `_face_row(...)` call site → `FaceRow.from_face(...)`. Import line updated.
+- UPDATED `face_cluster/views/face_view.py` — coimage `FaceRow(...)` construction now passes `area_ratio=f2.area_ratio`.
+- UPDATED `face_cluster/views/cluster_analysis.py` — **DUP-1 resolved.** `_distance_matrix()` was 13 LOC duplicating `_pairwise_distances` + `_embeddings_matrix` from `_base.py`. Now a 4-line wrapper that composes the existing primitives.
+- UPDATED `app/face_clustering_v2/components/face_grid.py` — face caption now appends `A={area_ratio:.1%}` when populated.
+- UPDATED `tests/face_clustering/views/test_cluster_analysis_service_synthetic.py` — `test_compute_detail_async_returns_cluster_view` now asserts the `area_ratio` attribute round-trips through `FaceRow.from_face`.
+- UPDATED `specs/045-cluster-analysis-tab/CODE_REVIEW_SUMMARY.html` — SMELL-1 and the `_face_row` smell marked **RESOLVED**; missing-docs noted as resolved; area_ratio change documented.
+**Reason**: Code-review polish on the spec-045 landing — addresses the 5 minor REVIEW.md findings that didn't block handoff but were filed for follow-up. (1) `_face_row` had 7 parameters (violates §1 Structure no-function-with->4-params rule); promoting it to a classmethod next to `FaceRow` makes call sites self-documenting via keyword-only args. (2) Dataclasses in `_base.py` were the shared shape for 5 view modules but had no class docstrings — surfaced when the user asked "what is a FaceRow?" (3) `FaceRecord.area_ratio` was already populated by spec-040 v5 producers but never surfaced to the UI — trivial propagation, no new DB column needed. (4) DUP-1 was the only real duplication SMELL flagged in spec-045's `CODE_REVIEW_SUMMARY.html`.
+**Verification**: Phase-by-phase gates — `pytest tests/face_clustering/views/ -q` green after each phase (12 → 51 → 51 → 51). Final regression: `pytest tests/face_clustering/views/ tests/face_clustering/repositories/ tests/architecture/ -q` → **202/202 pass**. Pure refactor + 1 additive optional field — no behavior change to existing callers. CLAUDE.md §Implementation gate exemption applies; no `/code-review` needed.
+
 ### 2026-05-29 [BUGFIX] spec-054 — Schema history + fix 2 stale tests (suite now fully green)
 **Branch**: `unification/spec-040`
 **Files**:

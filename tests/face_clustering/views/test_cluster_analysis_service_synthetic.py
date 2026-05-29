@@ -69,6 +69,11 @@ def test_compute_detail_async_returns_cluster_view(service):  # #4
     assert state == "done", f"final state: {state}, error={handle.error!r}"
     assert isinstance(handle.result, ClusterView)
     assert handle.result.cluster_id == 0
+    # area_ratio field must round-trip through FaceRow.from_face (spec-045
+    # follow-up 2026-05-29). The synthetic fixture doesn't populate it, so
+    # we only check the attribute exists — real-fixture test #2 checks
+    # values when present.
+    assert all(hasattr(f, "area_ratio") for f in handle.result.faces)
 
 
 def test_compute_detail_async_unknown_cluster_surfaces_error(service):  # #5

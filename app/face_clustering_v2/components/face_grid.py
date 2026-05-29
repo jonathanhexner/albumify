@@ -40,4 +40,5 @@ def render_face_grid(handle: AsyncHandle[ClusterView], *, run_dir: Path) -> None
                     st.image(str(crop), width=110)
                 role_tag = {"exemplar": "EX", "core": "", "attached": "·"}.get(face.role, "")
                 outlier_tag = "!" if face.is_outlier else ""
-                st.caption(f"`face_{face.face_id:04d}` {role_tag}{outlier_tag} d={face.dist_to_exemplar:.3f}")
+                area_tag = f" A={face.area_ratio:.1%}" if face.area_ratio is not None else ""
+                st.caption(f"`face_{face.face_id:04d}` {role_tag}{outlier_tag} d={face.dist_to_exemplar:.3f}{area_tag}")

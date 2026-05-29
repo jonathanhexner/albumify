@@ -39,7 +39,9 @@
 <p class="subtitle">Cluster Analysis Tab — Tab → Service → Repository → DB stack. Verdict + module map + findings, on one page.</p>
 
 <div class="verdict">
-<b>Verdict.</b> <span class="pill ok">PASS</span> with 4 minor findings. 36 new tests across 5 files; full regression 198/198 green. Tab is 73 LOC (target ≤80). Components total 240 LOC (target ≤200 — over by 20%). One real code duplication (distance-matrix helper) and one tech-debt seam (legacy <code>PipelineResult</code> proxy) noted below. Full checklist walk-through in <code>REVIEW.md</code>.
+<b>Verdict.</b> <span class="pill ok">PASS</span> with 3 minor findings (was 4 — DUP-1 resolved 2026-05-29). 36 new tests across 5 files; full regression 202/202 green. Tab is 73 LOC (target ≤80). Components total 240 LOC (target ≤200 — over by 20%). Tech-debt seam (legacy <code>PipelineResult</code> proxy) tracked under spec-059. Full checklist walk-through in <code>REVIEW.md</code>.
+
+<p style="margin-top:.7em;font-size:13px;"><b>2026-05-29 polish pass.</b> Addressed: SMELL-1 DUP-1 (distance-matrix helper) → resolved by composing existing primitives; <code>_face_row</code> 7-param free function → <code>FaceRow.from_face()</code> classmethod; missing docstrings on <code>ClusterRow</code> / <code>NearestClusterRow</code> / <code>FaceRow</code> / <code>CloseFace</code> → added with per-field inline comments; new <code>FaceRow.area_ratio</code> field surfaces the spec-040 v5 <code>FaceRecord.area_ratio</code> through to the face-grid caption. See CHANGES_LOG <code>[REFACTOR] spec-045 polish</code> entry.</p>
 </div>
 
 <h2>1 · Modules changed</h2>
@@ -236,7 +238,183 @@ L324      SELECT MAX(iteration) FROM clusters</pre>
 <p><b>Fix.</b> Read the dim from <code>faces[0].embedding_normalized.shape[0]</code> instead of a constant. One-line change in the legacy writer; <b>filed as a sighting against <code>manual_merge_snapshot</code></b>, out of spec-045 scope.</p>
 </div>
 
-<h2>5 · What stayed clean</h2>
+<h2>5 · Class diagram — legacy vs new</h2>
+
+<h3>Before (legacy)</h3>
+<pre>+------------------------------------------------------------+
+|  app/face_clustering/tabs/cluster_analysis_tab.py  (383 LOC)|
+|                                                            |
+|  imports:                                                  |
+|    state._AsyncState              <-- global mutable state |
+|    cache_helpers._crop_for_face   <-- FS access            |
+|    quality_panels._render_cluster_provenance               |
+|    face_popup.face_detail_btn                              |
+|    face_cluster.analysis_views.ClusterView                 |
+|    face_cluster.analysis_views.ClusterDebugView            |
+|    face_cluster.loader.load_pipeline_result  <-- DB + JSON |
+|    face_cluster.pipeline.PipelineResult                    |
+|    face_cluster.config.PipelineConfig                      |
+|    face_cluster.features.FeatureComputer                   |
+|    face_cluster.features.MergeFeatureContext               |
+|    face_cluster.save_manual_merge_snapshot                 |
+|    face_cluster.apply_manual_merges                        |
+|                                                            |
+|  defines (inline):                                         |
+|    _render_cluster_debug       (graph debug section)       |
+|    _get_distance_matrix        (cosine dist math)          |
+|    _get_merge_candidate_threshold                          |
+|    _compute_force_merge_preview  -> untyped dict           |
+|    _render_force_merge_widget                              |
+|    render_tab                  (main render function)      |
++------------------------------------------------------------+
+   |                                                  |
+   v                                                  v
+PipelineResult (dataclass)                       sqlite3
+   |   |   |   |                                      |
+   v   v   v   v                                      v
+faces clusters merge_log summary           face_clustering.db
+</pre>
+
+<p>13 cross-package imports. Streamlit, business logic, SQL, FS, and async state all in one file. Untyped dict returned from <code>_compute_force_merge_preview</code> with 12 keys.</p>
+
+<h3>After (spec-045)</h3>
+<pre>+-------------------------------------------------------+
+|  TAB                                                  |
+|  cluster_analysis_tab.render_cluster_analysis_tab    73 LOC
+|     |                                                 |
+|     | imports: 6 components + 2 backend factories     |
+|     v                                                 |
+|  COMPONENTS (6 stateless render functions)            |
+|  cluster_picker.render_cluster_picker            28   |
+|  cluster_metrics.render_cluster_metrics          37   |
+|  face_grid.render_face_grid                      34   |
+|  nearest_clusters.render_nearest_clusters        30   |
+|  force_merge.render_force_merge                  62   |
+|  cluster_debug.render_cluster_debug              49   |
++-------------------------------------------------------+
+                |
+                v   (typed input only — handle or dataclass)
++-------------------------------------------------------+
+|  SERVICE  (Streamlit-free)                            |
+|  ClusterAnalysisService                              210 LOC
+|     +---&gt; AsyncHandle[ClusterView]                   |
+|     +---&gt; AsyncHandle[ClusterDebugView]              |
+|     +---&gt; ForceMergePreview         (typed dataclass)|
+|     +---&gt; ForceMergeResult          (typed dataclass)|
+|     uses: FeatureComputer (legacy compute, reused)   |
+|     uses: ClusterView.compute / ClusterDebugView.compute (via proxy)
++-------------------------------------------------------+
+                |
+                v   (ClusterAnalysisCriteria, also typed)
++-------------------------------------------------------+
+|  REPOSITORY  (B0b — query-shape, composes RunStore)   |
+|  ClusterAnalysisRepository                           268 LOC
+|     reads:   get_cluster_rows, find_assignments,     |
+|              get_face_records, get_run_metadata,     |
+|              get_merge_log, get_cluster_result       |
+|     writes:  save_manual_merge_snapshot              |
+|     errors:  ValidationError (BaseRepository)        |
++-------------------------------------------------------+
+                |
+                v
++-------------------------------------------------------+
+|  RUNSTORE  (composed; unchanged)        +  sqlite3    |
+|  + face_cluster.manual_merge_snapshot   (write path)  |
++-------------------------------------------------------+
+                |
+                v
+   face_clustering.db   embeddings.npy   crops/
+</pre>
+
+<p>4 layers, ~25 imports total distributed across them. Every Service return is a typed dataclass (<code>ClusterRow</code>, <code>ForceMergePreview</code>, <code>ForceMergeResult</code>, <code>AsyncHandle[T]</code>). Every Repository input is a typed dataclass (<code>ClusterAnalysisRepoConfig</code>, <code>ClusterAnalysisCriteria</code>). Forbidden patterns in the tab + components are arch-tested.</p>
+
+<h2>6 · Recluster — is the new flow built from pipeline elements?</h2>
+
+<p>You asked whether recluster (and force-merge) compose from the standard pipeline steps or invent their own logic. Here's the audit.</p>
+
+<table>
+  <thead><tr><th>Operation</th><th>Uses pipeline steps?</th><th>Where</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>Standard run</b> (fresh album)</td>
+      <td><span class="pill ok">YES</span></td>
+      <td><code>FCAppRunner.run()</code> executes <code>UNIFIED_CLUSTERING_STEPS</code> (8 steps: quality_gate_faces, build_face_knn_graph, cluster_face_components, select_face_exemplars, merge_face_clusters, attach_holdout_faces, apply_diameter_cap, assign_people_clusters). Same code path as production.</td>
+    </tr>
+    <tr>
+      <td><b>Recluster</b> (re-run on a prior run dir with different K / threshold)</td>
+      <td><span class="pill ok">YES — by design</span></td>
+      <td>Legacy: <code>FaceClusteringPipeline.run()</code> uses <code>FULL_STAGES</code> with first_stage=<code>cluster</code> + <code>_load_source_recluster</code> populating <code>ctx.faces</code> from a prior run. <b>v2 (planned, spec-042 follow-up):</b> <code>FCAppRunner.recluster(prior_run_dir, step_configs)</code> will load <code>context.face_records</code> from the prior run dir, then run the same <code>UNIFIED_CLUSTERING_STEPS</code> list. Only the source loader differs; the clustering algorithm itself is identical. <span class="pill note">Not yet implemented — spec-042 P1 follow-up.</span></td>
+    </tr>
+    <tr>
+      <td><b>Force-merge</b> (user picks 2 clusters, says "merge them")</td>
+      <td><span class="pill note">NO — by design</span></td>
+      <td>Force-merge is a <i>data</i> operation, not a re-run: union two cluster ids, persist as a snapshot. No KNN graph rebuild, no exemplar reselection, no quality gate. Spec-045's <code>save_manual_merge_snapshot</code> delegates to the legacy writer, which uses union-find on the existing <code>cluster_result</code>. The follow-up remerge run can then load the snapshot and apply the pipeline if the user wants to re-cluster the merged state — but that's optional and explicit.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><b>Bottom line.</b> The architecture is right: recluster will compose from the same step list as the standard flow (one source-loader wrapper around <code>FCAppRunner</code>). Force-merge legitimately doesn't go through the pipeline because it's not a re-clustering — it's an edit. The two operations live behind different Service methods (<code>compute_*_async</code> vs <code>apply_force_merge</code>) so the distinction is grep-able.</p>
+
+<p><b>What's not yet in place.</b> <code>FCAppRunner.recluster()</code> — spec-042 lists it as a P1 follow-up tab ("Recluster") with an explicit equivalence test against the legacy <code>FaceClusteringPipeline</code> recluster path. The shape will be:</p>
+
+<pre>class FCAppRunner:
+    def recluster(self, prior_run_dir: Path, step_configs: dict) -&gt; FCAppRunResult:
+        """Load faces from a prior run; re-run the unified clustering chain
+        with new step_configs. Identical to .run() except for the source loader."""
+        prior = RunStore(prior_run_dir)
+        context = PipelineContext()
+        context.face_records = prior.faces()
+        return self.run(context, step_configs=step_configs)
+</pre>
+
+<p>~5 lines of glue. The unified step list is the single source of truth for "what clustering does."</p>
+
+<h2>7 · Duplications — full audit</h2>
+
+<table>
+  <thead><tr><th>ID</th><th>Where</th><th>Duplicates what</th><th>Severity</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>DUP-1</b></td>
+      <td><code>face_cluster/views/cluster_analysis.py:_distance_matrix</code> (was ~13 LOC, lines 242-258)</td>
+      <td><code>face_cluster/views/_base.py:_pairwise_distances</code> + <code>_embeddings_matrix</code> (used by <code>ClusterView</code>, <code>ClusterDebugView</code>, <code>run_overview</code>, <code>cluster_debug_view</code>, <code>merge_view</code>)</td>
+      <td>Real duplication, ~13 LOC</td>
+      <td><span class="pill ok">RESOLVED 2026-05-29</span> — now a 4-line wrapper composing the existing primitives</td>
+    </tr>
+    <tr>
+      <td><b>DUP-2</b></td>
+      <td><code>force_merge.py</code> + <code>nearest_clusters.py</code> both pull <code>face_id</code> arrays out of an <code>AsyncHandle[ClusterView]</code> and format them as <code>f"face_{fid:04d}"</code></td>
+      <td>Each other (~3 lines each)</td>
+      <td>Cosmetic; rendering layer</td>
+      <td><span class="pill ok">ACCEPT</span> The string format is the UX contract for "how face IDs look"; lifting it to a helper would obscure the rendering intent for two callers.</td>
+    </tr>
+    <tr>
+      <td><b>DUP-3</b></td>
+      <td><code>cluster_analysis_tab.py:_resolve_current_run_dir</code> reads 3 session-state keys; <code>history_tab</code>'s load_button writes 2 of them; <code>run_tab</code> writes the third</td>
+      <td>Not strictly duplication — distributed state with 3 writers</td>
+      <td>Architectural; flagged as spec-045 §"Out of scope" deferral</td>
+      <td><span class="pill note">DEFERRED</span> Tracked as "promote current_run_dir to a typed app-state object" follow-up</td>
+    </tr>
+    <tr>
+      <td><b>DUP-4</b></td>
+      <td><code>ClusterAnalysisRepository</code>'s 4 SELECT statements vs <code>RunStore</code>'s ~18 SELECT statements (same DB, same tables, similar column lists)</td>
+      <td>Same per-run DB read pattern in two files</td>
+      <td>Structural; spec-046-shaped problem</td>
+      <td><span class="pill smell">TRACKED</span> Resolved by spec-059 (RunStore + ClusterAnalysisRepository onto SQLAlchemy ORM models). Prereqs: spec-057 (RunExporter split) + spec-058 (per-run ORM models).</td>
+    </tr>
+    <tr>
+      <td><b>DUP-5</b></td>
+      <td><code>_build_pipeline_result_proxy</code> assembles a fake <code>PipelineResult</code> for <code>ClusterView.compute</code> / <code>ClusterDebugView.compute</code> — same proxy gets built twice per cluster selection (once per compute method)</td>
+      <td>Itself</td>
+      <td>Performance only — the proxy is cheap (3 Repository reads); not a correctness issue</td>
+      <td><span class="pill note">ACCEPT</span> Memoization on <code>(run_dir, iteration)</code> at the Service level is the right fix and is already in spec-045 §"Out of scope" as Open Question 2</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><b>Net.</b> One real duplication (DUP-1, 13 LOC, mechanical refactor). Three architectural concerns (DUP-3 / DUP-4 / DUP-5) already filed under follow-up specs or deferred-with-justification. One acceptable cosmetic (DUP-2).</p>
+
+<h2>8 · What stayed clean</h2>
 
 <ul>
   <li><b>No reverse imports.</b> Tab imports Components; Components import Service types; Service imports Repository; nothing climbs back up.</li>

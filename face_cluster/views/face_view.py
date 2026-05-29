@@ -131,6 +131,7 @@ class FaceView:
                         role="core" if f2.is_core else "holdout",
                         cluster_id=f2_cid,
                         is_outlier=False,
+                        area_ratio=f2.area_ratio,
                     ))
 
         return cls(
