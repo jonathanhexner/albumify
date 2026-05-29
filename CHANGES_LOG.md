@@ -14,6 +14,23 @@
 **Reason**: User reported "Cluster Analysis renders no face thumbnails." Investigation traced to a UI-layer filename mismatch AND surfaced a deeper HEAD-level contract gap from spec-056's relocation (store.py passes `crop_path=` kwarg; FaceRecord didn't accept it). My earlier attempt to fix this by adding `FaceRow.crop_path` and propagating through `FaceRow.from_face` was rolled back per user request to minimize collision with the in-flight spec-056/057/058 refactor; the smaller stopgap (hardcoded suffix in face_grid + FaceRecord field to close the gap spec-056 left open) is what shipped.
 **Verification**: 230/230 tests green across views + repositories + architecture + AppTest. Direct script verified against user's actual run dir (`e51497605...`): 24/24 face thumbnails resolve to real files.
 
+### 2026-05-29 [REFACTOR] spec-057 — Split RunExporter into per-table writers
+**Branch**: `unification/spec-040`
+**Commits**: 9761529 (Phase 0 golden-hash baseline), aeb1ea2 (T011 faces_writer), b921f99 (T012+T013 remaining 6 writers + RunExporterError), f5541e0 (Phase 2 artifact writers), 8054a5a (Phases 3+4 LOC arch + atomicity test)
+**Files added**:
+- `sim_bench/run_db/_errors.py` — RunExporterError (extracted to break circular import with writers/_common).
+- `sim_bench/run_db/writers/{faces,clusters,merges,filter_decisions,images,scenes,run_metadata}_writer.py` — 7 per-table writers.
+- `sim_bench/run_db/writers/_common.py` — `maybe_float`, `to_sql`.
+- `sim_bench/run_db/artifact_writers/{embeddings,pipeline_run,crops}_writer.py` — 3 non-DB artifact writers.
+- `tests/run_db/test_split_equivalence.py` + `_golden_hashes.txt` — byte-equivalence snapshot.
+- `tests/run_db/test_atomicity.py` — single-transaction contract guard.
+- `tests/architecture/test_run_exporter_layering.py` — 200 LOC cap on each writer module.
+**Files updated**:
+- `sim_bench/run_db/exporter.py` — every `_write_X` method now a 2-line delegation; module-level `_maybe_float`/`_to_sql`/`_build_parent_map` helpers deleted (now in writers/). File LOC: 924 → 467.
+- `tests/architecture/test_pandera_schemas.py` — `test_exporter_invokes_{faces,face_scores}_schema` now inspect `faces_writer.write_faces` (the new home of the Pandera validation calls).
+**Reason**: spec-045 code review surfaced `face_cluster/run_exporter.py` as 924 LOC / 10 responsibilities / 19-field `export()` — the monolith blocked any meaningful SQLAlchemy adoption downstream because per-run schema ownership was a single file. The split makes each per-table seam separately replaceable (which spec-058 + spec-059 need).
+**Verification**: 12 new test cases pass (golden-hash + atomicity + 11 LOC parametrized cases); existing `test_run_exporter`, `test_run_store`, `test_sighting_058_regression`, `test_schema_v5_writes`, `test_filter_context_p2_export`, `test_helpers_calc_equivalence` all green without modification. Public surface (`RunExporter.export()` / `.calc()` / `RunExportInputs` / `RunExportResult` / `RunExporterError` / `EXPECTED_ARTIFACTS` / `SCHEMA_VERSION`) frozen; spec-053/045 test suites pass without changes. REVIEW.md walks all 8 sections; verdict: accept with 2 low-priority pass-with-followups (per-writer unit tests, docs HTML update).
+
 ### 2026-05-29 [REFACTOR] spec-056 — Relocate per-run-DB layer to sim_bench/
 **Branch**: `unification/spec-040`
 **Commits**: f4e5dbb (PR1), ee7d8fd (PR2), a294899 (PR3), d91e881 (PR4)

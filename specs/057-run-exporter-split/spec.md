@@ -1,7 +1,7 @@
 # spec-057 — Split RunExporter into per-table writers
 
 **Created**: 2026-05-29
-**Status**: Draft
+**Status**: Implemented (2026-05-29)
 **Predecessors**: spec-046 (SQLAlchemy data layer — established the per-table-file pattern for `action_log`)
 **Successors**: spec-058 (per-run ORM models), spec-059 (Cluster Analysis Repository + RunStore on SQLAlchemy)
 **Trigger**: spec-045 code review surfaced `face_cluster/run_exporter.py` as 924 LOC / 10 responsibilities / 19-field `export()` — blocks any meaningful SQLAlchemy adoption downstream because per-run schema ownership is currently a monolith.
