@@ -15,7 +15,7 @@ import pytest
 from face_cluster.config import PipelineConfig
 from face_cluster.filter_context import FilterContext
 from face_cluster.run_exporter import RunExporter
-from face_cluster.run_store import RunStore, FilterDecisionRow
+from sim_bench.run_db.store import RunStore, FilterDecisionRow
 from face_cluster.types import ClusterResult, FaceRecord
 
 

@@ -25,7 +25,7 @@ from sim_bench.db.face_clustering.cluster_analysis_repo import (
     ClusterAnalysisRepoConfig,
     ClusterAnalysisRepository,
 )
-from face_cluster.run_store import RunMetadata
+from sim_bench.run_db.store import RunMetadata
 from face_cluster.views._base import Assignment, ClusterRow
 from face_cluster.views.cluster_analysis import ForceMergeResult
 from sim_bench.pipeline.clustering_labels import NOISE_LABEL
@@ -88,11 +88,17 @@ def _build_synthetic_run_dir(tmp_path: Path) -> Path:
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
         # faces
-        faces_rows = [
-            (fid, f"img_{i:03d}.jpg", f"img_{i:03d}", 0, 0, 0, 0, 0, "", 0.99, 0.5, 100.0,
-             None, None, None, 1, None)
-            for i, fid in enumerate(face_ids)
-        ]
+        # SIGHTING-080 follow-up: crop_path populated with the v5 writer's
+        # filename pattern (face_{id:04d}_aligned.jpg). Real crop files
+        # written below as 0-byte placeholders so Path.is_file() passes.
+        faces_rows = []
+        for i, fid in enumerate(face_ids):
+            crop_rel = f"crops/face_{fid:04d}_aligned.jpg"
+            (run_dir / crop_rel).touch()  # placeholder is enough for is_file()
+            faces_rows.append(
+                (fid, f"img_{i:03d}.jpg", f"img_{i:03d}", 0, 0, 0, 0, 0, crop_rel,
+                 0.99, 0.5, 100.0, None, None, None, 1, None)
+            )
         conn.executemany(
             "INSERT INTO faces (face_id, image_path, image_id, face_index, "
             "bbox_x, bbox_y, bbox_w, bbox_h, crop_path, det_score, blur_score, "

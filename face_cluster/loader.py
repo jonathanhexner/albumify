@@ -84,7 +84,7 @@ def _load_via_run_store(run_dir: Path, v4_dir: Path) -> PipelineResult:
     whichever store is canonical for the run.
     """
     from dataclasses import asdict
-    from face_cluster.run_store import RunStore
+    from sim_bench.run_db.store import RunStore
 
     store = RunStore(v4_dir)
     meta = store.metadata()

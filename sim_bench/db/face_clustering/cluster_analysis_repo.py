@@ -34,7 +34,7 @@ from typing import List, Optional, Tuple
 
 from face_cluster.repositories._base_repository import BaseRepository
 from face_cluster.repositories._errors import ValidationError
-from face_cluster.run_store import RunMetadata, RunStore
+from sim_bench.run_db.store import RunMetadata, RunStore
 from face_cluster.types import ClusterResult, FaceRecord, MergeDecisionRow
 from face_cluster.views._base import Assignment, ClusterRow
 from face_cluster.views.cluster_analysis import ForceMergeResult

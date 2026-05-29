@@ -21,7 +21,7 @@ from sim_bench.db.face_clustering.cluster_analysis_repo import (
     ClusterAnalysisRepoConfig,
     ClusterAnalysisRepository,
 )
-from face_cluster.run_store import RunMetadata
+from sim_bench.run_db.store import RunMetadata
 from face_cluster.views._base import ClusterRow
 
 

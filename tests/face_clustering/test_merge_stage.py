@@ -213,7 +213,7 @@ class ut_MergeStageE2E:
         all other tests use synthetic FaceRecord fixtures.
         """
         import numpy as np
-        from face_cluster.run_store import RunStore
+        from sim_bench.run_db.store import RunStore
         from face_cluster.types import MergeDecisionRow
 
         result = merged_pipeline_result

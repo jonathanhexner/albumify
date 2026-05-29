@@ -94,7 +94,7 @@ def isolated_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         lambda: fake_db,
     )
     # clusters_tab imports RunStore at call time; patch the module attribute.
-    import face_cluster.run_store as run_store_module
+    import sim_bench.run_db.store as run_store_module
     monkeypatch.setattr(run_store_module, "RunStore", _StubRunStore)
     return fake_db
 

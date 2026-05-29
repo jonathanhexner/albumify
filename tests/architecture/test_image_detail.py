@@ -23,7 +23,7 @@ import pytest
 from pydantic import ValidationError
 
 from face_cluster.image_detail import FaceDetail, FaceFilterDecision, ImageDetail
-from face_cluster.run_store import RunStore
+from sim_bench.run_db.store import RunStore
 
 
 def test_image_detail_forbids_extra_fields():

@@ -25,7 +25,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Paths NOT YET migrated by spec-056 (shrinks with each PR).
 ALLOW_LIST = {
-    "face_cluster.run_store",
     "face_cluster.run_exporter",
 }
 
