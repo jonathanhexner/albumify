@@ -36,7 +36,8 @@ streamlit>=1.28.0
 # Pipeline API and Frontend
 fastapi>=0.109.0
 uvicorn>=0.27.0
-sqlalchemy>=2.0.0
+sqlalchemy>=2.0.30,<2.1
+alembic>=1.13,<2
 websockets>=12.0
 httpx>=0.26.0
 nicegui>=1.4.0

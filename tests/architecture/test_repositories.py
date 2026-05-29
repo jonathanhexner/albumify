@@ -126,7 +126,11 @@ def test_repositories_module_has_no_public_free_functions():
         pytest.skip(f"{REPO_DIR} not present (spec-043 not landed yet?)")
     offenders: list[str] = []
     for path in sorted(REPO_DIR.glob("*.py")):
-        if path.name in ("__init__.py",):
+        # Skip __init__.py and underscore-prefixed infrastructure modules
+        # (_engine.py, _session.py, _orm_base.py, _base_repository.py, _errors.py).
+        # Those are private infra primitives reused by the Repository classes;
+        # the rule targets DB-query free functions in public modules.
+        if path.name == "__init__.py" or path.name.startswith("_"):
             continue
         funcs = _module_level_function_names(path)
         if funcs:
