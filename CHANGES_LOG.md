@@ -2,6 +2,17 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [BUGFIX] SIGHTING-080 — History "Load Run" recognized only legacy CSV layout; v2 runs always failed
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/views/history.py`: replaced hardcoded `_REQUIRED_ARTIFACTS = ("faces.csv", "clusters.csv", "embeddings.npy")` (legacy CSV trio only) with `_run_dir_has_loadable_artifacts(out_dir)` function matching the three layouts `load_pipeline_result` actually handles: v5 top-level `face_clustering.db`, v4 transitional `_v4/face_clustering.db`, and the legacy CSV trio. Error message in `load_run` rewritten to be honest about what was checked.
+- UPDATED `app/face_clustering_v2/components/load_button.py`: warning message no longer hardcodes the v4 CSV trio in the user-facing text; differentiates "status not complete" vs "no loadable artifacts" + names all three valid layouts.
+- UPDATED `tests/face_clustering/views/test_history_service_synthetic.py`: stale `test_load_run_raises_when_artifacts_missing` updated to match the new error wording ("no loadable artifacts" replaces "missing required artifacts").
+- NEW `tests/face_clustering/views/test_history_service_v5_artifacts.py` (~75 LOC, 7 cases) — pins all three valid layouts plus partial / pathological cases. Closes the unit-level gap that let SIGHTING-080 land (synthetic HistoryService tests had been using legacy CSV fixtures which matched the broken check by accident).
+- UPDATED `docs/project/SIGHTINGS.md`: SIGHTING-080 filed RESOLVED with repro + cause + resolution.
+**Reason**: User-reported: opening the v2 History tab and clicking Load Run on any completed v2 run failed with *"Run is incomplete (status: complete). Cannot load — required artifacts (faces.csv, clusters.csv, embeddings.npy) are missing or status is not 'complete'."* The error contains the contradiction in plain sight — status IS complete; what's "missing" is a v4-era CSV trio that v2 runs simply don't produce. spec-040 Phase 4 replaced the CSVs with `face_clustering.db` in 2026-05; the History tab's artifact check never got updated. Third instance this week of a v2 code path failing because it was ported assuming a pre-spec-040 layout (with SIGHTING-078 RunStore "final" resolver and SIGHTING-079 AsyncHandle UI pattern). Pattern: every spec-040-touched read path needs an explicit audit against the v5 reality.
+**Verification**: 218/218 unit + arch + AppTest gates green. New `test_history_service_v5_artifacts` 7-case regression suite passes; the existing `test_load_run_raises_when_artifacts_missing` (updated for new wording) passes. AppTest harness shows the v2 page rendering against the user's actual run dir.
+
 ### 2026-05-29 [BUGFIX] SIGHTING-079 — sync compute + st.spinner replaces AsyncHandle in Cluster Analysis tab
 **Branch**: `unification/spec-040`
 **Files**:

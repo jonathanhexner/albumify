@@ -282,15 +282,18 @@ def test_load_run_raises_when_output_dir_missing(synthetic_action_log_db):
 
 
 def test_load_run_raises_when_artifacts_missing(synthetic_action_log_db, tmp_path):
+    """Empty run dir → none of the 3 valid layouts (v5 DB / v4 transitional /
+    legacy CSV trio) are present. SIGHTING-080 changed the error wording
+    from 'missing required artifacts' to 'no loadable artifacts'."""
     out_dir = tmp_path / "empty_run"
-    out_dir.mkdir()  # no faces.csv / clusters.csv / embeddings.npy
+    out_dir.mkdir()  # no face_clustering.db, no _v4/, no faces.csv/...
     rid = insert_action(
         synthetic_action_log_db,
         status="complete",
         output_dir=str(out_dir),
     )
     service = _service(synthetic_action_log_db)
-    with pytest.raises(ValueError, match="missing required artifacts"):
+    with pytest.raises(ValueError, match="no loadable artifacts"):
         service.load_run(rid)
 
 

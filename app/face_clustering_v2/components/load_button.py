@@ -33,11 +33,16 @@ def render_load_button(detail: RunDetail, service: HistoryService) -> None:
         return
 
     if not detail.has_required_artifacts or detail.row.status != "complete":
-        st.warning(
-            f"Run is incomplete (status: `{detail.row.status}`). "
-            "Cannot load — required artifacts (faces.csv, clusters.csv, "
-            "embeddings.npy) are missing or status is not 'complete'."
-        )
+        if detail.row.status != "complete":
+            reason = f"status is `{detail.row.status}`, not 'complete'"
+        else:
+            reason = (
+                "no loadable artifacts found in the run dir — expected "
+                "`face_clustering.db` (v5 / v2 runs), `_v4/face_clustering.db` "
+                "(transitional), or the legacy CSV trio "
+                "(`faces.csv` + `clusters.csv` + `embeddings.npy`)"
+            )
+        st.warning(f"Cannot load this run: {reason}.")
         st.button(
             "Load into analysis tabs",
             type="primary",

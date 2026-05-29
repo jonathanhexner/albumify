@@ -31,6 +31,65 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-080: History tab "Load Run" rejects every v2 run as "missing required artifacts (faces.csv, ...)"
+**Status**: RESOLVED 2026-05-29
+**Severity**: High (every v2 run was un-loadable from History tab — blocked the whole History → Analysis flow)
+**Reported**: 2026-05-29 by user — *"Run is incomplete (status: complete). Cannot load — required artifacts (faces.csv, clusters.csv, embeddings.npy) are missing or status is not 'complete'."*
+
+**Problem Description**:
+`face_cluster/views/history.py:_REQUIRED_ARTIFACTS` was a hardcoded legacy-CSV
+list — `(faces.csv, clusters.csv, embeddings.npy)`. spec-040 Phase 4 (schema v5)
+replaced the CSV trio with a single sqlite `face_clustering.db` at the run dir's
+top level. v2 runs (producer = `fc_app_v2`) write the v5 layout exclusively.
+The History tab's load-check used the legacy list, so every v2 run failed the
+artifact check even though `load_pipeline_result` could open it via RunStore.
+
+The user's error message contained the contradiction in plain sight: "status:
+complete" + "Cannot load — required artifacts ... missing." Both were technically
+correct — the run was complete, AND the v4 CSVs were missing — but the artifact
+list being checked was wrong for the era.
+
+**Symptoms**:
+- Open v2 app → History tab → expand any v2 run → "Load Run" button disabled
+  with the contradictory warning.
+- The same run dir opens fine when handed to `ClusterAnalysisRepository` directly
+  (the v5 DB exists; RunStore validates it).
+
+**Suspicion**:
+Hardcoded artifact list never got updated when spec-040 v5 schema landed.
+Synthetic tests for HistoryService used CSV-style fixtures (matched
+`_REQUIRED_ARTIFACTS` by accident), so the test suite never noticed.
+
+**Steps to Reproduce**:
+1. Run any v2 pipeline (`fc_app_v2` producer).
+2. Open v2 app → History tab → expand the just-completed run.
+3. Observe: "Load Run" button disabled, error claims artifacts missing.
+
+**Resolution**:
+Replaced `_REQUIRED_ARTIFACTS` constant with
+`_run_dir_has_loadable_artifacts(out_dir)` function that matches the three
+layouts `load_pipeline_result` actually handles:
+  1. v5 (current): `face_clustering.db` at top level.
+  2. v4 transitional (spec-030): `_v4/face_clustering.db`.
+  3. Legacy CSV: `faces.csv` + `clusters.csv` + `embeddings.npy`.
+
+Updated error messages in both `history.py:load_run` and
+`load_button.py` to be honest about what's checked. New regression test
+suite `tests/face_clustering/views/test_history_service_v5_artifacts.py`
+pins all three layouts + partial / pathological cases.
+
+**Findings**:
+This is the second instance in a week of v2 code paths failing because
+they were ported assuming a layout that's no longer the default
+(SIGHTING-078 was the same shape — RunStore's "final" resolver expected
+merge_decisions semantics from before the no-op merge round became
+common). Pattern: every spec-040-touched component needs an explicit
+audit against the v5 reality. The new AppTest harness
+(`tests/face_clustering/test_v2_app_smoke.py`) catches the symptoms
+end-to-end; the layout-check test catches the unit-level cause.
+
+---
+
 ### SIGHTING-079: v2 Cluster Analysis tab stuck on "Analysing cluster…" — AsyncHandle never reaches UI
 **Status**: RESOLVED 2026-05-29 (sync compute + st.spinner; AsyncHandle retained as library primitive)
 **Severity**: High (tab is functionally unusable — user sees only loading text)

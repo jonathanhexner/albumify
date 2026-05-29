@@ -243,11 +243,39 @@ _DEFAULT_ACTION_TYPES: tuple[str, ...] = (
     "model_load",
 )
 
-_REQUIRED_ARTIFACTS: tuple[str, ...] = (
+# Legacy CSV layout (pre-spec-030). Kept for back-compat — runs older
+# than spec-030's _v4/ migration still have these files at the top level.
+_LEGACY_CSV_ARTIFACTS: tuple[str, ...] = (
     "faces.csv",
     "clusters.csv",
     "embeddings.npy",
 )
+
+
+def _run_dir_has_loadable_artifacts(out_dir: Path) -> bool:
+    """True iff ``out_dir`` contains a layout :func:`load_pipeline_result` can read.
+
+    Three valid layouts (matching ``face_cluster.loader.load_pipeline_result``):
+
+    1. **v5 (spec-040)** — ``face_clustering.db`` at the top level.
+       Producers: ``fc_app_v2``, current Albumify.
+    2. **v4 transitional (spec-030)** — ``_v4/face_clustering.db``.
+       Producers: brief transitional window during spec-030.
+    3. **Legacy CSV** — ``faces.csv`` + ``clusters.csv`` + ``embeddings.npy``
+       at the top level. Producers: pre-spec-030 runs.
+
+    Closes the 2026-05-29 user-reported "Run is incomplete (status: complete)"
+    contradiction — the History tab's load-check used to require the legacy
+    CSV trio, so every v2 run failed the artifact check even when the v5 DB
+    was present and load_pipeline_result could open it via RunStore.
+    """
+    if not out_dir.exists():
+        return False
+    if (out_dir / "face_clustering.db").is_file():
+        return True
+    if (out_dir / "_v4" / "face_clustering.db").is_file():
+        return True
+    return all((out_dir / a).is_file() for a in _LEGACY_CSV_ARTIFACTS)
 
 
 class HistoryService:
@@ -344,9 +372,7 @@ class HistoryService:
                     summary = _summary_from_pipeline_run(prun)
                 except Exception:
                     summary = None
-            has_required = out_dir.exists() and all(
-                (out_dir / artifact).exists() for artifact in _REQUIRED_ARTIFACTS
-            )
+            has_required = _run_dir_has_loadable_artifacts(out_dir)
 
         parent_row: Optional[RunRow] = None
         config_delta: List[ConfigDelta] = []
@@ -473,12 +499,12 @@ class HistoryService:
         if not detail.row.output_dir:
             raise ValueError(f"Run {run_id} has no output_dir recorded")
         if not detail.has_required_artifacts:
-            missing = [
-                artifact for artifact in _REQUIRED_ARTIFACTS
-                if not (Path(detail.row.output_dir) / artifact).exists()
-            ]
+            out_dir = Path(detail.row.output_dir)
             raise ValueError(
-                f"Run {run_id} is missing required artifacts: {missing}"
+                f"Run {run_id} has no loadable artifacts in {out_dir}. "
+                f"Expected one of: face_clustering.db (v5 / current), "
+                f"_v4/face_clustering.db (transitional), or "
+                f"faces.csv+clusters.csv+embeddings.npy (legacy CSV)."
             )
 
         output_dir = Path(detail.row.output_dir)
