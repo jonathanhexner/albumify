@@ -117,8 +117,14 @@ def render_run_tab() -> None:
             render_group("cap", columns=_GROUP_COLUMNS["cap"])
 
     # --- Run -------------------------------------------------------------
-    run_disabled = not (src and album.strip())
-    if st.button("Run", type="primary", key="v2_run_btn", disabled=run_disabled):
+    # Button stays enabled regardless of input state. Validation runs on
+    # click so the user sees an explicit error instead of a silently-greyed
+    # button (which was hard to read: text_input values commit only on
+    # blur/Enter, so "looks filled in but button greyed" was confusing).
+    if st.button("Run", type="primary", key="v2_run_btn"):
+        if not src or not album.strip():
+            st.error("Source directory and album name are both required.")
+            return
         if not Path(src).exists():
             st.error(f"Source directory does not exist: {src}")
             return

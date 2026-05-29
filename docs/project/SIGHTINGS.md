@@ -31,6 +31,30 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-077: v2 Run button silently greyed while typing in Album / Source fields
+**Status**: RESOLVED
+**Severity**: Low (UX confusion, no data loss)
+**Reported**: 2026-05-29
+**Persona**: Frontend / Streamlit
+
+**Problem Description**:
+User reported that in `face_clustering_app_v2`, the Run button only became clickable after they checked `cluster_diameter_cap_enabled`. Cap state has no code-level connection to the Run button; the real cause was a Streamlit text-input commit quirk.
+
+**Symptoms**:
+- Run button greyed out after typing source dir + album name.
+- Clicking any other widget (the cap checkbox happened to be the nearest) re-enabled the button.
+
+**Root cause**:
+`st.text_input` commits its value only on blur/Enter — not on every keystroke. `run_tab.py:120` computed `run_disabled = not (src and album.strip())` from the un-committed return values. Until focus left the field, `album` was still `""` and the button stayed disabled. Any other widget interaction forced a focus change → commit → rerun → button enabled. The cap checkbox was just the closest "kick."
+
+**Resolution**:
+`app/face_clustering_v2/tabs/run_tab.py` — removed the `disabled=` gate on the Run button. Validation now runs inside the click handler with an explicit `st.error("Source directory and album name are both required.")` when either is empty. Users see a clear error instead of a silently-greyed button.
+
+**Findings (for LEARNINGS.md)**:
+- Don't gate Streamlit buttons on un-committed text_input values — the commit-on-blur lag produces a "filled-in fields, dead button" UI bug. Either wrap in `st.form` (atomic commit), or always-enable + validate on click.
+
+---
+
 ### SIGHTING-076: Test suite was writing to the production action_log DB
 **Status**: RESOLVED (spec-051)
 **Severity**: High (silent data pollution of user-owned DB)

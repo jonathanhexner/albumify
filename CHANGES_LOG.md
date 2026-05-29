@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [BUGFIX] SIGHTING-077 — v2 Run button stuck disabled due to text_input commit lag
+**Branch**: `unification/spec-040`
+**Files**: `app/face_clustering_v2/tabs/run_tab.py`, `docs/project/SIGHTINGS.md`
+**Change**: Removed the `disabled=run_disabled` gate on the v2 Run button. Validation now runs inside the click handler with an explicit `st.error("Source directory and album name are both required.")` when either field is empty.
+**Reason**: User reported the Run button only enabled after checking `cluster_diameter_cap_enabled`. The cap state has no code-level connection to the button; the real cause was Streamlit's `st.text_input` committing on blur/Enter only — so `run_disabled = not (src and album.strip())` saw `album == ""` while the user was mid-typing. Clicking the cap checkbox forced a focus change → commit → rerun → button enabled. An always-enabled button with click-time validation gives an explicit error instead of a silently-greyed UI.
+
 ### 2026-05-29 [BUGFIX] spec-045 — Cluster Analysis tab crash on allocated-but-empty run dir + spec-060 draft
 **Branch**: `unification/spec-040`
 **Files**:
