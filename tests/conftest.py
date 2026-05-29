@@ -12,6 +12,40 @@ def get_test_data_dir() -> Path:
 
 
 # ---------------------------------------------------------------------------
+# spec-051 — production DB isolation
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session", autouse=True)
+def isolate_action_log_db(tmp_path_factory):
+    """Redirect ``face_cluster._paths.default_db_path`` to a per-session
+    tmp file so NO test can accidentally write to the user's real
+    ``~/.sim_bench/sim_bench.db``.
+
+    Spec-051 ships this fixture because the test suite had been writing
+    orphan rows into the production action_log for an unknown number of
+    days (surfaced when spec-050's v2 picker auto-selected one of them).
+
+    Opt-out: tests that genuinely need the real DB construct
+    ``RunHistoryRepository`` (or any consumer) with an **explicit**
+    ``db_path`` argument — they bypass ``default_db_path()`` entirely.
+    See ``tests/face_clustering/repositories/test_run_history_repo_real.py``
+    for the canonical opt-out pattern.
+
+    Per-test fixtures may still monkeypatch ``_paths.default_db_path``
+    on top of this autouse setup; pytest's ``monkeypatch.setattr`` runs
+    later in the fixture chain and wins.
+    """
+    import face_cluster._paths as _paths
+    fake_db = tmp_path_factory.mktemp("isolated_action_log") / "sim_bench.db"
+    orig = _paths.default_db_path
+    _paths.default_db_path = lambda: fake_db
+    try:
+        yield fake_db
+    finally:
+        _paths.default_db_path = orig
+
+
+# ---------------------------------------------------------------------------
 # spec-042 fixtures
 # ---------------------------------------------------------------------------
 
