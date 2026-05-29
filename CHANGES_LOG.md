@@ -2,6 +2,17 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-30 [BUGFIX] spec-061 audit closed — SIGHTING-089 (History panel blank for v2 runs) fixed
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `specs/061-v5-readpath-audit/{AUDIT_CHECKLIST,AUDIT_FINDINGS}.md` — discovery artifacts from walking the 10 audit categories. 1 new finding (F06 → SIGHTING-089). All other categories either clean or already covered by SIGHTING-078/079/080.
+- UPDATED `face_cluster/views/history.py`: `get_run_detail` now reads run summary from `RunStore.metadata()` (which queries the per-run DB's `run_metadata` table) instead of from `pipeline_run.json`. New helper `_summary_from_run_metadata(meta) -> RunSummary`. Legacy JSON parser kept as fallback for older runs that predate v5.
+- UPDATED `tests/face_clustering/views/test_history_service_v5_artifacts.py`: +1 regression case `test_summary_from_run_metadata_populates_fields_for_v5_run` asserts a v5-shaped synthetic run produces a populated RunSummary (n_faces, n_clusters_base, n_clusters_merged, merge_count all non-None).
+- UPDATED `docs/project/SIGHTINGS.md`: SIGHTING-089 filed RESOLVED with concrete UI impact, exact lines of broken code, and the 1-hour fix.
+- UPDATED `specs/061-v5-readpath-audit/{spec,tasks}.md`: status flipped to Implemented; Phase 3-5 tasks marked done.
+**Reason**: spec-061 read-path audit walked 10 grep categories across the v2 dependency closure. Surfaced one new bug: the History tab's run-detail panel reads four legacy keys (`summary`, `stages`, `merge_metadata`, `merge_log`) from `pipeline_run.json`, but the v5 writer emits only 9 metadata keys — none of those four. Result: every v2 run's detail panel rendered blank for n_faces / cluster counts / merge stats. Not a crash (`.get()` returns `None`), just silently degraded UX. The data is all available in the per-run DB's `run_metadata` table; reader now goes there for v5 runs and falls back to JSON parsing for older runs. Verified against user's real Budapest run: `n_faces=340, n_core=186, n_clusters_base=15` (previously all blank).
+**Verification**: 244/244 tests green (was 243 + 1 new regression). Real-data verification script confirms full RunSummary on user's actual run dir. Spec-061 status: Implemented. Pattern noted for future drift-guard test (spec-062 candidate): "every key the reader does `prun.get('X')` on must appear in the writer's payload."
+
 ### 2026-05-30 [REFACTOR] spec-059 — RunStore + ClusterAnalysisRepository on SQLAlchemy
 **Branch**: `unification/spec-040`
 **Files**:

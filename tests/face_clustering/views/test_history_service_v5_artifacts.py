@@ -76,3 +76,59 @@ def test_loadable_false_when_db_path_is_a_dir(tmp_path):
     weird.mkdir()
     (weird / "face_clustering.db").mkdir()  # not a file
     assert _run_dir_has_loadable_artifacts(weird) is False
+
+
+# ---------------------------------------------------------------------------
+# SIGHTING-089 regression: v5 run_metadata table populates RunSummary
+# (legacy pipeline_run.json doesn't carry the keys; History panel blank)
+# ---------------------------------------------------------------------------
+
+def test_summary_from_run_metadata_populates_fields_for_v5_run(tmp_path):
+    """SIGHTING-089: v5 runs write only 9 keys to pipeline_run.json (no
+    `summary` / `stages` / `merge_metadata` blocks). The History detail
+    panel used to render blank for every v2 run.
+
+    Fix: read summary stats from the `run_metadata` DB table via RunStore.
+    This test builds a v5-shaped synthetic run dir + asserts get_run_detail
+    returns a populated RunSummary (n_faces / n_clusters_base / etc.).
+    """
+    from tests.face_clustering.repositories.test_cluster_analysis_repo_synthetic import (
+        _build_synthetic_run_dir,
+    )
+    from face_cluster.views.history import HistoryService
+    from face_cluster.run_history_db import init_table
+    from tests.face_clustering.views._seed import insert_action
+
+    run_dir = _build_synthetic_run_dir(tmp_path)
+
+    # Seed an action_log row pointing at the v5 run dir.
+    action_db = tmp_path / "sim_bench.db"
+    init_table(db_path=action_db)
+    rid = insert_action(
+        action_db,
+        status="complete",
+        output_dir=str(run_dir),
+        source_album="SIGHTING-089-regression",
+        producer="fc_app_v2",
+        action_type="fc_app_v2_run",
+    )
+
+    # Monkey-patch the default DB path so HistoryService reads from our tmp DB.
+    import face_cluster._paths as _paths
+    orig = _paths.default_db_path
+    _paths.default_db_path = lambda: action_db
+    try:
+        detail = HistoryService().get_run_detail(rid)
+    finally:
+        _paths.default_db_path = orig
+
+    # Before the SIGHTING-089 fix, every field of RunSummary was None for v5
+    # runs (because pipeline_run.json didn't carry the legacy keys). After
+    # the fix, RunStore.metadata() supplies the numbers.
+    assert detail.summary is not None, "RunSummary should not be None for v5 run"
+    assert detail.summary.n_faces == 32, (
+        f"n_faces empty — SIGHTING-089 regressed. Got: {detail.summary}"
+    )
+    assert detail.summary.n_clusters_base == 3
+    assert detail.summary.n_clusters_merged == 3
+    assert detail.summary.merge_count == 0

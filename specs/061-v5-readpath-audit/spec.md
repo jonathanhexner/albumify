@@ -1,7 +1,7 @@
 # spec-061 — Audit every v2 read path against the v5 reality
 
 **Created**: 2026-05-29
-**Status**: Draft
+**Status**: Implemented (2026-05-30 — 1 finding triaged, 1 sighting filed + fixed, 5 categories clean)
 **Predecessors**: spec-040 (schema v5; the layout shift this audit verifies adoption of), spec-042 (v2 tab parity umbrella), spec-045 (Cluster Analysis tab — first big tab where the assumptions started biting), spec-050 (v2 run picker), spec-060 (E2E gate — Phase 2 effectively shipped via `test_v2_app_smoke.py`).
 **Successors**: per-finding fix specs as discovered (one per pre-v5 assumption found, if non-trivial).
 **Trigger**: 2026-05-29, three sightings filed in a single week (SIGHTING-078, -079, -080), all the same shape — a v2 code path failing because it was ported assuming a pre-spec-040 layout. A fourth (loader v5 path) was discovered while writing the SIGHTING-080 regression test. At this rate, the codebase has more of these latent.

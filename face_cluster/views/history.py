@@ -363,15 +363,31 @@ class HistoryService:
         has_required = False
         if row.output_dir:
             out_dir = Path(row.output_dir)
-            prun_path = out_dir / "pipeline_run.json"
-            if prun_path.exists():
-                try:
-                    prun = json.loads(prun_path.read_text(encoding="utf-8"))
-                    if not config:
-                        config = prun.get("config") or prun.get("summary", {}).get("config") or {}
-                    summary = _summary_from_pipeline_run(prun)
-                except Exception:
-                    summary = None
+            # SIGHTING-089 fix (2026-05-30): v5 runs (producer=fc_app_v2)
+            # write only 9 metadata keys to pipeline_run.json — none of the
+            # legacy `summary` / `stages` / `merge_metadata` / `merge_log`
+            # keys the JSON parser expects. The same data lives in the
+            # `run_metadata` DB table — try RunStore first; fall back to
+            # the JSON parser for older runs that predate v5.
+            try:
+                from sim_bench.run_db.store import RunStore
+                meta = RunStore(out_dir).metadata()
+                summary = _summary_from_run_metadata(meta)
+                if not config and meta.config:
+                    config = meta.config
+            except Exception:
+                summary = None
+            if summary is None:
+                # Legacy fallback: pre-v5 runs only have pipeline_run.json.
+                prun_path = out_dir / "pipeline_run.json"
+                if prun_path.exists():
+                    try:
+                        prun = json.loads(prun_path.read_text(encoding="utf-8"))
+                        if not config:
+                            config = prun.get("config") or prun.get("summary", {}).get("config") or {}
+                        summary = _summary_from_pipeline_run(prun)
+                    except Exception:
+                        summary = None
             has_required = _run_dir_has_loadable_artifacts(out_dir)
 
         parent_row: Optional[RunRow] = None
@@ -520,6 +536,33 @@ class HistoryService:
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+def _summary_from_run_metadata(meta) -> RunSummary:
+    """Build a ``RunSummary`` from the v5 ``run_metadata`` DB row.
+
+    SIGHTING-089 fix: v5 ``pipeline_run.json`` writes only 9 metadata keys
+    (no ``summary`` / ``stages`` / ``merge_metadata`` blocks), so the JSON
+    parser below returns an empty RunSummary for every v2 run. The same
+    data lives in the per-run DB's ``run_metadata`` table — pull it from
+    there instead.
+
+    ``stage_durations`` stays empty: v5 doesn't record per-stage timings
+    anywhere. Adding them is a separate writer change, not in scope here.
+    """
+    return RunSummary(
+        n_faces=meta.n_faces,
+        n_core=meta.n_core,
+        n_clusters_base=meta.n_clusters_base,
+        n_clusters_merged=meta.n_clusters_final,
+        n_noise=None,                       # v5 run_metadata doesn't expose this directly
+        stage_durations={},                  # v5 doesn't record per-stage durations
+        merge_count=meta.n_merges,
+        merge_candidate_threshold=(
+            meta.merge_thresholds.get("merge_candidate_threshold")
+            if isinstance(meta.merge_thresholds, dict) else None
+        ),
+    )
+
 
 def _summary_from_pipeline_run(prun: Dict[str, Any]) -> RunSummary:
     """Parse the ``pipeline_run.json`` dict into a typed ``RunSummary``.

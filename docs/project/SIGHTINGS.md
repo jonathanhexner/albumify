@@ -31,6 +31,106 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-089: History tab run-detail panel is blank for every v2 run
+**Status**: RESOLVED 2026-05-30 — read summary from `run_metadata` table via RunStore; legacy JSON parser kept as fallback for older runs. Regression test: `test_summary_from_run_metadata_populates_fields_for_v5_run`. Verified against the user's real Budapest run: `n_faces=340, n_core=186, n_clusters_base=15`.
+**Severity**: Medium (UX degradation — not a crash; user sees blanks where the legacy panel showed numbers)
+**Reported**: 2026-05-30 by Claude (spec-061 audit Phase 1, finding F06)
+
+**What the user sees**
+
+Open the v2 app → **History** tab → click any row produced by `fc_app_v2` (every recent run). The detail panel below shows the run's basic info (album, status, dates) but every numeric / timing field is **empty or zero**:
+
+  - Face count: blank
+  - Core face count: blank
+  - Clusters (base): blank
+  - Clusters (merged): blank
+  - Noise count: blank
+  - Stage durations: empty (no per-step timings)
+  - Merges applied: blank
+  - Merge threshold: blank
+
+Click the same panel on an **older v4 run** (or any run from the legacy app): all fields populated.
+
+**Where the bug is — concrete**
+
+The History tab reads run summary stats out of `<run_dir>/pipeline_run.json`. Specifically:
+
+```python
+# face_cluster/views/history.py:524-559 — _summary_from_pipeline_run
+summary_block = prun.get("summary")              # ← v5 doesn't write "summary"
+stages_block = prun.get("stages")                # ← v5 doesn't write "stages"
+merge_meta = prun.get("merge_metadata")          # ← v5 doesn't write "merge_metadata"
+merge_log = prun.get("merge_log")                # ← v5 doesn't write "merge_log"
+
+return RunSummary(
+    n_faces=summary_block.get("n_faces"),        # → None
+    n_core=summary_block.get("n_core"),          # → None
+    n_clusters_base=...                          # → None (all of them)
+    ...
+)
+```
+
+The v5 writer at `sim_bench/run_db/artifact_writers/pipeline_run_writer.py:25-38` writes only 9 keys to `pipeline_run.json`: `run_id`, `source_album`, `producer`, `parent_run_id`, `started_at`, `finished_at`, `status`, `schema_version`, `db_path`. None of the four keys the History reader expects exist in v5 output.
+
+No crash because `.get()` returns `None`. The reader silently produces a `RunSummary` with every numeric field `None` / empty dict. The UI then renders blanks.
+
+**Where the data actually lives**
+
+All of it is in the per-run DB's `run_metadata` table — written by the v5 exporter, readable via `RunStore.metadata()`. That returns a `RunMetadata` dataclass with: `n_images`, `n_faces`, `n_core`, `n_clusters_base`, `n_clusters_final`, `n_merges`, `n_iterations`, `config`, `merge_thresholds`, `merge_iter_summary`, `started_at`, `finished_at`. **Every field the History panel needs is already there — the reader is just looking in the wrong file.**
+
+Stage durations are the one gap — v5 doesn't record per-stage timings anywhere (the legacy `pipeline_run.json["stages"]` block was per-step start/end). That part stays blank until a separate writer change adds them; everything else can be populated from `run_metadata`.
+
+**The fix (planned)**
+
+In `face_cluster/views/history.py`, replace the call site:
+
+```python
+# Today (broken for v5):
+prun = json.loads((out_dir / "pipeline_run.json").read_text())
+summary = _summary_from_pipeline_run(prun)
+
+# After fix:
+from sim_bench.run_db.store import RunStore
+try:
+    meta = RunStore(out_dir).metadata()
+    summary = _summary_from_run_metadata(meta)
+except Exception:
+    summary = _summary_from_pipeline_run(prun)   # legacy fallback for old runs
+```
+
+Add a new ~15-line helper:
+
+```python
+def _summary_from_run_metadata(meta: RunMetadata) -> RunSummary:
+    """v5: read summary stats from the run_metadata DB table.
+    Stage durations are still blank — v5 doesn't record them."""
+    return RunSummary(
+        n_faces=meta.n_faces,
+        n_core=meta.n_core,
+        n_clusters_base=meta.n_clusters_base,
+        n_clusters_merged=meta.n_clusters_final,
+        n_noise=None,                            # v5 doesn't expose this directly
+        stage_durations={},                      # not recorded in v5
+        merge_count=meta.n_merges,
+        merge_candidate_threshold=(meta.merge_thresholds or {}).get("merge_candidate_threshold"),
+    )
+```
+
+Try-RunStore-first means: v5 runs get full data from the DB; older v4-and-earlier runs fall through to the existing JSON parser. No writer change; no breaking change to legacy runs.
+
+**Estimated effort**: 1 hour. Touches 1 production file (history.py) + 1 unit test (existing `test_history_service_*` suite gets one new case asserting v5 runs populate the fields).
+
+**Why no unit test caught this**
+
+The History service's synthetic tests build a fixture run by writing a fake `pipeline_run.json` with all four legacy keys present (so `_summary_from_pipeline_run` finds what it wants). That's the wrong fixture shape for v2 — real v2 runs never produce those keys. The fix here also wants a regression test that builds a fixture with **only** v5 keys + a populated `run_metadata` table; the existing fixture's JSON-shape needs to follow what the v5 writer actually emits.
+
+**Findings (cross-ref)**
+
+- Surfaced by spec-061 read-path audit, finding F06.
+- Pattern matches SIGHTING-078 / -079 / -080: a v2 code path written against pre-spec-040 layout assumptions.
+
+---
+
 ### SIGHTING-088: 3 smoke scripts under tests/ break pytest collection
 **Status**: OPEN
 **Severity**: Low (infra; blocks "run full pytest" without `--ignore`)
