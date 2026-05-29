@@ -114,9 +114,8 @@ _ALTER_COLUMNS: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 
 def get_db_path() -> Path:
-    db_dir = Path.home() / ".sim_bench"
-    db_dir.mkdir(parents=True, exist_ok=True)
-    return db_dir / "sim_bench.db"
+    from face_cluster._paths import default_db_path
+    return default_db_path()
 
 
 def _connect(db_path: Optional[Path] = None) -> sqlite3.Connection:

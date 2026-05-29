@@ -74,6 +74,22 @@ class RunRow:
     producer: Optional[str] = None
     error: Optional[str] = None
 
+    @classmethod
+    def from_orm(cls, model) -> "RunRow":
+        """Build a RunRow from an ActionLog ORM instance.
+
+        Single source of truth for the ORM → dataclass mapping. Column
+        names are taken from ``ActionLog.__table__.columns`` so any
+        column add/rename is caught by ``test_runrow_matches_action_log``.
+
+        Preserves the legacy ``source_album`` → ``_UNKNOWN_ALBUM``
+        fallback when the column is NULL/empty.
+        """
+        values = {c.name: getattr(model, c.name) for c in model.__table__.columns}
+        if not values.get("source_album"):
+            values["source_album"] = _UNKNOWN_ALBUM
+        return cls(**values)
+
     @property
     def display_album(self) -> str:
         return self.source_album or _UNKNOWN_ALBUM
