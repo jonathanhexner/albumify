@@ -423,15 +423,8 @@ class RunExporter:
     # ------------------------------------------------------------------
 
     def _write_embeddings_npy(self, faces: List[FaceRecord]) -> None:
-        EMB_DIM = 512
-        matrix = np.zeros((len(faces), EMB_DIM), dtype=np.float32)
-        face_ids = np.array([f.face_id for f in faces], dtype=np.int32)
-        for i, face in enumerate(faces):
-            emb = face.embedding_normalized if face.embedding_normalized is not None else face.embedding
-            if emb is not None:
-                matrix[i] = np.asarray(emb, dtype=np.float32)
-        np.save(self.output_dir / "embeddings.npy", matrix)
-        np.save(self.output_dir / "embedding_face_ids.npy", face_ids)
+        from sim_bench.run_db.artifact_writers.embeddings_writer import write_embeddings
+        write_embeddings(self.output_dir, faces)
 
     # ------------------------------------------------------------------
     # Pipeline run header (FR-007)
@@ -447,19 +440,16 @@ class RunExporter:
         started_at: str,
         finished_at: str,
     ) -> None:
-        payload = {
-            "run_id": run_id,
-            "source_album": source_album,
-            "producer": producer,
-            "parent_run_id": parent_run_id,
-            "started_at": started_at,
-            "finished_at": finished_at,
-            "status": "complete",
-            "schema_version": SCHEMA_VERSION,
-            "db_path": "face_clustering.db",
-        }
-        path = self.output_dir / "pipeline_run.json"
-        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        from sim_bench.run_db.artifact_writers.pipeline_run_writer import write_pipeline_run
+        write_pipeline_run(
+            self.output_dir,
+            run_id=run_id,
+            source_album=source_album,
+            producer=producer,
+            parent_run_id=parent_run_id,
+            started_at=started_at,
+            finished_at=finished_at,
+        )
 
     # ------------------------------------------------------------------
     # Crops — copy from a sibling source dir during Phase 1 dual-write,
@@ -471,30 +461,7 @@ class RunExporter:
         faces: List[FaceRecord],
         crop_source_dir: Optional[Path],
     ) -> Dict[int, str]:
-        crops_dir = self.output_dir / "crops"
-        crops_dir.mkdir(parents=True, exist_ok=True)
-        manifest: Dict[int, str] = {}
-
-        if crop_source_dir is not None:
-            src = Path(crop_source_dir)
-            for face in faces:
-                fname = f"face_{face.face_id:04d}_aligned.jpg"
-                src_path = src / fname
-                if not src_path.exists():
-                    continue
-                dst_path = crops_dir / fname
-                if dst_path.resolve() != src_path.resolve():
-                    shutil.copyfile(src_path, dst_path)
-                manifest[face.face_id] = f"crops/{fname}"
-            return manifest
-
-        for face in faces:
-            if face.aligned_face is None:
-                continue
-            fname = f"face_{face.face_id:04d}_aligned.jpg"
-            dst_path = crops_dir / fname
-            Image.fromarray(face.aligned_face).save(dst_path, "JPEG", quality=95)
-            manifest[face.face_id] = f"crops/{fname}"
-        return manifest
+        from sim_bench.run_db.artifact_writers.crops_writer import write_crops
+        return write_crops(self.output_dir, faces, crop_source_dir)
 
 
