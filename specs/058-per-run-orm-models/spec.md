@@ -81,3 +81,56 @@ Each ORM model declares the same columns the corresponding DDL string in `schema
 ## Effort estimate
 
 **~4-6 hours.** 9 mechanical model files + one load-bearing drift-guard test.
+
+---
+
+## Final binding structure (post-058)
+
+**Binding.** Mirrored in `specs/057/EXECUTIVE_REVIEW_057_059.html` §9 and in specs 057 / 059. Drift = Code Review §1 fail.
+
+**Note:** spec-056 relocated `face_cluster/db/schema.py` to `sim_bench/run_db/_schema.py` before this spec started. Spec-058 adds ORM models alongside it (`sim_bench/run_db/_base.py`, `_session.py`, `models/`) and flips `_schema.py` to derive its DDL constants from `Base.metadata`.
+
+### Package layout
+```
+sim_bench/run_db/
+├─ _base.py                                   # NEW — class Base(DeclarativeBase) + naming convention
+├─ _session.py                                # NEW — make_run_db_sessionmaker(run_dir) -> sessionmaker
+├─ _schema.py                                 # MODIFIED — SCHEMA_VERSION=5, SCHEMA_HISTORY (spec-054),
+│                                             # EXPECTED_ARTIFACTS; DDL constants DERIVED from Base.metadata
+└─ models/                                    # NEW — 9 ORM models, flat namespace
+   ├─ __init__.py                             # exports Base + all 9 classes
+   ├─ face.py                                 # class Face                  (~28 cols)
+   ├─ cluster.py                              # class Cluster
+   ├─ cluster_assignment.py                   # class ClusterAssignment
+   ├─ merge_decision.py                       # class MergeDecision
+   ├─ filter_decision.py                      # class FilterDecision
+   ├─ image.py                                # class Image
+   ├─ scene_cluster.py                        # class SceneCluster
+   ├─ scene_cluster_assignment.py             # class SceneClusterAssignment
+   └─ run_metadata.py                         # class RunMetadataRow (Row suffix avoids
+                                              # clash with RunMetadata dataclass)
+```
+
+### Classes
+| Class | Module | Mirrors DDL constant |
+|---|---|---|
+| `Base` | `sim_bench/run_db/_base.py` | n/a — `DeclarativeBase` for the per-run DB |
+| `Face` | `sim_bench/run_db/models/face.py` | `FACES_DDL` |
+| `Cluster` | `sim_bench/run_db/models/cluster.py` | `CLUSTERS_DDL` |
+| `ClusterAssignment` | `sim_bench/run_db/models/cluster_assignment.py` | `CLUSTER_ASSIGNMENTS_DDL` |
+| `MergeDecision` | `sim_bench/run_db/models/merge_decision.py` | `MERGE_DECISIONS_DDL` |
+| `FilterDecision` | `sim_bench/run_db/models/filter_decision.py` | `FILTER_DECISIONS_DDL` |
+| `Image` | `sim_bench/run_db/models/image.py` | `IMAGES_DDL` |
+| `SceneCluster` | `sim_bench/run_db/models/scene_cluster.py` | `SCENE_CLUSTERS_DDL` |
+| `SceneClusterAssignment` | `sim_bench/run_db/models/scene_cluster_assignment.py` | `SCENE_CLUSTER_ASSIGNMENTS_DDL` |
+| `RunMetadataRow` | `sim_bench/run_db/models/run_metadata.py` | `RUN_METADATA_DDL` |
+
+### Methods
+**None added.** ORM models are declarative; columns are `Mapped[...]` class attributes.
+
+### Cross-spec invariants
+1. **Two distinct `Base` classes in the codebase.** `face_cluster/repositories/_orm_base.py` (sim_bench.db, with Alembic) vs `sim_bench/run_db/_base.py` (per-run DB, no Alembic). Never merge — different lifecycles, different constraint-name namespaces.
+2. **ORM is the source of truth.** When `SCHEMA_VERSION` bumps, the model file changes first; the DDL constants in `sim_bench/run_db/_schema.py` are regenerated from `Base.metadata`.
+3. **Drift guard is load-bearing.** Editing a DDL string by hand in `_schema.py` without updating the corresponding model fails the drift-guard test. Substitute for `alembic check`.
+4. **Indexes via `__table_args__`** on each model, not as a module-level `INDEXES_DDL` list.
+5. **Single canonical import path.** `from sim_bench.run_db.models import Face`. No alternative path exists (spec-056 deleted `face_cluster.db.schema`).

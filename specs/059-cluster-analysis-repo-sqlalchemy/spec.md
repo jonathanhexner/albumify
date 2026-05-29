@@ -74,3 +74,77 @@ Side effect: `RunStore` shrinks. Estimate: 617 LOC → ~350-400 LOC (most of the
 ## Effort estimate
 
 **~5-6 hours.** RunStore refactor is the bulk (3 h). ClusterAnalysisRepository is ~1 h. Shared infra + tests + docs ~1-2 h.
+
+---
+
+## Final binding structure (post-059)
+
+**Binding.** Mirrored in `specs/057/EXECUTIVE_REVIEW_057_059.html` §9 and in specs 057 / 058. Drift = Code Review §1 fail.
+
+**Note:** spec-056 relocated `face_cluster/run_store.py` to `sim_bench/run_db/store.py` and `face_cluster/repositories/cluster_analysis_repo.py` to `sim_bench/db/face_clustering/cluster_analysis_repo.py` before this spec started. Spec-059 flips both to use the ORM models from spec-058 — all at the canonical location, no shims anywhere.
+
+### Package layout (the parts this spec owns)
+```
+sim_bench/run_db/
+├─ store.py                                   # MODIFIED — RunStore on ORM (≤450 LOC; was 546)
+└─ _session.py                                # added in spec-058 — used by store.py
+
+sim_bench/db/face_clustering/
+└─ cluster_analysis_repo.py                   # MODIFIED — ClusterAnalysisRepository on ORM (≤200 LOC; was 305)
+```
+
+### Classes
+| Class | Module |
+|---|---|
+| `RunStore` | `sim_bench/run_db/store.py` |
+| `ClusterAnalysisRepository` | `sim_bench/db/face_clustering/cluster_analysis_repo.py` |
+
+No new classes for the session factory — it is a plain function in `sim_bench/run_db/_session.py`.
+
+### Methods on `RunStore` (binding — signatures and return shapes frozen)
+```python
+__init__(run_dir: Union[str, Path])
+_load_and_validate() -> dict                   # PRAGMA user_version + file checks;
+                                               # KEEPS raw sqlite3 — runs BEFORE ORM machinery
+metadata() -> RunMetadata
+faces() -> List[FaceRecord]
+merge_log() -> List[MergeDecisionRow]
+image_detail(image_path: str) -> ImageDetail  # heaviest; joins Face + FilterDecision +
+                                               # ClusterAssignment
+filter_decisions() -> List[FilterDecisionRow]
+embeddings() -> EmbeddingMatrix                # npy file — not a DB call
+crop_path(face_id: int) -> Path                # fs — not a DB call
+clusters(iteration: Union[int, str]) -> ClusterResult
+iteration_count() -> int
+_resolve_iteration(iteration: Union[int, str]) -> int
+_session() -> Session                          # REPLACES _connect(); per-call session
+```
+
+### Methods on `ClusterAnalysisRepository` (binding)
+```python
+__init__(config: ClusterAnalysisRepoConfig)
+get_cluster_rows(iteration: str = "final") -> List[ClusterRow]
+get_cluster_ids(iteration: str = "final") -> List[int]
+find_assignments(criteria: ClusterAnalysisCriteria) -> List[Assignment]
+get_face_records(face_ids: List[int]) -> List[FaceRecord]
+get_run_metadata() -> RunMetadata
+get_merge_log() -> List[MergeDecisionRow]
+get_cluster_result(iteration: str = "final") -> ClusterResult
+save_manual_merge_snapshot(...) -> None        # only mutation
+_session() -> Session                          # REPLACES _connect()
+_resolve_iteration(iteration: str) -> int
+_log(msg: str) -> None
+```
+
+### Functions in `sim_bench/run_db/_session.py`
+```python
+make_run_db_sessionmaker(run_dir: Path) -> sessionmaker
+```
+
+### Cross-spec invariants
+1. **Public surface frozen.** All 13 `RunStore` methods + all 9 `ClusterAnalysisRepository` methods keep signature and return shape. spec-045 + spec-040 + spec-049 test suites pass without modification.
+2. **Two distinct sessionmakers in the codebase.** `face_cluster/repositories/_session.py` (sim_bench.db) vs `sim_bench/run_db/_session.py` (per-run DB). Never cross-import.
+3. **`RunStore._load_and_validate()` stays on raw sqlite3.** `PRAGMA user_version` must run before any ORM machinery is invoked. ORM access only starts *after* validation passes.
+4. **Per-call sessions only.** No long-lived session held on `RunStore` or `ClusterAnalysisRepository`. Matches today's per-call `sqlite3.connect()` lifecycle — required for Streamlit polling correctness.
+5. **Zero raw SQL** in `sim_bench/run_db/store.py` and `sim_bench/db/face_clustering/cluster_analysis_repo.py`. Enforced by arch test (AC1).
+6. **Single canonical import path** for both classes. No alternative paths exist (spec-056 deleted `face_cluster.run_store` and `face_cluster.repositories.cluster_analysis_repo`).

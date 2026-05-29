@@ -77,3 +77,61 @@ Each writer module exposes one function: `write_<artifact>(conn_or_dir, inputs)`
 ## Effort estimate
 
 **~6-8 hours.** Mostly mechanical. The byte-equivalence test is the load-bearing gate.
+
+---
+
+## Final binding structure (post-057)
+
+**Binding.** Mirrored in `EXECUTIVE_REVIEW_057_059.html` §9 and in specs 058 / 059. Drift = Code Review §1 fail.
+
+**Note:** spec-056 relocated `face_cluster/run_exporter.py` to `sim_bench/run_db/exporter.py` (monolith, intact) before this spec started. Spec-057 splits that file into the writer package shown below — all at the canonical location, no shims anywhere.
+
+### Package layout
+```
+sim_bench/run_db/
+├─ __init__.py
+├─ exporter.py                                # MODIFIED — class RunExporter facade (≤150 LOC; export() ≤80 LOC)
+├─ _inputs.py                                 # NEW — RunExportInputs (spec-053),
+│                                             # RunExportResult, RunExporterError
+├─ _producers.py                              # NEW — _VALID_PRODUCERS = ("albumify","fc_app",...)
+├─ writers/                                   # NEW
+│  ├─ __init__.py
+│  ├─ _common.py                              # open_run_db(path), transaction CM,
+│  │                                          # _strict_validate_merge_log
+│  ├─ faces_writer.py                         # write_faces(session, inputs)
+│  ├─ clusters_writer.py                      # write_clusters_and_assignments(session, inputs)
+│  ├─ merges_writer.py                        # write_merges(session, merge_log)
+│  ├─ filter_decisions_writer.py              # write_filter_decisions(session, filters)
+│  ├─ images_writer.py                        # write_images(session, inputs)
+│  ├─ scenes_writer.py                        # write_scene_clusters(session, inputs)
+│  │                                          # write_scene_cluster_assignments(session, inputs)
+│  └─ run_metadata_writer.py                  # write_run_metadata(session, inputs)
+└─ artifact_writers/                          # NEW
+   ├─ embeddings_writer.py · pipeline_run_writer.py · crops_writer.py
+```
+
+### Classes
+| Class | Module |
+|---|---|
+| `RunExporter`      | `sim_bench/run_db/exporter.py` |
+| `RunExportInputs`  | `sim_bench/run_db/_inputs.py` |
+| `RunExportResult`  | `sim_bench/run_db/_inputs.py` |
+| `RunExporterError` | `sim_bench/run_db/_inputs.py` |
+
+**Writers are functions, not classes** — locked decision §1.
+
+### Methods on RunExporter (binding)
+```python
+__init__(output_dir: Path)
+calc(inputs: RunExportInputs) -> RunExportResult        # spec-053 entry; thin
+export(inputs: RunExportInputs) -> RunExportResult      # ≤80 LOC; opens 1 session,
+                                                        # calls every writer in fixed order,
+                                                        # commits once
+```
+All `_write_*` methods are deleted. `_strict_validate_merge_log` moves to `sim_bench/run_db/writers/_common.py`.
+
+### Cross-spec invariants
+1. **Single canonical path.** `from sim_bench.run_db.exporter import RunExporter`. No alternative path exists (spec-056 deleted the old `face_cluster.run_exporter` path).
+2. **Public surface frozen.** Signatures and return shapes unchanged.
+3. **One transaction per `export()`.** Facade opens session, BEGINs, calls writers, COMMITs. Writer modules never open their own session.
+4. **Writer call order is the contract.** Pinned in `exporter.py`. Documented because `scene_cluster_assignments` has FK to `images`.

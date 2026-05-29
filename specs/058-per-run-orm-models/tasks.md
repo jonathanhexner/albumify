@@ -7,7 +7,7 @@ Legend: `[ ]` open · `[>]` in progress · `[x]` done · `[~]` skipped
 - [ ] **T002** Write the comparator: open both DBs, query `sqlite_master` for table/column/index definitions, normalize whitespace, assert equal. **Initially fails** — that's the gate Phase 1 closes.
 
 ## Phase 1 — Mirror the 9 tables (~3 h)
-- [ ] **T010** Create `face_cluster/db/models/_base.py`: `class Base(DeclarativeBase)` + naming convention (`ix_%(column_0_label)s`, `uq_%(table_name)s_%(column_0_name)s`, etc.).
+- [ ] **T010** Create `sim_bench/run_db/models/_base.py`: `class Base(DeclarativeBase)` + naming convention (`ix_%(column_0_label)s`, `uq_%(table_name)s_%(column_0_name)s`, etc.).
 - [ ] **T011** `face.py` — `Face` model mirroring `FACES_DDL` (28 columns including spec-040 `*_ratio` additions). Run drift-guard test; iterate until columns match exactly.
 - [ ] **T012** Repeat T011 for: `cluster.py`, `cluster_assignment.py`, `merge_decision.py`, `filter_decision.py`, `image.py`, `scene_cluster.py`, `scene_cluster_assignment.py`, `run_metadata.py`.
 - [ ] **T013** Indexes from `INDEXES_DDL` move to `__table_args__` on the appropriate models.
@@ -15,14 +15,14 @@ Legend: `[ ]` open · `[>]` in progress · `[x]` done · `[~]` skipped
 **Gate**: drift-guard test green for all 9 tables + indexes.
 
 ## Phase 2 — Flip source of truth (~1 h)
-- [ ] **T020** Rewrite `face_cluster/db/schema.py`: `SCHEMA_DDL` is now generated from `Base.metadata.create_all()` (string-extracted via `CreateTable` compiler). DDL constants stay defined for backward compat but are derived, not authored.
+- [ ] **T020** Rewrite `sim_bench/run_db/_schema.py`: `SCHEMA_DDL` is now generated from `Base.metadata.create_all()` (string-extracted via `CreateTable` compiler). DDL constants stay defined for backward compat but are derived, not authored.
 - [ ] **T021** Verify spec-046's pattern works: `SCHEMA_VERSION = 5` constant stays hand-maintained; bump on breaking change.
 - [ ] **T022** Update drift-guard test to assert: **if you edit `schema.py`'s DDL strings by hand instead of regenerating, the test fails.** Mutation test: introduce a typo in `FACES_DDL`, confirm test red.
 
 **Gate**: `pytest tests/face_clustering/db/` green.
 
 ## Phase 3 — Audit existing callers (~30 min)
-- [ ] **T030** grep for `from face_cluster.db.schema import` — list every caller that imports a DDL constant. Confirm they all keep working unchanged (the DDL strings are still exported, just derived now).
+- [ ] **T030** grep for `from sim_bench.run_db._schema import` — list every caller that imports a DDL constant. Confirm they all keep working unchanged (the DDL strings are still exported, just derived now).
 - [ ] **T031** `RunExporter` calls `executescript(SCHEMA_DDL)` to bootstrap. Verify: this still uses the derived DDL and produces the same tables.
 - [ ] **T032** `RunStore`'s `PRAGMA user_version` check stays — no change needed; still asserts schema version match.
 

@@ -8,13 +8,13 @@ Legend: `[ ]` open · `[>]` in progress · `[x]` done · `[~]` skipped
 - [ ] **T001** Create `tests/face_clustering/repositories/test_cluster_analysis_repo_perf.py`. Micro-bench: 1000 `get_cluster_rows()` calls against the synthetic fixture; record mean time. Commit the baseline number to the test file as `BASELINE_MS = <today's mean>`. AC7 bounds the refactor to 1.2× this baseline.
 
 ## Phase 1 — Per-run-DB session infrastructure (~30 min)
-- [ ] **T010** `face_cluster/run_store/_session.py` — `make_run_db_sessionmaker(run_dir)`: builds an Engine on the per-run DB, returns a sessionmaker. Per-call connections; no pooling.
+- [ ] **T010** `sim_bench/run_db/_session.py` — `make_run_db_sessionmaker(run_dir)`: builds an Engine on the per-run DB, returns a sessionmaker. Per-call connections; no pooling.
 - [ ] **T011** Unit test: open + close 100 sessions in a loop, assert no connection leaks (verify via `engine.dispose()` semantics).
 
 **Gate**: T011 passes.
 
 ## Phase 2 — ClusterAnalysisRepository migration (~1 h)
-- [ ] **T020** Replace the 4 raw SQL statements in `cluster_analysis_repo.py` with `select(...)` calls against spec-058's ORM models. Method signatures unchanged.
+- [ ] **T020** Replace the 4 raw SQL statements in `sim_bench/db/face_clustering/cluster_analysis_repo.py` with `select(...)` calls against spec-058's ORM models. Method signatures unchanged.
 - [ ] **T021** Run spec-045's full test suite (`pytest tests/face_clustering/repositories/test_cluster_analysis_repo_*.py tests/face_clustering/views/test_cluster_analysis_service_*.py -q`). All 31 tests pass without modification.
 - [ ] **T022** Run the perf benchmark from T001. Within 1.2× baseline.
 
@@ -31,7 +31,7 @@ Legend: `[ ]` open · `[>]` in progress · `[x]` done · `[~]` skipped
 **Gate after each task**: `pytest tests/face_clustering/run_store/ -q` → green. Never red for > 1 commit.
 
 ## Phase 4 — Arch guards (~30 min)
-- [ ] **T040** Arch test: `tests/architecture/test_no_raw_sql_in_run_store_or_cluster_analysis_repo.py`. Greps for `SELECT|INSERT INTO|UPDATE |DELETE FROM ` (uppercase, with trailing space) in the two files. Both must be empty.
+- [ ] **T040** Arch test: `tests/architecture/test_no_raw_sql_in_run_store_or_sim_bench/db/face_clustering/cluster_analysis_repo.py`. Greps for `SELECT|INSERT INTO|UPDATE |DELETE FROM ` (uppercase, with trailing space) in the two files. Both must be empty.
 - [ ] **T041** LOC arch test extension: `RunStore` ≤ 450 LOC; `ClusterAnalysisRepository` ≤ 200 LOC.
 
 **Gate**: T040 + T041 green.

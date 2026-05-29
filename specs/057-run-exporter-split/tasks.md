@@ -9,8 +9,8 @@ Legend: `[ ]` open · `[>]` in progress · `[x]` done · `[~]` skipped
 **Gate**: `pytest tests/face_clustering/exporter/test_split_equivalence.py -q` → 1 test passes (current exporter produces the snapshotted hashes).
 
 ## Phase 1 — Carve out per-table DB writers (~3-4 h)
-- [ ] **T010** Create `face_cluster/run_exporter/` package. Move existing module content into `face_cluster/run_exporter/exporter.py` (rename only; no logic changes).
-- [ ] **T011** Extract `_write_faces_and_scores` → `writers/faces_writer.py:write_faces(conn, inputs)`. Run the equivalence test. Loop until it passes.
+- [ ] **T010** (Spec-056 already relocated `face_cluster/run_exporter.py` to `sim_bench/run_db/exporter.py`.) Create `sim_bench/run_db/writers/` and `sim_bench/run_db/artifact_writers/` subdirectories. Extract `RunExportInputs` / `RunExportResult` / `RunExporterError` into `sim_bench/run_db/_inputs.py`; move `_VALID_PRODUCERS` into `sim_bench/run_db/_producers.py`.
+- [ ] **T011** Extract `_write_faces_and_scores` → `sim_bench/run_db/writers/faces_writer.py:write_faces(session, inputs)`. Run the equivalence test. Loop until it passes.
 - [ ] **T012** Repeat T011 for: clusters_writer (clusters + cluster_assignments), merges_writer, filter_decisions_writer, images_writer, scenes_writer, run_metadata_writer.
 - [ ] **T013** Extract shared helpers (`_connect`, transaction context manager) into `writers/_common.py`.
 
@@ -26,7 +26,7 @@ Legend: `[ ]` open · `[>]` in progress · `[x]` done · `[~]` skipped
 ## Phase 3 — Tighten the facade (~1 h)
 - [ ] **T030** `RunExporter.export()` reduces to: open one transaction → call each writer in order → commit. Target ≤ 80 LOC in `exporter.py` for `export()` itself.
 - [ ] **T031** `RunExporter.calc()` (spec-053 entry point) stays a thin facade; verify no logic moved into it.
-- [ ] **T032** Add arch test in `tests/architecture/test_run_exporter_layering.py`: assert no file under `face_cluster/run_exporter/` > 200 LOC.
+- [ ] **T032** Add arch test in `tests/architecture/test_run_exporter_layering.py`: assert no file under `sim_bench/run_db/` > 200 LOC.
 
 **Gate**: `pytest tests/face_clustering/ tests/architecture/ -q` → no regression.
 
@@ -36,7 +36,7 @@ Legend: `[ ]` open · `[>]` in progress · `[x]` done · `[~]` skipped
 **Gate**: T040 passes.
 
 ## Phase 5 — Cleanup + close-out (~1 h)
-- [ ] **T050** Remove backward-compat shim `face_cluster/run_exporter.py` (the package's `__init__.py` is the new import surface).
+- [ ] **T050** Confirm `sim_bench/run_db/exporter.py` is now a slim facade (logic lives in writer modules); no shim files exist (spec-056 already eliminated the legacy `face_cluster.run_exporter` path).
 - [ ] **T051** Update `docs/architecture/classes.html` — replace the single `RunExporter` row with one row per writer module.
 - [ ] **T052** Update `docs/architecture/data_flow.html` — replace the single export node with the multi-writer fan-out.
 - [ ] **T053** CHANGES_LOG entry.
