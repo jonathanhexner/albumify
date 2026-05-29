@@ -1,7 +1,7 @@
 # spec-059 — RunStore + ClusterAnalysisRepository on SQLAlchemy
 
 **Created**: 2026-05-29
-**Status**: Draft
+**Status**: Implemented
 **Predecessors**: spec-057 (RunExporter split), spec-058 (per-run ORM models)
 **Successors**: future read-side tabs (Face Analysis, Merged Clusters, Quality, Gallery) inherit this pattern
 **Trigger**: spec-045 left `ClusterAnalysisRepository` with 7 column-string literals across 4 raw SQL statements (SMELL-1 in `CODE_REVIEW_SUMMARY.html`). spec-058 provides the ORM models that close the gap.

@@ -205,6 +205,6 @@ Trimming further to hit AC4/AC5 numerically would require either:
 - **F-2** (TODO): update `docs/architecture/classes.html` — note that RunStore + ClusterAnalysisRepository are SQLAlchemy-backed; add `_session.py` factory function. Estimated 20 min.
 - **F-3** (TODO): update `docs/architecture/data_flow.html` — read-path nodes now show ORM models instead of raw SQL. Estimated 30 min.
 
-### Open waiver
+### Waiver decision
 
-- **AC4 + AC5 LOC targets**: waiver requested for RunStore 502 (target ≤450) and CARepo 294 (target ≤200), with the rationale above. Resolving the waiver is a one-message decision from the user.
+- **AC4 + AC5 LOC targets**: **WAIVED by user on 2026-05-30.** Final values: RunStore 502 LOC, ClusterAnalysisRepository 294 LOC. Rationale accepted per Part 3 §"Discussion of AC4 / AC5 miss" — the spec's LOC estimate assumed `r["col"] → r.col` would shrink line counts, but that substitution is character-level. The behavioural ACs (AC1/AC2/AC3/AC6/AC7) all pass and capture the spec's actual intent (zero raw SQL, all tests pass without modification, perf within 1.2×). Spec status flipped to Implemented.
