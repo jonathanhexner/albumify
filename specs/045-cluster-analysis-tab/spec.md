@@ -1,8 +1,8 @@
 # spec-045 — Cluster Analysis Tab
 
 **Created**: 2026-05-25
-**Updated**: 2026-05-29 — added §5–§8 numbered subsections (tasks.md references them); folded in spec-050 run picker + NOISE_LABEL contract; per-phase validation gates moved to tasks.md.
-**Status**: Draft
+**Updated**: 2026-05-29 — Phases 1–8 implemented; REVIEW.md filed; F-2/F-3 folded in.
+**Status**: Implemented
 **Predecessors**: spec-042 (v2 parity umbrella), spec-046 (SQLAlchemy + Alembic data layer), spec-048 (data-layer cleanup: `_paths`, `ensure_schema`), spec-050 (v2 run picker + per-run UUID dirs), commit `9824d84` (NOISE_LABEL contract).
 **Successors**: spec-047 (full-system E2E)
 
@@ -166,7 +166,7 @@ class ClusterAnalysisRepository(BaseRepository):
     def write_merge_snapshot(self, ...) -> ForceMergeResult: ...
 ```
 
-Constructor accepts a SQLAlchemy `Session` (per spec-046 §B0.2 pattern). Factory helper `make_cluster_analysis_repo(run_dir)` for callers that don't manage sessions.
+Constructor accepts a typed :class:`ClusterAnalysisRepoConfig` (see §5.3) — **not** a SQLAlchemy ``Session``. Per spec D3 the per-run DB is not Alembic-managed; the Repository is the **query-shape** (B0b) flavor and inherits ``BaseRepository`` with ``session=None`` purely for the static error-translation helpers. See `docs/architecture/architecture_standards.md` §B0.2.1 for the B0a-vs-B0b distinction.
 
 ---
 
@@ -375,7 +375,7 @@ Synthetic fixtures use the spec-046 `transactional_session` + a small builder in
 
 ### 8.2 — Repository real-fixture (3 cases)
 
-Uses the History-pilot fixture run dir (session fixture `v2_pilot_run_dir`).
+Uses the most-recent v2 Budapest run dir (session fixture `v2_budapest_run_dir` in `tests/conftest.py`). Skips cleanly when no such run exists.
 
 | # | Test | Asserts |
 |---|---|---|

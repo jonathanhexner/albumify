@@ -23,11 +23,11 @@ Legend: `[ ]` open · `[>]` in progress · `[x]` done · `[~]` skipped (rational
 
 Repository skeleton + read methods. Composes RunStore. No mutations yet.
 
-- [ ] **T001** Create `face_cluster/repositories/cluster_analysis_repo.py`. Add `ClusterAnalysisRepoConfig` (frozen-slotted; fields: `run_dir`, `read_only`, `log_queries`) per spec.§5.3.
-- [ ] **T002** Add `ClusterAnalysisCriteria` (frozen-slotted; fields: `cluster_id`, `face_ids`, `iteration`, `exemplars_only`, `include_noise`) per spec.§5.4. `include_noise` defaults to `False`; comparisons use `NOISE_LABEL` / `is_noise()` from `sim_bench.pipeline.clustering_labels` (no bare `-1` literal anywhere in this file or the Repository).
-- [ ] **T003** Add `Assignment` dataclass to `face_cluster/views/_base.py` (small typed row: `face_id: int, cluster_id: int, is_exemplar: bool, iteration: int`).
-- [ ] **T004** Implement `ClusterAnalysisRepository.__init__(config)`. Validates `run_dir` is provided. Constructs an internal `RunStore(config.run_dir)` — RunStore's existing validation gives us schema-version + artifact-presence checks for free.
-- [ ] **T005** Implement read methods (all delegating to the internal RunStore + shaping output):
+- [x] **T001** Create `face_cluster/repositories/cluster_analysis_repo.py`. Add `ClusterAnalysisRepoConfig` (frozen-slotted; fields: `run_dir`, `read_only`, `log_queries`) per spec.§5.3.
+- [x] **T002** Add `ClusterAnalysisCriteria` (frozen-slotted; fields: `cluster_id`, `face_ids`, `iteration`, `exemplars_only`, `include_noise`) per spec.§5.4. `include_noise` defaults to `False`; comparisons use `NOISE_LABEL` / `is_noise()` from `sim_bench.pipeline.clustering_labels` (no bare `-1` literal anywhere in this file or the Repository).
+- [x] **T003** Add `Assignment` dataclass to `face_cluster/views/_base.py` (small typed row: `face_id: int, cluster_id: int, is_exemplar: bool, iteration: int`).
+- [x] **T004** Implement `ClusterAnalysisRepository.__init__(config)`. Validates `run_dir` is provided. Constructs an internal `RunStore(config.run_dir)` — RunStore's existing validation gives us schema-version + artifact-presence checks for free.
+- [x] **T005** Implement read methods (all delegating to the internal RunStore + shaping output):
   - `get_cluster_rows(iteration="final")` → `List[ClusterRow]`
   - `get_cluster_ids(iteration="final")` → `List[int]`
   - `find_assignments(criteria)` → `List[Assignment]`
@@ -35,8 +35,8 @@ Repository skeleton + read methods. Composes RunStore. No mutations yet.
   - `get_run_metadata()` → `RunMetadata`
   - `get_merge_log()` → `List[MergeDecisionRow]`
   - `get_cluster_result(iteration="final")` → `ClusterResult`
-- [ ] **T006** Create `tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py`. Build a tmp-dir synthetic `face_clustering.db` + `embeddings.npy` (3 clusters, ~30 faces) fixture. Tests #1–#10 from spec.§8.1.
-- [ ] **T007** Run synthetic test suite: `pytest tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py -q`. All 10 pass.
+- [x] **T006** Create `tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py`. Build a tmp-dir synthetic `face_clustering.db` + `embeddings.npy` (3 clusters, ~30 faces) fixture. Tests #1–#10 from spec.§8.1.
+- [x] **T007** Run synthetic test suite: `pytest tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py -q`. All 10 pass.
 
 **Validation gate (Phase 1)**:
 
@@ -54,12 +54,12 @@ Expected: **+10 new tests pass** (spec §8.1 #1–#10, mutation #11/#12 added in
 
 Real-data integration + snapshot-writing mutation.
 
-- [ ] **T010** Create `tests/face_clustering/repositories/test_cluster_analysis_repo_real.py`. Tests #1–#3 from spec.§8.2 against the History-pilot fixture run dir.
-- [ ] **T011** Run real-fixture tests. All 3 pass.
-- [ ] **T012** Add `ForceMergeResult` dataclass (frozen-slotted; fields per spec.§4.2) to `face_cluster/views/cluster_analysis.py`. (The file doesn't exist yet — create with the dataclass; Service class added in Phase 3.)
-- [ ] **T013** Implement `ClusterAnalysisRepository.save_manual_merge_snapshot(*, cluster_a, cluster_b, merge_round, config)`. Internals: validate cluster ids; raise `ValidationError` on read-only mode; delegate the on-disk write to the existing `face_cluster.merge.save_manual_merge_snapshot` callable (keeping the legacy snapshot-writer code as the implementation detail). Return typed `ForceMergeResult`.
-- [ ] **T014** Add synthetic mutation tests #11–#12 from spec.§8.1.
-- [ ] **T015** Run: `pytest tests/face_clustering/repositories/ -q`. All 12 synthetic + 3 real-fixture pass.
+- [x] **T010** Create `tests/face_clustering/repositories/test_cluster_analysis_repo_real.py`. Tests #1–#3 from spec.§8.2 against the History-pilot fixture run dir.
+- [x] **T011** Run real-fixture tests. All 3 pass.
+- [x] **T012** Add `ForceMergeResult` dataclass (frozen-slotted; fields per spec.§4.2) to `face_cluster/views/cluster_analysis.py`. (The file doesn't exist yet — create with the dataclass; Service class added in Phase 3.)
+- [x] **T013** Implement `ClusterAnalysisRepository.save_manual_merge_snapshot(*, cluster_a, cluster_b, merge_round, config)`. Internals: validate cluster ids; raise `ValidationError` on read-only mode; delegate the on-disk write to the existing `face_cluster.merge.save_manual_merge_snapshot` callable (keeping the legacy snapshot-writer code as the implementation detail). Return typed `ForceMergeResult`.
+- [x] **T014** Add synthetic mutation tests #11–#12 from spec.§8.1.
+- [x] **T015** Run: `pytest tests/face_clustering/repositories/ -q`. All 12 synthetic + 3 real-fixture pass.
 
 **Validation gate (Phase 2)**:
 
@@ -81,10 +81,10 @@ Expected: no architecture-test regressions (spec-043/044 guards still hold).
 
 Service composes Repository; cheap queries only.
 
-- [ ] **T020** Extend `face_cluster/views/cluster_analysis.py`: add `ClusterAnalysisService` class with `__init__(repo)`, `list_clusters()`, `get_cluster_ids()` per spec.§6.1. Each method is a thin pass-through to the Repository.
-- [ ] **T021** Add `ForceMergePreview` dataclass (frozen-slotted; fields per spec.§4.2) to `face_cluster/views/cluster_analysis.py`. Not consumed yet — wired in Phase 5.
-- [ ] **T022** Create `tests/face_clustering/views/test_cluster_analysis_service_synthetic.py`. Tests #1–#3 from spec.§8.3.
-- [ ] **T023** Run: `pytest tests/face_clustering/views/test_cluster_analysis_service_synthetic.py -q`. All 3 pass.
+- [x] **T020** Extend `face_cluster/views/cluster_analysis.py`: add `ClusterAnalysisService` class with `__init__(repo)`, `list_clusters()`, `get_cluster_ids()` per spec.§6.1. Each method is a thin pass-through to the Repository.
+- [x] **T021** Add `ForceMergePreview` dataclass (frozen-slotted; fields per spec.§4.2) to `face_cluster/views/cluster_analysis.py`. Not consumed yet — wired in Phase 5.
+- [x] **T022** Create `tests/face_clustering/views/test_cluster_analysis_service_synthetic.py`. Tests #1–#3 from spec.§8.3.
+- [x] **T023** Run: `pytest tests/face_clustering/views/test_cluster_analysis_service_synthetic.py -q`. All 3 pass.
 
 **Validation gate (Phase 3)**:
 
@@ -100,10 +100,10 @@ Expected: **3 tests pass** (spec §8.3 #1–#3). Service constructible from a Re
 
 Heavy compute behind `AsyncHandle[T]`.
 
-- [ ] **T030** Extract the async-worker pattern from `app/face_clustering/state.py::_AsyncState` into `face_cluster/views/_async.py` as `AsyncHandle[T]` (generic dataclass; fields: `is_running`, `has_error`, `error`, `result`; methods: `start(fn, *args, **kwargs)`, `poll()`). Keep the same background-thread + polling mechanics under the hood; just give it a typed surface.
-- [ ] **T031** Add `ClusterAnalysisService.compute_detail_async(cluster_id) -> AsyncHandle[ClusterView]` and `compute_debug_async(cluster_id) -> AsyncHandle[ClusterDebugView]`. Each method: build a minimal `PipelineResult` from Repository reads (per D5), then start `ClusterView.compute` / `ClusterDebugView.compute` on the handle.
-- [ ] **T032** Add tests #4–#6 from spec.§8.3 (assert handle returns the expected `ClusterView` / `ClusterDebugView`; assert unknown cluster surfaces via `handle.error`).
-- [ ] **T033** Run: full Service test suite. All 6 synthetic pass.
+- [x] **T030** Extract the async-worker pattern from `app/face_clustering/state.py::_AsyncState` into `face_cluster/views/_async.py` as `AsyncHandle[T]` (generic dataclass; fields: `is_running`, `has_error`, `error`, `result`; methods: `start(fn, *args, **kwargs)`, `poll()`). Keep the same background-thread + polling mechanics under the hood; just give it a typed surface.
+- [x] **T031** Add `ClusterAnalysisService.compute_detail_async(cluster_id) -> AsyncHandle[ClusterView]` and `compute_debug_async(cluster_id) -> AsyncHandle[ClusterDebugView]`. Each method: build a minimal `PipelineResult` from Repository reads (per D5), then start `ClusterView.compute` / `ClusterDebugView.compute` on the handle.
+- [x] **T032** Add tests #4–#6 from spec.§8.3 (assert handle returns the expected `ClusterView` / `ClusterDebugView`; assert unknown cluster surfaces via `handle.error`).
+- [x] **T033** Run: full Service test suite. All 6 synthetic pass.
 
 **Validation gate (Phase 4)**:
 
@@ -125,11 +125,11 @@ Expected: no regression in earlier views tests (history-pilot tests still green)
 
 Preview + apply mutations.
 
-- [ ] **T040** Implement `ClusterAnalysisService.preview_force_merge(cluster_a, cluster_b)` — pure compute. Mirror the legacy `_compute_force_merge_preview` body (gates: exemplar / support / post-merge-diameter); return typed `ForceMergePreview`. Reads `merge_candidate_threshold` from `repo.get_run_metadata().config` (per Open Question 3 in spec.md — confirm before this task).
-- [ ] **T041** Implement `ClusterAnalysisService.apply_force_merge(cluster_a, cluster_b, *, merge_round)` — delegates to `repo.save_manual_merge_snapshot`, returns the typed `ForceMergeResult`. No session-state touching.
-- [ ] **T042** Synthetic Service tests #7–#12 from spec.§8.3.
-- [ ] **T043** Create `tests/face_clustering/views/test_cluster_analysis_service_real.py`. Tests #1–#4 from spec.§8.4 against the real fixture.
-- [ ] **T044** Run: `pytest tests/face_clustering/views/ tests/face_clustering/repositories/ -q`. All 12 synthetic + 4 real Service + 12 + 3 Repository = 31 pass.
+- [x] **T040** Implement `ClusterAnalysisService.preview_force_merge(cluster_a, cluster_b)` — pure compute. Mirror the legacy `_compute_force_merge_preview` body (gates: exemplar / support / post-merge-diameter); return typed `ForceMergePreview`. Reads `merge_candidate_threshold` from `repo.get_run_metadata().config` (per Open Question 3 in spec.md — confirm before this task).
+- [x] **T041** Implement `ClusterAnalysisService.apply_force_merge(cluster_a, cluster_b, *, merge_round)` — delegates to `repo.save_manual_merge_snapshot`, returns the typed `ForceMergeResult`. No session-state touching.
+- [x] **T042** Synthetic Service tests #7–#12 from spec.§8.3.
+- [x] **T043** Create `tests/face_clustering/views/test_cluster_analysis_service_real.py`. Tests #1–#4 from spec.§8.4 against the real fixture.
+- [x] **T044** Run: `pytest tests/face_clustering/views/ tests/face_clustering/repositories/ -q`. All 12 synthetic + 4 real Service + 12 + 3 Repository = 31 pass.
 
 **Validation gate (Phase 5)**:
 
@@ -152,17 +152,17 @@ Expected: the second import succeeds **without importing streamlit anywhere in i
 
 Streamlit UI rebuilt against the Service.
 
-- [ ] **T050** Add `current_run_dir` to History's Load Run path. Edit `app/face_clustering_v2/components/load_button.py` to write `st.session_state['current_run_dir'] = str(run_dir)` alongside the existing `pipeline_result` write. Cluster Analysis reads this via the resolver in spec.§7.2 (priority: `current_run_dir` → `v2_last_run_dir` → None). No new picker in the tab — History remains the single load surface.
-- [ ] **T051** Build 6 components under `app/face_clustering_v2/components/`:
-  - `cluster_picker.py` — selectbox + state hooks (~20 LOC)
-  - `cluster_metrics.py` — 5-metric strip + split-signal banner + provenance row (~40 LOC)
-  - `face_grid.py` — 8-col thumbnail grid (~35 LOC; reused by future Gallery)
-  - `nearest_clusters.py` — nearest-clusters list with Go-To button (~40 LOC)
-  - `force_merge.py` — Force Merge expander (~50 LOC; consumes Service + ForceMergePreview)
-  - `cluster_debug.py` — Graph Debug section (~40 LOC; metrics + heatmap + 3 expanders)
-- [ ] **T052** Rewrite `app/face_clustering_v2/tabs/cluster_analysis_tab.py` as the orchestrator from spec.§7.1. Target ≤80 LOC. No DB / JSON / filesystem access; no `cfg.get` literals.
-- [ ] **T053** Wire into `app/face_clustering_v2/main.py`. Replace the existing minimal "Clusters" tab registration with `render_cluster_analysis_tab`. Keep `clusters_tab.py` in the file system for now (deletion is Phase 8); don't reference it from `main.py`.
-- [ ] **T054** Manual smoke: start the v2 app, open History → Load fixture run → switch to Cluster Analysis. Confirm: dropdown populated, metrics + thumbnails render, no exceptions. Document any rough edges as new TODO items, not stop-the-line bugs.
+- [x] **T050** Add `current_run_dir` to History's Load Run path. Edit `app/face_clustering_v2/components/load_button.py` to write `st.session_state['current_run_dir'] = str(run_dir)` alongside the existing `pipeline_result` write. Cluster Analysis reads this via the resolver in spec.§7.2 (priority: `current_run_dir` → `v2_last_run_dir` → None). No new picker in the tab — History remains the single load surface.
+- [x] **T051** Build 6 components under `app/face_clustering_v2/components/`:
+  - `cluster_picker.py` — selectbox + state hooks (~20 LOC) → shipped 28 LOC
+  - `cluster_metrics.py` — 5-metric strip + split-signal banner + provenance row (~40 LOC) → shipped 37 LOC
+  - `face_grid.py` — 8-col thumbnail grid (~35 LOC; reused by future Gallery) → shipped 34 LOC
+  - `nearest_clusters.py` — nearest-clusters list with Go-To button (~40 LOC) → shipped 30 LOC
+  - `force_merge.py` — Force Merge expander (~50 LOC; consumes Service + ForceMergePreview) → shipped 62 LOC
+  - `cluster_debug.py` — Graph Debug section (~40 LOC; metrics + heatmap + 3 expanders) → shipped 49 LOC
+- [x] **T052** Rewrite `app/face_clustering_v2/tabs/cluster_analysis_tab.py` as the orchestrator from spec.§7.1. Target ≤80 LOC. No DB / JSON / filesystem access; no `cfg.get` literals. → shipped 73 LOC ✓
+- [x] **T053** Wire into `app/face_clustering_v2/main.py`. Replace the existing minimal "Clusters" tab registration with `render_cluster_analysis_tab`. Keep `clusters_tab.py` in the file system for now (deletion is Phase 8); don't reference it from `main.py`.
+- [~] **T054** Manual smoke: start the v2 app, open History → Load fixture run → switch to Cluster Analysis. **Deferred** — handed off to user (CLAUDE.md "Delivery Quality" requires Playwright-against-real-app, which is Phase 7 T063). Imports validated via `python -c` in this session.
 
 **Validation gate (Phase 6)**:
 
@@ -184,15 +184,15 @@ Expected: server starts; navigate History → Load fixture run → Cluster Analy
 
 Pattern locked in by arch tests; UI verified visually.
 
-- [ ] **T060** Create `tests/architecture/test_cluster_analysis_tab.py`. Add tests #1–#5 from spec.§8.5:
+- [x] **T060** Create `tests/architecture/test_cluster_analysis_tab.py`. Add tests #1–#5 from spec.§8.5:
   - `test_tab_has_no_direct_db_or_filesystem_access` (AST or grep on `cluster_analysis_tab.py` + `components/`)
   - `test_tab_has_no_cfg_get_literals` (grep on the v2 tab dir)
   - `test_service_returns_typed_objects` (`inspect.signature(...).return_annotation`)
   - `test_repository_takes_typed_config` (extend the spec-043 arch test pattern to `ClusterAnalysisRepository`)
   - `test_force_merge_preview_fields_match_writer` (drift guard between `ForceMergePreview` field set and what `apply_force_merge` actually populates)
-- [ ] **T061** Create `tests/manual/_v2_cluster_analysis_smoke.py`. Playwright headless script per spec.§8.6 — 5-step sequence against a live `streamlit run` on port 8889.
-- [ ] **T062** Run: `pytest tests/architecture/test_cluster_analysis_tab.py -v`. All 5 pass.
-- [ ] **T063** Run the Playwright smoke against a live server. Document expected behavior; tolerate timing differences.
+- [x] **T061** Create `tests/manual/_v2_cluster_analysis_smoke.py`. Playwright headless script per spec.§8.6 — 5-step sequence against a live `streamlit run` on port 8889.
+- [x] **T062** Run: `pytest tests/architecture/test_cluster_analysis_tab.py -v`. All 5 pass.
+- [~] **T063** Run the Playwright smoke against a live server. **Deferred to user** — requires live `streamlit run` + a loaded fixture run; can't be exercised inside the agent session. Script is ready at `tests/manual/_v2_cluster_analysis_smoke.py`.
 
 **Validation gate (Phase 7)**:
 
@@ -218,19 +218,14 @@ Expected: Playwright run completes 5 steps without exception; screenshots saved 
 
 ## Phase 8 — Cleanup + close-out (~45 min)
 
-- [ ] **T070** Delete `app/face_clustering_v2/tabs/clusters_tab.py` (the 71-LOC minimal list view; replaced by Cluster Analysis tab).
-- [ ] **T071** Update `docs/architecture/classes.html`. Add entries for:
-  - `ClusterAnalysisRepository` (§5 Writers/readers)
-  - `ClusterAnalysisRepoConfig` + `ClusterAnalysisCriteria` (§4 Internal types)
-  - `ClusterAnalysisService` (§5 Writers/readers)
-  - `ForceMergePreview` + `ForceMergeResult` + `Assignment` (§4 Internal types)
-  - `AsyncHandle[T]` (§4 Internal types; cross-link from Cluster Analysis Service row)
-- [ ] **T072** Update `docs/architecture/data_flow.html` — add a Cluster Analysis read-path sub-section.
-- [ ] **T073** Add `CHANGES_LOG.md` entry summarizing spec-045 (Repository B0b + AsyncHandle + Force Merge + ≤80 LOC tab).
-- [ ] **T074** Add a one-paragraph clarification to `docs/architecture/architecture_standards.md` §B0 about the schema-owning (B0a) vs query-shape (B0b) Repository distinction, citing this spec as the first B0b example. (See `TAB_DESIGN_COMPARISON.html` §"Implications for the framework".)
-- [ ] **T075** Run `/code-review` to produce `specs/045-cluster-analysis-tab/REVIEW.md`. Flip spec status `Draft` → `Code Review`.
-- [ ] **T076** Address any high-severity REVIEW.md findings. Flip status `Code Review` → `Implemented`.
-- [ ] **T077** Commit + push.
+- [x] **T070** Delete `app/face_clustering_v2/tabs/clusters_tab.py` (the 71-LOC minimal list view; replaced by Cluster Analysis tab).
+- [x] **T071** Update `docs/architecture/classes.html`. Add entries for `ClusterAnalysisRepository`, `ClusterAnalysisRepoConfig`, `ClusterAnalysisCriteria`, `ClusterAnalysisService`, `ForceMergePreview`, `ForceMergeResult`, `Assignment`, `AsyncHandle[T]`.
+- [x] **T072** Update `docs/architecture/data_flow.html` — added §"spec-045 — Cluster Analysis read path" with ASCII layering + invariants paragraph.
+- [x] **T073** Add `CHANGES_LOG.md` entry summarizing spec-045 (Repository B0b + AsyncHandle + Force Merge + ≤80 LOC tab).
+- [x] **T074** Added §B0.2.1 to `docs/architecture/architecture_standards.md` covering schema-owning (B0a) vs query-shape (B0b) Repository distinction, citing this spec as the first B0b example.
+- [x] **T075** Produced `specs/045-cluster-analysis-tab/REVIEW.md` walking the 8-section checklist. No high-severity findings; 5 minor (F-1..F-5). Spec status flipped `Draft` → `Code Review`.
+- [x] **T076** F-2 and F-3 folded into spec.md; spec status flipped `Code Review` → `Implemented`. F-1, F-4, F-5 accepted with follow-ups (logged in REVIEW.md).
+- [~] **T077** Commit + push — handed off to user (next /commit).
 
 **Validation gate (Phase 8 — close-out)**:
 

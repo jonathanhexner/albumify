@@ -75,6 +75,21 @@ class CloseFace:
     distance: float
 
 
+@dataclass(frozen=True, slots=True)
+class Assignment:
+    """One row of cluster_assignments — face → cluster + exemplar flag.
+
+    spec-045 §5.5: shared typed row returned by ClusterAnalysisRepository
+    (and reused by future tabs that query cluster_assignments).
+    Uses NOISE_LABEL (sim_bench.pipeline.clustering_labels) for noise faces;
+    never a bare -1.
+    """
+    face_id: int
+    cluster_id: int
+    is_exemplar: bool
+    iteration: str
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

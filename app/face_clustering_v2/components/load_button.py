@@ -56,6 +56,9 @@ def render_load_button(detail: RunDetail, service: HistoryService) -> None:
         st.session_state["pipeline_result"] = loaded.pipeline_result
         st.session_state["current_source_album"] = loaded.source_album
         st.session_state["active_run_dir"] = str(loaded.output_dir)
+        # spec-045 T050: Cluster Analysis tab reads ``current_run_dir`` (see
+        # spec §7.2 resolver). Keep it in lockstep with active_run_dir.
+        st.session_state["current_run_dir"] = str(loaded.output_dir)
         st.success(
             f"Loaded `{detail.row.run_name or detail.row.run_id}` "
             "— switch to an analysis tab to view it."

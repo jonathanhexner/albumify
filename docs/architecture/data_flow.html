@@ -229,6 +229,40 @@ can't catch this. The fix is the config-to-producer graph contract (specs/036)
 plus an E2E acceptance test (specs/035).
 </p>
 
+<h2>spec-045 — Cluster Analysis read path</h2>
+
+<pre style="font-family: Consolas, monospace; font-size: 12px; background: #fafafa; border: 1px solid #ddd; padding: 10px;">  Streamlit (Tab + Components)        <-- app/face_clustering_v2/tabs/cluster_analysis_tab.py
+            |                              app/face_clustering_v2/components/cluster_*.py
+            v
+  ClusterAnalysisService                <-- face_cluster/views/cluster_analysis.py
+   - list_clusters / get_cluster_ids       (passthrough)
+   - compute_*_async  -->  AsyncHandle[T]  (face_cluster/views/_async.py)
+   - preview_force_merge / apply_force_merge
+            |
+            v
+  ClusterAnalysisRepository             <-- face_cluster/repositories/cluster_analysis_repo.py
+   - get_cluster_rows / find_assignments      (own SQL)
+   - get_face_records / get_run_metadata /    (delegate to RunStore)
+     get_merge_log / get_cluster_result
+   - save_manual_merge_snapshot ----------> face_cluster.manual_merge_snapshot
+            |       (writes sibling merge_snap_{round}/ dir)
+            v
+        RunStore        +    sqlite3 (raw)
+            |                    |
+            v                    v
+  &lt;run_dir&gt;/embeddings.npy   &lt;run_dir&gt;/face_clustering.db
+  &lt;run_dir&gt;/pipeline_run.json
+  &lt;run_dir&gt;/crops/
+</pre>
+
+<p>
+Layering invariants enforced by <code>tests/architecture/test_cluster_analysis_tab.py</code>:
+no <code>sqlite3</code> / <code>open()</code> / <code>RunStore(</code> / <code>json.loads</code> /
+<code>cfg.get(</code> in the Tab or Components layer; every Service method has a typed
+return annotation; Repository takes <code>ClusterAnalysisRepoConfig</code>;
+<code>ForceMergePreview</code> field set is locked against <code>ForceMergeResult</code>.
+</p>
+
 <h2>Related documents</h2>
 <ul>
   <li><a href="db_schemas.html">db_schemas.html</a></li>
@@ -236,6 +270,8 @@ plus an E2E acceptance test (specs/035).
   <li><a href="index.html">index.html</a> — architecture documentation index</li>
   <li><code>specs/033-data-integrity/REVIEW.md</code> — code review of the work that produced this state</li>
   <li><code>specs/033-data-integrity/MASTER_PLAN.md</code> — master plan with all 8 phases</li>
+  <li><code>specs/045-cluster-analysis-tab/spec.md</code> — Cluster Analysis tab PRD</li>
+  <li><code>specs/045-cluster-analysis-tab/LEGACY_VS_V2_CLUSTER_TAB.html</code> — legacy 383-LOC monolith vs the 4-layer split</li>
 </ul>
 
 </body>

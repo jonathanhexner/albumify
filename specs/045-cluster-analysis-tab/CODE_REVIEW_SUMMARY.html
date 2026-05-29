@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>spec-045 · Code Review Summary</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1100px; margin: 1.4em auto; padding: 0 1.4em;
+         color: #222; line-height: 1.45; background:#fafbfc; font-size: 14px; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .25em; margin-bottom: .1em; }
+  h1 + .subtitle { color: #666; margin-top: .1em; font-style: italic; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 1.6em;
+       font-size: 16px; }
+  h3 { color: #1f5fc7; margin-top: 1.1em; font-size: 14px; }
+  table { border-collapse: collapse; margin: .6em 0; width: 100%; font-size: 12.5px; background: #fff; }
+  th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f6; font-weight: 600; }
+  code { background:#eef0f4; padding: 1px 4px; border-radius: 3px; font-size: 12px; font-family: Consolas, monospace; }
+  pre { background:#fff; border:1px solid #ddd; border-radius:4px; padding:8px 10px; font-size:12px; overflow-x:auto; font-family: Consolas, monospace; margin: .5em 0; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px; font-size:11px; font-weight:600; }
+  .ok   { background:#e3f5e0; color:#236623; }
+  .note { background:#fff3cd; color:#856404; }
+  .smell{ background:#fde2e2; color:#8a2e2e; }
+  .layer-repo { color:#1f5fc7; }
+  .layer-svc  { color:#7a4ec0; }
+  .layer-tab  { color:#0e9466; }
+  .layer-comp { color:#0e9466; }
+  .layer-test { color:#666; }
+  .layer-doc  { color:#999; }
+  .verdict { background:#e3f5e0; border-left:4px solid #2e7d32; padding:.7em 1em; margin:1em 0; }
+  .smell-block { background:#fff8f0; border-left:4px solid #b8860b; padding:.7em 1em; margin:.6em 0; }
+  .tight td { padding: 3px 8px; }
+  .num { text-align: right; font-family: Consolas, monospace; }
+</style>
+</head>
+<body>
+
+<h1>spec-045 · Code Review Summary</h1>
+<p class="subtitle">Cluster Analysis Tab — Tab → Service → Repository → DB stack. Verdict + module map + findings, on one page.</p>
+
+<div class="verdict">
+<b>Verdict.</b> <span class="pill ok">PASS</span> with 4 minor findings. 36 new tests across 5 files; full regression 198/198 green. Tab is 73 LOC (target ≤80). Components total 240 LOC (target ≤200 — over by 20%). One real code duplication (distance-matrix helper) and one tech-debt seam (legacy <code>PipelineResult</code> proxy) noted below. Full checklist walk-through in <code>REVIEW.md</code>.
+</div>
+
+<h2>1 · Modules changed</h2>
+
+<table class="tight">
+  <thead><tr>
+    <th>File</th><th>Layer</th><th class="num">LOC<br><small>(code)</small></th><th>Responsibility</th><th>Tests</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><code>face_cluster/repositories/cluster_analysis_repo.py</code></td>
+        <td class="layer-repo">Repository</td>
+        <td class="num">268</td>
+        <td>Typed reads + 1 mutation on per-run <code>face_clustering.db</code>. Query-shape (B0b): composes <code>RunStore</code>; doesn't own DDL.</td>
+        <td>12 synth + 3 real</td></tr>
+    <tr><td><code>face_cluster/views/cluster_analysis.py</code></td>
+        <td class="layer-svc">Service + dataclasses</td>
+        <td class="num">210</td>
+        <td><code>ClusterAnalysisService</code> + 2 typed result dataclasses (<code>ForceMergePreview</code>, <code>ForceMergeResult</code>). Streamlit-free.</td>
+        <td>12 synth + 4 real</td></tr>
+    <tr><td><code>face_cluster/views/_async.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-svc">Async primitive</td>
+        <td class="num">72</td>
+        <td><code>AsyncHandle[T]</code> — generic daemon-thread + poll-based handle. Replaces legacy <code>_AsyncState</code>.</td>
+        <td>covered via Service tests #4, #5, #6, #12</td></tr>
+    <tr><td><code>face_cluster/views/_base.py</code></td>
+        <td class="layer-svc">Shared row types</td>
+        <td class="num">121</td>
+        <td>+<code>Assignment</code> dataclass. Other row types unchanged.</td>
+        <td>used by Service + Repo tests</td></tr>
+    <tr><td><code>app/face_clustering_v2/tabs/cluster_analysis_tab.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-tab">Tab</td>
+        <td class="num">73 ✓</td>
+        <td>Orchestrator only — 3-key run-dir resolver, lazy Service cache, dispatch to 6 components.</td>
+        <td>arch tests #1, #2</td></tr>
+    <tr><td><code>app/face_clustering_v2/components/cluster_picker.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-comp">Component</td>
+        <td class="num">28</td>
+        <td>Stateless cluster selectbox; persists <code>selected_cluster</code>.</td>
+        <td>arch #1, #2</td></tr>
+    <tr><td><code>cluster_metrics.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-comp">Component</td>
+        <td class="num">37</td>
+        <td>5-metric strip + split-signal banner. Reads <code>AsyncHandle[ClusterView]</code>.</td>
+        <td>arch #1, #2</td></tr>
+    <tr><td><code>face_grid.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-comp">Component</td>
+        <td class="num">34</td>
+        <td>8-col face thumbnail grid. Read-only FS access (crops dir) — surfaced in arch test #1 audit.</td>
+        <td>arch #1, #2</td></tr>
+    <tr><td><code>nearest_clusters.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-comp">Component</td>
+        <td class="num">30</td>
+        <td>Top-10 nearest list + Go-To button.</td>
+        <td>arch #1, #2</td></tr>
+    <tr><td><code>force_merge.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-comp">Component</td>
+        <td class="num">62</td>
+        <td>Two-dropdown picker + Preview/Apply flow. State stored under <code>fm_*</code> session keys.</td>
+        <td>arch #1, #2; preview/apply via Service tests #7–#11</td></tr>
+    <tr><td><code>cluster_debug.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-comp">Component</td>
+        <td class="num">49</td>
+        <td>Graph-debug expander: metrics, chain/sparse warnings, distance heatmap.</td>
+        <td>arch #1, #2</td></tr>
+    <tr><td><code>load_button.py</code></td>
+        <td class="layer-comp">Component</td>
+        <td class="num">66</td>
+        <td>+1 line: writes <code>current_run_dir</code> alongside <code>active_run_dir</code> (spec §7.2 hook).</td>
+        <td>—</td></tr>
+    <tr><td><code>main.py</code></td>
+        <td class="layer-tab">Entry</td>
+        <td class="num">38</td>
+        <td>Replaced "Clusters" tab registration with "Cluster Analysis".</td>
+        <td>—</td></tr>
+    <tr><td><code>tests/.../test_cluster_analysis_repo_synthetic.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-test">Test</td>
+        <td class="num">203</td>
+        <td>12 cases; self-contained synthetic run-dir builder (3 real + 1 noise cluster, 32 faces).</td>
+        <td>—</td></tr>
+    <tr><td><code>test_cluster_analysis_repo_real.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-test">Test</td>
+        <td class="num">50</td>
+        <td>3 read-only smoke tests vs <code>v2_budapest_run_dir</code>; skip on CI.</td>
+        <td>—</td></tr>
+    <tr><td><code>test_cluster_analysis_service_synthetic.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-test">Test</td>
+        <td class="num">95</td>
+        <td>12 cases incl. async-handle cancellation + force-merge round increment.</td>
+        <td>—</td></tr>
+    <tr><td><code>test_cluster_analysis_service_real.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-test">Test</td>
+        <td class="num">51</td>
+        <td>4 smoke cases vs Budapest fixture.</td>
+        <td>—</td></tr>
+    <tr><td><code>tests/architecture/test_cluster_analysis_tab.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-test">Arch</td>
+        <td class="num">96</td>
+        <td>5 drift guards: no DB/FS in tab, no <code>cfg.get</code>, Service returns typed, Repo takes typed Config, ForceMergePreview ↔ Result lock.</td>
+        <td>—</td></tr>
+    <tr><td><code>tests/manual/_v2_cluster_analysis_smoke.py</code> <span class="pill ok">NEW</span></td>
+        <td class="layer-test">Playwright</td>
+        <td class="num">46</td>
+        <td>5-step smoke for live server (opt-in; deferred to user).</td>
+        <td>—</td></tr>
+    <tr><td><code>docs/architecture/{classes,data_flow}.html</code></td>
+        <td class="layer-doc">Docs</td>
+        <td class="num">—</td>
+        <td>+7 class rows; new "Cluster Analysis read path" section.</td>
+        <td>—</td></tr>
+    <tr><td><code>docs/architecture/architecture_standards.md</code></td>
+        <td class="layer-doc">Docs</td>
+        <td class="num">—</td>
+        <td>New §B0.2.1 — schema-owning (B0a) vs query-shape (B0b) Repository distinction.</td>
+        <td>—</td></tr>
+  </tbody>
+</table>
+
+<p style="color:#555;font-size:12.5px;">
+<b>LOC totals (new + modified code):</b> Repository 268 · Service+dataclasses 210 · Async 72 · Tab 73 · Components 240 ·
+Tests (5 files) 495. New production code ≈ 863 LOC; new test code ≈ 495 LOC. Test : production ratio ≈ <b>0.57</b>.
+</p>
+
+<h2>2 · Test coverage matrix</h2>
+
+<table class="tight">
+  <thead><tr><th>Component / behavior</th><th>Repo synth</th><th>Repo real</th><th>Service synth</th><th>Service real</th><th>Arch</th></tr></thead>
+  <tbody>
+    <tr><td>Construction + validation</td><td>#1, #2</td><td>#1</td><td>#3</td><td>—</td><td>#4</td></tr>
+    <tr><td>Cluster row reads (ClusterRow)</td><td>#3, #4, #5</td><td>#2, #3</td><td>#1, #2</td><td>#1</td><td>#3</td></tr>
+    <tr><td>Assignment queries (criteria filters)</td><td>#6, #7, #8</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td>FaceRecord lookup</td><td>#9</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td>Run metadata</td><td>#10</td><td>#3</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td><code>NOISE_LABEL</code> exclusion semantics</td><td>#4, #8</td><td>—</td><td>—</td><td>—</td><td>(grep arch #2 catches bare -1 reintro)</td></tr>
+    <tr><td><code>AsyncHandle</code> done / failed / cancelled</td><td>—</td><td>—</td><td>#4, #5, #6, #12</td><td>#2, #3</td><td>—</td></tr>
+    <tr><td><code>ForceMergePreview</code> typed gates</td><td>—</td><td>—</td><td>#7, #8, #9</td><td>#4</td><td>#5 (drift guard)</td></tr>
+    <tr><td><code>ForceMergeResult</code> + snapshot writer</td><td>#11, #12</td><td>—</td><td>#10, #11</td><td>—</td><td>#5</td></tr>
+    <tr><td>Parent-dir-unchanged invariant</td><td>#11, #12</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td>Read-only mode enforced</td><td>#12</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+    <tr><td>Tab layer free of DB/FS/JSON/<code>RunStore(</code></td><td>—</td><td>—</td><td>—</td><td>—</td><td>#1</td></tr>
+    <tr><td>Tab layer free of <code>cfg.get</code> literals</td><td>—</td><td>—</td><td>—</td><td>—</td><td>#2</td></tr>
+    <tr><td>Service returns typed objects (not dicts)</td><td>—</td><td>—</td><td>(annotation enforced)</td><td>—</td><td>#3</td></tr>
+  </tbody>
+</table>
+
+<p style="color:#555;font-size:12.5px;">Every public Service + Repository method has at least one synthetic test; every architectural invariant has at least one arch test; the only behavior with only one test family is parent-dir-unchanged + read-only — they're synthetic-only by design (need a writable tmp dir).</p>
+
+<h2>3 · Hardcoded columns — audit</h2>
+
+<p>The Repository is the <em>only</em> file with raw SQL. Column names appear in 4 statements:</p>
+
+<pre>L131-132  SELECT cluster_id, size, diameter, avg_intra_dist FROM clusters WHERE iteration = ? ORDER BY cluster_id
+L136-137  SELECT cluster_id, COUNT(*) FROM cluster_assignments WHERE iteration = ? AND is_exemplar = 1 GROUP BY cluster_id
+L169      SELECT face_id, cluster_id, is_exemplar FROM cluster_assignments WHERE iteration = ?
+L324      SELECT MAX(iteration) FROM clusters</pre>
+
+<p>
+<span class="pill ok">Acceptable</span> Per-run schema lives in <code>face_cluster/db/schema.py</code>; <code>RunStore</code>'s <code>PRAGMA user_version</code> check fails loud on drift. The 7 column literals here are 1-source — concentrated in one file, in 4 statements. There is no parallel "column list" constant duplicating them (compare with the legacy <code>_COLUMNS</code> registry that spec-046 retired).
+</p>
+
+<p>
+<span class="pill note">Note</span> If the per-run schema ever moves to SQLAlchemy/Alembic (out of scope; would change the Repository from B0b to B0a), these statements should be replaced with <code>select(Cluster.cluster_id, ...)</code>. Tracked implicitly under spec-046's "applies to every future Repository" scope.
+</p>
+
+<p>
+<span class="pill ok">No hardcoded columns elsewhere</span> Service module (<code>cluster_analysis.py</code>): 0 column-string literals. All components: 0 column-string literals. Tab orchestrator: 0 column-string literals.
+</p>
+
+<h2>4 · Duplications + code smells</h2>
+
+<div class="smell-block">
+<h3><span class="pill smell">SMELL-1</span> Duplicated distance-matrix helper</h3>
+<p><b>Where.</b> <code>face_cluster/views/cluster_analysis.py:_distance_matrix</code> (line 242, ~13 LOC) reimplements the same cosine-distance math already in <code>face_cluster/views/_base.py:_pairwise_distances</code> + <code>_embeddings_matrix</code> (used by <code>ClusterView</code>, <code>ClusterDebugView</code>, <code>run_overview</code>, <code>cluster_debug_view</code>).</p>
+<p><b>Why it happened.</b> The legacy <code>_get_distance_matrix</code> at <code>app/face_clustering/tabs/cluster_analysis_tab.py:77</code> takes a <code>PipelineResult</code> and returns the matrix; I ported it verbatim instead of composing the existing <code>_base.py</code> helpers.</p>
+<p><b>Fix.</b> 1-line refactor: <code>mat = _embeddings_matrix(faces, list(range(len(faces)))); return _pairwise_distances(mat) if mat is not None else None</code>. ~13 LOC removed. <b>Filed for follow-up</b> — not blocking; the duplicate is correct, just redundant.</p>
+</div>
+
+<div class="smell-block">
+<h3><span class="pill smell">SMELL-2</span> Tech-debt seam: <code>_build_pipeline_result_proxy</code></h3>
+<p><b>Where.</b> <code>cluster_analysis.py:_build_pipeline_result_proxy</code> assembles a fake legacy <code>PipelineResult</code> so the unchanged <code>ClusterView.compute</code> / <code>ClusterDebugView.compute</code> classmethods accept Repository-shaped input.</p>
+<p><b>Why it exists.</b> Already documented as spec D5: refactoring those classmethods to take typed inputs is deferred. The proxy is the single seam where new typed code meets legacy untyped code.</p>
+<p><b>Status.</b> <span class="pill note">Accepted</span> Spec.§"Out of scope" already calls this out. The 8-LOC noise-filter inside the proxy is load-bearing (Phase 4 bug fix: <code>ClusterView.compute</code> crashed when the noise bucket's empty-exemplar list reached <code>np.stack</code>).</p>
+</div>
+
+<div class="smell-block">
+<h3><span class="pill smell">SMELL-3</span> Components total 240 LOC vs 200 target (+20%)</h3>
+<p><b>Where.</b> <code>force_merge.py</code> 62 LOC (target 50) and <code>cluster_debug.py</code> 49 LOC (target 40) account for most of the overage.</p>
+<p><b>Why.</b> Both manage non-trivial inline state (force-merge preview persistence; heatmap visibility). Splitting either would create render-helpers that are called from exactly one place — premature abstraction.</p>
+<p><b>Status.</b> <span class="pill note">Accept</span> Each component still ≤ 100 LOC and has one render function; no single component crosses the per-file 100-LOC threshold the spec suggests as the real bar.</p>
+</div>
+
+<div class="smell-block">
+<h3><span class="pill smell">SMELL-4</span> Hard-coded 512-dim leaks from legacy snapshot writer</h3>
+<p><b>Where.</b> <code>face_cluster/manual_merge_snapshot.py:170</code> uses <code>EMB_DIM = 512</code> as a constant. The synthetic test fixture had to bump from 16-dim → 512-dim to match. If InsightFace ever changes its dim, two files need a coordinated update.</p>
+<p><b>Fix.</b> Read the dim from <code>faces[0].embedding_normalized.shape[0]</code> instead of a constant. One-line change in the legacy writer; <b>filed as a sighting against <code>manual_merge_snapshot</code></b>, out of spec-045 scope.</p>
+</div>
+
+<h2>5 · What stayed clean</h2>
+
+<ul>
+  <li><b>No reverse imports.</b> Tab imports Components; Components import Service types; Service imports Repository; nothing climbs back up.</li>
+  <li><b>No cross-component imports.</b> The 6 components don't import each other — they're stateless render functions composed by the tab.</li>
+  <li><b>No <code>cfg.get('field', '?')</code> literals.</b> Arch test #2 enforces this in perpetuity.</li>
+  <li><b>No bare <code>-1</code> for noise.</b> Every cluster-id check routes through <code>NOISE_LABEL</code> / <code>is_noise()</code> (commit <code>9824d84</code>).</li>
+  <li><b>No silent dict returns.</b> Every Service method has a typed return annotation; arch test #3 enforces. <code>ForceMergePreview</code> replaces the legacy untyped force-merge dict (12 keys) one-for-one.</li>
+  <li><b>Two-way drift guard.</b> Arch test #5 locks <code>ForceMergePreview</code> field set against <code>ForceMergeResult</code> — adding a gate to the preview without piping it to the writer fails CI.</li>
+</ul>
+
+<p style="margin-top:1.5em; color:#888; font-size:12px;">
+Cross-references: <code>specs/045-cluster-analysis-tab/REVIEW.md</code> (full 8-section walk-through),
+<code>spec.md</code> (PRD with §5–§8 contracts), <code>tasks.md</code> (per-phase validation gates),
+<code>LEGACY_VS_V2_CLUSTER_TAB.html</code> (383-LOC monolith → 4-layer split diff),
+<code>TAB_DESIGN_COMPARISON.html</code> (B0a-vs-B0b framework motivation).
+</p>
+
+</body>
+</html>
