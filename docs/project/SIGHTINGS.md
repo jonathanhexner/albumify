@@ -31,6 +31,183 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-088: 3 smoke scripts under tests/ break pytest collection
+**Status**: OPEN
+**Severity**: Low (infra; blocks "run full pytest" without `--ignore`)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Anyone touching the test infra
+
+**Problem Description**:
+- `tests/test_full_e2e_flow.py` — `sys.exit(1)` at module import when backend isn't on `localhost:8000`. Kills pytest collection for the whole directory.
+- `tests/test_quality_assessment.py` — prints `✗` / `✓` at import; on a Hebrew Windows locale (cp1255) this raises `UnicodeEncodeError`.
+- `tests/pipeline/test_face_pipeline_e2e.py` — imports OK as a script, collection-fails under pytest (cause not yet investigated).
+
+**Suspicion**:
+These were authored as runnable scripts and accidentally placed under `tests/`. CLAUDE.md already mandates ASCII-only CLI output and Windows test compatibility — both apply here.
+
+**Resolution candidates**:
+- Move to `scripts/` directory, OR
+- Wrap import-time logic in `if __name__ == "__main__":`, OR
+- Add to `pytest.ini` / `pyproject.toml` `[tool.pytest.ini_options].addopts = "--ignore=tests/test_full_e2e_flow.py ..."`.
+
+---
+
+### SIGHTING-087: AVA training tests write a CSV referencing image files they don't create
+**Status**: OPEN
+**Severity**: Low (test infrastructure; nothing in prod broken)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: ML Engineer / whoever owns AVA training
+
+**Problem Description**:
+- `tests/test_ava_training.py::test_dataset` — `FileNotFoundError: 'C:\\...\\Temp\\.../images/1.jpg'`. The fixture writes `annotations.csv` listing image rows but never writes the JPEGs they point to.
+- `tests/test_ava_training.py::test_full_training_loop` — `ValueError: num_samples should be a positive integer value, but got num_samples=0`. Cascade from the above — empty dataset ⇒ `RandomSampler` rejects.
+
+**Resolution candidates**:
+- Generate placeholder JPEGs in the fixture (`PIL.Image.new('RGB', (224, 224)).save(...)`), OR
+- Mark with `@pytest.mark.requires_ava_data` and skip in CI.
+
+---
+
+### SIGHTING-086: photo_analysis prompts config grew 55 → 57; two test assertions out of date
+**Status**: OPEN
+**Severity**: Medium (false-fail; trivial fix once we confirm the 2 new prompts were intentional)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Whoever maintains the CLIP-tagging prompts config
+
+**Problem Description**:
+- `tests/test_photo_analysis.py::test_clip_tagger` — `assert summary['total_prompts'] == 55, got 57`.
+- `tests/test_photo_analysis.py::test_config_file_exists` — same `assert total == 55, got 57`.
+
+**Suspicion**:
+The prompts YAML grew by 2 entries; assertions never updated.
+
+**Resolution**:
+Audit the 2 new prompts; if intentional, bump the assertions to 57.
+
+---
+
+### SIGHTING-085: HDBSCAN-PCA factory + defaults drift breaks tests/clustering/test_mutual_knn
+**Status**: OPEN
+**Severity**: Medium (test/code disagreement; one of them is wrong)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Clustering / ML Engineer
+
+**Problem Description**:
+- `test_basic_clustering` — `assert stats['params']['pca_components'] == 64` → fails with `20 == 64`. PCA-components default changed.
+- `test_factory_loading` — `load_clustering_method({'algorithm': 'hdbscan_pca'})` raises `ValueError: Unknown clustering algorithm: hdbscan_pca`. Registered names: `dbscan, kmeans, hdbscan, hierarchical, hybrid_hdbscan_knn, hybrid_closest_face, mutual_knn, mutual_knn_two_stage, hybrid_hdbscan_knn_tcore2all, hybrid_hdbscan_knn_merge_twotier, hybrid_hdbscan_knn_attach_strong1`.
+
+**Suspicion**:
+The `hdbscan_pca` strategy was renamed or merged into one of the `hybrid_hdbscan_knn_*` variants; the test wasn't updated.
+
+**Resolution candidates**:
+- If the algorithm was intentionally removed: delete the two tests (or update them to the new name).
+- If the algorithm should still exist: re-register it in `sim_bench/clustering/base.py::_REGISTRY` (or wherever the dispatch lives) and document the PCA-components default.
+
+---
+
+### SIGHTING-084: 4 test files import from sim_bench modules that don't exist
+**Status**: OPEN
+**Severity**: Medium (8 tests across 4 files; collection or runtime failures)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Whoever owns each module's deletion (need git blame)
+
+**Problem Description**:
+- `tests/test_selection_export.py` (4 tests) → `sim_bench.album.selection` missing.
+- `tests/test_clip_aesthetic.py` (collection error) → `sim_bench.quality_assessment.clip_aesthetic` missing.
+- `tests/quality_assessment/test_learned_clip.py` (collection error) → same `sim_bench.quality_assessment.clip_aesthetic` missing.
+- `tests/test_quality_benchmark.py` (collection error) → `sim_bench.quality_assessment.benchmark` missing.
+- `tests/pipeline/test_face_embedding_validation.py` (collection error) → `sim_bench.pipeline.steps.filter_quality_gate` missing.
+
+**Resolution per file** (decision tree):
+1. If feature still exists at a different path → update test imports.
+2. If feature was deliberately retired → delete the test file (and confirm via git log that the deletion was intentional).
+3. If feature is planned but not yet built → mark tests `@pytest.mark.skip(reason="<spec-XXX> pending")`.
+
+---
+
+### SIGHTING-083: person_penalty scoring strategy returns 0.22 where test expects 0.02 (11× off)
+**Status**: OPEN
+**Severity**: High (probably a real scoring-strategy regression; affects album selection quality if shipped)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: ML / Album-selection owner
+
+**Problem Description**:
+`tests/pipeline/test_scoring_strategy.py::test_person_penalty_strategy`:
+```
+assert 0.22 == pytest.approx(0.02, rel=0.01)
+Obtained: 0.22  Expected: 0.019999999999999997 ± 2.0e-04
+```
+
+**Suspicion**:
+Person-penalty formula gained an extra factor of ~10, OR the test fixture changed (e.g., different cluster sizes) without the assertion being updated. Off by exactly one order of magnitude is suspicious — could be a missing division by 10, or units mixed (percent vs fraction).
+
+**Resolution**:
+Bisect `sim_bench/pipeline/scoring/` against the test's input fixture. One of `test_person_penalty_strategy`'s expected value, or the strategy implementation, is wrong.
+
+---
+
+### SIGHTING-082: `HybridHDBSCANKnn._validate_features` doesn't ndim-check before `np.linalg.norm`
+**Status**: OPEN
+**Severity**: High (silent bug — caller intended to get a useful error, gets a confusing numpy stack trace instead)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Clustering owner
+
+**Problem Description**:
+`tests/clustering/test_hybrid_hdbscan_knn.py::TestInputValidation::test_1d_array_raises`:
+```
+Expected: ValueError matching "2D"
+Got:      numpy.exceptions.AxisError: axis 1 is out of bounds for array of dimension 1
+```
+
+In `sim_bench/clustering/hybrid_hdbscan_knn.py:_validate_features`, the function calls `np.linalg.norm(features, axis=1)` (line 355) before checking `features.ndim`. A 1-D array trips numpy before the function's own validation can raise.
+
+**Resolution**:
+Add as the very first check inside `_validate_features`:
+```python
+if features.ndim != 2:
+    raise ValueError(f"features must be 2D (n_samples, n_features), got {features.ndim}D")
+```
+
+---
+
+### SIGHTING-081: Face-recognition pipeline produces embeddings uncorrelated with ground truth
+**Status**: OPEN
+**Severity**: Critical (entire face-pipeline output appears unusable for similarity work — distance-matrix correlation with ground truth is 0.006 where ≥0.9 was expected)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: ML Engineer / Face-pipeline owner
+
+**Problem Description**:
+Five tests across three files fail in the same direction — measured similarity / distance for known same-person face pairs is far below threshold:
+
+| Test | Symptom |
+|---|---|
+| `tests/test_face_pipeline_full.py::TestPipelineVsGroundTruth::test_distance_matrix_correlation` | Pearson correlation pipeline-vs-ground-truth = **0.006** (threshold 0.9) |
+| `tests/test_face_pipeline_full.py::TestFullPipeline::test_pipeline_embeddings_match_ground_truth` | 15 faces with same-face cosine sim ≈ 0 (some negative) |
+| `tests/test_face_pipeline_full.py::TestFullPipeline::test_pipeline_preserves_identity_structure` | 55 same-person pairs measure cosine-distance > 1.0 (impossible for unit vectors) |
+| `tests/test_ground_truth_fresh.py::TestGroundTruthFresh::test_same_person_distances` | 20 same-person pairs at distance ≥ 0.46 |
+| `tests/pipeline/test_face_recognition_benchmark.py::TestSimilarityMetrics::test_intra_person_similarity` | Person 00000 mean similarity 0.407 (threshold 0.5) |
+
+**Suspicion**:
+A single root cause likely explains all 5. Candidates:
+1. **Wrong model variant loaded.** The fresh insightface model load printed in the trace shows `buffalo_l/w600k_r50.onnx` for recognition. If the test fixtures were captured against a different model (e.g., `arcface_r100`), every assertion would fail.
+2. **Embeddings written un-normalized.** Cosine-distance > 1.0 is mathematically impossible for unit vectors, so embeddings either aren't L2-normalized at write time or are being read with the wrong dtype/shape.
+3. **Alignment / preprocessing drift.** A different crop size, BGR/RGB swap, or scale would produce embeddings in a different region of the 512-D sphere → ground-truth comparisons all miss.
+
+**Why this matters**:
+This is the substrate every downstream feature depends on. If face embeddings are broken at the pipeline level, clustering, similarity search, and selection-export results are all suspect — even if those features' own unit tests pass against synthetic data.
+
+**Steps to reproduce**:
+```
+.venv/Scripts/python -m pytest tests/test_face_pipeline_full.py -v
+```
+
+**Resolution candidates**:
+1. `git log` on `sim_bench/embedding/` and `sim_bench/pipeline/steps/face_*` since the last time these tests passed.
+2. Compare the current insightface model version + alignment params against the ground-truth fixture's captured version.
+3. Add an assertion that embedding L2-norm ≈ 1.0 right after extraction.
+
+---
+
 ### SIGHTING-080: History tab "Load Run" rejects every v2 run as "missing required artifacts (faces.csv, ...)"
 **Status**: RESOLVED 2026-05-29
 **Severity**: High (every v2 run was un-loadable from History tab — blocked the whole History → Analysis flow)
