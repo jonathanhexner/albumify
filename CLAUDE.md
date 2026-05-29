@@ -61,6 +61,20 @@ Spec lifecycle: `Draft` → `In Progress` → `Code Review` → `Implemented`.
 2. **Restart the app yourself** — verify the fix is live.
 3. **Run Playwright E2E against the real app** with real data. Check screenshots.
 4. **Check what the user will actually see** — no images = not done, button does nothing = not done.
+
+### V2 baseline gate (binding)
+
+**Any change to a v2 tab or any new v2 feature MUST run `tests/face_clustering/test_v2_e2e_budapest_baseline.py` before being marked Implemented.** This is the canonical reference test:
+
+  - Source: `D:\Budapest2025_Google`
+  - Profile: `profile_4.json`
+  - Expected: `n_clusters == 15`, `n_faces == 340`
+  - Reference run id (Scenario B): `6437d335de914755bc3edb825c9591c0`
+
+  - Run with: `.venv/Scripts/python -m pytest -m budapest tests/face_clustering/test_v2_e2e_budapest_baseline.py -v`
+  - When adding a new tab, **add a new Scenario** to the baseline test (see specs 063-066 for the pattern).
+
+**A v2 commit without this test green is not Implemented**, regardless of unit-test status.
 5. **Trace data end-to-end** — pipeline step → context → DB → API schema → API response → frontend model → UI display. Missing any link = silently broken.
 6. **Test the full data path** — `py_compile` passing means nothing without real data.
 7. **Do not report a feature as complete when you know parts are unimplemented.** If it needs to be in 4 places and you did 1, that is 25% done. Say so, or finish the job.

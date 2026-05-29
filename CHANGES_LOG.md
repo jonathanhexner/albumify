@@ -2,6 +2,20 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-30 [PLAN] v2 baseline e2e + PRDs for 6 remaining tabs + roadmap
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `tests/face_clustering/test_v2_e2e_budapest_baseline.py` — Playwright + Streamlit subprocess. Two scenarios: (A) fresh pipeline run against `D:\Budapest2025_Google` + `profile_4.json` asserts `n_clusters == 15`; (B) loads reference run `6437d335de914755bc3edb825c9591c0` via History, switches to Cluster Analysis, asserts metrics + thumbnails render. Skips cleanly when source dir / profile / reference run / Playwright Chromium missing.
+- UPDATED `pyproject.toml` — new `budapest` pytest marker; default `addopts` excludes it.
+- UPDATED `CLAUDE.md` §"Delivery Quality" — new "V2 baseline gate (binding)" subsection: any v2 tab change or new v2 feature MUST run `pytest -m budapest ...` green before being marked Implemented.
+- NEW `specs/063-v2-recluster-tab/{spec,tasks}.md` (P1, ~4-6 h) — FCAppRunner.recluster() + sync compute + Scenario C.
+- NEW `specs/064-v2-face-analysis-tab/{spec,tasks}.md` (P2, ~3-4 h) — per-face popup; reuses FaceView.compute; Scenario D.
+- NEW `specs/065-v2-merged-clusters-and-quality-tabs/{spec,tasks}.md` (P2 grouped, ~4-5 h) — both pure read-only viewers; one Repository method + 2 services + 2 tabs; Scenarios E + F.
+- NEW `specs/066-v2-gallery-and-overview-tabs/{spec,tasks}.md` (P3 grouped, ~3-4 h) — closes spec-042 tab parity. Scenarios G + H.
+- NEW `specs/042-fc-app-v2-tab-parity/V2_ROADMAP_2026-05-30.html` — single-page roadmap with status table, dependency sequence, class diagram (current + planned), test-gate matrix, risks-per-spec mapping, what-to-do-next.
+**Reason**: Per user direction: the user wants a real-browser e2e against the Budapest reference run as the binding gate, PRDs for all 6 missing tabs (one-by-one or grouped per judgment), and a roadmap HTML with class diagrams that complies with the architectural patterns. The baseline test verifies both directions (fresh pipeline reaches 15 clusters; reference run loads + renders) so every new tab spec adds a Scenario letter (C through H). By the time spec-066 lands, the baseline has 8 scenarios pinning the entire v2 surface.
+**Verification**: Imports clean (`python -c "import ..."` works on the new test). Marker registers (`pytest --collect-only -m budapest` collects 2 cases). Full regression: 232/232 unit + arch tests still green (no behavior change). The Playwright test itself is **not run in this commit** — it requires the user's live Budapest album + a streamlit subprocess (~5-10 min). User runs it manually to validate.
+
 ### 2026-05-30 [BUGFIX] spec-061 audit closed — SIGHTING-089 (History panel blank for v2 runs) fixed
 **Branch**: `unification/spec-040`
 **Files**:
