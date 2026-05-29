@@ -88,7 +88,7 @@ def test_migrate_one_handles_spec040_v2_shape(tmp_path: Path):
     flat = {"K": 9, "distance_threshold": 0.3}
     legacy_v2 = {
         "version": 2,
-        "step_configs": {"quality_gate_faces": flat, "build_face_knn_graph": flat},
+        "step_configs": {"quality_gate": flat, "build_face_knn_graph": flat},
         "legacy_flat": flat,
     }
     p.write_text(json.dumps(legacy_v2), encoding="utf-8")

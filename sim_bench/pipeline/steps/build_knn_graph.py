@@ -34,7 +34,7 @@ class BuildKNNGraphStep(BaseStep):
             category="people",
             requires={"face_records", "core_indices"},
             produces={"knn_graph_result"},
-            depends_on=["filter_quality_gate"],
+            depends_on=["quality_gate"],
             config_schema={
                 "type": "object",
                 "properties": {

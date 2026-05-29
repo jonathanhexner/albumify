@@ -1,6 +1,7 @@
 """D10-based exemplar selection for clusters."""
 
 import logging
+from dataclasses import dataclass
 from typing import Dict, List, Tuple
 import numpy as np
 
@@ -8,6 +9,26 @@ from face_cluster.types import ClusterResult, GraphResult
 from face_cluster.config import PipelineConfig
 
 logger = logging.getLogger(__name__)
+
+
+# spec-053: typed boundary for D10ExemplarSelector.calc().
+
+@dataclass(frozen=True, slots=True)
+class ExemplarInputs:
+    """Per-call data for D10ExemplarSelector.calc()."""
+    cluster_result: ClusterResult
+    graph_result: GraphResult
+
+
+@dataclass(frozen=True, slots=True)
+class ExemplarResult:
+    """Output of D10ExemplarSelector.calc().
+
+    ``cluster_result`` is the SAME ClusterResult passed in, mutated
+    to populate the ``exemplars`` field.
+    """
+    cluster_result: ClusterResult
+    node_d10_map: Dict[int, float]
 
 
 class D10ExemplarSelector:
@@ -26,6 +47,12 @@ class D10ExemplarSelector:
             config: Pipeline configuration with d10 parameters
         """
         self.config = config
+
+    def calc(self, inputs: ExemplarInputs) -> ExemplarResult:
+        """Single pipeline entry point (spec-053). Thin facade over
+        ``select_exemplars()``."""
+        cr, d10 = self.select_exemplars(inputs.cluster_result, inputs.graph_result)
+        return ExemplarResult(cluster_result=cr, node_d10_map=d10)
 
     def select_exemplars(
         self,

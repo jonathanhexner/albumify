@@ -113,8 +113,8 @@ ALLOW_LIST: dict[str, str] = {
         "TODO P5 migration: legacy filter, still writes face['filter_passed']",
     "sim_bench/pipeline/steps/filter_portraits.py":
         "TODO P5 migration: filter that should emit decisions",
-    "sim_bench/pipeline/steps/filter_quality_gate.py":
-        "experimental pipeline — separate path",
+    "sim_bench/pipeline/steps/quality_gate.py":
+        "spec-053: consolidated step (was filter_quality_gate + quality_gate_faces)",
     "sim_bench/pipeline/steps/select_best.py":
         "selection step (post-filter)",
     "sim_bench/pipeline/steps/select_best_per_person.py":

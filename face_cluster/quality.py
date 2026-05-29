@@ -1,6 +1,7 @@
 """Quality gating for face clustering - blur and pose filtering."""
 
 import logging
+from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
 import numpy as np
 import cv2
@@ -10,6 +11,30 @@ from face_cluster.types import FaceRecord, GateResult, QualityVerdict
 from face_cluster.config import PipelineConfig
 
 logger = logging.getLogger(__name__)
+
+
+# spec-053: typed boundary for QualityGater.calc(). Inputs/Result are
+# deliberately small — NOT a PipelineContext. The pipeline step is the
+# only place that knows both worlds.
+
+@dataclass(frozen=True, slots=True)
+class QualityGateInputs:
+    """Per-call data for QualityGater.calc()."""
+    faces: List[FaceRecord]
+
+
+@dataclass(frozen=True, slots=True)
+class QualityGateResult:
+    """Output of QualityGater.calc().
+
+    ``faces`` is the SAME list passed in, mutated in place with computed
+    blur scores (and optionally pose) before gating. Callers should
+    treat this as authoritative for the post-gating face state.
+    """
+    core_indices: List[int]
+    holdout_indices: List[int]
+    verdicts: List[QualityVerdict]
+    faces: List[FaceRecord]
 
 
 class PoseEstimator:
@@ -99,6 +124,30 @@ class QualityGater:
         # every face), select_core_set will bypass blur_min for the run
         # and emit a WARNING. ``None`` means "use self.config.blur_min".
         self._effective_blur_min: Optional[float] = None
+
+    def calc(self, inputs: QualityGateInputs) -> QualityGateResult:
+        """Single pipeline entry point (spec-053).
+
+        Composes ``compute_blur_scores → [compute_pose_scores] →
+        select_core_set`` in the correct order. Pipeline steps MUST
+        use this method rather than calling the individual methods —
+        that's how the spec-053 ``filter_quality_gate`` /
+        ``quality_gate_faces`` divergence (one forgot to compute blur)
+        becomes impossible by construction.
+
+        The individual methods stay public for notebook callers that
+        need finer control.
+        """
+        faces = self.compute_blur_scores(inputs.faces)
+        if self.use_pose_estimation:
+            faces = self.compute_pose_scores(faces)
+        core, holdout, verdicts = self.select_core_set(faces)
+        return QualityGateResult(
+            core_indices=list(core),
+            holdout_indices=list(holdout),
+            verdicts=verdicts,
+            faces=faces,
+        )
 
     def compute_blur_scores(self, faces: List[FaceRecord]) -> List[FaceRecord]:
         """Compute blur scores for all faces.

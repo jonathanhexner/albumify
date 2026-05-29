@@ -24,10 +24,10 @@ import json
 import logging
 import shutil
 import sqlite3
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 from PIL import Image
@@ -56,7 +56,51 @@ logger = logging.getLogger(__name__)
 # Schema (DDL + version + artifact allow-list) lives in `face_cluster/db/`.
 # Re-export for callers that historically imported these names from this
 # module (RunStore, tests, scripts).
-__all__ = ("RunExporter", "RunExporterError", "EXPECTED_ARTIFACTS", "SCHEMA_VERSION")
+__all__ = (
+    "RunExporter", "RunExporterError",
+    "RunExportInputs", "RunExportResult",
+    "EXPECTED_ARTIFACTS", "SCHEMA_VERSION",
+)
+
+
+# spec-053: typed boundary for RunExporter.calc(). The Inputs dataclass
+# is wide (19 fields) because the export contract is wide — but pinning
+# it as one typed object is still better than the ad-hoc kwargs callers
+# pass today. A future spec may split RunExporter.
+
+@dataclass(frozen=True, slots=True)
+class RunExportInputs:
+    """Per-call data for RunExporter.calc().
+
+    Wraps every kwarg of ``export()``. Optional fields default to None
+    or empty so callers only set what they have.
+    """
+    faces: List[Any]
+    base_cluster_result: Any
+    merged_cluster_result: Optional[Any]
+    core_indices: List[int]
+    merge_log: Optional[List[Dict]]
+    merge_metadata: Optional[Dict]
+    config: Any
+    source_album: str
+    producer: str
+    run_id: str
+    started_at: str
+    finished_at: str
+    parent_run_id: Optional[str] = None
+    crop_source_dir: Optional[Path] = None
+    filters: Any = None
+    image_scores: Optional[Dict[str, Dict[str, float]]] = None
+    image_paths: Optional[List[str]] = None
+    scene_clusters: Optional[List[Dict]] = None
+    scene_cluster_assignments: Optional[List[Dict]] = None
+
+
+@dataclass(frozen=True, slots=True)
+class RunExportResult:
+    """Output of RunExporter.calc()."""
+    output_dir: Path
+    db_path: Path
 
 
 class RunExporterError(RuntimeError):
@@ -77,6 +121,41 @@ class RunExporter:
     def __init__(self, output_dir: Path):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # spec-053 — single pipeline entry point
+    # ------------------------------------------------------------------
+
+    def calc(self, inputs: "RunExportInputs") -> "RunExportResult":
+        """Single pipeline entry point (spec-053). Thin facade over
+        ``export()`` — the kwarg surface is wide because the export
+        contract is wide; pinning it in a typed dataclass keeps the
+        boundary grep-able."""
+        self.export(
+            faces=inputs.faces,
+            base_cluster_result=inputs.base_cluster_result,
+            merged_cluster_result=inputs.merged_cluster_result,
+            core_indices=inputs.core_indices,
+            merge_log=inputs.merge_log,
+            merge_metadata=inputs.merge_metadata,
+            config=inputs.config,
+            source_album=inputs.source_album,
+            producer=inputs.producer,
+            run_id=inputs.run_id,
+            started_at=inputs.started_at,
+            finished_at=inputs.finished_at,
+            parent_run_id=inputs.parent_run_id,
+            crop_source_dir=inputs.crop_source_dir,
+            filters=inputs.filters,
+            image_scores=inputs.image_scores,
+            image_paths=inputs.image_paths,
+            scene_clusters=inputs.scene_clusters,
+            scene_cluster_assignments=inputs.scene_cluster_assignments,
+        )
+        return RunExportResult(
+            output_dir=self.output_dir,
+            db_path=self.output_dir / "face_clustering.db",
+        )
 
     # ------------------------------------------------------------------
     # Public entry

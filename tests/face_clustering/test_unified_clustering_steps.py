@@ -18,10 +18,11 @@ from sim_bench.pipeline.steps.face_clustering_steps import (
     BuildFaceKNNGraphStep,
     ClusterFaceComponentsStep,
     MergeFaceClustersStep,
-    QualityGateFacesStep,
     SelectFaceExemplarsStep,
     ApplyDiameterCapStep,
 )
+# spec-053: QualityGateFacesStep merged into the consolidated QualityGateStep.
+from sim_bench.pipeline.steps.quality_gate import QualityGateStep
 
 
 def _synthetic_face(face_id: int, identity: int, image_idx: int) -> FaceRecord:
@@ -66,7 +67,7 @@ def two_identity_context() -> PipelineContext:
 def _run_chain(ctx: PipelineContext, config: dict) -> None:
     """Run the 8 unified clustering steps in order."""
     for step_cls in (
-        QualityGateFacesStep,
+        QualityGateStep,
         BuildFaceKNNGraphStep,
         ClusterFaceComponentsStep,
         SelectFaceExemplarsStep,

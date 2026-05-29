@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # caller is responsible for populating context.face_records before
 # running this chain).
 UNIFIED_CLUSTERING_STEPS = [
-    "quality_gate_faces",
+    "quality_gate",  # spec-053: consolidated step (was "quality_gate_faces")
     "build_face_knn_graph",
     "cluster_face_components",
     "select_face_exemplars",

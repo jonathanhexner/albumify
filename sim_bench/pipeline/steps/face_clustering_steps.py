@@ -41,52 +41,10 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Step 1: quality gate
+# Step 1 (quality gate) — DELETED by spec-053.
+# The consolidated step lives at sim_bench/pipeline/steps/quality_gate.py
+# under the name "quality_gate" and serves BOTH Albumify and FC App v2.
 # ---------------------------------------------------------------------------
-@register_step
-class QualityGateFacesStep(BaseStep):
-    """Run QualityGater on context.face_records; set is_core / rejection_reason."""
-
-    def __init__(self) -> None:
-        self._metadata = StepMetadata(
-            name="quality_gate_faces",
-            display_name="Quality-gate faces",
-            description="Run blur / pose / area / det / top-k gates on each FaceRecord.",
-            category="clustering",
-            requires={"face_records"},
-            produces={"core_indices", "holdout_indices"},
-            depends_on=[],
-            config_schema={"type": "object"},
-        )
-
-    def process(self, context: PipelineContext, config: dict) -> None:
-        faces: List[FaceRecord] = context.face_records or []
-        if not faces:
-            context.core_indices = []
-            context.holdout_indices = []
-            return
-        gater = QualityGater(FCConfig(**config))
-        core, holdout, _verdicts = gater.select_core_set(faces)
-        # Defensive: faces with no embedding must never enter the core set.
-        # If they do, downstream kNN builds np.array([None, ndarray, ...]) and
-        # fails with "inhomogeneous shape". Filter explicitly and log loud so
-        # a producer regression (cf. spec-040 A1 dual-write) is diagnosable.
-        n_dropped = 0
-        filtered_core: list[int] = []
-        for i in core:
-            if faces[i].embedding_normalized is None:
-                n_dropped += 1
-            else:
-                filtered_core.append(i)
-        if n_dropped:
-            logger.warning(
-                "quality_gate_faces: dropped %d core faces with None embedding_normalized "
-                "(producer dual-write regression?)", n_dropped,
-            )
-        context.core_indices = filtered_core
-        context.holdout_indices = list(holdout)
-        logger.info("quality_gate_faces: %d core / %d holdout / %d total",
-                    len(filtered_core), len(holdout), len(faces))
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +60,7 @@ class BuildFaceKNNGraphStep(BaseStep):
             category="clustering",
             requires={"face_records", "core_indices"},
             produces={"graph_result"},
-            depends_on=["quality_gate_faces"],
+            depends_on=["quality_gate"],
             config_schema={"type": "object"},
         )
 

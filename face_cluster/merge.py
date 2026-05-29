@@ -11,6 +11,25 @@ from face_cluster.config import PipelineConfig
 logger = logging.getLogger(__name__)
 
 
+# spec-053: typed boundary for ConservativeMerger.calc()
+# (test files call it "SimplifiedMerger" historically; the class itself
+# is ConservativeMerger).
+
+@dataclass(frozen=True, slots=True)
+class MergeInputs:
+    """Per-call data for ConservativeMerger.calc()."""
+    cluster_result: ClusterResult
+    graph_result: GraphResult
+
+
+@dataclass(frozen=True, slots=True)
+class MergeResult:
+    """Output of ConservativeMerger.calc()."""
+    cluster_result: ClusterResult
+    merge_log: List[Dict]
+    merge_metadata: Dict
+
+
 @dataclass
 class MarginDetail:
     """Numeric detail for the margin gate check."""
@@ -199,6 +218,14 @@ class ConservativeMerger:
         """
         self.config = config
         self.last_candidates: List[Tuple[int, int, float, Dict]] = []
+
+    def calc(self, inputs: "MergeInputs") -> "MergeResult":
+        """Single pipeline entry point (spec-053). Thin facade over
+        ``merge_clusters_with_logging()``."""
+        cr, log, meta = self.merge_clusters_with_logging(
+            inputs.cluster_result, inputs.graph_result,
+        )
+        return MergeResult(cluster_result=cr, merge_log=log, merge_metadata=meta)
 
     def merge_clusters_with_logging(
         self,

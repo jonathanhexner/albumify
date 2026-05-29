@@ -51,7 +51,6 @@ from sim_bench.pipeline.steps.cluster_by_identity import ClusterByIdentityStep
 
 # spec-040 Phase 3: unified face-clustering steps (operate on context.face_records)
 from sim_bench.pipeline.steps.face_clustering_steps import (  # noqa: F401
-    QualityGateFacesStep,
     BuildFaceKNNGraphStep,
     ClusterFaceComponentsStep,
     SelectFaceExemplarsStep,
@@ -62,7 +61,8 @@ from sim_bench.pipeline.steps.face_clustering_steps import (  # noqa: F401
 )
 
 # Face Clustering Experimentation Pipeline
-from sim_bench.pipeline.steps.filter_quality_gate import FilterQualityGateStep
+# spec-053: filter_quality_gate + quality_gate_faces consolidated into quality_gate.
+from sim_bench.pipeline.steps.quality_gate import QualityGateStep  # noqa: F401
 from sim_bench.pipeline.steps.build_knn_graph import BuildKNNGraphStep
 from sim_bench.pipeline.steps.cluster_connected_components import ClusterConnectedComponentsStep
 from sim_bench.pipeline.steps.select_exemplars import SelectExemplarsStep
@@ -115,8 +115,8 @@ __all__ = [
     "ClusterPeopleStep",
     "IdentityRefinementStep",
     "ClusterByIdentityStep",
-    # Face Clustering Experimentation
-    "FilterQualityGateStep",
+    # Face Clustering (consolidated quality_gate per spec-053)
+    "QualityGateStep",
     "BuildKNNGraphStep",
     "ClusterConnectedComponentsStep",
     "SelectExemplarsStep",
