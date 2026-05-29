@@ -21,6 +21,28 @@ Spec lifecycle: `Draft` → `In Progress` → `Code Review` → `Implemented`.
 
 ---
 
+## Communication style (mandatory)
+- **Responses ≤ 150 lines.** If a thorough answer would exceed that, write the long version to an artifact (HTML / MD under `specs/` or `docs/`) and link to it.
+- **Prefer diagrams** (ASCII / mermaid / image) over prose for anything structural (data flow, module relationships, decision trees).
+- **No jargon without a 1-clause inline definition.** Examples of terms to define-or-skip: monkeypatch, fileConfig, autouse fixture, stamp head, Greenspun's tenth rule.
+- Lead with the direct answer. No recap of what the user just said. No "let me explain". No symmetric "what was supposed / what actually" templates.
+- If a follow-up clarification might be needed, let the user ask. Don't preempt.
+
+## Implementation gate (mandatory — strengthens §MANDATORY: Feature Development Workflow)
+- **No code without a spec.** Any non-trivial change requires `specs/NNN-<name>/spec.md` + `specs/NNN-<name>/tasks.md` BEFORE the first edit. If asked to implement without one, propose the spec first; skip only on explicit "just do it" from the user.
+- **No "Implemented" without REVIEW.md.** Run `/code-review` at the end of every implementation spec. Walk all 8 sections of `docs/guides/CODE_REVIEW_CHECKLIST.md`. Resolve high-severity findings before flipping the spec status.
+- **For spec-implementer subagent users**: it will refuse to start without a spec dir and refuse to finish without REVIEW.md. Drive it via `Agent(subagent_type="spec-implementer", ...)`.
+- Exemptions unchanged: bug fixes → file a sighting in `docs/project/SIGHTINGS.md`; pure refactor with no behavior change → CHANGES_LOG only; docs-only → CHANGES_LOG only.
+
+## Pipeline step file convention (mandatory — spec-053)
+- **One Step class per file** under `sim_bench/pipeline/steps/`. Files that bundle multiple steps (e.g. `face_clustering_steps.py`) are anti-pattern; split when touched.
+- **Step files are thin (≤80 LOC).** A step reads context, builds a helper `Inputs` dataclass, calls `helper.calc(inputs)`, writes the `Result` back to context. Domain logic belongs in `face_cluster/`, not in the step.
+- **Every domain helper exposes `calc(inputs) -> result`** as its primary entry. Config goes in `__init__`; per-call data goes in a typed `Inputs` dataclass; output is a typed `Result` dataclass. The individual helper methods (`compute_blur_scores`, `build_graph`, …) stay public for notebook callers; **pipeline steps must use `calc()`** so orchestration constraints (e.g. "compute blur before selecting core set") are enforced by construction.
+- **`Inputs` / `Result` are NOT `PipelineContext`.** The step is the translator; helpers stay framework-agnostic so notebooks can use them directly.
+- Rationale: spec-053 codified this after two quality-gate steps drifted (one forgot to call `compute_blur_scores`) and the blur threshold silently self-disabled in production. The convention makes that class of bug impossible by construction.
+
+---
+
 ## General
 - **Never implement code changes without an explicit request.** Question → answer. Problem report → debug first. Propose changes, don't make them without approval.
 - If solution is obvious and quick, go for it. Else file a sighting in `docs/project/SIGHTINGS.md`.

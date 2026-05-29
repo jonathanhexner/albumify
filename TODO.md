@@ -13,7 +13,21 @@
 ## spec-044 follow-ups (from REVIEW.md, 2026-05-25)
 - [x] F-1 docs/architecture/classes.html: add RunHistoryRepository section (spec-043 oversight) + ColumnDef row (spec-044 addition). Cross-link to architecture_standards.md §B0 / §B0.1. | 2026-05-25 | Claude
 - [x] F-2 docs/architecture/db_global.html action_log section: replace "module-level functions (no class wrapper)" with RunHistoryRepository (lines ~283, 285); add producer column row to the column table (~line 297). | 2026-05-25 | Claude
-- [~] F-3 (deferred) face_cluster/repositories/run_history_repo.py is 699 LOC; extract ColumnDef + _COLUMNS + generated constants + _start_action_value to sibling _columns.py when the next Repository materializes (e.g., ClusterAnalysisRepository). ~120 LOC carve-out. | 2026-05-25 | unassigned
+- [~] F-3 OBSOLETE — superseded by spec-046. The entire ColumnDef / _COLUMNS pattern is being retired (replaced by SQLAlchemy ORM models + Alembic). | 2026-05-28 | spec-046
+
+---
+
+## spec-046 — SQLAlchemy + Alembic data layer  ✅ IMPLEMENTED 2026-05-28
+Full plan: `specs/046-sqlalchemy-data-layer/tasks.md` — see REVIEW.md and CODE_AUDIT.html.
+
+## spec-048 — Data layer cleanup (spec-046 follow-ups)  ✅ IMPLEMENTED 2026-05-28
+Full plan: `specs/048-data-layer-cleanup/tasks.md` — see REVIEW.md.
+Resolved spec-046 SMELL-1/2/3/4/5/8 and added centralized `face_cluster/_paths.py`. 6 new permanent drift-guard tests.
+
+- [ ] F-2 follow-up (P3, ~15 min): Annotate `docs/architecture/classes.html` + `db_global.html` for the spec-046 ORM-based design (carry-over from spec-046 F-1). | 2026-05-28 | unassigned
+
+## spec-047 (planned, depends on spec-046) — Full-system E2E gate
+- [ ] Spec to be drafted. One Playwright test that runs the real pipeline against `D:\sim-bench\test_data\face_clustering`, verifies DB writes via Repository, verifies UI render. Universal ship gate for future architectural specs. | 2026-05-28 | unassigned
 
 ---
 

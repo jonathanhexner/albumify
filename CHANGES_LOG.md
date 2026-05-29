@@ -2,6 +2,66 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [REFACTOR] spec-053 — Helper API consolidation + quality-gate step merge
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/_helper_base.py` — `PipelineHelper[I, R]` Protocol for `calc(inputs) -> result`.
+- UPDATED 5 helpers — each gains a typed `Inputs` + `Result` dataclass and a `calc()` method that composes the existing methods in the correct order. Existing methods stay public. (`QualityGater`, `KNNGraphBuilder`, `D10ExemplarSelector`, `ConservativeMerger`, `RunExporter`.)
+- NEW `sim_bench/pipeline/steps/quality_gate.py` — consolidated step replacing **both** `filter_quality_gate` (Albumify) and `quality_gate_faces` (FC App v2). Handles both input shapes; calls `QualityGater.calc()` so the bug class — forgetting `compute_blur_scores` — is impossible by construction.
+- DELETED `sim_bench/pipeline/steps/filter_quality_gate.py` + `QualityGateFacesStep` class.
+- UPDATED `face_cluster/fc_app_runner.py::UNIFIED_CLUSTERING_STEPS`, `configs/face_clustering_experiment.yaml`, `build_knn_graph.py::depends_on`, `face_clustering_steps.py::depends_on`, `all_steps.py` imports/exports — all now reference `quality_gate`.
+- UPDATED `tests/architecture/test_no_raw_collection_iteration.py` allow-list (`filter_quality_gate.py` → `quality_gate.py`); `tests/face_clustering/test_unified_clustering_steps.py` + `test_profile_migration.py` updated to new step name.
+- NEW `tests/face_clustering/test_helper_base.py` (3), `test_helpers_calc_equivalence.py` (5), `test_knn_graph.py` (3 — backfill), `test_exemplars.py` (3 — backfill), `test_quality_gate_step.py` (5 — incl. bug-reproduction). **+19 tests net**.
+- UPDATED `CLAUDE.md` — new "Pipeline step file convention" section codifying one-step-per-file + `helper.calc(inputs) -> result`.
+- NEW `specs/053-helper-api-consolidation/{spec.md, tasks.md, REVIEW.md}` — all Implemented.
+- SIGHTING-068 closed.
+**Reason**: User reported that setting `blur_min > 0` in the v2 app had no effect. Investigation revealed two near-duplicate quality-gate steps (`filter_quality_gate` for Albumify, `quality_gate_faces` for v2); only the Albumify one called `compute_blur_scores` before `select_core_set`. The v2 step silently self-disabled the blur threshold via the `"Blur gate: NOT WIRED"` warning. Root cause is architectural: helpers exposed multi-method APIs with implicit ordering constraints. Spec-053 makes the constraint explicit by adding `calc(inputs) -> result` as the only public pipeline entry point. Each helper still exposes its individual methods (for notebooks); pipeline steps MUST use `calc()`. Convention codified in CLAUDE.md.
+**Verification**: 728 passed / 5 failed / 0 errors (was 699/5/0 pre-spec-053). +29 passing tests. Same 5 pre-existing failures unchanged (tracked in spec-052). The user-bug reproduction test `test_blur_gate_actually_filters_when_min_is_high` would have failed pre-spec-053 (proves the bug existed) and passes now (proves it's fixed).
+
+### 2026-05-29 [FEATURE] spec-045 Phases 3–8 — Service + tab + arch tests + docs (status → Implemented)
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/views/_async.py` — `AsyncHandle[T]` generic dataclass with `start()` / `poll()` / `cancel()` / `wait()`. Replaces the legacy untyped `app/face_clustering/state.py::_AsyncState`. Shared library code for future heavy-compute tabs.
+- UPDATED `face_cluster/views/cluster_analysis.py` (+~200 LOC) — `ForceMergePreview` typed dataclass + `ClusterAnalysisService` with `list_clusters` / `get_cluster_ids` / `compute_detail_async` / `compute_debug_async` / `preview_force_merge` / `apply_force_merge`. Single-cluster cancellation contract: a fresh `compute_*_async` cancels the prior in-flight handle. Strips the noise bucket from the proxy `PipelineResult` before passing to legacy `ClusterView.compute` (the legacy code crashes on a noise cluster with empty exemplars — discovered + fixed during Phase 4).
+- NEW 6 components under `app/face_clustering_v2/components/`: `cluster_picker.py` (28 LOC), `cluster_metrics.py` (37), `face_grid.py` (34), `nearest_clusters.py` (30), `force_merge.py` (62), `cluster_debug.py` (49). Stateless render functions; consume the Service through typed handles + dataclasses.
+- NEW `app/face_clustering_v2/tabs/cluster_analysis_tab.py` (73 LOC ≤80 target ✓) — orchestrator only. Resolves the current run dir via 3-key priority chain (`current_run_dir` → `v2_last_run_dir` → `active_run_dir`, per spec §7.2); lazily caches the Service on the run-dir key.
+- UPDATED `app/face_clustering_v2/components/load_button.py` — writes `current_run_dir` alongside existing `active_run_dir` so the Cluster Analysis tab picks up the History → Load Run flow without a second resolver.
+- UPDATED `app/face_clustering_v2/main.py` — replaced the "Clusters" tab registration with "Cluster Analysis" (= the new tab); removed the old `clusters_tab` import.
+- DELETED `app/face_clustering_v2/tabs/clusters_tab.py` — superseded by the new tab.
+- NEW `tests/face_clustering/views/test_cluster_analysis_service_synthetic.py` (12 cases — spec §8.3 #1–#12).
+- NEW `tests/face_clustering/views/test_cluster_analysis_service_real.py` (4 cases — spec §8.4 #1–#4; skipped on CI without a v2 Budapest run).
+- NEW `tests/architecture/test_cluster_analysis_tab.py` (5 cases — spec §8.5 #1–#5: no DB/FS in tab, no `cfg.get` literals, Service returns typed objects, Repository takes typed Config, ForceMergePreview/Result fields locked).
+- NEW `tests/manual/_v2_cluster_analysis_smoke.py` — Playwright headless 5-step script for spec §8.6 (handed to user for live-server execution).
+- UPDATED `docs/architecture/classes.html` — +7 rows (Repo config / Criteria / Assignment / ForceMergePreview / ForceMergeResult / AsyncHandle / Service) across §4 + §5.
+- UPDATED `docs/architecture/data_flow.html` — added §"spec-045 — Cluster Analysis read path" with ASCII layer diagram + invariants paragraph cross-referencing the arch tests.
+- UPDATED `docs/architecture/architecture_standards.md` — added §B0.2.1 distinguishing schema-owning (B0a) vs query-shape (B0b) Repositories; spec-045 named as the first B0b example.
+- NEW `specs/045-cluster-analysis-tab/REVIEW.md` — 8-section code-review walk-through. Verdict: **pass-with-followup**. No high-severity findings; 5 minor (F-1 components 240 vs 200 LOC, F-2/F-3 spec-text drift, F-4 hard-coded 512-dim in legacy snapshot writer, F-5 manual smokes deferred to user).
+- UPDATED `specs/045-cluster-analysis-tab/spec.md` — F-2 (Repository constructor signature) + F-3 (`v2_budapest_run_dir` fixture name) folded in; status flipped `Draft` → `Implemented`.
+- UPDATED `specs/045-cluster-analysis-tab/tasks.md` — T020–T077 marked.
+**Reason**: spec-045 was the next P1 tab in the spec-042 parity umbrella. Closes the typed Tab→Service→Repository stack for the user's daily workbench: cluster picker, metrics + face grid, nearest clusters, force-merge with typed preview, graph debug. Legacy `cluster_analysis_tab.py` (383 LOC monolith mixing SQL + JSON + Streamlit + async + business logic) replaced by 73-LOC orchestrator + 240 LOC components + Streamlit-free Service + query-shape Repository. NOISE_LABEL contract honored throughout — no bare `-1` in any new file.
+**Verification**: full regression — `pytest tests/face_clustering/views/ tests/face_clustering/repositories/ tests/architecture/ -q` → **197/197 pass** in 11s. New tests: 16 Service (12 synth + 4 real) + 15 Repository (12 synth + 3 real) + 5 architecture = **36 new** vs the spec-042/043/044/046/048/050 baseline. Playwright (T063) + manual smoke (T054) deferred to user — both need a live `streamlit run` + a loaded fixture run. Spec-045 status: **Implemented**.
+
+### 2026-05-29 [FEATURE] spec-045 Phase 2 — Repository real-fixture smoke + force-merge mutation
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/views/cluster_analysis.py` (~40 LOC) — `ForceMergeResult` typed dataclass (frozen-slotted; `snapshot_dir`, `merge_round`, `parent_run_dir`, `new_cluster_id`, `n_merged`). Service class lands in Phase 3.
+- UPDATED `face_cluster/repositories/cluster_analysis_repo.py` (+~75 LOC) — `save_manual_merge_snapshot(*, cluster_a, cluster_b, merge_round, config)` mutation. Delegates the on-disk write to the existing `face_cluster.manual_merge_snapshot.save_manual_merge_snapshot`; writes a sibling `<run_dir>_merge_snap_{round}/` dir; parent run dir untouched. Raises `ValidationError` on `read_only=True` or unknown cluster id.
+- NEW `tests/face_clustering/repositories/test_cluster_analysis_repo_real.py` (~60 LOC) — 3 read-only smoke tests against `v2_budapest_run_dir`. Construction validates, `get_cluster_rows` returns typed `ClusterRow` with `size > 0`, metadata count is within 1 of the row count (noise bucket tolerance). Skips cleanly when no Budapest run is present.
+- UPDATED `tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py` — added spec.§8.1 #11/#12 mutation tests with a sha256 "parent-dir-unchanged" guard. Bumped `_EMBED_DIM` from 16 → 512 to match production (the legacy snapshot writer hardcodes 512).
+- UPDATED `specs/045-cluster-analysis-tab/tasks.md` — T010–T015 marked `[x]`.
+**Reason**: Phase 2 of spec-045 closes the Repository surface — reads + the one mutation (force-merge). Two minor spec/reality drifts surfaced and resolved: (1) spec.§8.2 references a `v2_pilot_run_dir` fixture that doesn't exist; the actual name in `tests/conftest.py` is `v2_budapest_run_dir` (flagged for Phase 8 REVIEW). (2) The synthetic embedding dim had to grow to 512 because the legacy snapshot writer hardcodes that value. The mutation method intentionally delegates the on-disk write to the legacy `face_cluster.manual_merge_snapshot.save_manual_merge_snapshot` — the snapshot format is shared with the legacy "Force Merge" path so a follow-up remerge can load either.
+**Verification**: Phase 2 validation gate green — `pytest tests/face_clustering/repositories/ tests/architecture/ -q` → **142/142 pass** in 25s. New: 5 (3 real + 2 mutation). Cluster-analysis Repository total: **15/15** (12 synth + 3 real). No baseline regression in spec-043/044/046/048/050 tests or architecture suite. Spec-045 status stays `Draft` — Phases 3–8 pending.
+
+### 2026-05-29 [FEATURE] spec-045 Phase 1 — ClusterAnalysisRepository (reads)
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/repositories/cluster_analysis_repo.py` (~190 LOC) — `ClusterAnalysisRepoConfig`, `ClusterAnalysisCriteria`, `ClusterAnalysisRepository`. Query-shape Repository (spec-045 D3): composes `RunStore` for schema/artifact validation; issues its own SQL only for typed `ClusterRow` + `Assignment` reads from the `clusters` and `cluster_assignments` tables. Inherits `BaseRepository` but passes `session=None` (per-run DB isn't Alembic-managed; the static error-translation helpers stay available).
+- UPDATED `face_cluster/views/_base.py` — added `Assignment` dataclass (`face_id`, `cluster_id`, `is_exemplar`, `iteration`). Shared row type for cluster_assignments reads.
+- NEW `tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py` (~190 LOC) — 10 tests covering spec.§8.1 #1–#10. Self-contained synthetic-fixture helper writes a minimal schema-valid run dir under `tmp_path` (3 real clusters + 1 noise bucket, 32 faces, 6 exemplars; full v5 DDL applied + `PRAGMA user_version` + pipeline_run.json + embeddings).
+- UPDATED `specs/045-cluster-analysis-tab/tasks.md` — T001–T007 marked `[x]`.
+**Reason**: Phase 1 of spec-045 ships the typed read surface the rest of the spec leans on. No bare `-1` for noise — every cluster-id check routes through `NOISE_LABEL` / `is_noise()` (commit `9824d84`). One spec/tasks inconsistency surfaced and resolved: spec.§"Repository contract" says `__init__(session)`, tasks.md T004 says `__init__(config)`. Tasks.md wins because the per-run DB has no Alembic-managed session lifecycle (D3). Flagged for the Phase-8 REVIEW.md so the spec text gets a corrective edit.
+**Verification**: Phase 1 validation gate green — `pytest tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py -v` → **10/10 pass**. Full `tests/face_clustering/repositories/` suite still green: **62/62 pass** in 2.9s (no regression in spec-043/044/046/048 tests). Spec-045 status stays `Draft` — Phases 2–8 still pending.
+
 ### 2026-05-29 [DOCS] spec-045 — fill PRD gaps + per-phase validation gates + legacy-vs-v2 HTML
 **Branch**: `unification/spec-040`
 **Files**:
@@ -10,6 +70,41 @@
 - ADDED `specs/045-cluster-analysis-tab/LEGACY_VS_V2_CLUSTER_TAB.html` — side-by-side: legacy 383-LOC monolith vs spec-045 4-layer split. Code-shape diff, layering diagram, concrete `_compute_force_merge_preview` → `preview_force_merge` rewrite, user-facing gains/losses table, migration risks.
 **Reason**: PRD review surfaced 3 blockers before Phase 1 could start. (1) tasks.md referenced 13 numbered subsections (spec.§5.3, §5.4, §6.1, §7.1, §8.1–§8.6) that didn't exist in spec.md — the plan was unexecutable as written. (2) Phase checkpoints were prose, not commands — no binary signal whether a phase passed. (3) The existing `TAB_DESIGN_COMPARISON.html` compares History vs Cluster Analysis (two new tabs); the legacy-vs-v2 comparison the migration actually needs was missing. Recent context also unfolded into the spec: spec-050 run-picker reconciliation, NOISE_LABEL contract adoption (no bare `-1` in the new Repository/Service), spec-046/048 commit-ordering prerequisite.
 **Verification**: Docs-only change; CLAUDE.md §Implementation gate exemption applies (no `/code-review`, no test run). Cross-references between spec.md / tasks.md / HTML manually checked.
+
+### 2026-05-28 [BUGFIX] spec-051 — Test DB isolation + orphan UX
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `tests/conftest.py` — new session-scoped autouse fixture `isolate_action_log_db` redirects `face_cluster._paths.default_db_path` to a per-session tmp file. No test can hit the production DB unless it explicitly constructs the Repository with a `db_path` argument.
+- NEW `tests/architecture/test_action_log_db_isolation.py` (2 cases) — meta-guard: fixture exists, is session-scoped + autouse, targets `_paths.default_db_path`.
+- UPDATED `app/face_clustering_v2/components/run_picker.py` — `RunPickerEntry.is_orphan: bool` flag; `_partition_entries` splits loadable from orphan; `_format_label` prefixes `[missing] ` for orphans; `render_run_picker` shows a footnote with the orphan count when any exist.
+- UPDATED `app/face_clustering_v2/tabs/clusters_tab.py` — blocks orphan selection with `st.warning(...)` and returns before constructing `RunStore` (no traceback on a deleted run dir).
+- NEW `scripts/cleanup_orphan_action_log.py` — CLI tool with `--dry-run` (default) / `--apply --yes-i-counted N` modes. Cross-platform tmp-path filter (`pytest`, `AppData\Local\Temp`, `/tmp/`, `tmpfs`, `\Temp\`).
+- UPDATED `tests/face_clustering/test_v2_run_picker.py` (+2 cases) — partition function correctness; `[missing]` label prefix.
+- NEW `tests/face_clustering/test_cleanup_orphan_action_log.py` (5 cases) — dry-run is a no-op; `--apply` deletes only orphans; wrong `--yes-i-counted` aborts; idempotent; cross-platform pattern coverage.
+- NEW `specs/051-test-db-isolation/{spec.md, tasks.md, REVIEW.md}` — all Implemented.
+- SIGHTING-076 filed and immediately resolved.
+**Reason**: User opened the v2 Clusters tab and the picker surfaced a row whose `output_dir` pointed at a deleted pytest temp directory. Investigation found **18 orphan rows** in the user's real `~/.sim_bench/sim_bench.db` action_log, written by 3 test files over an unknown window. Root cause: any test constructing `RunHistoryRepository()` with no `db_path` writes to the real DB; no guardrail existed. Fix is layered: (1) autouse fixture stops new pollution at the source, (2) picker UX gracefully handles orphans that exist for any reason (not just test pollution), (3) one-shot cleanup script for historical rows.
+**Verification**: snapshot delta after running the new spec-051 tests = 0 new rows in real DB. Full suite: 5 failed (all pre-existing, tracked in spec-049 / SIGHTING-071/072/073/074), down from 8 failed + 4 errors pre-spec-051. +9 tests net.
+**User action required**: run `.venv/Scripts/python scripts/cleanup_orphan_action_log.py --apply --yes-i-counted 18` to remove the 18 historical orphan rows from your real DB.
+
+### 2026-05-28 [FEATURE] spec-050 — v2 app: per-run UUID dirs + history-driven run picker
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/run_layout.py` (45 LOC) — `allocate_run_dir(base, album) -> (run_dir, run_id)`. Fresh `<base>/<uuid4-hex>/` per run; `run_id == dir name`.
+- NEW `app/face_clustering_v2/components/run_picker.py` (~100 LOC) — `RunPickerEntry` dataclass + `render_run_picker()` reading the 20 most recent v2 runs from `action_log`. Default-selects the entry matching `v2_last_run_dir`.
+- UPDATED `app/face_clustering_v2/tabs/run_tab.py` — required "Album name" input; allocates run dir via `allocate_run_dir`; writes `v2_last_run_dir` to session state **before** the pipeline runs so failures still leave a recoverable pointer.
+- UPDATED `app/face_clustering_v2/pipeline.py::run_v2_pipeline` — signature changed: removed `output_dir`, added required `run_dir`, `run_id`, `album`. Uses caller's UUID as `run_id`; album persists to `action_log.source_album` and to the v5 export metadata.
+- REWRITTEN `app/face_clustering_v2/tabs/clusters_tab.py` — uses the real RunStore API (`clusters("latest")`, `faces()`, `crop_path()`). Picker above an Advanced free-text override.
+- UPDATED `scripts/run_v2.py` — added required `--album` arg; allocates `run_id` internally via `uuid4().hex`.
+- UPDATED `tests/face_clustering/test_run_v2_pipeline_kwargs.py`, `test_fc_app_v2_e2e.py`, `test_run_v2_script.py` — call sites updated to the new signature; monkeypatch moved from `run_history_db.get_db_path` to `_paths.default_db_path` (spec-048 changed the resolution path).
+- NEW `tests/face_clustering/test_run_layout.py` (4 unit) — allocator returns unique paths, dir exists, run_id is hex32, album not in path.
+- NEW `tests/face_clustering/test_v2_pipeline_run_allocation.py` (1 integration) — verifies `action_log.run_id == run_dir.name`, album persists, producer='fc_app_v2'.
+- NEW `tests/face_clustering/test_v2_run_picker.py` (4 unit) — picker filters to v2 producer, orders newest-first, skips rows with NULL output_dir, preserves face/cluster counts.
+- NEW `tests/face_clustering/test_v2_run_picker_e2e.py` (3 AppTest) — Clusters tab loads without exception, picker surfaces seeded run, ordering correct, empty-state friendly.
+- NEW `specs/050-v2-run-allocation-and-picker/{spec.md, tasks.md, REVIEW.md}`.
+- SIGHTING-075 filed and resolved.
+**Reason**: First real v2 app session surfaced 3 MVP-completeness gaps simultaneously: (1) clusters_tab crash from `RunStore.list_clusters` AttributeError — tab was never exercised against the real RunStore; (2) runs overwriting each other in `v2_latest/` — no per-run identity; (3) no way to load a specific historical run other than pasting the path. All three resolved by per-run UUID allocation + history-driven picker + Clusters tab port to the real RunStore API. The AppTest `test_v2_run_picker_e2e` is the test that would have caught all three before they shipped.
+**Verification**: 141/141 spec-050-touched tests green (architecture + repositories + 5 new test files + the fc_app_v2 + run_v2_script suites). +12 tests net.
 
 ### 2026-05-28 [REFACTOR] NOISE_LABEL contract + fix test_selected_from_each_cluster
 **Branch**: `unification/spec-040`
@@ -29,6 +124,69 @@
 - UPDATED `tests/pipeline/test_integration.py::test_missing_dependency_validation_fails` — now explicitly nulls `image_paths` to exercise the "missing required key" path (since default is `[]`, not `None`).
 **Reason**: All 8 cases of `tests/face_clustering/test_legacy_vs_v2_equivalence.py` were failing on the v2 path with `Required context key is empty: holdout_indices`. On the 6-face small fixture with the permissive `CANONICAL_PARAMS` gates, every face passes quality and `quality_gate_faces` legitimately writes `holdout_indices=[]`. The validator rejected that empty list before `AttachHoldoutFacesStep.process()` (which already has its own `if not context.holdout_indices: return` guard) could run. Regression introduced by spec-041 audit-fix commit `c9ec26c` which added `holdout_indices` to `requires` without accounting for the empty-list semantics. Considered narrower fixes (drop the key from `requires`, or per-key `allow_empty` metadata) but the global rule was always semantically wrong — empty collection is a valid produced value, not a missing dependency. Long-term path is Pydantic/Pandera per-key contracts; deferred.
 **Verification**: 8 previously-failing equivalence cases now pass; 30 other pipeline tests still green. One pre-existing unrelated failure (`test_selected_from_each_cluster`, DINOv2 cluster-count assertion) confirmed unchanged. Also wrote `specs/040-unified-pipeline-framework/EQUIVALENCE_FAILURE.html` documenting the class-level cause.
+
+### 2026-05-28 [BUGFIX] spec-048 follow-up — fix v2 app logging + per-render Alembic latency
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `alembic/env.py` — wrap `fileConfig(config.config_file_name)` in a `cfg.attributes.get("configure_logger", True)` guard. CLI invocations still get Alembic's logging config; programmatic callers (the app via `ensure_schema`) can opt out.
+- UPDATED `face_cluster/repositories/_schema.py` — `ensure_schema` short-circuits when `alembic_version.version_num == head` (the common case on every Streamlit rerun). The expensive `alembic.command.upgrade` is only invoked when the schema is actually behind. Sets `cfg.attributes["configure_logger"] = False` so Alembic does not touch the host's root logger.
+**Reason**: spec-048 introduced `ensure_schema` into `RunHistoryRepository.__init__`. Every Streamlit rerun (every interaction) constructed a Repository, which invoked `alembic.command.upgrade` (~200–500 ms even when it was a no-op) AND ran Alembic's `env.py` whose `fileConfig` call **reset the root logger**, discarding the FileHandler `sim_bench.logging_setup` installed. Two symptoms: (1) `logs/<ts>/fc_app_v2.log` empty + Alembic INFO spam on console; (2) v2 app felt hung under any sustained interaction. Fast-path check is now ~1 ms (one SELECT on `alembic_version`); the logger-clobber is suppressed.
+**Verification**: micro-bench shows mean 1 ms over 20 calls (down from hundreds of ms). 125/125 repository + architecture tests green.
+
+### 2026-05-28 [REFACTOR] spec-048 — Data layer cleanup (spec-046 follow-ups)
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/_paths.py` — single source of truth for repo-root, `~/.sim_bench` data dir, default DB path, profiles dir, and `alembic.ini` location. All functions `lru_cache`d.
+- NEW `face_cluster/repositories/_schema.py` — `ensure_schema(db_path)` calls `alembic.command.upgrade()` in-process. 3-case dispatch: fresh / unversioned-legacy (stamp head) / already-versioned (no-op).
+- UPDATED `face_cluster/repositories/models/action_log.py` — 16 columns annotated with `info={"updated_on_complete": True}`. New `ActionLog.hot_field_names()` classmethod reads from per-column metadata.
+- UPDATED `face_cluster/repositories/run_history_repo.py` — DELETED: subprocess shell-out to `alembic.exe`, `_engine_cache` module dict, `_engine_for()`, `_ensure_schema()`, `_to_run_row()` (24-line manual mapping), `_HOT_FIELDS` tuple, `_UNKNOWN_ALBUM`. Engine + sessionmaker now per-instance. ~110 LOC net removal.
+- UPDATED `face_cluster/run_history.py` — new `RunRow.from_orm(model)` classmethod is the single ORM→dataclass mapping point.
+- UPDATED `face_cluster/run_history_db.py`, `face_cluster/training_db.py`, `face_cluster/profile_store.py` — delegate to `_paths` helpers; inlined `Path.home() / ".sim_bench"` removed.
+- UPDATED `tests/face_clustering/repositories/conftest.py`, `tests/face_clustering/repositories/test_alembic_baseline.py`, `tests/architecture/test_orm_models_in_sync_with_alembic.py` — subprocess(alembic.exe) ported to in-process `alembic.command` API.
+- UPDATED `tests/face_clustering/fixtures/rebuild_golden.py` — rewritten to use `RunHistoryRepository` instead of `face_cluster.run_history_db` free functions. Survives 2026-06-08 legacy-shim deletion.
+- NEW `tests/architecture/test_paths_module_sole_owner.py` — drift guard: only `_paths.py` may reference `Path.home() / ".sim_bench"`, repo-root walks, or hardcoded DB filenames (3 parametrized cases).
+- NEW `tests/architecture/test_no_subprocess_alembic_in_repos.py` — drift guard: no `subprocess` import in `repositories/`; no `.venv` / `alembic.exe` literals anywhere in `face_cluster/` (3 cases).
+- NEW `tests/architecture/test_no_module_level_caches_in_repos.py` — drift guard: no `_*_cache = {}` at module scope in `repositories/`.
+- NEW `tests/architecture/test_runrow_matches_action_log.py` — drift guard: `set(RunRow.fields) == set(ActionLog.__table__.columns.keys())`.
+- NEW `tests/architecture/test_rebuild_golden_not_locked_to_legacy.py` — AST-based guard against re-importing `face_cluster.run_history_db` / `face_cluster.run_history` free functions in the rebuild script.
+- NEW `tests/face_clustering/repositories/test_schema_upgrade.py` — 3 cases for `ensure_schema` (fresh / idempotent / centralized alembic.ini).
+- NEW `tests/face_clustering/repositories/test_repo_construction_perf.py` — 1 case bounding mean construction time to 200 ms over 20 iterations.
+- NEW `tests/face_clustering/repositories/test_hot_fields.py` — 3 cases pinning `ActionLog.hot_field_names()` against the legacy 16-element tuple.
+- NEW `tests/face_clustering/repositories/test_runrow_from_orm_equivalence.py` — golden-fixture sweep + 2 fallback cases proving `RunRow.from_orm` byte-identical to the deleted `_to_run_row`.
+- UPDATED `specs/046-sqlalchemy-data-layer/CODE_AUDIT.html` — SMELL-1/2/3/4/5/8 marked `[RESOLVED in spec-048 Phase N]` with drift-guard cross-references.
+- NEW `specs/048-data-layer-cleanup/{spec.md, tasks.md, REVIEW.md}`.
+**Reason**: spec-046 shipped a working stack but left 6 smells flagged in its post-implementation audit. Fixing them before they harden — and before 2026-06-08, when legacy-shim deletion would have broken `rebuild_golden.py`. All 6 fixes are internal; public Repository API unchanged. 6 new permanent drift-guard tests prevent regression of each fixed smell.
+**Verification**: 160/160 spec-048-touched tests green (`pytest tests/face_clustering/repositories tests/face_clustering/views tests/architecture`). Full-suite run reports 13 pre-existing clustering/merge failures, all out of scope (carried over from spec-046 REVIEW).
+
+### 2026-05-28 [REFACTOR] spec-046 — SQLAlchemy + Alembic data layer
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/repositories/_orm_base.py` — `Base(DeclarativeBase)` + Alembic naming convention.
+- NEW `face_cluster/repositories/_engine.py` — `create_engine_for_path()` with WAL/foreign_keys/busy_timeout pragmas.
+- NEW `face_cluster/repositories/_session.py` — `make_sessionmaker()` + `session_scope()` context manager.
+- NEW `face_cluster/repositories/_base_repository.py` — `BaseRepository` shared error translation.
+- NEW `face_cluster/repositories/models/action_log.py` — `ActionLog` ORM model (24 columns).
+- REWRITTEN `face_cluster/repositories/run_history_repo.py` — SQLAlchemy-backed. Public API + return types unchanged; internals are `select()` / `session.add()` / `session.get()`. The `_COLUMNS` registry, `_create_table_sql`, `_MIGRATION_COLUMNS`, `_HOT_FIELDS`, `_FILTERABLE_FIELDS`, `_INSERT_COLUMNS`, `_start_action_value` are all gone.
+- NEW `alembic.ini` + `alembic/` — versioned migrations. Baseline migration `20260528_600c8c9a1bf1_baseline_action_log.py` captures the production schema verbatim.
+- NEW `tests/face_clustering/fixtures/golden_run_history.db` (committed) + `rebuild_golden.py` — real-data fixture built via the legacy free functions; equivalence oracle.
+- NEW `tests/face_clustering/repositories/conftest.py` — shared fixtures (`fresh_db_engine`, `transactional_session`, `golden_run_history_db_*`).
+- NEW `tests/face_clustering/repositories/test_session_infra.py` — 3 tests (engine pragmas, session_scope commit/rollback).
+- NEW `tests/face_clustering/repositories/test_alembic_baseline.py` — 2 tests (head DDL ≡ legacy DDL, stamp-on-populated is idempotent).
+- NEW `tests/face_clustering/repositories/test_golden_fixture.py` — 1 test (fixture shape).
+- NEW `tests/architecture/test_orm_models_in_sync_with_alembic.py` — single `alembic check` drift guard.
+- DELETED `tests/architecture/test_run_history_repo_column_registry.py` — 4 drift guards superseded by `alembic check`.
+- UPDATED `tests/architecture/test_repositories.py` — exempt underscore-prefixed infra modules from the "no public free functions" rule.
+- UPDATED `docs/architecture/architecture_standards.md` — §B0.1 marked RETIRED; new §B0.2 documents the SQLAlchemy stack with worked example.
+- UPDATED `requirements.txt` — pin `sqlalchemy>=2.0.30,<2.1`, add `alembic>=1.13,<2`.
+
+**Why**: The bespoke `_COLUMNS` registry was reinventing what SQLAlchemy + Alembic provide as standard. Every Python web developer recognises the new stack on day one. Adding a column is a 2-file edit (model + autogenerated migration), not 9 hand-maintained constants. Test isolation uses standard transactional-rollback fixtures, not module-level `get_db_path` monkeypatching (which caused the spec-043 H1 silent-pass bug).
+
+**Acceptance criteria verified**:
+- AC1 — Add-column 2-file demo executed (`throwaway_demo` field → autogen migration → upgrade → downgrade → revert). Repo state clean after.
+- AC3 — Phase 5 equivalence test (24 parametrised cases) proved byte-identical output between old and new implementations against real-data fixture before the swap. Test deleted after swap (artefact, served its purpose).
+- AC4 — All 111 spec-046-relevant tests (`tests/face_clustering/repositories`, `tests/face_clustering/views`, `tests/architecture`, legacy `test_run_history*.py`) pass without source modification.
+- AC6 — Four `_COLUMNS` drift-guard tests deleted; one `alembic check` test added.
+- AC7 — §B0.1 retired in architecture_standards.md; §B0.2 documents the new pattern with a one-file worked example.
 
 ### 2026-05-25 [REFACTOR] spec-044 — Column Registry for RunHistoryRepository
 **Branch**: `unification/spec-040`
