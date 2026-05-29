@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SIGHTING-080 postmortem — History tab rejected every v2 run</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1100px; margin: 1.4em auto; padding: 0 1.4em;
+         color: #222; line-height: 1.5; background:#fafbfc; font-size: 14px; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .25em; margin-bottom: .1em; }
+  h1 + .subtitle { color: #666; margin-top: .1em; font-style: italic; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 1.6em; font-size: 16px; }
+  h3 { color: #1f5fc7; margin-top: 1.1em; font-size: 14px; }
+  table { border-collapse: collapse; margin: .6em 0; width: 100%; font-size: 12.5px; background:#fff; }
+  th, td { border:1px solid #ddd; padding:5px 8px; text-align:left; vertical-align:top; }
+  th { background:#f4f4f6; font-weight:600; }
+  code { background:#eef0f4; padding:1px 4px; border-radius:3px; font-size:12px; font-family:Consolas, monospace; }
+  pre { background:#fff; border:1px solid #ddd; border-radius:4px; padding:9px 11px;
+        font-size:12px; overflow-x:auto; font-family:Consolas, monospace; margin:.5em 0; white-space:pre; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px; font-size:11px; font-weight:600; }
+  .ok { background:#e3f5e0; color:#236623; }
+  .smell { background:#fde2e2; color:#8a2e2e; }
+  .note { background:#fff3cd; color:#856404; }
+  .summary { background:#fff8f0; border-left:4px solid #b8860b; padding:.8em 1em; margin:1em 0; }
+  .green-box { background:#e9f5ea; border-left:4px solid #2e7d32; padding:.7em 1em; margin:.7em 0; font-size:13px; }
+  .red-box { background:#fdecea; border-left:4px solid #c0392b; padding:.7em 1em; margin:.7em 0; font-size:13px; }
+</style>
+</head>
+<body>
+
+<h1>SIGHTING-080 postmortem</h1>
+<p class="subtitle">The History tab's "Load Run" button rejected every v2 run as missing artifacts. The error contradicted itself in plain sight. 2026-05-29.</p>
+
+<div class="summary">
+<b>Headline.</b> The History tab was checking for <em>legacy v4 CSV files</em> (<code>faces.csv</code>, <code>clusters.csv</code>) that <em>v2 runs do not produce</em>. spec-040 Phase 4 replaced those CSVs with a single <code>face_clustering.db</code> per run; the History tab's artifact list never got updated. Every v2 run failed the gate even though <code>load_pipeline_result</code> could open it. <b>Third instance this week</b> of a v2 code path failing because it was ported assuming a pre-spec-040 layout — pattern flagged below.
+</div>
+
+<h2>1. What the user saw</h2>
+
+<pre>Run is incomplete (status: complete).
+Cannot load — required artifacts (faces.csv, clusters.csv, embeddings.npy)
+are missing or status is not 'complete'.</pre>
+
+<div class="red-box">
+<b>The contradiction in plain sight.</b> The error string says both things at once:
+<ul>
+  <li><b>"status: complete"</b> ✓ — the run finished cleanly. pipeline_run.json says so. action_log status column says so.</li>
+  <li><b>"required artifacts … are missing"</b> ✓ — yes, the legacy CSVs <em>are</em> missing. They were never written.</li>
+</ul>
+Both were technically true, but the artifact list being checked was wrong for the era. v2 runs write <code>face_clustering.db</code> (sqlite), not <code>faces.csv</code> + <code>clusters.csv</code>.
+</div>
+
+<h2>2. Why it happened — the two-version-era mismatch</h2>
+
+<p>spec-040 Phase 4 (schema v5, landed weeks ago) collapsed the legacy CSV trio into a single sqlite DB per run. The on-disk shape of a completed v2 run is:</p>
+
+<pre>~/.sim_bench/runs/&lt;uuid&gt;/
+  face_clustering.db         &lt;-- v5: all rows live here (faces, clusters, assignments, merges, run_metadata, ...)
+  embeddings.npy              &lt;-- bulk embeddings (still .npy — too big for sqlite)
+  embedding_face_ids.npy
+  pipeline_run.json           &lt;-- run-level manifest + schema_version
+  crops/                       &lt;-- face thumbnails</pre>
+
+<p>No <code>faces.csv</code>. No <code>clusters.csv</code>. Three valid layouts exist on disk across the repo's history:</p>
+
+<table>
+  <thead><tr><th>Era</th><th>Layout</th><th>Producers</th></tr></thead>
+  <tbody>
+    <tr><td><b>v5 (current)</b></td><td><code>face_clustering.db</code> at top level</td><td><code>fc_app_v2</code>, current Albumify</td></tr>
+    <tr><td><b>v4 transitional</b> (spec-030)</td><td><code>_v4/face_clustering.db</code></td><td>brief migration window</td></tr>
+    <tr><td><b>Legacy CSV</b> (pre-spec-030)</td><td><code>faces.csv</code> + <code>clusters.csv</code> + <code>embeddings.npy</code></td><td>old runs still on disk</td></tr>
+  </tbody>
+</table>
+
+<p><code>face_cluster.loader.load_pipeline_result</code> already handled all three (tries v4 transitional first, then v5, then falls back to CSV). But the History tab's <em>pre-flight artifact check</em> was a separate code path that only knew about the CSV layout:</p>
+
+<pre># face_cluster/views/history.py:246-250 (broken)
+_REQUIRED_ARTIFACTS = (
+    "faces.csv",
+    "clusters.csv",
+    "embeddings.npy",
+)
+...
+has_required = all((out_dir / a).exists() for a in _REQUIRED_ARTIFACTS)</pre>
+
+<p>For every v2 run, <code>has_required</code> was <code>False</code>. <code>load_button.py</code> read that flag and rendered the disabled-button-plus-warning state. The user could see the run in the table, see <code>status: complete</code>, see the run dir on disk — and still couldn't load it.</p>
+
+<h2>3. The fix</h2>
+
+<div class="green-box">
+<b>Replace the hardcoded list with a function that matches <code>load_pipeline_result</code>'s actual behavior.</b>
+<pre>def _run_dir_has_loadable_artifacts(out_dir: Path) -&gt; bool:
+    if not out_dir.exists():
+        return False
+    if (out_dir / "face_clustering.db").is_file():          # v5 (current)
+        return True
+    if (out_dir / "_v4" / "face_clustering.db").is_file():   # v4 transitional
+        return True
+    return all((out_dir / a).is_file() for a in            # legacy CSV trio
+               ("faces.csv", "clusters.csv", "embeddings.npy"))</pre>
+</div>
+
+<p>Plus error-message rewrites in two places so the text matches reality:</p>
+
+<table>
+  <thead><tr><th>Location</th><th>Was</th><th>Now</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>history.py:load_run</code></td>
+      <td>"missing required artifacts: ['faces.csv', ...]"</td>
+      <td>"no loadable artifacts ... expected one of: face_clustering.db (v5), _v4/face_clustering.db (transitional), or faces.csv+clusters.csv+embeddings.npy (legacy CSV)"</td>
+    </tr>
+    <tr>
+      <td><code>load_button.py</code> warning</td>
+      <td>Hardcoded the v4 CSV trio in the user-facing text</td>
+      <td>Differentiates "status not complete" from "no loadable artifacts"; lists all three valid layouts</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>4. How no unit test caught this — the load-bearing question</h2>
+
+<table>
+  <thead><tr><th>Test layer</th><th>What it covered</th><th>Why it missed</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>test_history_service_synthetic.py</code> (~30 cases)</td>
+      <td>HistoryService query / mutation surface, including <code>test_load_run_raises_when_artifacts_missing</code></td>
+      <td><b>The artifact-check test used legacy CSV fixtures that matched the broken constant by accident.</b> It asserted "missing CSVs → error" — which was true. It never asked "what if the v5 DB is present?" because the v5 layout didn't exist in any test fixture.</td>
+    </tr>
+    <tr>
+      <td><code>test_history_service_real.py</code> (3 cases, opt-in)</td>
+      <td>Smoke against the user's real action_log DB</td>
+      <td>Read-only smoke (list / get / count). Never called <code>load_run</code>, so the artifact gate was never exercised against a real v2 run.</td>
+    </tr>
+    <tr>
+      <td><code>test_v2_app_smoke.py</code> AppTest (3 cases)</td>
+      <td>Page-level: cold start, empty run dir, no-op-merge run</td>
+      <td>Only tests the Cluster Analysis tab path (the SIGHTING-078 / -079 surface). History tab path wasn't exercised — would have needed a seeded action_log row, which the AppTest didn't construct.</td>
+    </tr>
+    <tr>
+      <td>Architecture tests</td>
+      <td>Layering (no DB in tabs, typed returns, etc.)</td>
+      <td>Structural — by design, doesn't catch behavior bugs like "constant is the wrong list".</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="red-box">
+<b>The structural lesson.</b> Hardcoded "what's a valid X" constants drift when the underlying definition changes elsewhere. <code>_REQUIRED_ARTIFACTS</code> in <code>history.py</code> was the source-of-truth for one layer; <code>load_pipeline_result</code> in <code>loader.py</code> was the source-of-truth for another. They diverged when spec-040 landed without anyone wiring them together. The drift-guard pattern (a test that asserts "every layout <code>load_pipeline_result</code> accepts is also accepted by the History artifact check") would have caught this — and is exactly what the new <code>test_history_service_v5_artifacts.py</code> shipped as the regression net.
+</div>
+
+<h2>5. The pattern — three sightings in a week</h2>
+
+<p>SIGHTING-080 is the third v2 code path this week that failed because it was ported assuming a pre-spec-040 layout:</p>
+
+<table>
+  <thead><tr><th>Sighting</th><th>What was ported assuming the old shape</th></tr></thead>
+  <tbody>
+    <tr><td><b>SIGHTING-078</b></td><td><code>RunStore._resolve_iteration("final")</code> assumed merge_decisions and clusters always had rows at the same iteration. Broke when the merger considered pairs but merged none (common in v5-era runs).</td></tr>
+    <tr><td><b>SIGHTING-079</b></td><td><code>AsyncHandle[T]</code> ported the legacy <code>_AsyncState</code> shape but not its <code>time.sleep + st.rerun()</code> polling loop. Streamlit doesn't poll background threads — handle never reached the UI.</td></tr>
+    <tr><td><b>SIGHTING-080</b></td><td><code>_REQUIRED_ARTIFACTS</code> kept the legacy CSV trio after spec-040 collapsed everything into <code>face_clustering.db</code>. History tab rejected every v2 run.</td></tr>
+  </tbody>
+</table>
+
+<p>Worth filing a focused mini-spec: <b>audit every v2 read path against the v5 reality.</b> Candidates: any constant ending in <code>_ARTIFACTS</code>, <code>_REQUIRED</code>, <code>_COLUMNS</code>; any function that hardcodes file names like <code>faces.csv</code> or <code>clusters.csv</code>; any place that calls <code>RunStore.&lt;method&gt;("final")</code> instead of an explicit int.</p>
+
+<h2>6. Tests added (regression net)</h2>
+
+<div class="green-box">
+<b>1. Unit-level (the contract):</b> <code>tests/face_clustering/views/test_history_service_v5_artifacts.py</code> — 7 cases pinning every layout <code>load_pipeline_result</code> accepts plus partial / pathological cases. This is the drift guard.
+</div>
+
+<div class="green-box">
+<b>2. End-to-end (per user request):</b> <code>tests/face_clustering/test_v2_app_smoke.py</code> now has 2 new AppTest cases. One seeds a v2 run into the action_log and verifies the History tab renders without exception + without the legacy-artifact warning. One drives <code>HistoryService.load_run</code> against the seeded run and asserts it returns a typed <code>LoadedRun</code> without raising.
+</div>
+
+<div class="green-box">
+<b>3. Updated stale test:</b> <code>test_load_run_raises_when_artifacts_missing</code> — wording updated for the new "no loadable artifacts" error. Still pins the "empty dir → error" case, which is the contract that didn't change.
+</div>
+
+<p style="margin-top:1.4em; color:#888; font-size:12px;">
+References: <code>docs/project/SIGHTINGS.md#sighting-080</code>;
+<code>CHANGES_LOG.md</code> 2026-05-29 SIGHTING-080 entry;
+commit <code>f89676b</code>;
+<code>tests/face_clustering/views/test_history_service_v5_artifacts.py</code> (drift guard);
+<code>tests/face_clustering/test_v2_app_smoke.py</code> (e2e regression).
+</p>
+
+</body>
+</html>

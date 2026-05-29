@@ -43,6 +43,7 @@ def load_pipeline_result(run_dir: Path) -> PipelineResult:
     """
     run_dir = Path(run_dir)
 
+    # v4 transitional layout (spec-030): face_clustering.db nested under _v4/.
     v4_dir = run_dir / "_v4"
     if (v4_dir / "face_clustering.db").exists():
         try:
@@ -52,14 +53,25 @@ def load_pipeline_result(run_dir: Path) -> PipelineResult:
         except Exception as e:
             logger.warning(f"v4 load failed, falling back to legacy: {e}", exc_info=True)
 
+    # v5 (current, spec-040): face_clustering.db at the run root. RunStore reads
+    # this directly — the embeddings table that the legacy _load_from_db expects
+    # was retired in v5 (embeddings live in embeddings.npy). SIGHTING-080
+    # follow-up 2026-05-29: previously this path fell straight into _load_from_db
+    # which raised "no such table: embeddings" for every v5 run.
     db_path = run_dir / "face_clustering.db"
     if db_path.exists():
         try:
-            result = _load_from_db(run_dir, db_path)
-            logger.info(f"Loaded run from legacy DB: {db_path}")
+            result = _load_via_run_store(run_dir, run_dir)
+            logger.info(f"Loaded run via RunStore (v5): {run_dir}")
             return result
-        except Exception as e:
-            logger.warning(f"Legacy DB load failed, falling back to CSVs: {e}")
+        except Exception as e_v5:
+            logger.warning(f"v5 RunStore load failed, trying legacy in-DB embeddings path: {e_v5}")
+            try:
+                result = _load_from_db(run_dir, db_path)
+                logger.info(f"Loaded run from legacy DB: {db_path}")
+                return result
+            except Exception as e:
+                logger.warning(f"Legacy DB load failed, falling back to CSVs: {e}")
 
     return _load_from_csvs(run_dir)
 

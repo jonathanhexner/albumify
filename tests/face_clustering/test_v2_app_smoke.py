@@ -99,6 +99,94 @@ def test_main_page_renders_without_exception_on_no_op_merge_run(no_op_merge_run_
 
 
 @pytest.mark.slow
+def test_history_tab_recognizes_v2_run_as_loadable(no_op_merge_run_dir, isolate_action_log_db):
+    """SIGHTING-080 regression: the History tab's "Load Run" button must be
+    enabled for a v2 run (face_clustering.db at top level, no legacy CSVs).
+
+    Before the 2026-05-29 fix, `_REQUIRED_ARTIFACTS` was a hardcoded legacy
+    CSV trio. Every v2 run failed the artifact gate — Load Run button stayed
+    disabled with "missing required artifacts (faces.csv, …)" warning.
+
+    Test does the load end-to-end through HistoryService (the same code
+    path the load_button calls when clicked). Asserts:
+    - has_required_artifacts is True for a v5 run dir
+    - HistoryService.load_run returns a typed LoadedRun without raising
+    """
+    from face_cluster.run_history_db import init_table
+    from face_cluster.views.history import HistoryService
+    from tests.face_clustering.views._seed import insert_action
+
+    init_table(db_path=isolate_action_log_db)
+    rid = insert_action(
+        isolate_action_log_db,
+        status="complete",
+        output_dir=str(no_op_merge_run_dir),
+        source_album="SIGHTING-080-regression",
+        producer="fc_app_v2",
+        action_type="fc_app_v2_run",
+    )
+
+    service = HistoryService()
+    detail = service.get_run_detail(rid)
+    assert detail.has_required_artifacts is True, (
+        f"History tab thinks v2 run is missing artifacts. "
+        f"run_dir={no_op_merge_run_dir}, contents={[p.name for p in no_op_merge_run_dir.iterdir()]}"
+    )
+
+    loaded = service.load_run(rid)
+    assert loaded.output_dir == no_op_merge_run_dir
+    assert loaded.pipeline_result is not None
+
+
+@pytest.mark.slow
+def test_history_tab_renders_without_exception_with_v2_run_seeded(
+    no_op_merge_run_dir, isolate_action_log_db
+):
+    """SIGHTING-080 regression at the page level: with a v2 run in
+    action_log, the History tab renders without raising. Previously, even
+    rendering the runs table was fine — the bug only fired when the user
+    clicked into a row and the load_button's gate evaluated has_required_artifacts.
+
+    AppTest can't programmatically simulate a `st.dataframe` row selection
+    (that requires browser interaction), so we assert the necessary
+    invariants: (1) page renders cleanly, (2) no warning containing the
+    legacy CSV trio appears anywhere (which would mean the load_button
+    fired its old broken warning text on some auto-rendered path).
+    """
+    from face_cluster.run_history_db import init_table
+    from streamlit.testing.v1 import AppTest
+    from tests.face_clustering.views._seed import insert_action
+
+    init_table(db_path=isolate_action_log_db)
+    insert_action(
+        isolate_action_log_db,
+        status="complete",
+        output_dir=str(no_op_merge_run_dir),
+        source_album="SIGHTING-080-page-render",
+        producer="fc_app_v2",
+        action_type="fc_app_v2_run",
+    )
+
+    at = AppTest.from_file(MAIN_PY)
+    at.run(timeout=60)
+
+    exceptions = [str(e.value) for e in at.exception]
+    assert not exceptions, (
+        f"Page raised {len(exceptions)} exception(s) with v2 run seeded:\n  "
+        + "\n  ".join(exceptions)
+    )
+
+    legacy_warnings = [
+        w.value for w in at.warning
+        if "faces.csv" in w.value or "clusters.csv" in w.value
+    ]
+    assert not legacy_warnings, (
+        "load_button warning still references the legacy CSV trio "
+        "(SIGHTING-080 regressed): " + " | ".join(legacy_warnings)
+    )
+
+
+@pytest.mark.slow
 def test_cluster_analysis_metrics_actually_render(no_op_merge_run_dir):
     """SIGHTING-079 regression: previously the tab reached
     "Analysing cluster…" and never advanced — AsyncHandle started a

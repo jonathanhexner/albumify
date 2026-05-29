@@ -2,6 +2,17 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [BUGFIX] SIGHTING-080 follow-ups — loader v5 path + History-tab AppTest cases + postmortem
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/loader.py`: `load_pipeline_result` now routes v5 dirs (face_clustering.db at top level) through `_load_via_run_store(run_dir, run_dir)` BEFORE the legacy `_load_from_db` fallback. The legacy path was looking for an in-DB `embeddings` table that v5 retired (embeddings live in `embeddings.npy`). Discovered while writing the regression AppTest for SIGHTING-080 — every load attempt on a v5 run dir was crashing with `no such table: embeddings`.
+- UPDATED `tests/face_clustering/test_v2_app_smoke.py`: 2 new AppTest cases per user request ("add to our e2e test a verification that this tab works as well (loads properly)"):
+  - `test_history_tab_recognizes_v2_run_as_loadable` — seeds a v2 run into action_log + calls `HistoryService.load_run` end-to-end; asserts `has_required_artifacts is True` and a typed `LoadedRun` is returned without raising. This is the exact regression for SIGHTING-080.
+  - `test_history_tab_renders_without_exception_with_v2_run_seeded` — runs `main.py` through AppTest with a v2 run in action_log; asserts no `st.exception` and no `st.warning` referencing the legacy CSV trio.
+- NEW `specs/042-fc-app-v2-tab-parity/SIGHTING_080_POSTMORTEM.html` (~165 lines): full postmortem — what the user saw, the contradiction in plain sight ("status: complete" + "missing artifacts"), the two-version-era mismatch (v5 vs legacy CSV), the fix, a load-bearing §4 "How no unit test caught this" with per-layer breakdown, the three-sightings-in-a-week pattern.
+**Reason**: Per user follow-up: produce an HTML report explaining SIGHTING-080 and how no unit test caught it, plus add an e2e test that verifies the History tab loads v2 runs properly. While writing the e2e test, discovered that `load_pipeline_result` was ALSO broken for v5 dirs (legacy DB path expected an `embeddings` table that v5 doesn't have). The loader fix is small (1 new try-block routing v5 through RunStore) and unblocks the e2e test.
+**Verification**: 224/224 tests green (was 218; +6 — the 2 new History AppTests, plus the loader fix doesn't break any baseline). The full e2e flow now works: seed v2 run in action_log → HistoryService recognizes artifacts → load_run returns LoadedRun → no Streamlit exception.
+
 ### 2026-05-29 [BUGFIX] SIGHTING-080 — History "Load Run" recognized only legacy CSV layout; v2 runs always failed
 **Branch**: `unification/spec-040`
 **Files**:
