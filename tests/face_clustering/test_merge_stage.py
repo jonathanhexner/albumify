@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from face_cluster import FaceClusteringPipeline, PipelineConfig
+from face_cluster.db.schema import SCHEMA_VERSION
 from face_cluster.export import export_merged_results
 from face_cluster.loader import load_pipeline_result
 from face_cluster.types import ClusterResult, FaceRecord
@@ -227,7 +228,12 @@ class ut_MergeStageE2E:
             if result.merged_cluster_result else result.cluster_result.n_clusters
         )
         assert meta.n_merges == sum(1 for e in (result.merge_log or []) if e.get("actually_merged"))
-        assert meta.schema_version == 4
+        # spec-054: assert against the current SCHEMA_VERSION constant
+        # (was hardcoded `== 4` and silently rotted when spec-040 Phase 4
+        # bumped to 5). Future bumps re-validate without test edits;
+        # tests/architecture/test_schema_history.py forces SCHEMA_HISTORY
+        # to be updated on every bump so the version still has meaning.
+        assert meta.schema_version == SCHEMA_VERSION
 
         # ---- faces table: face_id set + bbox + blur match exactly ----------------
         read_faces = store.faces()

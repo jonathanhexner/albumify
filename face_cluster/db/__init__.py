@@ -18,6 +18,7 @@ Public surface:
 from face_cluster.db.schema import (
     EXPECTED_ARTIFACTS,
     SCHEMA_DDL,
+    SCHEMA_HISTORY,
     SCHEMA_VERSION,
 )
 from face_cluster.db.validators import (
@@ -31,6 +32,7 @@ from face_cluster.db.validators import (
 
 __all__ = [
     "SCHEMA_VERSION",
+    "SCHEMA_HISTORY",
     "EXPECTED_ARTIFACTS",
     "SCHEMA_DDL",
     "FACES_SCHEMA",

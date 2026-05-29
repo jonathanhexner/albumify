@@ -164,9 +164,13 @@ Related: `test_faces_to_face_records_bridge` (in same file) also fails — likel
 ---
 
 ### SIGHTING-072: `PipelineConfig` adaptive-threshold fields not removed (contract violation)
-**Status**: OPEN
+**Status**: RESOLVED (spec-054 — 2026-05-29) — test was stale.
 **Severity**: Medium (test claim drifts from code; either the test is stale or the cleanup wasn't completed)
 **Reported**: 2026-05-28
+
+**Resolution (spec-054)**: grep confirmed the 5 fields (`merge_threshold_alpha`, `_beta`, `use_adaptive_merge_threshold`, `merge_exemplar_percentile`, `merge_global_percentile`) are live in production code — `face_cluster/analysis.py:405,503` reads `cfg.merge_threshold_alpha`; `app/shared/merge_controls.py` exposes all 5 as UI controls. The test encoded an abandoned cleanup intent that the codebase chose not to pursue. Test deleted; replaced with an 8-line comment in `tests/face_clustering/test_merge.py` explaining the decision.
+
+**Original description (kept for history):**
 **Persona**: ML / Pipeline owner
 
 **Problem Description**:
@@ -192,9 +196,13 @@ The simplification of `SimplifiedMerger` (per the test's name) was meant to remo
 ---
 
 ### SIGHTING-073: v4 merge-stage E2E round-trip broken on real images
-**Status**: OPEN
-**Severity**: High (claimed-to-work E2E proof of spec-030 Phase 1+2 is red)
+**Status**: RESOLVED (spec-054 — 2026-05-29) — test was stale; data round-trip itself was fine.
+**Severity**: High → Low after re-diagnosis. The data round-trip itself worked correctly; only the hardcoded `schema_version == 4` assertion was stale.
 **Reported**: 2026-05-28
+
+**Resolution (spec-054)**: assertion `meta.schema_version == 4` updated to `meta.schema_version == SCHEMA_VERSION` (constant import). The production code correctly writes the current schema version (5 after spec-040 Phase 4 bumped it); the test was just asserting the old literal. To prevent future silent rot, spec-054 also added `SCHEMA_HISTORY: dict[int, str]` in `face_cluster/db/schema.py` documenting v3, v4, v5, with an arch test (`tests/architecture/test_schema_history.py`) that forces the next `SCHEMA_VERSION` bump to add a history entry.
+
+**Original description (kept for history):**
 **Persona**: ML / Pipeline owner
 
 **Problem Description**:

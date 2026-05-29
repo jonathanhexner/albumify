@@ -7,11 +7,33 @@ sqlite3 connection at the start of a run.
 Bump `SCHEMA_VERSION` for any breaking change (column rename, type change,
 constraint that rejects valid prior rows). Additive nullable columns do
 NOT need a bump per the spec-033 locked decision.
+
+spec-054: every bump MUST add an entry to ``SCHEMA_HISTORY`` describing
+what changed. The arch test ``test_schema_history`` enforces this so the
+next person to bump the version is forced to document why.
 """
 from __future__ import annotations
 
 
-SCHEMA_VERSION = 5
+# History of schema changes. Keys are the version numbers ever shipped;
+# values are one-line human descriptions. SCHEMA_VERSION is derived from
+# the max key so adding a new version requires adding a new entry here.
+SCHEMA_HISTORY: dict[int, str] = {
+    3: (
+        "Initial v3 layout — faces, clusters, cluster_assignments, "
+        "run_metadata, merge_decisions."
+    ),
+    4: (
+        "Added spec-030 merge fields — run_metadata.parent_run_id, "
+        "iteration counters; merge_decisions table refined."
+    ),
+    5: (
+        "spec-040 Phase 4 — added images table; faces gained area_ratio "
+        "+ scene_cluster_id; cluster_assignments linked to scenes."
+    ),
+}
+
+SCHEMA_VERSION: int = max(SCHEMA_HISTORY)
 
 
 # Allow-list of files produced by RunExporter.export().  Tests assert

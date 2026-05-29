@@ -119,16 +119,14 @@ class ut_ApplyManualMerges:
 
 class ut_SimplifiedMerger:
 
-    def test_adaptive_threshold_fields_removed(self):
-        """PipelineConfig must not have adaptive threshold fields."""
-        cfg = PipelineConfig()
-        assert not hasattr(cfg, "merge_use_adaptive_threshold"), (
-            "Adaptive threshold removed — merge_use_adaptive_threshold should not exist"
-        )
-        assert not hasattr(cfg, "merge_threshold_alpha")
-        assert not hasattr(cfg, "merge_threshold_beta")
-        assert not hasattr(cfg, "merge_exemplar_percentile")
-        assert not hasattr(cfg, "merge_global_percentile")
+    # Deleted 2026-05-29 (spec-054, SIGHTING-072):
+    # test_adaptive_threshold_fields_removed asserted that PipelineConfig
+    # no longer has merge_threshold_alpha / _beta / use_adaptive_merge_threshold
+    # / merge_exemplar_percentile / merge_global_percentile. Grep confirmed
+    # all 5 fields are live in production code (face_cluster/analysis.py,
+    # app/shared/merge_controls.py, etc.). The test encoded an aborted
+    # cleanup intent; the codebase chose to keep adaptive thresholds. If
+    # we ever decide to remove them, that's a separate spec.
 
     def test_fixed_threshold_field_present(self):
         cfg = PipelineConfig()
