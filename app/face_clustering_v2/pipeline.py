@@ -74,41 +74,55 @@ _DEPRECATION_WARNED = False
 
 def run_v2_pipeline(
     src_dir: Path,
-    output_dir: Path,
+    run_dir: Path,
     *,
+    run_id: str,
+    album: str,
     params: Optional[FCParams] = None,
     step_configs: Optional[Dict[str, Dict[str, Any]]] = None,
     producer: str = "fc_app_v2",
     progress_cb: Optional[Callable[[str, float, str], None]] = None,
 ) -> V2RunResult:
-    """Run the v2 pipeline end-to-end and write a v5 face_clustering.db.
+    """Run the v2 pipeline end-to-end into a pre-allocated run directory.
 
-    Preferred call shape (spec-041):
+    spec-050: callers allocate ``run_dir`` and ``run_id`` (typically via
+    ``face_cluster.run_layout.allocate_run_dir``) and pass them in. The
+    pipeline no longer invents a timestamp-based ``run_id``; the UUID
+    used for the directory name IS the ``run_id`` written to action_log.
 
-        result = run_v2_pipeline(src, out, params=FCParams(K=5, ...))
+    Preferred call shape:
+
+        from face_cluster.run_layout import allocate_run_dir
+        run_dir, run_id = allocate_run_dir(Path("~/.sim_bench/runs"), "Budapest")
+        result = run_v2_pipeline(src, run_dir, run_id=run_id, album="Budapest",
+                                 params=FCParams(...))
 
     Parameters
     ----------
     src_dir:
         Directory containing source images. One-level deep scan; subdirs
         ignored. JPG / PNG only — HEIC support is environment-dependent.
-    output_dir:
-        Destination for the run artifacts (face_clustering.db, crops/, etc.).
-        Created if missing.
+    run_dir:
+        Pre-allocated output directory (``<base>/<uuid>/``). Created if
+        missing — but the caller's allocator already created it, so this
+        is just a guard.
+    run_id:
+        Stable identifier for the run, written to
+        ``action_log.run_id``. Caller's contract: ``run_id == run_dir.name``.
+    album:
+        Free-form album label. Written to ``action_log.source_album``
+        and to the v5 export's metadata.
     params:
-        ``FCParams`` container holding the full clustering knob set. When
-        provided, ``step_configs`` is derived from ``params.to_step_configs()``.
+        ``FCParams`` container holding the full clustering knob set.
         Mutually exclusive with ``step_configs``.
     step_configs:
         Legacy per-step config dict. Deprecated in favor of ``params``;
-        emits ``DeprecationWarning`` once per process. Removed in a
-        future spec.
+        emits ``DeprecationWarning`` once per process.
     producer:
         Producer tag written into the v5 ``run_metadata.producer`` column
         and the global ``action_log`` row. Defaults to ``fc_app_v2``.
     progress_cb:
-        Optional ``(step_name, fraction, message) -> None`` callback for UI
-        progress bars. Ignored if None.
+        Optional ``(step_name, fraction, message) -> None`` callback.
     """
     global _DEPRECATION_WARNED
     if params is not None and step_configs is not None:
@@ -129,12 +143,11 @@ def run_v2_pipeline(
     # else: both None — defaults take effect inside FCAppRunner.
 
     src_dir = Path(src_dir)
-    output_dir = Path(output_dir)
+    output_dir = Path(run_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     images = _discover_jpgs(src_dir)
     started_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-    run_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
     # Action log row — survives the run even on error so the UI can render
     # history. Producer column makes the new FC App's runs distinguishable
@@ -147,7 +160,7 @@ def run_v2_pipeline(
             "run_id": run_id,
             "source_dir": str(src_dir),
             "output_dir": str(output_dir),
-            "source_album": src_dir.name,
+            "source_album": album,
             "producer": producer,
             "n_images": len(images),
         })
@@ -229,7 +242,7 @@ def run_v2_pipeline(
         merge_log=getattr(context, "merge_log", None),
         merge_metadata=getattr(context, "merge_metadata", None),
         config=None,  # per-step Pydantic configs replace the dataclass FCConfig at the boundary
-        source_album=src_dir.name,
+        source_album=album,
         producer="fc_app",  # RunExporter producer allow-list — see _VALID_PRODUCERS
         run_id=run_id, started_at=started_at, finished_at=finished_at,
         image_paths=[str(p) for p in images],

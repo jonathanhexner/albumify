@@ -76,6 +76,7 @@ def test_save_profile_round_trip(tmp_path: Path):
     rc = run_v2_main([
         "--src", str(tmp_path / "missing_src"),
         "--out", str(tmp_path / "out"),
+        "--album", "cli_save_profile_test",
         "--save-profile", str(out_profile),
         "--K", "9",
     ])
@@ -87,6 +88,7 @@ def test_save_profile_round_trip(tmp_path: Path):
     rc = run_v2_main([
         "--src", str(src),
         "--out", str(tmp_path / "out2"),
+        "--album", "cli_save_profile_test",
         "--save-profile", str(out_profile),
         "--K", "9",
     ])
@@ -110,18 +112,20 @@ def test_full_run_against_fixture(tmp_path: Path):
     # Use a private action_log DB.
     db_path = tmp_path / "log" / "sim_bench.db"
     db_path.parent.mkdir()
-    import face_cluster.run_history_db as run_history_db
-    orig = run_history_db.get_db_path
-    run_history_db.get_db_path = lambda: db_path  # type: ignore[assignment]
+    # spec-048: _resolve_db_path now reads from _paths.default_db_path.
+    import face_cluster._paths as _paths
+    orig = _paths.default_db_path
+    _paths.default_db_path = lambda: db_path  # type: ignore[assignment]
     try:
         rc = run_v2_main([
             "--src", str(src), "--out", str(out),
+            "--album", "cli_full_run_fixture",
             "--K", "3", "--distance_threshold", "0.5",
             "--blur_min", "0.0",
             "--yaw_max", "999.0", "--pitch_max", "999.0", "--roll_max", "999.0",
         ])
     finally:
-        run_history_db.get_db_path = orig
+        _paths.default_db_path = orig
     if rc != 0:
         pytest.skip(f"v2 pipeline failed (env): exit {rc}")
     assert rc == 0

@@ -74,7 +74,9 @@ def _build_params(args: argparse.Namespace) -> FCParams:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--src", type=Path, required=True, help="Source image directory.")
-    parser.add_argument("--out", type=Path, required=True, help="Output directory.")
+    parser.add_argument("--out", type=Path, required=True, help="Output directory (used directly as the run dir).")
+    parser.add_argument("--album", type=str, required=True,
+                        help="Album label persisted to action_log.source_album.")
     parser.add_argument("--profile", type=Path, default=None,
                         help="FCParams profile JSON to load as the base configuration.")
     parser.add_argument("--save-profile", type=Path, default=None,
@@ -117,8 +119,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             logger.error("Could not save profile: %s", e)
             return 2
 
-    logger.info("Running v2 pipeline: src=%s out=%s", args.src, args.out)
-    result = run_v2_pipeline(src_dir=args.src, output_dir=args.out, params=params)
+    from uuid import uuid4
+    args.out.mkdir(parents=True, exist_ok=True)
+    run_id = uuid4().hex
+    logger.info("Running v2 pipeline: src=%s out=%s album=%s run_id=%s",
+                args.src, args.out, args.album, run_id)
+    result = run_v2_pipeline(
+        src_dir=args.src, run_dir=args.out,
+        run_id=run_id, album=args.album,
+        params=params,
+    )
     if not result.success:
         logger.error("Run failed: %s", result.error_message)
         return 1

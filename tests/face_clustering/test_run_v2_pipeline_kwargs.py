@@ -4,6 +4,8 @@ These are unit-level checks on the public signature of
 ``run_v2_pipeline`` — they do NOT run the producer chain. Pass an empty
 source directory so the pipeline returns early before invoking
 InsightFace. That keeps the test fast and CPU/GPU-free.
+
+spec-050: updated to the new run_dir / run_id / album signature.
 """
 from __future__ import annotations
 
@@ -17,11 +19,17 @@ from app.face_clustering_v2.pipeline import run_v2_pipeline
 from face_cluster.fc_params import FCParams
 
 
+_TEST_RUN_ID = "deadbeefdeadbeefdeadbeefdeadbeef"
+_TEST_ALBUM = "kwargs_test_album"
+
+
 def test_both_params_and_step_configs_raises(tmp_path: Path):
     with pytest.raises(ValueError, match="not both"):
         run_v2_pipeline(
             src_dir=tmp_path,
-            output_dir=tmp_path / "out",
+            run_dir=tmp_path / "out",
+            run_id=_TEST_RUN_ID,
+            album=_TEST_ALBUM,
             params=FCParams(),
             step_configs={"foo": {}},
         )
@@ -34,7 +42,11 @@ def test_step_configs_emits_deprecation_warning(tmp_path: Path):
     out = tmp_path / "out"
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        run_v2_pipeline(src_dir=src, output_dir=out, step_configs={"foo": {}})
+        run_v2_pipeline(
+            src_dir=src, run_dir=out,
+            run_id=_TEST_RUN_ID, album=_TEST_ALBUM,
+            step_configs={"foo": {}},
+        )
     assert any(
         issubclass(w.category, DeprecationWarning) and "FCParams" in str(w.message)
         for w in caught
@@ -45,7 +57,10 @@ def test_no_kwargs_runs_without_crashing(tmp_path: Path):
     """Neither params nor step_configs → defaults flow through."""
     src = tmp_path / "src"; src.mkdir()
     out = tmp_path / "out"
-    result = run_v2_pipeline(src_dir=src, output_dir=out)
+    result = run_v2_pipeline(
+        src_dir=src, run_dir=out,
+        run_id=_TEST_RUN_ID, album=_TEST_ALBUM,
+    )
     # Empty src → pipeline returns success=False with the no-images message,
     # but it must not raise.
     assert result.success is False
@@ -58,7 +73,11 @@ def test_params_path_does_not_emit_deprecation(tmp_path: Path):
     out = tmp_path / "out"
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        run_v2_pipeline(src_dir=src, output_dir=out, params=FCParams())
+        run_v2_pipeline(
+            src_dir=src, run_dir=out,
+            run_id=_TEST_RUN_ID, album=_TEST_ALBUM,
+            params=FCParams(),
+        )
     assert not any(
         issubclass(w.category, DeprecationWarning) for w in caught
     ), "params= path must not emit DeprecationWarning"

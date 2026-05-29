@@ -52,10 +52,12 @@ def v2_run(tmp_path_factory):
     out_dir = tmp_path_factory.mktemp("v2_e2e_out")
 
     # Use a private action_log DB so the test doesn't pollute ~/.sim_bench.
+    # spec-048: _resolve_db_path now reads from face_cluster._paths, not
+    # from run_history_db. Patch the new location.
     db_path = tmp_path_factory.mktemp("v2_e2e_action_log") / "sim_bench.db"
-    import face_cluster.run_history_db as run_history_db
-    orig_get_db_path = run_history_db.get_db_path
-    run_history_db.get_db_path = lambda: db_path  # type: ignore[assignment]
+    import face_cluster._paths as _paths
+    orig_get_db_path = _paths.default_db_path
+    _paths.default_db_path = lambda: db_path  # type: ignore[assignment]
     try:
         from app.face_clustering_v2.pipeline import run_v2_pipeline
         from face_cluster.fc_params import FCParams
@@ -70,11 +72,13 @@ def v2_run(tmp_path_factory):
             cluster_diameter_cap_enabled=False,
         )
         result = run_v2_pipeline(
-            src_dir=Path(src_dir), output_dir=Path(out_dir),
+            src_dir=Path(src_dir), run_dir=Path(out_dir),
+            run_id="testrunid000000000000000000000a",
+            album="e2e_test_album",
             params=params,
         )
     finally:
-        run_history_db.get_db_path = orig_get_db_path
+        _paths.default_db_path = orig_get_db_path
     if not result.success:
         pytest.skip(f"v2 pipeline failed (likely env): {result.error_message}")
     return result, db_path
@@ -155,9 +159,9 @@ def test_v2_pipeline_runs_with_non_default_fcparams(tmp_path_factory):
     out_dir = tmp_path_factory.mktemp("v2_nondefault_out")
 
     db_path = tmp_path_factory.mktemp("v2_nondefault_log") / "sim_bench.db"
-    import face_cluster.run_history_db as run_history_db
-    orig = run_history_db.get_db_path
-    run_history_db.get_db_path = lambda: db_path  # type: ignore[assignment]
+    import face_cluster._paths as _paths
+    orig = _paths.default_db_path
+    _paths.default_db_path = lambda: db_path  # type: ignore[assignment]
     try:
         params = FCParams(
             K=3, distance_threshold=0.5, min_cluster_size=2,
@@ -167,10 +171,13 @@ def test_v2_pipeline_runs_with_non_default_fcparams(tmp_path_factory):
             merge_candidate_threshold=0.50,  # non-default
         )
         result = run_v2_pipeline(
-            src_dir=Path(src_dir), output_dir=Path(out_dir), params=params,
+            src_dir=Path(src_dir), run_dir=Path(out_dir),
+            run_id="testrunid000000000000000000000b",
+            album="e2e_merge_test_album",
+            params=params,
         )
     finally:
-        run_history_db.get_db_path = orig
+        _paths.default_db_path = orig
     if not result.success:
         pytest.skip(f"v2 pipeline failed (env): {result.error_message}")
     assert result.success

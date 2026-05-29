@@ -6,6 +6,13 @@ with a ``json_schema_extra`` block. The widget factory at
 renders the right Streamlit control. This tab is just the layout —
 which groups to show in which expanders, in what order.
 
+spec-050: I/O paths reworked. The user now supplies a **source dir**
+and an **album name**; the per-run output dir is allocated as a fresh
+``<base>/<uuid>/`` and the UUID is also the ``run_id`` recorded in
+action_log. ``v2_last_run_dir`` is written to session state BEFORE the
+pipeline runs so failed runs (or mid-run tab switches) still leave a
+recoverable pointer.
+
 Adding a new knob: add a Field to FCParams. The widget appears
 automatically in the group it declares.
 """
@@ -21,6 +28,7 @@ from app.face_clustering_v2.widget_factory import (
     build_params_from_state,
     render_group,
 )
+from face_cluster.run_layout import allocate_run_dir
 
 
 # Display order of the expanders. Groups not listed here are skipped
@@ -49,6 +57,8 @@ _GROUP_COLUMNS = {
     "cap":       2,
 }
 
+_DEFAULT_RUNS_BASE = Path.home() / ".sim_bench" / "runs"
+
 
 def render_run_tab() -> None:
     st.subheader("Run face clustering — v2")
@@ -61,7 +71,7 @@ def render_run_tab() -> None:
 
     render_profile_bar()
 
-    # --- I/O paths -------------------------------------------------------
+    # --- Required inputs -------------------------------------------------
     c1, c2 = st.columns(2)
     with c1:
         src = st.text_input(
@@ -71,14 +81,27 @@ def render_run_tab() -> None:
             key="v2_src_input",
         )
     with c2:
-        out = st.text_input(
-            "Output directory",
-            value=str(st.session_state.get(
-                "v2_out_dir",
-                str(Path.home() / ".sim_bench" / "runs" / "v2_latest"),
-            )),
-            help="Destination for the v5 run artifacts.",
-            key="v2_out_input",
+        album = st.text_input(
+            "Album name (required)",
+            value=str(st.session_state.get("v2_album", "")),
+            help=(
+                "Free-form label persisted to action_log.source_album. "
+                "Used by the History tab and the Clusters tab's run picker "
+                "to identify this run later."
+            ),
+            key="v2_album_input",
+        )
+
+    with st.expander("Advanced: base runs directory", expanded=False):
+        base_dir_str = st.text_input(
+            "Base directory for per-run output",
+            value=str(st.session_state.get("v2_runs_base", _DEFAULT_RUNS_BASE)),
+            help=(
+                "Each run is allocated a fresh subdirectory "
+                "`<base>/<uuid>/` containing face_clustering.db, crops, "
+                "and exports. Default: ~/.sim_bench/runs."
+            ),
+            key="v2_runs_base_input",
         )
 
     # --- Top-level knob groups ------------------------------------------
@@ -94,13 +117,27 @@ def render_run_tab() -> None:
             render_group("cap", columns=_GROUP_COLUMNS["cap"])
 
     # --- Run -------------------------------------------------------------
-    run_disabled = not (src and out)
+    run_disabled = not (src and album.strip())
     if st.button("Run", type="primary", key="v2_run_btn", disabled=run_disabled):
         if not Path(src).exists():
             st.error(f"Source directory does not exist: {src}")
             return
+
+        # Persist inputs so the next session sees the same values.
         st.session_state.v2_src_dir = src
-        st.session_state.v2_out_dir = out
+        st.session_state.v2_album = album.strip()
+        st.session_state.v2_runs_base = base_dir_str
+
+        # Allocate the per-run output dir BEFORE doing any work, and write
+        # it to session state immediately. If the pipeline raises, the
+        # user can still find the run dir (and a `failed` action_log row).
+        try:
+            run_dir, run_id = allocate_run_dir(Path(base_dir_str), album.strip())
+        except Exception as e:
+            st.error(f"Could not allocate run directory under {base_dir_str}: {e}")
+            return
+        st.session_state.v2_last_run_dir = str(run_dir)
+        st.session_state.v2_last_run_id = run_id
 
         params = build_params_from_state()
         if params is None:
@@ -116,10 +153,12 @@ def render_run_tab() -> None:
                 pass
             status.text(f"{step}: {msg}")
 
-        with st.spinner("Running v2 pipeline..."):
+        with st.spinner(f"Running v2 pipeline into {run_dir.name[:8]}..."):
             result = run_v2_pipeline(
                 src_dir=Path(src),
-                output_dir=Path(out),
+                run_dir=run_dir,
+                run_id=run_id,
+                album=album.strip(),
                 params=params,
                 progress_cb=_cb,
             )
@@ -129,9 +168,8 @@ def render_run_tab() -> None:
             st.success(
                 f"Run complete — {result.n_clusters} clusters from {result.n_faces} "
                 f"faces across {result.n_images} images "
-                f"(noise={result.n_noise}). DB: {result.db_path}"
+                f"(noise={result.n_noise}). Run dir: {result.output_dir}"
             )
-            st.session_state.v2_last_run_dir = str(result.output_dir)
             st.session_state.v2_last_result = result
         else:
             st.error(f"Run failed: {result.error_message}")
