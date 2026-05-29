@@ -89,7 +89,7 @@ def test_repository_takes_typed_config():  # #4
     """ClusterAnalysisRepository.__init__ must take the typed Config, not a Session or kwargs soup."""
     import typing
 
-    from face_cluster.repositories.cluster_analysis_repo import (
+    from sim_bench.db.face_clustering.cluster_analysis_repo import (
         ClusterAnalysisRepoConfig,
         ClusterAnalysisRepository,
     )

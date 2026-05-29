@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from face_cluster.repositories.cluster_analysis_repo import (
+from sim_bench.db.face_clustering.cluster_analysis_repo import (
     ClusterAnalysisRepoConfig,
     ClusterAnalysisRepository,
 )

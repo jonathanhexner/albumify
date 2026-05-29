@@ -20,7 +20,7 @@ import pytest
 
 from sim_bench.run_db._schema import SCHEMA_DDL, SCHEMA_VERSION
 from face_cluster.repositories._errors import ValidationError
-from face_cluster.repositories.cluster_analysis_repo import (
+from sim_bench.db.face_clustering.cluster_analysis_repo import (
     ClusterAnalysisCriteria,
     ClusterAnalysisRepoConfig,
     ClusterAnalysisRepository,

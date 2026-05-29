@@ -27,7 +27,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ALLOW_LIST = {
     "face_cluster.run_store",
     "face_cluster.run_exporter",
-    "face_cluster.repositories.cluster_analysis_repo",
 }
 
 # All four relocation targets — every PR removes one entry from ALLOW_LIST.
