@@ -76,6 +76,36 @@ def test_compute_detail_async_returns_cluster_view(service):  # #4
     assert all(hasattr(f, "area_ratio") for f in handle.result.faces)
 
 
+# ---------------------------------------------------------------------------
+# Sync compute (SIGHTING-079 fix — preferred for Streamlit UI)
+# ---------------------------------------------------------------------------
+
+def test_compute_detail_sync_returns_cluster_view(service):
+    """SIGHTING-079 fix: the v2 tab uses sync compute + st.spinner because
+    Streamlit doesn't poll AsyncHandle. Sync must return a complete
+    ClusterView in a single call."""
+    view = service.compute_detail(cluster_id=0)
+    assert isinstance(view, ClusterView)
+    assert view.cluster_id == 0
+    assert view.size > 0
+    assert all(hasattr(f, "area_ratio") for f in view.faces)
+
+
+def test_compute_debug_sync_returns_debug_view(service):
+    """Sync counterpart for ClusterDebugView."""
+    debug = service.compute_debug(cluster_id=0)
+    assert isinstance(debug, ClusterDebugView)
+    assert debug.cluster_id == 0
+    assert debug.n_faces > 0
+
+
+def test_compute_detail_sync_raises_on_unknown_cluster(service):
+    """Sync variant surfaces errors as raised exceptions (no AsyncHandle
+    wrapping). The tab catches with try/except + st.error."""
+    with pytest.raises(Exception, match="not found"):
+        service.compute_detail(cluster_id=999_999)
+
+
 def test_compute_detail_async_unknown_cluster_surfaces_error(service):  # #5
     handle = service.compute_detail_async(cluster_id=999_999)
     state = handle.wait(timeout=10.0)

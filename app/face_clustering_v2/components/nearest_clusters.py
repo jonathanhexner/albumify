@@ -1,27 +1,21 @@
 """spec-045 Phase 6 — nearest-clusters list with Go-To button.
 
-Stateless given a list of ClusterRow. Reads the currently-selected cluster
-from session state for the "Go to" target.
+Takes a concrete :class:`ClusterView` (SIGHTING-079 sync rewrite). Reads
+the currently-selected cluster from session state for the Go-To target.
 """
 from __future__ import annotations
 
-from typing import List
-
 import streamlit as st
 
-from face_cluster.views._async import AsyncHandle
 from face_cluster.views.cluster_view import ClusterView
 
 
-def render_nearest_clusters(handle: AsyncHandle[ClusterView]) -> None:
+def render_nearest_clusters(view: ClusterView) -> None:
     """Render the top-10 nearest clusters strip from the cluster view.
 
     Side effects: when the user clicks "Go to C{id}", writes
     ``st.session_state['selected_cluster']`` to that id and reruns.
     """
-    if handle.poll() != "done" or handle.result is None:
-        return
-    view: ClusterView = handle.result
     if not view.nearest_clusters:
         return
     with st.expander(f"Nearest clusters ({len(view.nearest_clusters)})", expanded=False):

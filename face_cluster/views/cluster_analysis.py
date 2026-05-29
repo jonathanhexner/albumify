@@ -108,14 +108,43 @@ class ClusterAnalysisService:
         """Cluster ids in display order (passthrough)."""
         return self._repo.get_cluster_ids()
 
-    # ---- Phase 4: heavy compute behind AsyncHandle --------------------
+    # ---- Synchronous compute (used by the v2 tab; SIGHTING-079 fix) ---
+
+    def compute_detail(self, cluster_id: int) -> ClusterView:
+        """Synchronously compute :class:`ClusterView` for ``cluster_id``.
+
+        Streamlit's request/response model doesn't poll background threads,
+        so AsyncHandle doesn't work as a UI primitive without an explicit
+        ``time.sleep + st.rerun`` loop in the caller. For a typical cluster
+        (≤100 faces) compute is sub-second — sync + ``st.spinner`` in the
+        caller is simpler and matches the Streamlit lifecycle. SIGHTING-079.
+        """
+        result_proxy = self._build_pipeline_result_proxy()
+        return ClusterView.compute(result_proxy, cluster_id)
+
+    def compute_debug(self, cluster_id: int) -> ClusterDebugView:
+        """Synchronously compute :class:`ClusterDebugView` for ``cluster_id``.
+
+        Same rationale as :meth:`compute_detail` — sync fits Streamlit.
+        """
+        result_proxy = self._build_pipeline_result_proxy()
+        return ClusterDebugView.compute(result_proxy, cluster_id)
+
+    # ---- Async compute (kept as a library primitive for future tabs
+    #      with heavy compute that genuinely need background work +
+    #      polling. NOT used by the v2 Cluster Analysis tab — see
+    #      SIGHTING-079 for why.) ----------------------------------------
 
     def compute_detail_async(self, cluster_id: int) -> AsyncHandle[ClusterView]:
         """Start a background compute of :class:`ClusterView` for ``cluster_id``.
 
-        Cancels any in-flight ``compute_detail_async`` handle on this
-        Service instance before starting (single-cluster contract per
-        spec §6.1). Caller polls the returned handle.
+        Cancels any in-flight handle on this Service instance before starting.
+        Caller is responsible for polling the returned handle AND triggering
+        re-renders (e.g., ``time.sleep + st.rerun()``) until ``state == "done"``.
+
+        For the v2 Cluster Analysis tab, prefer :meth:`compute_detail` — sync
+        compute matches Streamlit's lifecycle. This async variant remains for
+        future tabs that need true backgrounding.
         """
         if self._detail_handle is not None and self._detail_handle.state in ("pending", "running"):
             self._detail_handle.cancel()
@@ -124,10 +153,7 @@ class ClusterAnalysisService:
         return self._detail_handle
 
     def compute_debug_async(self, cluster_id: int) -> AsyncHandle[ClusterDebugView]:
-        """Start a background compute of :class:`ClusterDebugView` for ``cluster_id``.
-
-        Same cancellation contract as :meth:`compute_detail_async`.
-        """
+        """Async variant of :meth:`compute_debug`. See ``compute_detail_async``."""
         if self._debug_handle is not None and self._debug_handle.state in ("pending", "running"):
             self._debug_handle.cancel()
         result_proxy = self._build_pipeline_result_proxy()

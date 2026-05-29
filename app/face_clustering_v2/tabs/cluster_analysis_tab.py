@@ -54,15 +54,31 @@ def render_cluster_analysis_tab() -> None:
     if cluster_id is None:
         return
 
-    detail_handle = service.compute_detail_async(cluster_id)
-    render_cluster_metrics(detail_handle)
-    render_face_grid(detail_handle, run_dir=run_dir)
-    render_nearest_clusters(detail_handle)
+    # SIGHTING-079 fix: sync compute + st.spinner. AsyncHandle never advanced
+    # past "Analysing cluster…" because Streamlit doesn't poll background
+    # threads. For ≤100-face clusters, sync compute is sub-second.
+    try:
+        with st.spinner("Analysing cluster…"):
+            detail = service.compute_detail(cluster_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("compute_detail failed for cluster %s in %s", cluster_id, run_dir)
+        st.error(f"Could not analyse cluster {cluster_id}: {exc}")
+        return
+
+    render_cluster_metrics(detail)
+    render_face_grid(detail, run_dir=run_dir)
+    render_nearest_clusters(detail)
 
     render_force_merge(service, cluster_ids=[r.cluster_id for r in rows], current_cluster=cluster_id)
 
-    debug_handle = service.compute_debug_async(cluster_id)
-    render_cluster_debug(debug_handle)
+    try:
+        with st.spinner("Computing graph diagnostics…"):
+            debug = service.compute_debug(cluster_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("compute_debug failed for cluster %s in %s", cluster_id, run_dir)
+        st.error(f"Could not compute graph diagnostics for cluster {cluster_id}: {exc}")
+        return
+    render_cluster_debug(debug)
 
 
 def _run_dir_is_loadable(path: Path) -> bool:

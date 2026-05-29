@@ -32,7 +32,7 @@ Possible root cause
 -->
 
 ### SIGHTING-079: v2 Cluster Analysis tab stuck on "Analysing cluster…" — AsyncHandle never reaches UI
-**Status**: OPEN (planned fix: replace AsyncHandle with sync + st.spinner for this tab)
+**Status**: RESOLVED 2026-05-29 (sync compute + st.spinner; AsyncHandle retained as library primitive)
 **Severity**: High (tab is functionally unusable — user sees only loading text)
 **Reported**: 2026-05-29 (immediately after SIGHTING-078 fix landed and revealed the next layer)
 **Persona**: Senior SW Engineer (spec-045 owner)
@@ -65,13 +65,19 @@ introduced `AsyncHandle[T]` but didn't include the polling.
 3. Pick a cluster.
 4. Observe: "Analysing cluster…" sticks forever. Metrics never appear.
 
-**Resolution (planned)**:
-Replace `compute_detail_async` / `compute_debug_async` with synchronous
-`compute_detail(cluster_id) -> ClusterView` and `compute_debug(cluster_id)
--> ClusterDebugView`. Tab body wraps each call in `st.spinner("Analysing
-cluster…")`. For a typical cluster (≤100 faces), compute is sub-second —
-the async overhead bought nothing. AsyncHandle stays in `views/_async.py`
-as shared library code for future heavy-compute tabs that genuinely need it.
+**Resolution (shipped 2026-05-29)**:
+Added synchronous `ClusterAnalysisService.compute_detail(cluster_id) -> ClusterView`
+and `compute_debug(cluster_id) -> ClusterDebugView` (sibling methods alongside
+the async variants, which are kept as library primitives). 6 components
+(cluster_metrics / face_grid / nearest_clusters / cluster_debug + 2 untouched)
+now take concrete typed inputs instead of AsyncHandles. Tab body wraps each
+sync call in `st.spinner("Analysing cluster…")` + try/except logging.
+
+Verified end-to-end via AppTest against the user's actual failing run dir
+(`e51497605...`): `metrics=9, exceptions=0, errors=0`, face thumbnails with
+role tags + distances rendered. AppTest regression case
+`test_cluster_analysis_metrics_actually_render` asserts `metrics >= 5` — the
+exact signal that would have caught this before commit.
 
 **Findings**:
 - AppTest is the right test surface — `at.metric` count would have caught

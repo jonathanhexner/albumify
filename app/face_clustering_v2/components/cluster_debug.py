@@ -1,29 +1,18 @@
 """spec-045 Phase 6 — graph-debug section for one cluster.
 
-Renders 4-metric strip + (optional) chain/sparse warnings + bridge faces +
-heatmap + edges expander. Stateless given an AsyncHandle[ClusterDebugView].
+Renders 4-metric strip + (optional) chain/sparse warnings + bridge faces
++ heatmap + edges expander. Takes a concrete :class:`ClusterDebugView`
+(SIGHTING-079 sync rewrite).
 """
 from __future__ import annotations
 
 import streamlit as st
 
-from face_cluster.views._async import AsyncHandle
 from face_cluster.views.cluster_debug_view import ClusterDebugView
 
 
-def render_cluster_debug(handle: AsyncHandle[ClusterDebugView]) -> None:
-    """Render graph diagnostics for the cluster the handle is computing."""
-    state = handle.poll()
-    if state in ("pending", "running"):
-        st.caption("Computing graph diagnostics…")
-        return
-    if state == "failed":
-        st.error(f"Graph compute failed: {handle.error}")
-        return
-    if state == "cancelled" or handle.result is None:
-        return
-    dbg: ClusterDebugView = handle.result
-
+def render_cluster_debug(dbg: ClusterDebugView) -> None:
+    """Render graph diagnostics for the given cluster debug view."""
     with st.expander("Graph debug", expanded=False):
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Edges", f"{dbg.n_edges} / {dbg.max_possible_edges}")

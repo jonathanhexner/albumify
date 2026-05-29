@@ -2,6 +2,18 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-29 [BUGFIX] SIGHTING-079 — sync compute + st.spinner replaces AsyncHandle in Cluster Analysis tab
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/views/cluster_analysis.py`: added `ClusterAnalysisService.compute_detail(cluster_id)` and `compute_debug(cluster_id)` synchronous methods alongside the existing async variants. Sync builds the same proxy and calls `ClusterView.compute` / `ClusterDebugView.compute` in the calling thread. Async kept as library primitive for future tabs that genuinely need backgrounding.
+- UPDATED `app/face_clustering_v2/tabs/cluster_analysis_tab.py`: replaced `compute_detail_async` / `compute_debug_async` calls with sync compute wrapped in `st.spinner("Analysing cluster…")`. try/except + `logger.exception` around each compute so failures surface as `st.error` with the underlying message and a log line.
+- REWRITTEN `app/face_clustering_v2/components/{cluster_metrics,face_grid,nearest_clusters,cluster_debug}.py`: 4 components now take concrete `ClusterView` / `ClusterDebugView` instead of `AsyncHandle[T]`. ~10 LOC simpler per component (no state machine, no early returns on `pending`/`running`).
+- UPDATED `tests/face_clustering/views/test_cluster_analysis_service_synthetic.py`: 3 new tests for sync API — `test_compute_detail_sync_returns_cluster_view`, `test_compute_debug_sync_returns_debug_view`, `test_compute_detail_sync_raises_on_unknown_cluster`.
+- UPDATED `tests/face_clustering/test_v2_app_smoke.py`: new `test_cluster_analysis_metrics_actually_render` — asserts `at.metric` count ≥ 5 on the AppTest page render. This is the assertion that would have caught SIGHTING-079 before it shipped (the prior "no exception" test passed even on the stuck UI).
+- UPDATED `docs/project/SIGHTINGS.md`: SIGHTING-079 marked RESOLVED with verification details.
+**Reason**: Immediately after SIGHTING-078 fix landed, AppTest exposed that the Cluster Analysis tab reached "Analysing cluster…" but never advanced. Root cause: `compute_detail_async` returns an `AsyncHandle[T]` and the component renders the loading caption when `state in ("pending", "running")`, but Streamlit doesn't poll background threads — nothing triggers a subsequent rerun to check completion. AsyncHandle is the wrong primitive for a synchronous request/response framework. The legacy app had a `time.sleep + st.rerun()` polling loop in the tab body; spec-045 ported AsyncHandle but not the loop. For ≤100-face clusters compute is sub-second, so sync + `st.spinner` is the right shape: simpler, no cancellation logic needed, matches Streamlit's lifecycle.
+**Verification**: 215/215 tests green (was 211; +3 sync Service tests + 1 new AppTest assertion). AppTest against user's actual failing run dir (`e51497605...`): **metrics=9, exceptions=0, errors=0** — face thumbnails render with role tags + distances. Spec-045 status stays Implemented; this is a defect fix, not new functionality.
+
 ### 2026-05-29 [BUGFIX] SIGHTING-078 fix + SIGHTING-079 filed + AppTest harness + postmortem
 **Branch**: `unification/spec-040`
 **Files**:

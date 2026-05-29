@@ -1,7 +1,8 @@
 """spec-045 Phase 6 — face thumbnail grid (8 cols).
 
 Used by Cluster Analysis (all faces) and reused by future Gallery /
-Face Analysis tabs. Stateless given an :class:`AsyncHandle[ClusterView]`.
+Face Analysis tabs. Takes a concrete :class:`ClusterView` (SIGHTING-079
+sync rewrite).
 """
 from __future__ import annotations
 
@@ -9,22 +10,18 @@ from pathlib import Path
 
 import streamlit as st
 
-from face_cluster.views._async import AsyncHandle
 from face_cluster.views.cluster_view import ClusterView
 
 GRID_COLS = 8
 
 
-def render_face_grid(handle: AsyncHandle[ClusterView], *, run_dir: Path) -> None:
+def render_face_grid(view: ClusterView, *, run_dir: Path) -> None:
     """Render an 8-column grid of face thumbnails, exemplars first.
 
     Args:
-        handle:  the in-flight ClusterView compute.
+        view:    the computed ClusterView for the current cluster.
         run_dir: parent run dir; crops live at ``run_dir / crops / face_{id:04d}.jpg``.
     """
-    if handle.poll() != "done" or handle.result is None:
-        return
-    view: ClusterView = handle.result
     faces = view.faces
     if not faces:
         st.caption("No faces in this cluster.")

@@ -99,6 +99,33 @@ def test_main_page_renders_without_exception_on_no_op_merge_run(no_op_merge_run_
 
 
 @pytest.mark.slow
+def test_cluster_analysis_metrics_actually_render(no_op_merge_run_dir):
+    """SIGHTING-079 regression: previously the tab reached
+    "Analysing cluster…" and never advanced — AsyncHandle started a
+    background thread but Streamlit doesn't poll it. After the sync
+    rewrite, the metrics MUST render (5 st.metric widgets from
+    render_cluster_metrics).
+
+    This is the assertion that would have caught SIGHTING-079 before it
+    shipped. The earlier no-crash test passed even on the broken UI.
+    """
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(MAIN_PY)
+    at.session_state["v2_last_run_dir"] = str(no_op_merge_run_dir)
+    at.run(timeout=60)
+
+    n_metrics = len(at.metric)
+    # render_cluster_metrics emits 5 metrics (Faces / Diameter / Avg intra-dist
+    # / Exemplars / Outliers); render_cluster_debug emits 4 more inside an
+    # expander (which AppTest still counts). Total >= 5 means metrics rendered.
+    assert n_metrics >= 5, (
+        f"Cluster Analysis tab metrics did not render: {n_metrics} metrics on page. "
+        f"Previously SIGHTING-079: stuck on 'Analysing cluster…' caption forever."
+    )
+
+
+@pytest.mark.slow
 def test_main_page_renders_without_exception_on_empty_run_dir(tmp_path):
     """2026-05-29 earlier bug regression: spec-050 allocates a UUID run dir
     and writes v2_last_run_dir BEFORE the pipeline runs. If the user opens
