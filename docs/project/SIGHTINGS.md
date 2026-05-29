@@ -31,6 +31,38 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-090: `test_executor_step_io_logging` fails only in full-suite run (test pollution)
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-05-30
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`tests/pipeline/test_executor_step_io_logging.py::test_executor_logs_in_out_for_each_successful_step` and `::test_executor_logs_validation_failure_with_input_shape` fail in the full pytest run but pass when run in isolation OR when running just `tests/pipeline/` (after ignoring the known-broken-collection files).
+
+**Symptoms**:
+- Isolation: 8/8 pass.
+- `pytest tests/pipeline/ --ignore=tests/pipeline/test_face_embedding_validation.py --ignore=tests/pipeline/test_face_pipeline_e2e.py`: 119 passed (these 2 included).
+- Full suite (alphabetical order, with documented ignores): both fail.
+
+**Suspicion**:
+Logging state pollution from an upstream test. Both failing tests use `caplog.at_level(logging.INFO, logger="sim_bench.pipeline.executor")`. If an earlier test sets `propagate=False` on `sim_bench.pipeline.executor` or removes its handler, `caplog` won't see the records. The full suite first runs `tests/architecture/`, `tests/clustering/`, `tests/face_clustering/`, `tests/manual/`, `tests/quality_assessment/` before reaching `tests/pipeline/` — one of those modules is likely the culprit. Could also be SQLAlchemy's logger taking over the root.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest tests/ -q --tb=no --ignore=tests/test_full_e2e_flow.py --ignore=tests/test_quality_assessment.py --ignore=tests/test_clip_aesthetic.py --ignore=tests/quality_assessment/test_learned_clip.py --ignore=tests/test_quality_benchmark.py --ignore=tests/pipeline/test_face_pipeline_e2e.py --ignore=tests/pipeline/test_face_embedding_validation.py`
+2. Both tests listed in the FAILED section.
+3. Re-run just `tests/pipeline/test_executor_step_io_logging.py` → 8/8 pass.
+
+**Suggested investigation**:
+- Add `caplog.set_level(logging.NOTSET)` + reset propagate in a conftest autouse fixture under `tests/pipeline/`, see if it isolates.
+- Or bisect upstream: `pytest tests/face_clustering/ tests/pipeline/test_executor_step_io_logging.py -p no:randomly` → fails? Then narrow to a specific file.
+
+**Resolution**: (open)
+
+**Findings**: (open)
+
+---
+
 ### SIGHTING-089: History tab run-detail panel is blank for every v2 run
 **Status**: RESOLVED 2026-05-30 — read summary from `run_metadata` table via RunStore; legacy JSON parser kept as fallback for older runs. Regression test: `test_summary_from_run_metadata_populates_fields_for_v5_run`. Verified against the user's real Budapest run: `n_faces=340, n_core=186, n_clusters_base=15`.
 **Severity**: Medium (UX degradation — not a crash; user sees blanks where the legacy panel showed numbers)
