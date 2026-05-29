@@ -48,12 +48,17 @@ def test_run_store_exposes_image_detail():
 
 
 def test_image_detail_queries_load_bearing_tables():
-    """The method must touch faces, cluster_assignments, and filter_decisions."""
+    """The method must touch faces, cluster_assignments, and filter_decisions.
+
+    Updated for spec-059 ORM migration: the queries are now `select(Face)`,
+    `select(ClusterAssignment.*)`, `select(FilterDecision.*)` instead of raw
+    SQL strings. The check moves to the ORM model class names.
+    """
     src = inspect.getsource(RunStore.image_detail)
-    for table in ("faces", "cluster_assignments", "filter_decisions"):
-        assert re.search(rf"\bFROM {table}\b", src), (
-            f"RunStore.image_detail must query {table!r} — that's the spec-033 P-D "
-            "single-join contract. Found:\n" + src[:500]
+    for model in ("Face", "ClusterAssignment", "FilterDecision"):
+        assert re.search(rf"\b{model}\b", src), (
+            f"RunStore.image_detail must query the {model} model — that's the "
+            "spec-033 P-D single-join contract. Found:\n" + src[:500]
         )
 
 
