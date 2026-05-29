@@ -31,6 +31,116 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-079: v2 Cluster Analysis tab stuck on "Analysing cluster…" — AsyncHandle never reaches UI
+**Status**: OPEN (planned fix: replace AsyncHandle with sync + st.spinner for this tab)
+**Severity**: High (tab is functionally unusable — user sees only loading text)
+**Reported**: 2026-05-29 (immediately after SIGHTING-078 fix landed and revealed the next layer)
+**Persona**: Senior SW Engineer (spec-045 owner)
+
+**Problem Description**:
+After SIGHTING-078's RunStoreError fix, the Cluster Analysis tab renders but
+shows only "Analysing cluster…" and "Computing graph diagnostics…" indefinitely.
+Cluster metrics, face grid, and graph debug never appear. AppTest confirms:
+`metrics: 0` after multiple script reruns spaced 2 seconds apart.
+
+**Symptoms**:
+- User selects a cluster from the picker; UI never advances past the loading caption.
+- AppTest shows `at.metric` count stays 0 across reruns.
+- Background thread (AsyncHandle's daemon Thread) DOES complete — the
+  ClusterView is computed and stored in handle.result.
+
+**Suspicion**:
+`ClusterAnalysisService.compute_detail_async()` is called on every Streamlit
+script rerun. Each call cancels any prior in-flight handle and starts a NEW
+one in "running" state. The `render_cluster_metrics` component polls the
+handle once, sees "running", renders the caption, and returns. **Nothing in
+Streamlit triggers a subsequent rerun to check if the handle finished.** The
+legacy code (`app/face_clustering/state.py::_AsyncState`) had a
+`time.sleep + st.rerun()` polling loop in the tab body; spec-045's port
+introduced `AsyncHandle[T]` but didn't include the polling.
+
+**Steps to Reproduce**:
+1. Load any completed v2 run dir into session_state.
+2. Open the Cluster Analysis tab.
+3. Pick a cluster.
+4. Observe: "Analysing cluster…" sticks forever. Metrics never appear.
+
+**Resolution (planned)**:
+Replace `compute_detail_async` / `compute_debug_async` with synchronous
+`compute_detail(cluster_id) -> ClusterView` and `compute_debug(cluster_id)
+-> ClusterDebugView`. Tab body wraps each call in `st.spinner("Analysing
+cluster…")`. For a typical cluster (≤100 faces), compute is sub-second —
+the async overhead bought nothing. AsyncHandle stays in `views/_async.py`
+as shared library code for future heavy-compute tabs that genuinely need it.
+
+**Findings**:
+- AppTest is the right test surface — `at.metric` count would have caught
+  this immediately. Spec-045's existing Service tests called `handle.wait()`
+  synchronously, which always shows `state == "done"`. They never tested
+  through Streamlit's request/response lifecycle. spec-060 Phase 2 closes
+  this gap permanently.
+- AsyncHandle pattern is a legitimate primitive but it requires explicit
+  polling in the caller. Streamlit's auto-rerun on widget interaction is
+  NOT a polling mechanism — it doesn't fire when a background thread
+  completes.
+
+---
+
+### SIGHTING-078: `RunStore.clusters("final")` crashes when merger ran but merged nothing
+**Status**: OPEN (worked around in spec-045 Repository; root fix belongs in RunStore)
+**Severity**: Medium
+**Reported**: 2026-05-29
+**Persona**: Senior SW Engineer (face_cluster owner)
+
+**Problem Description**:
+`RunStore._resolve_iteration("final")` computes the final iteration as
+`SELECT MAX(iteration) FROM merge_decisions`. When a merger ran one iteration
+but didn't actually merge anything (`actually_merged=0` for every candidate
+pair — common on well-clustered runs), the `clusters` and `cluster_assignments`
+tables stay at the previous iteration but `merge_decisions` gains rows at the
+new iteration. `RunStore.clusters("final")` then queries the `clusters` table
+at the merge_decisions max iteration, finds zero rows, and raises
+`RunStoreError: no clusters recorded for iteration N`.
+
+**Symptoms**:
+- User opens v2 Cluster Analysis tab against a completed run.
+- Tab crashes (or, post-spec-045-fix, shows a friendly error).
+- Direct DB inspection: `clusters` rows only at iteration=0; `merge_decisions`
+  rows at iteration=1 with all `actually_merged=0`; `run_metadata.n_iterations=1`.
+
+**Suspicion**:
+`iteration_count()` reads the wrong table. The notion of "final iteration"
+should be the latest one for which there are actual `clusters` rows, not the
+latest merge round considered. The current logic conflates "merger ran" with
+"merger produced output."
+
+**Steps to Reproduce**:
+1. Run a fresh v2 pipeline on a small Budapest subset.
+2. Observe `merge_decisions` table has rows at iteration=1, all `actually_merged=0`.
+3. `RunStore(run_dir).clusters("final")` raises `RunStoreError`.
+
+**Workaround (shipped in spec-045)**:
+`ClusterAnalysisRepository.get_cluster_result("final")` now resolves the
+iteration locally against the `clusters` table (via its own `_resolve_iteration`)
+and passes the integer to `RunStore.clusters(int)`, bypassing RunStore's broken
+"final" resolver. Regression test:
+`tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py::test_get_cluster_result_final_when_merger_ran_but_merged_nothing`.
+
+**Resolution**:
+(pending) RunStore should be fixed at source. Options:
+- Change `iteration_count()` to read from `clusters` instead of `merge_decisions`
+  (or take MAX of both).
+- Make `RunStore.clusters("final")` fall back to the latest iteration that
+  actually has rows when the resolved one is empty.
+
+**Findings**:
+Spec-045's synthetic test fixture had zero `merge_decisions` rows, so this
+shape was untested. The 2026-05-29 user-reported crash on Budapest is what
+surfaced it. Lesson: synthetic fixtures must include the "merger ran but merged
+nothing" case for any test that touches the iteration-resolution code path.
+
+---
+
 ### SIGHTING-077: v2 Run button silently greyed while typing in Album / Source fields
 **Status**: RESOLVED
 **Severity**: Low (UX confusion, no data loss)

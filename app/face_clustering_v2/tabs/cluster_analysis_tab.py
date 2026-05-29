@@ -5,10 +5,13 @@ components. No SQL, no FS, no ``cfg.get`` literals. See spec §7.1.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Optional
 
 import streamlit as st
+
+logger = logging.getLogger(__name__)
 
 from app.face_clustering_v2.components.cluster_debug import render_cluster_debug
 from app.face_clustering_v2.components.cluster_metrics import render_cluster_metrics
@@ -116,6 +119,7 @@ def _get_service(run_dir: Path) -> Optional[ClusterAnalysisService]:
     try:
         repo = ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir=run_dir))
     except Exception as exc:  # noqa: BLE001
+        logger.exception("Cluster Analysis tab: Repository construction failed for %s", run_dir)
         st.error(
             f"Cannot open run at `{run_dir}`: {exc}. "
             "If the run failed mid-pipeline, the dir is left empty for "

@@ -213,8 +213,24 @@ class ClusterAnalysisRepository(BaseRepository):
         return self._run_store.merge_log()
 
     def get_cluster_result(self, iteration: str = "final") -> ClusterResult:
-        """Return :class:`ClusterResult` at the given iteration (delegates to RunStore)."""
-        return self._run_store.clusters(iteration)
+        """Return :class:`ClusterResult` at the given iteration.
+
+        spec-045 follow-up (2026-05-29): we resolve ``"final"`` locally
+        against the ``clusters`` table and pass the integer iteration to
+        RunStore, bypassing RunStore's own "final" resolver. RunStore
+        computes "final" as ``MAX(iteration) FROM merge_decisions``,
+        which is wrong when the merger ran an iteration but didn't
+        actually merge anything (clusters stay at the previous
+        iteration; merge_decisions has rows at N; clusters has none at
+        N → RunStoreError). Our ``_resolve_iteration`` queries the
+        ``clusters`` table directly and returns the right number.
+
+        Filed as a follow-up sighting against RunStore — the fix
+        belongs there long-term, but this Repository must not crash on
+        the common no-merge case in the meantime.
+        """
+        it = self._resolve_iteration(iteration)
+        return self._run_store.clusters(it)
 
     # ------------------------------------------------------------------
     # Mutations (spec §"Locked decisions" #3 / tasks T013)

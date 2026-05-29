@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SIGHTING-078 postmortem — RunStore "final" iteration crash</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1100px; margin: 1.4em auto; padding: 0 1.4em;
+         color: #222; line-height: 1.5; background:#fafbfc; font-size: 14px; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .25em; margin-bottom: .1em; }
+  h1 + .subtitle { color: #666; margin-top: .1em; font-style: italic; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .2em; margin-top: 1.8em;
+       font-size: 16px; }
+  h3 { color: #1f5fc7; margin-top: 1.2em; font-size: 14px; }
+  table { border-collapse: collapse; margin: .6em 0; width: 100%; font-size: 12.5px; background: #fff; }
+  th, td { border: 1px solid #ddd; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f6; font-weight: 600; }
+  code { background:#eef0f4; padding: 1px 4px; border-radius: 3px; font-size: 12px; font-family: Consolas, monospace; }
+  pre { background:#fff; border:1px solid #ddd; border-radius:4px; padding:9px 11px;
+        font-size:12px; overflow-x:auto; font-family: Consolas, monospace; margin: .5em 0;
+        white-space: pre; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px; font-size:11px; font-weight:600; }
+  .ok    { background:#e3f5e0; color:#236623; }
+  .smell { background:#fde2e2; color:#8a2e2e; }
+  .note  { background:#fff3cd; color:#856404; }
+  .info  { background:#e0e7ff; color:#1d3a8a; }
+  .summary { background:#fff8f0; border-left:4px solid #b8860b; padding:.8em 1em; margin:1em 0; }
+  .green-box { background:#e9f5ea; border-left:4px solid #2e7d32; padding:.7em 1em; margin:.7em 0; font-size:13px; }
+  .red-box { background:#fdecea; border-left:4px solid #c0392b; padding:.7em 1em; margin:.7em 0; font-size:13px; }
+  .arrow { color:#888; }
+  ul { margin: .3em 0 .8em 1.4em; }
+  li { margin: .15em 0; }
+</style>
+</head>
+<body>
+
+<h1>SIGHTING-078 postmortem</h1>
+<p class="subtitle">User-reported crash on the v2 Cluster Analysis tab, 2026-05-29. Root cause, class-level fault map, why it wasn't caught, what shipped, what's still pending.</p>
+
+<div class="summary">
+<b>Headline.</b>
+The v2 Cluster Analysis tab crashed with <code>RunStoreError: no clusters recorded for iteration 1</code> on a perfectly valid completed run. Root cause is a long-standing bug in <code>RunStore</code>'s "final iteration" resolver — it queries the wrong table. spec-045 hits it because the new Repository delegates "final" resolution to RunStore. Workaround shipped in the Repository (resolves "final" locally now); root fix tracked as <b>SIGHTING-078</b> against RunStore. Verified end-to-end against the user's actual run dir.
+</div>
+
+<h2>1. What the user saw — and the Streamlit fact behind it</h2>
+
+<pre>RunStoreError: no clusters recorded for iteration 1 in
+  C:\Users\Jonathan Hexner\.sim_bench\runs\52a70e6f068943798952e1a062705d75\face_clustering.db
+
+File "...\main.py", line 53, in &lt;module&gt;
+    render_cluster_analysis_tab()
+File "...\tabs\cluster_analysis_tab.py", line 39, in render_cluster_analysis_tab
+    service = _get_service(run_dir)</pre>
+
+<div class="red-box">
+<b>The non-obvious thing: you don't need to be on the Cluster Analysis tab for it to crash you.</b>
+<code>st.tabs([...])</code> in Streamlit is a layout container only. On every script rerun (any button click, input change, even a progress-bar update triggers one), <b>every</b> tab body executes top-to-bottom — visible or not. There's no lazy-render. So a crash inside <code>render_cluster_analysis_tab()</code> kills the whole page, even when the user is looking at the Run or History tab.
+</div>
+
+<p><b>The actual sequence that fired this crash:</b></p>
+
+<pre>1. User clicks "Run pipeline" on the Run tab.
+2. spec-050's run_tab writes v2_last_run_dir = &lt;new UUID&gt; IMMEDIATELY
+   (deliberately — before the pipeline starts, for failure recovery).
+3. Streamlit reruns main.py top-to-bottom (button-click trigger).
+4. Line 50: render_run_tab() runs       (this is the tab the user can see)
+5. Line 53: render_cluster_analysis_tab() runs  ← user is NOT on this tab
+6. Tab's resolver reads v2_last_run_dir → loads the brand-new run dir →
+   calls Service.compute_detail_async() (which the tab does eagerly when a
+   cluster is selected from prior state) → Repository.get_cluster_result("final")
+   → RunStore.clusters("final") → crashes on the no-op-merge shape.
+7. Crash propagates up through Streamlit → entire page red traceback.</pre>
+
+<p>The 2-line traceback hid the deeper failure: the Repository constructed fine (the dir had a DB); the crash came later when the Service called <code>RunStore.clusters("final")</code> and got a RunStoreError. <b>The earlier 2026-05-29 bug (empty UUID dir) had exactly the same shape</b> — different error, same "tab you're not on tanks your page" mechanism.</p>
+
+<h2>2. The data shape that triggered it</h2>
+
+<p>Direct inspection of the user's run DB:</p>
+
+<table>
+  <thead><tr><th>Table</th><th>Rows by iteration</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><td><code>clusters</code></td><td><code>iteration=0 → 15 rows</code></td><td>15 clusters formed in the base clustering step.</td></tr>
+    <tr><td><code>cluster_assignments</code></td><td><code>iteration=0 → 107 rows</code></td><td>107 of 340 faces ended up in real clusters; 233 are noise (NOISE_LABEL).</td></tr>
+    <tr><td><code>merge_decisions</code></td><td><code>iteration=1 → 3 rows, all actually_merged=0</code></td><td>The merger considered 3 candidate pairs and rejected all 3. <b>This is normal and common</b> on clean runs.</td></tr>
+    <tr><td><code>run_metadata</code></td><td><code>n_iterations=1, n_clusters_final=15, status=complete</code></td><td>Run reports complete. Clusters never changed past iteration 0.</td></tr>
+  </tbody>
+</table>
+
+<p>So the schema convention is: <b>the merger writes <code>merge_decisions</code> rows for every candidate considered, but only writes new <code>clusters</code> / <code>cluster_assignments</code> rows when something actually merges.</b> When nothing merges, the "final cluster state" is just the previous iteration.</p>
+
+<h2>3. Class-level fault map</h2>
+
+<pre>+----------------------------------------------------------+
+|  Cluster Analysis Tab (spec-045)                         |
+|  render_cluster_analysis_tab()                           |
+|     -> Service.compute_detail_async(cluster_id)          |
++----------------------------------------------------------+
+            |
+            v
++----------------------------------------------------------+
+|  ClusterAnalysisService                  (spec-045)      |
+|  compute_detail_async()                                  |
+|     -> _build_pipeline_result_proxy()                    |
+|         -> repo.get_cluster_result("final")  <----- entry to the chain that crashes
++----------------------------------------------------------+
+            |
+            v
++----------------------------------------------------------+
+|  ClusterAnalysisRepository               (spec-045)      |
+|  get_cluster_result(iteration="final"):                  |
+|     return self._run_store.clusters(iteration)  <- passed "final" through verbatim
+|                                                          |
+|  NOTE: Repository ALREADY had a correct _resolve_iter    |
+|  (queries clusters table), used by get_cluster_rows.     |
+|  But get_cluster_result naively delegated to RunStore.   |
++----------------------------------------------------------+
+            |
+            v
++----------------------------------------------------------+
+|  RunStore                                (legacy)        |
+|  clusters("final"):                                      |
+|     iter_num = self._resolve_iteration("final")          |
+|         -> self.iteration_count()                        |
+|             -> SELECT MAX(iteration) FROM merge_decisions  <- WRONG TABLE
+|             -> returns 1                                  |
+|     SELECT ... FROM clusters WHERE iteration = 1         |
+|     -> 0 rows                                            |
+|     raise RunStoreError("no clusters recorded ...")  ←── crash
++----------------------------------------------------------+
+</pre>
+
+<p>The bug lives in <code>RunStore.iteration_count()</code> — it reads <code>merge_decisions</code> instead of <code>clusters</code>. Two callers conflate "merger ran" with "merger produced clusters." spec-045's Repository inherits the bug by delegating "final" resolution to RunStore.</p>
+
+<h2>4. Why the test suite didn't catch it</h2>
+
+<table>
+  <thead><tr><th>Test layer</th><th>Coverage</th><th>Why it missed</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Repository synthetic (12)</td>
+      <td>Construction, reads, criteria filters, mutation</td>
+      <td>Synthetic fixture had <b>0 rows in <code>merge_decisions</code></b>. <code>iteration_count()</code> returned 0; "final" resolved to 0; matched the <code>clusters</code> table → no crash possible. The exact shape (merger ran, merged nothing) was never exercised.</td>
+    </tr>
+    <tr>
+      <td>Repository real (3)</td>
+      <td>Construction + non-empty + metadata consistency</td>
+      <td>Uses the most recent v2 Budapest run; happened to have <code>merge_decisions</code> rows that aligned with <code>clusters</code> rows (or had 0 rows). Coincidence.</td>
+    </tr>
+    <tr>
+      <td>Service synthetic (12)</td>
+      <td>Async handles, force-merge gates, cancellation</td>
+      <td>Same synthetic fixture as Repository tests. Same blind spot.</td>
+    </tr>
+    <tr>
+      <td>Service real (4)</td>
+      <td>Compute completes against Budapest fixture</td>
+      <td>Same coincidence as Repository real.</td>
+    </tr>
+    <tr>
+      <td>Architecture (5)</td>
+      <td>Layering invariants (no DB in tab, typed returns, etc.)</td>
+      <td>Architectural guard, not behavioral. Wouldn't catch this class of bug.</td>
+    </tr>
+    <tr>
+      <td>spec-060 E2E gate</td>
+      <td><span class="pill smell">DRAFT — not implemented</span></td>
+      <td>If shipped, it would run the v2 pipeline against a real album end-to-end + render every tab. The user's exact crash would have surfaced in the AppTest tab-render step before any commit landed.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="red-box">
+<b>The structural lesson.</b> Synthetic fixtures that pass all the "easy" tests (correct iteration, no orphan rows, matching tables) are <em>not</em> sufficient. Real DBs have shapes you'd never write by hand — like "merger ran one round of pure considering." Until spec-060 ships, every Repository / Service test should explicitly construct one or two adversarial fixture variants ("what if column X is populated but column Y isn't?") <b>or</b> the spec-implementer agent should be required to run a real-data smoke before flipping any spec to Implemented.
+</div>
+
+<h2>5. What shipped</h2>
+
+<div class="green-box">
+<b>1. Repository workaround.</b> <code>ClusterAnalysisRepository.get_cluster_result("final")</code> now resolves "final" locally via the Repository's own <code>_resolve_iteration</code> (which queries <code>clusters</code> directly, correctly) and passes the integer to <code>RunStore.clusters(int)</code>. Bypasses RunStore's broken "final" resolver.
+<pre>def get_cluster_result(self, iteration: str = "final") -> ClusterResult:
+    it = self._resolve_iteration(iteration)   # queries clusters table — correct
+    return self._run_store.clusters(it)       # int path, not "final" alias</pre>
+</div>
+
+<div class="green-box">
+<b>2. Regression test.</b> <code>test_get_cluster_result_final_when_merger_ran_but_merged_nothing</code> in <code>tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py</code>. Adds a <code>merge_decisions</code> row at iteration=1 with <code>actually_merged=0</code> to the synthetic fixture, then asserts <code>get_cluster_result("final")</code> returns the iteration-0 ClusterResult instead of raising. This shape will now break CI if anyone regresses the workaround.
+</div>
+
+<div class="green-box">
+<b>3. Logger fix.</b> <code>_get_service</code> in the tab now calls <code>logger.exception(...)</code> on Repository construction failure. Future failures show up in <code>logs/&lt;ts&gt;/fc_app_v2.log</code> instead of vanishing into Streamlit's exception overlay. (Your "why am I not seeing it in my logger?" question — this closes the gap going forward.)
+</div>
+
+<div class="green-box">
+<b>4. SIGHTING-078 filed</b> against <code>RunStore</code> with full repro + workaround pointer + resolution options. The root fix belongs in RunStore (two candidate fixes documented), but isn't blocking and isn't in scope for spec-045.
+</div>
+
+<h2>6. End-to-end verification (post-fix)</h2>
+
+<p>Direct Python script run against the user's actual failing run dir (no Streamlit UI; same code path the tab uses):</p>
+
+<pre>opening repo on 52a70e6f068943798952e1a062705d75...
+OK: repo constructed
+
+list_clusters (Repository own SQL, was already working):
+  -&gt; 15 ClusterRow objects; first cluster_id=0 size=24
+
+get_cluster_result (was crashing pre-fix):
+  -&gt; ClusterResult with 15 clusters, 233 noise faces; iter_resolved OK
+
+Service.compute_detail_async (the actual user flow):
+  selecting cluster 0...
+  -&gt; final state: done
+  -&gt; ClusterView OK: cluster_id=0, size=24, n_faces=24,
+                     n_exemplars=10, split_signal=False
+  -&gt; first face area_ratio=None  (legacy fc_app run, didn't populate area_ratio)
+
+Service.compute_debug_async (the graph debug path):
+  -&gt; final state: done
+  -&gt; ClusterDebugView OK: n_faces=24, edges=29, chain_score=0.82</pre>
+
+<p>Fix verified end-to-end on real data. Tab should render correctly after a Streamlit restart.</p>
+
+<h2>7. Broader architectural exposure</h2>
+
+<div class="red-box">
+<b>One tab's bug = whole-app crash.</b> Today <code>main.py</code> calls each tab's render function unguarded:
+<pre>with tab_run:
+    render_run_tab()
+with tab_analysis:
+    render_cluster_analysis_tab()      ← unhandled exception here
+with tab_history:
+    render_history_tab()                ← never runs; user sees red traceback</pre>
+A single exception anywhere in any tab body propagates up and kills the entire page render. The History tab and Run tab become inaccessible because of a bug in a tab the user isn't even looking at.
+</div>
+
+<p><b>Recommended structural fix</b> (separate from this sighting; worth its own micro-spec):</p>
+
+<pre>def _safe_render(tab_name: str, render_fn):
+    try:
+        render_fn()
+    except Exception as exc:
+        logger.exception("Tab '%s' crashed", tab_name)
+        st.error(f"The **{tab_name}** tab hit an error: `{exc}`. "
+                 "Other tabs still work; check the log for details.")
+
+with tab_run:       _safe_render("Run",              render_run_tab)
+with tab_analysis:  _safe_render("Cluster Analysis", render_cluster_analysis_tab)
+with tab_history:   _safe_render("History",          render_history_tab)</pre>
+
+<p>~10 LOC + 1 helper. With this in place, today's bug would have shown a friendly red box <i>inside</i> the Cluster Analysis tab and left the Run/History tabs fully functional. The user would still have hit the bug, but only when they actually visited that tab.</p>
+
+<p>Suggested action: file as a new micro-spec (e.g., <code>specs/061-tab-isolation-defense/</code>) or a sighting against <code>app/face_clustering_v2/main.py</code>. <b>Not in scope for the current SIGHTING-078 fix</b> — that one closes the specific RunStore mismatch; this one closes the wider "every tab is in the blast radius" exposure.</p>
+
+<h2>8. What's still pending</h2>
+
+<table>
+  <thead><tr><th>Item</th><th>Status</th><th>Why it matters</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>spec-060: v2 E2E gold-standard gate</b></td>
+      <td><span class="pill smell">DRAFT</span> Filed in commit <code>0be0dd0</code>; 0 phases implemented</td>
+      <td>The structural answer to "how was this not caught." Once shipped, the spec-implementer agent will run a real-album pipeline + AppTest render before flipping any considerable-change spec to Implemented. Estimated 5-7h to ship Phases 1+2.</td>
+    </tr>
+    <tr>
+      <td><b>RunStore root fix</b></td>
+      <td><span class="pill note">SIGHTING-078</span> Open</td>
+      <td>The Repository workaround is local. RunStore is still broken — any other caller using <code>RunStore.clusters("final")</code> will hit the same crash. Fix: change <code>iteration_count()</code> to read from <code>clusters</code> instead of <code>merge_decisions</code> (or take MAX of both).</td>
+    </tr>
+    <tr>
+      <td><b>Streamlit restart</b></td>
+      <td><span class="pill info">USER ACTION</span></td>
+      <td>The fix is in the .py files but <code>st.session_state</code> caches the Service instance. Ctrl+C the terminal running <code>streamlit run app/face_clustering_v2/main.py</code> and re-run. The tab will use the fixed code on next render.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>9. Honest answers to the questions you raised</h2>
+
+<table>
+  <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>"I wasn't using the tab at all" — how is this related to cluster_analysis_tab?</b></td>
+      <td>Streamlit's <code>st.tabs</code> is a layout container only — every tab's render function executes on every script rerun, regardless of which tab is visible. See §1's box. So <code>render_cluster_analysis_tab()</code> ran (and crashed) when you clicked Run, even though you were looking at the Run tab. That's a Streamlit fact that's easy to miss, and it's exactly why a tab-isolation wrapper (§7) is worth doing as a follow-up.</td>
+    </tr>
+    <tr>
+      <td><b>Did you actually run [the E2E test]?</b></td>
+      <td><b>No.</b> spec-060 (the E2E gate) is a draft only — zero phases implemented. The only thing the test suite ran was the synthetic regression test, which couldn't have caught this because the fixture didn't have the offending shape. <b>After your bug report, I ran a one-off real-data verification</b> (§6 above) — the fix works end-to-end on your actual run dir.</td>
+    </tr>
+    <tr>
+      <td><b>Why am I not seeing it in my logger?</b></td>
+      <td>Two reasons. (1) The Repository's <code>ValueError</code> in the earlier 2026-05-29 bug was caught and re-displayed via <code>st.error</code>, not logged. (2) The RunStoreError in <em>this</em> bug propagated up through Streamlit's exception overlay (the red traceback box) before reaching any logger. Today's fix adds <code>logger.exception(...)</code> in <code>_get_service</code> so this whole class of failure hits <code>logs/&lt;ts&gt;/fc_app_v2.log</code> from now on. <b>You'll need to restart Streamlit to pick it up.</b></td>
+    </tr>
+  </tbody>
+</table>
+
+<p style="margin-top:1.4em; color:#888; font-size:12px;">
+References: <code>docs/project/SIGHTINGS.md#sighting-078</code>;
+<code>CHANGES_LOG.md</code> 2026-05-29 entry titled "Cluster Analysis tab crash on no-op merge run";
+<code>specs/060-v2-e2e-gold-standard/spec.md</code> (draft, the structural fix);
+<code>tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py::test_get_cluster_result_final_when_merger_ran_but_merged_nothing</code> (regression guard).
+</p>
+
+</body>
+</html>

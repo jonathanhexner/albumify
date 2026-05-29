@@ -275,3 +275,57 @@ def test_save_manual_merge_snapshot_read_only_raises(synthetic_run_dir):  # #12
     # Nothing written: parent untouched, no sibling snapshot dir.
     assert _hash_dir(synthetic_run_dir) == before
     assert not (synthetic_run_dir.parent / f"{synthetic_run_dir.name}_merge_snap_1").exists()
+
+
+# ---------------------------------------------------------------------------
+# Regression: real-world "merger ran, merged nothing" scenario (2026-05-29)
+# ---------------------------------------------------------------------------
+
+def _add_no_op_merge_round(run_dir: Path) -> None:
+    """Add a merge_decisions row at iteration=1 with actually_merged=0.
+
+    Mirrors the user's failing Budapest run (52a70e6f...): clusters table
+    has rows only at iteration=0; merger considered 3 pairs at iter=1
+    and merged none, so merge_decisions has iter=1 rows but clusters /
+    cluster_assignments don't.
+
+    Before the 2026-05-29 fix, RunStore.clusters("final") resolved
+    "final" to MAX(iteration) FROM merge_decisions = 1, queried clusters
+    WHERE iteration=1, found nothing, and raised RunStoreError. The
+    Repository now resolves "final" against the clusters table itself
+    (so "final" → 0 in this case) and passes the int to RunStore.
+    """
+    conn = sqlite3.connect(str(run_dir / "face_clustering.db"))
+    try:
+        # Minimum required columns per MERGE_DECISIONS_DDL.
+        conn.execute(
+            "INSERT INTO merge_decisions ("
+            "  iteration, cluster_a, cluster_b, cluster_a_size, cluster_b_size,"
+            "  exemplar_dist, threshold_used, support, required_support,"
+            "  post_diameter, max_allowed_diameter, margin_gap, margin_dist_to_b,"
+            "  margin_competitor_dist, margin_competitor_id,"
+            "  passes_exemplar, passes_support, passes_margin, passes_diameter,"
+            "  action, actually_merged"
+            ") VALUES (1, 0, 1, 10, 10, 0.5, 0.45, 0, 1, 0.1, 0.3, 0.1, 0.5, 0.6, 2, 0, 0, 0, 1, 'reject', 0)"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_get_cluster_result_final_when_merger_ran_but_merged_nothing(synthetic_run_dir):
+    """Regression for the 2026-05-29 Budapest crash: RunStore's "final"
+    resolver picks the merge_decisions max iteration, but clusters live
+    at the previous iteration. The Repository's get_cluster_result must
+    resolve "final" against the clusters table so it returns iteration 0
+    (which has rows) instead of iteration 1 (which doesn't)."""
+    _add_no_op_merge_round(synthetic_run_dir)
+    repo = ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir=synthetic_run_dir))
+    # Must NOT raise. Must return the iteration-0 ClusterResult (noise + 3 real).
+    cr = repo.get_cluster_result("final")
+    assert cr is not None
+    real_clusters = {cid for cid in cr.clusters if cid != NOISE_LABEL}
+    assert real_clusters == {0, 1, 2}
+    # Belt-and-braces: list_clusters() (which uses the same resolver) agrees.
+    rows = repo.get_cluster_rows("final")
+    assert {r.cluster_id for r in rows} == {0, 1, 2}
