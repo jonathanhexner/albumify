@@ -2,6 +2,21 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-30 [REFACTOR] spec-059 — RunStore + ClusterAnalysisRepository on SQLAlchemy
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `sim_bench/run_db/_session.py` — per-run-DB engine + sessionmaker factory (distinct from `face_cluster/repositories/_session.py`, which targets the long-lived sim_bench.db).
+- UPDATED `sim_bench/run_db/store.py` — every read goes through `select(...)` against spec-058 ORM models. `_load_and_validate()` stays on raw sqlite3 (locked decision #3 — PRAGMA user_version must run before ORM machinery). Method signatures and return shapes preserved.
+- UPDATED `sim_bench/db/face_clustering/cluster_analysis_repo.py` — 4 raw SQL statements replaced with ORM `select()` calls; removes the 7 hardcoded column literals SMELL-1 flagged in spec-045's `CODE_REVIEW_SUMMARY.html`.
+- NEW `tests/architecture/test_no_raw_sql_in_run_db_readers.py` — arch guard. Parametrized over the two read layers; matches `SELECT|INSERT INTO|UPDATE |DELETE FROM` inside string literals. `PRAGMA user_version` (the one allowed raw site) passes.
+- NEW `tests/run_db/test_session.py` — sessionmaker smoke + 100-iteration leak test + FK-pragma check.
+- NEW `tests/face_clustering/repositories/test_cluster_analysis_repo_perf.py` — 1000-iteration micro-bench; `BASELINE_MS = 0.954` (measured 2026-05-30 on raw-sqlite3 impl). Post-refactor measured at 0.945 ms — within 1.2× gate.
+- UPDATED `tests/architecture/test_image_detail.py::test_image_detail_queries_load_bearing_tables` — greps for ORM class names (`Face` / `ClusterAssignment` / `FilterDecision`) instead of `FROM <table>` SQL strings.
+
+**Reason**: spec-045 left ClusterAnalysisRepository with 7 column-string literals across 4 raw SQL statements (SMELL-1). spec-058 provided the ORM models; spec-059 flips both readers to use them. Closes the per-run-DB type-safety gap — IDEs now catch typos in column access.
+**Verification**: 800 tests pass / 11 skipped / 11 deselected. spec-057 golden-hash equivalence still green. Perf 0.945 ms vs baseline 0.954 ms.
+**Known AC miss**: LOC targets (RunStore ≤450, CARepo ≤200) over by 52 and 94 lines respectively — spec estimate assumed `r["col"] → r.col` would shrink line counts, but those substitutions are character-level. Documented for waiver in `specs/059-cluster-analysis-repo-sqlalchemy/REVIEW.md`.
+
 ### 2026-05-30 [FEATURE] spec-058 — per-run face_clustering.db ORM models + drift-guard
 **Branch**: `unification/spec-040`
 **Files**:
