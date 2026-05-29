@@ -8,6 +8,11 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-058 follow-ups (from REVIEW.md, low severity)
+
+- [ ] spec-058 F-1: add `test_foreign_keys_match_per_table` to `tests/face_clustering/db/test_orm_matches_schema.py` using `PRAGMA foreign_key_list` so FK drift is caught by the drift-guard. ~20 min.
+- [ ] spec-058 F-2: add "ORM models (per-run DB)" subsection to `docs/architecture/classes.html` listing the 10 new model classes + note that the per-run `Base` is separate from `face_cluster/repositories/_orm_base.py`. ~30 min.
+
 ---
 
 ## spec-044 follow-ups (from REVIEW.md, 2026-05-25)

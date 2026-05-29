@@ -2,6 +2,17 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-30 [FEATURE] spec-058 — per-run face_clustering.db ORM models + drift-guard
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `sim_bench/run_db/models/{__init__,_base,face,face_scores,cluster,cluster_assignment,merge_decision,filter_decision,image,scene_cluster,scene_cluster_assignment,run_metadata}.py` — 10 SQLAlchemy `DeclarativeBase` models mirroring the per-run schema. Spec listed 9; `FaceScores` was added since `FACE_SCORES_DDL` is part of the per-run schema.
+- UPDATED `sim_bench/run_db/_schema.py` — `*_DDL` constants + `SCHEMA_DDL` + `INDEXES_DDL` now *derived* from `Base.metadata` via the SQLite-dialect `CreateTable` / `CreateIndex` compilers. `SCHEMA_HISTORY`, `SCHEMA_VERSION`, `EXPECTED_ARTIFACTS` remain hand-maintained. Hand-DDL aligned with ORM canonical form by adding `NOT NULL` to single-column PKs (no-op functional change).
+- NEW `tests/face_clustering/db/test_orm_matches_schema.py` — drift-guard. Three assertions: tables, indexes, per-table columns must match between `executescript(SCHEMA_DDL)` and `Base.metadata.create_all()`. Substitutes for `alembic check`.
+- UPDATED `docs/architecture/db_schemas.html` — "Implementation layer" callout reflects ORM source-of-truth; SCHEMA_VERSION 4→5.
+
+**Reason**: spec-045 chose raw `sqlite3` over SQLAlchemy because the per-run schema's source of truth was DDL strings. Closing that gap unlocks typed column access for spec-059's RunStore + CARepo migration. No Alembic because per-run DBs are never migrated — they're created fresh per run and read-only afterward.
+**Verification**: 797 passed / 10 skipped / 11 deselected. spec-057 golden-hash equivalence test still green.
+
 ### 2026-05-29 [BUGFIX] face_grid thumbnails + FaceRecord.crop_path contract gap + spec-062 draft + executive report
 **Branch**: `unification/spec-040`
 **Files**:

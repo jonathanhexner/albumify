@@ -1,7 +1,7 @@
 # spec-058 — Per-run face_clustering.db ORM models (no Alembic)
 
 **Created**: 2026-05-29
-**Status**: In Progress
+**Status**: Implemented
 **Predecessors**: spec-057 (RunExporter split — required so the new writers can pivot to ORM models one at a time)
 **Successors**: spec-059 (Cluster Analysis Repository + RunStore on SQLAlchemy)
 **Trigger**: spec-045 chose raw sqlite3 over SQLAlchemy because the per-run schema's source of truth is `face_cluster/db/schema.py` (DDL strings), not an ORM model. Closing the gap unlocks typed column access for every per-run-DB reader and writer.

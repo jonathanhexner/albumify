@@ -57,16 +57,16 @@ document in the same PR</b> (CODE_REVIEW_CHECKLIST §7 / WORKFLOW.md gate).
 <b>One DB per run.</b> Each run dir contains its own <code>_v4/face_clustering.db</code>.
 Both the FC App standalone path and the Albumify path produce this same layout
 (spec-030). Schema version is pinned at the application layer
-(<code>SCHEMA_VERSION = 4</code>); the SQLite <code>user_version</code> pragma carries
+(<code>SCHEMA_VERSION = 5</code>); the SQLite <code>user_version</code> pragma carries
 the same value. Additive nullable columns do NOT bump the version per the locked
 decision in <code>specs/033-data-integrity/MASTER_PLAN.md</code>.
 </div>
 
 <div class="callout" style="background:#f0f7ff; border-left-color:#1f5fc7;">
-<b>Implementation layer: raw <code>sqlite3</code>, no ORM.</b>
+<b>Implementation layer: SQLAlchemy ORM as schema source-of-truth, raw <code>sqlite3</code> for I/O (spec-058).</b>
 <ul style="margin: .3em 0;">
-  <li><b>Why no ORM</b>: per-run DB is write-once-read-many. Each run produces a fresh DB; no in-run migrations needed. Bulk <code>conn.executemany(tuples)</code> outperforms ORM object construction.</li>
-  <li><b>Schema source of truth</b>: <code>sim_bench/run_db/_schema.py</code> holds CREATE TABLE strings (one per table). <code>SCHEMA_DDL</code> concatenates them for <code>executescript()</code>.</li>
+  <li><b>No Alembic</b>: per-run DB is write-once-read-many. Each run produces a fresh DB; no in-run migrations needed. Bulk <code>conn.executemany(tuples)</code> outperforms ORM object construction.</li>
+  <li><b>Schema source of truth</b>: <code>sim_bench/run_db/models/</code> (SQLAlchemy <code>DeclarativeBase</code>, 10 models). The CREATE TABLE / CREATE INDEX strings in <code>sim_bench/run_db/_schema.py</code> are <em>derived</em> from <code>Base.metadata</code> at import time via the SQLite-dialect compiler — editing them by hand has no effect. Drift between models and emitted SQL is caught by <code>tests/face_clustering/db/test_orm_matches_schema.py</code> (substitutes for <code>alembic check</code>).</li>
   <li><b>Validation</b>: not via SQLAlchemy. Two layers instead:
     <ul>
       <li><b>Object boundary</b> — Pydantic (<code>FaceRecord</code>, <code>MergeDecisionRow</code> dataclass, etc.) at construction.</li>
@@ -371,7 +371,7 @@ When Producer (Albumify) ≠ Producer (FC App), you're looking at the duplicatio
     <tr><td><code>n_clusters_base, n_clusters_final</code></td><td>INTEGER</td><td>Cluster counts before/after merge.</td><td>Computed from <code>base_cluster_result.n_clusters</code> / <code>merged_cluster_result.n_clusters</code>.</td></tr>
     <tr><td><code>n_merges, n_iterations</code></td><td>INTEGER</td><td>Merge stats.</td><td>Computed from <code>merge_log</code>.</td></tr>
     <tr><td><code>started_at, finished_at</code></td><td>TEXT (ISO 8601)</td><td>Wall-clock bounds.</td><td>Caller (input args).</td></tr>
-    <tr><td><code>schema_version</code></td><td>INTEGER</td><td>Pinned to <code>SCHEMA_VERSION = 4</code>.</td><td>Constant from <code>sim_bench.run_db._schema.SCHEMA_VERSION</code>.</td></tr>
+    <tr><td><code>schema_version</code></td><td>INTEGER</td><td>Pinned to <code>SCHEMA_VERSION = 5</code>.</td><td>Constant from <code>sim_bench.run_db._schema.SCHEMA_VERSION</code>.</td></tr>
   </tbody>
 </table>
 
