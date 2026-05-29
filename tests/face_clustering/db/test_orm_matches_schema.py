@@ -122,3 +122,41 @@ def test_columns_match_per_table(ddl_db: Path, orm_db: Path) -> None:
                 f"\n  {table}:\n    DDL: {ddl_cols}\n    ORM: {orm_cols}"
             )
     assert not diffs, "Column drift between DDL and ORM:" + "".join(diffs)
+
+
+def _foreign_keys(db_path: Path, table: str) -> list[tuple]:
+    """PRAGMA foreign_key_list rows, normalized for comparison.
+
+    Returns ``(from_col, to_table, to_col, on_update, on_delete, match)``
+    sorted so the ``id`` / ``seq`` numbers (which differ between dialects)
+    don't trigger false diffs.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        rows = conn.execute(f"PRAGMA foreign_key_list({table})").fetchall()
+    finally:
+        conn.close()
+    # rows: (id, seq, table, from, to, on_update, on_delete, match)
+    return sorted(
+        (frm, tbl, to, on_upd, on_del, match)
+        for (_id, _seq, tbl, frm, to, on_upd, on_del, match) in rows
+    )
+
+
+def test_foreign_keys_match_per_table(ddl_db: Path, orm_db: Path) -> None:
+    """spec-058 F-1: drop / add a ForeignKey on either side and this fails.
+
+    PRAGMA table_info doesn't see FK semantics, so without this assertion an
+    ORM model that loses ``ForeignKey("faces.face_id")`` would silently
+    diverge from the hand-DDL.
+    """
+    ddl_tables = sorted(n for (t, n) in _read_sqlite_master(ddl_db) if t == "table")
+    diffs: list[str] = []
+    for table in ddl_tables:
+        ddl_fks = _foreign_keys(ddl_db, table)
+        orm_fks = _foreign_keys(orm_db, table)
+        if ddl_fks != orm_fks:
+            diffs.append(
+                f"\n  {table}:\n    DDL: {ddl_fks}\n    ORM: {orm_fks}"
+            )
+    assert not diffs, "Foreign-key drift between DDL and ORM:" + "".join(diffs)

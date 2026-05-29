@@ -48,3 +48,27 @@ def test_engine_enables_foreign_keys(tmp_path: Path) -> None:
         result = conn.exec_driver_sql("PRAGMA foreign_keys").scalar()
         assert result == 1
     engine.dispose()
+
+
+def test_engine_dispose_releases_file_handle(tmp_path: Path) -> None:
+    """spec-059 F-1: ``engine.dispose()`` releases the OS file handle so the
+    DB file can be deleted on Windows.
+
+    Windows refuses to unlink a SQLite file while any process holds an open
+    handle (``WinError 32``). The sessionmaker pattern callers use depends
+    on dispose returning the file. Regression here would mean Streamlit
+    re-runs accumulate handles until the run dir can't be cleaned up.
+    """
+    _seed_minimal_db(tmp_path)
+    engine = make_run_db_engine(tmp_path)
+    # Open + close a session to ensure the engine has actually connected.
+    SessionLocal = __import__(
+        "sqlalchemy.orm", fromlist=["sessionmaker"]
+    ).sessionmaker(bind=engine, future=True)
+    with SessionLocal() as session:
+        session.execute(__import__("sqlalchemy").text("SELECT 1"))
+    engine.dispose()
+    # After dispose the file must be unlink-able even on Windows.
+    db_path = tmp_path / "face_clustering.db"
+    db_path.unlink()
+    assert not db_path.exists()

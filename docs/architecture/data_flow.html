@@ -184,10 +184,12 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
 <div class="stage face">
   <div class="head"><span class="name">K · RunStore.image_detail (read side)</span><span class="src">sim_bench/run_db/store.py</span></div>
   <div class="body">
-    Single SQL JOIN: faces + cluster_assignments + filter_decisions<br>
+    spec-059: SQLAlchemy ORM queries against spec-058 models —<br>
+    <code>select(Face)</code> + <code>select(ClusterAssignment...)</code> + <code>select(FilterDecision...)</code><br>
     → <code>ImageDetail(faces=[FaceDetail(...), ...], image_filter_decisions=[FaceFilterDecision(...), ...])</code>
   </div>
   <div class="contract"><b>Contract (P-D):</b> ImageDetail / FaceDetail / FaceFilterDecision are Pydantic with <code>extra="forbid"</code>.</div>
+  <div class="contract"><b>Backing (spec-059):</b> per-call <code>Session</code> from <code>sim_bench/run_db/_session.py::make_run_db_sessionmaker</code>; engine cached on the RunStore instance. Zero raw SQL — enforced by <code>tests/architecture/test_no_raw_sql_in_run_db_readers.py</code>.</div>
 </div>
 
 <h2>The five contract boundaries — at a glance</h2>
@@ -241,14 +243,16 @@ plus an E2E acceptance test (specs/035).
             |
             v
   ClusterAnalysisRepository             <-- sim_bench/db/face_clustering/cluster_analysis_repo.py
-   - get_cluster_rows / find_assignments      (own SQL)
+   - get_cluster_rows / find_assignments      (own ORM select() against spec-058 models)
    - get_face_records / get_run_metadata /    (delegate to RunStore)
      get_merge_log / get_cluster_result
    - save_manual_merge_snapshot ----------> face_cluster.manual_merge_snapshot
             |       (writes sibling merge_snap_{round}/ dir)
             v
-        RunStore        +    sqlite3 (raw)
-            |                    |
+        RunStore        +    SQLAlchemy Session (spec-059)
+            |                    |  (per-call session; engine cached on instance;
+            |                    |   _load_and_validate stays on raw sqlite3 — PRAGMA
+            |                    |   user_version must precede ORM machinery)
             v                    v
   &lt;run_dir&gt;/embeddings.npy   &lt;run_dir&gt;/face_clustering.db
   &lt;run_dir&gt;/pipeline_run.json

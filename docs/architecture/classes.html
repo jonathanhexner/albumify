@@ -234,13 +234,13 @@ introduces the change.
         <td>Single writer for a run dir's 5-artifact layout. Single-use per instance.</td>
         <td><code>export(...)</code> [14 kwargs, FR-033-4 → ExportRequest]; <code>_write_faces_and_scores</code>; <code>_write_clusters_and_assignments</code>; <code>_write_merges</code>; <code>_write_filter_decisions</code>; <code>_write_run_metadata</code></td></tr>
     <tr><td><code>RunStore</code></td><td>sim_bench/run_db/store.py</td>
-        <td>Single reader. Fail-loud on missing artifacts.</td>
-        <td><code>metadata()</code>, <code>faces()</code>, <code>embeddings()</code>, <code>clusters("base"|"final")</code>, <code>merge_log()</code>, <code>filter_decisions()</code>, <code>image_detail(path)</code> [P-D]</td></tr>
+        <td>Single reader. Fail-loud on missing artifacts. <strong>spec-059</strong>: every read goes through SQLAlchemy ORM models from <code>sim_bench.run_db.models</code> via per-call sessions (engine cached on the instance, session lifetime = one method call). Only <code>_load_and_validate()</code> stays on raw sqlite3 — <code>PRAGMA user_version</code> must run before ORM machinery touches the DB.</td>
+        <td><code>metadata()</code>, <code>faces()</code>, <code>embeddings()</code>, <code>clusters("base"|"final")</code>, <code>merge_log()</code>, <code>filter_decisions()</code>, <code>image_detail(path)</code> [P-D], <code>crop_path(face_id)</code>, <code>iteration_count()</code></td></tr>
     <tr><td><code>RunHistoryRepository</code></td><td>face_cluster/repositories/run_history_repo.py</td>
         <td><strong>spec-043 / spec-044</strong> typed persistence access to the <code>action_log</code> table. Owns one DB connection path per instance (via <code>RunHistoryRepoConfig</code>); no global state. Replaces the legacy module-level free functions in <code>face_cluster/run_history_db.py</code> (deprecated, kept for one burn-in). Schema is generated from the <code>_COLUMNS</code> registry (spec-044): adding a column is 2 edits, not 9.</td>
         <td>Queries: <code>find(criteria)</code>, <code>find_one(criteria)</code>, <code>count(criteria)</code>, <code>get_by_id(id)</code>, <code>distinct_albums()</code>. Mutations (B3 verb taxonomy): <code>start_action(action_type, *, payload)</code>, <code>complete_action(id, *, result_fields, payload_update)</code>, <code>fail_action(id, error_text, *, payload_update)</code>, <code>update_comment(id, comment)</code>. Errors raise <code>NotFoundError</code> / <code>ValidationError</code> from <code>repositories/_errors.py</code>.</td></tr>
     <tr><td><code>ClusterAnalysisRepository</code></td><td>sim_bench/db/face_clustering/cluster_analysis_repo.py</td>
-        <td><strong>spec-045</strong> query-shape (B0b) Repository over a single per-run <code>face_clustering.db</code>. Composes <code>RunStore</code> for schema validation + heavyweight artifacts; issues its own SQL only for typed <code>ClusterRow</code> + <code>Assignment</code> reads. Inherits <code>BaseRepository</code> but constructs with <code>session=None</code> (per-run DB has no Alembic-managed session lifecycle). Reads exclude the noise bucket by default via <code>NOISE_LABEL</code>.</td>
+        <td><strong>spec-045 / spec-059</strong> query-shape (B0b) Repository over a single per-run <code>face_clustering.db</code>. Composes <code>RunStore</code> for schema validation + heavyweight artifacts; issues its own ORM <code>select(...)</code> queries against <code>sim_bench.run_db.models</code> for typed <code>ClusterRow</code> + <code>Assignment</code> reads (spec-059: zero raw SQL, enforced by <code>tests/architecture/test_no_raw_sql_in_run_db_readers.py</code>). Inherits <code>BaseRepository</code> but constructs with <code>session=None</code> (per-run DB has no Alembic-managed session lifecycle). Reads exclude the noise bucket by default via <code>NOISE_LABEL</code>.</td>
         <td>Queries: <code>get_cluster_rows(iteration)</code>, <code>get_cluster_ids(iteration)</code>, <code>find_assignments(criteria)</code>, <code>get_face_records(face_ids)</code>, <code>get_run_metadata()</code>, <code>get_merge_log()</code>, <code>get_cluster_result(iteration)</code>. Mutation: <code>save_manual_merge_snapshot(*, cluster_a, cluster_b, merge_round, config)</code> — writes a sibling <code>{run}_merge_snap_{round}/</code> dir; parent run dir never mutated; <code>read_only=True</code> raises <code>ValidationError</code>.</td></tr>
     <tr><td><code>ClusterAnalysisService</code></td><td>face_cluster/views/cluster_analysis.py</td>
         <td><strong>spec-045</strong> typed read + compute API for the v2 Cluster Analysis tab. Streamlit-free; owns one <code>ClusterAnalysisRepository</code>. Cancels in-flight <code>AsyncHandle</code>s of the same compute kind on every new call (single-cluster contract per spec §6.1).</td>
@@ -269,6 +269,40 @@ introduces the change.
     <tr><td><code>KNNGraphBuilder, ConnectedComponentsClusterer, HoldoutAttacher</code></td><td>face_cluster/{knn_graph, clustering, attach}.py</td>
         <td>Mutual-kNN graph, connected-components clustering, holdout attachment.</td>
         <td>—</td></tr>
+  </tbody>
+</table>
+
+<h2 id="orm-models">5b · ORM models — per-run face_clustering.db <span class="pill plain">spec-058</span></h2>
+
+<p>SQLAlchemy <code>DeclarativeBase</code> models living under <code>sim_bench/run_db/models/</code>.
+The CREATE TABLE / CREATE INDEX strings in <code>sim_bench/run_db/_schema.py</code> are
+<em>derived</em> from <code>Base.metadata</code> at import time, not hand-authored — drift
+between models and the emitted SQL is caught by
+<code>tests/face_clustering/db/test_orm_matches_schema.py</code> (substitutes for
+<code>alembic check</code>; covers tables, indexes, columns, and foreign keys).</p>
+
+<p><strong>Two distinct <code>Base</code> classes</strong> live in the codebase and must never be merged
+(different lifecycles, different constraint-name namespaces):
+<code>face_cluster/repositories/_orm_base.py</code> targets the long-lived
+<code>~/.sim_bench/sim_bench.db</code> with Alembic; <code>sim_bench/run_db/models/_base.py</code>
+targets the ephemeral per-run DB with no migrations (a new run = a fresh DB).</p>
+
+<table>
+  <thead><tr><th>Model class</th><th>Module</th><th>Table</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>Base</code></td><td>sim_bench/run_db/models/_base.py</td><td>—</td><td><code>DeclarativeBase</code> + naming convention. Per-run-DB flavor.</td></tr>
+    <tr><td><code>Face</code></td><td>sim_bench/run_db/models/face.py</td><td>faces</td><td>26 columns at schema v5. Includes spec-040 <code>*_ratio</code> columns + <code>scene_cluster_id</code>.</td></tr>
+    <tr><td><code>FaceScores</code></td><td>sim_bench/run_db/models/face_scores.py</td><td>face_scores</td><td>1:1 with Face via FK on <code>face_id</code>.</td></tr>
+    <tr><td><code>Cluster</code></td><td>sim_bench/run_db/models/cluster.py</td><td>clusters</td><td>Composite PK <code>(cluster_id, iteration)</code>.</td></tr>
+    <tr><td><code>ClusterAssignment</code></td><td>sim_bench/run_db/models/cluster_assignment.py</td><td>cluster_assignments</td><td>FK to <code>faces.face_id</code>; indexes on <code>(iteration)</code> + <code>(cluster_id, iteration)</code>.</td></tr>
+    <tr><td><code>MergeDecision</code></td><td>sim_bench/run_db/models/merge_decision.py</td><td>merge_decisions</td><td>28-column layout matching <code>MergeDecisionRow.field_names()</code> exactly (spec-030 FR-004).</td></tr>
+    <tr><td><code>FilterDecision</code></td><td>sim_bench/run_db/models/filter_decision.py</td><td>filter_decisions</td><td>spec-032 typed filter log.</td></tr>
+    <tr><td><code>Image</code></td><td>sim_bench/run_db/models/image.py</td><td>images</td><td>spec-040 Phase 4 / schema v5.</td></tr>
+    <tr><td><code>SceneCluster</code></td><td>sim_bench/run_db/models/scene_cluster.py</td><td>scene_clusters</td><td>Composite PK <code>(scene_cluster_id, iteration)</code>.</td></tr>
+    <tr><td><code>SceneClusterAssignment</code></td><td>sim_bench/run_db/models/scene_cluster_assignment.py</td><td>scene_cluster_assignments</td><td>FK to <code>images.image_path</code>.</td></tr>
+    <tr><td><code>RunMetadataRow</code></td><td>sim_bench/run_db/models/run_metadata.py</td><td>run_metadata</td><td>Class suffix <code>Row</code> avoids clash with the <code>RunMetadata</code> dataclass in <code>face_cluster.run_history</code>.</td></tr>
+    <tr><td><code>make_run_db_engine</code> <span class="pill plain">function</span></td><td>sim_bench/run_db/_session.py</td><td>—</td><td><strong>spec-059</strong> per-run-DB engine factory. Enables FK pragma on every connection. Distinct from <code>face_cluster/repositories/_session.py</code> (sim_bench.db).</td></tr>
+    <tr><td><code>make_run_db_sessionmaker</code> <span class="pill plain">function</span></td><td>sim_bench/run_db/_session.py</td><td>—</td><td><strong>spec-059</strong> returns a <code>sessionmaker</code> bound to a fresh per-run engine. Callers use <code>with sm() as session: ...</code> per call.</td></tr>
   </tbody>
 </table>
 

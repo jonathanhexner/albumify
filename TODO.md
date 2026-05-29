@@ -10,14 +10,14 @@
 
 ## spec-058 follow-ups (from REVIEW.md, low severity)
 
-- [ ] spec-058 F-1: add `test_foreign_keys_match_per_table` to `tests/face_clustering/db/test_orm_matches_schema.py` using `PRAGMA foreign_key_list` so FK drift is caught by the drift-guard. ~20 min.
-- [ ] spec-058 F-2: add "ORM models (per-run DB)" subsection to `docs/architecture/classes.html` listing the 10 new model classes + note that the per-run `Base` is separate from `face_cluster/repositories/_orm_base.py`. ~30 min.
+- [x] spec-058 F-1: add `test_foreign_keys_match_per_table` to `tests/face_clustering/db/test_orm_matches_schema.py` using `PRAGMA foreign_key_list` so FK drift is caught by the drift-guard. 2026-05-30.
+- [x] spec-058 F-2: add "ORM models (per-run DB)" subsection to `docs/architecture/classes.html` listing the 10 new model classes + note that the per-run `Base` is separate from `face_cluster/repositories/_orm_base.py`. 2026-05-30.
 
 ## spec-059 follow-ups (from REVIEW.md, low severity)
 
-- [ ] spec-059 F-1: add `test_engine_disposed_on_repository_gc` to `tests/run_db/test_session.py` — assert the cached engine releases its connection when the owning RunStore / Repository is garbage collected. ~20 min.
-- [ ] spec-059 F-2: update `docs/architecture/classes.html` — RunStore + ClusterAnalysisRepository rows mention SQLAlchemy backing; add `sim_bench/run_db/_session.py` factory entry. ~20 min.
-- [ ] spec-059 F-3: update `docs/architecture/data_flow.html` — read-path nodes show ORM models instead of raw SQL. ~30 min.
+- [x] spec-059 F-1: add `test_engine_disposed_on_repository_gc` to `tests/run_db/test_session.py` — assert the cached engine releases its connection when the owning RunStore / Repository is garbage collected. 2026-05-30 (shipped as `test_engine_dispose_releases_file_handle`).
+- [x] spec-059 F-2: update `docs/architecture/classes.html` — RunStore + ClusterAnalysisRepository rows mention SQLAlchemy backing; add `sim_bench/run_db/_session.py` factory entry. 2026-05-30.
+- [x] spec-059 F-3: update `docs/architecture/data_flow.html` — read-path nodes show ORM models instead of raw SQL. 2026-05-30.
 
 ---
 
