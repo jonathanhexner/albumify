@@ -105,8 +105,7 @@ class RunExportResult:
     db_path: Path
 
 
-class RunExporterError(RuntimeError):
-    """Raised when input data violates the writer's contract."""
+from sim_bench.run_db._errors import RunExporterError  # re-exported
 
 
 _VALID_PRODUCERS = ("albumify", "fc_app", "remerge", "manual_merge")
@@ -330,74 +329,8 @@ class RunExporter:
         core_indices: List[int],
         faces: List[FaceRecord],
     ) -> None:
-        # Iteration 0 — base clustering result.
-        cluster_rows: List[Tuple] = []
-        assign_rows: List[Tuple] = []
-        for cid, members in base_cr.clusters.items():
-            stats = base_cr.cluster_stats.get(cid, {})
-            cluster_rows.append((
-                cid, 0, len(members),
-                _maybe_float(stats.get("diameter")),
-                _maybe_float(stats.get("mean_dist")),
-                "base", "[]",
-            ))
-            exemplars = set(base_cr.exemplars.get(cid, []))
-            for node_idx in members:
-                face_idx = (
-                    core_indices[node_idx]
-                    if core_indices and node_idx < len(core_indices)
-                    else node_idx
-                )
-                if 0 <= face_idx < len(faces):
-                    assign_rows.append((
-                        faces[face_idx].face_id,
-                        cid,
-                        0,
-                        1 if node_idx in exemplars else 0,
-                        _maybe_float(getattr(faces[face_idx], "d10_score", None)),
-                    ))
-
-        # Final iteration — only when at least one merge actually executed.
-        max_iter = max((int(e["iteration"]) for e in merge_log), default=0)
-        any_merged = any(e["actually_merged"] for e in merge_log)
-        if any_merged and merged_cr is not base_cr:
-            parent_map = _build_parent_map(merge_log)
-            for cid, members in merged_cr.clusters.items():
-                stats = merged_cr.cluster_stats.get(cid, {})
-                parents = parent_map.get(cid, [])
-                cluster_rows.append((
-                    cid, max_iter, len(members),
-                    _maybe_float(stats.get("diameter")),
-                    _maybe_float(stats.get("mean_dist")),
-                    "auto_merge" if parents else "base",
-                    json.dumps(parents),
-                ))
-                exemplars = set(merged_cr.exemplars.get(cid, []))
-                for node_idx in members:
-                    face_idx = (
-                        core_indices[node_idx]
-                        if core_indices and node_idx < len(core_indices)
-                        else node_idx
-                    )
-                    if 0 <= face_idx < len(faces):
-                        assign_rows.append((
-                            faces[face_idx].face_id,
-                            cid,
-                            max_iter,
-                            1 if node_idx in exemplars else 0,
-                            None,
-                        ))
-
-        conn.executemany(
-            "INSERT INTO clusters VALUES (?,?,?,?,?,?,?)",
-            cluster_rows,
-        )
-        # face_id+iteration is the PK; tolerate duplicates that arise when a face
-        # appears in both base and merged with the same (face_id, iteration).
-        conn.executemany(
-            "INSERT OR REPLACE INTO cluster_assignments VALUES (?,?,?,?,?)",
-            assign_rows,
-        )
+        from sim_bench.run_db.writers.clusters_writer import write_clusters
+        write_clusters(conn, base_cr, merged_cr, merge_log, core_indices, faces)
 
     # ------------------------------------------------------------------
     # Merge decisions — full 28-field fidelity (FR-004)
@@ -405,17 +338,8 @@ class RunExporter:
 
     @staticmethod
     def _write_merges(conn: sqlite3.Connection, merge_log: List[Dict]) -> None:
-        if not merge_log:
-            return
-        field_order = MergeDecisionRow.field_names()
-        rows: List[Tuple] = []
-        for entry in merge_log:
-            rows.append(tuple(_to_sql(entry[name], name) for name in field_order))
-        placeholders = ",".join(["?"] * len(field_order))
-        conn.executemany(
-            f"INSERT INTO merge_decisions VALUES ({placeholders})",
-            rows,
-        )
+        from sim_bench.run_db.writers.merges_writer import write_merges
+        write_merges(conn, merge_log)
 
     # ------------------------------------------------------------------
     # spec-032: filter decisions
@@ -423,30 +347,8 @@ class RunExporter:
 
     @staticmethod
     def _write_filter_decisions(conn: sqlite3.Connection, filters) -> None:
-        """Persist FilterContext to the filter_decisions table.
-
-        No-op when filters is None or empty — keeps the schema consistent
-        for runs that don't use the new contract yet (P1 dual-write window).
-        """
-        if filters is None or len(filters) == 0:
-            return
-        rows: List[Tuple] = []
-        for item, decision in filters.all_decisions():
-            rows.append((
-                item.item_id,
-                item.item_type,
-                item.parent_id,
-                decision.filter_name,
-                1 if decision.rejected else 0,
-                decision.reason,
-                json.dumps(decision.measured, default=str),
-            ))
-        conn.executemany(
-            "INSERT INTO filter_decisions "
-            "(item_id, item_type, parent_id, filter_name, rejected, reason, measured_json) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            rows,
-        )
+        from sim_bench.run_db.writers.filter_decisions_writer import write_filter_decisions
+        write_filter_decisions(conn, filters)
 
     # ------------------------------------------------------------------
     # spec-040 Phase 4 (schema v5): images + scene-side persistence
@@ -459,160 +361,24 @@ class RunExporter:
         image_paths: Optional[List[str]] = None,
         image_scores: Optional[Dict[str, Dict[str, float]]] = None,
     ) -> None:
-        """Persist one row per distinct image to the ``images`` table.
-
-        Rows derived from two sources unioned:
-          * every distinct ``face.image_path`` in ``faces`` (image had >=1 face)
-          * every entry in ``image_paths`` (images discovered upstream, even if
-            they produced zero faces)
-
-        ``image_scores`` (keyed by image_path) joins iqa/ava/sharpness/scene
-        scores onto the corresponding row. Width/height are populated from
-        the first face on that image that carries ``image_width_px``.
-
-        Pandera-validates the resulting DataFrame before INSERT (spec-033 P-H).
-        Empty input writes nothing but still validates an empty DataFrame so
-        the schema contract is exercised on every run.
-        """
-        image_scores = image_scores or {}
-        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-
-        def _norm(p: str) -> str:
-            """Normalize path separators so face_records (forward slashes) and
-            caller-supplied paths (potentially backslash on Windows) align.
-            """
-            return str(p).replace("\\", "/")
-
-        # Group faces by image_path → carries n_faces + width/height.
-        by_path: Dict[str, Dict[str, object]] = {}
-        for face in faces:
-            p = _norm(face.image_path) if face.image_path else None
-            if not p:
-                continue
-            entry = by_path.setdefault(p, {
-                "n_faces": 0,
-                "width_px": None,
-                "height_px": None,
-            })
-            entry["n_faces"] = int(entry["n_faces"]) + 1
-            if entry["width_px"] is None and face.image_width_px:
-                entry["width_px"] = int(face.image_width_px)
-            if entry["height_px"] is None and face.image_height_px:
-                entry["height_px"] = int(face.image_height_px)
-
-        # Union with upstream image_paths so zero-face images get a row.
-        all_paths = sorted(set(by_path) | {_norm(p) for p in (image_paths or [])})
-
-        rows: List[Tuple] = []
-        for path in all_paths:
-            entry = by_path.get(path, {"n_faces": 0, "width_px": None, "height_px": None})
-            scores = image_scores.get(path, {}) or {}
-            rows.append((
-                path,
-                Path(path).name,
-                entry["width_px"],
-                entry["height_px"],
-                int(entry["n_faces"]),
-                _maybe_float(scores.get("iqa")),
-                _maybe_float(scores.get("ava")),
-                _maybe_float(scores.get("sharpness")),
-                _maybe_float(scores.get("composite")),
-                scores.get("scene_cluster_id"),
-                1,  # filter_passed default — refined when filter wiring lands
-                now,
-            ))
-
-        # Pandera validation (spec-033 P-H). Empty DF still validates the contract.
-        df = pd.DataFrame(rows, columns=[
-            "image_path", "image_id", "width_px", "height_px", "n_faces",
-            "iqa_score", "ava_score", "sharpness_score", "composite_score",
-            "scene_cluster_id", "filter_passed", "created_at",
-        ])
-        IMAGES_SCHEMA.validate(df)
-
-        if rows:
-            conn.executemany(
-                "INSERT INTO images "
-                "(image_path, image_id, width_px, height_px, n_faces, "
-                " iqa_score, ava_score, sharpness_score, composite_score, "
-                " scene_cluster_id, filter_passed, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        from sim_bench.run_db.writers.images_writer import write_images
+        write_images(conn, faces, image_paths, image_scores)
 
     @staticmethod
     def _write_scene_clusters(
         conn: sqlite3.Connection,
         scene_clusters: Optional[List[Dict]] = None,
     ) -> None:
-        """Persist scene clusters to the ``scene_clusters`` table.
-
-        Empty until the scene-clustering producer side writes
-        ``context.scene_clusters: List[SceneClusterRecord]`` (out of scope for
-        spec-040 T2 — tracked as future scene-side parity work). Pandera-
-        validates the empty DataFrame so the contract is exercised even when
-        no rows land.
-
-        Each input dict must carry: ``scene_cluster_id`` (int), ``iteration``
-        (int), ``size`` (int), ``method`` (str). Optional: ``exemplar_image_path``
-        (str), ``avg_intra_distance`` (float).
-        """
-        rows: List[Tuple] = []
-        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-        for sc in scene_clusters or []:
-            rows.append((
-                int(sc["scene_cluster_id"]),
-                int(sc.get("iteration", 0)),
-                int(sc["size"]),
-                str(sc.get("method", "")),
-                sc.get("exemplar_image_path"),
-                _maybe_float(sc.get("avg_intra_distance")),
-                sc.get("created_at", now),
-            ))
-        df = pd.DataFrame(rows, columns=[
-            "scene_cluster_id", "iteration", "size", "method",
-            "exemplar_image_path", "avg_intra_distance", "created_at",
-        ])
-        SCENE_CLUSTERS_SCHEMA.validate(df)
-        if rows:
-            conn.executemany(
-                "INSERT INTO scene_clusters "
-                "(scene_cluster_id, iteration, size, method, "
-                " exemplar_image_path, avg_intra_distance, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
+        from sim_bench.run_db.writers.scenes_writer import write_scene_clusters
+        write_scene_clusters(conn, scene_clusters)
 
     @staticmethod
     def _write_scene_cluster_assignments(
         conn: sqlite3.Connection,
         scene_cluster_assignments: Optional[List[Dict]] = None,
     ) -> None:
-        """Persist (image_path, scene_cluster_id, iteration) tuples.
-
-        Each input dict must carry ``image_path``, ``scene_cluster_id``,
-        ``iteration``. Optional: ``distance_to_centroid``. Pandera-validates
-        before INSERT.
-        """
-        rows: List[Tuple] = []
-        for sca in scene_cluster_assignments or []:
-            rows.append((
-                str(sca["image_path"]),
-                int(sca["scene_cluster_id"]),
-                int(sca.get("iteration", 0)),
-                _maybe_float(sca.get("distance_to_centroid")),
-            ))
-        df = pd.DataFrame(rows, columns=[
-            "image_path", "scene_cluster_id", "iteration", "distance_to_centroid",
-        ])
-        SCENE_CLUSTER_ASSIGNMENTS_SCHEMA.validate(df)
-        if rows:
-            conn.executemany(
-                "INSERT INTO scene_cluster_assignments "
-                "(image_path, scene_cluster_id, iteration, distance_to_centroid) "
-                "VALUES (?, ?, ?, ?)",
-                rows,
-            )
+        from sim_bench.run_db.writers.scenes_writer import write_scene_cluster_assignments
+        write_scene_cluster_assignments(conn, scene_cluster_assignments)
 
     # ------------------------------------------------------------------
     # Run metadata (absorbs merge_metadata.json + export_summary.json fields)
@@ -635,66 +401,21 @@ class RunExporter:
         finished_at: str,
         parent_run_id: Optional[str],
     ) -> None:
-        n_merges = sum(1 for e in merge_log if e["actually_merged"])
-        n_iterations = max((int(e["iteration"]) for e in merge_log), default=0)
-
-        try:
-            config_json = json.dumps(
-                {k: v for k, v in vars(config).items() if not k.startswith("_")},
-                default=str,
-            )
-        except TypeError:
-            config_json = "{}"
-
-        thresholds_json = None
-        iter_summary_json = None
-        if merge_metadata:
-            # Split merge_metadata into the two columns it absorbs.  Thresholds
-            # block lives under `cluster_thresholds` / `global_threshold` keys
-            # historically; iteration summary lives elsewhere in metadata.
-            thresholds = {
-                k: merge_metadata[k]
-                for k in (
-                    "cluster_thresholds", "global_threshold",
-                    "merge_exemplar_threshold", "merge_candidate_threshold",
-                )
-                if k in merge_metadata
-            }
-            if thresholds:
-                thresholds_json = json.dumps(thresholds, default=str)
-
-            iter_summary = {
-                k: merge_metadata[k]
-                for k in ("n_iterations", "n_candidates_proposed")
-                if k in merge_metadata
-            }
-            if iter_summary:
-                iter_summary_json = json.dumps(iter_summary, default=str)
-
-        n_images = len({f.image_path or f.image_id for f in faces})
-        n_core = sum(1 for f in faces if f.is_core)
-
-        conn.execute(
-            "INSERT INTO run_metadata VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (
-                run_id,
-                source_album,
-                producer,
-                parent_run_id,
-                config_json,
-                thresholds_json,
-                iter_summary_json,
-                n_images,
-                len(faces),
-                n_core,
-                base_cr.n_clusters,
-                merged_cr.n_clusters,
-                n_merges,
-                n_iterations,
-                started_at,
-                finished_at,
-                SCHEMA_VERSION,
-            ),
+        from sim_bench.run_db.writers.run_metadata_writer import write_run_metadata
+        write_run_metadata(
+            conn,
+            faces=faces,
+            base_cr=base_cr,
+            merged_cr=merged_cr,
+            merge_log=merge_log,
+            merge_metadata=merge_metadata,
+            config=config,
+            source_album=source_album,
+            producer=producer,
+            run_id=run_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            parent_run_id=parent_run_id,
         )
 
     # ------------------------------------------------------------------
@@ -777,72 +498,3 @@ class RunExporter:
         return manifest
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _maybe_float(v) -> Optional[float]:
-    if v is None:
-        return None
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
-
-
-def _to_sql(value, field_name: str):
-    """Convert a Python value into a SQLite-storable form.
-
-    SQLite has no boolean or infinity type; bools become ints, and `inf` is stored
-    via Python's REAL handling (SQLite preserves it as a float).  None passes through.
-    """
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return 1 if value else 0
-    if isinstance(value, float):
-        # Preserve inf / nan as-is; SQLite REAL columns round-trip them via Python.
-        return value
-    if isinstance(value, (int, str)):
-        return value
-    # numpy scalars
-    if hasattr(value, "item"):
-        return value.item()
-    raise RunExporterError(
-        f"unsupported type {type(value).__name__} for field {field_name!r}"
-    )
-
-
-def _build_parent_map(merge_log: List[Dict]) -> Dict[int, List[int]]:
-    """Union-find over actually_merged=True rows → {final_id: [original parent ids]}."""
-    if not merge_log:
-        return {}
-    parent: Dict[int, int] = {}
-
-    def _find(x: int) -> int:
-        while parent.get(x, x) != x:
-            parent[x] = parent.get(parent.get(x, x), parent.get(x, x))
-            x = parent[x]
-        return x
-
-    originals: Dict[int, List[int]] = {}
-    for entry in merge_log:
-        if not entry["actually_merged"]:
-            continue
-        a, b = int(entry["cluster_a"]), int(entry["cluster_b"])
-        originals.setdefault(a, [a])
-        originals.setdefault(b, [b])
-        parent.setdefault(a, a)
-        parent.setdefault(b, b)
-        ra, rb = _find(a), _find(b)
-        if ra != rb:
-            parent[rb] = ra
-            originals[ra] = originals.get(ra, [ra]) + originals.get(rb, [rb])
-
-    out: Dict[int, List[int]] = {}
-    for cid in originals:
-        root = _find(cid)
-        members = originals.get(root, [])
-        if len(members) > 1:
-            out[root] = sorted(set(members) - {root})
-    return out
