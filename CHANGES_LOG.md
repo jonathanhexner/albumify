@@ -2,6 +2,22 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-30 [FEATURE] spec-064 — v2 Face Analysis tab (P2; Scenario D added)
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/views/face_view.py` (+83 LOC) — new `FaceAnalysisService(repo)` wrapping the existing `FaceView.compute(result, face_id)` classmethod. Methods: `compute_face_detail(face_id) -> FaceView`, `get_face_record(face_id) -> FaceRecord` (bbox/landmarks), `list_face_ids()`. Builds the same `PipelineResult` proxy `ClusterAnalysisService` builds — strips noise cluster so co-image / nearest lookups don't land on a noise-bucket index. Sync only (SIGHTING-079).
+- NEW `app/face_clustering_v2/tabs/face_analysis_tab.py` (80 LOC; ≤80 budget ✓). Reads `selected_face_id` from session_state (set by Cluster Analysis "Open" button); resolves run_dir from session_state keys; caches `FaceAnalysisService` per run_dir; renders header → bbox overlay → detail panel inside `st.spinner`.
+- NEW `app/face_clustering_v2/components/face_bbox_overlay.py` (80 LOC) — Plotly source-image overlay with bbox rectangle + 5 landmark dots, with crop fallback when source image isn't on disk.
+- NEW `app/face_clustering_v2/components/face_detail_panel.py` (31 LOC) — header + 5-metric strip (blur, yaw, pitch, roll, area) + gate rejection banner + nearest-faces expander.
+- UPDATED `app/face_clustering_v2/components/face_grid.py` (+6 LOC) — adds per-thumbnail "Open" button that writes `st.session_state['selected_face_id']` and reruns. Documents the Streamlit limitation: no programmatic tab-switch API, so the user clicks the Face Analysis tab manually after the rerun.
+- UPDATED `app/face_clustering_v2/main.py` — adds 5th "Face Analysis" tab between Cluster Analysis and Recluster (natural read order: cluster → drill into a face → tweak params).
+- NEW `tests/face_clustering/views/test_face_view_service_synthetic.py` (6 synthetic + 1 `slow` real-fixture) — covers compute_face_detail returns FaceView, unknown id raises, gate_result populated, closest lists typed, get_face_record returns raw record with bbox, score fields populated; slow case runs against Budapest reference run.
+- NEW `tests/architecture/test_face_analysis_tab.py` (5 cases) — no DB/FS/`cfg.get` in tab, LOC ≤ 80, Service Streamlit-free, typed return annotations.
+- NEW `tests/face_clustering/e2e_budapest/test_scenario_d_face_analysis.py` — Playwright. Click sequence per spec-064 E2E contract. Asserts: Face Analysis tab visible, ≥ 5 metric widgets rendered, `selected_face_id` populated after Open click.
+- UPDATED `tests/face_clustering/e2e_budapest/README.md` — moved Scenario D row from "Planned" to active.
+**Reason**: spec-064 ships per-face drill-down — the missing destination when the user clicks a thumbnail in Cluster Analysis. Reuses `FaceView.compute` (the compute already existed; the service is just a typed adapter). Cross-tab navigation via session_state — Streamlit has no programmatic tab-switch API, so the "Open" button writes the id and reruns; the user clicks the tab. Same 4-layer architecture as spec-045/063: Tab → Components → Service → Repository. Tab is dumb (≤80 LOC, no SQL/FS/`cfg.get`, arch test enforces).
+**Verification**: 11/11 new unit + arch tests green (1 slow case deselected). All 4 budapest scenarios collect (A + B + C + D). Targeted regression on `tests/architecture/` + `tests/face_clustering/views/`: 186 passed / 0 failed. Playwright Scenario D itself NOT run in this commit (requires user's live Budapest album).
+
 ### 2026-05-30 [FEATURE] spec-063 — v2 Recluster tab (P1 closed; Scenario C added)
 **Branch**: `unification/spec-040`
 **Files**:

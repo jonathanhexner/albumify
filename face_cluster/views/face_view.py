@@ -1,12 +1,25 @@
-"""FaceView: per-face drill-down."""
+"""FaceView: per-face drill-down.
+
+spec-064: adds :class:`FaceAnalysisService`, a thin Streamlit-free wrapper
+the v2 Face Analysis tab uses to render the per-face popup. The compute
+itself stays on :class:`FaceView` (classmethod ``compute``) — the service
+just builds the :class:`PipelineResult` proxy from a
+:class:`ClusterAnalysisRepository` (the same proxy
+:class:`ClusterAnalysisService` builds) and dispatches.
+
+Sync compute only (SIGHTING-079) — every cluster's compute path is
+sub-second for typical run sizes; AsyncHandle does not fit Streamlit's
+request/response lifecycle.
+"""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import List, Optional, Tuple
 
 import numpy as np
 
 from face_cluster.pipeline import PipelineResult
+from face_cluster.types import FaceRecord
 from face_cluster.views._base import (
     CloseFace, FaceRow, _embeddings_matrix,
 )
@@ -148,3 +161,69 @@ class FaceView:
             closest_other_clusters=closest_other,
             coimage_faces=coimage,
         )
+
+
+# ---------------------------------------------------------------------------
+# Service (spec-064 §"Backend")
+# ---------------------------------------------------------------------------
+
+class FaceAnalysisService:
+    """Typed read + compute API for the v2 Face Analysis tab.
+
+    Construction takes a :class:`ClusterAnalysisRepository` because the
+    per-face drill-down lives in the same run as the cluster view — the
+    tab reuses the Repository already cached by the Cluster Analysis tab
+    via ``st.session_state``.
+
+    Streamlit-free; sync compute only (spec-064 §"Locked decisions" #3 —
+    SIGHTING-079).
+    """
+
+    def __init__(self, repo) -> None:
+        if repo is None:
+            raise ValueError("FaceAnalysisService requires a non-None Repository.")
+        self._repo = repo
+
+    def compute_face_detail(self, face_id: int) -> FaceView:
+        """Compute the per-face drill-down for ``face_id``.
+
+        Raises:
+            ValueError: if ``face_id`` is not present in the current run.
+        """
+        return FaceView.compute(self._build_pipeline_result_proxy(), face_id)
+
+    def get_face_record(self, face_id: int) -> FaceRecord:
+        """Return the raw :class:`FaceRecord` for bbox/landmarks rendering.
+
+        FaceView carries the high-level drill-down fields but not the raw
+        geometry — the tab needs bbox + landmarks to render the overlay.
+        """
+        for f in self._repo._run_store.faces():
+            if f.face_id == face_id:
+                return f
+        raise ValueError(f"face_id {face_id} not found in run")
+
+    def list_face_ids(self) -> List[int]:
+        """Face ids in the current run, sorted. Used by the tab's picker."""
+        return sorted(f.face_id for f in self._repo._run_store.faces())
+
+    def _build_pipeline_result_proxy(self) -> PipelineResult:
+        """Same proxy shape :class:`ClusterAnalysisService` builds — strips
+        the noise cluster from the ``ClusterResult`` so co-image / nearest
+        lookups don't accidentally land on a noise-bucket index.
+        """
+        from sim_bench.pipeline.clustering_labels import is_noise
+
+        cr = self._repo.get_cluster_result("final")
+        clean_clusters = {cid: idxs for cid, idxs in cr.clusters.items() if not is_noise(cid)}
+        clean_exemplars = {cid: ex for cid, ex in cr.exemplars.items() if not is_noise(cid)}
+        clean_cr = replace(cr, clusters=clean_clusters, exemplars=clean_exemplars)
+        return PipelineResult(
+            faces=self._repo._run_store.faces(),
+            cluster_result=clean_cr,
+            output_dir=self._repo._config.run_dir,
+            summary={"config": self._repo.get_run_metadata().config},
+        )
+
+
+__all__ = ["FaceView", "FaceAnalysisService"]

@@ -54,3 +54,9 @@ def render_face_grid(view: ClusterView, *, run_dir: Path) -> None:
                 outlier_tag = "!" if face.is_outlier else ""
                 area_tag = f" A={face.area_ratio:.1%}" if face.area_ratio is not None else ""
                 st.caption(f"`face_{face.face_id:04d}` {role_tag}{outlier_tag} d={face.dist_to_exemplar:.3f}{area_tag}")
+                # spec-064 cross-tab nav: writes selected_face_id; user then
+                # clicks the Face Analysis tab manually (Streamlit has no
+                # programmatic tab-switch API).
+                if st.button("Open", key=f"open_face_{face.face_id}"):
+                    st.session_state["selected_face_id"] = int(face.face_id)
+                    st.rerun()
