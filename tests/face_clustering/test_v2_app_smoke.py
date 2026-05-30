@@ -280,3 +280,56 @@ def test_main_page_renders_without_exception_on_empty_run_dir(tmp_path):
         "Empty run dir should produce a friendly st.info empty-state banner; "
         "got none."
     )
+
+
+@pytest.mark.slow
+def test_main_page_renders_without_duplicate_widget_keys_with_recluster_available(
+    no_op_merge_run_dir, isolate_action_log_db
+):
+    """Regression for the spec-063 duplicate widget-key crash.
+
+    Run tab and Recluster tab both render the FCParams editor. Both tab
+    bodies execute on every Streamlit script run. Without per-tab key
+    namespacing, both tried to create st.slider(key="v2_K") in the same
+    script run -> StreamlitDuplicateElementKey -> entire page crashes
+    (every tab fails to render its h2).
+
+    The earlier "no run loaded" smoke test missed this because, with an
+    empty action_log, render_run_picker returns None and the Recluster
+    tab early-exits BEFORE reaching render_field. This test seeds an
+    action_log row so the picker proceeds, exercising the code path that
+    triggered the bug in the browser.
+    """
+    from face_cluster.run_history_db import init_table
+    from streamlit.testing.v1 import AppTest
+    from tests.face_clustering.views._seed import insert_action
+
+    init_table(db_path=isolate_action_log_db)
+    insert_action(
+        isolate_action_log_db,
+        status="complete",
+        output_dir=str(no_op_merge_run_dir),
+        source_album="spec-063-duplicate-key-regression",
+        producer="fc_app_v2",
+        action_type="fc_app_v2_run",
+    )
+
+    at = AppTest.from_file(MAIN_PY)
+    at.run(timeout=60)
+
+    exceptions = [str(e.value) for e in at.exception]
+    duplicate_key_errors = [m for m in exceptions if "multiple elements with the same" in m]
+    assert not duplicate_key_errors, (
+        "Page raised StreamlitDuplicateElementKey — two tabs share a widget "
+        "key. Fix by passing key_prefix= to render_field/render_group from "
+        "the second tab. Offending messages:\n  " + "\n  ".join(duplicate_key_errors)
+    )
+    assert not exceptions, (
+        f"Page raised {len(exceptions)} other exception(s):\n  "
+        + "\n  ".join(exceptions)
+    )
+
+    slider_keys = [s.key for s in at.slider]
+    assert len(slider_keys) == len(set(slider_keys)), (
+        f"Duplicate slider keys present: {sorted(slider_keys)}"
+    )

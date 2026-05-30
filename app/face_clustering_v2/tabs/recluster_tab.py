@@ -25,6 +25,7 @@ _GROUP_TITLES = {
     "cluster": "Cluster", "quality": "Quality Gate", "exemplars": "Exemplars",
     "optional": "Optional Stages", "merge": "Merge", "cap": "Diameter Cap",
 }
+_KEY_PREFIX = "recluster_"  # namespace; Run tab uses the empty prefix
 
 
 def render_recluster_tab() -> None:
@@ -55,12 +56,12 @@ def render_recluster_tab() -> None:
         with st.expander(_GROUP_TITLES[group], expanded=(group == "cluster")):
             for name in names:
                 if name in UI_SPEC:
-                    render_field(name)
+                    render_field(name, key_prefix=_KEY_PREFIX)
 
     if not st.button("Run recluster", type="primary", key="v2_recluster_btn"):
         return
 
-    params = build_params_from_state()
+    params = build_params_from_state(key_prefix=_KEY_PREFIX)
     if params is None:
         return
 

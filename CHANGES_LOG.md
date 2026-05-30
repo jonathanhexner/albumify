@@ -2,6 +2,15 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-30 [BUGFIX] spec-063 fallout — duplicate widget key `v2_K` between Run + Recluster tabs
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `app/face_clustering_v2/widget_factory.py` — added `key_prefix: str = ""` parameter to `widget_key`, `render_field`, `render_group`, `value_from_state`, `build_params_from_state`, `load_params_into_state`. Default `""` preserves the legacy `v2_<field>` keys (load-bearing — History tab's "Load Run" populates session_state under these keys).
+- UPDATED `app/face_clustering_v2/tabs/recluster_tab.py` — passes `key_prefix="recluster_"` to `render_field` + `build_params_from_state`. Keys are now `v2_recluster_K`, `v2_recluster_K_increment`, etc. — disjoint from the Run tab's namespace.
+- UPDATED `tests/face_clustering/test_v2_app_smoke.py` — NEW `test_main_page_renders_without_duplicate_widget_keys_with_recluster_available` (`@pytest.mark.slow`). Seeds an action_log row so `render_run_picker` returns a non-None entry, allowing the Recluster tab to proceed past its early-exit and exercise `render_field` — the code path the original prior smoke tests bypassed.
+**Reason**: The v2 app crashed on startup in the browser with `StreamlitDuplicateElementKey: key='v2_K'`. Streamlit's `st.tabs` is NOT lazy — every tab body executes on every script rerun. Both the Run tab and the new Recluster tab called `render_field("K")` → both created `st.slider(key="v2_K")` → duplicate-key exception → every tab's `h2` failed to render → all 6 budapest e2e scenarios timed out waiting for `h2:has-text('History')`. **How the tests missed it**: (1) architecture tests grep + LOC-check the tab file but never IMPORT or EXECUTE it; (2) service synthetic tests are intentionally Streamlit-free; (3) `test_v2_app_smoke.py` already had `AppTest`-based smoke tests that *would* have caught this, but they were `@pytest.mark.slow` (deselected by default) AND seeded no action_log rows — so the autouse fixture pointed at an empty DB, the Recluster picker returned None, and the tab early-exited before `render_field` ran. The fix is per-tab key namespacing; the prevention is the new smoke test that seeds a picker entry so the Recluster tab actually renders its widgets.
+**Verification**: New preventative test green; full smoke suite 8/8 green; recluster_tab still ≤ 80 LOC (now exactly 80); arch + views regression 105 passed / 0 failed. Browser-level fix: AppTest standalone reproduction now reports `exception count: 0` (was 1).
+
 ### 2026-05-30 [FEATURE] spec-065 — v2 Merged Clusters + Quality tabs (P2; Scenarios E + F added)
 **Branch**: `unification/spec-040`
 **Files**:

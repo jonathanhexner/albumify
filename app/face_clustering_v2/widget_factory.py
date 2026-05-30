@@ -29,9 +29,15 @@ from face_cluster.fc_params import FCParams
 WIDGET_KEY_PREFIX = "v2_"
 
 
-def widget_key(field_name: str) -> str:
-    """Deterministic Streamlit widget key for an FCParams field."""
-    return WIDGET_KEY_PREFIX + field_name
+def widget_key(field_name: str, *, key_prefix: str = "") -> str:
+    """Deterministic Streamlit widget key for an FCParams field.
+
+    ``key_prefix`` namespaces the key per-tab so two tabs can each render
+    the same FCParams field without colliding. Default ``""`` matches
+    legacy ``v2_<field>`` keys — load-bearing because the History tab's
+    "Load Run" populates session_state under these keys.
+    """
+    return WIDGET_KEY_PREFIX + key_prefix + field_name
 
 
 def _bounds(info: FieldInfo) -> Tuple[Optional[float], Optional[float]]:
@@ -78,6 +84,7 @@ def render_field(
     *,
     readonly: bool = False,
     value_override: Any = None,
+    key_prefix: str = "",
 ) -> Any:
     """Render the widget for an FCParams field and return its value.
 
@@ -117,7 +124,7 @@ def render_field(
     lo, hi = _bounds(info)
     label = spec.label
     help_text = info.description or None
-    key = widget_key(field_name)
+    key = widget_key(field_name, key_prefix=key_prefix)
     default = _ui_default(field_name)
 
     # When ``key`` is already in session_state (Load button populated it,
@@ -152,25 +159,27 @@ def render_field(
     raise ValueError(f"Unknown UI_SPEC widget {spec.widget!r} on {field_name!r}")
 
 
-def render_group(group: str, *, columns: Optional[int] = None) -> None:
+def render_group(
+    group: str, *, columns: Optional[int] = None, key_prefix: str = "",
+) -> None:
     """Render every field in ``UI_SPEC`` tagged with this group, in order."""
     fields = fields_by_group().get(group, [])
     if not fields:
         return
     if columns is None:
         for name in fields:
-            render_field(name)
+            render_field(name, key_prefix=key_prefix)
         return
     cols = st.columns(columns)
     for i, name in enumerate(fields):
         with cols[i % columns]:
-            render_field(name)
+            render_field(name, key_prefix=key_prefix)
 
 
-def value_from_state(field_name: str) -> Any:
+def value_from_state(field_name: str, *, key_prefix: str = "") -> Any:
     """Read the widget value from session_state, applying zero→None for sentinels."""
     spec = UI_SPEC.get(field_name)
-    key = widget_key(field_name)
+    key = widget_key(field_name, key_prefix=key_prefix)
     if key not in st.session_state:
         return None
     v = st.session_state[key]
@@ -179,7 +188,7 @@ def value_from_state(field_name: str) -> Any:
     return v
 
 
-def build_params_from_state() -> Optional[FCParams]:
+def build_params_from_state(*, key_prefix: str = "") -> Optional[FCParams]:
     """Reconstruct an FCParams from the current widget session_state.
 
     Renders ``st.error`` and returns None on ValidationError. Fields
@@ -188,8 +197,8 @@ def build_params_from_state() -> Optional[FCParams]:
     from pydantic import ValidationError
     payload: dict[str, Any] = {}
     for name in UI_SPEC:
-        if widget_key(name) in st.session_state:
-            payload[name] = value_from_state(name)
+        if widget_key(name, key_prefix=key_prefix) in st.session_state:
+            payload[name] = value_from_state(name, key_prefix=key_prefix)
     try:
         return FCParams(**payload)
     except ValidationError as e:
@@ -197,7 +206,7 @@ def build_params_from_state() -> Optional[FCParams]:
         return None
 
 
-def load_params_into_state(params: FCParams) -> None:
+def load_params_into_state(params: FCParams, *, key_prefix: str = "") -> None:
     """Push every UI-bound field of ``params`` into ``st.session_state``."""
     dumped = params.model_dump()
     for name, spec in UI_SPEC.items():
@@ -206,4 +215,4 @@ def load_params_into_state(params: FCParams) -> None:
         value = dumped[name]
         if spec.zero_is_none and value is None:
             value = _zero_for(spec.step)
-        st.session_state[widget_key(name)] = value
+        st.session_state[widget_key(name, key_prefix=key_prefix)] = value
