@@ -2,6 +2,29 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-30 [FEATURE] spec-065 — v2 Merged Clusters + Quality tabs (P2; Scenarios E + F added)
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `sim_bench/db/face_clustering/cluster_analysis_repo.py` (+30 LOC) — new `FilterDecisionCriteria` dataclass + `list_filter_decisions(criteria) -> list[FilterDecisionRow]` method. Composes `RunStore.filter_decisions()` (single read) then filters in-process; the table is small (≤ a few thousand rows on a typical album) so per-criterion SQL gains nothing.
+- NEW `face_cluster/views/merged_clusters.py` (84 LOC) — `MergedClustersService` exposing `list_merge_decisions()`, `list_iterations()`, `list_clusters_in_log()` (last two added beyond spec for future filter-bar expansion; sync, Streamlit-free).
+- NEW `face_cluster/views/quality.py` (117 LOC) — `QualityService` + `QualitySummary` dataclass aggregating metric distributions (blur / pose / area) + per-gate pass/fail counts.
+- NEW `app/face_clustering_v2/tabs/merged_clusters_tab.py` (79 LOC; ≤80 budget ✓) — picks run from session_state → caches service → renders merge_decisions table + on-select detail panel.
+- NEW `app/face_clustering_v2/tabs/quality_tab.py` (78 LOC; ≤80 budget ✓) — renders 4-metric summary strip + per-gate stacked bar chart.
+- NEW `app/face_clustering_v2/components/quality_bar_chart.py` (52 LOC) — Plotly per-gate stacked-bar component (pass / reject buckets by gate name).
+- UPDATED `app/face_clustering_v2/main.py` — tab bar grew 5 → 7 ("Run", "Cluster Analysis", "Face Analysis", "Merged Clusters", "Quality", "Recluster", "History").
+- NEW `tests/face_clustering/views/test_merged_clusters_service_synthetic.py` (4 synthetic + 1 `slow`).
+- NEW `tests/face_clustering/views/test_quality_service_synthetic.py` (5 synthetic + 1 `slow`).
+- NEW `tests/architecture/test_merged_clusters_tab.py` (5 cases — LOC ≤ 80, no SQL/FS/`cfg.get`, Service Streamlit-free, typed annotations).
+- NEW `tests/architecture/test_quality_tab.py` (5 cases — same guards).
+- UPDATED `tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py` (+68 LOC) — 3 new cases + `_seed_filter_decisions` helper covering `FilterDecisionCriteria`.
+- NEW `tests/face_clustering/e2e_budapest/test_scenario_e_merged_clusters.py` — Playwright Scenario E.
+- NEW `tests/face_clustering/e2e_budapest/test_scenario_f_quality.py` — Playwright Scenario F.
+- UPDATED `tests/face_clustering/e2e_budapest/conftest.py` (+10 LOC) — `EXPECTED_MERGE_DECISIONS_MIN_ROWS`, `EXPECTED_REJECTED_BAND` constants.
+- UPDATED `tests/face_clustering/e2e_budapest/README.md` — moved Scenarios E + F from "Planned" to active.
+**Reason**: spec-065 ships the last two P2 viewer tabs in spec-042's parity umbrella. Merged Clusters surfaces "what merged with what" + "what was filtered out and why" — the diagnostic surface for spec-045's force-merge decisions. Quality aggregates gate pass/fail counts so the user can see at a glance whether tightening a threshold would catch more rejections. Same 4-layer architecture as spec-063/064: Tab → Components → Service → Repository. Both tabs are dumb (≤80 LOC, no SQL/FS/`cfg.get`, arch tests enforce). Spec-066 (Gallery + Overview) intentionally NOT in scope per user direction.
+**Verification**: 35/35 new tests green (2 slow cases deselected). All 6 budapest scenarios collect (A + B + C + D + E + F). Full regression: **844 passed / 11 skipped / 0 failed** — up from 822 at spec-064 close (+22 net new). Zero regressions. Playwright Scenarios E + F themselves NOT run in this commit (require user's live Budapest album + ~10 min wall-clock).
+**Known deferrals** (agent-reported, accepted): (1) cross-tab nav buttons ("View cluster A/B") from Merged Clusters → Cluster Analysis not wired; would push tab past 80 LOC. Recommend future spec-067 for cross-tab nav across all viewer tabs. (2) Spec narrative said "28-column" MergeDecisionRow detail panel; actual schema has 27 fields — README updated to "detail panel" wording instead of coding to a wrong column count.
+
 ### 2026-05-30 [FEATURE] spec-064 — v2 Face Analysis tab (P2; Scenario D added)
 **Branch**: `unification/spec-040`
 **Files**:

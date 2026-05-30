@@ -44,6 +44,17 @@ EXPECTED_CLUSTER_0_FIRST_FACE_ID = 0  # first face_id (sorted) in cluster 0
 # corrupted the input.
 EXPECTED_RECLUSTER_BAND = (12, 18)
 
+# spec-065 Scenario E (Merged Clusters): reference run has merge_decisions
+# populated; one row minimum proves the table reaches the UI.
+EXPECTED_MERGE_DECISIONS_MIN_ROWS = 1
+
+# spec-065 Scenario F (Quality): faces total - assigned = 233 rejections,
+# ±7 to absorb minor gate-counting variations across pipeline iterations.
+EXPECTED_REJECTED_BAND = (
+    EXPECTED_N_FACES_TOTAL - EXPECTED_N_FACES_ASSIGNED - 13,  # 220
+    EXPECTED_N_FACES_TOTAL - EXPECTED_N_FACES_ASSIGNED + 7,   # 240
+)
+
 PORT = 8889
 APP_URL = f"http://localhost:{PORT}"
 APP_ENTRY = (

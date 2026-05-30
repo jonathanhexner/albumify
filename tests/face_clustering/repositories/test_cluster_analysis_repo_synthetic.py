@@ -24,8 +24,9 @@ from sim_bench.db.face_clustering.cluster_analysis_repo import (
     ClusterAnalysisCriteria,
     ClusterAnalysisRepoConfig,
     ClusterAnalysisRepository,
+    FilterDecisionCriteria,
 )
-from sim_bench.run_db.store import RunMetadata
+from sim_bench.run_db.store import FilterDecisionRow, RunMetadata
 from face_cluster.views._base import Assignment, ClusterRow
 from face_cluster.views.cluster_analysis import ForceMergeResult
 from sim_bench.pipeline.clustering_labels import NOISE_LABEL
@@ -317,6 +318,70 @@ def _add_no_op_merge_round(run_dir: Path) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# spec-065 — list_filter_decisions criteria filters
+# ---------------------------------------------------------------------------
+
+def _seed_filter_decisions(run_dir: Path) -> None:
+    """Seed filter_decisions with a mix of pass/reject + face/image rows.
+
+    Mirrors what FilterContext writes in production:
+      - face_001: blur (rejected), area (passed)
+      - face_002: blur (passed), pose_yaw (rejected)
+      - image_999: scene_quality (rejected)
+    """
+    conn = sqlite3.connect(str(run_dir / "face_clustering.db"))
+    try:
+        rows = [
+            ("face_001", "face",  None, "blur",          1, "blur 12.3 < min 50.0", '{"value": 12.3}'),
+            ("face_001", "face",  None, "area",          0, "ok",                   '{"value": 5000.0}'),
+            ("face_002", "face",  None, "blur",          0, "ok",                   '{"value": 80.1}'),
+            ("face_002", "face",  None, "pose_yaw",      1, "yaw 45.0 > max 30.0",  '{"value": 45.0}'),
+            ("image_999", "image", None, "scene_quality", 1, "low iqa",              '{"value": 0.2}'),
+        ]
+        conn.executemany(
+            "INSERT INTO filter_decisions "
+            "(item_id, item_type, parent_id, filter_name, rejected, reason, measured_json) "
+            "VALUES (?,?,?,?,?,?,?)",
+            rows,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_list_filter_decisions_no_criteria_returns_all(synthetic_run_dir):
+    """Unfiltered call returns every row we seeded."""
+    _seed_filter_decisions(synthetic_run_dir)
+    repo = ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir=synthetic_run_dir))
+    rows = repo.list_filter_decisions(FilterDecisionCriteria())
+    assert isinstance(rows, list)
+    assert all(isinstance(r, FilterDecisionRow) for r in rows)
+    assert len(rows) == 5
+
+
+def test_list_filter_decisions_filters_by_filter_name(synthetic_run_dir):
+    """filter_name="blur" returns only the two blur rows."""
+    _seed_filter_decisions(synthetic_run_dir)
+    repo = ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir=synthetic_run_dir))
+    rows = repo.list_filter_decisions(FilterDecisionCriteria(filter_name="blur"))
+    assert len(rows) == 2
+    assert {r.filter_name for r in rows} == {"blur"}
+
+
+def test_list_filter_decisions_filters_by_rejected_and_item_type(synthetic_run_dir):
+    """Combining rejected=True + item_type='face' returns only face rejections."""
+    _seed_filter_decisions(synthetic_run_dir)
+    repo = ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir=synthetic_run_dir))
+    rows = repo.list_filter_decisions(
+        FilterDecisionCriteria(rejected=True, item_type="face")
+    )
+    # 2 face rejections (face_001/blur, face_002/pose_yaw); image rejection excluded.
+    assert len(rows) == 2
+    assert all(r.rejected for r in rows)
+    assert all(r.item_type == "face" for r in rows)
 
 
 def test_get_cluster_result_final_when_merger_ran_but_merged_nothing(synthetic_run_dir):

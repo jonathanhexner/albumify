@@ -23,7 +23,7 @@ from face_cluster.views.cluster_analysis import ForceMergeResult
 from sim_bench.pipeline.clustering_labels import NOISE_LABEL, is_noise
 from sim_bench.run_db._session import make_run_db_sessionmaker
 from sim_bench.run_db.models import Cluster, ClusterAssignment
-from sim_bench.run_db.store import RunMetadata, RunStore
+from sim_bench.run_db.store import FilterDecisionRow, RunMetadata, RunStore
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,17 @@ class ClusterAnalysisCriteria:
     iteration: str = "final"
     exemplars_only: bool = False
     include_noise: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class FilterDecisionCriteria:
+    """spec-065 — filter for :meth:`list_filter_decisions`.
+
+    All fields optional; unset = unfiltered.
+    """
+    filter_name: Optional[str] = None     # e.g. "blur" / "pose_yaw"
+    rejected: Optional[bool] = None       # True = only rejections; False = only passes
+    item_type: Optional[str] = None       # "face" / "image"
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +192,28 @@ class ClusterAnalysisRepository(BaseRepository):
         """Return the full merge log (delegates to RunStore)."""
         return self._run_store.merge_log()
 
+    def list_filter_decisions(
+        self, criteria: FilterDecisionCriteria,
+    ) -> List[FilterDecisionRow]:
+        """spec-065 — return filter_decisions rows matching ``criteria``.
+
+        Composes :meth:`RunStore.filter_decisions` (single read) then filters
+        in-process. The table is small (≤ a few thousand rows on a typical
+        album); per-criterion SQL gains nothing over a Python filter pass and
+        avoids a second sessionmaker round-trip.
+        """
+        rows = self._run_store.filter_decisions()
+        if criteria.filter_name is not None:
+            rows = [r for r in rows if r.filter_name == criteria.filter_name]
+        if criteria.rejected is not None:
+            rows = [r for r in rows if r.rejected == criteria.rejected]
+        if criteria.item_type is not None:
+            rows = [r for r in rows if r.item_type == criteria.item_type]
+        self._log(
+            f"list_filter_decisions(criteria={criteria}) -> {len(rows)} rows"
+        )
+        return rows
+
     def get_cluster_result(self, iteration: str = "final") -> ClusterResult:
         """Return :class:`ClusterResult` at the given iteration.
 
@@ -290,5 +323,6 @@ class ClusterAnalysisRepository(BaseRepository):
 __all__ = [
     "ClusterAnalysisRepoConfig",
     "ClusterAnalysisCriteria",
+    "FilterDecisionCriteria",
     "ClusterAnalysisRepository",
 ]
