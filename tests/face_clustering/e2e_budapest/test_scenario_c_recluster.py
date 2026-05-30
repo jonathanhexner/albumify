@@ -60,7 +60,7 @@ def test_scenario_c_recluster_reference_run(page):
     page.wait_for_selector("h2:has-text('History')", state="visible")
 
     short = REFERENCE_RUN_ID[:8]
-    page.get_by_role("gridcell", name=lambda s: short in s).first.click(timeout=15_000)
+    page.get_by_role("gridcell", name=short).first.click(timeout=15_000)
     page.get_by_role("button", name="Load into analysis tabs").click()
     page.wait_for_selector("text=/Loaded/i", state="visible", timeout=15_000)
 

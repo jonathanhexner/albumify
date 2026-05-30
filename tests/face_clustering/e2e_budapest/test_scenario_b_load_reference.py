@@ -62,7 +62,7 @@ def test_scenario_b_load_reference_run_and_see_clusters(page):
 
     # 2. Find + click the reference run row
     short = REFERENCE_RUN_ID[:8]
-    page.get_by_role("gridcell", name=lambda s: short in s).first.click(timeout=15_000)
+    page.get_by_role("gridcell", name=short).first.click(timeout=15_000)
 
     # 3. Load Run
     page.get_by_role("button", name="Load into analysis tabs").click()

@@ -44,13 +44,23 @@ def test_scenario_a_fresh_run_produces_baseline_cluster_count(page):
     # 1. Run tab
     page.get_by_role("tab", name="Run").click()
 
-    # 2-3. Source + Album
-    page.get_by_label("Source").fill(str(SOURCE_DIR))
-    page.get_by_label("Album").fill(f"e2e_baseline_{int(time.time())}")
+    # 2-3. Source + Album. Use exact labels — `get_by_label("Album")` collides
+    # with the History tab's "Selected (all). Album" filter selectbox and the
+    # search box's "album / run name / comment" hint (st.tabs is not lazy).
+    page.get_by_label("Source image directory", exact=True).fill(str(SOURCE_DIR))
+    page.get_by_label("Album name (required)", exact=True).fill(
+        f"e2e_baseline_{int(time.time())}"
+    )
 
-    # 4. profile_4
-    page.get_by_role("combobox").first.click()
-    page.get_by_role("option", name="profile_4").click()
+    # 4. profile_4. The "Load profile" selectbox lives inside an
+    # `st.expander("Profiles", expanded=False)` — open the expander first.
+    # Use the accessible label, not `combobox.first` (ambiguous now that
+    # History/Recluster tabs each render their own selectboxes; st.tabs
+    # renders every body on every script run).
+    page.get_by_role("button", name="Profiles").click()
+    page.get_by_label("Load profile", exact=True).click()
+    page.get_by_role("option", name="profile_4").first.click()
+    page.get_by_role("button", name="Load", exact=True).click()
 
     # 5. Run pipeline
     page.get_by_role("button", name="Run pipeline").click()

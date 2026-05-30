@@ -31,6 +31,39 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
+### SIGHTING-091: Budapest e2e Scenarios B-F can't click a row in History's `st.dataframe`
+**Status**: OPEN
+**Severity**: Medium (blocks 4 of 6 e2e scenarios; not a product bug)
+**Reported**: 2026-05-30
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Scenarios B/C/D/E/F all do:
+```python
+short = REFERENCE_RUN_ID[:8]
+page.get_by_role("gridcell", name=short).first.click(timeout=15_000)
+```
+This times out. The History tab table is rendered as `st.dataframe(on_select="rerun", selection_mode="single-row")` — Streamlit's modern dataframe widget is glide-data-grid based (canvas), and does NOT expose cells as standard ARIA `gridcell` role with the cell text as the accessible name. The cell content IS visually rendered (verified in `_failure_artifacts/*.png` screenshots) but is invisible to Playwright role-based selectors.
+
+**Symptoms**:
+- `playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded. Call log: - waiting for get_by_role("gridcell", name="6437d335").first`
+- Screenshot shows the dataframe rendered correctly with the row visible.
+
+**Suspicion**: Streamlit dataframe row selection requires either (a) clicking the checkbox column's accessible label (e.g. "Select row N"), (b) targeting the row's bounding box by coordinate, or (c) using a Streamlit-specific Playwright fixture. Need empirical investigation against the running app.
+
+**Reproduction**:
+1. `.venv/Scripts/python -m pytest -m budapest tests/face_clustering/e2e_budapest/test_scenario_b_load_reference.py -v --tb=line`
+2. Times out at the gridcell click; screenshot in `_failure_artifacts/`.
+
+**Not a product bug**: the v2 app's History tab works correctly in a real browser. This is an e2e-test design gap.
+
+**Possible resolutions** (in order of preference):
+1. Replace `st.dataframe` row-select with `st.radio`/buttons per row in the History tab (also resolves the broader a11y issue) — small UI change, makes the tab e2e-testable by construction. Probably worth a 1-day spec.
+2. Find a Playwright selector pattern that works with glide-data-grid's row-select checkbox column.
+3. Use `at.dataframe(0).select_row(n)` via Streamlit's `AppTest` API instead of Playwright for the row-pick step — but loses browser-level coverage.
+
+---
+
 ### SIGHTING-090: `test_executor_step_io_logging` fails only in full-suite run (test pollution)
 **Status**: OPEN
 **Severity**: Low
