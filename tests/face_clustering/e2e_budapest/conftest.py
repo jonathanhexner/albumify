@@ -38,6 +38,12 @@ EXPECTED_BIGGEST_CLUSTER_SIZE = 35   # cluster_1
 EXPECTED_CLUSTER_0_SIZE = 24
 EXPECTED_CLUSTER_0_FIRST_FACE_ID = 0  # first face_id (sorted) in cluster 0
 
+# spec-063 Scenario C: band around the 15-cluster baseline. Reclustering the
+# reference run with profile_4 defaults should land in this range; outside
+# means either the clustering algorithm drifted or the recluster wiring
+# corrupted the input.
+EXPECTED_RECLUSTER_BAND = (12, 18)
+
 PORT = 8889
 APP_URL = f"http://localhost:{PORT}"
 APP_ENTRY = (

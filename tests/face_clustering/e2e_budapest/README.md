@@ -29,6 +29,7 @@ table in the same PR.
 |---|---|---|---|---|
 | **A** | `test_scenario_a_fresh_run.py` | Run tab → fill Source + Album → pick profile_4 → click Run → wait up to 10 min for "Run complete" message | success message visible; parsed `n_clusters == 15` | clustering-output regression; Run tab UI breakage; pipeline crash; profile loading bug |
 | **B** | `test_scenario_b_load_reference.py` | History tab → click row whose run-id contains `6437d335` → "Load into analysis tabs" → Cluster Analysis tab → wait for metric strip | ≥5 metric widgets visible; Faces metric value ∈ known cluster sizes; ≥1 `<img>` thumbnail | SIGHTING-078/079/080/089 + face-grid thumbnail bug + "no exception but blank UI" class |
+| **C** | `test_scenario_c_recluster.py` | History tab → click row containing `6437d335` → "Load into analysis tabs" → Recluster tab → leave default params → "Run recluster" → wait | (1) "Recluster complete" message visible; (2) a new run dir exists under `~/.sim_bench/runs/` whose `pipeline_run.json` has `parent_run_id == 6437d335de914755bc3edb825c9591c0`; (3) parsed `n_clusters ∈ [12, 18]`; (4) new run is visible in History tab on rerun | Recluster wiring corrupting input face_records; producer chain invoked accidentally; parent_run_id lineage broken; SIGHTING-079 class regression on Recluster tab |
 
 ## Adding a scenario for a new tab
 
@@ -42,7 +43,6 @@ Naming: `test_scenario_<letter>_<short_desc>.py`. Letters in order: A, B, C…
 
 | ID | Owner spec | Will add | Asserts |
 |---|---|---|---|
-| C | spec-063 Recluster | Load reference run → Recluster tab → pick same params → click Run → wait | new snapshot run dir written; n_clusters ∈ [12, 18] (band around 15); snapshot's `parent_run_id == 6437d335…` |
 | D | spec-064 Face Analysis | Load reference run → Cluster Analysis → click thumbnail's "Open" → Face Analysis tab opens | Face Analysis renders face crop + 5 score metrics + bbox/landmarks visible |
 | E | spec-065 Merged Clusters | Load reference run → Merged Clusters tab | ≥1 row in merge_decisions table; clicking a row shows full 28-column detail panel |
 | F | spec-065 Quality | Load reference run → Quality tab | per-gate bar chart has ≥1 bar; total rejected count matches `340 - 107 = 233` (band: 220-240) |

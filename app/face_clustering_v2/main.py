@@ -36,6 +36,7 @@ import streamlit as st
 from app.face_clustering_v2.tabs.run_tab import render_run_tab
 from app.face_clustering_v2.tabs.cluster_analysis_tab import render_cluster_analysis_tab
 from app.face_clustering_v2.tabs.history_tab import render_history_tab
+from app.face_clustering_v2.tabs.recluster_tab import render_recluster_tab
 
 
 st.set_page_config(page_title="Face Clustering v2", layout="wide")
@@ -45,11 +46,15 @@ st.caption(
     "`app/face_clustering/` stays in place during the strangler-fig migration."
 )
 
-tab_run, tab_analysis, tab_history = st.tabs(["Run", "Cluster Analysis", "History"])
+tab_run, tab_analysis, tab_recluster, tab_history = st.tabs(
+    ["Run", "Cluster Analysis", "Recluster", "History"]
+)
 
 with tab_run:
     render_run_tab()
 with tab_analysis:
     render_cluster_analysis_tab()
+with tab_recluster:
+    render_recluster_tab()
 with tab_history:
     render_history_tab()

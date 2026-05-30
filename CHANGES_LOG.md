@@ -2,6 +2,22 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-30 [FEATURE] spec-063 — v2 Recluster tab (P1 closed; Scenario C added)
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/views/recluster.py` — `ReclusterService` (Streamlit-free, sync) + `ReclusterResult` + `RunPickerEntry` dataclasses. `list_recent_runs(limit=20)` + `recluster(prior_run_dir, params: FCParams) -> ReclusterResult`. Allocates a fresh UUID run dir; calls `FCAppRunner.recluster()`; exports via the existing v5 RunExporter; returns typed result.
+- UPDATED `face_cluster/fc_app_runner.py` (+~15 LOC) — new `recluster(prior_run_dir, step_configs) -> FCAppRunResult` method. Loads `face_records` from `RunStore(prior_run_dir).faces()`, pre-populates context (skips producer chain), calls `.run()`. Same return shape as `.run()`.
+- NEW `app/face_clustering_v2/tabs/recluster_tab.py` (79 LOC; ≤80 budget ✓). Prior-run picker → params editor (iterates `UI_SPEC` groups via `widget_factory.render_field`) → "Run recluster" button wrapped in `st.spinner` → success toast + writes `current_run_dir`. Sync compute (SIGHTING-079 lesson honored).
+- UPDATED `app/face_clustering_v2/main.py` — added 4th tab "Recluster" between Cluster Analysis and History.
+- NEW `tests/face_clustering/test_fc_app_runner.py` (2 cases) — `recluster` skips the producer chain + reuses prior face_records.
+- NEW `tests/face_clustering/views/test_recluster_service_synthetic.py` (6 cases) — covers list_recent_runs, valid recluster, missing prior raises, snapshot dir exists, parent_run_id matches, tightened K differs from default.
+- NEW `tests/architecture/test_recluster_tab.py` (5 cases) — no DB/FS/AsyncHandle/cfg.get in tab; LOC ≤ 80; Service Streamlit-free; typed return annotations.
+- UPDATED `tests/face_clustering/e2e_budapest/conftest.py` — `EXPECTED_RECLUSTER_BAND = (12, 18)` constant.
+- NEW `tests/face_clustering/e2e_budapest/test_scenario_c_recluster.py` — Playwright. Click sequence per spec-063's E2E contract. Asserts: success message visible; snapshot run dir written; `parent_run_id == 6437d335de914755bc3edb825c9591c0`; `n_clusters ∈ [12, 18]`; new run visible in History on rerun.
+- UPDATED `tests/face_clustering/e2e_budapest/README.md` — moved Scenario C row from "Planned" to active.
+**Reason**: spec-063 ships the last P1 tab (closing v2's most-complex remaining gap). User can now re-cluster prior runs with tweaked params without re-running the producer chain. Reuses the existing 8-step `UNIFIED_CLUSTERING_STEPS` via the new `FCAppRunner.recluster()` source-loader wrapper — same clustering math as a fresh run, different input loader. Snapshot output convention matches spec-045's force-merge: never mutate parent run dir. The architecture pattern is unchanged from spec-045's stack (Tab → Service → Repository, sync, ≤80 LOC tab, arch tests guard).
+**Verification**: 13/13 new unit + arch tests green. `pytest -m budapest --collect-only` collects all 3 scenarios (A + B + C). Full regression: **811 passed, 11 skipped, 0 failed** across `tests/face_clustering/` + `tests/architecture/` (no baseline regression). Playwright Scenario C itself NOT run in this commit (requires user's live Budapest album + ~5-15 min wall-clock — user runs to validate end-to-end).
+
 ### 2026-05-30 [PLAN] tighten tab specs with E2E contract sections + master plan HTML
 **Branch**: `unification/spec-040`
 **Files**:

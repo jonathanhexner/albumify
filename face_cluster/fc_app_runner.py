@@ -29,6 +29,7 @@ from sim_bench.pipeline.config import PipelineConfig
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.executor import PipelineExecutor, PipelineResult
 from sim_bench.pipeline.registry import get_registry
+from sim_bench.run_db.store import RunStore
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,37 @@ class FCAppRunner:
             step_results=pipeline_result.step_results,
             error_message=pipeline_result.error_message,
         )
+
+    def recluster(
+        self,
+        prior_run_dir: Path,
+        step_configs: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> FCAppRunResult:
+        """Re-run the 8-step clustering chain on a prior run's face_records.
+
+        Loads ``face_records`` from ``RunStore(prior_run_dir).faces()`` and
+        invokes :meth:`run` with the new ``step_configs``. The expensive
+        producer chain (detect / align / embed) is skipped — clustering is
+        the only thing that re-runs. ``context.parent_run_id`` is set to
+        ``prior_run_dir.name`` so downstream writers (RunExporter) can
+        record lineage in ``run_metadata.parent_run_id``.
+
+        Args:
+            prior_run_dir: A complete v5 run dir (RunStore.faces() must work).
+            step_configs: Per-step config dict; typically ``FCParams.to_step_configs()``.
+
+        Returns:
+            FCAppRunResult — same shape as :meth:`run`.
+
+        Raises:
+            RunStoreError: If ``prior_run_dir`` is missing or malformed.
+        """
+        store = RunStore(prior_run_dir)
+        face_records = store.faces()
+        context = PipelineContext()
+        context.face_records = face_records
+        context.parent_run_id = prior_run_dir.name
+        return self.run(context, step_configs=step_configs)
 
 
 __all__ = ["FCAppRunner", "FCAppRunResult", "UNIFIED_CLUSTERING_STEPS"]
