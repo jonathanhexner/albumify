@@ -4,7 +4,7 @@
 **Status**: Draft
 **Priority**: P2
 **Predecessors**: spec-042, spec-045 (Cluster Analysis — face_grid feeds the click target)
-**Reference baseline**: must keep `test_v2_e2e_budapest_baseline.py` green; adds Scenario D.
+**Reference baseline**: must keep `tests/face_clustering/e2e_budapest/` green; adds Scenario D.
 
 ---
 
@@ -40,7 +40,7 @@ The compute already exists: `face_cluster/views/face_view.py` has `FaceView.comp
 | Service synthetic | `tests/face_clustering/views/test_face_view_service_synthetic.py` (NEW) | 6: compute_face_detail returns FaceView, unknown face_id raises, gate verdicts populate, nearest-faces non-empty, bbox/landmarks present, score fields populated |
 | Service real | + 1 opt-in `slow` case on Budapest reference run |
 | Architecture | tab in the LOC + no-DB-FS-cfg.get arch scan |
-| Baseline gate | Add **Scenario D** to `test_v2_e2e_budapest_baseline.py`: load reference run → Cluster Analysis → click first face thumbnail's Open button → assert Face Analysis tab shows a face crop + ≥ 5 metric widgets |
+| Baseline gate | Add **Scenario D** to `tests/face_clustering/e2e_budapest/`: load reference run → Cluster Analysis → click first face thumbnail's Open button → assert Face Analysis tab shows a face crop + ≥ 5 metric widgets |
 
 ## Locked decisions
 

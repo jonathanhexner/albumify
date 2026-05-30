@@ -4,7 +4,7 @@
 **Status**: Draft
 **Priority**: P3 (both)
 **Predecessors**: spec-042, spec-045, spec-064 (Face Analysis), spec-065 (Merged + Quality)
-**Reference baseline**: must keep `test_v2_e2e_budapest_baseline.py` green; adds Scenarios G + H. **This spec completes the v2 tab parity** — after this lands, every legacy tab has a v2 equivalent.
+**Reference baseline**: must keep `tests/face_clustering/e2e_budapest/` green; adds Scenarios G + H. **This spec completes the v2 tab parity** — after this lands, every legacy tab has a v2 equivalent.
 
 Grouped for the same reason as spec-065: both are aggregate views, both compose existing services, neither needs new compute or new schema.
 

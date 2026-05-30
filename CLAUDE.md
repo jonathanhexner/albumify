@@ -64,17 +64,17 @@ Spec lifecycle: `Draft` → `In Progress` → `Code Review` → `Implemented`.
 
 ### V2 baseline gate (binding)
 
-**Any change to a v2 tab or any new v2 feature MUST run `tests/face_clustering/test_v2_e2e_budapest_baseline.py` before being marked Implemented.** This is the canonical reference test:
+**Any change to a v2 tab or any new v2 feature MUST run `tests/face_clustering/e2e_budapest/` before being marked Implemented.** The functionality matrix lives in [`tests/face_clustering/e2e_budapest/README.md`](../tests/face_clustering/e2e_budapest/README.md) — every scenario lists its click sequence, its concrete assertions, and what regression class it catches.
 
   - Source: `D:\Budapest2025_Google`
   - Profile: `profile_4.json`
-  - Expected: `n_clusters == 15`, `n_faces == 340`
+  - Expected: `n_clusters == 15`, `n_faces == 340`, cluster sizes `[35, 24, 14, 7, 4, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2]`
   - Reference run id (Scenario B): `6437d335de914755bc3edb825c9591c0`
+  - Run: `.venv/Scripts/python -m pytest -m budapest tests/face_clustering/e2e_budapest/ -v`
 
-  - Run with: `.venv/Scripts/python -m pytest -m budapest tests/face_clustering/test_v2_e2e_budapest_baseline.py -v`
-  - When adding a new tab, **add a new Scenario** to the baseline test (see specs 063-066 for the pattern).
+**When adding a new tab**: (1) add one row to the README matrix, (2) add one `test_scenario_<letter>_<short_desc>.py` file in that dir, (3) list concrete assertions beyond "no exception." Specs 063-066 own scenarios C-H respectively.
 
-**A v2 commit without this test green is not Implemented**, regardless of unit-test status.
+**A v2 commit without this suite green is not Implemented**, regardless of unit-test status.
 5. **Trace data end-to-end** — pipeline step → context → DB → API schema → API response → frontend model → UI display. Missing any link = silently broken.
 6. **Test the full data path** — `py_compile` passing means nothing without real data.
 7. **Do not report a feature as complete when you know parts are unimplemented.** If it needs to be in 4 places and you did 1, that is 25% done. Say so, or finish the job.

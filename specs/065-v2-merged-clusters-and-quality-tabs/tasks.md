@@ -19,7 +19,7 @@
 - [ ] T024 Add arch test entries.
 
 ## Phase 4 — Baseline e2e Scenarios E + F (~1 h)
-- [ ] T030 Add Scenario E (Merged Clusters) + Scenario F (Quality) to `test_v2_e2e_budapest_baseline.py`.
+- [ ] T030 Add Scenario E (Merged Clusters) + Scenario F (Quality) to `tests/face_clustering/e2e_budapest/`.
 
 ## Phase 5 — Close-out (~30 min)
 - [ ] T040 Run `pytest -m budapest` → all 6 scenarios green.

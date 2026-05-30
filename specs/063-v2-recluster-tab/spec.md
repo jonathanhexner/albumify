@@ -4,7 +4,7 @@
 **Status**: Draft
 **Priority**: P1 (last P1 tab in spec-042's parity umbrella)
 **Predecessors**: spec-042, spec-045 (Cluster Analysis), spec-059 (SQLAlchemy stack)
-**Reference baseline**: `tests/face_clustering/test_v2_e2e_budapest_baseline.py` — every commit on this spec must keep it green.
+**Reference baseline**: `tests/face_clustering/e2e_budapest/` — every commit on this spec must keep it green.
 
 ---
 
@@ -47,7 +47,7 @@ The clustering algorithm is already in `FCAppRunner` (the unified 8-step chain).
 | Service synthetic | `tests/face_clustering/views/test_recluster_service_synthetic.py` | 6: list_recent_runs, recluster with valid prior + default params, recluster with tightened K, missing prior_run_dir raises, snapshot dir created, parent_run_id set |
 | Service real | + 1 in same file (opt-in `slow`): recluster the Budapest reference run with profile_4; assert n_clusters in [12, 18] (band around the 15-cluster baseline) |
 | Architecture | extend existing `test_cluster_analysis_tab.py`-style guards to Recluster tab (no SQL / FS / `cfg.get` literals; ≤ 80 LOC) |
-| Baseline gate | **MUST add a Scenario C to `test_v2_e2e_budapest_baseline.py`**: open Recluster tab → pick reference run → click Run → assert n_clusters in [12, 18] |
+| Baseline gate | **MUST add a Scenario C to `tests/face_clustering/e2e_budapest/`**: open Recluster tab → pick reference run → click Run → assert n_clusters in [12, 18] |
 
 ## Locked decisions
 

@@ -17,10 +17,10 @@ Legend: `[ ]` open · `[>]` in progress · `[x]` done · `[~]` skipped
 - [ ] T022 Add arch test entries: tab in the no-DB-no-FS-no-cfg.get scan list + LOC budget.
 
 ## Phase 4 — Baseline e2e Scenario C (~1 h)
-- [ ] T030 Add `test_v2_scenario_c_recluster_reference_run` to `tests/face_clustering/test_v2_e2e_budapest_baseline.py`: load reference run via History, switch to Recluster tab, click Run, assert n_clusters in [12, 18].
+- [ ] T030 Add `test_v2_scenario_c_recluster_reference_run` to `tests/face_clustering/e2e_budapest/`: load reference run via History, switch to Recluster tab, click Run, assert n_clusters in [12, 18].
 
 ## Phase 5 — Close-out (~30 min)
-- [ ] T040 Run `pytest -m budapest tests/face_clustering/test_v2_e2e_budapest_baseline.py` → all 3 scenarios green.
+- [ ] T040 Run `pytest -m budapest tests/face_clustering/e2e_budapest/` → all 3 scenarios green.
 - [ ] T041 `/code-review` → REVIEW.md.
 - [ ] T042 CHANGES_LOG entry.
 - [ ] T043 Spec status → Implemented. Commit + push.

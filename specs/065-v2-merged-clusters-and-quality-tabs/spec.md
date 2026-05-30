@@ -4,7 +4,7 @@
 **Status**: Draft
 **Priority**: P2 (both)
 **Predecessors**: spec-042, spec-045, spec-059 (SQLAlchemy)
-**Reference baseline**: must keep `test_v2_e2e_budapest_baseline.py` green; adds Scenarios E + F.
+**Reference baseline**: must keep `tests/face_clustering/e2e_budapest/` green; adds Scenarios E + F.
 
 Two tabs in one spec because both are **pure read-only viewers** over existing tables (`merge_decisions` / `filter_decisions`), both compose the existing `ClusterAnalysisRepository`, both share the same component shapes (filter bar + typed table + drill-down). Shipping them together avoids two near-identical PRDs.
 

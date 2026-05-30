@@ -35,14 +35,14 @@
 
 <div class="baseline-box">
 <b>The contract for everything below.</b> Every commit on every tab spec (063–066) must keep
-<code>tests/face_clustering/test_v2_e2e_budapest_baseline.py</code> green. The baseline is:
+<code>tests/face_clustering/e2e_budapest/</code> green. The baseline is:
 <ul style="margin:.4em 0;">
   <li><b>Source</b>: <code>D:\Budapest2025_Google</code></li>
   <li><b>Profile</b>: <code>profile_4.json</code></li>
   <li><b>Expected</b>: <code>n_clusters == 15</code>, <code>n_faces == 340</code></li>
   <li><b>Reference run</b> (Scenario B): <code>6437d335de914755bc3edb825c9591c0</code></li>
 </ul>
-Run with: <code>.venv/Scripts/python -m pytest -m budapest tests/face_clustering/test_v2_e2e_budapest_baseline.py -v</code>.<br>
+Run with: <code>.venv/Scripts/python -m pytest -m budapest tests/face_clustering/e2e_budapest/ -v</code>.<br>
 Each new tab spec adds a Scenario (C/D/E/F/G/H) — by the time spec-066 lands, the baseline has 8 scenarios pinning the entire v2 surface.
 </div>
 
@@ -79,7 +79,7 @@ spec-066  Gallery + Overview          (~3-4 h)   grouped — last; flips spec-04
 ──── all four specs share ────
 + spec-062  Click-every-button Playwright gate (planned; draft)
 + spec-061  V5 read-path audit (Implemented — discovery already done)
-+ baseline  test_v2_e2e_budapest_baseline.py (NEW today, all tabs add Scenarios)
++ baseline  tests/face_clustering/e2e_budapest/ (NEW today, all tabs add Scenarios)
 </pre>
 
 <p><b>Total remaining effort: ~14-19 h across 4 specs.</b> Parallel-friendly because 063 / 064 / 065 don't depend on each other.</p>
@@ -207,7 +207,7 @@ spec-066  Gallery + Overview          (~3-4 h)   grouped — last; flips spec-04
     <tr><td>Service real-fixture</td><td>"Service can read the user's real Budapest run"</td><td>same file, opt-in <code>slow</code> marker</td><td><code>pytest -m slow</code></td></tr>
     <tr><td>Architecture</td><td>Layering invariants (no DB in tabs, ≤ 80 LOC, no cfg.get)</td><td><code>tests/architecture/test_&lt;tab&gt;.py</code></td><td>default <code>pytest</code></td></tr>
     <tr><td>AppTest (Streamlit)</td><td>"Page renders without raising"</td><td><code>tests/face_clustering/test_v2_app_smoke.py</code></td><td><code>pytest -m slow</code></td></tr>
-    <tr><td><b>Baseline (Playwright)</b></td><td><b>"User-visible behavior on real Budapest data" — every tab adds a Scenario</b></td><td><b><code>tests/face_clustering/test_v2_e2e_budapest_baseline.py</code></b></td><td><b><code>pytest -m budapest</code></b></td></tr>
+    <tr><td><b>Baseline (Playwright)</b></td><td><b>"User-visible behavior on real Budapest data" — every tab adds a Scenario</b></td><td><b><code>tests/face_clustering/e2e_budapest/</code></b></td><td><b><code>pytest -m budapest</code></b></td></tr>
   </tbody>
 </table>
 
@@ -232,7 +232,7 @@ spec-066  Gallery + Overview          (~3-4 h)   grouped — last; flips spec-04
 <h2>7 · What the user does next</h2>
 
 <ol>
-  <li><b>Right now</b> — run <code>pytest -m budapest tests/face_clustering/test_v2_e2e_budapest_baseline.py::test_v2_scenario_b_load_reference_run_and_see_clusters -v</code>. Scenario B doesn't run the pipeline — it just opens the History tab + loads the reference run + checks the Cluster Analysis tab renders. ~30 s. Confirms today's fixes work end-to-end.</li>
+  <li><b>Right now</b> — run <code>pytest -m budapest tests/face_clustering/e2e_budapest/::test_v2_scenario_b_load_reference_run_and_see_clusters -v</code>. Scenario B doesn't run the pipeline — it just opens the History tab + loads the reference run + checks the Cluster Analysis tab renders. ~30 s. Confirms today's fixes work end-to-end.</li>
   <li><b>Pick a spec to start</b> — recommendation: <b>063 Recluster</b> (strict priority + last P1) OR <b>065 Merged+Quality</b> (fastest, two tabs in one go). Both unblock 064 / 066.</li>
   <li><b>Each new tab</b> = new commit + new baseline Scenario green + arch test pass + CHANGES_LOG entry. Same template as spec-045.</li>
 </ol>

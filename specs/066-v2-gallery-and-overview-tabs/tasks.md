@@ -12,7 +12,7 @@
 - [ ] T013 Wire both into `main.py`. Add arch test entries.
 
 ## Phase 3 — Baseline e2e Scenarios G + H (~1 h)
-- [ ] T020 Add Scenario G + H to `test_v2_e2e_budapest_baseline.py`.
+- [ ] T020 Add Scenario G + H to `tests/face_clustering/e2e_budapest/`.
 
 ## Phase 4 — Parity close-out (~30 min)
 - [ ] T030 Run `pytest -m budapest` → all 8 scenarios green.
