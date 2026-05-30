@@ -2,6 +2,17 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-05-30 [PLAN] tighten tab specs with E2E contract sections + master plan HTML
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `specs/063-v2-recluster-tab/spec.md` — new "E2E contract" section: names `test_scenario_c_recluster.py`, lists click sequence, lists 4 concrete assertions (snapshot dir / parent_run_id / n_clusters band / History visibility), names `EXPECTED_RECLUSTER_BAND` constant to add.
+- UPDATED `specs/064-v2-face-analysis-tab/spec.md` — E2E contract: `test_scenario_d_face_analysis.py`, 5 concrete assertions (tab visible / face crop / 5 score metrics / Plotly overlay / selected_face_id populated).
+- UPDATED `specs/065-v2-merged-clusters-and-quality-tabs/spec.md` — TWO E2E contracts (E + F). Scenario E: table + detail panel with specific field names. Scenario F: per-gate bar chart + total rejected ∈ [220, 240] (derived from baseline `340 - 107 = 233`). Names `EXPECTED_MERGE_DECISIONS_MIN_ROWS` + `EXPECTED_REJECTED_BAND` constants.
+- UPDATED `specs/066-v2-gallery-and-overview-tabs/spec.md` — TWO E2E contracts (G + H). Scenario G: largest cluster row shows exactly 8 thumbnails. Scenario H: per-album bar for `Budapest2025_Google_5`. Names `EXPECTED_REFERENCE_ALBUM` constant.
+- NEW `specs/042-fc-app-v2-tab-parity/MASTER_PLAN_2026-05-30.html` — one-page navigation hub with status table, the baseline-gate description, sequential plan, architecture diagram, E2E scenario map (locked from each spec), how to drive with agents (sequential prompts for Plan + spec-implementer), references to all related artifacts.
+**Reason**: Per user direction: tighten the 4 tab specs so each tells an implementing agent exactly what e2e file to create, what assertions to write, what conftest constants to add. Then a single master plan HTML up-levels everything — status, sequence, architecture, scenarios, agent workflow — so a new session can orient in 60 s. Sequential agents recommended (parallel-in-worktrees has merge cost on shared files: main.py, e2e_budapest README/conftest, CHANGES_LOG).
+**Verification**: No code changed; planning-only commit. CLAUDE.md exemption applies (docs-only). spec files for 063/064/065/066 each now have an "E2E contract" section that lists: test file name, click sequence, concrete assertions, new conftest constants, required README row update. Master plan cross-links all artifacts including the binding e2e_budapest README, executive report, audit findings, and CLAUDE.md.
+
 ### 2026-05-30 [PLAN] v2 baseline e2e + PRDs for 6 remaining tabs + roadmap
 **Branch**: `unification/spec-040`
 **Files**:

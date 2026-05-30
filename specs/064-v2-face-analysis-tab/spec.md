@@ -49,6 +49,18 @@ The compute already exists: `face_cluster/views/face_view.py` has `FaceView.comp
 3. **Sync, not async.** Per spec-079 lesson.
 4. **Bbox/landmarks via Plotly.** Already imported by spec-045's cluster_debug; reuse.
 
+## E2E contract (binding — part of AC5)
+
+This spec OWNS **Scenario D** in `tests/face_clustering/e2e_budapest/`.
+
+| Field | Value |
+|---|---|
+| Test file | `tests/face_clustering/e2e_budapest/test_scenario_d_face_analysis.py` (NEW) |
+| Click sequence | History → row containing `6437d335` → "Load into analysis tabs" → Cluster Analysis tab → wait for face_grid → click first thumbnail's "Open" button → Face Analysis tab opens automatically |
+| Concrete assertions | (1) Face Analysis tab visible (h2 "Face Analysis" present); (2) a large face crop `<img>` rendered (height > 200 px via locator bounding-box check); (3) ≥ 5 metric widgets (blur / pose-yaw / pose-pitch / pose-roll / area); (4) Plotly bbox overlay rendered (chart element present); (5) `selected_face_id` populated in session_state to the face_id from the click — verified via a sentinel widget OR by reading the page title which echoes the id |
+| New constants in `conftest.py` | none (uses existing reference run + face_grid) |
+| README.md update | move Scenario D row from "Planned" to active; concrete assertions as above |
+
 ## Acceptance criteria
 
 | # | Criterion | Verified by |

@@ -57,6 +57,18 @@ The clustering algorithm is already in `FCAppRunner` (the unified 8-step chain).
 4. **No new schema.** Snapshot run dirs use the v5 layout (face_clustering.db top-level). RunExporter writes them.
 5. **Parent linkage via `pipeline_run.json`'s `parent_run_id`.** History tab already shows this. No new column.
 
+## E2E contract (binding — part of AC5)
+
+This spec OWNS **Scenario C** in `tests/face_clustering/e2e_budapest/`. Every commit on this spec must keep the suite green after the additions below.
+
+| Field | Value |
+|---|---|
+| Test file | `tests/face_clustering/e2e_budapest/test_scenario_c_recluster.py` (NEW) |
+| Click sequence | History tab → click row containing `6437d335` → "Load into analysis tabs" → Recluster tab → leave default params → click "Run recluster" → wait for spinner |
+| Concrete assertions | (1) "Recluster complete" message visible; (2) a new run dir exists under `~/.sim_bench/runs/` whose `pipeline_run.json` has `parent_run_id == 6437d335de914755bc3edb825c9591c0`; (3) parsed `n_clusters ∈ [12, 18]` (band ±3 around the 15 baseline; recluster on the same input + same params should reproduce); (4) the new run is visible in History tab on rerun |
+| New constants in `conftest.py` | `EXPECTED_RECLUSTER_BAND = (12, 18)` |
+| README.md update | move the Scenario C row from "Planned" to the active table; update assertion list to match this section verbatim |
+
 ## Acceptance criteria
 
 | # | Criterion | Verified by |

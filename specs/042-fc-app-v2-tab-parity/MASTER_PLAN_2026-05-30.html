@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>v2 tab parity — master plan</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1180px; margin: 1.4em auto; padding: 0 1.4em;
+         color:#1a1a1a; line-height:1.55; background:#fafbfc; font-size:14px; }
+  h1 { border-bottom:2px solid #333; padding-bottom:.25em; margin-bottom:.1em; }
+  h1+.subtitle { color:#666; margin-top:.1em; font-style:italic; }
+  h2 { border-bottom:1px solid #ccc; padding-bottom:.2em; margin-top:1.6em; font-size:17px; }
+  h3 { color:#1f5fc7; margin-top:1.1em; font-size:14px; }
+  table { border-collapse:collapse; margin:.5em 0; width:100%; font-size:13px; background:#fff; }
+  th,td { border:1px solid #ddd; padding:6px 9px; text-align:left; vertical-align:top; }
+  th { background:#f4f4f6; font-weight:600; }
+  code { background:#eef0f4; padding:1px 5px; border-radius:3px; font-size:12px; font-family:Consolas,monospace; }
+  pre { background:#fff; border:1px solid #ddd; border-radius:4px; padding:10px 12px;
+        font-size:12px; overflow-x:auto; font-family:Consolas,monospace; white-space:pre; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px; font-size:11px; font-weight:600; }
+  .done { background:#e3f5e0; color:#236623; }
+  .next { background:#fff3cd; color:#856404; }
+  .later{ background:#eef2ff; color:#1d3a8a; }
+  .baseline { background:#e9f5ea; border-left:4px solid #2e7d32; padding:.8em 1em; margin:1em 0; }
+  .gate { background:#fff3cd; border-left:4px solid #b58900; padding:.7em 1em; margin:.5em 0; font-size:13px; }
+  .agent { background:#e0e7ff; border-left:4px solid #4a5fb4; padding:.7em 1em; margin:.5em 0; font-size:13px; }
+  .toc a { text-decoration:none; color:#1f5fc7; margin-right:14px; }
+  .toc { background:#fff; border:1px solid #ddd; padding:8px 14px; border-radius:4px; margin:1em 0; font-size:13px; }
+</style>
+</head>
+<body>
+
+<h1>v2 tab parity — master plan</h1>
+<p class="subtitle">2026-05-30. One-page navigation hub for shipping the remaining 6 tabs sequentially via agents, with the Budapest e2e as the binding gate.</p>
+
+<div class="toc">
+<b>Sections:</b>
+<a href="#status">1 Status</a>
+<a href="#baseline">2 The binding gate</a>
+<a href="#sequence">3 Sequential plan</a>
+<a href="#architecture">4 Architecture (every tab)</a>
+<a href="#scenarios">5 E2E scenario map</a>
+<a href="#agents">6 How to run agents</a>
+<a href="#refs">7 References</a>
+</div>
+
+<h2 id="status">1 · Status now</h2>
+
+<table>
+  <thead><tr><th>Tab</th><th>P</th><th>Status</th><th>Spec</th><th>E2E scenario</th></tr></thead>
+  <tbody>
+    <tr><td>Run</td><td>—</td><td><span class="pill done">✓ shipped</span></td><td>spec-040</td><td>(A creates a fresh run)</td></tr>
+    <tr><td>History</td><td>P1</td><td><span class="pill done">✓ shipped</span></td><td>spec-042 pilot</td><td>(B loads via History)</td></tr>
+    <tr><td>Cluster Analysis</td><td>P1</td><td><span class="pill done">✓ shipped</span></td><td>spec-045</td><td>(B asserts thumbnails + metrics)</td></tr>
+    <tr><td>Recluster</td><td>P1</td><td><span class="pill next">▶ next</span></td><td><a href="../063-v2-recluster-tab/spec.md">spec-063</a></td><td><b>Scenario C</b> (NEW)</td></tr>
+    <tr><td>Face Analysis</td><td>P2</td><td><span class="pill next">queued</span></td><td><a href="../064-v2-face-analysis-tab/spec.md">spec-064</a></td><td><b>Scenario D</b> (NEW)</td></tr>
+    <tr><td>Merged Clusters</td><td>P2</td><td><span class="pill next">queued</span></td><td><a href="../065-v2-merged-clusters-and-quality-tabs/spec.md">spec-065</a></td><td><b>Scenario E</b> (NEW)</td></tr>
+    <tr><td>Quality</td><td>P2</td><td><span class="pill next">queued</span></td><td><a href="../065-v2-merged-clusters-and-quality-tabs/spec.md">spec-065</a></td><td><b>Scenario F</b> (NEW)</td></tr>
+    <tr><td>Gallery</td><td>P3</td><td><span class="pill later">later</span></td><td><a href="../066-v2-gallery-and-overview-tabs/spec.md">spec-066</a></td><td><b>Scenario G</b> (NEW)</td></tr>
+    <tr><td>Overview</td><td>P3</td><td><span class="pill later">later</span></td><td><a href="../066-v2-gallery-and-overview-tabs/spec.md">spec-066</a></td><td><b>Scenario H</b> (NEW)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="baseline">2 · The binding gate — <code>tests/face_clustering/e2e_budapest/</code></h2>
+
+<div class="baseline">
+<b>A v2 commit is not Implemented until <code>pytest -m budapest tests/face_clustering/e2e_budapest/</code> is green.</b> (CLAUDE.md §"Delivery Quality" → "V2 baseline gate").
+
+<ul style="margin:.4em 0;">
+  <li><b>Source</b>: <code>D:\Budapest2025_Google</code></li>
+  <li><b>Profile</b>: <code>profile_4.json</code></li>
+  <li><b>Reference run</b>: <code>6437d335de914755bc3edb825c9591c0</code> (legacy producer; v2 must reproduce)</li>
+  <li><b>Expected</b>: <code>n_clusters == 15</code>, <code>n_faces == 340</code>, <code>n_assigned == 107</code>, cluster sizes <code>[35, 24, 14, 7, 4, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2]</code></li>
+</ul>
+
+The matrix of what each scenario clicks and asserts lives in <a href="../../tests/face_clustering/e2e_budapest/README.md"><code>e2e_budapest/README.md</code></a>. It evolves with every new tab.
+</div>
+
+<div class="gate">
+<b>Per-tab e2e contract.</b> Each tab spec (063-066) has an <b>"E2E contract"</b> section that names the test file, the click sequence, the concrete assertions, the conftest constants to add, and the README row to update. An agent implementing a spec follows that contract verbatim — no derivation needed.
+</div>
+
+<h2 id="sequence">3 · Sequential plan (recommended)</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Spec</th><th>Tabs</th><th>Effort</th><th>Adds e2e scenario</th><th>Gate before next</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>063</td><td>Recluster</td><td>~4-6 h</td><td>C</td><td><code>pytest -m budapest</code> green (A + B + C)</td></tr>
+    <tr><td>2</td><td>064</td><td>Face Analysis</td><td>~3-4 h</td><td>D</td><td>same suite (A + B + C + D)</td></tr>
+    <tr><td>3</td><td>065</td><td>Merged Clusters + Quality</td><td>~4-5 h</td><td>E + F</td><td>same (+ E + F)</td></tr>
+    <tr><td>4</td><td>066</td><td>Gallery + Overview</td><td>~3-4 h</td><td>G + H</td><td>full 8 scenarios green → flip spec-042 to Implemented</td></tr>
+  </tbody>
+</table>
+
+<p><b>Total remaining: ~14-19 h wall-clock</b> running sequentially. Each spec ends with a green Budapest suite + CHANGES_LOG entry + Implemented status. No parallel-merge complexity — the e2e_budapest README + main.py update sequentially without conflict.</p>
+
+<h2 id="architecture">4 · The architecture every tab MUST follow</h2>
+
+<p>spec-045 (Cluster Analysis) codified this. Architecture tests in <code>tests/architecture/test_&lt;tab&gt;.py</code> enforce. Every tab clones this shape — no exceptions.</p>
+
+<pre>┌─────────────────────────────────────────────────────────┐
+│  TAB  (Streamlit only — orchestration)                  │
+│  &lt;tab&gt;_tab.py  ≤ 80 LOC                                  │
+│    - no SQL                                              │
+│    - no FS reads                                         │
+│    - no cfg.get("field", "?") literals                   │
+│    - no AsyncHandle in UI (use st.spinner — SIGHTING-079)│
+└─────────────────────────────────────────────────────────┘
+                       │  typed dataclasses only
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│  COMPONENTS  (stateless render functions)               │
+│  components/&lt;name&gt;.py  each ≤ 100 LOC                    │
+└─────────────────────────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│  SERVICE  (Streamlit-free)                              │
+│  &lt;Name&gt;Service in face_cluster/views/&lt;name&gt;.py            │
+│    - sync methods returning typed dataclasses           │
+│    - no st.session_state writes                          │
+│    - composes Repository                                 │
+└─────────────────────────────────────────────────────────┘
+                       │  typed Criteria in / typed Rows out
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│  REPOSITORY  (query-shape over RunStore + SQLAlchemy)   │
+│  ClusterAnalysisRepository  (extended per spec)          │
+└─────────────────────────────────────────────────────────┘
+                       │
+                       ▼
+   per-run face_clustering.db   +   action_log  +   embeddings.npy
+</pre>
+
+<p><b>Tests per tab</b>: synthetic unit (Service + new Repository methods), real-fixture smoke (opt-in <code>slow</code>), architecture (no-DB-no-FS-no-cfg.get + LOC budget), AppTest (page-renders smoke), <b>and Budapest e2e scenario</b>. All five must be green.</p>
+
+<h2 id="scenarios">5 · E2E scenario map (locked from each spec)</h2>
+
+<table>
+  <thead><tr><th>ID</th><th>Owner</th><th>Click sequence</th><th>Asserts</th></tr></thead>
+  <tbody>
+    <tr><td><b>A</b></td><td>baseline</td><td>Run tab → fill inputs → click Run → wait 10 min</td><td><code>n_clusters == 15</code></td></tr>
+    <tr><td><b>B</b></td><td>baseline</td><td>History → row <code>6437d335</code> → Load → Cluster Analysis</td><td>≥5 metrics; Faces ∈ known sizes; ≥1 thumbnail</td></tr>
+    <tr><td><b>C</b></td><td>063</td><td>Load ref → Recluster tab → default params → Run</td><td>snapshot dir written; <code>parent_run_id == 6437d335…</code>; <code>n_clusters ∈ [12, 18]</code></td></tr>
+    <tr><td><b>D</b></td><td>064</td><td>Load ref → Cluster Analysis → click thumbnail "Open" → Face Analysis</td><td>face crop visible; ≥5 score metrics; bbox overlay rendered</td></tr>
+    <tr><td><b>E</b></td><td>065</td><td>Load ref → Merged Clusters tab</td><td>≥1 row in table; row-click shows detail with cluster_a/b/actually_merged/exemplar_dist/support</td></tr>
+    <tr><td><b>F</b></td><td>065</td><td>Load ref → Quality tab</td><td>≥4 metric widgets; per-gate bar chart present; total rejected ∈ [220, 240]</td></tr>
+    <tr><td><b>G</b></td><td>066</td><td>Load ref → Gallery tab</td><td>≥1 cluster row with thumbnails; cluster-1 row shows 8 thumbnails (35 faces > 8 cols)</td></tr>
+    <tr><td><b>H</b></td><td>066</td><td>Load ref → Overview tab</td><td>4-metric strip; per-album bar chart has bar for <code>Budapest2025_Google_5</code>; ≥1 profile bar</td></tr>
+  </tbody>
+</table>
+
+<h2 id="agents">6 · How to drive this with agents (sequential)</h2>
+
+<div class="agent">
+<b>Agents available</b> (from system prompt):
+<ul style="margin:.4em 0;">
+  <li><b>Plan</b> — read-only architect. Use FIRST to refine each per-spec plan before implementation.</li>
+  <li><b>general-purpose</b> — multi-step implementer with write access.</li>
+  <li><b>spec-implementer</b> — your custom agent (commit <code>686b635</code>). Refuses to start without a spec dir; refuses to finish without REVIEW.md. The natural choice for each tab.</li>
+</ul>
+</div>
+
+<p><b>Recommended sequential flow per spec:</b></p>
+
+<pre>For spec in [063, 064, 065, 066]:
+    1. Spawn Plan agent to refine the implementation plan (read-only, ~5 min)
+       Prompt: "Read specs/&lt;spec&gt;/{spec,tasks}.md + tests/face_clustering/e2e_budapest/README.md.
+                Produce a step-by-step plan for implementing this spec, including
+                the e2e scenario file and README row update. Don't write code."
+    2. Review the plan; tweak if needed.
+    3. Spawn spec-implementer (or general-purpose) to execute.
+       Prompt: "Implement specs/&lt;spec&gt; per its tasks.md. Follow the E2E contract
+                section verbatim — create the named test file with the listed
+                concrete assertions, update e2e_budapest/README.md, update
+                conftest.py if the spec lists new constants. End by running
+                `pytest -m budapest tests/face_clustering/e2e_budapest/`;
+                ALL scenarios must be green before you flip the spec to Implemented."
+    4. Review the diff. Commit + push.
+    5. Move to the next spec.</pre>
+
+<p><b>Why sequential, not parallel:</b> all 4 specs touch <code>app/face_clustering_v2/main.py</code> (tab registration), <code>tests/face_clustering/e2e_budapest/README.md</code> (matrix table), <code>tests/face_clustering/e2e_budapest/conftest.py</code> (constants), and <code>CHANGES_LOG.md</code>. Sequential = zero merge conflict cost. Parallel-in-worktrees = ~30 min merge reconciliation per pair.</p>
+
+<h2 id="refs">7 · References</h2>
+
+<ul>
+  <li><a href="../../tests/face_clustering/e2e_budapest/README.md"><code>tests/face_clustering/e2e_budapest/README.md</code></a> — the binding functionality matrix (evolves with each tab)</li>
+  <li><a href="../../tests/face_clustering/e2e_budapest/conftest.py"><code>e2e_budapest/conftest.py</code></a> — baseline constants + Streamlit/Playwright fixtures</li>
+  <li><a href="../../CLAUDE.md"><code>CLAUDE.md</code></a> §"Delivery Quality" → "V2 baseline gate (binding)"</li>
+  <li><a href="V2_ROADMAP_2026-05-30.html">earlier roadmap HTML</a> (sequence + class diagram; this master plan supersedes it for navigation)</li>
+  <li><a href="EXECUTIVE_REPORT_2026-05-29.html">executive report 2026-05-29</a> — what broke this week and why</li>
+  <li><a href="../061-v5-readpath-audit/AUDIT_FINDINGS.md"><code>spec-061 audit findings</code></a> — proactive scan of v2 read paths</li>
+  <li><a href="../062-v2-click-every-button-e2e/spec.md"><code>spec-062</code></a> — structural Playwright gate (draft; complements but doesn't replace the Budapest baseline)</li>
+</ul>
+
+<p style="margin-top:1.6em; color:#888; font-size:12px;">
+This master plan is the navigation hub. Updates: bump the date and the Status table after each spec lands.
+</p>
+
+</body>
+</html>

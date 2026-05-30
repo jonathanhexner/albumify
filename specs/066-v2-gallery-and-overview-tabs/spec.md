@@ -59,6 +59,30 @@ Overview adds one new aggregate Service:
 2. **Overview aggregates across runs.** It's the first tab that reads from BOTH the global `action_log` AND per-run DBs. Pattern: `OverviewService` constructor takes `(history_repo, runs_dir)`; iterates over `history_repo.find(producer="fc_app_v2", limit=50)` and opens each run's DB. Cached on session.
 3. **Sync only.** Aggregation across 50 runs is sub-second on the user's machine. spec-079 lesson holds.
 
+## E2E contract (binding — part of AC4)
+
+This spec OWNS **Scenarios G and H** in `tests/face_clustering/e2e_budapest/`. It also flips `spec-042` to Implemented when all scenarios pass — so this spec's e2e is the last piece of the parity contract.
+
+### Scenario G — Gallery
+
+| Field | Value |
+|---|---|
+| Test file | `tests/face_clustering/e2e_budapest/test_scenario_g_gallery.py` (NEW) |
+| Click sequence | History → row containing `6437d335` → "Load into analysis tabs" → Gallery tab |
+| Concrete assertions | (1) tab visible; (2) ≥ 1 cluster row rendered with ≥ 1 face thumbnail (`<img>` element); (3) the largest-cluster row (cluster_id = 1) shows exactly 8 thumbnails (matches `GRID_COLS` in the Gallery's face-strip — cluster 1 has 35 faces > 8); (4) clicking "Open in Cluster Analysis" on cluster 1's row switches tab + selects cluster_id 1 |
+| New constants in `conftest.py` | none — reuses `EXPECTED_BIGGEST_CLUSTER_SIZE = 35` |
+| README.md update | move Scenario G row from "Planned" to active |
+
+### Scenario H — Overview
+
+| Field | Value |
+|---|---|
+| Test file | `tests/face_clustering/e2e_budapest/test_scenario_h_overview.py` (NEW) |
+| Click sequence | History → row containing `6437d335` → "Load into analysis tabs" → Overview tab |
+| Concrete assertions | (1) tab visible; (2) 4-metric strip rendered (total runs / total faces / avg n_clusters / last run age); (3) per-album bar chart has a bar labeled `Budapest2025_Google_5` (the reference run's album); (4) total runs metric ≥ 1; (5) per-profile bar chart visible (≥ 1 profile bar) |
+| New constants in `conftest.py` | `EXPECTED_REFERENCE_ALBUM = "Budapest2025_Google_5"` |
+| README.md update | move Scenario H row from "Planned" to active |
+
 ## Acceptance criteria
 
 | # | Criterion | Verified by |

@@ -60,6 +60,30 @@ Two thin Services:
 3. **Sync only.** spec-079 lesson.
 4. **Reuse `render_run_table` pattern.** spec-042 H1 pilot's typed dataframe component handles selection — extend it, don't fork it.
 
+## E2E contract (binding — part of AC5)
+
+This spec OWNS **Scenarios E and F** in `tests/face_clustering/e2e_budapest/`.
+
+### Scenario E — Merged Clusters
+
+| Field | Value |
+|---|---|
+| Test file | `tests/face_clustering/e2e_budapest/test_scenario_e_merged_clusters.py` (NEW) |
+| Click sequence | History → row containing `6437d335` → "Load into analysis tabs" → Merged Clusters tab |
+| Concrete assertions | (1) tab visible; (2) ≥ 1 row in the merge_decisions dataframe (reference run has merge_decisions populated); (3) clicking the first row shows a detail panel; (4) detail panel exposes all expected fields: `cluster_a`, `cluster_b`, `actually_merged`, `exemplar_dist`, `support` (assert text presence in panel) |
+| New constants in `conftest.py` | `EXPECTED_MERGE_DECISIONS_MIN_ROWS = 1` |
+| README.md update | move Scenario E row from "Planned" to active |
+
+### Scenario F — Quality
+
+| Field | Value |
+|---|---|
+| Test file | `tests/face_clustering/e2e_budapest/test_scenario_f_quality.py` (NEW) |
+| Click sequence | History → row containing `6437d335` → "Load into analysis tabs" → Quality tab |
+| Concrete assertions | (1) tab visible; (2) summary strip ≥ 4 metric widgets; (3) per-gate bar chart Plotly element present (≥ 1 trace / 1 bar); (4) total rejected count visible AND ∈ `[220, 240]` (band around `340 - 107 = 233` — gate decisions on the reference run) |
+| New constants in `conftest.py` | `EXPECTED_REJECTED_BAND = (220, 240)` (derived from `EXPECTED_N_FACES_TOTAL - EXPECTED_N_FACES_ASSIGNED ± 7`) |
+| README.md update | move Scenario F row from "Planned" to active |
+
 ## Acceptance criteria
 
 | # | Criterion | Verified by |
