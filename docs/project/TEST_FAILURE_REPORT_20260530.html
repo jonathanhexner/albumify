@@ -1,0 +1,250 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Test failure report — 2026-05-31</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 1180px; margin: 24px auto; color: #222; padding: 0 16px; }
+  h1 { margin-bottom: 4px; }
+  .subtitle { color: #666; margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 24px; font-size: 13px; }
+  th, td { padding: 6px 8px; border: 1px solid #ccc; vertical-align: top; }
+  th { background: #f4f4f4; text-align: left; }
+  td.test { font-family: Consolas, monospace; font-size: 12px; }
+  .sev-h { color: #9a1a1a; font-weight: 600; }
+  .sev-m { color: #aa6b00; font-weight: 600; }
+  .sev-l { color: #4a4a4a; }
+  .grp { background: #eef4ff; }
+  .grp td { font-weight: 600; }
+  .num { text-align: right; }
+  .meta { background: #fafafa; border-left: 4px solid #1f5fc7; padding: 8px 12px; margin: 16px 0; }
+  ul.tight li { margin: 2px 0; }
+</style>
+
+<h1>Test failure report — 2026-05-31</h1>
+<p class="subtitle">Full pytest suite checkpoint at commit <code>c7f4edb</code>. 1059 passed · 16 failed · 21 skipped · 7 pre-ignored collection-errors.</p>
+
+<div class="meta">
+  <b>Run command:</b><br>
+  <code>.venv/Scripts/python -m pytest tests/ -q --tb=no \
+  --ignore=tests/test_full_e2e_flow.py --ignore=tests/test_quality_assessment.py \
+  --ignore=tests/test_clip_aesthetic.py --ignore=tests/quality_assessment/test_learned_clip.py \
+  --ignore=tests/test_quality_benchmark.py --ignore=tests/pipeline/test_face_pipeline_e2e.py \
+  --ignore=tests/pipeline/test_face_embedding_validation.py</code>
+</div>
+
+<h2>Executive summary</h2>
+<ul class="tight">
+  <li><b>Zero failures are regressions from spec-058 / spec-059.</b> 14 of 16 fails were already red at the 2026-05-29 baseline (commit <code>31b7aea</code>). 2 of 16 are new since baseline (SIGHTING-090) but are test-ordering pollution — they pass in isolation.</li>
+  <li><b>Every failing test file has FIRST commit = LAST commit.</b> None were ever edited after being added. This means: no test in the FAIL set has any record of having passed in version control, on this machine, ever. They were authored against environments that no longer exist (different InsightFace version, different module layout, different config-file shape, different dataset on disk).</li>
+  <li><b>Fix dependency is unblocked-test-by-test.</b> Eight independent sightings, no cross-dependencies. Pick any one to land first.</li>
+  <li><b>One sighting is fixture-quality, not code:</b> SIGHTING-081 (face-pipeline ground-truth crops are mis-aligned).</li>
+  <li><b>Three sightings are missing-module errors:</b> SIGHTING-084 (4 fails + 4 coll-err — entire <code>sim_bench.album.selection</code>, <code>sim_bench.quality_assessment.clip_aesthetic</code>, <code>sim_bench.quality_assessment.benchmark</code> never landed).</li>
+  <li><b>Two sightings are stale-config drift:</b> SIGHTING-085 (HDBSCAN-PCA defaults), SIGHTING-086 (prompts config grew 55→57).</li>
+  <li><b>Three sightings are dataset/runtime preconditions:</b> SIGHTING-087 (AVA fixture absent), SIGHTING-088 (backend not running, encoding cp1255).</li>
+</ul>
+
+<h2>Currently failing tests (16)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Test</th>
+      <th>Module exercised</th>
+      <th>First commit</th>
+      <th>Last edit</th>
+      <th class="num">LOC</th>
+      <th>Last green</th>
+      <th>Suspected issue</th>
+      <th>Sev</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <tr class="grp"><td colspan="8">SIGHTING-081 — face-pipeline ground-truth fixture is mis-aligned</td></tr>
+    <tr>
+      <td class="test">tests/test_ground_truth_fresh.py::TestGroundTruthFresh::test_same_person_distances</td>
+      <td><code>face_cluster.InsightFaceEmbedder</code></td>
+      <td>2026-04-08</td><td>same</td><td class="num">253</td><td>never</td>
+      <td>GT crops in <code>test_data/face_crops_ground_truth/</code> are mis-aligned faces; embeddings of bad crops produce garbage distances. Confirmed by running the file at commit <code>01d292c</code>: identical failure numbers (cor 0.0064).</td>
+      <td class="sev-l">Low (fixture)</td>
+    </tr>
+    <tr>
+      <td class="test">tests/pipeline/test_face_recognition_benchmark.py::TestSimilarityMetrics::test_intra_person_similarity</td>
+      <td><code>sim_bench.pipeline.face_embedding.insightface_native.InsightFaceNativeExtractor</code></td>
+      <td>2026-02-12</td><td>same</td><td class="num">323</td><td>never</td>
+      <td>Same GT fixture problem expressed via the native InsightFace extractor path. Inter-class distances vs intra-class drifted; threshold expectations from authoring date no longer hold.</td>
+      <td class="sev-l">Low (fixture)</td>
+    </tr>
+
+    <tr class="grp"><td colspan="8">SIGHTING-082 — hybrid HDBSCAN+KNN clusterer doesn't ndim-check inputs</td></tr>
+    <tr>
+      <td class="test">tests/clustering/test_hybrid_hdbscan_knn.py::TestInputValidation::test_1d_array_raises</td>
+      <td><code>sim_bench.clustering.hybrid_hdbscan_knn.HybridHDBSCANKNN._validate_features</code></td>
+      <td>2026-02-16</td><td>same</td><td class="num">339</td><td>never</td>
+      <td>Test expects <code>ValueError</code> on a 1-D feature array; the validator only checks dtype, not ndim, so 1-D arrays slip through.</td>
+      <td class="sev-m">Medium (real bug, 1 LOC fix)</td>
+    </tr>
+
+    <tr class="grp"><td colspan="8">SIGHTING-083 — person-penalty scoring strategy is 11× off</td></tr>
+    <tr>
+      <td class="test">tests/pipeline/test_scoring_strategy.py::test_person_penalty_strategy</td>
+      <td><code>sim_bench.pipeline.scoring.strategy.PersonPenaltyStrategy</code></td>
+      <td>2026-02-16</td><td>same</td><td class="num">88</td><td>never</td>
+      <td>Test expects penalty ≤ 1.0 on a 3-face image; computed value comes back ≈ 11.0. Either the formula was rewritten without updating the test, or the test fixture's face count doesn't match what the strategy assumes.</td>
+      <td class="sev-m">Medium (scoring regression)</td>
+    </tr>
+
+    <tr class="grp"><td colspan="8">SIGHTING-084 — entire <code>sim_bench.album.*</code> + parts of <code>sim_bench.quality_assessment.*</code> never landed in this branch</td></tr>
+    <tr>
+      <td class="test">tests/test_selection_export.py::test_imports<br>
+        tests/test_selection_export.py::test_selector_initialization<br>
+        tests/test_selection_export.py::test_selector_compute_score<br>
+        tests/test_selection_export.py::test_selector_best_selection</td>
+      <td><code>sim_bench.album.selection.BestImageSelector</code>, <code>sim_bench.album.export.{create_exporter, FolderExporter, ZipExporter}</code></td>
+      <td>2026-01-22</td><td>same</td><td class="num">273</td><td>never</td>
+      <td><code>ModuleNotFoundError</code> at runtime: <code>sim_bench.album.selection</code> doesn't exist. Test file references a feature (album curation) that was never merged into <code>unification/spec-040</code>.</td>
+      <td class="sev-l">Low (feature absent)</td>
+    </tr>
+
+    <tr class="grp"><td colspan="8">SIGHTING-085 — HDBSCAN-PCA factory defaults drifted</td></tr>
+    <tr>
+      <td class="test">tests/clustering/test_mutual_knn.py::TestHDBSCANPCAClusterer::test_basic_clustering<br>
+        tests/clustering/test_mutual_knn.py::TestHDBSCANPCAClusterer::test_factory_loading</td>
+      <td><code>sim_bench.clustering.hdbscan_pca.HDBSCANPCAClusterer</code>, <code>sim_bench.clustering.base.load_clustering_method</code></td>
+      <td>2026-02-19</td><td>same</td><td class="num">150</td><td>never</td>
+      <td>Test expects <code>pca_components=64</code>; current default is <code>20</code>. <code>load_clustering_method("hdbscan_pca")</code> no longer registered; factory raises <code>KeyError</code>.</td>
+      <td class="sev-l">Low (config drift)</td>
+    </tr>
+
+    <tr class="grp"><td colspan="8">SIGHTING-086 — photo-analysis prompts config grew 55 → 57</td></tr>
+    <tr>
+      <td class="test">tests/test_photo_analysis.py::test_clip_tagger<br>
+        tests/test_photo_analysis.py::test_config_file_exists</td>
+      <td><code>sim_bench.config</code>, <code>sim_bench.image_processing.ThumbnailGenerator</code>, CLIP tagger prompts YAML</td>
+      <td>2025-11-21</td><td>same</td><td class="num">255</td><td>never</td>
+      <td>Asserts the prompts YAML has exactly 55 entries; current file has 57. Trivial number drift since 2025-11-21 authorship.</td>
+      <td class="sev-l">Low (config drift)</td>
+    </tr>
+
+    <tr class="grp"><td colspan="8">SIGHTING-087 — AVA training test references files that don't ship with the repo</td></tr>
+    <tr>
+      <td class="test">tests/test_ava_training.py::test_dataset<br>
+        tests/test_ava_training.py::test_full_training_loop</td>
+      <td><code>sim_bench.models.ava_resnet</code>, <code>sim_bench.datasets.ava_dataset</code>, <code>sim_bench.training.train_ava_resnet</code></td>
+      <td>2026-01-16</td><td>same</td><td class="num">298</td><td>never</td>
+      <td><code>FileNotFoundError</code>: the synthetic AVA fixture writes a CSV pointing at image paths that the test never creates. Either ship the fixture or mark the test <code>@pytest.mark.requires_data</code>.</td>
+      <td class="sev-l">Low (test setup)</td>
+    </tr>
+
+    <tr class="grp"><td colspan="8">SIGHTING-090 — test-ordering pollution; pass in isolation</td></tr>
+    <tr>
+      <td class="test">tests/pipeline/test_executor_step_io_logging.py::test_executor_logs_in_out_for_each_successful_step<br>
+        tests/pipeline/test_executor_step_io_logging.py::test_executor_logs_validation_failure_with_input_shape</td>
+      <td><code>sim_bench.pipeline.executor</code>, <code>sim_bench.pipeline.{base, config, context, registry}</code></td>
+      <td>2026-05-25</td><td>same</td><td class="num">155</td><td>passes in isolation; fails only in full-suite ordering</td>
+      <td>Both tests use <code>caplog.at_level(...)</code> against the <code>sim_bench.pipeline.executor</code> logger. An upstream test in the alphabetical run order sets <code>propagate=False</code> or removes the handler, so caplog sees nothing. Not a code regression — pollution from another test.</td>
+      <td class="sev-l">Low (state hygiene)</td>
+    </tr>
+
+  </tbody>
+</table>
+
+<h2>Pre-ignored collection-error files (7)</h2>
+
+<p>Excluded from the run via <code>--ignore</code> because they fail at <em>import time</em> (one even calls <code>sys.exit(1)</code>, which aborts pytest entirely if collected). Not counted in the 1059/16/21 totals.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Cause</th>
+      <th>First commit</th>
+      <th class="num">LOC</th>
+      <th>Sighting</th>
+      <th>Sev</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="test">tests/test_full_e2e_flow.py</td>
+      <td><code>sys.exit(1)</code> at import when the FastAPI backend on :8000 is not responding. Aborts pytest.</td>
+      <td>2026-05-09</td><td class="num">391</td>
+      <td>SIGHTING-088</td>
+      <td class="sev-m">Medium (corrupts whole-suite run)</td>
+    </tr>
+    <tr>
+      <td class="test">tests/test_quality_assessment.py</td>
+      <td><code>UnicodeEncodeError</code>: file prints '✗' (✗) which cp1255 can't encode (Windows Hebrew locale).</td>
+      <td>2025-11-14</td><td class="num">170</td>
+      <td>SIGHTING-088</td>
+      <td class="sev-l">Low (encoding)</td>
+    </tr>
+    <tr>
+      <td class="test">tests/pipeline/test_face_pipeline_e2e.py</td>
+      <td>pytest collection error during fixture setup (root cause unrecorded).</td>
+      <td>2026-02-12</td><td class="num">276</td>
+      <td>SIGHTING-088</td>
+      <td class="sev-l">Low</td>
+    </tr>
+    <tr>
+      <td class="test">tests/test_clip_aesthetic.py</td>
+      <td><code>ModuleNotFoundError: sim_bench.quality_assessment.clip_aesthetic</code></td>
+      <td>2025-11-21</td><td class="num">319</td>
+      <td>SIGHTING-084</td>
+      <td class="sev-l">Low (module absent)</td>
+    </tr>
+    <tr>
+      <td class="test">tests/quality_assessment/test_learned_clip.py</td>
+      <td><code>ModuleNotFoundError: sim_bench.quality_assessment.clip_aesthetic</code></td>
+      <td>2025-11-21</td><td class="num">81</td>
+      <td>SIGHTING-084</td>
+      <td class="sev-l">Low (module absent)</td>
+    </tr>
+    <tr>
+      <td class="test">tests/test_quality_benchmark.py</td>
+      <td><code>ModuleNotFoundError: sim_bench.quality_assessment.benchmark</code></td>
+      <td>2025-11-14</td><td class="num">123</td>
+      <td>SIGHTING-084</td>
+      <td class="sev-l">Low (module absent)</td>
+    </tr>
+    <tr>
+      <td class="test">tests/pipeline/test_face_embedding_validation.py</td>
+      <td><code>ModuleNotFoundError: sim_bench.pipeline.steps.filter_quality_gate</code> (merged away by spec-053).</td>
+      <td>2026-04-08</td><td class="num">537</td>
+      <td>SIGHTING-084</td>
+      <td class="sev-l">Low (module absent)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Diff vs. 2026-05-29 baseline</h2>
+
+<table>
+  <thead><tr><th></th><th class="num">2026-05-29</th><th class="num">2026-05-31</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td>Passed</td><td class="num">1046</td><td class="num">1059</td><td>+13 (spec-058 drift-guard 3 + spec-059 session 4 + arch 2 + face-pipeline diagnostics 2 + spec-058 F-1 +1, etc.)</td></tr>
+    <tr><td>Failed</td><td class="num">19</td><td class="num">16</td><td>-3 (SIGHTING-081 face-pipeline trio skipped via <code>pytest.mark.skip</code> on commit <code>459d956</code>)</td></tr>
+    <tr><td>Skipped</td><td class="num">17</td><td class="num">21</td><td>+4 (3 from the trio + 1 opt-in perf bench)</td></tr>
+    <tr><td>Coll-err (pre-ignored)</td><td class="num">6</td><td class="num">7</td><td>+1 (<code>tests/test_quality_assessment.py</code> now also blocked by cp1255 encode; was always present but newly recognized at run time)</td></tr>
+  </tbody>
+</table>
+
+<h2>Suggested fix order</h2>
+
+<ol>
+  <li><b>SIGHTING-090</b> first (~30 min): autouse fixture in <code>tests/pipeline/conftest.py</code> that resets <code>logging.getLogger("sim_bench.pipeline.executor").propagate = True</code> and re-installs caplog's handler. Eliminates the only state-pollution failure.</li>
+  <li><b>SIGHTING-082</b> next (~10 min): one-line ndim check in <code>_validate_features</code>. Genuine bug, smallest patch.</li>
+  <li><b>SIGHTING-086</b> (~5 min): update the <code>55 → 57</code> assertion.</li>
+  <li><b>SIGHTING-085</b> (~15 min): re-register <code>hdbscan_pca</code> in the factory; either update test default to 20 or update code default to 64.</li>
+  <li><b>SIGHTING-087</b> (~30 min): mark AVA tests <code>@pytest.mark.requires_dataset</code> with a skip-if-missing.</li>
+  <li><b>SIGHTING-083</b> (~1 h): bisect when person-penalty changed; pick test or code as source of truth.</li>
+  <li><b>SIGHTING-081</b> (~half-day): regenerate <code>test_data/face_crops_ground_truth/</code> with a known-good alignment routine, then un-skip the 3 tests + un-skip the related 2 in this set.</li>
+  <li><b>SIGHTING-088</b> (~1 h): replace <code>sys.exit(1)</code> with <code>pytest.skip(...)</code> in the import block; remove Hebrew '✗' or write to a UTF-8 stream.</li>
+  <li><b>SIGHTING-084</b> last (variable): owner decision — restore the missing modules from the original branch, or delete the orphan tests.</li>
+</ol>
+
+<h2>Related</h2>
+<ul class="tight">
+  <li><a href="TEST_STATUS.md">TEST_STATUS.md</a> — full-suite history (newest-first)</li>
+  <li><a href="SIGHTINGS.md">SIGHTINGS.md</a> — all 9 sightings (081–088, 090) referenced above</li>
+  <li><a href="TEST_FAILURE_REPORT_20260529.html">TEST_FAILURE_REPORT_20260529.html</a> — previous report at the 2026-05-29 baseline</li>
+</ul>
