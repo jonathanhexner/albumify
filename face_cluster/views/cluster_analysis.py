@@ -27,10 +27,78 @@ from typing import List, Optional
 
 from face_cluster.views._async import AsyncHandle
 from face_cluster.views._base import ClusterRow, _embeddings_matrix, _pairwise_distances
+from face_cluster.views._specs import ColumnSpec
 from face_cluster.views.cluster_debug_view import ClusterDebugView
 from face_cluster.views.cluster_view import ClusterView
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class ClusterSummaryRow:
+    """One row of the all-clusters summary table (spec-074).
+
+    The cheap fields mirror :class:`ClusterRow`; the ``nearest_*`` fields are
+    computed across ALL clusters in one pass (``ClusterAnalysisService
+    .cluster_summary``) — unlike ``ClusterRow`` where they're placeholders
+    until a single cluster is selected.
+    """
+    cluster_id: int
+    size: int
+    diameter: float
+    avg_intra_dist: float
+    n_exemplars: int
+    nearest_cluster_id: int        # -1 when there is no other cluster
+    nearest_cluster_dist: float    # min exemplar-to-exemplar cosine distance
+    nearest_cluster_size: int      # size of that nearest cluster
+    merge_candidate: bool          # nearest_cluster_dist < merge_candidate_threshold
+
+
+# spec-074 — declarative columns for the summary table (raw values read for
+# numeric sorting; formatters available for any future strip rendering).
+CLUSTER_SUMMARY_COLUMNS: List[ColumnSpec] = [
+    ColumnSpec("cluster_id", "Cluster"),
+    ColumnSpec("size", "Faces"),
+    ColumnSpec("diameter", "Diameter", formatter=lambda v: f"{v:.3f}"),
+    ColumnSpec("avg_intra_dist", "Avg intra", formatter=lambda v: f"{v:.3f}"),
+    ColumnSpec("n_exemplars", "Exemplars"),
+    ColumnSpec("nearest_cluster_id", "Nearest",
+               formatter=lambda v: "-" if v is None or v < 0 else f"C{v}"),
+    ColumnSpec("nearest_cluster_dist", "Dist to nearest", formatter=lambda v: f"{v:.3f}"),
+    ColumnSpec("nearest_cluster_size", "Nearest faces"),
+    ColumnSpec("merge_candidate", "Merge?", formatter=lambda v: "yes" if v else ""),
+]
+
+
+@dataclass(frozen=True, slots=True)
+class NearestPairRow:
+    """One cluster pair, ranked by exemplar distance (spec-075).
+
+    ``evaluated`` is True when the pipeline recorded a merge_decision for this
+    pair (i.e. it crossed the candidate threshold); ``rejection_reason`` then
+    explains why it wasn't merged. Pairs that were never close enough to
+    evaluate still appear here (with evaluated=False) so the user sees what was
+    *almost* a merge."""
+    cluster_a: int
+    cluster_b: int
+    size_a: int
+    size_b: int
+    exemplar_dist: float
+    evaluated: bool
+    merged: bool
+    rejection_reason: Optional[str]
+
+
+NEAREST_PAIR_COLUMNS: List[ColumnSpec] = [
+    ColumnSpec("cluster_a", "A"),
+    ColumnSpec("cluster_b", "B"),
+    ColumnSpec("size_a", "A faces"),
+    ColumnSpec("size_b", "B faces"),
+    ColumnSpec("exemplar_dist", "Exemplar dist", formatter=lambda v: f"{v:.3f}"),
+    ColumnSpec("evaluated", "Evaluated?", formatter=lambda v: "yes" if v else ""),
+    ColumnSpec("merged", "Merged?", formatter=lambda v: "yes" if v else ""),
+    ColumnSpec("rejection_reason", "Why not merged"),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +175,97 @@ class ClusterAnalysisService:
     def get_cluster_ids(self) -> List[int]:
         """Cluster ids in display order (passthrough)."""
         return self._repo.get_cluster_ids()
+
+    def cluster_summary(self) -> List[ClusterSummaryRow]:
+        """All-clusters overview: size/diameter/spread + nearest other cluster.
+
+        Cheap fields come from ``get_cluster_rows``; the nearest-cluster id /
+        distance / size are computed across every cluster pair in one pass
+        (min exemplar-to-exemplar cosine distance on normalized embeddings).
+        Sub-second for typical run sizes — the v2 tab caches it per run dir.
+        """
+        rows = self._repo.get_cluster_rows()
+        if not rows:
+            return []
+        size_by_id = {r.cluster_id: r.size for r in rows}
+        ex_mat = self._exemplar_matrices(rows)
+
+        meta = self._repo.get_run_metadata()
+        threshold = float(meta.config.get("merge_candidate_threshold", 0.45))
+
+        out: List[ClusterSummaryRow] = []
+        for r in rows:
+            cid = r.cluster_id
+            nid, ndist = -1, 1.0
+            a = ex_mat.get(cid)
+            if a is not None:
+                for ocid, b in ex_mat.items():
+                    if ocid == cid:
+                        continue
+                    d = float(1.0 - (a @ b.T).max())  # min cosine dist (normalized embs)
+                    if d < ndist:
+                        ndist, nid = d, ocid
+            out.append(ClusterSummaryRow(
+                cluster_id=cid, size=r.size, diameter=r.diameter,
+                avg_intra_dist=r.avg_intra_dist, n_exemplars=r.n_exemplars,
+                nearest_cluster_id=nid, nearest_cluster_dist=round(ndist, 4),
+                nearest_cluster_size=size_by_id.get(nid, 0),
+                merge_candidate=(nid >= 0 and ndist < threshold),
+            ))
+        return out
+
+    def nearest_cluster_pairs(self, top_n: int = 20) -> List[NearestPairRow]:
+        """The ``top_n`` closest cluster pairs by exemplar distance (spec-075).
+
+        Each pair joins its ``merge_decisions`` verdict when one exists, so the
+        user can see "what was almost a merge, and why it wasn't" — including
+        pairs that never crossed the candidate threshold (evaluated=False)."""
+        rows = self._repo.get_cluster_rows()
+        if len(rows) < 2:
+            return []
+        size_by_id = {r.cluster_id: r.size for r in rows}
+        ex_mat = self._exemplar_matrices(rows)
+        merges = {}
+        for m in self._repo.get_merge_log():
+            merges[frozenset((m.cluster_a, m.cluster_b))] = m
+
+        ids = [r.cluster_id for r in rows]
+        pairs: List[NearestPairRow] = []
+        for i, a in enumerate(ids):
+            if a not in ex_mat:
+                continue
+            for b in ids[i + 1:]:
+                if b not in ex_mat:
+                    continue
+                d = float(1.0 - (ex_mat[a] @ ex_mat[b].T).max())
+                m = merges.get(frozenset((a, b)))
+                pairs.append(NearestPairRow(
+                    cluster_a=a, cluster_b=b,
+                    size_a=size_by_id[a], size_b=size_by_id[b],
+                    exemplar_dist=round(d, 4),
+                    evaluated=m is not None,
+                    merged=bool(getattr(m, "actually_merged", False)) if m else False,
+                    rejection_reason=(getattr(m, "rejection_reason", None) if m else None),
+                ))
+        pairs.sort(key=lambda p: p.exemplar_dist)
+        return pairs[:top_n]
+
+    def _exemplar_matrices(self, rows) -> dict:
+        """{cluster_id -> (k x d) exemplar embedding matrix} for all rows.
+
+        Exemplars-first, falling back to the first member when a cluster has no
+        exemplar set. Shared by ``cluster_summary`` and ``nearest_cluster_pairs``."""
+        proxy = self._build_pipeline_result_proxy()
+        cr = proxy.cluster_result
+        faces = proxy.faces
+        out = {}
+        for r in rows:
+            cid = r.cluster_id
+            idxs = list(cr.exemplars.get(cid) or cr.clusters.get(cid, [])[:1])
+            m = _embeddings_matrix(faces, idxs)
+            if m is not None:
+                out[cid] = m
+        return out
 
     def exemplar_face_ids(self, cluster_id: int, n: int = 8) -> List[int]:
         """Return up to ``n`` representative face_ids for a cluster.
@@ -333,5 +492,9 @@ class ClusterAnalysisService:
 __all__ = [
     "ForceMergeResult",
     "ForceMergePreview",
+    "ClusterSummaryRow",
+    "CLUSTER_SUMMARY_COLUMNS",
+    "NearestPairRow",
+    "NEAREST_PAIR_COLUMNS",
     "ClusterAnalysisService",
 ]

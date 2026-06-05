@@ -17,6 +17,7 @@ from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
 from app.face_clustering_v2.components.cluster_debug import render_cluster_debug
 from app.face_clustering_v2.components.cluster_metrics import render_cluster_metrics
 from app.face_clustering_v2.components.cluster_picker import render_cluster_picker
+from app.face_clustering_v2.components.cluster_summary_table import render_cluster_summary
 from app.face_clustering_v2.components.face_grid import render_face_grid
 from app.face_clustering_v2.components.force_merge import render_force_merge
 from app.face_clustering_v2.components.nearest_clusters import render_nearest_clusters
@@ -54,6 +55,21 @@ def render_cluster_analysis_tab() -> None:
         tab_skipped("cluster_analysis", "repo_failed")
         return
     rows = service.list_clusters()
+
+    # spec-074: all-clusters summary (restores the V1 overview). Cached per run
+    # dir so it doesn't recompute nearest-cluster distances on every rerun.
+    summary_key = f"_cluster_summary::{run_dir}"
+    if summary_key not in st.session_state:
+        st.session_state[summary_key] = service.cluster_summary()
+    summary = st.session_state[summary_key]
+    with st.expander(f"All clusters ({len(summary)}) — click a row to open", expanded=True):
+        picked = render_cluster_summary(summary)
+    # Loop-safe: only navigate when the summary selection actually changes.
+    if picked is not None and picked != st.session_state.get("_summary_last_pick"):
+        st.session_state["_summary_last_pick"] = picked
+        st.session_state["_goto_cluster"] = picked
+        st.rerun()
+
     cluster_id = render_cluster_picker(rows)
     if cluster_id is None:
         tab_skipped("cluster_analysis", "no_cluster_selected")

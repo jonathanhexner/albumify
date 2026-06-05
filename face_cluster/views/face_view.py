@@ -44,6 +44,33 @@ class FaceView:
     closest_other_clusters: List[CloseFace]  # top 5
     coimage_faces: List[FaceRow]             # other faces in the same source image
 
+    # spec-072: extra metrics so the shared FACE_METRIC_COLUMNS registry can
+    # drive the Face Analysis strip too. Defaulted for back-compat.
+    area_ratio: Optional[float] = None       # face bbox area / image area
+    det_score: Optional[float] = None        # InsightFace detection confidence
+
+    # spec-072: canonical-name aliases so one ColumnSpec list reads both
+    # FaceMetricRow (which has blur/yaw/pitch/roll) and FaceView.
+    @property
+    def blur(self) -> float:
+        return self.blur_score
+
+    @property
+    def yaw(self) -> Optional[float]:
+        return self.pose[0] if self.pose else None
+
+    @property
+    def pitch(self) -> Optional[float]:
+        return self.pose[1] if self.pose else None
+
+    @property
+    def roll(self) -> Optional[float]:
+        return self.pose[2] if self.pose else None
+
+    @property
+    def area_pct(self) -> Optional[float]:
+        return None if self.area_ratio is None else self.area_ratio * 100.0
+
     @classmethod
     def compute(cls, result: PipelineResult, face_id: int) -> "FaceView":
         faces = result.faces
@@ -160,6 +187,8 @@ class FaceView:
             closest_same_cluster=closest_same,
             closest_other_clusters=closest_other,
             coimage_faces=coimage,
+            area_ratio=face.area_ratio,
+            det_score=face.det_score,
         )
 
 

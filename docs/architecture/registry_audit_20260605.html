@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DB &amp; Registry Architecture Audit — sim-bench</title>
+<style>
+  :root{--bg:#0e1014;--panel:#171b22;--panel2:#1e232c;--ink:#e7ebf2;--mut:#93a0b4;--line:#2a313c;
+    --good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--repo:#3b82f6;--param:#a855f7;--disp:#14b8a6;--miss:#ec4899;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);padding:26px 30px;
+    font:13.5px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  h1{font-size:21px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 6px}
+  h2{font-size:15px;margin:26px 0 10px;color:#cdd6e3;border-left:3px solid var(--repo);padding-left:9px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--mut);margin:10px 0 4px}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+  /* cards row */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 4px}
+  @media(max-width:900px){.cards{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-top-width:3px;border-radius:10px;padding:11px 12px}
+  .card.repo{border-top-color:var(--repo)} .card.param{border-top-color:var(--param)}
+  .card.disp{border-top-color:var(--disp)} .card.miss{border-top-color:var(--miss)}
+  .card h3{margin:0 0 4px;font-size:13px} .card .what{color:var(--mut);font-size:11.5px;min-height:30px}
+  .card code{background:#0c0e13;color:#7dd3fc;padding:1px 4px;border-radius:4px;font-size:10.5px}
+  .pill{display:inline-block;font-size:10px;font-weight:800;padding:2px 7px;border-radius:9px;margin-top:7px}
+  .p-good{background:var(--good);color:#06210f}.p-part{background:var(--warn);color:#241a02}.p-bad{background:var(--bad);color:#fff}
+  /* matrix */
+  table{border-collapse:collapse;width:100%;margin:4px 0;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd6e3;font-size:11.5px}
+  td.c{text-align:center;font-weight:800}
+  .g{background:rgba(34,197,94,.16)}.a{background:rgba(245,158,11,.16)}.b{background:rgba(239,68,68,.16)}
+  td code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:#9fb3cc}
+  /* flow */
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto}
+  .flow pre{margin:0;font:12px/1.55 ui-monospace,Consolas,monospace;color:#cbd5e1;white-space:pre}
+  .k-repo{color:#7eb6ff}.k-param{color:#d8b4fe}.k-disp{color:#5eead4}.k-miss{color:#f9a8d4}.k-mut{color:#64748b}
+  .note{border-left:3px solid var(--miss);background:rgba(236,72,153,.08);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;margin:8px 0}
+  .sev{font-weight:800;padding:1px 7px;border-radius:8px;font-size:11px}
+  .s-hi{background:var(--bad);color:#fff}.s-md{background:var(--warn);color:#241a02}.s-lo{background:#475569;color:#fff}
+  footer{color:var(--mut);font-size:11px;margin-top:24px;border-top:1px solid var(--line);padding-top:10px}
+  .small{font-size:11px;color:var(--mut)}
+</style>
+</head>
+<body>
+  <h1>DB &amp; Registry Architecture Audit</h1>
+  <p class="sub">sim-bench · Face Clustering v2 + Albumify + legacy · 2026-06-05 · “where is the full registry pattern, where not”</p>
+
+  <h2 style="border-color:var(--param)">The 4 registry patterns (one per concern)</h2>
+  <div class="cards">
+    <div class="card repo"><h3>① DB access</h3>
+      <div class="what">Typed <b>Repository</b> + <b>Service</b> over the DB. No raw SQL in UI.</div>
+      <code>face_cluster/repositories</code> <code>views/*Service</code>
+      <div><span class="pill p-good">EXISTS · enforced</span></div></div>
+    <div class="card param"><h3>② Input / config</h3>
+      <div class="what">Params declared once in <b>FCParams</b>; widgets auto-render via <b>UI_SPEC</b>+factory.</div>
+      <code>fc_params.py</code> <code>ui_spec.py</code> <code>widget_factory.py</code>
+      <div><span class="pill p-good">EXISTS · enforced</span></div></div>
+    <div class="card disp"><h3>③ Display tables</h3>
+      <div class="what">Columns declared once as <b>ColumnSpec</b>; one renderer loops them.</div>
+      <code>views/_specs.py ColumnSpec</code> <code>render_run_table</code>
+      <div><span class="pill p-part">EXISTS · partial use</span></div></div>
+    <div class="card miss"><h3>④ Metric strips</h3>
+      <div class="what">No <b>MetricSpec</b> equivalent — every <code>st.metric</code> is hand-written.</div>
+      <code>~34 calls (v2)</code> <code>~63 calls (Albumify)</code>
+      <div><span class="pill p-bad">MISSING · everywhere</span></div></div>
+  </div>
+  <p class="small">①②③ mirror the same idea (one declaration → one renderer → zero duplication). ④ is the gap behind your face-metrics / area-% pain.</p>
+
+  <h2>Coverage matrix — pattern × app</h2>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--good)"></i>full registry</span>
+    <span><i class="dot" style="background:var(--warn)"></i>partial / shared-but-hardcoded</span>
+    <span><i class="dot" style="background:var(--bad)"></i>hardcoded, no registry</span>
+  </div>
+  <table>
+    <tr><th>Pattern</th><th>Face Clustering v2</th><th>Albumify (app/streamlit)</th><th>Legacy FC app</th><th>Enforced by</th></tr>
+    <tr><td><b>① DB access</b> (Repository)</td>
+      <td class="c g">✓ 100%<div class="small">14 sites, all via Service→Repo</div></td>
+      <td class="c g">✓<div class="small">write-only via RunExporter</div></td>
+      <td class="c a">◐<div class="small">3 deprecated free-fn calls</div></td>
+      <td class="small">test_v2_layering · test_no_raw_sql · test_repositories</td></tr>
+    <tr><td><b>② Input / config</b> (FCParams)</td>
+      <td class="c g">✓ gold<div class="small">FCParams→UI_SPEC→factory</div></td>
+      <td class="c b">✗<div class="small">~16 literal sliders</div></td>
+      <td class="c b">✗<div class="small">~16 literal sliders</div></td>
+      <td class="small">4 parity tests (v2 only)</td></tr>
+    <tr><td><b>③ Display tables</b> (ColumnSpec)</td>
+      <td class="c a">◐<div class="small">4 ColumnSpec lists; face_metrics table still inline</div></td>
+      <td class="c b">✗<div class="small">6+ inline dataframes</div></td>
+      <td class="c b">✗</td>
+      <td class="small">none (convention only)</td></tr>
+    <tr><td><b>④ Metric strips</b> (MetricSpec)</td>
+      <td class="c b">✗<div class="small">8 components · ~34 calls</div></td>
+      <td class="c b">✗<div class="small">12+ files · ~63 calls</div></td>
+      <td class="c b">✗</td>
+      <td class="small">— (pattern doesn’t exist yet)</td></tr>
+    <tr><td><b>⑤ Canonical DB schema</b> (ORM source)</td>
+      <td class="c g" colspan="3" style="text-align:center">✓ shared — ORM is source of truth; DDL auto-derived; both apps write via the same RunExporter</td>
+      <td class="small">test_orm_in_sync · test_pandera · test_runrow_matches</td></tr>
+  </table>
+
+  <h2 style="border-color:var(--disp)">How the layers stack (and which registry governs each)</h2>
+  <div class="flow"><pre><span class="k-param">②  INPUT</span>     FCParams (ranges/defaults)  ─▶  UI_SPEC  ─▶  widget_factory  ─▶  st widgets
+            <span class="k-mut">one Pydantic model · 4 arch tests keep UI ⇄ params ⇄ FCConfig aligned   [v2 only]</span>
+                                   │
+                                   ▼  to_step_configs()
+<span class="k-repo">⑤  STORAGE</span>   ORM models (sim_bench/run_db/models/*)  ══ source of truth ══╗
+            <span class="k-mut">DDL auto-derived · Pandera validates on write · RunExporter = one writer facade</span>  ║
+                                   │                                               ║ test_orm_in_sync
+                                   ▼  RunStore / *Repository (typed reads)          ║ test_pandera
+<span class="k-repo">①  SERVICE</span>   face_cluster/views/*Service  (Streamlit-free, typed rows)      ║
+            <span class="k-mut">HistoryService · ClusterAnalysisService · OverviewService · QualityService …</span> ║
+                                   │                                               ║
+              ┌────────────────────┼───────────────────────┐                      ║
+              ▼                    ▼                       ▼                       ║
+<span class="k-disp">③  TABLES</span>      <span class="k-miss">④  METRIC STRIPS</span>        thumbnails / charts                  ║
+   ColumnSpec lists      <span class="k-miss">hand-written st.metric</span>     (gallery / overview)                ║
+   <span class="k-mut">render_run_table</span>        <span class="k-miss">NO registry ✗</span>                                            ║
+   <span class="k-mut">[History/Merged/Quality]</span>                                                          ╝
+</pre></div>
+
+  <h2 style="border-color:var(--miss)">Where ColumnSpec is used vs hardcoded</h2>
+  <table>
+    <tr><th>Uses the registry ✓</th><th>Hardcoded — should use it ✗</th></tr>
+    <tr>
+      <td class="g">
+        <code>RUN_COLUMNS</code>, <code>ACTION_COLUMNS</code> → History tab<br>
+        <code>_COLS</code> → Merged Clusters tab<br>
+        <code>_COLS</code> → Quality tab<br>
+        <span class="small">all via <code>render_run_table</code> / <code>rows_to_records</code></span>
+      </td>
+      <td class="b">
+        <code>face_metrics_tab.py</code> — inline 9-col dataframe<br>
+        <code>face_detail_panel.py</code> — 5 hand <code>st.metric</code><br>
+        <code>cluster_metrics / cluster_debug / run_detail / force_merge / overview / quality</code> tabs — metric strips<br>
+        <span class="small">Albumify <code>metrics.py</code> — 18-col table + ~63 metrics, 0 registry</span>
+      </td>
+    </tr>
+  </table>
+  <div class="note"><b>Your face-metrics question lands exactly here.</b> The fix isn’t a new framework — it’s (a) move <code>face_metrics_tab</code> onto a <code>ColumnSpec</code> list (incl. <code>area_pct</code>), and (b) add a tiny <code>MetricSpec</code> sibling so the metric <i>strips</i> are declarative too. Same rail as ①②③.</div>
+
+  <h2>Canonical schema — the faces table (26 cols)</h2>
+  <div class="flow"><pre><span class="k-repo">ORM model</span>  face.py  ─auto─▶  <span class="k-mut">DDL (_schema.py)</span>   ✓ in sync (alembic check)
+     │                       <span class="k-mut">Pandera (validators.py)</span> ✓ validated on write
+     ├─▶ <span class="k-disp">faces_writer</span> ✓ all 26 cols
+     ├─▶ <span class="k-param">FaceRecord</span> (types.py)        <span class="k-miss">✗ missing `scene_cluster_id` → load-crash risk</span>
+     ├─▶ <span class="k-disp">FaceRow</span> (views/_base)        <span class="k-miss">✗ no drift test (manual sync)</span>
+     └─▶ <span class="k-miss">result_db.py _SCHEMA</span>          <span class="k-miss">✗ hand-written, stale (no v5 ratio cols) — deprecated but live</span>
+</pre></div>
+
+  <h2 style="border-color:var(--bad)">Top gaps, ranked</h2>
+  <table>
+    <tr><th>#</th><th>Gap</th><th>Where</th><th>Impact</th><th>Sev</th></tr>
+    <tr><td>1</td><td><b>No metric-strip registry</b> (your face-metrics duplication)</td><td>both apps · ~97 hand <code>st.metric</code></td><td>change a metric → edit N files; area_% can’t be added once</td><td><span class="sev s-hi">HIGH</span></td></tr>
+    <tr><td>2</td><td><b>Albumify config hardcoded + name drift</b></td><td><code>pipeline_runner.py</code> (<code>config_det_conf</code> ≠ v2 <code>det_score_min</code>)</td><td>profiles not portable between apps; silent default drift</td><td><span class="sev s-hi">HIGH</span></td></tr>
+    <tr><td>3</td><td><b>face_metrics table inline</b> (not ColumnSpec)</td><td><code>face_metrics_tab.py</code></td><td>the one v2 table that bypasses the table registry</td><td><span class="sev s-md">MED</span></td></tr>
+    <tr><td>4</td><td><b>FaceRecord ⊉ faces columns</b> (<code>scene_cluster_id</code>)</td><td><code>types.py</code> vs ORM</td><td>Pydantic load crash if column is non-null; no drift test</td><td><span class="sev s-md">MED</span></td></tr>
+    <tr><td>5</td><td><b>result_db.py divergent schema</b></td><td><code>face_cluster/result_db.py</code></td><td>deprecated write path missing v5 cols; silent drift</td><td><span class="sev s-md">MED</span></td></tr>
+    <tr><td>6</td><td><b>Legacy app deprecated free-fns</b></td><td><code>app/face_clustering</code> history tab</td><td>spec-043 burn-in; not enforced for legacy</td><td><span class="sev s-lo">LOW</span></td></tr>
+  </table>
+
+  <h2 style="border-color:var(--good)">Direction (smallest change, biggest source-of-truth win)</h2>
+  <table>
+    <tr><th>Do</th><th>Reuses</th><th>Solves</th></tr>
+    <tr><td>Add <code>MetricSpec</code> + <code>render_metric_strip</code> to <code>views/_specs.py</code></td><td>the ColumnSpec idea</td><td>gap 1 — all metric strips declarative</td></tr>
+    <tr><td>Define <code>FACE_METRIC_COLUMNS</code> once (incl. <code>area_ratio</code>→“Area %”)</td><td><code>ColumnSpec</code></td><td>gaps 1+3 + your area-% ask, in one place</td></tr>
+    <tr><td>Point Face Analysis strip + Face Metrics table at that one list</td><td>existing renderers</td><td>single source of truth for face display</td></tr>
+    <tr><td>Add 3 drift tests (FaceRecord⊇faces, FaceRow⊇FaceRecord, Pandera⊇ORM)</td><td>existing arch-test style</td><td>gaps 4+5 caught automatically</td></tr>
+  </table>
+
+  <footer>Sources: 4 parallel code audits (DB access · display registry · input registry · canonical schema). All file:line evidence in the audit transcript.
+  v2 is the gold standard for ①②; ③ is half-adopted; ④ is the universal gap. Albumify trails on ②③④ but shares the canonical ⑤ write path.</footer>
+</body>
+</html>

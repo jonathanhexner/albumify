@@ -2,6 +2,62 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-06-05 [FEATURE] spec-077 — per-image metrics table (controllable columns) [#5]
+**Files**: NEW `face_cluster/views/image_metrics.py` (`ImageMetricsService` + `IMAGE_METRIC_COLUMNS` + `DEFAULT_IMAGE_COLUMNS`); `sim_bench/run_db/store.py` (`ImageRow` + `RunStore.list_images()`); NEW `app/face_clustering_v2/tabs/images_tab.py` (76 LOC) + wired into `main.py` as the 11th tab "Images"; NEW `tests/face_clustering/views/test_image_metrics.py`.
+**Reason**: user feedback #5 — no per-image view; images carry iqa/ava/sharpness/composite + `filter_passed` + n_faces. New tab with a column multiselect (ColumnSpec-driven).
+**Verification**: 122 images load on `6437d335` (n_faces + gate real; quality scores None for face-only runs, columns opt-in); 2 tests + AppTest 11 tabs 0 exc. REVIEW.md — no High.
+
+### 2026-06-05 [FEATURE] spec-076 — Face Metrics gate/reason column [#4b]
+**Files**: `face_cluster/views/face_metrics.py` (`FaceMetricRow.rejection_reason` + populate); `app/face_clustering_v2/tabs/face_metrics_tab.py` ("reason" column).
+**Reason**: user feedback #4 — surface why a face was held out (154/340 reference faces = `top_k_per_image`). Drill-in (row-click → Face Analysis bbox+pose) already works (spec-070); thumbnail-click isn't natively possible in Streamlit.
+**Verification**: registry tests updated, 6 green; AppTest 0 exc; budapest Scenario D green.
+
+### 2026-06-05 [FEATURE] spec-075 — nearest cluster-pairs view (what was almost merged) [#1]
+**Files**: `face_cluster/views/cluster_analysis.py` (`NearestPairRow` + `NEAREST_PAIR_COLUMNS` + `nearest_cluster_pairs()` + shared `_exemplar_matrices()`); `app/face_clustering_v2/tabs/merged_clusters_tab.py` (`_render_nearest_pairs` expander, shown above the filter).
+**Reason**: user feedback #1 — Merged Clusters only showed pairs that crossed the candidate threshold (3, all rejected). Now: the N closest pairs ranked by exemplar distance, each with both sizes + the merge verdict (why-not-merged) when evaluated — so under-merges are visible even when 0 pairs match the filter.
+**Verification**: real run → 3 evaluated pairs show full rejection detail (support 0<2, margin gap, competitor) + closest non-evaluated pairs; 1 synthetic test; AppTest 0 exc; budapest Scenario E green.
+
+### 2026-06-05 [FEATURE] spec-074 — all-clusters summary table (restores V1 overview)
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/views/cluster_analysis.py` — `ClusterSummaryRow` + `CLUSTER_SUMMARY_COLUMNS` + `ClusterAnalysisService.cluster_summary()` (per-cluster size/diameter/spread + nearest other cluster id/distance/**size** + merge-candidate flag; one-pass exemplar-distance compute).
+- NEW `app/face_clustering_v2/components/cluster_summary_table.py` — sortable `st.dataframe` from the registry; click a row → cluster_id.
+- UPDATED `app/face_clustering_v2/tabs/cluster_analysis_tab.py` — summary above the picker, cached per run dir, click drills in (reuses the spec-066 `_goto_cluster` nav).
+- NEW `tests/face_clustering/views/test_cluster_summary.py` (4).
+**Reason**: user manual-test feedback — V1 had an all-clusters overview (faces/diameter/distance-to-next per cluster); v2 only had per-cluster detail. The Merge? column also surfaces under-merge candidates (issue #1). `nearest_cluster_*` on `ClusterRow` are placeholders, so the summary computes them across all clusters in one pass.
+**Verification**: 4 synthetic tests; real run `6437d335` → 15 clusters with correct nearest (C1↔C7 0.418, sizes matched); AppTest 0 exceptions, summary renders + sortable (screenshot); budapest Scenario B green (13.8s). REVIEW.md — no High findings.
+
+### 2026-06-05 [BUGFIX] RunStore dropped area_ratio/bbox-ratios — Area % empty, area-% gate inert on reload
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `sim_bench/run_db/store.py` — `_face_record_from_orm` now copies `area_ratio` + `bbox_{x,y,w,h}_ratio` from the ORM row into `FaceRecord` (they were stored in the faces table but never read back).
+**Reason**: user reported Area % empty in Face Metrics. The faces table had `area_ratio` for all 340 faces, but the reader dropped it → `FaceRecord.area_ratio=None` → Area % blank AND the spec-073 area-% gate had no data when a run was reloaded. The FaceRecord↔faces drift the registry audit flagged (no enforcement test).
+**Verification**: `FaceMetricsService.list_faces()` on `6437d335` → area_ratio 340/340 non-null, area_pct e.g. 2.47%; 34-test regression (pandera/store/registry/gate) green.
+
+### 2026-06-05 [FEATURE] spec-073 — area-% quality gate (resolution-independent face-size filter)
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/fc_params.py` — `min_face_area_pct: Optional[float]` (0–100, None=off).
+- UPDATED `face_cluster/config.py` — `PipelineConfig.min_face_area_pct` (FCParams↔FCConfig parity).
+- UPDATED `app/face_clustering_v2/ui_spec.py` — `min_face_area_pct` in the Quality group → auto-renders as a Run-tab knob (input registry).
+- UPDATED `face_cluster/quality.py` — `_add_area_pct_gate` (`area_ratio*100 ≥ thr`; skipped when None; permissive when area_ratio missing); wired into both verdict paths + rejection priority.
+- NEW `tests/face_clustering/test_area_pct_gate.py` (4).
+**Reason**: the only face-size gate was `min_face_area` in pixels (resolution-dependent). Adds the resolution-independent % filter — the input-side complement to spec-072's Area % display metric. Uses `area_ratio`, already set at detection (`insightface_detect_faces.py:187`). No new plumbing: `to_step_configs()`/`to_fc_config()` use `model_dump()`.
+**Verification**: 4 gate units (reject below / pass above / off when None / permissive when area_ratio None) + parity + ui_spec + config_parity arch tests = 18 passed; AppTest 0 exceptions, `v2_min_face_area_pct` widget present in the Run tab; default None → flows None to the step (budapest baseline inert). REVIEW.md — no High findings.
+
+### 2026-06-05 [FEATURE] spec-072 — face-metric display registry (single source of truth) + Area %
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/views/_specs.py` — `ColumnSpec` gains optional `help` (non-breaking).
+- NEW `app/face_clustering_v2/components/metric_strip.py` — `render_metric_strip(obj, columns)`: renders a `ColumnSpec` list as `st.metric` widgets; missing/None → "—".
+- UPDATED `face_cluster/views/face_metrics.py` — NEW `FACE_METRIC_COLUMNS` (blur / area px / **area %** / det_score / yaw / pitch / roll); `FaceMetricRow` gains `area_ratio` + derived `area_pct`.
+- UPDATED `face_cluster/views/face_view.py` — `area_ratio`/`det_score` fields + canonical-name props (`blur`/`yaw`/`pitch`/`roll`/`area_pct`) so one registry reads both row types.
+- UPDATED `app/face_clustering_v2/components/face_detail_panel.py` — 5 hardcoded `st.metric` → `render_metric_strip(view, FACE_METRIC_COLUMNS)`.
+- UPDATED `app/face_clustering_v2/tabs/face_metrics_tab.py` — inline metric dict → `{c.label: c.read(r) for c in FACE_METRIC_COLUMNS}` (raw numeric, stays sortable).
+- NEW `tests/face_clustering/views/test_face_metric_registry.py` (6).
+**Reason**: Face metrics were declared in 3+ places (DB faces table, Face Analysis strip, Face Metrics table), each hardcoded — registry-audit gap ③④. Now declared ONCE; add a metric in one line and it appears in both the strip and the table. Also adds the user-requested **Area %** (derived from the already-stored `area_ratio`). Reused `ColumnSpec` rather than a near-duplicate `MetricSpec`.
+**Verification**: 6 unit tests green (labels, area_pct derive=5.2% from 0.052, raw-numeric sorting, None→"—", zero-kept, help); AppTest all tabs 0 exceptions; "Area %" visible in the Face Analysis strip (screenshot); budapest Scenario D (Face Analysis) green (21s). REVIEW.md — no High findings. See `specs/072-face-metric-registry/`.
+
 ### 2026-06-05 [TEST] spec-071 — Playwright browser test for the Merged Clusters detail panel
 **Branch**: `unification/spec-040`
 **Files**:

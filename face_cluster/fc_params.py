@@ -87,6 +87,11 @@ class FCParams(BaseModel):
         None, ge=0,
         description="Minimum face area in pixels. None disables the gate.",
     )
+    min_face_area_pct: Optional[float] = Field(
+        None, ge=0.0, le=100.0,
+        description="Minimum face area as %% of the image (resolution-independent). "
+                    "None disables the gate. Complements min_face_area (pixels).",
+    )
     require_pose: bool = Field(
         False,
         description="If on, faces without pose data go to holdout.",

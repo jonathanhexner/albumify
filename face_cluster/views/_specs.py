@@ -40,11 +40,15 @@ class ColumnSpec:
         formatter: optional ``Callable[[Any], str]`` that turns the
             attribute value into a display string. Default is ``str()``;
             ``None`` values render as empty string.
+        help: optional tooltip text. Ignored by table renderers; used by
+            ``render_metric_strip`` when the same spec drives a metric
+            strip (spec-072).
     """
     field: str
     label: str
     fallback_fields: Tuple[str, ...] = ()
     formatter: Optional[Callable[[Any], str]] = None
+    help: Optional[str] = None
 
     def read(self, row: Any) -> Any:
         """Return the raw value for this column from a row object.

@@ -8,12 +8,15 @@ from dataclasses import asdict
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
+import pandas as pd
 import streamlit as st
+from app.face_clustering_v2._run_context import cached_cluster_service
 from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
 from app.face_clustering_v2.components.cluster_pair_crops import render_cluster_pair_crops
 from app.face_clustering_v2.components.merge_gate_badges import render_merge_gate_badges
 from app.face_clustering_v2.components.run_table import render_run_table
 from face_cluster.views._specs import ColumnSpec
+from face_cluster.views.cluster_analysis import NEAREST_PAIR_COLUMNS
 from face_cluster.views.merged_clusters import (
     MergeDecisionCriteria, MergedClustersService,
 )
@@ -47,6 +50,11 @@ def render_merged_clusters_tab() -> None:
         return
     s = service.summary()
     st.caption(f"{s.n_merged} merged | {s.n_rejected} rejected | top reject gate: {s.top_rejection_gate or '-'}")
+
+    # spec-075: the N closest cluster pairs (what was *almost* merged + why),
+    # shown even when zero pairs crossed the candidate threshold. Cached per run.
+    _render_nearest_pairs(run_dir)
+
     choice = st.selectbox("Show", list(_FILTERS), key="v2_mc_filter")
     rows = service.list_merge_decisions(MergeDecisionCriteria(actually_merged=_FILTERS[choice]))
     tab_done("merged_clusters", n_rows=len(rows), filter=choice)
@@ -65,6 +73,26 @@ def render_merged_clusters_tab() -> None:
     render_merge_gate_badges(service.gate_badges(row))
     st.caption(f"exemplar_dist={row.exemplar_dist:.3f} | threshold={row.threshold_used:.3f} | support={row.support}/{row.required_support} | post_diameter={row.post_diameter:.3f}")
     render_cluster_pair_crops(service.pair_faces(row))
+
+
+def _render_nearest_pairs(run_dir: Path) -> None:
+    """spec-075: the N closest cluster pairs + their merge verdict, sortable."""
+    ca = cached_cluster_service(run_dir, cache_prefix="_mc_ca_service")
+    if ca is None:
+        return
+    pk = f"_nearest_pairs::{run_dir}"
+    if pk not in st.session_state:
+        st.session_state[pk] = ca.nearest_cluster_pairs(20)
+    pairs = st.session_state[pk]
+    with st.expander(f"Nearest cluster pairs (closest {len(pairs)}) — what was almost merged",
+                     expanded=True):
+        if pairs:
+            st.dataframe(
+                pd.DataFrame([{c.label: c.read(p) for c in NEAREST_PAIR_COLUMNS} for p in pairs]),
+                hide_index=True, width="stretch",
+            )
+        else:
+            st.caption("Need >= 2 clusters to compute pairs.")
 
 
 def _resolve_run_dir() -> Optional[Path]:

@@ -17,7 +17,7 @@ import pandas as pd
 import streamlit as st
 
 from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
-from face_cluster.views.face_metrics import FaceMetricsService
+from face_cluster.views.face_metrics import FACE_METRIC_COLUMNS, FaceMetricsService
 from sim_bench.db.face_clustering.cluster_analysis_repo import (
     ClusterAnalysisRepoConfig,
     ClusterAnalysisRepository,
@@ -66,16 +66,18 @@ def render_face_metrics_tab() -> None:
         "Click a column header to sort. Pose is blank until pose computation "
         "is enabled (SIGHTING-093)."
     )
+    # spec-072: metric columns come from the shared FACE_METRIC_COLUMNS registry
+    # (one source of truth, same list the Face Analysis strip uses). Raw numeric
+    # values via ``spec.read`` keep the columns sortable; the structural columns
+    # (thumbnail / id / status / cluster) stay tab-specific.
     df = pd.DataFrame([
         {
             "face": _thumb_uri(r.crop_path),
             "id": r.face_id,
             "status": r.status,
             "cluster": r.cluster_id,
-            "blur": round(r.blur, 2),
-            "area_px": round(r.area, 0),
-            "det_score": None if r.det_score is None else round(r.det_score, 3),
-            "yaw": r.yaw, "pitch": r.pitch, "roll": r.roll,
+            **{c.label: c.read(r) for c in FACE_METRIC_COLUMNS},
+            "reason": r.rejection_reason or "",   # spec-076: why held out (gate)
         }
         for r in shown
     ])

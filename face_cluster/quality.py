@@ -357,6 +357,7 @@ class QualityGater:
         self._add_blur_gate(face, gates)
         self._add_pose_gates(face, gates)
         self._add_area_gate(face, gates)
+        self._add_area_pct_gate(face, gates)
         verdict = QualityVerdict(gates=gates, rejection_reason="top_k_per_image")
         face.quality_verdict = verdict
         face.rejection_reason = "top_k_per_image"
@@ -369,9 +370,10 @@ class QualityGater:
         self._add_blur_gate(face, gates)
         self._add_pose_gates(face, gates)
         self._add_area_gate(face, gates)
+        self._add_area_pct_gate(face, gates)
 
         # Priority order for rejection_reason (det_score first — most fundamental)
-        _priority = ("det_score", "blur", "pose_yaw", "pose_pitch", "area")
+        _priority = ("det_score", "blur", "pose_yaw", "pose_pitch", "area", "area_pct")
         rejection_reason = next(
             (name for name in _priority if name in gates and not gates[name].passed),
             None,
@@ -431,3 +433,20 @@ class QualityGater:
             threshold=threshold,
             passed=face.area >= threshold,
         )
+
+    def _add_area_pct_gate(self, face: FaceRecord, gates: Dict[str, GateResult]) -> None:
+        """Gate on face bbox area as a % of the image (spec-073).
+
+        Resolution-independent complement to the pixel ``area`` gate. Skipped
+        when ``min_face_area_pct`` is None (disabled). Permissive (passes) when
+        the face has no ``area_ratio`` — don't penalise legacy runs that
+        predate the detection-time ratio."""
+        thr = getattr(self.config, "min_face_area_pct", None)
+        if thr is None:
+            return
+        ratio = getattr(face, "area_ratio", None)
+        if ratio is None:
+            gates["area_pct"] = GateResult(value=-1.0, threshold=thr, passed=True)
+        else:
+            pct = float(ratio) * 100.0
+            gates["area_pct"] = GateResult(value=pct, threshold=thr, passed=pct >= thr)

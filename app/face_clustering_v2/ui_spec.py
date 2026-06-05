@@ -56,6 +56,7 @@ UI_SPEC: dict[str, FieldUI] = {
     "blur_min":                 FieldUI("slider",       "blur_min",                  "quality", 10, step=5.0),
     "max_faces_per_image_core": FieldUI("slider",       "max_faces_per_image_core",  "quality", 20, step=1),
     "min_face_area":            FieldUI("number_input", "min_face_area px (0=off)",  "quality", 30, step=500, zero_is_none=True),
+    "min_face_area_pct":        FieldUI("number_input", "min_face_area %% (0=off)",  "quality", 35, step=0.5, zero_is_none=True),
     "det_score_min":            FieldUI("number_input", "det_score_min (0=off)",     "quality", 40, step=0.05, zero_is_none=True),
     "require_pose":             FieldUI("checkbox",     "require_pose",              "quality", 60),
     "yaw_max":                  FieldUI("number_input", "yaw_max °",                 "quality", 70, step=1.0),

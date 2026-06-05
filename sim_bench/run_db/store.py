@@ -66,6 +66,20 @@ class FilterDecisionRow:
     measured: Dict
 
 
+@dataclass(frozen=True, slots=True)
+class ImageRow:
+    """spec-077: one row of the ``images`` table (per-image scores + gate)."""
+    image_path: str
+    n_faces: int
+    width_px: Optional[int]
+    height_px: Optional[int]
+    iqa_score: Optional[float]
+    ava_score: Optional[float]
+    sharpness_score: Optional[float]
+    composite_score: Optional[float]
+    filter_passed: bool
+
+
 @dataclass
 class RunMetadata:
     """Run-level facts mirroring the ``run_metadata`` table."""
@@ -113,6 +127,14 @@ def _face_record_from_orm(r: Face, embedding: Optional[np.ndarray]) -> FaceRecor
         det_score=r.det_score,
         rejection_reason=r.rejection_reason,
         crop_path=r.crop_path if r.crop_path else None,
+        # spec-073/072 fix: the faces table stores these v5 ratio columns but
+        # the reader dropped them, so FaceRecord.area_ratio was always None —
+        # Area % rendered empty and the area-% gate had no data on reload.
+        area_ratio=r.area_ratio,
+        bbox_x_ratio=r.bbox_x_ratio,
+        bbox_y_ratio=r.bbox_y_ratio,
+        bbox_w_ratio=r.bbox_w_ratio,
+        bbox_h_ratio=r.bbox_h_ratio,
     )
 
 
@@ -365,6 +387,26 @@ class RunStore:
             faces=faces,
             image_filter_decisions=image_decisions,
         )
+
+    def list_images(self) -> List[ImageRow]:
+        """spec-077: one :class:`ImageRow` per row of the ``images`` table."""
+        from sim_bench.run_db.models import Image
+        with self._sessionmaker() as session:
+            rows = session.execute(select(Image).order_by(Image.image_path)).scalars().all()
+        return [
+            ImageRow(
+                image_path=r.image_path,
+                n_faces=int(r.n_faces or 0),
+                width_px=r.width_px,
+                height_px=r.height_px,
+                iqa_score=r.iqa_score,
+                ava_score=r.ava_score,
+                sharpness_score=r.sharpness_score,
+                composite_score=r.composite_score,
+                filter_passed=bool(r.filter_passed),
+            )
+            for r in rows
+        ]
 
     def filter_decisions(self) -> List[FilterDecisionRow]:
         """spec-032 filter_decisions table rows. Empty list for pre-spec-032 runs."""

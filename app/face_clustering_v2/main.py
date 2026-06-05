@@ -39,6 +39,7 @@ from app.face_clustering_v2.tabs.face_analysis_tab import render_face_analysis_t
 from app.face_clustering_v2.tabs.face_metrics_tab import render_face_metrics_tab
 from app.face_clustering_v2.tabs.gallery_tab import render_gallery_tab
 from app.face_clustering_v2.tabs.history_tab import render_history_tab
+from app.face_clustering_v2.tabs.images_tab import render_images_tab
 from app.face_clustering_v2.tabs.merged_clusters_tab import render_merged_clusters_tab
 from app.face_clustering_v2.tabs.overview_tab import render_overview_tab
 from app.face_clustering_v2.tabs.quality_tab import render_quality_tab
@@ -102,9 +103,9 @@ st.caption(
     "`app/face_clustering/` stays in place during the strangler-fig migration."
 )
 
-(tab_run, tab_analysis, tab_face, tab_metrics, tab_gallery, tab_merged,
+(tab_run, tab_analysis, tab_face, tab_metrics, tab_images, tab_gallery, tab_merged,
  tab_quality, tab_recluster, tab_overview, tab_history) = st.tabs(
-    ["Run", "Cluster Analysis", "Face Analysis", "Face Metrics", "Gallery",
+    ["Run", "Cluster Analysis", "Face Analysis", "Face Metrics", "Images", "Gallery",
      "Merged Clusters", "Quality", "Recluster", "Overview", "History"]
 )
 
@@ -116,6 +117,8 @@ with tab_face:
     render_face_analysis_tab()
 with tab_metrics:
     render_face_metrics_tab()
+with tab_images:
+    render_images_tab()
 with tab_gallery:
     render_gallery_tab()
 with tab_merged:
