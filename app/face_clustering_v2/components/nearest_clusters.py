@@ -27,5 +27,8 @@ def render_nearest_clusters(view: ClusterView) -> None:
             cols[3].text(f"p10={row.p10_cross_dist:.3f}")
             cols[4].text("MERGE" if row.merge_candidate else "—")
             if cols[5].button("Go to", key=f"nc_goto_{row.cluster_id}"):
+                # One-shot nav request (see cluster_picker): writing the widget
+                # key is the only thing that actually moves a keyed selectbox.
+                st.session_state["_goto_cluster"] = row.cluster_id
                 st.session_state["selected_cluster"] = row.cluster_id
                 st.rerun()

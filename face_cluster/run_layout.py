@@ -40,4 +40,19 @@ def allocate_run_dir(base_dir: Path, album_slug: str) -> tuple[Path, str]:
     return run_dir, run_id
 
 
-__all__ = ["allocate_run_dir"]
+def crop_path(run_dir: Path, face_id: int) -> Path:
+    """Path to a face's aligned crop within a run dir.
+
+    The v5 RunExporter writes crops as ``crops/face_{id:04d}_aligned.jpg``.
+    This is the single source of truth for that convention — both the
+    Cluster Analysis face grid and the Gallery strip resolve crops through
+    here (spec-066 D3; the suffix was previously hardcoded in two app-layer
+    components, a drift risk if the writer ever renamed crops).
+
+    Returns the path whether or not the file exists; callers that render
+    must guard with ``.is_file()`` (a crop can be missing for a face the
+    detector found but the aligner skipped)."""
+    return Path(run_dir) / "crops" / f"face_{int(face_id):04d}_aligned.jpg"
+
+
+__all__ = ["allocate_run_dir", "crop_path"]

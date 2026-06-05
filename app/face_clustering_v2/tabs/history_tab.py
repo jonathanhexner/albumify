@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app.face_clustering_v2._telemetry import tab_done, tab_start
 from app.face_clustering_v2.components.actions_table import render_actions_table
 from app.face_clustering_v2.components.load_button import render_load_button
 from app.face_clustering_v2.components.run_detail import render_run_detail
@@ -40,10 +41,12 @@ def render_history_tab() -> None:
     a comment.
     """
     st.header("History")
+    tab_start("history", None)
     service = HistoryService()
 
     query = render_filter_bar(service.list_albums())
     runs = service.list_runs(query)
+    tab_done("history", n_runs=len(runs))
 
     st.subheader(f"Pipeline Runs ({len(runs)})")
     selected_id = render_run_table(runs, RUN_COLUMNS, key="hist_run_table")

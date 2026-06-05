@@ -1,79 +1,53 @@
 """Scenario E — Merged Clusters tab viewer over the reference run.
 
-Loads the reference run via the History tab and opens the Merged
-Clusters tab. The reference run's merger ran at least one iteration,
-so ``merge_decisions`` is populated.
+Loads the reference run via the query-param seed and opens the Merged
+Clusters tab. The reference run's merger ran at least one iteration, so
+``merge_decisions`` is populated (telemetry confirms n_rows=3).
 
 Click sequence (per spec-065 §"E2E contract"):
-  1. History tab → click row containing `6437d335` → "Load into analysis tabs"
+  1. Reference run loaded via the ``page_with_reference_run_loaded`` fixture
+     (spec-067: query-param seed replaces the canvas dataframe row-pick).
   2. Merged Clusters tab
 
-Assertions:
+Assertion (browser layer, spec-067 §"Test coverage strategy per tab"):
   1. Tab visible (h2 "Merged Clusters")
-  2. >= EXPECTED_MERGE_DECISIONS_MIN_ROWS rows in the table
-  3. Clicking the first row reveals a detail panel (st.json block)
-  4. Detail panel exposes the canonical fields:
-     cluster_a / cluster_b / actually_merged / exemplar_dist / support
+  2. The merge_decisions table *container* renders. ``merged_clusters_tab``
+     returns ``st.info`` BEFORE ``render_run_table`` when the merge log is
+     empty, so a present-and-visible ``stDataFrame`` container proves >= 1
+     row reached the UI.
+
+Why not assert on rows/cells/detail-panel here: ``render_run_table`` is a
+canvas ``st.dataframe`` (glide-data-grid) — the cells are painted on
+``<canvas>`` and are NOT Playwright-addressable (the same constraint as the
+History picker, SIGHTING-091). Row count + field correctness
+(cluster_a / cluster_b / actually_merged / exemplar_dist / support) are
+covered at the service layer by
+``tests/face_clustering/views/test_merged_clusters_service_synthetic.py``,
+including ``test_real_fixture_list_merge_decisions`` against the budapest run.
 
 What this catches:
-  - Repository → Service → Tab wiring for merge_decisions
-  - Tab forgetting to render the detail panel on row select
-  - Schema drift on MergeDecisionRow that breaks asdict
+  - Repository -> Service -> Tab wiring producing an empty table
+    (st.info fallback) when the merge log is non-empty.
+  - The tab failing to render at all.
 """
 from __future__ import annotations
 
 import pytest
 
-from tests.face_clustering.e2e_budapest.conftest import (
-    EXPECTED_MERGE_DECISIONS_MIN_ROWS,
-    REFERENCE_RUN_DIR,
-    REFERENCE_RUN_ID,
-)
-
 pytestmark = pytest.mark.budapest
 
-# Fields that must surface in the detail panel JSON.
-_REQUIRED_DETAIL_FIELDS = (
-    "cluster_a", "cluster_b", "actually_merged", "exemplar_dist", "support",
-)
 
+def test_scenario_e_merged_clusters_viewer(page_with_reference_run_loaded):
+    page = page_with_reference_run_loaded
 
-def test_scenario_e_merged_clusters_viewer(page):
-    if not REFERENCE_RUN_DIR.exists():
-        pytest.skip(f"Reference run missing: {REFERENCE_RUN_DIR}")
-
-    # 1. History → load reference run.
-    page.get_by_role("tab", name="History").click()
-    page.wait_for_selector("h2:has-text('History')", state="visible")
-    short = REFERENCE_RUN_ID[:8]
-    page.get_by_role("gridcell", name=short).first.click(timeout=15_000)
-    page.get_by_role("button", name="Load into analysis tabs").click()
-    page.wait_for_selector("text=/Loaded/i", state="visible", timeout=15_000)
-
+    # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Merged Clusters tab.
     page.get_by_role("tab", name="Merged Clusters").click()
     page.wait_for_selector("h2:has-text('Merged Clusters')", state="visible", timeout=30_000)
 
-    # 3. Show "all" rows (default selectbox value) and verify the table populates.
-    # render_run_table places its dataframe behind data-testid=stDataFrame; if it
-    # short-circuited with st.info we'd see no gridcells.
-    page.wait_for_selector("[role='gridcell']", state="visible", timeout=15_000)
-    n_cells = page.locator("[role='gridcell']").count()
-    assert n_cells >= EXPECTED_MERGE_DECISIONS_MIN_ROWS, (
-        f"Merged Clusters table rendered {n_cells} cells; expected "
-        f">= {EXPECTED_MERGE_DECISIONS_MIN_ROWS}. Either the merge log is "
-        f"unexpectedly empty or render_run_table fell through to st.info."
-    )
-
-    # 4. Click first gridcell → detail panel opens (st.json block + subheader).
-    page.locator("[role='gridcell']").first.click()
-    page.wait_for_selector("text=/Pair \\(cluster_a=/", state="visible", timeout=10_000)
-
-    # 5. st.json renders the asdict() payload as a JSON tree; assert each
-    # canonical field label is present in the panel content.
-    body_text = page.locator("body").text_content() or ""
-    missing = [f for f in _REQUIRED_DETAIL_FIELDS if f not in body_text]
-    assert not missing, (
-        f"Detail panel missing expected fields: {missing}. "
-        f"Body snippet: {body_text[:500]!r}"
+    # 3. Table container present in the active tab. ``:visible`` scopes past the
+    # other tabs' stDataFrame containers (History etc.) which are in the DOM but
+    # hidden — Streamlit renders every tab body each run.
+    page.wait_for_selector(
+        "[data-testid='stDataFrame']:visible", state="visible", timeout=15_000
     )

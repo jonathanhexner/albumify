@@ -7,7 +7,8 @@ is written with the right parent_run_id and a cluster count within
 the expected band.
 
 Click sequence (per spec-063 §"E2E contract"):
-  1. History tab → click row containing `6437d335` → "Load into analysis tabs"
+  1. Reference run loaded via the ``page_with_reference_run_loaded`` fixture
+     (spec-067: query-param seed replaces the canvas dataframe row-pick).
   2. Recluster tab → leave default params → "Run recluster" → wait for spinner
 
 Assertions (per spec-063 §"E2E contract"):
@@ -36,7 +37,6 @@ import pytest
 
 from tests.face_clustering.e2e_budapest.conftest import (
     EXPECTED_RECLUSTER_BAND,
-    REFERENCE_RUN_DIR,
     REFERENCE_RUN_ID,
 )
 
@@ -47,23 +47,14 @@ def _runs_base() -> Path:
     return Path.home() / ".sim_bench" / "runs"
 
 
-def test_scenario_c_recluster_reference_run(page):
-    if not REFERENCE_RUN_DIR.exists():
-        pytest.skip(f"Reference run missing: {REFERENCE_RUN_DIR}")
+def test_scenario_c_recluster_reference_run(page_with_reference_run_loaded):
+    page = page_with_reference_run_loaded
 
     # Snapshot existing run dirs so we can identify the new one afterwards.
     runs_base = _runs_base()
     pre_existing = {p.name for p in runs_base.iterdir() if p.is_dir()} if runs_base.exists() else set()
 
-    # 1. History tab → load reference run.
-    page.get_by_role("tab", name="History").click()
-    page.wait_for_selector("h2:has-text('History')", state="visible")
-
-    short = REFERENCE_RUN_ID[:8]
-    page.get_by_role("gridcell", name=short).first.click(timeout=15_000)
-    page.get_by_role("button", name="Load into analysis tabs").click()
-    page.wait_for_selector("text=/Loaded/i", state="visible", timeout=15_000)
-
+    # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Recluster tab → leave defaults → Run recluster.
     page.get_by_role("tab", name="Recluster").click()
     page.wait_for_selector("h2:has-text('Recluster')", state="visible")

@@ -6,7 +6,8 @@ button (which writes ``selected_face_id`` to session_state), then opens
 the Face Analysis tab and verifies the per-face popup rendered.
 
 Click sequence (per spec-064 §"E2E contract"):
-  1. History tab → row containing `6437d335` → "Load into analysis tabs"
+  1. Reference run loaded via the ``page_with_reference_run_loaded`` fixture
+     (spec-067: query-param seed replaces the canvas dataframe row-pick).
   2. Cluster Analysis tab → wait for face_grid → click first thumbnail "Open"
   3. Face Analysis tab → wait for header
 
@@ -27,26 +28,13 @@ from __future__ import annotations
 
 import pytest
 
-from tests.face_clustering.e2e_budapest.conftest import (
-    REFERENCE_RUN_DIR,
-    REFERENCE_RUN_ID,
-)
-
 pytestmark = pytest.mark.budapest
 
 
-def test_scenario_d_face_analysis_drill_down(page):
-    if not REFERENCE_RUN_DIR.exists():
-        pytest.skip(f"Reference run missing: {REFERENCE_RUN_DIR}")
+def test_scenario_d_face_analysis_drill_down(page_with_reference_run_loaded):
+    page = page_with_reference_run_loaded
 
-    # 1. History → load reference run.
-    page.get_by_role("tab", name="History").click()
-    page.wait_for_selector("h2:has-text('History')", state="visible")
-    short = REFERENCE_RUN_ID[:8]
-    page.get_by_role("gridcell", name=short).first.click(timeout=15_000)
-    page.get_by_role("button", name="Load into analysis tabs").click()
-    page.wait_for_selector("text=/Loaded/i", state="visible", timeout=15_000)
-
+    # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Cluster Analysis → wait for face_grid to render an Open button.
     page.get_by_role("tab", name="Cluster Analysis").click()
     page.wait_for_selector("h2:has-text('Cluster Analysis')", state="visible")
@@ -70,7 +58,10 @@ def test_scenario_d_face_analysis_drill_down(page):
     assert has_chart or has_img, "Neither Plotly chart nor <img> rendered."
 
     # AC: Face id input echoes the selected id (number_input shows the value).
-    face_id_input = page.locator("input[type='number']").first
+    # Target by role+label, NOT input[type=number].first: Streamlit keeps every
+    # tab's body in the DOM, so .first would grab a hidden number_input from the
+    # Run/Cluster Analysis tab. The "Face id" spinbutton is the visible one.
+    face_id_input = page.get_by_role("spinbutton", name="Face id")
     face_id_input.wait_for(state="visible", timeout=10_000)
     val = face_id_input.input_value()
     assert val and val.strip().lstrip("-").isdigit(), (

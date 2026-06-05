@@ -9,6 +9,7 @@ import logging
 
 import streamlit as st
 
+from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
 from app.face_clustering_v2.components.run_picker import render_run_picker
 from app.face_clustering_v2.ui_spec import UI_SPEC, fields_by_group
 from app.face_clustering_v2.widget_factory import (
@@ -31,6 +32,7 @@ _KEY_PREFIX = "recluster_"  # namespace; Run tab uses the empty prefix
 def render_recluster_tab() -> None:
     """Render the Recluster tab. Writes ``current_run_dir`` on success."""
     st.header("Recluster")
+    tab_start("recluster", None)
     st.caption(
         "Re-cluster a prior run with new parameters. Producer steps "
         "(detect / align / embed) are skipped — only the 8-step clustering "
@@ -70,10 +72,13 @@ def render_recluster_tab() -> None:
             result = service.recluster(picked.output_dir, params)
     except Exception as exc:  # noqa: BLE001
         logger.exception("recluster failed for %s", picked.output_dir)
+        tab_skipped("recluster", "recluster_failed")
         st.error(f"Recluster failed: {exc}")
         return
 
     st.session_state["current_run_dir"] = str(result.snapshot_dir)
+    tab_done("recluster", n_clusters=result.n_clusters, n_faces=result.n_faces,
+             parent=picked.output_dir.name, snapshot=result.snapshot_dir.name)
     st.success(
         f"Recluster complete — {result.n_clusters} clusters from "
         f"{result.n_faces} faces. New run dir: {result.snapshot_dir.name}"

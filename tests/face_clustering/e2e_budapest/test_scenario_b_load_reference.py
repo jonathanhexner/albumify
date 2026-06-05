@@ -2,16 +2,14 @@
 
 The reference run (`6437d335de914755bc3edb825c9591c0`) is the ground truth
 the v2 stack must be able to display. This scenario doesn't run the
-pipeline — it loads the existing run via History and inspects what the
-Cluster Analysis tab renders.
+pipeline — it loads the existing run and inspects what the Cluster
+Analysis tab renders.
 
 Click sequence:
-  1. Open the "History" tab.
-  2. Find and click the row whose run-id cell contains the reference run's
-     first 8 chars (`6437d335`).
-  3. Click "Load into analysis tabs"; wait for success toast.
-  4. Open the "Cluster Analysis" tab.
-  5. Wait for the metric strip (`[data-testid='stMetric']`) to appear.
+  1. Reference run loaded via the ``page_with_reference_run_loaded`` fixture
+     (spec-067: query-param seed replaces the canvas dataframe row-pick).
+  2. Open the "Cluster Analysis" tab.
+  3. Wait for the metric strip (`[data-testid='stMetric']`) to appear.
 
 Assertions (verified 2026-05-30 from the reference DB):
   - ≥ 5 metric widgets render (Faces / Diameter / Avg / Exemplars / Outliers)
@@ -24,12 +22,18 @@ Assertions (verified 2026-05-30 from the reference DB):
 What this catches:
   - SIGHTING-078 (RunStore crash on no-op-merge runs) — page wouldn't load
   - SIGHTING-079 (UI stuck on "Analysing cluster…") — metric strip empty
-  - SIGHTING-080 (History rejects v2 runs) — Load Run button disabled
-  - SIGHTING-089 (History panel blank for v2 runs) — Load Run still fires
-    but the loaded state is sparse (covered indirectly via metric render)
   - Today's face-grid bug — captions only, no `<img>` elements
-  - Any future regression that makes the user load a known-good run and
-    see nothing
+  - Any future regression that makes a known-good run render nothing
+
+spec-067 note: this scenario used to click the History row + "Load into
+analysis tabs" button, which also regression-guarded SIGHTING-080 (Load
+button disabled for v2 runs) and SIGHTING-089 (History panel blank). The
+canvas dataframe row-pick is not Playwright-addressable, so the load step
+is now seeded via query param. The Load-button + History-panel regression
+guard moved to ``tests/face_clustering/test_v2_app_smoke.py::
+test_history_tab_recognizes_v2_run_as_loadable`` (AppTest, same service
+path) + ``HistoryService`` unit tests. Everything below (Cluster Analysis
+render over a real seeded run) is unchanged.
 
 See ``README.md`` for the full functionality matrix.
 """
@@ -41,7 +45,6 @@ import pytest
 
 from tests.face_clustering.e2e_budapest.conftest import (
     EXPECTED_BIGGEST_CLUSTER_SIZE, EXPECTED_CLUSTER_0_SIZE,
-    REFERENCE_RUN_DIR, REFERENCE_RUN_ID,
 )
 
 pytestmark = pytest.mark.budapest
@@ -52,27 +55,15 @@ pytestmark = pytest.mark.budapest
 EXPECTED_CLUSTER_SIZES = [35, 24, 14, 7, 4, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2]
 
 
-def test_scenario_b_load_reference_run_and_see_clusters(page):
-    if not REFERENCE_RUN_DIR.exists():
-        pytest.skip(f"Reference run missing: {REFERENCE_RUN_DIR}")
+def test_scenario_b_load_reference_run_and_see_clusters(page_with_reference_run_loaded):
+    page = page_with_reference_run_loaded
 
-    # 1. History tab
-    page.get_by_role("tab", name="History").click()
-    page.wait_for_selector("h2:has-text('History')", state="visible")
-
-    # 2. Find + click the reference run row
-    short = REFERENCE_RUN_ID[:8]
-    page.get_by_role("gridcell", name=short).first.click(timeout=15_000)
-
-    # 3. Load Run
-    page.get_by_role("button", name="Load into analysis tabs").click()
-    page.wait_for_selector("text=/Loaded/i", state="visible", timeout=15_000)
-
-    # 4. Cluster Analysis tab
+    # 1. Reference run already seeded by the fixture (spec-067).
+    # 2. Cluster Analysis tab
     page.get_by_role("tab", name="Cluster Analysis").click()
     page.wait_for_selector("h2:has-text('Cluster Analysis')", state="visible")
 
-    # 5. Metric strip
+    # 3. Metric strip
     page.wait_for_selector("[data-testid='stMetric']", state="visible", timeout=30_000)
     n_metrics = page.locator("[data-testid='stMetric']").count()
     assert n_metrics >= 5, (

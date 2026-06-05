@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
 import streamlit as st
+from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
 from app.face_clustering_v2.components.quality_bar_chart import render_quality_bar_chart
 from app.face_clustering_v2.components.run_table import render_run_table
 from face_cluster.views._specs import ColumnSpec
@@ -30,12 +31,17 @@ def render_quality_tab() -> None:
     st.header("Quality")
     run_dir = _resolve_run_dir()
     if run_dir is None:
+        tab_skipped("quality", "no_run_loaded")
         st.info("No run loaded. Open a run from the History tab first.")
         return
+    tab_start("quality", run_dir)
     service = _get_or_build_service(run_dir)
     if service is None:
+        tab_skipped("quality", "repo_failed")
         return
     summary = service.summary()
+    tab_done("quality", n_items=summary.n_items, n_decisions=summary.n_decisions,
+             n_rejected=summary.n_rejected)
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Items", summary.n_items)
     c2.metric("Decisions", summary.n_decisions)

@@ -22,6 +22,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
 from app.face_clustering_v2._profile_bar import render_profile_bar
 from app.face_clustering_v2.pipeline import run_v2_pipeline
 from app.face_clustering_v2.widget_factory import (
@@ -144,6 +145,7 @@ def render_run_tab() -> None:
             return
         st.session_state.v2_last_run_dir = str(run_dir)
         st.session_state.v2_last_run_id = run_id
+        tab_start("run", run_dir)
 
         params = build_params_from_state()
         if params is None:
@@ -166,11 +168,14 @@ def render_run_tab() -> None:
                 run_id=run_id,
                 album=album.strip(),
                 params=params,
+                profile=st.session_state.get("v2_profile_last_loaded"),
                 progress_cb=_cb,
             )
 
         progress.progress(1.0)
         if result.success:
+            tab_done("run", n_clusters=result.n_clusters, n_faces=result.n_faces,
+                     n_images=result.n_images, n_noise=result.n_noise)
             st.success(
                 f"Run complete — {result.n_clusters} clusters from {result.n_faces} "
                 f"faces across {result.n_images} images "
@@ -178,4 +183,5 @@ def render_run_tab() -> None:
             )
             st.session_state.v2_last_result = result
         else:
+            tab_skipped("run", "pipeline_failed")
             st.error(f"Run failed: {result.error_message}")

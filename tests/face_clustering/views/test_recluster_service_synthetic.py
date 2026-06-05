@@ -149,6 +149,55 @@ def test_recluster_parent_run_id_matches_input(
     assert payload.get("parent_run_id") == prior_run_dir.name
 
 
+# ---------------------------------------------------------------------------
+# Real-data endpoint test (spec-067 T13). Replaces the slow/flaky browser
+# Scenario C: reclusters the actual Budapest reference run headlessly and
+# asserts the two assertions that carry C's value — parent linkage + a
+# realistic cluster-count band. No Streamlit, no browser.
+# ---------------------------------------------------------------------------
+
+_REFERENCE_RUN_DIR = (
+    Path.home() / ".sim_bench" / "runs" / "6437d335de914755bc3edb825c9591c0"
+)
+# Band mirrors EXPECTED_RECLUSTER_BAND in e2e_budapest/conftest.py — keep in sync.
+_EXPECTED_RECLUSTER_BAND = (12, 18)
+
+
+_PROFILE_4_PATH = Path.home() / ".sim_bench" / "profiles_v2" / "profile_4.json"
+
+
+@pytest.mark.budapest
+def test_recluster_reference_run_lands_in_expected_band(
+    service: ReclusterService, runs_base: Path,
+) -> None:
+    """Endpoint equivalent of browser Scenario C. Reclustering the real
+    reference run with **profile_4** params (the profile that originally
+    produced its 15-cluster shape — what the Recluster tab loads as its
+    "default") must (1) record the parent linkage and (2) land in the 12-18
+    cluster band. Skips when the reference run / profile isn't on this machine.
+
+    NB: raw ``FCParams()`` defaults are NOT the baseline — they recluster the
+    reference into 22 clusters. The 12-18 band is profile_4-specific.
+    """
+    if not _REFERENCE_RUN_DIR.is_dir():
+        pytest.skip(f"Reference run missing: {_REFERENCE_RUN_DIR}")
+    if not _PROFILE_4_PATH.is_file():
+        pytest.skip(f"profile_4 missing: {_PROFILE_4_PATH}")
+
+    import json
+    raw = json.loads(_PROFILE_4_PATH.read_text(encoding="utf-8"))
+    params = FCParams(**{k: v for k, v in raw.items() if k in FCParams.model_fields})
+    result = service.recluster(_REFERENCE_RUN_DIR, params, runs_base_dir=runs_base)
+
+    assert result.parent_run_id == _REFERENCE_RUN_DIR.name
+    lo, hi = _EXPECTED_RECLUSTER_BAND
+    assert lo <= result.n_clusters <= hi, (
+        f"Reclustered n_clusters={result.n_clusters}; expected in "
+        f"{_EXPECTED_RECLUSTER_BAND}. Either the clustering drifted or the "
+        f"recluster wiring corrupted the input face_records."
+    )
+
+
 def test_recluster_tighter_threshold_changes_cluster_count(
     service: ReclusterService, prior_run_dir: Path, runs_base: Path,
 ) -> None:

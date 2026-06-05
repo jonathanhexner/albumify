@@ -10,6 +10,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from face_cluster.run_layout import crop_path
 from face_cluster.views.cluster_view import ClusterView
 
 GRID_COLS = 8
@@ -27,20 +28,13 @@ def render_face_grid(view: ClusterView, *, run_dir: Path) -> None:
         st.caption("No faces in this cluster.")
         return
 
-    crops_dir = run_dir / "crops"
     for i in range(0, len(faces), GRID_COLS):
         cols = st.columns(GRID_COLS)
         for j, face in enumerate(faces[i : i + GRID_COLS]):
             with cols[j]:
-                # STOPGAP (2026-05-29): the v5 writer names crops
-                # ``face_{id:04d}_aligned.jpg`` but FaceRow doesn't carry the
-                # crop path yet (the proper fix — surfacing FaceRecord.crop_path
-                # onto FaceRow — collides with the in-flight spec-056/057/058
-                # refactor on FaceRecord/RunStore/Pandera). Hardcoding the
-                # suffix here is brittle; revisit after specs 056-058 land.
-                # TODO(spec-061 audit): replace with face.crop_path once the
-                # refactor settles and the field can be safely added.
-                crop = crops_dir / f"face_{face.face_id:04d}_aligned.jpg"
+                # Crop path convention owned by face_cluster.run_layout.crop_path
+                # (spec-066 D3 — was hardcoded here and in face_analysis_tab).
+                crop = crop_path(run_dir, face.face_id)
                 if crop.is_file():
                     # Defensive: bad / corrupted crop must NOT crash the whole
                     # page (PIL raises UnidentifiedImageError for empty / non-image

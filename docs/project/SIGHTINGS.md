@@ -31,8 +31,99 @@ Possible root cause
 (what was learned - also add to LEARNINGS.md)
 -->
 
-### SIGHTING-091: Budapest e2e Scenarios B-F can't click a row in History's `st.dataframe`
+### SIGHTING-093: v2 pipeline does not persist excluded-face dispositions (filter_decisions empty; unassigned faces unstored; pose toggle unreachable)
 **Status**: OPEN
+**Severity**: High
+**Reported**: 2026-06-05
+**Persona**: Senior SW Engineer / ML Engineer
+
+**Problem Description**:
+A fresh v2 run records the disposition of only 107 of 340 faces. The pipeline
+computes why each face was excluded but never persists it, so the
+Excluded-Faces / Quality features have no data source. Full trace in
+`specs/069-excluded-faces-tab/INVESTIGATION.md`.
+
+**Symptoms** (run `v2_budapest_20260605`, profile_4):
+- `filter_decisions` table = 0 rows on a fresh v2 run (Quality tab always empty).
+- `cluster_assignments` = 107 rows only; the 233 unassigned faces have no row.
+- All 340 faces have blur/area/det_score; pose is None for all (not computed).
+
+**Suspicion / root causes**:
+- **G1**: `QualityGateStep.process` drops `result.verdicts` — only writes
+  core/holdout indices. The Albumify export path persists verdicts
+  (`face_cluster_export.py:146`); the v2 path does not.
+- **G2**: noise / unattached faces get no `cluster_assignments` row.
+- **G3 (pose)**: `use_pose_estimation` is read by `quality_gate.py:82` and
+  SixDRepNet is installed, but `FCParams` exposes only `require_pose`, so no
+  profile/CLI flag can enable pose computation (defaults False).
+
+**Proposed Resolution (predecessor to spec-069 gate-breakdown)**:
+- G1: persist `verdicts` -> `filter_decisions` in the v2 quality_gate path. (open)
+- G2: write noise assignments (or have readers derive `all_faces − assigned`). (open)
+- **G3 (pose): RESOLVED 2026-06-05.** NOT via `use_pose_estimation` (that's the
+  abandoned SixDRepNet path — LEARNINGS.md:207). The correct source is
+  InsightFace buffalo_l `face.pose` ([pitch,yaw,roll]), computed at detection.
+  The detector wrapper (`InsightFaceDetection`) dropped it. Fix (4 edits):
+  `types.py` add `pose` field; `face_analyzer._create_face_detection` capture +
+  remap to (yaw,pitch,roll); `insightface_detect_faces._serialize_face` carry
+  it through cache; `_build_face_records` set `FaceRecord.pose` (faces_writer
+  already persists yaw/pitch/roll). Verified: `v2_budapest_20260605b`
+  with_pose=340/340, yaw range [-88,85] median ~0. spec-070 (overlays)
+  unblocked.
+
+**Follow-up observed (NEW, separate from pose)**: clearing the detection cache
++ re-running produced 10 clusters / 86 assigned vs the prior run's 15 / 107.
+Embeddings are structurally identical (340x512, 3 zero rows) in both, so it's
+not missing embeddings — re-detection yields slightly different crops ->
+different embedding values -> clustering shifts. Reproducibility concern worth
+its own look; tracked here, NOT caused by the pose change (pose is inert with
+require_pose=False).
+
+**Findings**: (see INVESTIGATION.md)
+
+### SIGHTING-092: Budapest e2e Scenario F (Quality) has no quality data in the reference run
+**Status**: OPEN (resolution in progress: spec-069 `specs/069-excluded-faces-tab/` — splits gate-rejected vs unassigned into a unified Excluded Faces funnel; F's test deferred to a human-validated golden baseline)
+**Severity**: Medium
+**Reported**: 2026-06-05
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Scenario F (`test_scenario_f_quality.py`) asserts the Quality tab shows
+220–240 rejected faces over the reference run `6437d335…`. But that run is a
+legacy `fc_app` producer run that predates per-gate `filter_decisions`
+(a v2 / spec-032 feature). `QualityService.summary()` therefore returns
+`n_items=0, n_decisions=0, n_rejected=0`, and the tab correctly renders the
+empty state. F's premise is unmeetable against this run — it is NOT a tab bug.
+
+**Symptoms**:
+- spec-068 telemetry: `tab.done name=quality n_items=0 n_decisions=0 n_rejected=0`.
+- Quality tab shows "No filter_decisions recorded for this run."
+- F times out waiting for the per-gate Plotly chart / rejected-count metric.
+
+**Suspicion**:
+Reference run lacks `filter_decisions` rows. Either the run was produced
+before the gate-logging feature, or the v2 `QualityService` cannot read the
+legacy run's gate data. (Telemetry + the AppTest empty-state info point at
+"data absent", not a read bug — confirm before fixing.)
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest -m budapest -k quality tests/face_clustering/e2e_budapest/`
+2. Observe timeout; check the newest `logs/*/fc_app_v2.log` for the
+   `tab.done name=quality n_items=0` line.
+
+**Proposed Resolution (needs decision)**:
+- (a) Add a v2-produced reference run that has `filter_decisions`, point F at
+  it (and add its expected reject band to conftest); OR
+- (b) Redefine F to assert the empty-state contract (info banner present, 0
+  rejected) — weaker, but valid for a no-quality-data run.
+Do NOT fudge the 220–240 band. Tracked as spec-067 T12.
+
+**Findings**:
+(open)
+
+### SIGHTING-091: Budapest e2e Scenarios B-F can't click a row in History's `st.dataframe`
+**Status**: OPEN (proposed resolution: spec-067 → `specs/067-history-tab-dom-native-row-pick/`)
+**Full analysis**: `specs/067-history-tab-dom-native-row-pick/ANALYSIS.html` — modules, class diagram, LOC, testability map, resolution options A/B/C with recommendation.
 **Severity**: Medium (blocks 4 of 6 e2e scenarios; not a product bug)
 **Reported**: 2026-05-30
 **Persona**: Senior SW Engineer

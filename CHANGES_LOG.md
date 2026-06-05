@@ -2,6 +2,103 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-06-05 [TEST] spec-071 — Playwright browser test for the Merged Clusters detail panel
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `app/face_clustering_v2/main.py` — query-param seeder now honors `?selected_merge_pair=a,b` (→ `st.session_state["selected_merge_pair"]`).
+- UPDATED `app/face_clustering_v2/tabs/merged_clusters_tab.py` — detail panel falls back to the seeded pair when no canvas row-pick happened (kept ≤90 LOC).
+- NEW `tests/face_clustering/e2e_budapest/test_scenario_i_merged_clusters_detail.py` (Scenario I) — seeds a real pair, asserts gate badges + numbers caption + pair-crop captions + a visible `<img>` paint in a real browser. README matrix row added.
+**Reason**: spec-071's detail panel (badges + pair crops) renders on a canvas-`st.dataframe` row-select that Playwright can't click (SIGHTING-091). The seed drives it directly — same pattern as spec-067's `current_run_dir` — closing the "service tested but UI render not browser-verified" gap the user flagged.
+**Verification**: Scenario I passes (real run); regression suite 142 passed (seed unit tests + telemetry + merged-clusters service + architecture incl. LOC ≤90).
+
+### 2026-06-05 [BUGFIX] SIGHTING-093 G1 + blur threshold — persist gate verdicts; enable blur gate
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `sim_bench/pipeline/steps/quality_gate.py` — write `context.filter_verdicts = result.verdicts` (was dropped); add to `produces`; log rejected count.
+- UPDATED `sim_bench/run_db/writers/filter_decisions_writer.py` — NEW `write_filter_decisions_from_verdicts(conn, verdicts, faces)`: one `filter_decisions` row per (face, gate) + a `top_k_per_image` disposition row.
+- UPDATED `sim_bench/run_db/exporter.py` — `export()` gains `filter_verdicts=`; calls the new writer.
+- UPDATED `app/face_clustering_v2/pipeline.py` — pass `filter_verdicts=context.filter_verdicts` into the exporter.
+- UPDATED `~/.sim_bench/profiles_v2/profile_4.json` (user data) — `blur_min 0.0 → 150.0`.
+**Reason**: SIGHTING-093 G1 — the v2 quality gate computed per-face per-gate verdicts but never persisted them, so the Quality / Excluded-Faces tabs had zero data on fresh runs. Also: blur IS computed (~1000 Laplacian variance) but `profile_4` had `blur_min=0`, so the gate filtered nothing; 150 rejects ~22% (the genuinely blurry faces) per the run `6437d335` distribution (p10=84, median=389).
+**Verification**: ran v2 pipeline on the 3-image golden set → `filter_decisions` populated (12 rows = 3 faces × 4 gates; pose_pitch rejected 1); scoped regression suite (exporter / filter / quality) 159 passed / 1 skipped / 0 failed.
+
+### 2026-06-05 [FEATURE] spec-071 — align Merged Clusters with V1 Merge Analysis (gate review + pair crops)
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `face_cluster/views/merged_clusters.py` — `MergedClustersService` gains `summary()`, `gate_badges(row)`, `pair_faces(row)` + dataclasses `GateBadge`/`PairFaces`/`MergeReviewSummary`. Read-only; reuses `get_merge_log` + `find_assignments` + `crop_path`. No DB/pipeline change.
+- NEW `app/face_clustering_v2/components/merge_gate_badges.py` + `cluster_pair_crops.py`.
+- UPDATED `app/face_clustering_v2/tabs/merged_clusters_tab.py` — summary strip + per-pair gate badges + side-by-side cluster face crops (replaces the raw `st.json`); kept ≤90 LOC.
+- UPDATED `tests/face_clustering/views/test_merged_clusters_service_synthetic.py` — +3 tests (gate mapping, summary, pair-face resolution).
+**Reason**: V1's Merge Analysis answered "which gate killed this merge?" (badges) and "were these the same person?" (face pairs); V2's Merged Clusters only showed numbers. Data was already persisted (`merge_decisions` carries every gate flag; `MergeDecisionRow` exposes them) — only the view was missing. Scope A+B; approval(C)/ML(D)/remerge(E) out per user. NOTE: pair faces resolve against the persisted clustering (only iteration stored); intermediate merge-round states aren't persisted — documented in `PairFaces`.
+**Verification**: 12 service+arch tests green (incl. LOC ≤90); real run `v2_budapest_20260605b` — summary n_rejected=2 top gate=cross; pair crops resolved (cluster 0 = 23 faces, cluster 6 = 2); AppTest 0 exceptions + telemetry. User visual sign-off pending.
+
+### 2026-06-05 [BUGFIX] Face Analysis showed photos sideways (EXIF orientation)
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `app/face_clustering_v2/components/face_bbox_overlay.py` — open the source photo through `PIL.ImageOps.exif_transpose()` so phone photos (EXIF orientation 6) render upright; also reject NaN pose so legacy runs (pre-SIGHTING-093) don't draw garbage axes.
+**Reason**: User report — Face Analysis displayed the full photo rotated 90° with the bbox in the wrong place. `Image.open()` ignores EXIF orientation, so the raw landscape pixels showed sideways while the stored bbox/landmarks were in the upright (EXIF-corrected) frame the detector ran on (confirmed: bbox 473w×730h = upright face proportions; raw 4624×3468 → upright 3468×4624). Applying EXIF aligns the display to the bbox frame — no coordinate transform needed.
+**Verification**: visual check on face_0006 of run `6437d335` → image upright, lime bbox on the face, landmark dots on the features (`specs/066-v2-gallery-and-overview-tabs/SHOT_face_analysis_fixed.png`); `test_overlays.py` 6 green.
+
+### 2026-06-05 [FEATURE] spec-066 — v2 Gallery + Overview tabs (last tab-parity pair)
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/views/overview.py` — `OverviewService.compute_dashboard() -> DashboardMetrics` (+ `AlbumStat`/`StatusStat`/`ProfileStat`/`RunPoint`). Aggregates the global `action_log` for `producer=fc_app_v2`; clock-free + Streamlit-free.
+- NEW `app/face_clustering_v2/tabs/gallery_tab.py` (≤80 LOC) — per-cluster exemplar strips, faces-per-cluster slider, size filter/sort, 10/page pagination.
+- NEW `app/face_clustering_v2/tabs/overview_tab.py` (≤80 LOC) — 4-metric strip (age computed tab-side) + per-album / per-status / n_clusters-timeseries charts; per-profile chart appears once runs carry a profile.
+- NEW `app/face_clustering_v2/components/cluster_strip.py` — per-cluster row: thumbnails (each an Open→Face Analysis button, G2), `:warning:` quality flag from `is_core` (G5-flag), "Open in Cluster Analysis" nav.
+- NEW `app/face_clustering_v2/components/dashboard_charts.py` — `render_bar` / `render_timeseries` (Plotly).
+- NEW `app/face_clustering_v2/_run_context.py` — shared `resolve_run_dir()` + `cached_cluster_service()`.
+- UPDATED `face_cluster/views/cluster_analysis.py` — `exemplar_face_ids(cid, n)` (D1 cheap passthrough) + `low_quality_face_ids()`.
+- UPDATED `face_cluster/run_layout.py` — `crop_path()` (D3 single source; repointed `face_grid.py` + `face_analysis_tab.py`).
+- UPDATED `app/face_clustering_v2/_telemetry.py` — `FC_V2_TAB_TELEMETRY=0` kill-switch + `component_render`.
+- UPDATED `app/face_clustering_v2/pipeline.py` + `tabs/run_tab.py` — record the run's profile in the action_log payload (feeds the per-profile chart going forward).
+- UPDATED `components/cluster_picker.py` + `nearest_clusters.py` + `cluster_strip.py` — cross-tab nav via a ONE-SHOT `_goto_cluster` widget-key write. (Bug fixed: Streamlit ignores `index=` on a keyed selectbox, so writing `selected_cluster` alone never moved the picker — latent, also affected nearest-clusters "Go to".)
+- UPDATED `app/face_clustering_v2/tabs/face_metrics_tab.py` (spec-069, concurrent) — paginate before base64-encoding crops (was an 8.9 MB single dataframe that stalled browser rendering of every tab after it).
+- UPDATED `tests/face_clustering/e2e_budapest/conftest.py` — stream the Streamlit subprocess stdout to a file, not an un-drained `subprocess.PIPE`. (Bug fixed: a full ~64 KB pipe buffer blocked the server and hung the browser — latent harness bug the new tabs' extra per-rerun output exposed; benefits ALL scenarios.)
+- NEW tests: `test_overview_service_synthetic.py` (7), `test_overview_service_real.py` (1 slow), arch `test_gallery_tab.py` + `test_overview_tab.py`, e2e `test_scenario_g_gallery.py` + `test_scenario_h_overview.py` (+ `EXPECTED_REFERENCE_ALBUM`).
+**Reason**: Completes the v2 tab-parity epic (spec-042). Decisions resolved with user: per-profile chart → runs-per-status today + profile recorded for future; D1 thin passthrough; D2 action_log-only; D3 shared `crop_path`; D4 e2e clicks the tab.
+**Verification**: 7 synthetic + 1 real OverviewService tests green (real action_log: 40 fc_app_v2 runs); 5 arch tests green (both tabs ≤80 LOC, no SQL/FS); `exemplar_face_ids`/`crop_path` validated on run `6437d335` (cluster 1 → 8 ids, crops present); AppTest all 10 tabs 0 exceptions; **budapest Scenarios G + H green**. NOTE: full `pytest -m budapest` = 5 pass / 3 fail (A, C, F) — all three traced to CONCURRENT same-branch work, NOT spec-066: A = fresh-run 15→10 clusters (SIGHTING-093 pose re-detection drift); C = recluster parent = new run `v2_budapest_20260605b` (created by SIGHTING-093) not `6437d335`; F = first `stMetric` hidden-tab selector fragility from the collective tab additions. spec-066 NOT yet flipped to Implemented pending branch-baseline coordination.
+
+### 2026-06-05 [FEATURE] spec-070 — face debug overlays (pose axes + bbox)
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/overlays.py` — `pose_axes_2d()` (head-pose 3-axis projection from yaw/pitch/roll) + `draw_overlay()` (cv2 bbox + landmarks + axes). Streamlit-free, shared math.
+- UPDATED `app/face_clustering_v2/components/face_bbox_overlay.py` — draws the 3 pose axes (X red / Y green / Z blue) anchored at the bbox centre (Plotly, y-flipped); new `pose` param.
+- UPDATED `app/face_clustering_v2/tabs/face_analysis_tab.py` — passes `pose=record.pose` to the overlay.
+- UPDATED `app/face_clustering_v2/tabs/face_metrics_tab.py` — `st.dataframe(on_select)` drill-in seeds `selected_face_id` so Face Analysis opens the picked face.
+- NEW `tests/face_clustering/test_overlays.py` — 6 tests (axis projection + drawing).
+**Reason**: Debug visualization requested — see a face's bbox + landmarks + head-pose fit. Built on the SIGHTING-093 pose data. Coordinates are the source of truth (UI draws live, interactive); the opt-in photo-render pipeline step is deferred (run-dir plumbing; the live overlay already shows the same thing).
+**Verification**: 6 overlay unit tests green (incl. the [pitch,yaw,roll]→(yaw,pitch,roll) remap, AC6); AppTest vs `v2_budapest_20260605b` (with_pose=340) → 0 exceptions; visual check on a yaw=-88 profile face → blue forward-axis points correctly (`specs/070-face-debug-overlays/_overlay_sample.png`).
+
+### 2026-06-05 [BUGFIX] SIGHTING-093 G3 — persist InsightFace head pose (yaw/pitch/roll)
+**Branch**: `unification/spec-040`
+**Files**:
+- UPDATED `sim_bench/pipeline/insightface_pipeline/types.py` — `InsightFaceDetection` gains a `pose` field (yaw, pitch, roll).
+- UPDATED `sim_bench/pipeline/insightface_pipeline/face_analyzer.py` — capture raw `face.pose` (buffalo_l 1k3d68, ordered [pitch,yaw,roll]) and remap to (yaw,pitch,roll) once, at the detector.
+- UPDATED `sim_bench/pipeline/steps/insightface_detect_faces.py` — `_serialize_face` carries pose through the detection cache; `_build_face_records` sets `FaceRecord.pose`.
+**Reason**: Head pose was never persisted — `face.pose` (already computed by InsightFace during detection) was dropped at the `InsightFaceDetection` wrapper, so `faces.yaw/pitch/roll` were always NULL and the pose gate / Face Metrics pose column were empty. NOT the SixDRepNet path (`use_pose_estimation`) — that's abandoned (LEARNINGS.md:207); the source is InsightFace buffalo_l.
+**Verification**: Cleared the 122 Budapest `insightface_detection` cache rows (other albums untouched), re-ran the pipeline → `v2_budapest_20260605b` has with_pose=340/340, yaw range [-88,85] median ~0; remap confirmed against a raw-InsightFace probe; Face Metrics tab AppTest 0 exceptions. Unblocks spec-070 (pose overlays). NOTE: the re-run also shifted clustering (15→10 clusters) — a re-detection reproducibility effect, separate from pose; logged in SIGHTING-093.
+
+### 2026-06-05 [FEATURE] spec-069 — Face Metrics tab (sortable per-face metrics)
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `face_cluster/views/face_metrics.py` — `FaceMetricsService` + `FaceMetricRow`: one row per face (blur/area/det_score/pose) + derived status (assigned cluster / unassigned). Reads via the repository layer; status derived as `all_faces − assigned` (pipeline does not persist noise rows — SIGHTING-093). Streamlit-free, typed.
+- NEW `app/face_clustering_v2/tabs/face_metrics_tab.py` — sortable `st.dataframe` with `ImageColumn` thumbnail + metric columns + status filter + summary metrics. spec-068 telemetry.
+- UPDATED `app/face_clustering_v2/main.py` — wired the Face Metrics tab (after Face Analysis).
+- NEW `tests/face_clustering/views/test_face_metrics_service_synthetic.py` (4 tests); UPDATED `tests/face_clustering/test_v2_tab_telemetry.py` (asserts `tab.done name=face_metrics`).
+- Investigation + scope: `specs/069-excluded-faces-tab/` (INVESTIGATION.md, DESIGN.html, spec.md, verify_run.py).
+**Reason**: Operator-requested view to inspect/sort per-face quality metrics and see which faces ended up assigned vs unassigned. Investigation (a real Budapest run) showed the quality gate rejects ~0 faces with profile_4 and the 233 "missing" faces are unassigned-after-clustering, not gate-rejected; the v2 pipeline persists neither gate verdicts nor noise rows (SIGHTING-093). The metrics table needs none of that — it derives status from existing tables.
+**Verification**: 4 service tests + 2 telemetry tests green; AppTest vs real `v2_budapest_20260605` run → 0 exceptions, `n_faces=340 n_assigned=107 n_unassigned=233`. User visual sign-off pending.
+
+### 2026-06-03 [FEATURE] spec-068 — v2 tab render telemetry
+**Branch**: `unification/spec-040`
+**Files**:
+- NEW `app/face_clustering_v2/_telemetry.py` — `tab_start(name, run_dir)`, `tab_done(name, **counts)`, `tab_skipped(name, reason)` on the `fc_app_v2.tabs` logger. ASCII key=value, one INFO line per event.
+- UPDATED all 7 v2 tabs (`run_tab`, `cluster_analysis_tab`, `face_analysis_tab`, `merged_clusters_tab`, `quality_tab`, `recluster_tab`, `history_tab`) — emit start/done/skipped on their return paths.
+- NEW `tests/face_clustering/test_v2_tab_telemetry.py` — AppTest + custom log handler; asserts seeded run -> `tab.done`, no-run -> `tab.skipped reason=no_run_loaded`.
+**Reason**: During spec-067 a blank tab in a browser test could mean any of "render fn never called / bailed at no-run guard / got empty data / browser failed to paint." The only signals were slow Playwright screenshots (ambiguous) and the headless AppTest element list (run-mode only). Telemetry is driver-agnostic (written by the app, identical under AppTest or browser) and says exactly which tab ran with what data. Does NOT replace the binding browser paint gate.
+**Verification**: 2 telemetry tests green; existing `test_v2_app_smoke.py` 8/8 green (AC6 — no render behaviour change).
+
 ### 2026-05-30 [BUGFIX] spec-063 fallout — duplicate widget key `v2_K` between Run + Recluster tabs
 **Branch**: `unification/spec-040`
 **Files**:

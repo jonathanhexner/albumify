@@ -81,6 +81,7 @@ def run_v2_pipeline(
     params: Optional[FCParams] = None,
     step_configs: Optional[Dict[str, Dict[str, Any]]] = None,
     producer: str = "fc_app_v2",
+    profile: Optional[str] = None,
     progress_cb: Optional[Callable[[str, float, str], None]] = None,
 ) -> V2RunResult:
     """Run the v2 pipeline end-to-end into a pre-allocated run directory.
@@ -121,6 +122,11 @@ def run_v2_pipeline(
     producer:
         Producer tag written into the v5 ``run_metadata.producer`` column
         and the global ``action_log`` row. Defaults to ``fc_app_v2``.
+    profile:
+        Name of the FCParams profile this run used (e.g. ``profile_4.json``),
+        recorded in the ``action_log`` payload so the Overview tab can build
+        a per-profile breakdown (spec-066). ``None`` when no profile was
+        loaded — the dashboard shows those as ``(none)``.
     progress_cb:
         Optional ``(step_name, fraction, message) -> None`` callback.
     """
@@ -163,6 +169,7 @@ def run_v2_pipeline(
             "source_album": album,
             "producer": producer,
             "n_images": len(images),
+            "profile": profile,  # spec-066: feeds the Overview per-profile chart
         })
     except Exception as e:  # pragma: no cover — action_log is best-effort
         logger.warning("action_log start failed (non-fatal): %s", e)
@@ -247,6 +254,7 @@ def run_v2_pipeline(
         run_id=run_id, started_at=started_at, finished_at=finished_at,
         image_paths=[str(p) for p in images],
         filters=getattr(context, "filters", None),
+        filter_verdicts=getattr(context, "filter_verdicts", None),
     )
 
     if action_id is not None:

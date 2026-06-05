@@ -9,12 +9,14 @@ from typing import Optional
 
 import streamlit as st
 
+from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
 from app.face_clustering_v2.components.face_bbox_overlay import render_face_bbox_overlay
 from app.face_clustering_v2.components.face_detail_panel import render_face_detail_panel
 from sim_bench.db.face_clustering.cluster_analysis_repo import (
     ClusterAnalysisRepoConfig,
     ClusterAnalysisRepository,
 )
+from face_cluster.run_layout import crop_path
 from face_cluster.views.face_view import FaceAnalysisService
 
 logger = logging.getLogger(__name__)
@@ -25,13 +27,17 @@ def render_face_analysis_tab() -> None:
     st.header("Face Analysis")
     run_dir = _resolve_run_dir()
     if run_dir is None:
+        tab_skipped("face_analysis", "no_run_loaded")
         st.info("No run loaded. Open a run from the History tab first.")
         return
+    tab_start("face_analysis", run_dir)
     service = _get_service(run_dir)
     if service is None:
+        tab_skipped("face_analysis", "repo_failed")
         return
     ids = service.list_face_ids()
     if not ids:
+        tab_skipped("face_analysis", "no_faces")
         st.info("No faces in this run.")
         return
     default_id = max(min(int(st.session_state.get("selected_face_id") or ids[0]), ids[-1]), ids[0])
@@ -46,13 +52,16 @@ def render_face_analysis_tab() -> None:
             record = service.get_face_record(face_id)
     except Exception as exc:  # noqa: BLE001
         logger.exception("compute_face_detail failed for %s in %s", face_id, run_dir)
+        tab_skipped("face_analysis", "compute_failed")
         st.error(f"Could not load face {face_id}: {exc}")
         return
+    tab_done("face_analysis", face_id=face_id, n_faces=len(ids))
     render_face_bbox_overlay(
         source_image_path=view.image_path,
-        crop_fallback=run_dir / "crops" / f"face_{face_id:04d}_aligned.jpg",
+        crop_fallback=crop_path(run_dir, face_id),
         bbox=tuple(record.bbox) if record.bbox else None,
         landmarks=record.landmarks,
+        pose=tuple(record.pose) if getattr(record, "pose", None) else None,
     )
     render_face_detail_panel(view)
 

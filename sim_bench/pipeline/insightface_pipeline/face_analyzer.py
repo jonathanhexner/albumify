@@ -136,7 +136,16 @@ class InsightFaceFaceAnalyzer:
         
         person_bbox_dict = person_data.get('bbox') if person_data else None
         person_bbox = self._associator._dict_to_bbox(person_bbox_dict) if person_bbox_dict else None
-        
+
+        # spec-070 / SIGHTING-093: capture head pose. buffalo_l's 1k3d68 model
+        # populates ``face.pose`` as [pitch, yaw, roll] (degrees). Remap to the
+        # repo-wide (yaw, pitch, roll) convention here, once, at the source.
+        pose = None
+        raw_pose = getattr(face, "pose", None)
+        if raw_pose is not None and len(raw_pose) == 3:
+            pitch, yaw, roll = float(raw_pose[0]), float(raw_pose[1]), float(raw_pose[2])
+            pose = (yaw, pitch, roll)
+
         return InsightFaceDetection(
             original_path=image_path,
             face_index=index,
@@ -144,7 +153,8 @@ class InsightFaceFaceAnalyzer:
             confidence=float(face.det_score),
             landmarks=face.kps,
             person_bbox=person_bbox,
-            face_occluded=False
+            face_occluded=False,
+            pose=pose,
         )
     
     def _check_occlusion(self, person_data: Optional[Dict[str, Any]], detections: List[InsightFaceDetection]) -> bool:

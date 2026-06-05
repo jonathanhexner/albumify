@@ -180,6 +180,7 @@ class RunExporter:
         parent_run_id: Optional[str] = None,
         crop_source_dir: Optional[Path] = None,
         filters=None,  # face_cluster.filter_context.FilterContext | None
+        filter_verdicts=None,  # List[QualityVerdict] from the v2 quality gate (SIGHTING-093 G1)
         image_scores: Optional[Dict[str, Dict[str, float]]] = None,
         image_paths: Optional[List[str]] = None,
         scene_clusters: Optional[List[Dict]] = None,
@@ -236,6 +237,14 @@ class RunExporter:
             )
             self._write_merges(conn, merge_log)
             self._write_filter_decisions(conn, filters)
+            # SIGHTING-093 G1: the v2 quality gate emits per-face verdicts (not a
+            # FilterContext); persist them to the same table so the Quality /
+            # Excluded-Faces tabs have data on fresh v2 runs.
+            if filter_verdicts:
+                from sim_bench.run_db.writers.filter_decisions_writer import (
+                    write_filter_decisions_from_verdicts,
+                )
+                write_filter_decisions_from_verdicts(conn, filter_verdicts, faces)
             # spec-040 Phase 4 (schema v5) — scene-side + image-level persistence.
             # Closes REVIEW.md B3 + B6: write the 3 new tables that previously
             # had DDL + Pandera schemas but no writer. Image rows derived from

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec-066 — Gallery tab design</title>
+<style>
+  :root{--bg:#0f1116;--panel:#171a21;--panel2:#1d2129;--ink:#e6e9ef;--mut:#9aa3b2;
+    --line:#2a2f3a;--acc:#3b82f6;--svc:#a855f7;--comp:#22c55e;--repo:#f59e0b;--new:#0ea5e9;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);padding:28px;
+    font:14px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  h1{font-size:22px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 20px}
+  h2{font-size:16px;margin:30px 0 12px;color:#cdd5e2;border-left:3px solid var(--acc);padding-left:9px}
+  .wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:22px}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
+  /* ---- wireframe ---- */
+  .screen{background:#fbfcfe;border-radius:12px;border:1px solid #d7dee8;overflow:hidden;
+    color:#1f2733;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+  .chrome{background:#eef2f7;border-bottom:1px solid #d7dee8;padding:7px 12px;font-size:12px;color:#64748b}
+  .tabs{display:flex;gap:2px;background:#e7edf4;padding:0 10px;border-bottom:1px solid #d7dee8;font-size:12px}
+  .tabs span{padding:8px 11px;color:#64748b}
+  .tabs span.on{color:#1f2733;border-bottom:2px solid var(--acc);font-weight:700}
+  .body{padding:16px 18px}
+  .h{font-size:19px;font-weight:800;margin:0 0 12px}
+  .filter{display:flex;gap:18px;align-items:center;background:#f1f5f9;border:1px solid #e2e8f0;
+    border-radius:8px;padding:9px 12px;font-size:12px;color:#475569;margin-bottom:14px}
+  .slider{flex:1;height:5px;background:#cbd5e1;border-radius:4px;position:relative}
+  .slider::after{content:"";position:absolute;left:42%;top:-5px;width:14px;height:14px;border-radius:50%;background:var(--acc)}
+  .sel{background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:4px 10px}
+  .cl{border:1px solid #e2e8f0;border-radius:9px;padding:11px;margin-bottom:11px;background:#fff}
+  .cl .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+  .cl .name{font-weight:700;font-size:13px}.cl .name b{color:#0f172a}
+  .cl .sz{color:#64748b;font-weight:400}
+  .btn{background:var(--acc);color:#fff;border-radius:6px;padding:5px 11px;font-size:11.5px;font-weight:600}
+  .thumbs{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+  .th{aspect-ratio:1;background:linear-gradient(135deg,#dbe4ef,#c3d2e3);border-radius:5px;
+    display:flex;align-items:center;justify-content:center;font-size:9px;color:#7c8ba1}
+  .pg{display:flex;justify-content:center;gap:14px;align-items:center;color:#64748b;font-size:12px;margin-top:6px}
+  /* hotspots */
+  .tag{display:inline-flex;min-width:19px;height:19px;padding:0 4px;border-radius:10px;background:var(--new);color:#fff;
+    font-size:11px;font-weight:800;align-items:center;justify-content:center;margin-right:6px;vertical-align:middle}
+  /* ---- ownership cards ---- */
+  .own{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .own h3{margin:0 0 10px;font-size:14px}
+  .row{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .n{flex:0 0 auto;min-width:19px;padding:0 4px;height:19px;border-radius:10px;background:var(--new);color:#fff;font-size:11px;
+    font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .row .meta .el{font-weight:700;font-size:12.5px}
+  .row .meta .mod{font-size:11.5px;color:var(--mut);margin-top:2px}
+  .row .meta code{background:#0c0e13;color:#7dd3fc;padding:1px 5px;border-radius:4px;font-size:11px}
+  .lyr{font-size:10px;font-weight:800;padding:1px 6px;border-radius:9px;margin-left:6px;vertical-align:middle}
+  .l-tab{background:var(--acc);color:#fff}.l-comp{background:var(--comp);color:#062710}
+  .l-svc{background:var(--svc);color:#fff}.l-repo{background:var(--repo);color:#241a02}
+  /* ---- contract table ---- */
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px}
+  th,td{border:1px solid var(--line);padding:8px 9px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd5e2;font-size:11.5px}
+  td code{color:#7dd3fc;font-size:11px}
+  .tg{display:inline-flex;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--new);color:#fff;
+    font-size:10px;font-weight:800;align-items:center;justify-content:center}
+  .pill{font-size:10px;font-weight:800;padding:1px 6px;border-radius:9px}
+  .p-new{background:var(--new);color:#fff}.p-reuse{background:#475569;color:#fff}
+  footer{color:var(--mut);font-size:11.5px;margin-top:26px;border-top:1px solid var(--line);padding-top:12px}
+  .legend{font-size:11.5px;color:var(--mut);margin:4px 0 16px}
+  .legend b{color:#cdd5e2}
+</style>
+</head>
+<body>
+  <h1>🖼️ Gallery tab — design</h1>
+  <p class="sub">Browse every cluster as a scrollable strip of exemplar thumbnails. Read-only. spec-066.</p>
+  <p class="legend">Layer tags:
+    <span class="lyr l-tab">TAB</span> orchestration ·
+    <span class="lyr l-comp">COMP</span> render ·
+    <span class="lyr l-svc">SVC</span> typed service (backend endpoint) ·
+    <span class="lyr l-repo">REPO</span> SQL/FS &nbsp;|&nbsp;
+    <span class="pill p-new">NEW</span> built here · <span class="pill p-reuse">REUSE</span> exists</p>
+
+  <div class="wrap">
+    <!-- ================= MOCKUP ================= -->
+    <div>
+      <h2 style="margin-top:0">Page mockup (wireframe)</h2>
+      <div class="screen">
+        <div class="chrome">▸ streamlit run app/face_clustering_v2/main.py — Face Clustering v2</div>
+        <div class="tabs"><span>Run</span><span>Cluster Analysis</span><span>Face Analysis</span>
+          <span>Merged</span><span>Quality</span><span>Recluster</span><span>History</span><span class="on">Gallery</span></div>
+        <div class="body">
+          <div class="h"><span class="tag">1</span>Gallery</div>
+
+          <div class="filter">
+            <span class="tag">2</span>
+            <span>Min cluster size</span><div class="slider"></div><span>2</span>
+            <span>Faces/cluster <span class="tag" style="background:#16a34a">7</span></span><div class="slider"></div><span>8</span>
+            <span>Sort</span><span class="sel">Size ▼ desc</span>
+            <span class="sel">☐ Show nearest-outside <span class="tag" style="background:#9333ea">9</span></span>
+          </div>
+
+          <div class="cl">
+            <div class="top">
+              <div class="name"><span class="tag">3</span><b>Cluster 1</b> <span class="sz">· 35 faces</span></div>
+              <div class="btn"><span class="tag">5</span>Open in Cluster Analysis</div>
+            </div>
+            <div class="thumbs"><span class="tag" style="position:absolute;margin-left:-2px;margin-top:-2px">4</span>
+              <div class="th">EX</div><div class="th">EX</div><div class="th">●</div>
+              <div class="th" style="outline:2px solid #f59e0b">⚠<span class="tag" style="background:#f59e0b;position:absolute;margin-top:-26px;margin-left:14px">8</span></div>
+              <div class="th">●</div><div class="th">●</div><div class="th">●</div><div class="th">●</div>
+            </div>
+            <div style="font-size:9.5px;color:#94a3b8;margin-top:3px">▸ each thumb is an “Open” button → Face Analysis <span class="tag" style="background:#16a34a">G2</span></div>
+            <div class="thumbs" style="margin-top:9px;opacity:.85">
+              <div style="grid-column:1/-1;font-size:10px;color:#9333ea;font-weight:700">↳ nearest outside (C7 · d=0.41 · MERGE?) <span class="tag" style="background:#9333ea">9</span></div>
+              <div class="th" style="border:1px dashed #c4b5fd">≈</div><div class="th" style="border:1px dashed #c4b5fd">≈</div><div class="th" style="border:1px dashed #c4b5fd">≈</div>
+            </div>
+          </div>
+
+          <div class="cl">
+            <div class="top">
+              <div class="name"><b>Cluster 2</b> <span class="sz">· 24 faces</span></div>
+              <div class="btn">Open in Cluster Analysis</div>
+            </div>
+            <div class="thumbs">
+              <div class="th">EX</div><div class="th">EX</div><div class="th">●</div><div class="th">●</div>
+              <div class="th">●</div><div class="th">●</div><div class="th">●</div><div class="th">●</div>
+            </div>
+          </div>
+
+          <div class="cl" style="opacity:.5">
+            <div class="top"><div class="name"><b>Cluster 3</b> <span class="sz">· 14 faces</span></div>
+              <div class="btn">Open in Cluster Analysis</div></div>
+            <div class="thumbs"><div class="th"></div><div class="th"></div><div class="th"></div><div class="th"></div>
+              <div class="th"></div><div class="th"></div><div class="th"></div><div class="th"></div></div>
+          </div>
+
+          <div class="pg"><span class="tag">6</span>◀ &nbsp; Page 1 / 2 &nbsp; ▶</div>
+        </div>
+      </div>
+      <p class="legend" style="margin-top:10px">EX = exemplar (shown first) · ● = member face. Strip width = 8 =
+        <code style="color:#7dd3fc">face_grid.GRID_COLS</code>. Cluster 1 has 35 faces &gt; 8 → exactly 8 shown
+        (Scenario-G assertion 3).</p>
+    </div>
+
+    <!-- ================= OWNERSHIP ================= -->
+    <div class="own">
+      <h3>Who renders what</h3>
+      <div class="row"><div class="n">1</div><div class="meta">
+        <div class="el">Tab header “Gallery” <span class="lyr l-tab">TAB</span></div>
+        <div class="mod"><code>gallery_tab.render_gallery_tab()</code> → <code>st.header</code>; resolves
+        <code>current_run_dir</code>, else <code>tab_skipped</code> + info banner</div></div></div>
+
+      <div class="row"><div class="n">2</div><div class="meta">
+        <div class="el">Filter bar (min size, sort) <span class="lyr l-tab">TAB</span></div>
+        <div class="mod">inline in <code>gallery_tab</code>: <code>st.slider</code> + <code>st.selectbox</code>;
+        filters/sorts the <code>ClusterRow</code> list in memory — no backend round-trip</div></div></div>
+
+      <div class="row"><div class="n">3</div><div class="meta">
+        <div class="el">Cluster row (id · size) <span class="lyr l-comp">COMP</span></div>
+        <div class="mod"><code>components/cluster_strip.render_cluster_strip(row, run_dir)</code> —
+        one <code>ClusterRow</code> in, one row out</div></div></div>
+
+      <div class="row"><div class="n">4</div><div class="meta">
+        <div class="el">8 thumbnails <span class="lyr l-comp">COMP</span></div>
+        <div class="mod"><code>cluster_strip</code> → <code>st.columns(8)</code> + <code>st.image(crop_path(...))</code></div></div></div>
+
+      <div class="row"><div class="n">5</div><div class="meta">
+        <div class="el">“Open in Cluster Analysis” <span class="lyr l-comp">COMP</span></div>
+        <div class="mod"><code>cluster_strip</code> → <code>st.button</code> → writes
+        <code>session_state['selected_cluster']</code> + <code>st.rerun()</code>.
+        <code>cluster_picker</code> already defaults to that key ✓</div></div></div>
+
+      <div class="row"><div class="n">6</div><div class="meta">
+        <div class="el">Pagination (10/page) <span class="lyr l-tab">TAB</span></div>
+        <div class="mod">inline in <code>gallery_tab</code>: page index in <code>session_state['v2_gallery_page']</code></div></div></div>
+
+      <div class="row"><div class="n">7</div><div class="meta">
+        <div class="el">Faces/cluster slider — <b>G1</b> <span class="lyr l-tab">TAB</span></div>
+        <div class="mod">inline <code>st.slider</code>; feeds <code>n</code> into <code>exemplar_face_ids(cid, n)</code>. Default 8, max “all”</div></div></div>
+
+      <div class="row"><div class="n" style="background:#16a34a">G2</div><div class="meta">
+        <div class="el">Clickable thumbnail → all fields <span class="lyr l-comp">COMP</span></div>
+        <div class="mod"><code>cluster_strip</code> per-thumb <code>st.button("Open")</code> → <code>session_state['selected_face_id']</code> + <code>st.rerun()</code> → <b>Face Analysis tab</b> (reuses face_grid pattern; not a popup)</div></div></div>
+
+      <div class="row"><div class="n" style="background:#f59e0b;color:#241a02">8</div><div class="meta">
+        <div class="el">Quality FLAG badge — <b>G5-flag</b> <span class="lyr l-comp">COMP</span></div>
+        <div class="mod"><code>cluster_strip</code> renders <code>⚠</code> from <code>FaceRow.is_outlier</code> / low <code>blur_score</code>. <b>Read-only</b> — disqualify is spec-069</div></div></div>
+
+      <div class="row"><div class="n" style="background:#9333ea">9</div><div class="meta">
+        <div class="el">Nearest-outside strip — <b>G4</b> (opt-in) <span class="lyr l-svc">SVC</span></div>
+        <div class="mod">toggle → <code>compute_detail(cid).nearest_clusters</code> → strip of nearest other cluster’s exemplars. ⚠ forces full compute (Decision D1, Option A cost)</div></div></div>
+    </div>
+  </div>
+
+  <!-- ================= CONTRACT TABLE ================= -->
+  <h2>Frontend ⇄ backend contract</h2>
+  <table>
+    <tr><th>#</th><th>Frontend element</th><th>Backend endpoint</th><th>Interface (call)</th><th>Contract (type in / out)</th></tr>
+    <tr>
+      <td><span class="tg">1</span></td>
+      <td>Header + run guard <span class="pill p-new">NEW</span></td>
+      <td><code>gallery_tab._resolve_current_run_dir()</code> (local, mirrors cluster_analysis)</td>
+      <td><code>() -&gt; Optional[Path]</code></td>
+      <td>reads <code>session_state</code> keys <code>current_run_dir / v2_last_run_dir / active_run_dir</code>; requires <code>run_dir/face_clustering.db</code></td>
+    </tr>
+    <tr>
+      <td><span class="tg">2</span><span class="tg">3</span></td>
+      <td>Cluster list for filter + rows <span class="pill p-reuse">REUSE</span></td>
+      <td><code>ClusterAnalysisService.list_clusters()</code></td>
+      <td><code>() -&gt; List[ClusterRow]</code></td>
+      <td><b>out</b> <code>ClusterRow{cluster_id:int, size:int, diameter, n_exemplars, nearest_*}</code> — noise excluded</td>
+    </tr>
+    <tr>
+      <td><span class="tg">4</span></td>
+      <td>8 exemplar thumbnails <span class="pill p-new">NEW</span> (Decision D1)</td>
+      <td><code>ClusterAnalysisService.exemplar_face_ids()</code> — thin passthrough over repo</td>
+      <td><code>(cluster_id:int, n:int=8) -&gt; List[int]</code></td>
+      <td><b>out</b> face_ids, exemplars first. <i>Needed because <code>ClusterRow</code> carries NO crop paths.</i></td>
+    </tr>
+    <tr>
+      <td><span class="tg">4</span></td>
+      <td>Each thumbnail image <span class="pill p-new">NEW</span> (Decision D3)</td>
+      <td><code>face_cluster…crops.crop_path()</code> — shared helper (kills face_grid dup)</td>
+      <td><code>(run_dir:Path, face_id:int) -&gt; Path</code></td>
+      <td><b>out</b> <code>run_dir/crops/face_{id:04d}_aligned.jpg</code>; <code>cluster_strip</code> skips if missing</td>
+    </tr>
+    <tr>
+      <td><span class="tg">5</span></td>
+      <td>“Open” cross-tab nav <span class="pill p-reuse">REUSE</span></td>
+      <td>none — pure <code>session_state</code> write; <code>cluster_picker</code> consumes it</td>
+      <td><code>session_state['selected_cluster'] = cluster_id</code></td>
+      <td>contract = the key name. <code>cluster_picker</code> defaults its selectbox to it (verified)</td>
+    </tr>
+    <tr>
+      <td><span class="tg">7</span></td>
+      <td>Faces/cluster slider — G1 <span class="pill p-reuse">REUSE</span></td>
+      <td><code>ClusterAnalysisService.exemplar_face_ids()</code> (same endpoint, variable <code>n</code>)</td>
+      <td><code>(cluster_id, n) -&gt; List[int]</code></td>
+      <td>slider value = <code>n</code>; <code>ClusterView.faces</code> is the full sorted pool</td>
+    </tr>
+    <tr>
+      <td><span class="tg" style="background:#16a34a">G2</span></td>
+      <td>Thumbnail → all fields <span class="pill p-reuse">REUSE</span></td>
+      <td>none here — writes key; <b>Face Analysis</b> tab calls <code>FaceAnalysisService.compute_face_detail()</code></td>
+      <td><code>session_state['selected_face_id'] = face_id</code></td>
+      <td>downstream <code>(face_id) -&gt; FaceDetailView{blur, yaw, pitch, roll, area, bbox}</code></td>
+    </tr>
+    <tr>
+      <td><span class="tg" style="background:#f59e0b;color:#241a02">8</span></td>
+      <td>Quality FLAG badge — G5-flag <span class="pill p-reuse">REUSE</span></td>
+      <td>none — reads fields already on <code>FaceRow</code> / <code>ClusterView</code></td>
+      <td>render <code>⚠</code> when <code>is_outlier</code> or <code>blur_score &lt; thr</code></td>
+      <td><b>read-only.</b> Mutation (disqualify) → <code>specs/069-gallery-manual-disqualify</code></td>
+    </tr>
+    <tr>
+      <td><span class="tg" style="background:#9333ea">9</span></td>
+      <td>Nearest-outside strip — G4 (opt-in) <span class="pill p-new">NEW</span></td>
+      <td><code>ClusterAnalysisService.compute_detail()</code> (full ClusterView)</td>
+      <td><code>(cluster_id) -&gt; ClusterView</code></td>
+      <td><b>out</b> <code>.nearest_clusters: List[NearestClusterRow{cluster_id, min_exemplar_dist, merge_candidate}]</code>. ⚠ forces Option-A compute cost (Decision D1)</td>
+    </tr>
+    <tr>
+      <td>—</td>
+      <td>Repository construction <span class="pill p-reuse">REUSE</span></td>
+      <td><code>ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir))</code></td>
+      <td><code>(RepoConfig) -&gt; Repository</code></td>
+      <td>cached on <code>session_state["_gallery_service::{run_dir}"]</code>; <code>st.error</code> on failure</td>
+    </tr>
+    <tr>
+      <td>obs</td>
+      <td>Telemetry <span class="pill p-reuse">REUSE</span></td>
+      <td><code>_telemetry.tab_start/tab_done/component_render</code></td>
+      <td><code>tab_done("gallery", n_clusters=15, page=1, thumbs_rendered=120)</code></td>
+      <td>logger <code>fc_app_v2.tabs</code>; disable via <code>FC_V2_TAB_TELEMETRY=0</code></td>
+    </tr>
+  </table>
+
+  <footer>spec-066 · Gallery · 2026-06-05 · file ≤80 LOC · no SQL/FS/cfg.get in tab (arch test
+    <code>test_gallery_tab.py</code>) · sync compute + <code>st.spinner</code> (SIGHTING-079) ·
+    companion: OVERVIEW_TAB_DESIGN.html, ARCHITECTURE_PLAN.md</footer>
+</body>
+</html>

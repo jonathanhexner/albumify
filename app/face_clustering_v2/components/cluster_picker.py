@@ -22,14 +22,27 @@ def render_cluster_picker(rows: List[ClusterRow]) -> Optional[int]:
         return None
     options = [r.cluster_id for r in rows]
     labels = {r.cluster_id: f"Cluster {r.cluster_id} ({r.size} faces)" for r in rows}
-    prior = st.session_state.get("selected_cluster")
-    default_idx = options.index(prior) if prior in options else 0
+    wkey = "cluster_analysis_picker"
+
+    # Cross-tab nav (spec-066): another tab — Gallery's "Open in Cluster
+    # Analysis", nearest-clusters' "Go to" — requests a cluster via a ONE-SHOT
+    # ``_goto_cluster`` flag. We must write the *widget key* here, because
+    # Streamlit ignores ``index=`` once a keyed selectbox has a stored value.
+    # ``pop`` makes it one-shot so it never overrides the user's own in-tab
+    # selection on later reruns (``selected_cluster`` lags by a render and
+    # can't be used to tell apart "external request" from "user just picked").
+    goto = st.session_state.pop("_goto_cluster", None)
+    if goto in options:
+        st.session_state[wkey] = goto
+    elif wkey not in st.session_state:
+        prior = st.session_state.get("selected_cluster")
+        st.session_state[wkey] = prior if prior in options else options[0]
+
     chosen = st.selectbox(
         "Cluster",
         options=options,
-        index=default_idx,
         format_func=lambda cid: labels[cid],
-        key="cluster_analysis_picker",
+        key=wkey,
     )
     st.session_state["selected_cluster"] = chosen
     return chosen

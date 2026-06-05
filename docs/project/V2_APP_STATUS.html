@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Face Clustering v2 — status board</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#171a21;--panel2:#1e222b;--ink:#e6e9ef;--mut:#9aa3b2;
+    --line:#2a2f3a;--accent:#5b9dff;--ok:#5fd29b;--warn:#e0a458;--bad:#ef6f6f;
+    --done:#5fd29b;--wip:#5b9dff;--draft:#9aa3b2;--block:#ef6f6f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:24px 30px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#141821,#0f1115)}
+  h1{margin:0 0 4px;font-size:21px}
+  header .sub{color:var(--mut);font-size:13px}
+  header .date{color:var(--mut);font-size:12px;margin-top:6px}
+  main{max-width:1120px;margin:0 auto;padding:10px 24px 80px}
+  section{margin:26px 0}
+  h2{font-size:15px;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);font-weight:600}
+  td{color:var(--mut);background:var(--panel)}
+  td.tab{color:var(--ink);font-weight:600;white-space:nowrap}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+  .p-done{background:#10251a;color:var(--done)}
+  .p-wip{background:#10203a;color:var(--wip)}
+  .p-draft{background:#22262e;color:var(--draft)}
+  .p-block{background:#2a1414;color:var(--bad)}
+  .p-rev{background:#241d10;color:var(--warn)}
+  .dot{font-size:13px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:8px 0 0}
+  .next{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .next .row{display:flex;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:flex-start}
+  .next .row:last-child{border-bottom:0}
+  .next .rank{font-size:20px;font-weight:800;color:var(--accent);min-width:26px}
+  .next .what{flex:1}
+  .next .what b{color:var(--ink)}
+  .note{border-left:3px solid var(--accent);padding:8px 14px;background:#121723;color:#bcc6d8;
+    border-radius:0 8px 8px 0;font-size:13px;margin:10px 0}
+  code{font-family:Consolas,monospace;font-size:12px;color:#cdd6e4}
+</style>
+</head>
+<body>
+<header>
+  <h1>Face Clustering v2 — status board</h1>
+  <div class="sub">What's built, what's left, and what to do next. The app runs:
+    <code>.venv/Scripts/streamlit run app/face_clustering_v2/main.py</code></div>
+  <div class="date">Snapshot: 2026-06-05</div>
+</header>
+<main>
+
+<!-- TABS -->
+<section>
+  <h2>Tabs (10) — all render today</h2>
+  <table>
+    <tr><th>Tab</th><th>Built &amp; renders</th><th>Spec</th><th>Spec status</th><th>What's left for this tab</th></tr>
+    <tr><td class="tab">Run</td><td><span class="dot">✅</span></td><td>041 / 050</td><td><span class="pill p-done">Implemented</span></td><td>—</td></tr>
+    <tr><td class="tab">Cluster Analysis</td><td>✅</td><td>045</td><td><span class="pill p-done">Implemented</span></td><td>—</td></tr>
+    <tr><td class="tab">Face Analysis</td><td>✅</td><td>064</td><td><span class="pill p-draft">Draft</span></td><td>Close out (REVIEW.md → Implemented). Now also draws pose overlay.</td></tr>
+    <tr><td class="tab">Face Metrics <em>(new)</em></td><td>✅</td><td>069</td><td><span class="pill p-rev">Code Review</span></td><td>Your visual sign-off; refactor (139 LOC → component) + add arch test (F2/F3).</td></tr>
+    <tr><td class="tab">Gallery</td><td>✅</td><td>066</td><td><span class="pill p-draft">Draft</span></td><td>Close out.</td></tr>
+    <tr><td class="tab">Merged Clusters</td><td>✅</td><td>065</td><td><span class="pill p-draft">Draft</span></td><td>Close out.</td></tr>
+    <tr><td class="tab">Quality</td><td>⚠️ renders empty</td><td>065</td><td><span class="pill p-draft">Draft</span></td><td><b>Blocked on data</b> — pipeline writes no gate verdicts (SIGHTING-093).</td></tr>
+    <tr><td class="tab">Recluster</td><td>✅</td><td>063</td><td><span class="pill p-draft">Draft</span></td><td>Close out. (Browser e2e flaky → covered by headless endpoint test.)</td></tr>
+    <tr><td class="tab">Overview</td><td>✅</td><td>066</td><td><span class="pill p-draft">Draft</span></td><td>Close out.</td></tr>
+    <tr><td class="tab">History</td><td>✅</td><td>042 / 067</td><td><span class="pill p-wip">In Progress</span></td><td>Run-picker not test-clickable (canvas) — bypassed via query-param seed (spec-067).</td></tr>
+  </table>
+  <div class="legend">
+    <span><span class="pill p-done">Implemented</span> closed</span>
+    <span><span class="pill p-rev">Code Review</span> built, review passed/pending</span>
+    <span><span class="pill p-wip">In Progress</span></span>
+    <span><span class="pill p-draft">Draft</span> built but spec never closed</span>
+  </div>
+  <div class="note"><b>The pattern:</b> tabs 063–066 shipped as working code, but their
+    specs were never flipped from Draft to Implemented — that's paperwork, not broken features.</div>
+</section>
+
+<!-- E2E -->
+<section>
+  <h2>Budapest E2E suite — the v2 ship gate</h2>
+  <table>
+    <tr><th>Scenario</th><th>Tab</th><th>State</th><th>Note</th></tr>
+    <tr><td class="tab">A · fresh run</td><td>Run</td><td><span class="pill p-draft">untested</span></td><td>~10 min full pipeline; not run this session.</td></tr>
+    <tr><td class="tab">B · load reference</td><td>Cluster Analysis</td><td><span class="pill p-done">pass</span></td><td>—</td></tr>
+    <tr><td class="tab">C · recluster</td><td>Recluster</td><td><span class="pill p-done">pass (headless)</span></td><td>Browser path flaky → replaced by a 5s endpoint test.</td></tr>
+    <tr><td class="tab">D · face analysis</td><td>Face Analysis</td><td><span class="pill p-done">pass</span></td><td>—</td></tr>
+    <tr><td class="tab">E · merged clusters</td><td>Merged Clusters</td><td><span class="pill p-done">pass</span></td><td>—</td></tr>
+    <tr><td class="tab">F · quality</td><td>Quality</td><td><span class="pill p-block">blocked</span></td><td>Run has no quality data (SIGHTING-092/093).</td></tr>
+  </table>
+</section>
+
+<!-- OPEN ISSUES -->
+<section>
+  <h2>Open issues</h2>
+  <table>
+    <tr><th>ID</th><th>Severity</th><th>What</th><th>Status</th></tr>
+    <tr><td class="tab">SIGHTING-093</td><td><span style="color:var(--bad)">High</span></td><td>Pipeline doesn't persist excluded-face dispositions (gate verdicts G1, noise rows G2). Pose G3 fixed.</td><td>G3 ✅ done · G1/G2 open</td></tr>
+    <tr><td class="tab">SIGHTING-092</td><td><span style="color:var(--warn)">Medium</span></td><td>Quality e2e (F) has no data on the reference run.</td><td>open → spec-069 direction</td></tr>
+    <tr><td class="tab">SIGHTING-091</td><td><span style="color:var(--warn)">Medium</span></td><td>History run-picker not clickable by the test browser (canvas widget).</td><td>worked around (spec-067 seed)</td></tr>
+    <tr><td class="tab">Review F2–F5</td><td><span style="color:var(--mut)">Low</span></td><td>Face Metrics tab too long + no arch test; architecture HTML docs stale; LEARNINGS note.</td><td>ticketed (TODO.md)</td></tr>
+    <tr><td class="tab">Repro variance</td><td><span style="color:var(--mut)">Low</span></td><td>Re-detecting shifted clustering 15→10 clusters.</td><td>logged (SIGHTING-093)</td></tr>
+    <tr><td class="tab">Spec 069 collision</td><td><span style="color:var(--mut)">Low</span></td><td>Two specs numbered 069 (excluded-faces + gallery-manual-disqualify).</td><td>needs renumber</td></tr>
+  </table>
+</section>
+
+<!-- NEXT -->
+<section>
+  <h2>What to do next (priority order)</h2>
+  <div class="next">
+    <div class="row"><div class="rank">1</div><div class="what">
+      <b>Fix SIGHTING-093 G1/G2</b> — make the pipeline record gate verdicts (<code>filter_decisions</code>) + noise faces.
+      <br><span style="color:var(--mut)">Unblocks the Quality tab, the Excluded-Faces gate breakdown, AND e2e Scenario F — one fix, three wins. Highest leverage.</span>
+    </div></div>
+    <div class="row"><div class="rank">2</div><div class="what">
+      <b>Your visual sign-off</b> on Face Metrics + pose overlay → then flip spec-068, 069, 070 to Implemented.
+      <br><span style="color:var(--mut)">Code-review gate already passed; only your eyeball is pending.</span>
+    </div></div>
+    <div class="row"><div class="rank">3</div><div class="what">
+      <b>Close out the built tabs (063–066)</b> — REVIEW.md each, flip Draft → Implemented.
+      <br><span style="color:var(--mut)">Paperwork to make the spec ledger match reality. No code work.</span>
+    </div></div>
+    <div class="row"><div class="rank">4</div><div class="what">
+      <b>Housekeeping</b> — F2/F3 (refactor Face Metrics tab + arch test), F4 (architecture HTMLs), F5 (LEARNINGS), 069 renumber.
+    </div></div>
+    <div class="row"><div class="rank">5</div><div class="what">
+      <b>Green the full E2E suite</b> — run Scenario A; unblock F once #1 lands.
+    </div></div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

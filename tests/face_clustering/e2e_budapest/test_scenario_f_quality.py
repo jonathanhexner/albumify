@@ -5,7 +5,8 @@ Verifies the summary strip + per-gate stacked bar chart render with the
 expected reject count band.
 
 Click sequence (per spec-065 §"E2E contract"):
-  1. History tab → click row containing `6437d335` → "Load into analysis tabs"
+  1. Reference run loaded via the ``page_with_reference_run_loaded`` fixture
+     (spec-067: query-param seed replaces the canvas dataframe row-pick).
   2. Quality tab
 
 Assertions:
@@ -29,25 +30,15 @@ import pytest
 
 from tests.face_clustering.e2e_budapest.conftest import (
     EXPECTED_REJECTED_BAND,
-    REFERENCE_RUN_DIR,
-    REFERENCE_RUN_ID,
 )
 
 pytestmark = pytest.mark.budapest
 
 
-def test_scenario_f_quality_summary_and_chart(page):
-    if not REFERENCE_RUN_DIR.exists():
-        pytest.skip(f"Reference run missing: {REFERENCE_RUN_DIR}")
+def test_scenario_f_quality_summary_and_chart(page_with_reference_run_loaded):
+    page = page_with_reference_run_loaded
 
-    # 1. History → load reference run.
-    page.get_by_role("tab", name="History").click()
-    page.wait_for_selector("h2:has-text('History')", state="visible")
-    short = REFERENCE_RUN_ID[:8]
-    page.get_by_role("gridcell", name=short).first.click(timeout=15_000)
-    page.get_by_role("button", name="Load into analysis tabs").click()
-    page.wait_for_selector("text=/Loaded/i", state="visible", timeout=15_000)
-
+    # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Quality tab.
     page.get_by_role("tab", name="Quality").click()
     page.wait_for_selector("h2:has-text('Quality')", state="visible", timeout=30_000)

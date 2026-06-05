@@ -13,6 +13,7 @@ import streamlit as st
 
 logger = logging.getLogger(__name__)
 
+from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
 from app.face_clustering_v2.components.cluster_debug import render_cluster_debug
 from app.face_clustering_v2.components.cluster_metrics import render_cluster_metrics
 from app.face_clustering_v2.components.cluster_picker import render_cluster_picker
@@ -36,6 +37,7 @@ def render_cluster_analysis_tab() -> None:
     st.header("Cluster Analysis")
     run_dir = _resolve_current_run_dir()
     if run_dir is None:
+        tab_skipped("cluster_analysis", "no_run_loaded")
         st.info(
             "No completed run available yet. "
             "Either run a fresh pipeline from the **Run** tab, or open the "
@@ -45,14 +47,18 @@ def render_cluster_analysis_tab() -> None:
         )
         return
 
+    tab_start("cluster_analysis", run_dir)
     service = _get_service(run_dir)
     if service is None:
         # _get_service already showed an st.error; bail out gracefully.
+        tab_skipped("cluster_analysis", "repo_failed")
         return
     rows = service.list_clusters()
     cluster_id = render_cluster_picker(rows)
     if cluster_id is None:
+        tab_skipped("cluster_analysis", "no_cluster_selected")
         return
+    tab_done("cluster_analysis", n_clusters=len(rows), selected_cluster=cluster_id)
 
     # SIGHTING-079 fix: sync compute + st.spinner. AsyncHandle never advanced
     # past "Analysing cluster…" because Streamlit doesn't poll background

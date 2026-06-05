@@ -22,7 +22,11 @@ class InsightFaceDetection:
     landmarks: np.ndarray  # (5, 2) - left_eye, right_eye, nose, mouth_left, mouth_right
     person_bbox: Optional[BoundingBox]  # Associated person
     face_occluded: bool  # Person exists but face not found
-    
+    # spec-070 / SIGHTING-093: head pose as (yaw, pitch, roll) in degrees,
+    # remapped from InsightFace buffalo_l ``face.pose`` (which is
+    # [pitch, yaw, roll]). None when the detector did not provide pose.
+    pose: Optional[tuple] = None
+
     def get_key(self) -> str:
         """Get unique key for this face detection."""
         return f"{self.original_path}:face_{self.face_index}"

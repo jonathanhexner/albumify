@@ -50,7 +50,7 @@ class QualityGateStep(BaseStep):
             # shape (face_records OR the trio). The validate() override
             # below enforces "at least one of" semantics.
             requires=set(),
-            produces={"core_indices", "holdout_indices", "face_records"},
+            produces={"core_indices", "holdout_indices", "face_records", "filter_verdicts"},
             depends_on=[],
             config_schema={"type": "object"},
         )
@@ -102,11 +102,18 @@ class QualityGateStep(BaseStep):
         context.core_indices = clean_core
         context.holdout_indices = result.holdout_indices
         context.face_records = result.faces
+        # SIGHTING-093 G1: surface every per-face, per-gate verdict on the
+        # context so a downstream writer can persist them to filter_decisions
+        # (previously dropped — the Quality / Excluded-Faces tabs had no data).
+        # verdicts[i] corresponds to result.faces[i].
+        context.filter_verdicts = result.verdicts
 
         elapsed = time.time() - start
+        n_rejected = sum(1 for v in result.verdicts if v.rejection_reason is not None)
         logger.info(
-            "quality_gate: %d core / %d holdout / %d total (%.2fs)",
-            len(clean_core), len(result.holdout_indices), len(result.faces), elapsed,
+            "quality_gate: %d core / %d holdout / %d total / %d verdicts (%d rejected) (%.2fs)",
+            len(clean_core), len(result.holdout_indices), len(result.faces),
+            len(result.verdicts), n_rejected, elapsed,
         )
 
     # ------------------------------------------------------------------ private

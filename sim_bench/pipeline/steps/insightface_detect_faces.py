@@ -103,7 +103,9 @@ class InsightFaceDetectFacesStep(BaseStep):
             'confidence': float(face.confidence),
             'landmarks': face.landmarks.tolist(),
             'person_bbox': self._serialize_bbox(face.person_bbox) if face.person_bbox else None,
-            'face_occluded': bool(face.face_occluded)
+            'face_occluded': bool(face.face_occluded),
+            # spec-070 / SIGHTING-093: (yaw, pitch, roll) degrees, or None.
+            'pose': list(face.pose) if face.pose is not None else None,
         }
     
     def _serialize_bbox(self, bbox) -> Dict[str, Any]:
@@ -187,6 +189,10 @@ class InsightFaceDetectFacesStep(BaseStep):
                 img_h = int(round(h / h_ratio)) if h_ratio > 0 else None
                 landmarks_raw = face.get("landmarks")
                 landmarks = np.asarray(landmarks_raw, dtype=np.float32) if landmarks_raw else None
+                # spec-070 / SIGHTING-093: (yaw, pitch, roll), already remapped
+                # at the detector. faces_writer persists it to yaw/pitch/roll.
+                pose_raw = face.get("pose")
+                pose = tuple(float(v) for v in pose_raw) if pose_raw else None
                 # spec-040 A1 bugfix: the embedding dual-write in
                 # extract_face_embeddings keys records by canonical forward-slash
                 # paths (see _generate_cache_key). Store the same canonical form
@@ -203,6 +209,7 @@ class InsightFaceDetectFacesStep(BaseStep):
                     image_path=canonical_path,
                     face_index=int(face.get("face_index", 0)),
                     det_score=float(face.get("confidence", 0.0)),
+                    pose=pose,
                     area_ratio=area_ratio,
                     bbox_x_ratio=x_ratio,
                     bbox_y_ratio=y_ratio,

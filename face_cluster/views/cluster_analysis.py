@@ -108,6 +108,58 @@ class ClusterAnalysisService:
         """Cluster ids in display order (passthrough)."""
         return self._repo.get_cluster_ids()
 
+    def exemplar_face_ids(self, cluster_id: int, n: int = 8) -> List[int]:
+        """Return up to ``n`` representative face_ids for a cluster.
+
+        Exemplars first (the cluster's canonical faces), padded with other
+        members if the cluster has fewer than ``n`` exemplars. Cheap: two
+        small assignment reads, no distance-matrix compute — this is the
+        Gallery strip's data source (spec-066 D1), deliberately lighter than
+        the full :meth:`compute_detail`.
+
+        Args:
+            cluster_id: the cluster to sample.
+            n: max face_ids to return (the Gallery strip width).
+
+        Returns:
+            Ordered face_ids, exemplars first, length ``min(n, cluster_size)``.
+        """
+        from sim_bench.db.face_clustering.cluster_analysis_repo import (
+            ClusterAnalysisCriteria,
+        )
+
+        if n <= 0:
+            return []
+        exemplars = self._repo.find_assignments(
+            ClusterAnalysisCriteria(cluster_id=cluster_id, exemplars_only=True)
+        )
+        ordered = [a.face_id for a in exemplars]
+        if len(ordered) < n:
+            members = self._repo.find_assignments(
+                ClusterAnalysisCriteria(cluster_id=cluster_id)
+            )
+            seen = set(ordered)
+            for a in members:
+                if a.face_id not in seen:
+                    ordered.append(a.face_id)
+                    seen.add(a.face_id)
+                    if len(ordered) >= n:
+                        break
+        return ordered[:n]
+
+    def low_quality_face_ids(self, face_ids: List[int]) -> set:
+        """Subset of ``face_ids`` that did NOT pass the quality gate.
+
+        Uses the already-computed ``FaceRecord.is_core`` flag (a face in a
+        cluster with ``is_core=False`` was *attached* despite being below the
+        core-quality bar). Cheap read; the Gallery strip renders a ``warning``
+        badge for these (spec-066 G5-flag, read-only — disqualify is spec-069).
+        """
+        if not face_ids:
+            return set()
+        records = self._repo.get_face_records(list(face_ids))
+        return {r.face_id for r in records if not getattr(r, "is_core", True)}
+
     # ---- Synchronous compute (used by the v2 tab; SIGHTING-079 fix) ---
 
     def compute_detail(self, cluster_id: int) -> ClusterView:

@@ -98,6 +98,40 @@ def test_list_iterations_and_clusters_in_log(service):
     assert service.list_clusters_in_log() == [0, 1, 2]
 
 
+# --- spec-071: gate badges, summary, pair faces -------------------------------
+
+def test_gate_badges_maps_every_gate(service):
+    row = next(r for r in service.list_merge_decisions() if r.action == "rejected")
+    badges = service.gate_badges(row)
+    assert [b.name for b in badges] == ["cross", "exemplar", "support", "margin", "diameter"]
+    by = {b.name: b for b in badges}
+    assert by["exemplar"].passed is False   # seeded passes_exemplar=0
+    assert by["support"].passed is False    # seeded passes_support=0
+    assert by["margin"].passed is True
+    assert by["diameter"].passed is True
+    assert all(isinstance(b.detail, str) and b.detail for b in badges)
+
+
+def test_summary_counts_and_top_gate(service):
+    s = service.summary()
+    assert s.n_merged == 2          # the two action="merged" rows
+    assert s.n_rejected == 1        # the one action="rejected" row
+    # that row failed exemplar + support; either is a valid top.
+    assert s.top_rejection_gate in ("exemplar", "support")
+
+
+def test_pair_faces_resolves_cluster_members(service):
+    from sim_bench.db.face_clustering.cluster_analysis_repo import ClusterAnalysisCriteria
+    row = next(r for r in service.list_merge_decisions() if r.actually_merged)
+    pf = service.pair_faces(row)
+    assert pf.cluster_a == row.cluster_a and pf.cluster_b == row.cluster_b
+    # Faces must match what the repo assigns to each cluster (resolution logic).
+    assigns = service._repo.find_assignments(ClusterAnalysisCriteria())
+    expected_a = sorted(a.face_id for a in assigns if a.cluster_id == row.cluster_a)
+    assert pf.a_face_ids == expected_a
+    assert isinstance(pf.a_crops, list) and isinstance(pf.b_crops, list)
+
+
 # ---------------------------------------------------------------------------
 # Opt-in real-fixture smoke
 # ---------------------------------------------------------------------------

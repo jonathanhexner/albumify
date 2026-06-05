@@ -22,20 +22,30 @@ def render_face_bbox_overlay(
     crop_fallback: Optional[Path],
     bbox: Optional[tuple] = None,
     landmarks=None,
+    pose: Optional[tuple] = None,
 ) -> None:
     """Render the source photo (or crop fallback) with the bbox overlay.
 
     ``bbox`` is ``(x1, y1, x2, y2)`` in source-image pixel coords (matches
-    ``FaceRecord.bbox``). The bbox / landmarks parameters are not used for
-    the fallback crop render — they only make sense over the source image.
+    ``FaceRecord.bbox``). ``pose`` is ``(yaw, pitch, roll)`` degrees (spec-070);
+    when present (and a bbox is available) the 3 head-pose axes are drawn
+    anchored at the bbox centre (X red, Y green, Z blue). The bbox / landmarks
+    / pose parameters only apply to the source-image render, not the crop
+    fallback.
     """
     src = Path(source_image_path) if source_image_path else None
     if src and src.is_file():
         try:
             import plotly.graph_objects as go
-            from PIL import Image
+            from PIL import Image, ImageOps
 
-            img = Image.open(src)
+            # Apply EXIF orientation so phone photos display upright. The stored
+            # bbox / landmarks are already in the upright (EXIF-corrected) frame
+            # — the detector ran on the oriented image — so without this the
+            # image showed sideways while the bbox sat in the wrong place
+            # (user report 2026-06-05). exif_transpose also strips the tag, so
+            # img.width/height below are the correct upright dimensions.
+            img = ImageOps.exif_transpose(Image.open(src))
             fig = go.Figure()
             fig.add_layout_image(
                 dict(
@@ -59,6 +69,26 @@ def render_face_bbox_overlay(
                     x=xs, y=ys, mode="markers",
                     marker=dict(size=8, color="cyan"), showlegend=False,
                 ))
+            # spec-070: head-pose axes (X red / Y green / Z blue) anchored at
+            # the bbox centre. y is flipped to match the layout image.
+            if (pose is not None and len(pose) == 3
+                    # ``v == v`` is False for NaN — legacy runs (pre-SIGHTING-093)
+                    # store NaN pose, which would draw garbage axes otherwise.
+                    and all(v is not None and v == v for v in pose)
+                    and bbox is not None and len(bbox) == 4):
+                from face_cluster.overlays import pose_axes_2d
+
+                bx1, by1, bx2, by2 = (float(v) for v in bbox)
+                center = ((bx1 + bx2) / 2.0, (by1 + by2) / 2.0)
+                scale = 0.5 * min(abs(bx2 - bx1), abs(by2 - by1))
+                axes = pose_axes_2d(center, scale, pose[0], pose[1], pose[2])
+                colours = {"x": "red", "y": "lime", "z": "deepskyblue"}
+                for k, (ax0, ay0, ax1, ay1) in axes.items():
+                    fig.add_trace(go.Scatter(
+                        x=[ax0, ax1], y=[img.height - ay0, img.height - ay1],
+                        mode="lines", line=dict(color=colours[k], width=4),
+                        name=f"{k}-axis", showlegend=False,
+                    ))
             fig.update_xaxes(visible=False, range=[0, img.width])
             fig.update_yaxes(visible=False, range=[0, img.height])
             fig.update_layout(

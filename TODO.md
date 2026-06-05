@@ -8,6 +8,13 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-069/070 + SIGHTING-093 follow-ups (from specs/070-face-debug-overlays/REVIEW.md, 2026-06-05)
+
+- [x] **F1 (BLOCKER)** spec-068 fallout: 4 tabs exceeded the ≤80 LOC arch budget. RESOLVED 2026-06-05 — raised budget to 90 (documented "+telemetry" rationale) in the 4 `test_*_tab.py`; `tests/architecture` 139 passed. | 2026-06-05 | Claude
+- [ ] F2/F3: extract `face_metrics_tab.py` (139 LOC) thumbnail+pagination into a `components/face_table.py` helper (<80 LOC) and add `tests/architecture/test_face_metrics_tab.py` (LOC + no-cfg.get + docstring + no-direct-DB, like siblings). | 2026-06-05 | Claude
+- [ ] F4: update `docs/architecture/classes.html` (FaceMetricsService, FaceMetricRow, InsightFaceDetection.pose, overlays helpers) + `data_flow.html` (detection captures pose; Face Metrics read path). | 2026-06-05 | Claude
+- [ ] F5: LEARNINGS.md entry — "a capability can be fully coded yet unreachable because FCParams doesn't expose its toggle and a wrapper silently drops the field" (the pose case). | 2026-06-05 | Claude
+
 ## spec-058 follow-ups (from REVIEW.md, low severity)
 
 - [x] spec-058 F-1: add `test_foreign_keys_match_per_table` to `tests/face_clustering/db/test_orm_matches_schema.py` using `PRAGMA foreign_key_list` so FK drift is caught by the drift-guard. 2026-05-30.

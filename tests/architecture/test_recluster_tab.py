@@ -54,8 +54,11 @@ def test_tab_has_no_cfg_get_literals() -> None:
 def test_tab_loc_budget_under_80() -> None:
     """Tab files are orchestration only — ~80 LOC ceiling."""
     n_lines = sum(1 for _ in TAB_FILE.open(encoding="utf-8"))
-    assert n_lines <= 80, (
-        f"{TAB_FILE.relative_to(REPO_ROOT)} has {n_lines} lines; budget is 80."
+    # spec-068 raised 80 -> 90: telemetry (tab_start/tab_done/tab_skipped) is a
+    # mandatory cross-cutting concern adding ~3 lines/tab. Tabs stay thin
+    # orchestrators — domain logic still lives in the services.
+    assert n_lines <= 90, (
+        f"{TAB_FILE.relative_to(REPO_ROOT)} has {n_lines} lines; budget is 90."
     )
 
 
