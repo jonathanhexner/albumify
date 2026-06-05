@@ -236,3 +236,33 @@ e2e_screens/
 
 # Model weight files
 *.pt
+
+# --- Generated artifacts / scratch (added 2026-06-05) ---
+
+# Alembic smoke-test DB
+.alembic_smoke.db
+
+# Claude Code local/machine state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+
+# Run logs
+logs/
+
+# E2E failure screenshots + manual smoke screenshots
+tests/**/_failure_artifacts/
+tests/manual/*.png
+
+# Regenerable verification / evidence artifacts under specs
+specs/**/VERIFY_*.html
+specs/**/_overlay_sample.png
+specs/**/SHOT_*.png
+specs/**/Untitled
+
+# Generated analysis report PDFs
+sim_bench/analysis/reports/*.pdf
+
+# Face-pipeline diagnostic artifacts (generated)
+docs/project/face_pipeline_crops*/
+docs/project/face_pipeline_diagnostic*.html
