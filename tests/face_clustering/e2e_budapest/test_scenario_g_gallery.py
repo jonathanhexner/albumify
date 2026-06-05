@@ -27,6 +27,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.face_clustering.e2e_budapest.conftest import goto_page
+
 pytestmark = pytest.mark.budapest
 
 
@@ -36,7 +38,7 @@ def test_scenario_g_gallery(page_with_reference_run_loaded):
     # 2. Gallery tab -> header. 60s: Streamlit re-renders all tab bodies per
     # rerun. (Blocked while the Face Metrics tab embeds 340 inline base64
     # crops before Gallery in the tab order — see spec-066 REVIEW / SIGHTING.)
-    page.get_by_role("tab", name="Gallery").click()
+    goto_page(page, "Gallery")
     page.wait_for_selector("h2:has-text('Gallery')", state="visible", timeout=60_000)
 
     # AC1/AC3: the largest cluster row is present.
@@ -55,7 +57,7 @@ def test_scenario_g_gallery(page_with_reference_run_loaded):
     open_btn.wait_for(state="visible", timeout=30_000)
     open_btn.click()
 
-    page.get_by_role("tab", name="Cluster Analysis").click()
+    goto_page(page, "Cluster Analysis")
     page.wait_for_selector("h2:has-text('Cluster Analysis')", state="visible", timeout=60_000)
     # The picker's selectbox should now read "Cluster 1 (...)".
     page.wait_for_selector("text=/Cluster 1 \\(/", state="visible", timeout=60_000)

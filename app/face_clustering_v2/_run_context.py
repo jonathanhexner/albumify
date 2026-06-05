@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional, TypeVar
 
 import streamlit as st
 
@@ -34,6 +34,34 @@ def resolve_run_dir() -> Optional[Path]:
         if v and Path(v).is_dir() and (Path(v) / "face_clustering.db").is_file():
             return Path(v)
     return None
+
+
+_T = TypeVar("_T")
+
+
+def cached_service(
+    run_dir: Path, factory: Callable[[ClusterAnalysisRepository], _T], *, cache_prefix: str,
+) -> Optional[_T]:
+    """Build (or return cached) ``factory(repo)`` service for ``run_dir``.
+
+    Generic version of :func:`cached_cluster_service` for tabs whose service is
+    not ``ClusterAnalysisService`` (e.g. Merged Clusters / Images). Returns None
+    and surfaces ``st.error`` if the run can't be opened. Cached per
+    (prefix, run_dir) so each tab keeps its own slot.
+    """
+    key = f"{cache_prefix}::{run_dir}"
+    cached = st.session_state.get(key)
+    if cached is not None:
+        return cached
+    try:
+        repo = ClusterAnalysisRepository(ClusterAnalysisRepoConfig(run_dir=run_dir))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("%s: repo construction failed for %s", cache_prefix, run_dir)
+        st.error(f"Cannot open run at `{run_dir}`: {exc}")
+        return None
+    service = factory(repo)
+    st.session_state[key] = service
+    return service
 
 
 def cached_cluster_service(run_dir: Path, *, cache_prefix: str) -> Optional[ClusterAnalysisService]:

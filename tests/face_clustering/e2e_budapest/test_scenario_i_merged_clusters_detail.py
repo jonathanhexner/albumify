@@ -27,6 +27,7 @@ import urllib.parse
 import pytest
 
 from tests.face_clustering.e2e_budapest.conftest import (
+    goto_page,
     APP_URL, PAGE_TIMEOUT_MS, REFERENCE_RUN_DIR,
 )
 
@@ -62,11 +63,14 @@ def test_scenario_i_merged_clusters_detail(page):
     page.wait_for_selector("h1", state="visible", timeout=PAGE_TIMEOUT_MS)
 
     # 2. Merged Clusters tab.
-    page.get_by_role("tab", name="Merged Clusters").click()
+    goto_page(page, "Merged Clusters")
     page.wait_for_selector("h2:has-text('Merged Clusters')", state="visible", timeout=30_000)
 
     # AC1: the seeded detail panel painted (real-DOM subheader).
     page.wait_for_selector(r"text=/Pair \(cluster_a=/", state="visible", timeout=15_000)
+    # spec-080: single-page render mounts the pair-crops ON navigation; wait for
+    # the second caption so the body capture below isn't read mid-render.
+    page.wait_for_selector(r"text=/cluster_b =/", state="visible", timeout=15_000)
 
     # Use VISIBLE body text (inner_text excludes hidden tabs + the canvas table's
     # off-screen a11y cells), so these assertions read only the active detail
@@ -82,4 +86,13 @@ def test_scenario_i_merged_clusters_detail(page):
 
     # AC3: pair-crop captions + at least one visible crop image.
     assert "cluster_a =" in body and "cluster_b =" in body, "pair-crop captions missing"
+    # spec-082: st.image serves crops via Streamlit's async media endpoint, so an
+    # <img> exists in the DOM with naturalWidth==0 (zero-size -> "not visible")
+    # until the bytes load. Wait for at least one crop to finish loading before
+    # counting, rather than sampling at an arbitrary instant (same class of
+    # single-page-render timing race spec-080 fixed for H's plotly mount).
+    page.wait_for_function(
+        "[...document.querySelectorAll('img')].some(i => i.naturalWidth > 0)",
+        timeout=15_000,
+    )
     assert page.locator("img:visible").count() >= 1, "No visible pair-crop images."

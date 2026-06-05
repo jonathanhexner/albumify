@@ -1,11 +1,12 @@
-"""spec-066 — one-cluster thumbnail strip for the Gallery tab.
+"""spec-066 / spec-082 — one-cluster thumbnail strip for the Gallery tab.
 
 Render-only. Takes pre-resolved face_ids (the tab calls
 ``ClusterAnalysisService.exemplar_face_ids``) and draws: cluster header +
 "Open in Cluster Analysis" + the exemplar thumbnails wrapped into rows of
-``STRIP_COLS``. Faces that failed the quality gate get a warning badge
-(G5-flag, read-only). Per-face drill-in lives in Face Metrics (clickable
-rows) and Cluster Analysis — Streamlit can't make a bare image clickable.
+``STRIP_COLS``. Each face has an "Open" button beneath it -> Face Analysis
+for that face (spec-082: gallery thumbnails are now clickable, same drill-in
+as the Face Metrics table). Faces that failed the quality gate get a warning
+badge (G5-flag, read-only).
 """
 from __future__ import annotations
 
@@ -43,11 +44,11 @@ def render_cluster_strip(
     header = st.columns([4, 2])
     header[0].markdown(f"**Cluster {cluster_id}** · {size} faces")
     if header[1].button("Open in Cluster Analysis", key=f"gal_open_cluster_{cluster_id}"):
-        # One-shot nav request consumed by cluster_picker (writes the picker's
-        # widget key — selected_cluster alone can't move a keyed selectbox).
+        # One-shot nav request consumed by cluster_picker, then switch view (spec-080).
         st.session_state["_goto_cluster"] = int(cluster_id)
         st.session_state["selected_cluster"] = int(cluster_id)
-        st.rerun()
+        from app.face_clustering_v2._nav import navigate_to
+        navigate_to("Cluster Analysis")
 
     if not face_ids:
         st.caption("No faces to show for this cluster.")
@@ -67,8 +68,14 @@ def render_cluster_strip(
                         n_rendered += 1
                     except Exception:
                         pass
-                flag = " :warning:" if fid in low_quality else ""
-                st.caption(f"`{fid:04d}`{flag}")
+                # spec-082: clicking opens this face in Face Analysis (large
+                # image + bbox + pose), same drill-in the Face Metrics rows use.
+                flag = " warn" if fid in low_quality else ""
+                if st.button(f"{fid:04d}{flag}", key=f"gal_face_{cluster_id}_{fid}",
+                             help="Open in Face Analysis"):
+                    st.session_state["selected_face_id"] = int(fid)
+                    from app.face_clustering_v2._nav import navigate_to
+                    navigate_to("Face Analysis")
 
     component_render(
         "gallery", "cluster_strip",

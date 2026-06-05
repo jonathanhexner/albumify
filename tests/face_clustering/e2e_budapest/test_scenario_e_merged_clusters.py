@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.face_clustering.e2e_budapest.conftest import goto_page
+
 pytestmark = pytest.mark.budapest
 
 
@@ -42,7 +44,7 @@ def test_scenario_e_merged_clusters_viewer(page_with_reference_run_loaded):
 
     # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Merged Clusters tab.
-    page.get_by_role("tab", name="Merged Clusters").click()
+    goto_page(page, "Merged Clusters")
     page.wait_for_selector("h2:has-text('Merged Clusters')", state="visible", timeout=30_000)
 
     # 3. Table container present in the active tab. ``:visible`` scopes past the

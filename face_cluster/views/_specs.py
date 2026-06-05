@@ -43,20 +43,31 @@ class ColumnSpec:
         help: optional tooltip text. Ignored by table renderers; used by
             ``render_metric_strip`` when the same spec drives a metric
             strip (spec-072).
+        getter: optional ``Callable[[row], value]`` — when set, the value is
+            COMPUTED from the row (e.g. ``len(x)``, a PASS/FAIL string) instead
+            of read from an attribute. ``field``/``fallback_fields`` are then
+            ignored (spec-078).
+        delta: optional ``Callable[[row], str]`` — a metric-strip delta line
+            (the small text under an ``st.metric`` value). Strips only.
     """
     field: str
     label: str
     fallback_fields: Tuple[str, ...] = ()
     formatter: Optional[Callable[[Any], str]] = None
     help: Optional[str] = None
+    getter: Optional[Callable[[Any], Any]] = None
+    delta: Optional[Callable[[Any], str]] = None
 
     def read(self, row: Any) -> Any:
         """Return the raw value for this column from a row object.
 
-        Tries ``field`` first; on None / missing / falsy, tries each
+        When ``getter`` is set, returns ``getter(row)`` directly. Otherwise
+        tries ``field`` first; on None / missing / falsy, tries each
         ``fallback_fields`` entry in order. Returns the first non-None
         non-empty value, or None if all fields are absent.
         """
+        if self.getter is not None:
+            return self.getter(row)
         for name in (self.field, *self.fallback_fields):
             if hasattr(row, name):
                 v = getattr(row, name)

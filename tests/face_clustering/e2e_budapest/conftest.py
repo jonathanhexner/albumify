@@ -71,6 +71,16 @@ PIPELINE_TIMEOUT_S = 600
 PAGE_TIMEOUT_MS = 30_000
 
 
+def goto_page(page, name: str) -> None:
+    """Switch the v2 app to the named view (spec-080 nav).
+
+    The app replaced ``st.tabs`` with a horizontal radio nav, so the old
+    ``get_by_role('tab', name=...)`` no longer matches. The nav option is a
+    label in the radio group; click it by text.
+    """
+    page.get_by_role("radiogroup").get_by_text(name, exact=True).click()
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

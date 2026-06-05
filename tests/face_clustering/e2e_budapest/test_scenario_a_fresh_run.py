@@ -29,6 +29,7 @@ import time
 import pytest
 
 from tests.face_clustering.e2e_budapest.conftest import (
+    goto_page,
     EXPECTED_N_CLUSTERS, PIPELINE_TIMEOUT_S, PROFILES_V2_DIR, PROFILE_NAME, SOURCE_DIR,
 )
 
@@ -42,7 +43,7 @@ def test_scenario_a_fresh_run_produces_baseline_cluster_count(page):
         pytest.skip(f"Profile missing: {PROFILES_V2_DIR / PROFILE_NAME}")
 
     # 1. Run tab
-    page.get_by_role("tab", name="Run").click()
+    goto_page(page, "Run")
 
     # 2-3. Source + Album. Use exact labels — `get_by_label("Album")` collides
     # with the History tab's "Selected (all). Album" filter selectbox and the

@@ -9,8 +9,10 @@ from types import SimpleNamespace
 from typing import Optional
 import streamlit as st
 from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
+from app.face_clustering_v2.components.metric_strip import render_metric_strip
 from app.face_clustering_v2.components.quality_bar_chart import render_quality_bar_chart
 from app.face_clustering_v2.components.run_table import render_run_table
+from face_cluster.views.metric_specs import QUALITY_SUMMARY_STRIP
 from face_cluster.views._specs import ColumnSpec
 from face_cluster.views.quality import QualityService
 from sim_bench.db.face_clustering.cluster_analysis_repo import (
@@ -42,12 +44,7 @@ def render_quality_tab() -> None:
     summary = service.summary()
     tab_done("quality", n_items=summary.n_items, n_decisions=summary.n_decisions,
              n_rejected=summary.n_rejected)
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Items", summary.n_items)
-    c2.metric("Decisions", summary.n_decisions)
-    c3.metric("Rejected", summary.n_rejected)
-    c4.metric("Top reject gate", summary.top_rejection_gate or "—")
-    c5.metric("Pass rate", f"{summary.pass_rate * 100:.1f}%")
+    render_metric_strip(summary, QUALITY_SUMMARY_STRIP, n_cols=5)
     render_quality_bar_chart(summary.gates, key="v2_q_chart")
     gate_names = ["(all)"] + [g.gate_name for g in summary.gates]
     gate = st.selectbox("Filter by gate", gate_names, key="v2_q_gate")

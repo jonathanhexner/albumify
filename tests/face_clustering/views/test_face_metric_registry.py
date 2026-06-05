@@ -12,7 +12,7 @@ from face_cluster.views.face_metrics import FACE_METRIC_COLUMNS, FaceMetricRow
 
 def _row(**over):
     base = dict(
-        face_id=1, status="assigned", cluster_id=1, blur=1204.0, area=345290.0,
+        face_id=1, status="assigned", disposition="clustered", cluster_id=1, blur=1204.0, area=345290.0,
         area_ratio=0.052, det_score=0.93, yaw=5.0, pitch=-3.0, roll=1.0,
         rejection_reason=None, crop_path=None,
     )

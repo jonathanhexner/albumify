@@ -41,4 +41,5 @@ def render_metric_strip(
     cols = st.columns(per_row)
     for i, spec in enumerate(specs):
         value = spec.display(obj)
-        cols[i % per_row].metric(spec.label, value or _MISSING, help=spec.help)
+        delta = spec.delta(obj) if spec.delta is not None else None
+        cols[i % per_row].metric(spec.label, value or _MISSING, delta=delta, help=spec.help)

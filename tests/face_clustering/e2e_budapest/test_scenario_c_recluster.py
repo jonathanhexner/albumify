@@ -36,6 +36,7 @@ from pathlib import Path
 import pytest
 
 from tests.face_clustering.e2e_budapest.conftest import (
+    goto_page,
     EXPECTED_RECLUSTER_BAND,
     REFERENCE_RUN_ID,
 )
@@ -56,7 +57,7 @@ def test_scenario_c_recluster_reference_run(page_with_reference_run_loaded):
 
     # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Recluster tab → leave defaults → Run recluster.
-    page.get_by_role("tab", name="Recluster").click()
+    goto_page(page, "Recluster")
     page.wait_for_selector("h2:has-text('Recluster')", state="visible")
 
     # Wait for the picker to populate, then click Run.
@@ -105,7 +106,7 @@ def test_scenario_c_recluster_reference_run(page_with_reference_run_loaded):
     # 6. Switch to History tab and verify the new run is listed.
     # Streamlit needs a beat to refresh the table after a writeback.
     time.sleep(2)
-    page.get_by_role("tab", name="History").click()
+    goto_page(page, "History")
     page.wait_for_selector("h2:has-text('History')", state="visible")
     short_new = new_dir.name[:8]
     page.wait_for_selector(f"text=/{short_new}/", state="visible", timeout=15_000)

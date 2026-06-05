@@ -4,6 +4,34 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-095: run_db exporter golden hash diverged for `run_metadata`
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-06-06
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`tests/run_db/test_split_equivalence.py::test_exporter_output_matches_golden_hashes`
+fails on `db:run_metadata` (live `6aa8e84c…` != golden `2505867e…`). All other
+exported tables match. The divergence is **deterministic** (same live hash every
+run), and reproduces with `sim_bench/run_db/store.py` reverted — so it predates
+spec-083 and is not caused by it.
+
+**Symptoms**:
+- 1 failed / 6 passed in `tests/run_db/`.
+- Only `db:run_metadata` differs; `db:images`, crops, etc. all match.
+
+**Suspicion**:
+A field in the exported `run_metadata` changed since the golden was snapshotted
+(schema_version bump or a new/renamed column), so the golden needs regenerating —
+or the exporter stamps a non-fixed value. Confirm which field differs, then
+either fix the exporter to be deterministic or `_write_golden` a fresh snapshot.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest tests/run_db/test_split_equivalence.py::test_exporter_output_matches_golden_hashes`
+
+---
+
 <!-- Format:
 ### SIGHTING-XXX: Brief title
 **Status**: OPEN / IN PROGRESS / RESOLVED
@@ -30,6 +58,53 @@ Possible root cause
 **Findings**:
 (what was learned - also add to LEARNINGS.md)
 -->
+
+### SIGHTING-094: Albumify `cluster_people` config surface omits FC v2 exemplar/attach/split knobs → over-fragments (20 identities vs FC v2 15 on Budapest)
+**Status**: OPEN
+**Severity**: Medium
+**Reported**: 2026-06-05
+**Persona**: ML Engineer
+**Related**: spec-079 Stage 0 (equivalence anchor), `specs/079-albumify-shared-core/CLUSTERING_EXPLAINED.html`
+
+**Problem Description**:
+Running Albumify's pipeline on `D:\Budapest2025_Google` with profile_4's
+clustering knobs overlaid onto `cluster_people` yields **20 identities / 100
+assigned faces**, vs the FC v2 reference run's **15 / 107**. Same algorithm
+(`face_cluster_knn`), same `distance_threshold`, but Albumify leaves ~12 size-2
+clusters that FC v2 merged into its large clusters (top sizes 29,13,11 vs
+35,24,14).
+
+**Symptoms**:
+- Identity count 20 (band is 12–18); over-fragmented tail of size-2 clusters.
+- `scripts/capture_albumify_baseline.py` reports `ANCHOR: MISS`.
+
+**Suspicion**:
+`ClusterPeopleConfig` (sim_bench/pipeline/steps/configs/cluster_people.py)
+exposes a SUBSET of `FCParams`. The 15 skipped knobs include the exemplar
+selectors `N_exemplars_max`, `exemplars_d10_threshold`,
+`exemplar_suppression_radius` (and `d10_k`, attach/split knobs). Merging is
+exemplar-driven; with exemplars chosen by defaults, the adaptive merge under-
+merges → more clusters. Merge *thresholds* were applied; exemplar *inputs* were
+not. Keeping `identity_refinement` may also contribute.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python scripts/capture_albumify_baseline.py`
+2. Observe IDENTITIES=20 vs FC v2=15; 15 knobs skipped (printed).
+
+**Resolution**:
+(open) Likely fix: widen `ClusterPeopleConfig` to surface the exemplar (and
+optionally attach/split) knobs so profile_4 fully binds; then re-baseline.
+Tracked as a follow-up to spec-079's repository work, not a blocker for it.
+
+**Findings**:
+- 2026-06-06 A/B (scripts/experiment_clustering_ab.py): within one run,
+  `people_clusters` (pre-refinement) = 20 clusters and `refined_people_clusters`
+  (post `identity_refinement`) = 20 clusters with IDENTICAL sizes. So
+  **identity_refinement is ruled OUT** as the cause; the count is set entirely by
+  `cluster_people`. This isolates the gap to the clustering config surface
+  (exemplar/merge knobs), strengthening the original suspicion. Albumify
+  under-merges: FC v2's top clusters (35/24/14) are merges of Albumify's pieces
+  (29/13/11 + several size-2). Next: expose exemplar knobs, re-run, confirm.
 
 ### SIGHTING-093: v2 pipeline does not persist excluded-face dispositions (filter_decisions empty; unassigned faces unstored; pose toggle unreachable)
 **Status**: OPEN

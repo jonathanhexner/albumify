@@ -29,6 +29,7 @@ import re
 import pytest
 
 from tests.face_clustering.e2e_budapest.conftest import (
+    goto_page,
     EXPECTED_REJECTED_BAND,
 )
 
@@ -40,7 +41,7 @@ def test_scenario_f_quality_summary_and_chart(page_with_reference_run_loaded):
 
     # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Quality tab.
-    page.get_by_role("tab", name="Quality").click()
+    goto_page(page, "Quality")
     page.wait_for_selector("h2:has-text('Quality')", state="visible", timeout=30_000)
 
     # 3. >= 4 metric widgets (Items / Decisions / Rejected / Top reject gate / Pass rate)

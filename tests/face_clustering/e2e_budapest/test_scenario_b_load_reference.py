@@ -44,6 +44,7 @@ import re
 import pytest
 
 from tests.face_clustering.e2e_budapest.conftest import (
+    goto_page,
     EXPECTED_BIGGEST_CLUSTER_SIZE, EXPECTED_CLUSTER_0_SIZE,
 )
 
@@ -60,7 +61,7 @@ def test_scenario_b_load_reference_run_and_see_clusters(page_with_reference_run_
 
     # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Cluster Analysis tab
-    page.get_by_role("tab", name="Cluster Analysis").click()
+    goto_page(page, "Cluster Analysis")
     page.wait_for_selector("h2:has-text('Cluster Analysis')", state="visible")
 
     # 3. Metric strip

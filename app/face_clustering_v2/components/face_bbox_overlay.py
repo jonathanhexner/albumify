@@ -89,13 +89,20 @@ def render_face_bbox_overlay(
                         mode="lines", line=dict(color=colours[k], width=4),
                         name=f"{k}-axis", showlegend=False,
                     ))
+            # Preserve aspect ratio (user report 2026-06-05: image was stretched).
+            # Scale the figure to the image's proportions, capped to a max edge,
+            # and lock 1 x-unit == 1 y-unit so the photo can't distort.
+            max_edge = 720
+            s = min(1.0, max_edge / max(img.width, img.height))
+            disp_w, disp_h = int(img.width * s), int(img.height * s)
             fig.update_xaxes(visible=False, range=[0, img.width])
-            fig.update_yaxes(visible=False, range=[0, img.height])
+            fig.update_yaxes(visible=False, range=[0, img.height],
+                             scaleanchor="x", scaleratio=1)
             fig.update_layout(
-                height=480, margin=dict(l=0, r=0, t=0, b=0),
+                width=disp_w, height=disp_h, margin=dict(l=0, r=0, t=0, b=0),
                 paper_bgcolor="#111", plot_bgcolor="#111",
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=False)
             return
         except Exception:  # noqa: BLE001
             # Fall through to crop fallback on any rendering failure.

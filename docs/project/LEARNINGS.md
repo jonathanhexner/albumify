@@ -6,6 +6,11 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-06-06: `st.dataframe` row-select is NOT "click the thumbnail" (3× user frustration)
+**Root cause**: v2 used `st.dataframe(on_select="rerun", selection_mode="single-row")` + `ImageColumn` for "clickable thumbnails." Glide-data-grid renders on a canvas and only the ~20px row-select **checkbox column** fires the selection event — clicking the thumbnail or any data cell does nothing. Users reported "I can't click on faces/images" three separate times because the only working target was invisible.
+**Lesson**: For click-to-open in this Streamlit app, use a real `st.button("Open")` under each thumbnail (the `face_grid.py` pattern), not dataframe row-select. Bonus: real buttons are Playwright-addressable, so the click path gets actual e2e coverage (scenarios J/K) — the canvas never could.
+**Prevention**: spec-083 added `face_pick_grid` / `image_pick_grid`; auto-memory `feedback_clickable_buttons.md`.
+
 ### 2026-05-15: Long pointless explanations are unacceptable
 **Root cause**: Repeated user feedback ("I didn't understand anything", "this isn't simple", "you're again opting for long unclear explanations") on responses that buried the answer under recap, framing, and symmetric "what was supposed / what actually" templates.
 **Lesson**: Direct answer first. One short paragraph or tight bullets. No restating the question. No "let me explain". Caveats only if asked.

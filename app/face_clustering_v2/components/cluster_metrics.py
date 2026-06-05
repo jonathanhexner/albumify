@@ -12,17 +12,14 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app.face_clustering_v2.components.metric_strip import render_metric_strip
 from face_cluster.views.cluster_view import ClusterView
+from face_cluster.views.metric_specs import CLUSTER_METRIC_STRIP
 
 
 def render_cluster_metrics(view: ClusterView) -> None:
     """Render the 5-metric strip + (optional) split-signal banner."""
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Faces", view.size)
-    c2.metric("Diameter", f"{view.diameter:.3f}")
-    c3.metric("Avg intra-dist", f"{view.avg_intra_dist:.3f}")
-    c4.metric("Exemplars", len(view.exemplar_face_ids))
-    c5.metric("Outliers", len(view.outlier_face_ids))
+    render_metric_strip(view, CLUSTER_METRIC_STRIP)
 
     if view.split_signal:
         st.warning(

@@ -8,13 +8,13 @@ needs to be loaded — this reads global history, not a single run.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import Optional
 
 import streamlit as st
 
 from app.face_clustering_v2._telemetry import tab_done, tab_start
 from app.face_clustering_v2.components.dashboard_charts import render_bar, render_timeseries
+from app.face_clustering_v2.components.metric_strip import render_metric_strip
+from face_cluster.views.metric_specs import OVERVIEW_STRIP
 from face_cluster.views.overview import DashboardMetrics, OverviewService
 
 logger = logging.getLogger(__name__)
@@ -27,15 +27,7 @@ def render_overview_tab() -> None:
     service = _get_service()
     metrics = service.compute_dashboard(limit=50)
 
-    c = st.columns(4)
-    c[0].metric("Total runs", metrics.total_runs)
-    c[1].metric("Total faces ever", f"{metrics.total_faces_ever:,}")
-    c[2].metric(
-        "Avg n_clusters",
-        "-" if metrics.avg_n_clusters is None else f"{metrics.avg_n_clusters:.1f}",
-        help=None if metrics.median_n_clusters is None else f"median {metrics.median_n_clusters:g}",
-    )
-    c[3].metric("Last run", _age(metrics.last_run_at))
+    render_metric_strip(metrics, OVERVIEW_STRIP, n_cols=4)
 
     if metrics.gate_pass_rate is not None:
         st.caption(f"Gate pass rate: {metrics.gate_pass_rate:.0%} of runs completed.")
@@ -58,22 +50,3 @@ def _get_service() -> OverviewService:
     if "_overview_service" not in st.session_state:
         st.session_state["_overview_service"] = OverviewService()
     return st.session_state["_overview_service"]
-
-
-def _age(iso: Optional[str]) -> str:
-    """Human 'time since' for the last run. None -> 'never'."""
-    if not iso:
-        return "never"
-    try:
-        ts = datetime.fromisoformat(iso)
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        delta = datetime.now(timezone.utc) - ts
-    except Exception:  # noqa: BLE001
-        return "?"
-    secs = int(delta.total_seconds())
-    if secs < 3600:
-        return f"{max(0, secs // 60)}m ago"
-    if secs < 86400:
-        return f"{secs // 3600}h ago"
-    return f"{secs // 86400}d ago"

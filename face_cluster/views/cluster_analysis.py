@@ -95,9 +95,13 @@ NEAREST_PAIR_COLUMNS: List[ColumnSpec] = [
     ColumnSpec("size_a", "A faces"),
     ColumnSpec("size_b", "B faces"),
     ColumnSpec("exemplar_dist", "Exemplar dist", formatter=lambda v: f"{v:.3f}"),
-    ColumnSpec("evaluated", "Evaluated?", formatter=lambda v: "yes" if v else ""),
-    ColumnSpec("merged", "Merged?", formatter=lambda v: "yes" if v else ""),
-    ColumnSpec("rejection_reason", "Why not merged"),
+    ColumnSpec("", "Evaluated?", getter=lambda p: "yes" if p.evaluated else "no"),
+    ColumnSpec("", "Merged?", getter=lambda p: "yes" if p.merged else "no"),
+    ColumnSpec("", "Status / why not merged", getter=lambda p: (
+        "merged" if p.merged
+        else (p.rejection_reason or "rejected") if p.evaluated
+        else "not a merge candidate (too far apart)"
+    )),
 ]
 
 

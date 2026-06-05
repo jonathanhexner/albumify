@@ -35,7 +35,8 @@ logger = logging.getLogger(__name__)
 class FaceMetricRow:
     """One face with its metrics + clustering status."""
     face_id: int
-    status: str                  # "assigned" | "unassigned"
+    status: str                  # "assigned" | "unassigned" (kept for back-compat)
+    disposition: str             # "clustered" | "noise" | "filtered" — the clear 3-way
     cluster_id: Optional[int]    # set when assigned
     blur: float
     area: float
@@ -103,15 +104,21 @@ class FaceMetricsService:
         rows: List[FaceMetricRow] = []
         for f in faces:
             cid = assign.get(f.face_id)
-            if cid is None or is_noise(cid):
-                status, cluster_id = "unassigned", None
+            reason = getattr(f, "rejection_reason", None)
+            if cid is not None and not is_noise(cid):
+                status, cluster_id, disposition = "assigned", int(cid), "clustered"
+            elif reason:
+                # has a gate verdict -> it was held out before/at the gate
+                status, cluster_id, disposition = "unassigned", None, "filtered"
             else:
-                status, cluster_id = "assigned", int(cid)
+                # passed gating but matched no cluster
+                status, cluster_id, disposition = "unassigned", None, "noise"
             yaw, pitch, roll = f.pose if f.pose else (None, None, None)
             cp = crop_path(run_dir, f.face_id)
             rows.append(FaceMetricRow(
                 face_id=f.face_id,
                 status=status,
+                disposition=disposition,
                 cluster_id=cluster_id,
                 blur=float(f.blur_score or 0.0),
                 area=float(f.area or 0.0),

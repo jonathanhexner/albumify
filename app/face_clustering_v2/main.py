@@ -33,6 +33,7 @@ setup_logging("fc_app_v2")
 
 import streamlit as st
 
+from app.face_clustering_v2._nav import render_nav
 from app.face_clustering_v2.tabs.run_tab import render_run_tab
 from app.face_clustering_v2.tabs.cluster_analysis_tab import render_cluster_analysis_tab
 from app.face_clustering_v2.tabs.face_analysis_tab import render_face_analysis_tab
@@ -103,31 +104,18 @@ st.caption(
     "`app/face_clustering/` stays in place during the strangler-fig migration."
 )
 
-(tab_run, tab_analysis, tab_face, tab_metrics, tab_images, tab_gallery, tab_merged,
- tab_quality, tab_recluster, tab_overview, tab_history) = st.tabs(
-    ["Run", "Cluster Analysis", "Face Analysis", "Face Metrics", "Images", "Gallery",
-     "Merged Clusters", "Quality", "Recluster", "Overview", "History"]
-)
-
-with tab_run:
-    render_run_tab()
-with tab_analysis:
-    render_cluster_analysis_tab()
-with tab_face:
-    render_face_analysis_tab()
-with tab_metrics:
-    render_face_metrics_tab()
-with tab_images:
-    render_images_tab()
-with tab_gallery:
-    render_gallery_tab()
-with tab_merged:
-    render_merged_clusters_tab()
-with tab_quality:
-    render_quality_tab()
-with tab_recluster:
-    render_recluster_tab()
-with tab_overview:
-    render_overview_tab()
-with tab_history:
-    render_history_tab()
+# spec-080: session-state nav (replaces st.tabs) so "Open" buttons can switch
+# view, and only the active page renders each rerun.
+render_nav([
+    ("Run", render_run_tab),
+    ("Cluster Analysis", render_cluster_analysis_tab),
+    ("Face Analysis", render_face_analysis_tab),
+    ("Face Metrics", render_face_metrics_tab),
+    ("Images", render_images_tab),
+    ("Gallery", render_gallery_tab),
+    ("Merged Clusters", render_merged_clusters_tab),
+    ("Quality", render_quality_tab),
+    ("Recluster", render_recluster_tab),
+    ("Overview", render_overview_tab),
+    ("History", render_history_tab),
+])

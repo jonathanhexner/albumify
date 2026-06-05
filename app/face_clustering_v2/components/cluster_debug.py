@@ -8,18 +8,15 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app.face_clustering_v2.components.metric_strip import render_metric_strip
 from face_cluster.views.cluster_debug_view import ClusterDebugView
+from face_cluster.views.metric_specs import CLUSTER_DEBUG_STRIP
 
 
 def render_cluster_debug(dbg: ClusterDebugView) -> None:
     """Render graph diagnostics for the given cluster debug view."""
     with st.expander("Graph debug", expanded=False):
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Edges", f"{dbg.n_edges} / {dbg.max_possible_edges}")
-        c2.metric("Density", f"{dbg.edge_density:.1%}")
-        c3.metric("Chain score", f"{dbg.chain_score:.2f}",
-                  help="diameter / (2 × median dist). > 1.5 suggests chain.")
-        c4.metric("Bridge faces", len(dbg.bridge_face_ids))
+        render_metric_strip(dbg, CLUSTER_DEBUG_STRIP, n_cols=4)
 
         if dbg.chain_score > 1.5:
             st.warning(

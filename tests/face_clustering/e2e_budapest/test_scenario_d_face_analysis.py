@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.face_clustering.e2e_budapest.conftest import goto_page
+
 pytestmark = pytest.mark.budapest
 
 
@@ -36,14 +38,14 @@ def test_scenario_d_face_analysis_drill_down(page_with_reference_run_loaded):
 
     # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Cluster Analysis → wait for face_grid to render an Open button.
-    page.get_by_role("tab", name="Cluster Analysis").click()
+    goto_page(page, "Cluster Analysis")
     page.wait_for_selector("h2:has-text('Cluster Analysis')", state="visible")
     open_btn = page.get_by_role("button", name="Open").first
     open_btn.wait_for(state="visible", timeout=60_000)
     open_btn.click()
 
     # 3. Face Analysis tab → wait for header.
-    page.get_by_role("tab", name="Face Analysis").click()
+    goto_page(page, "Face Analysis")
     page.wait_for_selector("h2:has-text('Face Analysis')", state="visible", timeout=30_000)
 
     # AC: 5 metric widgets present (Blur / Yaw / Pitch / Roll / Area).

@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.face_clustering.e2e_budapest.conftest import goto_page
+
 pytestmark = pytest.mark.budapest
 
 
@@ -33,7 +35,7 @@ def test_scenario_h_overview(page_with_reference_run_loaded):
     page = page_with_reference_run_loaded
 
     # 2. Overview tab -> header. 60s: a tab-click re-runs all 9 tab bodies.
-    page.get_by_role("tab", name="Overview").click()
+    goto_page(page, "Overview")
     page.wait_for_selector("h2:has-text('Overview')", state="visible", timeout=60_000)
 
     # AC2: the 4-metric strip.
@@ -43,4 +45,7 @@ def test_scenario_h_overview(page_with_reference_run_loaded):
     # AC3 + AC4: both bar charts rendered.
     page.wait_for_selector("text=/Runs per album/", state="visible", timeout=30_000)
     page.wait_for_selector("text=/Runs per status/", state="visible", timeout=30_000)
+    # spec-080: single-page render mounts the chart ON navigation, so wait for
+    # Plotly to mount rather than counting immediately (was a pre-render race).
+    page.wait_for_selector(".js-plotly-plot", state="visible", timeout=30_000)
     assert page.locator(".js-plotly-plot").count() >= 1, "No Plotly chart rendered on Overview."

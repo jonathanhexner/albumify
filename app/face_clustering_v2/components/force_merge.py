@@ -9,7 +9,9 @@ from typing import List
 
 import streamlit as st
 
+from app.face_clustering_v2.components.metric_strip import render_metric_strip
 from face_cluster.views.cluster_analysis import ClusterAnalysisService
+from face_cluster.views.metric_specs import FORCE_MERGE_STRIP
 
 
 def render_force_merge(
@@ -59,13 +61,7 @@ def render_force_merge(
 
 def _render_preview_block(preview) -> None:
     """3-gate PASS/FAIL badges + summary line."""
-    g1, g2, g3 = st.columns(3)
-    g1.metric("Exemplar gate", "PASS" if preview.passes_exemplar else "FAIL",
-              f"d={preview.exemplar_dist:.3f} ≤ {preview.threshold:.3f}")
-    g2.metric("Support gate", "PASS" if preview.passes_support else "FAIL",
-              f"support={preview.support}")
-    g3.metric("Diameter gate", "PASS" if preview.passes_diameter else "FAIL",
-              f"post={preview.post_diameter:.3f}")
+    render_metric_strip(preview, FORCE_MERGE_STRIP, n_cols=3)
     tag = "candidate" if preview.is_candidate else "not a candidate"
     st.caption(
         f"{preview.n_gates_passed}/3 gates pass — {tag}. "

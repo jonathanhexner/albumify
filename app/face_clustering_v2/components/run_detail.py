@@ -12,8 +12,10 @@ from typing import Any, Dict, Optional
 import pandas as pd
 import streamlit as st
 
+from app.face_clustering_v2.components.metric_strip import render_metric_strip
 from app.face_clustering_v2.ui_spec import UI_SPEC, fields_by_group
 from app.face_clustering_v2.widget_factory import render_field
+from face_cluster.views.metric_specs import RUN_SUMMARY_STRIP
 from face_cluster.views.history import HistoryService, RunDetail, RunSummary
 
 
@@ -127,22 +129,7 @@ def _render_config_section(config: Dict[str, Any]) -> None:
 
 def _render_summary_metrics(summary: RunSummary) -> None:
     """Quality funnel, cluster counts, and stage durations from RunSummary."""
-    if summary.n_faces is not None or summary.n_core is not None or summary.n_noise is not None:
-        col_faces, col_core, col_noise = st.columns(3)
-        col_faces.metric("Faces", summary.n_faces if summary.n_faces is not None else "-")
-        col_core.metric("Core", summary.n_core if summary.n_core is not None else "-")
-        col_noise.metric("Noise", summary.n_noise if summary.n_noise is not None else "-")
-
-    if summary.n_clusters_base is not None or summary.n_clusters_merged is not None:
-        col_base, col_merged = st.columns(2)
-        col_base.metric(
-            "Clusters (base)",
-            summary.n_clusters_base if summary.n_clusters_base is not None else "-",
-        )
-        col_merged.metric(
-            "Clusters (merged)",
-            summary.n_clusters_merged if summary.n_clusters_merged is not None else "-",
-        )
+    render_metric_strip(summary, RUN_SUMMARY_STRIP, n_cols=5)
 
     if summary.stage_durations:
         st.markdown("**Stage durations**")

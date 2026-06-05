@@ -68,7 +68,12 @@ class FilterDecisionRow:
 
 @dataclass(frozen=True, slots=True)
 class ImageRow:
-    """spec-077: one row of the ``images`` table (per-image scores + gate)."""
+    """spec-077: one row of the ``images`` table (per-image scores + gate).
+
+    spec-083: ``n_passed`` = faces in this image that passed filtration
+    (``rejection_reason IS NULL``) — the useful per-image signal for a
+    face-clustering run, where the image-level quality scores are absent.
+    """
     image_path: str
     n_faces: int
     width_px: Optional[int]
@@ -78,6 +83,7 @@ class ImageRow:
     sharpness_score: Optional[float]
     composite_score: Optional[float]
     filter_passed: bool
+    n_passed: int = 0
 
 
 @dataclass
@@ -389,10 +395,20 @@ class RunStore:
         )
 
     def list_images(self) -> List[ImageRow]:
-        """spec-077: one :class:`ImageRow` per row of the ``images`` table."""
-        from sim_bench.run_db.models import Image
+        """spec-077: one :class:`ImageRow` per row of the ``images`` table.
+
+        spec-083: also counts faces that passed filtration per image
+        (``rejection_reason IS NULL``) in one grouped query.
+        """
+        from sqlalchemy import func
+        from sim_bench.run_db.models import Face, Image
         with self._sessionmaker() as session:
             rows = session.execute(select(Image).order_by(Image.image_path)).scalars().all()
+            passed = dict(session.execute(
+                select(Face.image_path, func.count())
+                .where(Face.rejection_reason.is_(None))
+                .group_by(Face.image_path)
+            ).all())
         return [
             ImageRow(
                 image_path=r.image_path,
@@ -404,6 +420,7 @@ class RunStore:
                 sharpness_score=r.sharpness_score,
                 composite_score=r.composite_score,
                 filter_passed=bool(r.filter_passed),
+                n_passed=int(passed.get(r.image_path, 0)),
             )
             for r in rows
         ]
