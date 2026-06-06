@@ -16,17 +16,49 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import sim_bench.pipeline.steps.all_steps  # noqa: F401 — registers all steps
 from sim_bench.pipeline.config import PipelineConfig
 from sim_bench.pipeline.context import PipelineContext
-from sim_bench.pipeline.executor import PipelineExecutor
+from sim_bench.pipeline.executor import PipelineExecutor, PipelineResult
 from sim_bench.pipeline.registry import get_registry
 from sim_bench.pipeline.spec import PipelineSpec, validate_spec_or_raise
 from sim_bench.run_db.exporter import RunExporter
 
 logger = logging.getLogger(__name__)
+
+
+def execute_spec(
+    spec: PipelineSpec,
+    context: PipelineContext,
+    *,
+    fail_fast: bool = True,
+    progress_cb: Optional[Callable[[str, float, str], None]] = None,
+    on_step_complete: Optional[Callable[[Any], None]] = None,
+) -> PipelineResult:
+    """The shared execution primitive: validate a spec, then run it once.
+
+    Contract — every caller (FC v2 ``run_pipeline``, Albumify
+    ``PipelineService.execute_pipeline``, the CLI) goes through here, so a run is
+    defined entirely by ``(spec, context)``:
+
+    * IN   ``spec``    — ordered steps + per-step params (the whole pipeline).
+    * IN   ``context`` — caller-owned state (source dir, cache handler, …).
+    * GATE validation  — raises ``PipelineSpecError`` if the spec is malformed
+      (missing mandatory step, unknown step, bad dependency, invalid param).
+    * OUT  ``PipelineResult`` — success flag + per-step timings.
+
+    Persistence is NOT done here. The caller owns what happens to ``context``
+    afterwards (v5 export, central-DB people rows, …). This keeps the execution
+    contract identical across apps while letting each store results its own way.
+    """
+    validate_spec_or_raise(spec)
+    config = PipelineConfig(
+        step_configs=spec.step_configs, fail_fast=fail_fast, progress_callback=progress_cb,
+    )
+    executor = PipelineExecutor(get_registry())
+    return executor.execute(context, spec.steps, config, on_step_complete=on_step_complete)
 
 
 @dataclass
@@ -71,20 +103,19 @@ def run_pipeline(
     producer: str = "fc_app",
     progress_cb: Optional[Callable[[str, float, str], None]] = None,
 ) -> RunResult:
-    """Validate ``spec`` then execute it end-to-end into ``run_dir``."""
-    validate_spec_or_raise(spec)
+    """Execute ``spec`` end-to-end into a v5 run dir (FC v2 flavor).
 
+    Thin wrapper over :func:`execute_spec`: build the context, run the spec, then
+    export the v5 run dir. Albumify uses the same :func:`execute_spec` primitive
+    with its own (central-DB) persistence instead of this export.
+    """
     source_dir = Path(source_dir)
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     started_at = _now()
 
     context = PipelineContext(source_directory=source_dir)
-    config = PipelineConfig(
-        step_configs=spec.step_configs, fail_fast=True, progress_callback=progress_cb,
-    )
-    executor = PipelineExecutor(get_registry())
-    result = executor.execute(context, spec.steps, config)
+    result = execute_spec(spec, context, fail_fast=True, progress_cb=progress_cb)
 
     n_faces = len(getattr(context, "face_records", []) or [])
     images = [str(p) for p in (getattr(context, "image_paths", []) or [])]

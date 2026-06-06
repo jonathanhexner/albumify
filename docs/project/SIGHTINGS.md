@@ -4,6 +4,31 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-097: stale test imports removed `filter_quality_gate` module
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-06-07
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`tests/pipeline/test_face_embedding_validation.py` fails at collection with
+`ModuleNotFoundError: No module named 'sim_bench.pipeline.steps.filter_quality_gate'`.
+spec-053 consolidated `filter_quality_gate` + `quality_gate_faces` into a single
+`quality_gate` step; this test was never updated. Pre-existing (the import dates to
+commit 01d292c), independent of spec-079.
+
+**Symptoms**:
+- `pytest tests/pipeline/` aborts collection on this one module.
+
+**Suspicion**:
+Stale import. Fix: update the test to `quality_gate` (`QualityGateStep`) or retire it
+if its scenario is now covered by the consolidated step's tests.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest tests/pipeline/test_face_embedding_validation.py`
+
+---
+
 ### SIGHTING-096: Albumify and FC v2 produce different clusters from an identical profile
 **Status**: OPEN
 **Severity**: High

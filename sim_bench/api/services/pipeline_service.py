@@ -15,9 +15,8 @@ from sim_bench.api.services.people_service import PeopleService
 from sim_bench.api.services.config_service import ConfigService
 from sim_bench.pipeline.cache_handler import UniversalCacheHandler
 from sim_bench.pipeline.context import PipelineContext
-from sim_bench.pipeline.config import PipelineConfig
-from sim_bench.pipeline.executor import PipelineExecutor
-from sim_bench.pipeline.registry import get_registry
+from sim_bench.pipeline.run import execute_spec
+from sim_bench.pipeline.spec import PipelineSpec
 
 
 # No more hardcoded pipeline - loaded from config service
@@ -138,10 +137,6 @@ class PipelineService:
         run.started_at = datetime.utcnow()
         self._session.commit()
 
-        import sim_bench.pipeline.steps.all_steps
-        registry = get_registry()
-        executor = PipelineExecutor(registry)
-
         def progress_callback(step: str, progress: float, message: str) -> None:
             run.current_step = step
             run.progress = progress
@@ -165,14 +160,17 @@ class PipelineService:
             flag_modified(run, "completed_steps")
             self._session.commit()
 
-        config = PipelineConfig(
+        # The pipeline is defined by data: steps + per-step params. Both apps
+        # submit a PipelineSpec to the one shared primitive (execute_spec), which
+        # validates it (mandatory steps, deps, typed params) then runs it once.
+        # Albumify keeps its own persistence below; only execution is shared.
+        spec = PipelineSpec(steps=run.steps, step_configs=run.step_configs or {})
+        result = execute_spec(
+            spec, job.context,
             fail_fast=run.fail_fast,
-            step_configs=run.step_configs or {},
-            progress_callback=progress_callback
+            progress_cb=progress_callback,
+            on_step_complete=on_step_complete,
         )
-
-        result = executor.execute(job.context, run.steps, config,
-                                  on_step_complete=on_step_complete)
 
         if result.success:
             run.status = "completed"
