@@ -4,6 +4,58 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-096: Albumify and FC v2 produce different clusters from an identical profile
+**Status**: OPEN
+**Severity**: High
+**Reported**: 2026-06-06
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Running the SAME profile (`profile_5.json`) on the SAME source (`D:\Budapest2025_Google`)
+through each app's backend gives different identity clusterings:
+- **FC v2** (`scripts/run_profile.py`, via `run_v2_pipeline` → 8 unified clustering
+  steps): **8 clusters**, sizes `[26,20,12,7,3,2,2]`, 72 faces assigned. Exactly
+  reproduces reference run `a588521b993540e78f40935ecdb21b58`.
+- **Albumify** (`scripts/capture_albumify_baseline.py`, via API services →
+  `cluster_people` step → `face_cluster_bridge.build_fc_config`): **20 identities**,
+  sizes `[29,13,11,7,6,4,3,3,2×12]`, 100 faces assigned.
+
+**Symptoms**:
+- `scripts/diff_fcconfig.py` (profile_5) shows the two FCConfigs differ in exactly
+  **3 fields**, all quality gates: `blur_min` 150→0.0, `min_face_area` 50→None,
+  `cluster_diameter_cap_enabled` True→False.
+- Neutralizing those 3 gates (`profile_5_nogates.json`) moves FC v2 only **8→10**
+  clusters, NOT to 20. Under nogates the two FCConfigs are behaviorally identical,
+  yet FC v2 = 10 and Albumify = 20. So the gap is TWO layers, not one.
+
+**Suspicion / Root cause (confirmed) — two independent layers**:
+- **Layer A — config mapping (8→10).** Albumify is untyped dicts all the way down.
+  The profile→step overlay copies a knob only if its name exists on
+  `ClusterPeopleConfig` → drops 15 FCParams knobs; then the hand-rolled, DEPRECATED
+  `face_cluster_bridge.build_fc_config` doesn't forward `min_face_area` /
+  `cluster_diameter_cap_enabled` and PINS `blur_min=0.0` (Albumify's InsightFace
+  chain has no blur-scoring step, so `FaceRecord.blur_score` is always 0 — honoring
+  150 would reject every face). The blur one is a PIPELINE gap, not a config fix.
+- **Layer B — producer chain (10→20), DOMINANT.** Stage 0b (`scripts/localize_gap.py`)
+  ran BOTH clustering recipes on identical face_records: bridge and the 8 unified steps
+  agree sub-stage for sub-stage (FC v2 faces → 10/86 both; Albumify faces → 20/100 both).
+  So the clustering CODE is equivalent — NOT the divergence. The gap is the **face set**:
+  FC v2's producer chain yields core set 133, Albumify's yields 186 (from 340 vs 337 raw
+  faces). Albumify runs `filter_faces` + `filter_quality` + scene steps FC v2 doesn't, so
+  a different face population (and likely different alignment/embeddings) reaches the
+  identical clusterer. FIX = unify the producer chain, NOT route clustering onto unified
+  steps (that changes nothing). Deleting the bridge stays worthwhile as cleanup only.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python scripts/run_profile.py --profile ~/.sim_bench/profiles_v2/profile_5.json --src "D:\Budapest2025_Google" --album B` → 8 clusters
+2. `.venv/Scripts/python scripts/capture_albumify_baseline.py` → 20 identities
+3. `.venv/Scripts/python scripts/diff_fcconfig.py` → 3 differing gate fields
+
+**Resolution**:
+(open — tracked by spec-079 unified-config plan; see specs/079-albumify-shared-core/CONFIG_DIVERGENCE.html)
+
+---
+
 ### SIGHTING-095: run_db exporter golden hash diverged for `run_metadata`
 **Status**: OPEN
 **Severity**: Low

@@ -1,0 +1,30 @@
+{
+  "album_id": "d9c8e2b3-d756-47da-b552-c7070af61ea1",
+  "run_id": "03fb5e0c-a74d-4010-90ab-26b67b86363a",
+  "n_people_identities": 20,
+  "n_faces_assigned": 100,
+  "people_sizes": [
+    29,
+    13,
+    11,
+    7,
+    6,
+    4,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+  ],
+  "scene_num_clusters": 6,
+  "total_images": 122
+}

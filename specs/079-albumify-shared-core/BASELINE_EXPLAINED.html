@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage 0 result — what the baseline is, and is there a problem?</title>
+<style>
+  :root{--bg:#0f1220;--panel:#171a2b;--panel2:#1e2238;--ink:#e8eaf2;--muted:#9aa0bd;
+    --line:#2c3150;--accent:#6ea8fe;--good:#48c78e;--warn:#f6b73c;--bad:#f06a6a;
+    --mono:"SF Mono",ui-monospace,Consolas,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 -apple-system,Segoe UI,Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:46px 28px 100px}
+  .kicker{color:var(--accent);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:12px}
+  h1{font-size:30px;line-height:1.16;margin:10px 0 6px}
+  h2{font-size:21px;margin:44px 0 12px;padding-top:15px;border-top:1px solid var(--line)}
+  h3{font-size:16px;margin:18px 0 7px;color:#cdd2ee}
+  p{color:#d4d8ec}.sub{color:var(--muted);font-size:15px;margin:0}
+  code{font-family:var(--mono);background:#0c0f1c;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px;color:#cfe0ff}
+  .mod{color:#8fd0ff}
+  ul{padding-left:20px}li{margin:6px 0}
+  .tldr{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:18px 22px;margin:22px 0}
+  .tldr b{color:#fff}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14.5px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd2ee;font-weight:600}
+  td.good{color:var(--good)}td.bad{color:var(--bad)}td.warn{color:var(--warn)}
+  .big{font-size:30px;font-weight:800;font-family:var(--mono)}
+  .big.a{color:var(--warn)}.big.b{color:var(--good)}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  @media(max-width:760px){.cards{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card h3{margin-top:0}
+  .q{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:14px 0}
+  .q .qq{font-weight:700;color:#fff;font-size:16px;margin-bottom:6px}
+  .verdict{display:inline-block;font-size:12px;font-weight:700;padding:3px 11px;border-radius:20px;margin-left:6px}
+  .verdict.ok{background:rgba(72,199,142,.16);color:var(--good);border:1px solid rgba(72,199,142,.45)}
+  .verdict.no{background:rgba(246,183,60,.15);color:var(--warn);border:1px solid rgba(246,183,60,.45)}
+  .rec{background:linear-gradient(180deg,#11271f,#0e1f1a);border:1px solid var(--good);border-radius:12px;padding:18px 22px;margin:22px 0}
+  .rec h3{margin-top:0;color:var(--good)}
+  .pill{font-family:var(--mono);font-size:12px;background:#0c0f1c;border:1px solid var(--line);border-radius:6px;padding:2px 8px;color:#9fd0ff}
+  footer{margin-top:50px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">spec-079 · Stage 0 result</div>
+<h1>What "the baseline" is, the result, and whether there's a problem</h1>
+<p class="sub">Plain-English answer to: what is the 20-baseline, is there a problem, what do I want to do.</p>
+
+<div class="tldr">
+  <b>In one line:</b> I ran Albumify on your Budapest photos and saved the result as a "before picture."
+  That before picture has <b>20 people-groups</b>. It's a safety net for the upcoming code refactor —
+  <b>not a problem for the refactor</b>. Separately, that 20 doesn't quite match Face-Clustering-v2's 15, which is a
+  small, already-logged clustering-quality gap (SIGHTING-094) that we can fix on its own.
+</div>
+
+<h2>1 · What "baseline" means here</h2>
+<p>Before I start changing code (introducing the repository, moving the people reads, slimming the table), I run the app
+once and <b>save its current output to a file</b>. That saved output is the <b>baseline</b> — a "before picture."</p>
+<p>Why: after each refactor step I re-run and compare to the before picture. If the numbers still match, the refactor
+didn't break anything. If they move, I caught a regression immediately. <b>The baseline's only job is to be a stable
+reference</b> — it does not need to be "perfect", it needs to be "what Albumify does today."</p>
+<p>"The 20-baseline" was just my shorthand for "the before picture, which contains 20 people-groups." Sorry for the jargon.</p>
+
+<h2>2 · The result of the run</h2>
+<p>I ran Albumify on <span class="pill">D:\Budapest2025_Google</span> using profile_4's clustering settings, and counted
+the <b>people</b> it found (faces grouped by identity). Saved to
+<span class="pill">tests/_fixtures/budapest_golden/</span>.</p>
+
+<div class="cards">
+  <div class="card">
+    <h3>Albumify (today)</h3>
+    <div class="big a">20</div>
+    <p class="sub">people-groups · 100 faces assigned<br>sizes: 29, 13, 11, 7, 6, 4, 3, 3, then twelve groups of 2</p>
+  </div>
+  <div class="card">
+    <h3>Face-Clustering v2 (reference)</h3>
+    <div class="big b">15</div>
+    <p class="sub">people-groups · 107 faces assigned<br>sizes: 35, 24, 14, 7, 4, 3, 3, 3, then seven groups of 2</p>
+  </div>
+</div>
+
+<p>Same overall shape, but Albumify <b>splits people a bit more</b>: it leaves about twelve 2-face groups that v2 had
+merged into its bigger groups (v2's top three are 35/24/14; Albumify's are 29/13/11). So Albumify finds the same people
+but cuts a few of them into smaller pieces.</p>
+
+<p style="color:var(--muted);font-size:14px"><b>Note:</b> the "6" you may have seen labelled <code>num_clusters</code> is a
+<i>different</i> thing — that's grouping <i>photos</i> by scene, not faces by person. The person count is 20.</p>
+
+<h2>3 · Is there a problem? Two separate questions.</h2>
+
+<div class="q">
+  <div class="qq">Q1 — Does this block the refactor (the actual spec-079 work)? <span class="verdict ok">No</span></div>
+  The refactor is about <i>where data is read from</i> (repository, views, people table) — not about <i>how many people
+  the clustering finds</i>. The baseline only needs to be stable so I can detect regressions. 20 is perfectly fine for
+  that. I can proceed today.
+</div>
+
+<div class="q">
+  <div class="qq">Q2 — Does Albumify match v2 exactly? <span class="verdict no">Not yet (20 vs 15)</span></div>
+  This is a real but <b>separate</b> issue, already logged as <b>SIGHTING-094</b>. Cause (very likely): Albumify's
+  <code>cluster_people</code> step doesn't let you set v2's <b>exemplar</b> settings
+  (<code>N_exemplars_max</code>, <code>exemplars_d10_threshold</code>, <code>exemplar_suppression_radius</code>).
+  Merging relies on those exemplars, so without them Albumify merges less → more small groups. The fix is to expose
+  those few settings — a small, contained clustering change, independent of the refactor.
+</div>
+
+<h2>4 · Why 20 ≠ 15, concretely</h2>
+<table>
+  <tr><th>Thing</th><th>Status</th><th>Effect on the count</th></tr>
+  <tr><td>Same algorithm (<code>face_cluster_knn</code>)</td><td class="good">✓ shared</td><td>none — good</td></tr>
+  <tr><td><code>distance_threshold</code>, <code>K=51</code>, <code>blur_min=150</code></td><td class="good">✓ applied from profile_4</td><td>none — these matched</td></tr>
+  <tr><td>Exemplar settings (3 knobs)</td><td class="bad">✗ not exposed by cluster_people</td><td><b>main suspect</b> — weaker merging → more groups</td></tr>
+  <tr><td>attach / split knobs</td><td class="warn">✗ not exposed (but profile_4 has them off)</td><td>likely minor</td></tr>
+  <tr><td><code>identity_refinement</code> step</td><td class="warn">kept (your choice)</td><td>possible minor reshuffle</td></tr>
+</table>
+
+<div class="rec">
+  <h3>5 · What I want to do (recommendation)</h3>
+  <p><b>Proceed with the refactor now</b>, using today's saved output (20 people-groups + the recorded sizes) as the
+  before-picture / safety net. After each refactor step I re-run and confirm it's still 20 — proving the architecture
+  change didn't alter results.</p>
+  <p style="margin-bottom:0"><b>Separately</b>, fix the 20-vs-15 gap as its own small task (SIGHTING-094: expose the 3
+  exemplar settings, re-run, aim for v2's count). It's a clustering-quality improvement, not part of the
+  repository/people-table architecture work — so mixing them would just make both harder to review.</p>
+</div>
+
+<h2>6 · Your call</h2>
+<ul>
+  <li><b>Option A (recommended):</b> start the refactor now on the 20 before-picture; fix 20→15 separately later.</li>
+  <li><b>Option B:</b> first fix the 20→15 gap (expose exemplar knobs, re-run), then start the refactor against a
+    v2-matching before-picture. Delays the refactor; adds a clustering change up front; still not guaranteed to hit
+    exactly 15 because <code>identity_refinement</code> stays in.</li>
+</ul>
+
+<footer>
+  Saved artifacts: <span class="pill">tests/_fixtures/budapest_golden/people.json</span> ·
+  <span class="pill">summary.json</span> &nbsp;|&nbsp; capture: <span class="pill">scripts/capture_albumify_baseline.py</span>
+  &nbsp;|&nbsp; gap logged: <span class="pill">SIGHTING-094</span>. No app code changed yet.
+</footer>
+
+</div>
+</body>
+</html>

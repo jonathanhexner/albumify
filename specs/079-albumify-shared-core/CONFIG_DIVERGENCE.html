@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Albumify vs FC v2 — Config Divergence</title>
+<style>
+:root{--bg:#0f1220;--card:#171a2b;--bd:#2c3150;--ink:#e8eaf2;--mut:#9aa0bd;--blue:#6ea8fe;--red:#ff6b6b;--grn:#5bd99a;--amb:#f4c95d}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:Segoe UI,Arial,sans-serif;max-width:1080px;margin:0 auto;padding:36px 26px;line-height:1.5}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:21px;border-top:1px solid var(--bd);padding-top:18px;margin-top:34px}
+h3{font-size:16px;margin:22px 0 8px;color:#cdd2ee}
+.sub{color:var(--mut);margin:0 0 8px}
+code,.mono{font-family:Consolas,monospace;font-size:13px}
+code{background:#10131f;border:1px solid var(--bd);border-radius:4px;padding:1px 5px;color:#cfe0ff}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px 20px;margin:16px 0}
+.tldr{border-left:4px solid var(--red)}
+.good{border-left:4px solid var(--grn)}
+.warn{border-left:4px solid var(--amb)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+td,th{border:1px solid var(--bd);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1e2238}
+.x{color:var(--red);font-weight:700}.ok{color:var(--grn);font-weight:700}.q{color:var(--amb);font-weight:700}
+.flow{display:flex;gap:18px;flex-wrap:wrap}
+.flow .col{flex:1;min-width:300px;background:#10131f;border:1px solid var(--bd);border-radius:9px;padding:14px}
+.flow .col h3{margin-top:0}
+.step{background:#1b1f33;border:1px solid var(--bd);border-radius:7px;padding:8px 11px;margin:7px 0;font-size:13px}
+.step .f{color:var(--mut);font-size:11px;font-family:Consolas,monospace}
+.arrow{text-align:center;color:var(--blue);font-size:18px;margin:2px 0}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;border:1px solid var(--bd);color:var(--mut);margin-left:6px}
+.tag.dep{color:var(--red);border-color:var(--red)}
+.tag.ok{color:var(--grn);border-color:var(--grn)}
+ul{margin:6px 0 6px 0;padding-left:20px}li{margin:4px 0}
+.small{font-size:12px;color:var(--mut)}
+.num{font-family:Consolas,monospace;color:var(--blue)}
+</style></head><body>
+
+<h1>Why Albumify and FC v2 cluster differently</h1>
+<p class="sub">Same pipeline architecture, three config vocabularies, one deprecated bridge. spec-079 Stage 0 diagnosis · ref album <code>Budapest2025_Google_14</code> · 2026-06-06</p>
+
+<div class="card tldr">
+<b>TL;DR.</b> Both apps run the <i>same clustering steps</i>, but they build the algorithm config
+(<code>FCConfig</code>) two different ways. FC&nbsp;v2 uses a <b>contract-enforced 1:1 copy</b>
+(<code>FCParams.to_fc_config()</code>). Albumify routes through a <b>hand-rolled, deprecated bridge</b>
+(<code>face_cluster_bridge.build_fc_config()</code>) that (a) reads a <i>different, smaller set of key
+names</i>, (b) defaults <code>merge</code>/<code>split</code>/<code>attach</code> <span class="x">OFF</span>,
+and (c) pins <code>blur_min=0.0</code>. On top of that, the Albumify config <b>overlay</b> only copies a
+profile knob when the <i>name matches</i> — so <span class="x">15 of profile_4's 45 knobs silently
+evaporate</span> before they ever reach the bridge. Result: more, smaller clusters than FC&nbsp;v2.
+No test caught it because every parity/equivalence test starts <i>below</i> the lossy layer.
+</div>
+
+<h2>1 · Reference numbers</h2>
+<table>
+<tr><th>Run</th><th>Producer</th><th>Path</th><th>Clusters</th><th>Sizes</th><th>Faces assigned</th></tr>
+<tr><td><b>FC v2</b> <span class="mono">a588521b…</span></td><td><code>fc_app</code></td><td>FCParams → to_fc_config</td><td class="ok">7</td><td class="num">26,20,12,7,3,2,2</td><td>72</td></tr>
+<tr><td><b>Albumify</b> (same album/profile)</td><td>API pipeline</td><td>overlay → bridge.build_fc_config</td><td class="x">more / smaller</td><td class="num">— (drifts high)</td><td>—</td></tr>
+</table>
+<p class="small">FC v2 DB at <code>~/.sim_bench/runs/a588521b…/face_clustering.db</code>, max iteration 0. (You recalled "8 clusters" — the DB holds 7 assigned groups; an 8th tiny/noise bucket may show in the UI. Reconcile separately.)</p>
+
+<h2>2 · The two flows, side by side</h2>
+<div class="flow">
+  <div class="col">
+    <h3>FC v2 <span class="tag ok">contract-enforced</span></h3>
+    <div class="step">profile_4.json<div class="f">flat FCParams JSON</div></div>
+    <div class="arrow">▼ FCParams.load()</div>
+    <div class="step"><b>FCParams</b> · 45 knobs<div class="f">face_cluster/fc_params.py</div></div>
+    <div class="arrow">▼ .to_fc_config()  <span class="small">L223</span></div>
+    <div class="step"><b>FCConfig(**model_dump())</b><div class="f">1:1, EVERY knob carried</div></div>
+    <div class="arrow">▼ FCAppRunner</div>
+    <div class="step">7 clusters <span class="ok">✓ gold</span></div>
+  </div>
+  <div class="col">
+    <h3>Albumify <span class="tag dep">deprecated bridge</span></h3>
+    <div class="step">profile_4.json → FCParams<div class="f">same start</div></div>
+    <div class="arrow">▼ overlay: copy knob <i>only if name ∈ ClusterPeopleConfig</i></div>
+    <div class="step"><b>step_configs["cluster_people"]</b> <span class="x">−15 knobs dropped</span><div class="f">capture_albumify_baseline.py::build_step_configs L43</div></div>
+    <div class="arrow">▼ ClusterPeopleStep.process</div>
+    <div class="step">method=<code>face_cluster_knn</code><div class="f">cluster_people.py L285</div></div>
+    <div class="arrow">▼ run_face_cluster_knn → build_fc_config(dict)</div>
+    <div class="step"><b>hand-rolled FCConfig</b><div class="f">face_cluster_bridge.py L146 · merge/split/attach=False · blur_min pinned 0.0</div></div>
+    <div class="arrow">▼</div>
+    <div class="step">more / smaller clusters <span class="x">✗ drift</span></div>
+  </div>
+</div>
+
+<h2>3 · Three vocabularies for the same knobs</h2>
+<p class="sub">The overlay (step 2 of the Albumify flow) copies a value <b>only when the field name is identical</b>.
+These are the same concepts under different names, so they never transfer:</p>
+<table>
+<tr><th>Concept</th><th>FCParams (FC v2)</th><th>ClusterPeopleConfig (Albumify schema)</th><th>FCConfig (algorithm)</th><th>Carried to Albumify?</th></tr>
+<tr><td>holdout attach</td><td><code>K_attach</code>, <code>attach_distance_threshold</code></td><td><code>attach_min_exemplars</code></td><td><code>attach_enabled</code></td><td class="x">No — name mismatch + default <code>False</code></td></tr>
+<tr><td>cluster split</td><td><code>split_K</code>, <code>split_distance_threshold</code>, <code>split_diameter_threshold</code></td><td>— (absent)</td><td><code>split_enabled</code></td><td class="x">No — default <code>False</code></td></tr>
+<tr><td>exemplars</td><td><code>N_exemplars_max</code>, <code>exemplars_d10_threshold</code>, <code>d10_k</code>, <code>exemplar_suppression_radius</code></td><td><code>max_exemplars</code></td><td>(exemplar knobs)</td><td class="x">No — bridge never reads them</td></tr>
+<tr><td>quality gating</td><td><code>min_face_area</code>, <code>min_face_area_pct</code>, <code>require_pose</code>, <code>margin</code>, <code>vote_min</code></td><td>—</td><td>area/pose gates</td><td class="x">No</td></tr>
+<tr><td>core kNN</td><td><code>K</code>, <code>distance_threshold</code></td><td><code>K</code>, <code>distance_threshold</code></td><td><code>K</code>, <code>distance_threshold</code></td><td class="ok">Yes — names align</td></tr>
+</table>
+<p class="small">Full skipped set (15): <code>K_attach, N_exemplars_max, attach_distance_threshold, d10_k, embed_cache_enabled, exemplar_suppression_radius, exemplars_d10_threshold, margin, min_face_area, min_face_area_pct, require_pose, split_K, split_diameter_threshold, split_distance_threshold, vote_min</code>. The capture script already prints this list at runtime — it was the first clue.</p>
+
+<h2>4 · Problematic modules (where to look)</h2>
+<table>
+<tr><th>#</th><th>Module · symbol</th><th>Role</th><th>The problem</th></tr>
+<tr><td>1</td><td><code>scripts/capture_albumify_baseline.py</code><br><span class="f mono">build_step_configs() · L43–64</span></td><td>Builds Albumify's per-step config by overlaying profile_4 onto the yaml</td><td class="x">Copies a knob only if <code>k in ClusterPeopleConfig.model_fields</code> → silently drops 15 name-mismatched knobs</td></tr>
+<tr><td>2</td><td><code>sim_bench/pipeline/steps/configs/cluster_people.py</code><br><span class="f mono">ClusterPeopleConfig</span></td><td>Pydantic schema (44 fields) for the <code>cluster_people</code> step</td><td class="q">A third vocabulary built for hdbscan/hybrid methods; its names don't match FCParams, so it can't be the overlay target for face_cluster_knn</td></tr>
+<tr><td>3</td><td><code>sim_bench/pipeline/steps/cluster_people.py</code><br><span class="f mono">_run_face_cluster_knn() · L285</span></td><td>Dispatches <code>method=face_cluster_knn</code></td><td class="q">Hands the raw dict straight to the bridge — no FCParams reconstruction</td></tr>
+<tr><td>4</td><td><code>sim_bench/pipeline/steps/face_cluster_bridge.py</code><br><span class="f mono">build_fc_config() · L146–190</span></td><td>Builds the actual <code>FCConfig</code> for Albumify</td><td class="x"><b>Hand-rolled</b> <code>config.get()</code> subset; <code>split/merge/attach_enabled</code> default <code>False</code>; <code>blur_min</code> pinned <code>0.0</code>; 15 FCParams knobs never referenced. File header: <b>"DEPRECATED — do not add new callers."</b></td></tr>
+<tr><td>5</td><td><code>face_cluster/fc_params.py</code><br><span class="f mono">to_fc_config() · L223</span></td><td>FC v2's translator</td><td class="ok">Correct: <code>FCConfig(**self.model_dump())</code> — guaranteed 1:1, drift-guarded by a test</td></tr>
+</table>
+
+<h2>5 · Why this is architectural, not a typo</h2>
+<div class="card warn">
+<b>A half-finished migration.</b> The bridge's own docstring says it is
+<i>"DEPRECATED — scheduled for deletion in spec-040 Phase&nbsp;7,"</i> replaced by the unified chain
+(<code>face_clustering_steps.py</code> + <code>FCAppRunner</code>) that reads <code>context.face_records</code>
+directly. <b>Phase 7 never landed</b>, so the deprecated bridge is <i>still the production Albumify path</i>,
+while FC v2 already moved to <code>FCAppRunner</code>. The two apps diverged the moment FC v2 migrated and
+Albumify didn't — the bridge froze with an out-of-date, hand-maintained copy of the config mapping.
+</div>
+<ul>
+<li><b>No single source of truth for FCParams→FCConfig.</b> FC v2 has one (<code>to_fc_config</code>);
+the bridge re-implements it by hand and has drifted.</li>
+<li><b>The overlay is lossy by construction.</b> Name-matching against a schema that uses different names
+guarantees silent drops — there's no "unmapped knob" error, just a printed list nobody gates on.</li>
+<li><b>Defaults that flip behavior.</b> <code>merge/split/attach=False</code> in the bridge means Albumify
+skips whole stages FC v2 runs — the dominant cause of the count gap.</li>
+</ul>
+
+<h2>6 · Why the tests missed it</h2>
+<table>
+<tr><th>Test</th><th>What it checks</th><th>Blind spot</th></tr>
+<tr><td><code>tests/architecture/test_fcparams_fcconfig_parity.py</code></td><td>Every FCParams field has a matching FCConfig field</td><td class="x">Guards the <b>FC v2 path only</b>. Never touches the bridge's <code>build_fc_config</code>.</td></tr>
+<tr><td><code>tests/architecture/test_config_parity.py</code><br><span class="small">"FC App ↔ Albumify parity"</span></td><td>Feeds <b>hand-written matching dicts</b> (<code>K, distance_threshold, yaw_max, blur_min</code>) to both translators; diff is empty</td><td class="x"><b>False confidence.</b> Only 4 knobs, all name-aligned. Never runs a real profile; never exercises the 15 mismatched knobs or the merge/split/attach defaults.</td></tr>
+<tr><td><code>tests/face_clustering/test_legacy_vs_v2_equivalence.py</code></td><td>bridge vs <code>FCAppRunner</code> agree ≥0.95 on a 9-jpg fixture, 4 hand-built configs</td><td class="x">Hands both paths a config <b>directly</b> — starts <i>below</i> the lossy overlay + <code>ClusterPeopleConfig</code> layer where the loss happens. Small fixture, not profile_4.</td></tr>
+<tr><td><code>tests/face_clustering/e2e_budapest/</code></td><td>FC v2 lands on the gold cluster shape</td><td class="x">Asserts FC v2 against itself. <b>Nothing asserts Albumify reproduces those numbers.</b></td></tr>
+<tr><td><code>tests/_budapest_baseline.py</code> + <code>capture_albumify_baseline.py</code> <span class="tag">spec-079</span></td><td>First real cross-app assertion (Albumify people-count vs FC v2 anchor)</td><td class="q">Exactly the test that <b>would</b> catch it — but Stage 0 isn't closed/committed yet.</td></tr>
+</table>
+<div class="card">
+<b>The structural gap:</b> every parity test validates a layer where the names <i>already</i> agree. The lossy
+translation lives in the <b>Albumify-specific overlay + bridge</b>, and the one test aimed at it
+(<code>test_config_parity</code>) only ever fed it pre-matched inputs. No test runs a <i>real profile end-to-end
+through both apps and compares cluster output.</i>
+</div>
+
+<h2>7 · The fix direction (for discussion — not yet implemented)</h2>
+<div class="card good">
+<ol>
+<li><b>Delete the divergence, don't patch it.</b> Make <code>cluster_people</code> (method
+<code>face_cluster_knn</code>) build its <code>FCConfig</code> via <code>FCParams.to_fc_config()</code> /
+<code>FCAppRunner</code> — the same single source of truth FC v2 uses — finishing spec-040 Phase 7.</li>
+<li><b>Pass profile_4 as FCParams</b>, not as a name-matched dict overlay, so no knob can be dropped.</li>
+<li><b>Add the missing test:</b> run a real profile through both apps' API entrypoints on
+<code>Budapest2025_Google_14</code> and assert identical cluster sizes — the gate that should have existed.</li>
+</ol>
+</div>
+<p class="small">Existing tool to reuse for the proof: <code>face_cluster/config_diff.py</code> already has
+<code>effective_config_from_albumify()</code>, <code>effective_config_from_fc_config()</code>, and
+<code>compute()</code> — run them on the <i>real</i> profile_4 (not hand-matched dicts) to print the field-by-field delta.</p>
+
+</body></html>

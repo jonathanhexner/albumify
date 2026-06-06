@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Unified Pipeline Config — Plan</title>
+<style>
+:root{--bg:#0f1220;--card:#171a2b;--bd:#2c3150;--ink:#e8eaf2;--mut:#9aa0bd;--blue:#6ea8fe;--red:#ff6b6b;--grn:#5bd99a;--amb:#f4c95d;--pur:#b69cff}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:Segoe UI,Arial,sans-serif;max-width:1140px;margin:0 auto;padding:36px 26px;line-height:1.55}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:21px;border-top:1px solid var(--bd);padding-top:18px;margin-top:34px}
+h3{font-size:16px;margin:20px 0 8px;color:#cdd2ee}
+.sub{color:var(--mut);margin:0 0 8px}
+code{font-family:Consolas,monospace;font-size:12.5px;background:#10131f;border:1px solid var(--bd);border-radius:4px;padding:1px 5px;color:#cfe0ff}
+.f{color:var(--mut);font-size:11px;font-family:Consolas,monospace}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px 20px;margin:16px 0}
+.goal{border-left:4px solid var(--grn)}.tldr{border-left:4px solid var(--blue)}.warn{border-left:4px solid var(--amb)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+td,th{border:1px solid var(--bd);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#1e2238}
+.x{color:var(--red);font-weight:700}.ok{color:var(--grn);font-weight:700}.q{color:var(--amb);font-weight:700}
+.flow{display:flex;gap:18px;flex-wrap:wrap}
+.flow .col{flex:1;min-width:330px;background:#10131f;border:1px solid var(--bd);border-radius:9px;padding:14px}
+.flow .col h3{margin-top:0}
+.step{background:#1b1f33;border:1px solid var(--bd);border-radius:7px;padding:7px 11px;margin:7px 0;font-size:12.5px}
+.step.bad{border-color:#5a2230;background:#241019}.step.good{border-color:#1f4d36;background:#0f2018}
+.arrow{text-align:center;color:var(--blue);font-size:16px;margin:1px 0}
+.tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:10px;border:1px solid var(--bd);color:var(--mut);margin-left:6px}
+.tag.dep{color:var(--red);border-color:var(--red)}.tag.ok{color:var(--grn);border-color:var(--grn)}
+ul,ol{margin:6px 0;padding-left:22px}li{margin:5px 0}
+.small{font-size:12px;color:var(--mut)}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;margin-right:6px}
+.pill.s{background:#13241c;color:var(--grn);border:1px solid #1f4d36}
+.pill.n{background:#241c10;color:var(--amb);border:1px solid #5a4420}
+</style></head><body>
+
+<h1>Unified pipeline config — one contract, one runner, two apps</h1>
+<p class="sub">Make Albumify and FC v2 execute the pipeline identically given identical config. spec-079 · 2026-06-06</p>
+
+<div class="card goal">
+<b>Goal.</b> After this work, calling the pipeline from <b>either</b> app with the <b>same configuration</b>
+produces the <b>same run</b> — same faces gated, same clusters, same numbers. Today they don't:
+identical <code>profile_5.json</code> → FC v2 gives <b>8</b> identities, Albumify gives <b>20</b>
+(SIGHTING-096). The fix is to collapse the two config paths and the two clustering implementations onto
+the <i>one</i> typed contract and step chain that already exist.
+</div>
+
+<div class="card tldr">
+<b>The one-sentence diagnosis.</b> FC v2 carries a <b>typed <code>FCParams</code></b> (45 knobs) losslessly
+into the <b>8-step unified clustering chain</b>; Albumify carries <b>untyped dicts</b> into a <b>monolithic
+<code>cluster_people</code> step</b> backed by a <b>deprecated hand-rolled bridge</b> that silently drops
+gates. The convergence target (unified steps + <code>FCParams</code>) is <i>already built</i> — Albumify was
+just never switched onto it (spec-040 Phase 7 unfinished).
+</div>
+
+<h2>1 · Situation today — ONE shared executor, divergent step-lists</h2>
+<div class="card tldr">Correction to an earlier draft: this is <b>not</b> two separate stacks. Both apps run the
+<b>same</b> <code>PipelineExecutor</code> over a <b>step-name list</b> + <code>PipelineContext</code> +
+<code>PipelineConfig(step_configs: dict)</code>. The shared framework (executor, registry, context, and
+most steps) is well-built. The divergence is narrow: <b>(i) which clustering step is in the list</b>,
+<b>(ii) how <code>step_configs</code> is built</b>, and <b>(iii) the orchestration wrapper around the
+executor call</b>.</div>
+<div class="step good" style="text-align:center"><b>SHARED:</b> <code>PipelineExecutor.execute(context, step_names, PipelineConfig(step_configs))</code> — dep-resolves, runs <code>step.validate</code>/<code>process</code><div class="f">sim_bench/pipeline/executor.py · registry · context · builder</div></div>
+<div class="flow">
+  <div class="col">
+    <h3>Albumify <span class="tag">good orchestration · bad clustering step</span></h3>
+    <div class="step good">UI → raw dict → API <code>PipelineRequest</code> → <code>ConfigService.get_merged_config</code><div class="f">routers/pipeline.py · services/config_service.py</div></div>
+    <div class="step good"><b>PipelineService.execute_pipeline</b> — ONE <code>executor.execute(default_pipeline)</code>, then persist<div class="f">services/pipeline_service.py (everything-is-a-step ✓; post-process warts)</div></div>
+    <div class="step">step-list = <code>default_pipeline</code> (21 steps)<div class="f">configs/pipeline.yaml: discover_images … extract_face_embeddings</div></div>
+    <div class="step bad">…<b>cluster_people</b>… → <code>face_cluster_bridge.build_fc_config(dict)</code><div class="f">ONE entry in the list — the Layer-B divergence</div></div>
+    <div class="step">…identity_refinement · cluster_by_identity · select_best</div>
+    <div class="step bad"><code>step_configs</code> = untyped dict (yaml + overrides) → bridge drops gates ✗</div>
+  </div>
+  <div class="col">
+    <h3>FC v2 <span class="tag">good clustering steps · hand-rolled wrapper</span></h3>
+    <div class="step good">UI knobs → <b>FCParams</b> (45 typed fields, <code>extra=forbid</code>)<div class="f">app/face_clustering_v2/ui_spec.py · face_cluster/fc_params.py</div></div>
+    <div class="step bad"><b>run_v2_pipeline</b> — hand-rolled: <code>_discover_jpgs</code> (redundant w/ discover_images step), action_log, <b>TWO</b> executor.execute calls, export<div class="f">app/face_clustering_v2/pipeline.py</div></div>
+    <div class="step">call 1: <code>executor.execute(PRODUCER_STEPS)</code> (2nd copy of the producer list)</div>
+    <div class="step good">call 2: <b>FCAppRunner</b> → <code>executor.execute(8 UNIFIED_CLUSTERING_STEPS)</code><div class="f">quality_gate … merge … apply_diameter_cap … assign_people_clusters</div></div>
+    <div class="step good"><code>step_configs</code> = <b>FCParams.to_step_configs()</b> → each step <code>FaceClusterConfig(**config)</code> ✓ lossless</div>
+  </div>
+</div>
+<p class="small"><b>Best of both:</b> Albumify's orchestration (one declared step-list, one executor call, PipelineService)
++ FC v2's clustering steps & typed FCParams config. Swap <code>cluster_people</code> → the 8 unified steps;
+feed <code>step_configs</code> from FCParams; retire <code>run_v2_pipeline</code>'s hand-rolled wrapper.</p>
+
+<h2>2 · The contracts & modules in play</h2>
+<table>
+<tr><th>Artifact</th><th>Module</th><th>Role today</th><th>Fate</th></tr>
+<tr><td><b>FCParams</b></td><td><code>face_cluster/fc_params.py</code></td><td>Typed 45-knob contract. FC v2's single source of truth. Drift-guarded vs FCConfig.</td><td class="ok">KEEP → the one contract for both apps</td></tr>
+<tr><td><b>FCConfig</b><br><span class="small">(PipelineConfig)</span></td><td><code>face_cluster/config.py</code></td><td>Algorithm-layer dataclass. Both paths build it.</td><td class="ok">KEEP (algorithm layer)</td></tr>
+<tr><td><b>Unified step chain</b></td><td><code>fc_app_runner.py</code> · <code>steps/quality_gate.py</code> … (8 steps)</td><td>FC v2's clustering. <code>quality_gate</code> already accepts BOTH input shapes (records OR Albumify trio).</td><td class="ok">KEEP → the one clustering path</td></tr>
+<tr><td><b>run_v2_pipeline</b></td><td><code>app/face_clustering_v2/pipeline.py</code></td><td>Producer chain + FCAppRunner + export. Takes <code>FCParams</code>.</td><td class="q">PROMOTE → shared runner both apps call</td></tr>
+<tr><td><b>ClusterPeopleConfig</b></td><td><code>steps/configs/cluster_people.py</code></td><td>3rd vocabulary; names ≠ FCParams; only used by <code>validate_step_config</code>.</td><td class="x">RETIRE (replace with FCParams)</td></tr>
+<tr><td><b>face_cluster_bridge</b></td><td><code>steps/face_cluster_bridge.py</code></td><td>Hand-rolled dict→FCConfig. Marked DEPRECATED. Drops <code>min_face_area</code>, <code>cluster_diameter_cap_enabled</code>; pins <code>blur_min=0</code>.</td><td class="x">DELETE (spec-040 Phase 7)</td></tr>
+<tr><td><b>cluster_people step</b></td><td><code>steps/cluster_people.py</code></td><td>Monolithic Albumify clustering step → bridge.</td><td class="x">RETIRE → default_pipeline uses the 8 unified steps</td></tr>
+<tr><td><b>blur scoring</b></td><td>— (does not exist in Albumify producer chain)</td><td>No step computes <code>blur_score</code>; bridge pins <code>blur_min=0</code> as a result.</td><td class="n">ADD a shared blur step</td></tr>
+</table>
+
+<h2>3 · Why it diverges — TWO layers</h2>
+<div class="card warn"><b>Key result (Stage 0b).</b> Two independent layers. <span class="pill s">A · CONFIG</span> 3
+dropped/pinned quality gates: 8→10. <span class="pill n">B · PRODUCER CHAIN</span> on <i>identical</i>
+face_records the bridge and the 8 unified steps cluster <b>identically</b> (FC v2 faces→10/86 both; Albumify
+faces→20/100 both) — so the clustering CODE is NOT the divergence. The 10→20 is the <b>face set</b>: FC v2's
+producer yields core 133, Albumify's yields 186. <b>The fix is unifying the producer chain, not the
+clustering steps.</b> See <code>LOCALIZE_GAP.html</code>.</div>
+<h3>Layer A — config (the 3 quality gates)</h3>
+<p class="sub"><code>scripts/diff_fcconfig.py</code> on <code>profile_5</code>: the two FCConfigs differ in exactly
+<b>3 fields, all quality gates</b>.</p>
+<table>
+<tr><th>Field</th><th>FC v2</th><th>Albumify</th><th>Cause</th><th>Fix class</th></tr>
+<tr><td><code>blur_min</code></td><td>150.0</td><td>0.0</td><td>Bridge pins it — no blur step exists to populate <code>blur_score</code></td><td class="n">PIPELINE step</td></tr>
+<tr><td><code>min_face_area</code></td><td>50</td><td>None</td><td>Overlay drops it (name absent from ClusterPeopleConfig)</td><td class="s">CONFIG mapping</td></tr>
+<tr><td><code>cluster_diameter_cap_enabled</code></td><td>True</td><td>False</td><td>Bridge never forwards it</td><td class="s">CONFIG mapping</td></tr>
+</table>
+<p class="small"><span class="pill s">CONFIG</span>fixed for free once Albumify uses <code>FCParams → to_step_configs → FaceClusterConfig(**config)</code> (no hand mapping). <span class="pill n">PIPELINE</span>needs a real blur-scoring step in the shared producer chain.</p>
+<div class="card" id="confirm">
+<b>Confirmation experiment (done).</b> FC v2 with the 3 gates neutralized (<code>profile_5_nogates.json</code>):
+<b>10 clusters / 86 assigned</b> — NOT 20. So the gates explain only 8→10. Re-running
+<code>diff_fcconfig.py</code> under <code>nogates</code> shows the configs are now behaviorally identical
+(lone residual <code>min_face_area 0 vs None</code>, both = no gate). Conclusion: the remaining <b>10→20</b> is
+<b>Layer B — the producer chain (different face set)</b>, NOT the clustering code; Stage 0b proved bridge ≡ unified.</div>
+
+<h3>Layer B — producer chain (the face set), NOT the clustering code</h3>
+<p class="sub">Stage 0b ran both recipes on identical face_records — they match exactly. The divergence is the input:</p>
+<table>
+<tr><th>sub-stage</th><th colspan="2">FC v2 faces (340)</th><th colspan="2">Albumify faces (337)</th></tr>
+<tr><th></th><th>unified</th><th>bridge</th><th>unified</th><th>bridge</th></tr>
+<tr><td>core set</td><td class="ok">133</td><td class="ok">133</td><td class="x">186</td><td class="x">186</td></tr>
+<tr><td>base clusters</td><td>10</td><td>10</td><td>20</td><td>20</td></tr>
+<tr><td>assigned</td><td>86</td><td>86</td><td>100</td><td>100</td></tr>
+</table>
+<p class="small">Clustering code is equivalent (bridge ≡ unified). The face sets differ because the producer chains
+differ: Albumify runs <code>filter_faces</code> + <code>filter_quality</code> + scene steps FC v2 doesn't, so a
+different face population / alignment / embeddings reach the clusterer → core 133 vs 186 → 10 vs 20. Pinning the
+exact producer step (Stage 0c) = diff the two face tables. NB: deleting the bridge is now <i>cleanup</i> (DRY),
+not the behavioral fix.</p>
+
+<h2>4 · Target architecture</h2>
+<div class="flow"><div class="col" style="min-width:100%">
+  <div class="step good" style="text-align:center">FC v2 UI &nbsp;|&nbsp; Albumify UI &nbsp;—&nbsp; both edit/produce an <b>FCParams</b></div>
+  <div class="arrow">▼ FCParams (typed, the one contract)</div>
+  <div class="step good" style="text-align:center"><b>shared run entry</b> — <code>run_pipeline(source, run_dir, params: FCParams, producer)</code><div class="f">promoted from run_v2_pipeline; API PipelineService delegates to it</div></div>
+  <div class="arrow">▼ params.to_step_configs() — full dump</div>
+  <div class="step good" style="text-align:center">producer chain (+ <b>new blur step</b>) → <b>8 unified clustering steps</b> → RunExporter v5</div>
+  <div class="arrow">▼</div>
+  <div class="step good" style="text-align:center">identical run dir · viewable in either app ✓</div>
+</div></div>
+<ul>
+<li><b>One contract:</b> <code>FCParams</code>. The API request carries a profile/FCParams JSON, not an untyped dict. <code>ConfigService</code> validates it <i>as FCParams</i> and calls <code>to_step_configs()</code>.</li>
+<li><b>One clustering path:</b> Albumify's <code>default_pipeline</code> switches from <code>cluster_people</code> to the 8 <code>UNIFIED_CLUSTERING_STEPS</code> (or PipelineService delegates to <code>FCAppRunner</code>).</li>
+<li><b>One runner:</b> generalize <code>run_v2_pipeline</code> into a shared entry both the FC v2 CLI/UI and the API call — producer tag distinguishes them.</li>
+<li><b>Delete</b> <code>face_cluster_bridge.py</code> + <code>cluster_people</code> step; <b>retire</b> <code>ClusterPeopleConfig</code>.</li>
+<li><b>Add</b> a blur-scoring step so <code>blur_min</code> is honored in both — the one non-config cause.</li>
+</ul>
+
+<h2>5 · Staged plan (each gated by test → /code-review → commit)</h2>
+<table>
+<tr><th>Stage</th><th>Change</th><th>Proof / gate</th><th>Risk</th></tr>
+<tr><td><b>0 ✓</b></td><td>Reproduce both apps headless; pin divergence to 3 gates; SIGHTING-096; anchor=profile_5</td><td>Done — Step 0 PASS (8 clusters), Step 1 (20), diff (3 fields)</td><td>—</td></tr>
+<tr><td><b>1</b></td><td><b>Cross-app equivalence test</b> (the missing gate): run a real profile through BOTH entrypoints on Budapest, assert identical cluster sizes. Replace hand-matched <code>test_config_parity</code>.</td><td>New test RED now (8≠20) — it documents the bug before the fix</td><td>Low</td></tr>
+<tr><td><b>2</b></td><td>Add <b>blur-scoring step</b> to the producer chain; un-pin <code>blur_min</code> in the gate. Both apps populate <code>blur_score</code>.</td><td>Albumify gated count moves toward 72; unit test on blur step</td><td>Med — touches detection chain</td></tr>
+<tr><td><b>3</b></td><td><b>Unify the PRODUCER chain</b> (the real fix). Make both apps feed clustering the same faces — reconcile <code>filter_faces</code>/<code>filter_quality</code>/alignment/embedding so core set matches (133↔186). Stage 0c first pins the exact step.</td><td>Equivalence test (Stage 1) goes GREEN; core sets converge; e2e_budapest green</td><td>High — producer reconciliation</td></tr>
+<tr><td><b>4</b></td><td><b>FCParams as the API contract.</b> Request carries FCParams/profile; ConfigService validates as FCParams → <code>to_step_configs()</code>. Retire <code>ClusterPeopleConfig</code>.</td><td>API endpoint tests vs golden; contract guard test</td><td>Med — schema reshape</td></tr>
+<tr><td><b>5</b></td><td><b>Delete the bridge</b> (<code>face_cluster_bridge.py</code>) + monolithic <code>cluster_people</code>. Finish spec-040 Phase 7.</td><td>Grep shows no callers; full suite green; REVIEW.md</td><td>Low once Stage 3–4 land</td></tr>
+</table>
+
+<h2>6 · Acceptance — the binding gate</h2>
+<div class="card goal">
+A single test, run on <code>D:\Budapest2025_Google</code> with one profile, that executes <b>both</b> app
+entrypoints and asserts <b>identical</b> cluster sizes. Today: <code>FC v2 [26,20,12,7,3,2,2]</code> vs
+<code>Albumify [29,13,11,7,6,…]</code> → RED. Done = GREEN for any profile. This test is Stage 1 (write it
+first, red), and Stage 3–4 turn it green. It is the missing test that let this divergence exist for months.
+</div>
+
+<p class="small">Related: <code>CONFIG_DIVERGENCE.html</code> (why/where, line-level) · SIGHTING-096 · <code>scripts/diff_fcconfig.py</code>, <code>scripts/run_profile.py</code>, <code>scripts/capture_albumify_baseline.py</code>.</p>
+</body></html>
