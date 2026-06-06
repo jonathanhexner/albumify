@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-06-07 [DOCS] spec-079 — Stage 0c diagnostic: the producer delta is POSE
+**Files**: NEW `scripts/diff_face_sets.py` (per-image core counts + gate rejection-reason tally across two run dirs); `specs/079-albumify-shared-core/LOCALIZE_GAP.html` (Stage 0c section); `specs/079-albumify-shared-core/tasks.md` (Stage 0c done, Stage 3 = populate pose).
+**Reason**: pin exactly what makes Albumify's clustering input differ from FC v2's (core 186 vs 133). Diagnostic only — no product change.
+**Finding**: same images, same faces, same gate — the delta is the POSE gate. FC v2 carries `FaceRecord.pose` (from `insightface_detect_faces`) and rejects 53 off-angle faces (`pose_yaw` 46 + `pose_pitch` 7 under profile_5 yaw≤30/pitch≤25); Albumify's `FaceRecord.pose` is None (its producer never populates it), so it rejects 0. **53 == 186−133 == the entire gap → 20 identities vs 8.** Stage 3 fix is now precise: plumb pose into Albumify's FaceRecord.
+
 ### 2026-06-07 [REFACTOR] spec-079 — Albumify onto the shared execute_spec primitive
 **Files**: `sim_bench/pipeline/run.py` (NEW `execute_spec(spec, context) -> PipelineResult` = validate + ONE executor pass, the shared execution primitive; `run_pipeline` now a thin wrapper = `execute_spec` + v5 export); `sim_bench/api/services/pipeline_service.py` (`execute_pipeline` now builds `PipelineSpec(steps, step_configs)` and calls `execute_spec` instead of constructing `PipelineExecutor`/`PipelineConfig` directly; dropped those imports); NEW `tests/pipeline/test_albumify_default_spec.py` (contract guard: `default_pipeline` validates clean); SIGHTING-097 (pre-existing stale `filter_quality_gate` test import).
 **Reason**: user — "one interface between frontend and the pipelines; clean, clear contracts." Both apps now submit a `PipelineSpec` to one validated primitive (`execute_spec`); each keeps its own persistence (FC v2 → v5 run dir, Albumify → people table). Only execution + validation are shared.

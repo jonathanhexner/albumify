@@ -58,9 +58,23 @@ Fixed by running the same detect/filter/align/embed sub-chain in both apps.</li>
 <li>Deleting the bridge / consolidating clustering steps stays worthwhile as <i>cleanup</i> (DRY, one path), but it is no longer the behavioral fix.</li>
 </ul>
 
-<h2>Open: pin the exact producer delta (Stage 0c)</h2>
-<p class="sub">Next diagnostic: diff the two <code>_v4</code> face tables face-by-face — per-image counts, embedding
-presence, det_score, and the alignment/embedding values — to identify which producer step (likely
-<code>filter_faces</code> / alignment) drives 133 vs 186. That tells us exactly which steps must converge.</p>
-<p class="f">Tool: scripts/localize_gap.py &lt;run_dir&gt; — runs both recipes on a run dir's face_records.</p>
+<h2>Stage 0c — the exact producer delta: POSE (resolved)</h2>
+<div class="card win"><b>Named cause: the pose gate.</b> Same images, same faces (340 vs 337), same gate. Rejection
+reasons diverge: FC v2 <code>{pose_yaw: 46, pose_pitch: 7, top_k: 154}</code> vs Albumify
+<code>{top_k: 151}</code>. FC v2 rejects <b>53 off-angle faces</b> for pose; Albumify rejects <b>zero</b> —
+and <b>53 = 186 − 133</b>, the entire core-set gap.</div>
+<p class="sub">Root: FC v2's faces carry <code>pose</code> (yaw/pitch/roll, from <code>insightface_detect_faces</code>);
+Albumify's <code>FaceRecord.pose</code> is <code>None</code> (the "Pose gate: NOT WIRED" warning). With
+profile_5's limits (yaw≤30°, pitch≤25°) and <code>require_pose=false</code>, FC v2 drops the off-angle faces
+while Albumify's None-pose faces vacuously pass. The 53 survivors inflate the core set → 20 identities vs 8.</p>
+<table>
+<tr><th></th><th>pose populated?</th><th>pose-rejected</th><th>core</th><th>identities</th></tr>
+<tr><td>FC v2</td><td class="ok">yes</td><td>53</td><td>133</td><td>8</td></tr>
+<tr><td>Albumify</td><td class="x">no (None)</td><td>0</td><td>186</td><td>20</td></tr>
+</table>
+<p class="small"><b>Stage 3 fix (precise &amp; small):</b> plumb pose into Albumify's <code>FaceRecord.pose</code>
+(Albumify runs <code>insightface_score_pose</code> but its value never reaches the record). Once populated, the
+pose gate rejects the same 53 → core 133 → 8 clusters → output-equivalence. NB it's a missing face
+<i>attribute</i>, not a different face <i>set</i>.</p>
+<p class="f">Tools: scripts/localize_gap.py (recipe equivalence), scripts/diff_face_sets.py (per-image core + rejection reasons).</p>
 </body></html>

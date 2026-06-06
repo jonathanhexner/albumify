@@ -36,11 +36,12 @@ Anchor (binding): `D:\Budapest2025_Google` + `profile_5.json` →
 - [x] RE-SCOPE: old "route clustering onto unified steps" fixes nothing behaviorally;
       it becomes cleanup. The real fix is unifying the producer chain (Stage 3).
 
-## Stage 0c — Pin the exact producer delta  `[ ]`  (diagnostic)
-- [ ] Diff the two `_v4` face tables face-by-face: per-image counts, embedding
-      presence, det_score, alignment/embedding values → which producer step drives
-      core 133 vs 186 (suspects: `filter_faces`, `filter_quality`, alignment).
-- [ ] GATE: written-up finding naming the divergent step(s); no commit.
+## Stage 0c — Pin the exact producer delta  `[x]` DONE  (diagnostic)
+- [x] `scripts/diff_face_sets.py` — per-image core counts + gate rejection reasons.
+- [x] FINDING: same images/faces; the delta is the **POSE gate**. FC v2 rejects
+      53 off-angle faces (`pose_yaw` 46 + `pose_pitch` 7); Albumify rejects 0 because
+      `FaceRecord.pose is None` (its producer never populates pose). 53 = 186−133 =
+      the entire core gap → 20 vs 8. It's a missing face ATTRIBUTE, not a different set.
 
 ## Stage 1 — Cross-app equivalence test (write it RED)  `[ ]`
 - [ ] `tests/architecture/test_app_cluster_equivalence.py` — run a real profile
@@ -56,12 +57,12 @@ Anchor (binding): `D:\Budapest2025_Google` + `profile_5.json` →
 - [ ] `tests/...` unit test on the blur step; both apps populate blur_score.
 - [ ] GATE: Albumify gated count moves toward 72; anchor for FC v2 still holds; review; commit.
 
-## Stage 3 — Unify the PRODUCER chain (the real behavioral fix)  `[ ]`
-- [ ] Reconcile the face-producing sub-chain so both apps feed clustering the same
-      faces: detection thresholds, `filter_faces` / `filter_quality`, orientation +
-      `align_faces`, `extract_face_embeddings`. Target: core set converges (133↔186)
-      and the Stage-1 equivalence test passes for one profile on Budapest.
-- [ ] Driven by Stage 0c's named divergent step(s).
+## Stage 3 — Populate pose in Albumify's FaceRecord (the behavioral fix)  `[ ]`
+- [ ] Plumb pose (yaw/pitch/roll) into `FaceRecord.pose` on the Albumify path —
+      either from `insightface_detect_faces` (as FC v2 gets it) or by wiring
+      `insightface_score_pose`'s output into the record + persisting it.
+- [ ] Verify: Albumify core set drops 186 → 133, identities 20 → 8 on Budapest+profile_5.
+- [ ] Named by Stage 0c: pose gate rejects 53 off-angle faces FC v2 already drops.
 - [ ] (Cleanup, may fold into Stage 5) consolidate to one clustering step-set —
       behaviorally neutral since bridge ≡ unified.
 - [ ] GATE: Stage-1 equivalence GREEN; core sets match; e2e_budapest green; review; commit.
