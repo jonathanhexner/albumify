@@ -10,6 +10,23 @@ from sqlalchemy.orm import Session
 from sim_bench.api.database.models import Person, Album, PipelineRun
 
 
+def _bbox_to_xywh(bbox) -> Optional[list]:
+    """Normalize a face bbox to [x, y, w, h] across face/bbox representations.
+
+    spec-079 / SIGHTING-100: the unified chain produces ``FaceRecord`` whose
+    ``bbox`` is a tuple ``(x1, y1, x2, y2)``; legacy faces used a dict or a
+    ``BoundingBox`` object with ``.x/.y/.w/.h``. Persistence wants xywh.
+    """
+    if bbox is None:
+        return None
+    if isinstance(bbox, dict):
+        return [bbox.get('x', 0), bbox.get('y', 0), bbox.get('w', 0), bbox.get('h', 0)]
+    if isinstance(bbox, (tuple, list)):
+        x1, y1, x2, y2 = bbox
+        return [x1, y1, x2 - x1, y2 - y1]
+    return [bbox.x, bbox.y, bbox.w, bbox.h]
+
+
 class PeopleService:
     """Service for managing detected people (face clusters)."""
 
@@ -266,15 +283,9 @@ class PeopleService:
         if crop_path:
             return str(crop_path), None
         # Fall back to original image + bbox
-        bbox = None
-        if face.bbox is not None:
-            # Handle both dict and object-style bbox
-            if isinstance(face.bbox, dict):
-                bbox = [face.bbox.get('x', 0), face.bbox.get('y', 0),
-                        face.bbox.get('w', 0), face.bbox.get('h', 0)]
-            else:
-                bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]
-        return str(face.original_path), bbox
+        bbox = _bbox_to_xywh(face.bbox)
+        # spec-079 / SIGHTING-100: FaceRecord uses image_path; legacy used original_path.
+        return str(getattr(face, 'original_path', None) or getattr(face, 'image_path', '')), bbox
 
     def create_from_clusters(
         self,
@@ -308,23 +319,19 @@ class PeopleService:
             images = set()
 
             for face in faces:
-                # Get and validate image path
-                img_path = str(face.original_path) if face.original_path else None
+                # Get and validate image path. spec-079 / SIGHTING-100: the
+                # unified chain produces FaceRecord (image_path); legacy faces
+                # used original_path. Support both.
+                raw_path = getattr(face, 'original_path', None) or getattr(face, 'image_path', None)
+                img_path = str(raw_path) if raw_path else None
                 if not img_path or img_path in ('', '.', 'None'):
                     self._logger.warning(
-                        f"Skipping face with invalid path: {face.original_path} "
+                        f"Skipping face with invalid path: {raw_path} "
                         f"(cluster {cluster_id}, face_index {face.face_index})"
                     )
                     continue
 
-                bbox = None
-                if face.bbox is not None:
-                    # Handle both dict and object-style bbox
-                    if isinstance(face.bbox, dict):
-                        bbox = [face.bbox.get('x', 0), face.bbox.get('y', 0),
-                                face.bbox.get('w', 0), face.bbox.get('h', 0)]
-                    else:
-                        bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]
+                bbox = _bbox_to_xywh(face.bbox)
 
                 # Look up assignment method from attachment_decisions
                 face_key = f"{img_path.replace(chr(92), '/')}:face_{face.face_index}"

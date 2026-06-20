@@ -63,7 +63,17 @@ def _lookup_insightface_face(context: Optional[PipelineContext], image_path: str
     """
     if context is None:
         return {}
-    face_data = (getattr(context, "insightface_faces", None) or {}).get(image_path, {})
+    faces_map = getattr(context, "insightface_faces", None) or {}
+    # spec-079 Stage 3: context.insightface_faces is keyed by CANONICAL
+    # forward-slash paths (insightface_detect_faces line 68), but callers pass
+    # str(face.original_path) which is backslash on Windows. Without this
+    # normalization the lookup always missed → pose/blur/det/landmarks were
+    # silently dropped on the Albumify path (pose gate then passed every face:
+    # 20 identities vs FC v2's 8).
+    canonical = str(image_path).replace("\\", "/")
+    face_data = faces_map.get(canonical)
+    if face_data is None:
+        face_data = faces_map.get(image_path, {})
     faces = face_data.get("faces", []) if isinstance(face_data, dict) else []
     for f in faces:
         if f.get("face_index") == face_index:
@@ -109,14 +119,25 @@ def faces_to_face_records(
             else (float(if_face.get("confidence")) if if_face.get("confidence") is not None else None)
         )
         pose = getattr(face, "pose", None)
-        if pose is None:
-            pose_scores = if_face.get("pose_scores") or if_scores.get("pose") if isinstance(if_face, dict) else None
-            if isinstance(pose_scores, dict) and {"yaw", "pitch", "roll"} <= set(pose_scores):
-                pose = (
-                    float(pose_scores["yaw"]),
-                    float(pose_scores["pitch"]),
-                    float(pose_scores["roll"]),
-                )
+        if pose is None and isinstance(if_face, dict):
+            # spec-079 Stage 3: insightface_detect_faces serializes pose as a
+            # [yaw, pitch, roll] LIST under the top-level 'pose' key (see
+            # insightface_detect_faces._serialize_face). The bridge previously
+            # looked only for a dict under 'pose_scores'/scores['pose'], so pose
+            # was silently dropped on the Albumify path — the pose gate then
+            # passed every face, inflating the core set (186 vs FC v2's 133) and
+            # the identity count (20 vs 8). Read the actual key/shape here.
+            raw = if_face.get("pose")
+            if isinstance(raw, (list, tuple)) and len(raw) == 3:
+                pose = (float(raw[0]), float(raw[1]), float(raw[2]))
+            else:  # legacy fallback: dict form under pose_scores / scores['pose']
+                pose_scores = if_face.get("pose_scores") or if_scores.get("pose")
+                if isinstance(pose_scores, dict) and {"yaw", "pitch", "roll"} <= set(pose_scores):
+                    pose = (
+                        float(pose_scores["yaw"]),
+                        float(pose_scores["pitch"]),
+                        float(pose_scores["roll"]),
+                    )
         landmarks = if_face.get("landmarks") if isinstance(if_face, dict) else None
         if landmarks is not None and not isinstance(landmarks, np.ndarray):
             try:

@@ -29,7 +29,19 @@ default_pipeline:
   - extract_scene_embedding
   - cluster_scenes
   - extract_face_embeddings     # Uses pre-aligned faces from align_faces step
-  - cluster_people              # Global face clustering by identity
+  # spec-079: identity clustering now runs App A's shared 8-step unified chain
+  # (was the monolithic `cluster_people` -> deprecated face_cluster_bridge, which
+  # dropped pose/blur and over-split). Same output key (people_clusters), so the
+  # downstream steps below are unchanged. Config is fed via FCParams.to_step_configs()
+  # in PipelineService._broadcast_clustering_config (the single config interpreter).
+  - quality_gate                # turn/blur/area/det gating + core-set selection
+  - build_face_knn_graph
+  - cluster_face_components
+  - select_face_exemplars
+  - merge_face_clusters
+  - attach_holdout_faces
+  - apply_diameter_cap
+  - assign_people_clusters      # produces context.people_clusters (== old cluster_people output)
   - identity_refinement         # Refine clusters with exemplar-based attachment
   - cluster_by_identity         # Sub-cluster scenes by identity
   - select_best                 # Smart selection with composite scoring (incl. frontal penalty)

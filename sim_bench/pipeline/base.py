@@ -170,6 +170,16 @@ class BaseStep(ABC):
         # Load from cache
         cached_data = cache_handler.load_from_cache(cache_keys)
         
+        # spec-079 / SIGHTING-099: invalidate rows produced by an OLDER output
+        # schema. A step opts into this by declaring a ``model_version`` in its
+        # cache metadata; bump that string whenever the serialized output shape
+        # changes (e.g. insightface_detect_faces adding pose in spec-070). A
+        # stored version that differs from the expected one — INCLUDING the
+        # legacy ``None`` written before versioning existed — is treated as a
+        # miss and recomputed. Steps that declare no version keep the old
+        # mtime-only behavior (back-compat).
+        expected_version = (cache_config.get("metadata") or {}).get("model_version")
+
         # Find uncached items
         uncached_items = []
         cached_results = {}
@@ -178,6 +188,9 @@ class BaseStep(ABC):
             if key_str in cached_data:
                 # Deserialize cached data
                 data_bytes, metadata = cached_data[key_str]
+                if expected_version is not None and metadata.get("model_version") != expected_version:
+                    uncached_items.append(item)  # stale-schema row → recompute
+                    continue
                 result = self._deserialize_from_cache(data_bytes, item)
                 cached_results[item] = result
             else:

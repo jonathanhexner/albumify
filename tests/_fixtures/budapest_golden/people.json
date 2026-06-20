@@ -2,141 +2,50 @@
   {
     "person_index": 1,
     "name": null,
-    "face_count": 29,
-    "image_count": 26,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_112502.jpg"
-  },
-  {
-    "person_index": 10,
-    "name": null,
-    "face_count": 13,
-    "image_count": 13,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_192248.jpg"
-  },
-  {
-    "person_index": 9,
-    "name": null,
-    "face_count": 11,
-    "image_count": 11,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_123916.jpg"
-  },
-  {
-    "person_index": 4,
-    "name": null,
-    "face_count": 7,
-    "image_count": 7,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_123237.jpg"
-  },
-  {
-    "person_index": 3,
-    "name": null,
-    "face_count": 6,
-    "image_count": 6,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_122617.jpg"
+    "face_count": 26,
+    "image_count": 24,
+    "thumbnail_image_path": "D:/Budapest2025_Google/20250822_112502.jpg"
   },
   {
     "person_index": 0,
     "name": null,
-    "face_count": 4,
-    "image_count": 4,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_112331.jpg"
+    "face_count": 22,
+    "image_count": 22,
+    "thumbnail_image_path": "D:/Budapest2025_Google/20250822_112331.jpg"
+  },
+  {
+    "person_index": 4,
+    "name": null,
+    "face_count": 13,
+    "image_count": 12,
+    "thumbnail_image_path": "D:/Budapest2025_Google/20250822_123916.jpg"
+  },
+  {
+    "person_index": 3,
+    "name": null,
+    "face_count": 7,
+    "image_count": 7,
+    "thumbnail_image_path": "D:/Budapest2025_Google/20250822_122617.jpg"
   },
   {
     "person_index": 2,
     "name": null,
     "face_count": 3,
     "image_count": 3,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_121039.jpg"
-  },
-  {
-    "person_index": 12,
-    "name": null,
-    "face_count": 3,
-    "image_count": 3,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_193356.jpg"
+    "thumbnail_image_path": "D:/Budapest2025_Google/20250822_121039.jpg"
   },
   {
     "person_index": 5,
     "name": null,
     "face_count": 2,
     "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_123313.jpg"
+    "thumbnail_image_path": "D:/Budapest2025_Google/20250822_193945.jpg"
   },
   {
     "person_index": 6,
     "name": null,
     "face_count": 2,
     "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_123354.jpg"
-  },
-  {
-    "person_index": 7,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_123443.jpg"
-  },
-  {
-    "person_index": 8,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_123501.jpg"
-  },
-  {
-    "person_index": 11,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_192352.jpg"
-  },
-  {
-    "person_index": 13,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_193734.jpg"
-  },
-  {
-    "person_index": 14,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_193945.jpg"
-  },
-  {
-    "person_index": 15,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_194258.jpg"
-  },
-  {
-    "person_index": 16,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_194651.jpg"
-  },
-  {
-    "person_index": 17,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250822_195121.jpg"
-  },
-  {
-    "person_index": 18,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250824_154448.jpg"
-  },
-  {
-    "person_index": 19,
-    "name": null,
-    "face_count": 2,
-    "image_count": 2,
-    "thumbnail_image_path": "D:\\Budapest2025_Google\\20250824_154601.jpg"
+    "thumbnail_image_path": "D:/Budapest2025_Google/20250824_152144.jpg"
   }
 ]

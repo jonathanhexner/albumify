@@ -4,6 +4,197 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-099: universal_cache never invalidates on schema/model_version change
+**Status**: FIXED (2026-06-20)
+**Severity**: High
+**Reported**: 2026-06-20
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`sim_bench/pipeline/cache_handler.py::load_from_cache` invalidates a cache row
+ONLY when the source image's mtime changes. It reads `model_version` into the
+returned metadata but NEVER compares it — so when a step's output schema changes,
+old rows are still served as valid hits forever.
+
+Concrete impact (the spec-079 "20-vs-8" mystery): spec-070 added head `pose`
+(yaw/pitch/roll) to `insightface_detect_faces` output. The Budapest
+`feature_type='insightface_detection'` rows are dated 2026-02-19 — BEFORE pose
+existed — so they carry no `pose` key. Both apps reload them → every
+`FaceRecord.pose` is `None` → the pose quality gate silently no-ops. The spec's
+Stage 0c diagnosis ("Albumify's producer never populates pose") is therefore
+WRONG: the producer code DOES populate pose; the cache serves pre-pose data.
+
+**Symptoms**:
+- Re-running detection after a schema change does not refresh cached features.
+- Quality gates that depend on a newly-added attribute silently disable.
+
+**Suspicion / Fix**:
+Make `load_from_cache` treat a `model_version` mismatch as a miss (steps pass a
+version/schema tag that bumps when output schema changes), or scope-clear
+`insightface_detection` on schema bumps. Prevention: any step that changes its
+serialized output schema MUST bump its cache `model_version`.
+
+**Steps to Reproduce**:
+1. Inspect a Budapest `insightface_detection` cache row's JSON — no `pose` key.
+2. Run any pose-gated pipeline on Budapest — 0 faces rejected by the pose gate.
+
+**Resolution (2026-06-20)**:
+`base.py::_process_with_cache` now reads an expected `model_version` from the
+step's cache metadata and treats any stored row whose `model_version` differs
+(including the legacy `None`) as a miss → recompute. `insightface_detect_faces`
+declares `DETECTION_OUTPUT_VERSION = "det-v2-pose"`. Stale rows auto-invalidate;
+future schema changes just need a version bump. The 122 pre-pose Budapest rows
+were also cleared once to force the immediate re-detect.
+
+---
+
+### SIGHTING-100: Albumify vs FC v2 identity-count divergence is multi-confound (not pose)
+**Status**: FIXED (2026-06-21)
+**Severity**: Medium
+**Reported**: 2026-06-20
+**Persona**: ML Engineer
+
+**Problem Description**:
+spec-079 framed the 8-vs-24 identity divergence as a single producer-pose bug.
+Empirically (2026-06-20, Budapest+profile_5) it is NOT pose (see SIGHTING-099 —
+both apps read pose-less cache). With the shared 8-step clustering chain wired
+into Albumify, `assign_people_clusters` produced 12 clusters / 110 faces while FC
+v2's reference is 8 / 72, and Albumify's post-clustering `identity_refinement`
+(which FC v2 does not run) then reported 24 / 204. `identity_refinement` only
+ATTACHES noise faces to existing clusters, so it cannot itself multiply cluster
+count — meaning the over-split originates in the shared chain under the stale
+cache, AND the final "identity" count is redefined by Albumify-only downstream
+steps. Confounds to isolate: (a) stale pose cache, (b) any residual gate/config
+delta, (c) image discovery (HEIC), (d) downstream identity_refinement /
+cluster_by_identity redefining the count.
+
+**Suspicion / Fix**:
+After SIGHTING-099 is fixed (fresh pose), re-run BOTH apps and compare the
+SHARED chain output (`assign_people_clusters`) only — that is the real
+equivalence target, not the post-refinement Person rows. Decide whether
+Albumify's reported identities should come from the shared chain or from
+identity_refinement. Tracked under spec-079.
+
+**Resolution (2026-06-20)** — ROOT CAUSE FOUND + shared chain now 8==8:
+`_diff_core_and_config.py` proved it was NOT pose, config, or the face set. With
+the **stale embedding cache** present, both apps gave 12; after clearing the 431
+stale `face_embedding` rows (model_version=None) BOTH apps' shared chain gives
+**identical 8 / 110 core / same core set / same per-step config**. Cause: cached
+embeddings (computed Feb-Apr) differed from live computation → different kNN graph
+→ over-split. Production asymmetry: FC v2 (`run_pipeline`) ran cacheless (fresh →
+8); Albumify (`PipelineService`) ran cached (stale → 12). Fixed permanently by
+versioning the embedding cache (`EMBEDDING_OUTPUT_VERSION`, SIGHTING-099 mechanism).
+RESIDUAL: Albumify's full pipeline still reports 6 identities / 318 faces because
+`identity_refinement` (an Albumify-only post-step FC v2 never runs) over-attaches —
+it produces a 238-face mega-cluster across ~80 images ([238,48,20,7,3,2]). The
+shared CLUSTERING is equivalent; identity_refinement is the only remaining
+(mis-tuned) difference. Standalone repro:
+`tests/pipeline/test_identity_refinement_overattach_budapest.py`.
+A runtime probe RULED OUT an embedding-keying bug: all 318 embedding lookups
+resolve correctly (the `original_path` attr exists on people_clusters faces;
+fixing it changes nothing). The cause is the attachment LOGIC: with correct
+embeddings it still attaches ~246 faces (> the 38 noise → it pulls in
+quality_gate-rejected faces) under loose thresholds (centroid 0.38 / reject 0.45),
+collapsing crowd/group-shot faces into one centroid. Tuning/logic task, not
+architecture.
+
+**TRUE ROOT CAUSE + FIX (2026-06-21)** — it was NOT thresholds, pose, or the
+cache. It was the spec-079 unification (replacing the monolithic `cluster_people`
+step with the 8-step chain ending in `assign_people_clusters`) leaving two
+classes of breakage in the Albumify-only post-clustering steps:
+
+1. **ORDERING**: `identity_refinement`, `cluster_by_identity`,
+   `select_best_per_person` all declared `depends_on=["cluster_people"]`. With
+   that step gone, the executor (orders by dependencies, not list order) had no
+   constraint to run them after clustering, so `identity_refinement` ran at
+   execution position 8 — BEFORE `assign_people_clusters` (position 25) — on a
+   raw pre-assignment cluster structure, producing the 238 mega-cluster. Fix:
+   add `assign_people_clusters` to each `depends_on` (keep `cluster_people` for
+   legacy pipelines; the builder ignores a dependency not present in a run).
+2. **FACE-TYPE**: those steps + `people_service.create_from_clusters` were
+   written for the legacy face type — `face.original_path`, a `BoundingBox`
+   object bbox, and a mutable `face.cluster_id`. The unified chain produces
+   `FaceRecord` (`image_path`, tuple `(x1,y1,x2,y2)` bbox, frozen/extra-forbid).
+   Fix: type-tolerant path access (`original_path or image_path`), a
+   `_bbox_to_xywh` normalizer (handles tuple/dict/object), and a guarded
+   `cluster_id` set.
+
+RESULT (Budapest+profile_5, end-to-end): Albumify now produces **7 identities /
+75 faces `[26,22,13,7,3,2,2]`** vs FC v2's `[26,20,12,7,3,2,2]` — anchor PASS.
+The 3-face delta is the legitimate leftover-rescue identity_refinement is meant
+to do. A permanent attach diagnostic (`context.refinement_attach_diagnostics`)
+was added to the step. Regression test:
+`tests/pipeline/test_identity_refinement_overattach_budapest.py`.
+
+---
+
+### SIGHTING-101: e2e_budapest Scenario A selectors are stale (app healthy, gate blocked)
+**Status**: OPEN
+**Severity**: Medium
+**Reported**: 2026-06-20
+**Persona**: QA / Test Engineer
+
+**Problem Description**:
+`tests/face_clustering/e2e_budapest/test_scenario_a_fresh_run.py` times out on
+`page.get_by_role("button", name="Profiles").click()` (30 s) even though the app
+renders correctly — the failure screenshot
+(`_failure_artifacts/1781979399.png`) shows the Run tab active, the "Profiles"
+expander visible, and Source/Album already filled. The selector no longer matches
+the `st.expander` header (Streamlit renders it as `<details><summary>`, not a
+`button` role in the current version). The test also still expects a button named
+**"Run pipeline"**, but the Run tab's button is now labelled **"Run"**
+(`run_tab.py:125`). Both are stale-UI drift, NOT a pipeline/runner regression.
+
+**Impact**: the binding V2 baseline gate cannot currently run Scenario A, so it
+can't certify the spec-079 FC v2 runner refactor end-to-end via the UI. The
+backend path IS verified headlessly: `run_v2_pipeline` reproduces the reference
+shape exactly (Budapest+profile_5 -> 8 clusters [26,20,12,7,3,2,2]).
+
+**Suspicion / Fix**:
+Refresh Scenario A selectors to the current UI. PARTIALLY DONE 2026-06-20:
+expander now opened via `get_by_text("Profiles", exact=True)` and the button
+renamed "Run pipeline" -> "Run" (both verified via failure screenshots:
+`1781979399.png` = pre-fix, `1781979600.png` = expander now open). STILL BROKEN:
+the `st.selectbox("Load profile")` option pick — `get_by_role("option",
+name="profile_4")` does not select (selectbox stays "(none)", "Load" stays
+disabled), another Streamlit-version DOM drift. Needs a robust selectbox-option
+interaction. Audit the other scenarios (B-K) for the same drift — this is harness
+rot from the spec-080 nav rework + a Streamlit upgrade, not a product regression.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest -m budapest tests/face_clustering/e2e_budapest/test_scenario_a_fresh_run.py`
+2. Times out clicking "Profiles" though the app is healthy.
+
+---
+
+### SIGHTING-098: `steps/configs/__init__.py` violates the empty-`__init__` convention
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-06-19
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+CLAUDE.md mandates "`__init__.py` kept empty except `face_cluster/__init__.py`".
+`sim_bench/pipeline/steps/configs/__init__.py` instead holds ~3.7 KB of real
+content: 16 re-export imports, the `STEP_CONFIG_MODELS` registry dict, and an
+`__all__`. The registry is genuine logic (step_name -> config model), not a
+convenience re-export, so it should live in a named module.
+
+**Symptoms**:
+- `__init__.py` is the canonical home for a lookup table that other code
+  (`tests/architecture/test_typed_step_configs.py`, introspection tooling)
+  imports — exactly what the convention exists to prevent.
+
+**Suspicion / Fix**:
+Isolated refactor (no behavior change): move `STEP_CONFIG_MODELS` + its imports
+to `sim_bench/pipeline/steps/configs/registry.py`; leave `__init__.py` empty;
+repoint callers to `...configs.registry`. Tracked as spec-079 **Refactor R**.
+
+**Steps to Reproduce**:
+1. Open `sim_bench/pipeline/steps/configs/__init__.py` — non-empty (~3.7 KB).
+
+---
+
 ### SIGHTING-097: stale test imports removed `filter_quality_gate` module
 **Status**: OPEN
 **Severity**: Low

@@ -41,27 +41,29 @@ PIPELINE_YAML = REPO / "configs" / "pipeline.yaml"
 
 
 def build_step_configs(profile_path=None) -> dict:
-    """Albumify's per-step yaml config, with profile knobs overlaid on
-    cluster_people (override relevant params, keep the rest)."""
+    """Albumify's per-step config. spec-079: clustering knobs are supplied as the
+    FULL typed FCParams under the 'cluster_people' block (no longer the
+    ClusterPeopleConfig subset). PipelineService._broadcast_clustering_config
+    translates them through FCParams.to_step_configs() to App A's unified steps."""
     yaml_doc = yaml.safe_load(PIPELINE_YAML.read_text(encoding="utf-8"))
     steps = yaml_doc.get("default_pipeline", [])
     step_configs = {name: (yaml_doc.get(name) or {}) for name in steps}
 
     profile = FCParams.load(profile_path or anchor.PROFILE_PATH).model_dump()
-    # Overlay ONLY the knobs cluster_people accepts (extra=forbid). FCParams
-    # exposes some exemplar/attach/split knobs the step does not surface — those
-    # are skipped (recorded divergence), the rest are "the relevant parameters".
-    allowed = set(ClusterPeopleConfig.model_fields.keys())
-    relevant = {k: v for k, v in profile.items() if k in allowed}
-    skipped = sorted(set(profile) - allowed)
-    cp = dict(step_configs.get("cluster_people", {}))
-    cp.update(relevant)
+    cp = dict(yaml_doc.get("cluster_people", {}))
+    cp.update(profile)                      # full FCParams = the typed contract
     cp["method"] = "face_cluster_knn"
     cp["export_for_analysis"] = True
     step_configs["cluster_people"] = cp
-    print(f"[capture] overlaid {len(relevant)} profile knobs; "
-          f"skipped {len(skipped)} not in ClusterPeopleConfig: {skipped}")
+    print(f"[capture] clustering config = full FCParams ({len(profile)} fields)")
     return step_configs
+
+
+def pipeline_steps() -> list:
+    """default_pipeline straight from the YAML — reflects the current step-list,
+    bypassing any stale DB ConfigProfile that start_pipeline(steps=None) would use."""
+    doc = yaml.safe_load(PIPELINE_YAML.read_text(encoding="utf-8"))
+    return list(doc.get("default_pipeline", []))
 
 
 def main() -> int:
@@ -81,7 +83,7 @@ def main() -> int:
           f"blur_min={step_configs['cluster_people'].get('blur_min')}")
 
     job_id = pipeline.start_pipeline(
-        album_id=album.id, steps=None, step_configs=step_configs, fail_fast=True,
+        album_id=album.id, steps=pipeline_steps(), step_configs=step_configs, fail_fast=True,
     )
     print(f"[capture] running pipeline {job_id} ...")
     pipeline.execute_pipeline(job_id)
@@ -90,6 +92,21 @@ def main() -> int:
     if run.status != "completed":
         print(f"[capture] FAILED: status={run.status} msg={run.error_message}")
         return 2
+
+    # spec-079 diagnostic: where does the count come from? Compare the unified
+    # clustering output (people_clusters, pre-refinement) to the post-refinement
+    # set and the final Person rows, to localize any divergence from FC v2's 8.
+    from sim_bench.api.services.pipeline_service import _jobs as _pipeline_jobs
+    ctx = _pipeline_jobs[job_id].context
+    pc = getattr(ctx, "people_clusters", {}) or {}
+    rpc = getattr(ctx, "refined_people_clusters", None)
+    print(f"[diag] people_clusters (assign_people_clusters, PRE-refine): "
+          f"{len(pc)} clusters / {sum(len(v) for v in pc.values())} assigned")
+    if rpc is not None:
+        print(f"[diag] refined_people_clusters (identity_refinement, POST): "
+              f"{len(rpc)} clusters / {sum(len(v) for v in rpc.values())} assigned")
+    else:
+        print("[diag] refined_people_clusters: None (refinement did not run)")
 
     people = session.query(Person).filter(Person.run_id == job_id).all()
     n_people = len(people)

@@ -28,6 +28,13 @@ from sim_bench.pipeline.face_embedding.factory import FaceEmbeddingExtractorFact
 
 logger = logging.getLogger(__name__)
 
+# spec-079 / SIGHTING-099: output-schema version for the embedding cache. Bump
+# when the embedding representation changes (model, normalization, dtype). "v1"
+# tags the current normalized-arcface output; legacy rows (model_version=None)
+# are recomputed by base.py. Stale embeddings were the actual cause of the
+# Albumify 8-vs-12 over-split (cached rows differed from live computation).
+EMBEDDING_OUTPUT_VERSION = "emb-v1-arcface-norm"
+
 
 @register_step
 class ExtractFaceEmbeddingsStep(BaseStep):
@@ -171,7 +178,8 @@ class ExtractFaceEmbeddingsStep(BaseStep):
             "items": cache_keys,
             "feature_type": "face_embedding",
             "model_name": extractor.model_name,
-            "metadata": {}
+            # spec-079 / SIGHTING-099: schema version → stale rows recompute.
+            "metadata": {"model_version": EMBEDDING_OUTPUT_VERSION},
         }
 
     def _process_uncached(

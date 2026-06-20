@@ -23,13 +23,10 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import sim_bench.pipeline.steps.all_steps  # noqa: F401  -- registers steps
-from face_cluster.fc_app_runner import FCAppRunner, UNIFIED_CLUSTERING_STEPS
+from face_cluster.fc_app_runner import UNIFIED_CLUSTERING_STEPS
 from face_cluster.fc_params import FCParams
-from sim_bench.run_db.exporter import RunExporter
-from sim_bench.pipeline.config import PipelineConfig
-from sim_bench.pipeline.context import PipelineContext
-from sim_bench.pipeline.executor import PipelineExecutor
-from sim_bench.pipeline.registry import get_registry
+from sim_bench.pipeline.run import run_pipeline
+from sim_bench.pipeline.spec import PipelineSpec
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +38,11 @@ PRODUCER_STEPS: List[str] = [
     "align_faces",
     "extract_face_embeddings",
 ]
+
+# spec-079: FC v2's full producer chain = discovery + the producer steps. Same
+# list run_profile.py feeds the shared runner, so the UI and the headless/test
+# path build an identical spec.
+FC_V2_PRODUCER: List[str] = ["discover_images"] + PRODUCER_STEPS
 
 
 @dataclass
@@ -58,15 +60,6 @@ class V2RunResult:
     finished_at: str
     error_message: Optional[str] = None
     action_id: Optional[int] = None
-
-
-def _discover_jpgs(src_dir: Path) -> List[Path]:
-    """Sorted list of supported images under src_dir (one level deep)."""
-    suffixes = {".jpg", ".jpeg", ".png"}
-    return sorted(
-        p for p in src_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in suffixes
-    )
 
 
 _DEPRECATION_WARNED = False
@@ -151,9 +144,20 @@ def run_v2_pipeline(
     src_dir = Path(src_dir)
     output_dir = Path(run_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    images = _discover_jpgs(src_dir)
     started_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+    # spec-079: build ONE spec (discovery + producer + the unified clustering
+    # chain) and hand it to the single shared runner. This is the SAME spec
+    # scripts/run_profile.py feeds run_pipeline — the UI no longer runs a
+    # bespoke two-pass orchestration (producer executor + FCAppRunner). Config
+    # flows through the typed FCParams contract.
+    if params is not None:
+        spec = PipelineSpec.from_fcparams(
+            params, producer_steps=FC_V2_PRODUCER, clustering_steps=UNIFIED_CLUSTERING_STEPS,
+        )
+    else:
+        steps = FC_V2_PRODUCER + UNIFIED_CLUSTERING_STEPS
+        spec = PipelineSpec(steps=steps, step_configs=step_configs or {})
 
     # Action log row — survives the run even on error so the UI can render
     # history. Producer column makes the new FC App's runs distinguishable
@@ -168,125 +172,53 @@ def run_v2_pipeline(
             "output_dir": str(output_dir),
             "source_album": album,
             "producer": producer,
-            "n_images": len(images),
             "profile": profile,  # spec-066: feeds the Overview per-profile chart
         })
     except Exception as e:  # pragma: no cover — action_log is best-effort
         logger.warning("action_log start failed (non-fatal): %s", e)
         action_id = None
 
-    if not images:
-        finished_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-        if action_id is not None:
-            _safe_complete_action(action_id, ok=False, message="no images discovered")
-        return V2RunResult(
-            success=False, output_dir=output_dir,
-            db_path=output_dir / "face_clustering.db",
-            n_images=0, n_faces=0, n_clusters=0, n_noise=0,
-            run_id=run_id, started_at=started_at, finished_at=finished_at,
-            error_message=f"No images (.jpg/.jpeg/.png) found under {src_dir}",
-            action_id=action_id,
-        )
-
-    context = PipelineContext(source_directory=src_dir)
-    context.image_paths = images
-    if progress_cb:
-        context.progress_callback = progress_cb  # type: ignore[attr-defined]
-
-    step_configs = step_configs or {}
-    producer_configs = {name: step_configs.get(name, {}) for name in PRODUCER_STEPS}
-    clustering_configs = {name: step_configs.get(name, {}) for name in UNIFIED_CLUSTERING_STEPS}
-    context.step_configs = {**producer_configs, **clustering_configs}
-
-    # 1. Producer chain — populates context.face_records via A1 dual-write.
-    executor = PipelineExecutor(get_registry())
-    producer_result = executor.execute(
-        context, PRODUCER_STEPS,
-        config=PipelineConfig(step_configs=producer_configs, fail_fast=True),
+    # The one runner: validate spec, run all steps in a single executor pass,
+    # export the v5 run dir. Discovery is the discover_images step inside the
+    # spec — no hand-rolled _discover_jpgs.
+    result = run_pipeline(
+        source_dir=src_dir, run_dir=output_dir, run_id=run_id, album=album,
+        spec=spec, producer="fc_app", progress_cb=progress_cb,
     )
-    if not producer_result.success:
-        finished_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    finished_at = result.finished_at
+
+    if result.n_images == 0 or not result.success:
+        # No-images takes priority: an empty source dir makes the producer chain
+        # fail deep (extract_face_embeddings has nothing to do), but the UX
+        # contract is a clean "No images" message, not the internal step error.
+        if result.n_images == 0:
+            message = f"No images (.jpg/.jpeg/.png) found under {src_dir}"
+        else:
+            message = result.error_message or "unknown error"
         if action_id is not None:
-            _safe_complete_action(action_id, ok=False, message=producer_result.error_message)
+            _safe_complete_action(action_id, ok=False, message=message)
         return V2RunResult(
-            success=False, output_dir=output_dir,
-            db_path=output_dir / "face_clustering.db",
-            n_images=len(images), n_faces=0, n_clusters=0, n_noise=0,
+            success=False, output_dir=output_dir, db_path=result.db_path,
+            n_images=result.n_images, n_faces=result.n_faces,
+            n_clusters=0, n_noise=result.n_faces,
             run_id=run_id, started_at=started_at, finished_at=finished_at,
-            error_message=(
-                f"Producer chain failed at {producer_result.failed_step}: "
-                f"{producer_result.error_message}"
-            ),
-            action_id=action_id,
+            error_message=message, action_id=action_id,
         )
-
-    # 2. Clustering chain — FCAppRunner is the canonical entry.
-    fc_result = FCAppRunner().run(context, step_configs=clustering_configs)
-    if not fc_result.success:
-        finished_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-        if action_id is not None:
-            _safe_complete_action(action_id, ok=False, message=fc_result.error_message)
-        return V2RunResult(
-            success=False, output_dir=output_dir,
-            db_path=output_dir / "face_clustering.db",
-            n_images=len(images), n_faces=len(context.face_records),
-            n_clusters=0, n_noise=0,
-            run_id=run_id, started_at=started_at, finished_at=finished_at,
-            error_message=f"Clustering chain failed: {fc_result.error_message}",
-            action_id=action_id,
-        )
-
-    # 3. Export the v5 run directory.
-    base_cr = getattr(context, "cluster_result", None) or _empty_cluster_result(len(context.face_records))
-    merged_cr = getattr(context, "merged_cluster_result", None)
-    finished_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-
-    RunExporter(output_dir).export(
-        faces=context.face_records,
-        base_cluster_result=base_cr,
-        merged_cluster_result=merged_cr,
-        core_indices=getattr(context, "core_indices", []) or [],
-        merge_log=getattr(context, "merge_log", None),
-        merge_metadata=getattr(context, "merge_metadata", None),
-        config=None,  # per-step Pydantic configs replace the dataclass FCConfig at the boundary
-        source_album=album,
-        producer="fc_app",  # RunExporter producer allow-list — see _VALID_PRODUCERS
-        run_id=run_id, started_at=started_at, finished_at=finished_at,
-        image_paths=[str(p) for p in images],
-        filters=getattr(context, "filters", None),
-        filter_verdicts=getattr(context, "filter_verdicts", None),
-    )
 
     if action_id is not None:
         _safe_complete_action(action_id, ok=True, result_fields={
-            "n_faces": len(context.face_records),
-            "n_clusters": fc_result.n_clusters,
-            "n_noise": fc_result.n_noise,
+            "n_faces": result.n_faces,
+            "n_clusters": result.n_clusters,
+            "n_noise": result.n_noise,
             "run_id": run_id,
         })
 
     return V2RunResult(
-        success=True, output_dir=output_dir,
-        db_path=output_dir / "face_clustering.db",
-        n_images=len(images),
-        n_faces=len(context.face_records),
-        n_clusters=fc_result.n_clusters,
-        n_noise=fc_result.n_noise,
+        success=True, output_dir=output_dir, db_path=result.db_path,
+        n_images=result.n_images, n_faces=result.n_faces,
+        n_clusters=result.n_clusters, n_noise=result.n_noise,
         run_id=run_id, started_at=started_at, finished_at=finished_at,
         action_id=action_id,
-    )
-
-
-def _empty_cluster_result(n_faces: int):
-    """Fallback when the chain produced no clustering — every face is noise."""
-    from face_cluster.types import ClusterResult
-    import numpy as np
-    return ClusterResult(
-        labels=np.full(n_faces, -1, dtype=int),
-        clusters={},
-        cluster_stats={},
-        exemplars={},
-        n_clusters=0, n_noise=n_faces,
     )
 
 

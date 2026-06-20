@@ -15,6 +15,12 @@ from sim_bench.pipeline.insightface_pipeline.face_analyzer import InsightFaceFac
 
 logger = logging.getLogger(__name__)
 
+# spec-079 / SIGHTING-099: output-schema version for the detection cache. Bump
+# this whenever the serialized face dict in _serialize_face changes shape, so
+# base.py invalidates rows written by an older schema. "v2" = spec-070 added
+# the `pose` field; rows written before that (model_version=None) are recomputed.
+DETECTION_OUTPUT_VERSION = "det-v2-pose"
+
 
 @register_step
 class InsightFaceDetectFacesStep(BaseStep):
@@ -71,7 +77,11 @@ class InsightFaceDetectFacesStep(BaseStep):
             "items": image_paths,
             "feature_type": "insightface_detection",
             "model_name": config.get('model_name', 'buffalo_l'),
-            "metadata": {"device": config.get("device", "cpu")}
+            "metadata": {
+                "device": config.get("device", "cpu"),
+                # spec-079 / SIGHTING-099: schema version → stale rows recompute.
+                "model_version": DETECTION_OUTPUT_VERSION,
+            },
         }
     
     def _process_uncached(self, items: List[str], context: PipelineContext, config: dict) -> Dict[str, Dict[str, Any]]:

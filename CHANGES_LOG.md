@@ -6436,3 +6436,38 @@ python scripts/export_clustering_data.py --embeddings results/Budapest/embedding
 **Files**: `WORKFLOW.md` (new), `CLAUDE.md`
 **Change**: Added spec-kit workflow document and enforced it via CLAUDE.md gate rules
 **Reason**: Integrated `templates/` and `scripts/` from github/spec-kit; gates in CLAUDE.md now block implementation until spec → plan → tasks artifacts exist
+
+## 2026-06-19 [DOCS] spec-079 spec.md + tasks.md refocused on Track A
+- Files: specs/079-albumify-shared-core/{spec.md,tasks.md}, + UNIFICATION_{EXPLAINED,PLAN}.html
+- Change: spec.md made Track-A-primary (8==8 equivalence goal, two anchors, no-harm guards, design decisions); Track B preserved as deferred. tasks.md: Stage 4 gains hierarchical-FCParams decision + byte-equal projection test; added Refactor R (empty __init__.py); added NO-HARM GUARDS banner.
+- Reason: User requested a comprehensive HoE-facing plan + spec/tasks aligned to it. Folds in two new findings (configs/__init__.py convention violation; flat-vs-hierarchical config).
+
+## 2026-06-19 [TEST] spec-079 Stage 1 RED cross-app equivalence test + SIGHTING-098
+- Files: tests/architecture/test_app_cluster_equivalence.py (new), docs/project/SIGHTINGS.md
+- Change: Added the cross-app equivalence test (same profile_5 through BOTH FC v2 run_pipeline and Albumify PipelineService; asserts identical identity-cluster sizes). Marked budapest (opt-in, heavy) + strict xfail (RED now at 8 vs 20; auto-fails XPASS when 8==8 to force marker removal = definition of done). Reuses scripts/run_profile + capture_albumify_baseline recipes to avoid drift. Filed SIGHTING-098 (configs/__init__.py non-empty, violates convention; = spec-079 Refactor R).
+- Reason: spec-079 Stage 1 -- the only test that verifies the actual objective (two apps agree). Collected+deselected by default; collects under -m budapest.
+
+## 2026-06-20 [REFACTOR] spec-079 — FC v2 UI runner collapsed onto the one shared runner
+- Files: app/face_clustering_v2/pipeline.py
+- Change: `run_v2_pipeline` (the FC v2 Run-tab backend) no longer hand-rolls a two-pass orchestration (manual `_discover_jpgs` + producer `PipelineExecutor` pass + a separate `FCAppRunner` pass + its own `RunExporter`). It now builds ONE `PipelineSpec.from_fcparams(producer_steps=FC_V2_PRODUCER, clustering_steps=UNIFIED_CLUSTERING_STEPS)` and delegates to `sim_bench.pipeline.run.run_pipeline` — the same spec+runner `scripts/run_profile.py` already uses. Removed dead `_discover_jpgs` / `_empty_cluster_result`. Preserved the V2RunResult + action_log contract; no-images now returns the clean "No images" message via result.n_images==0.
+- Reason: Removes the last duplicate pipeline runner so FC v2 UI and the headless/test path build an identical spec and execute through one validated executor pass. Unit tests test_run_v2_pipeline_kwargs + test_v2_pipeline_run_allocation green.
+
+## 2026-06-20 [BUGFIX] cache invalidation on output-schema version (SIGHTING-099/100) — 8==8 ACHIEVED
+- Files: sim_bench/pipeline/base.py, sim_bench/pipeline/steps/insightface_detect_faces.py, sim_bench/pipeline/steps/extract_face_embeddings.py
+- Change: `_process_with_cache` now treats a cached row whose stored `model_version` differs from the step's expected `model_version` (incl. legacy None) as a miss → recompute. Steps opt in via `model_version` in `_get_cache_config` metadata. `insightface_detect_faces` -> `DETECTION_OUTPUT_VERSION="det-v2-pose"`; `extract_face_embeddings` -> `EMBEDDING_OUTPUT_VERSION="emb-v1-arcface-norm"`. Cleared the stale Budapest detection (122) + embedding (431) rows once.
+- Reason: universal_cache invalidated only on image mtime, ignoring `model_version`. The ACTUAL cause of the months-long Albumify 8-vs-12/24 over-split was the **stale embedding cache** (model_version=None rows from Feb-Apr): cached embeddings differed from live computation, producing a different kNN graph → 12 not 8. Proven by `_diff_core_and_config.py`: with cache, both apps gave 12; after clearing stale embeddings, BOTH apps' shared clustering chain give **identical 8 / 110 core / same core set / same per-step config**. Pose (SIGHTING-099 detection cache) was a real but separate bug, NOT the count driver. Production asymmetry: FC v2 (run_pipeline) ran cacheless (always fresh → 8); Albumify (PipelineService) ran cached (stale → 12).
+
+## 2026-06-21 [BUGFIX] spec-079 — identity over-attachment fixed: ordering + FaceRecord compat (SIGHTING-100)
+- Files: sim_bench/pipeline/steps/{identity_refinement,cluster_by_identity,select_best_per_person}.py, sim_bench/api/services/people_service.py
+- Change: (1) ORDERING — added `assign_people_clusters` to the `depends_on` of identity_refinement/cluster_by_identity/select_best_per_person (they only declared the removed `cluster_people`, so the executor ran them BEFORE clustering on a raw blob -> 238-face mega-cluster). (2) FACE-TYPE compat — those steps + people_service assumed the legacy face type (`original_path`, BoundingBox-object bbox, mutable `cluster_id`); the unified chain produces `FaceRecord` (`image_path`, tuple bbox, frozen). Added type-tolerant path access, a `_bbox_to_xywh` normalizer, and a guarded `cluster_id` set. (3) Added a permanent attach diagnostic (`context.refinement_attach_diagnostics`) to identity_refinement.
+- Reason: end-to-end, Albumify now yields 7 identities / 75 faces `[26,22,13,7,3,2,2]` (was 24/204 or the 6/318 blob) vs FC v2 `[26,20,12,7,3,2,2]` — budapest anchor PASS. Root cause was the unification leaving dangling `cluster_people` deps + face-type assumptions in the post-clustering + persistence steps. NOT pose, cache, or thresholds.
+
+## 2026-06-20 [TEST] spec-079 — standalone identity_refinement over-attachment repro (SIGHTING-100)
+- Files: tests/pipeline/test_identity_refinement_overattach_budapest.py (new)
+- Change: budapest-marked harness running the production Albumify spec up to identity_refinement on Budapest+profile_5. test_shared_chain_matches_reference guards the equivalence win (core clusters == [26,20,12,7,3,2,2]); test_identity_refinement_overattaches_REPRO reproduces the bug (input cores [26,20,12,7,3,2,2] -> output [238,48,20,7,3,2], 318/340 assigned, biggest cluster 238 faces across 81 images = outlier dump). Runs in ~25s on warm cache.
+- Reason: User asked for a standalone repro to debug the over-attachment. Findings recorded in the docstring: params reach the step correctly (yaml block); it ATTACHES (not merges); it pulls in >110 faces (quality_gate-rejected holdout). A runtime probe RULED OUT an embedding-keying bug (all 318 lookups resolve; the original_path attr exists on people_clusters faces). Root cause is the attachment LOGIC/thresholds (centroid 0.38 / reject 0.45) collapsing crowd-shot faces into one centroid — not wiring.
+
+## 2026-06-20 [DOCS] spec-079 — corrected the divergence diagnosis (SIGHTING-099/100)
+- Files: docs/project/SIGHTINGS.md, specs/079-albumify-shared-core/tasks.md
+- Change: Empirically disproved the spec's "Albumify producer never populates pose" diagnosis. `insightface_detect_faces` DOES populate pose for both apps; pose is None only because `cache_handler.load_from_cache` never invalidates on schema/model_version change and serves pre-spec-070 (pose-less, 2026-02-19) detection rows (SIGHTING-099, High). The real identity-count divergence is multi-confound (stale cache + config + HEIC discovery + Albumify-only identity_refinement) (SIGHTING-100). Marked tasks.md Stage 0c diagnosis as corrected; Stages 2-3 (blur step / populate pose) moot as written.
+- Reason: Months-long 8-vs-24 effort was chasing the wrong root cause; number-matching deferred to SIGHTING-100, architecture unification proceeds independently.

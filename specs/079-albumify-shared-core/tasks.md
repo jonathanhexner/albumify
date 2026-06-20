@@ -15,6 +15,12 @@ Anchor (binding): `D:\Budapest2025_Google` + `profile_5.json` →
 **8 clusters, sizes [26,20,12,7,3,2,2], 72 assigned** (FC v2 reference
 `a588521b…`). Constants in `tests/_budapest_baseline.py`.
 
+**NO-HARM GUARDS — green after EVERY stage (see spec.md §No-harm test strategy):**
+- **Guard A**: `tests/face_clustering/e2e_budapest/` (`profile_4` → 15 clusters / 340 faces). Movement = harm.
+- **Guard B**: `tests/pipeline/test_pipeline_spec.py` + `test_albumify_default_spec.py` (spec stays valid).
+- **Guard C**: FC v2 `profile_5` anchor stays 8 (fixes change *Albumify*, not FC v2).
+- **Hard rule**: do NOT commit `tests/_fixtures/budapest_golden/*.json` (WIP=13) until the equivalence target is GREEN at 8==8.
+
 ---
 
 # Track A — Unify pipeline execution + config
@@ -43,6 +49,18 @@ Anchor (binding): `D:\Budapest2025_Google` + `profile_5.json` →
       `FaceRecord.pose is None` (its producer never populates pose). 53 = 186−133 =
       the entire core gap → 20 vs 8. It's a missing face ATTRIBUTE, not a different set.
 
+> **2026-06-20 CORRECTION — this diagnosis is WRONG.** Re-verified empirically:
+> `insightface_detect_faces` DOES populate `FaceRecord.pose` (lines 108/194/212),
+> for BOTH apps (same step). Pose is `None` only because the Budapest
+> `insightface_detection` cache rows predate spec-070 (dated 2026-02-19, no `pose`
+> key) and `cache_handler.load_from_cache` never invalidates on schema/model_version
+> change — see **SIGHTING-099**. Both apps read the same stale cache, so pose cannot
+> explain FC v2=8 vs Albumify=24. The real divergence is multi-confound (stale
+> cache + config + HEIC discovery + Albumify-only `identity_refinement` redefining
+> the count) — see **SIGHTING-100**. Stages 2 ("blur step") and 3 ("populate pose
+> in the producer") are therefore moot as written. Number-matching is deferred to
+> SIGHTING-100; the architecture unification below proceeds independently.
+
 ## Stage 1 — Cross-app equivalence test (write it RED)  `[ ]`
 - [ ] `tests/architecture/test_app_cluster_equivalence.py` — run a real profile
       through BOTH app entrypoints (FC v2 `run_profile`/`run_v2_pipeline` and
@@ -68,18 +86,37 @@ Anchor (binding): `D:\Budapest2025_Google` + `profile_5.json` →
 - [ ] GATE: Stage-1 equivalence GREEN; core sets match; e2e_budapest green; review; commit.
 - [ ] >>> STOP: report equivalence achieved before contract reshape <<<
 
-## Stage 4 — FCParams as the single config contract  `[ ]`
+## Stage 4 — FCParams as the single, HIERARCHICAL config contract  `[ ]`
+- [ ] Make `FCParams` hierarchical: `gating` / `graph` / `exemplars` / `split` /
+      `merge` sub-models, composed of the existing `steps/configs/*.py` models
+      (decision: ends the two-config-systems split — see spec.md §Design decisions).
+- [ ] `to_step_configs()` PROJECTS each sub-model to its owning step (was: broadcast
+      one flat blob to all 8). Enables `extra="forbid"` per step → typos caught.
+- [ ] NO-HARM TEST `tests/.../test_fcparams_projection.py`: for the current default
+      profile, the new projected `step_configs` is **byte-equal** to the pre-refactor
+      flat broadcast; every step knob is reachable; no orphan knobs; round-trips.
 - [ ] API `PipelineRequest` / `ConfigService` carry+validate an `FCParams`
       (or profile name) → `to_step_configs()`; stop merging untyped dicts for clustering.
 - [ ] Retire `sim_bench/pipeline/steps/configs/cluster_people.py::ClusterPeopleConfig`.
 - [ ] Generalize `run_v2_pipeline` → a shared step-list runner both apps call
       (drop hand-rolled `_discover_jpgs`, single executor path); producer tag differs.
-- [ ] GATE: API endpoint tests vs golden + contract guard + equivalence green; review; commit.
+- [ ] GATE: byte-equal projection test + API endpoint tests vs golden + Guards A/B/C
+      + equivalence green; review; commit.
 
 ## Stage 5 — Delete the bridge (finish spec-040 Phase 7)  `[ ]`
 - [ ] Delete `sim_bench/pipeline/steps/face_cluster_bridge.py` + monolithic
-      `cluster_people` step; grep shows no callers.
-- [ ] GATE: full suite green; REVIEW.md; flip spec → Implemented.
+      `cluster_people` step; `grep` shows no callers; Albumify `default_pipeline`
+      in `configs/pipeline.yaml` → the 8 unified clustering steps.
+- [ ] GATE: full suite green; equivalence target still 8==8; Guard A unchanged;
+      REVIEW.md; flip spec → Implemented.
+
+## Refactor R — restore empty `__init__.py` convention  `[ ]`  (SIGHTING, anytime/parallel)
+- [ ] `steps/configs/__init__.py` currently holds 16 re-export imports +
+      `STEP_CONFIG_MODELS` + `__all__` (~3.7 KB) — violates CLAUDE.md "empty
+      `__init__.py`". Move the registry + imports to `steps/configs/registry.py`;
+      leave `__init__.py` empty; repoint the architecture test + introspection callers.
+- [ ] File the sighting in `docs/project/SIGHTINGS.md` first (isolated refactor).
+- [ ] GATE: import smoke + full suite green; zero behavior change.
 
 ---
 

@@ -17,6 +17,8 @@ from sim_bench.pipeline.cache_handler import UniversalCacheHandler
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.run import execute_spec
 from sim_bench.pipeline.spec import PipelineSpec
+from face_cluster.fc_app_runner import UNIFIED_CLUSTERING_STEPS
+from face_cluster.fc_params import FCParams
 
 
 # No more hardcoded pipeline - loaded from config service
@@ -120,6 +122,48 @@ class PipelineService:
 
         return run_id
 
+    def _broadcast_clustering_config(
+        self, steps: list[str], step_configs: dict[str, dict]
+    ) -> dict[str, dict]:
+        """spec-079 — the ONE config interpreter for identity clustering.
+
+        Albumify keeps a single user-facing clustering config block (still keyed
+        ``cluster_people`` for UI/profile back-compat). When the pipeline runs
+        App A's unified clustering chain, we translate that block through
+        ``FCParams`` (the shared, typed config) and broadcast it to the unified
+        steps via ``FCParams.to_step_configs()`` — the SAME interpretation App A
+        uses. No second config language; divergence-by-construction is removed.
+
+        No-op when the unified steps aren't in the run (e.g. minimal_pipeline).
+        """
+        if not any(s in steps for s in UNIFIED_CLUSTERING_STEPS):
+            return step_configs
+
+        raw = dict(step_configs.get("cluster_people") or {})
+        allowed = set(FCParams.model_fields)
+        fcp = FCParams(**{k: v for k, v in raw.items() if k in allowed})
+        dropped = sorted(set(raw) - allowed)
+        if dropped:
+            self._logger.info(
+                "clustering config: %d keys not on FCParams ignored: %s",
+                len(dropped), dropped,
+            )
+        # Per-step config already present in step_configs wins over the broadcast
+        # (lets a caller override a single unified step explicitly).
+        for name, cfg in fcp.to_step_configs().items():
+            step_configs[name] = {**cfg, **step_configs.get(name, {})}
+        # The clustering block was a CONFIG SOURCE, not a step. Remove it so the
+        # spec validator doesn't reject it against ClusterPeopleConfig (extra=forbid)
+        # — the full FCParams legitimately carries knobs that subset doesn't have.
+        if "cluster_people" not in steps:
+            step_configs.pop("cluster_people", None)
+        self._logger.info(
+            "clustering config: broadcast FCParams to %d unified steps "
+            "(K=%s yaw_max=%s blur_min=%s merge_enabled=%s)",
+            len(UNIFIED_CLUSTERING_STEPS), fcp.K, fcp.yaw_max, fcp.blur_min, fcp.merge_enabled,
+        )
+        return step_configs
+
     def execute_pipeline(self, job_id: str) -> None:
         """Execute a pipeline synchronously."""
         self._logger.info(f"Executing pipeline {job_id}")
@@ -164,7 +208,10 @@ class PipelineService:
         # submit a PipelineSpec to the one shared primitive (execute_spec), which
         # validates it (mandatory steps, deps, typed params) then runs it once.
         # Albumify keeps its own persistence below; only execution is shared.
-        spec = PipelineSpec(steps=run.steps, step_configs=run.step_configs or {})
+        step_configs = self._broadcast_clustering_config(
+            run.steps or [], dict(run.step_configs or {})
+        )
+        spec = PipelineSpec(steps=run.steps, step_configs=step_configs)
         result = execute_spec(
             spec, job.context,
             fail_fast=run.fail_fast,

@@ -34,7 +34,7 @@ def _build_face_to_person_lookup(people_clusters: dict) -> Dict[Tuple[str, int],
     for person_id, faces in people_clusters.items():
         for face in faces:
             # Normalize path to forward slashes
-            path = str(face.original_path).replace('\\', '/')
+            path = str(getattr(face, 'original_path', None) or face.image_path).replace('\\', '/')
             key = (path, face.face_index)
             lookup[key] = person_id
     return lookup
@@ -62,7 +62,11 @@ class ClusterByIdentityStep(BaseStep):
             category="clustering",
             requires={"scene_clusters"},  # faces is optional - handles images without faces
             produces={"face_subclusters"},
-            depends_on=["cluster_scenes", "cluster_people"],  # Uses global person IDs
+            # spec-079 / SIGHTING-100: also depend on the unified cluster
+            # producer (assign_people_clusters) so the executor orders this AFTER
+            # clustering in the unified pipeline; the dangling cluster_people dep
+            # alone let it run too early. cluster_people kept for legacy configs.
+            depends_on=["cluster_scenes", "cluster_people", "assign_people_clusters"],  # Uses global person IDs
             config_schema={
                 "type": "object",
                 "properties": {
@@ -154,7 +158,7 @@ class ClusterByIdentityStep(BaseStep):
 
                 # MediaPipe faces
                 for face in significant_faces:
-                    face_path = str(face.original_path).replace('\\', '/')
+                    face_path = str(getattr(face, 'original_path', None) or face.image_path).replace('\\', '/')
                     key = (face_path, face.face_index)
                     person_id = face_to_person.get(key)
                     if person_id is not None:

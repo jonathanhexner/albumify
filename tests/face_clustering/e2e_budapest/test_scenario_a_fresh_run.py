@@ -55,16 +55,16 @@ def test_scenario_a_fresh_run_produces_baseline_cluster_count(page):
 
     # 4. profile_4. The "Load profile" selectbox lives inside an
     # `st.expander("Profiles", expanded=False)` — open the expander first.
-    # Use the accessible label, not `combobox.first` (ambiguous now that
-    # History/Recluster tabs each render their own selectboxes; st.tabs
-    # renders every body on every script run).
-    page.get_by_role("button", name="Profiles").click()
+    # spec-079: the expander header renders as a <details><summary>, not a
+    # button role in the current Streamlit, so address it by text (SIGHTING-101).
+    page.get_by_text("Profiles", exact=True).click()
     page.get_by_label("Load profile", exact=True).click()
     page.get_by_role("option", name="profile_4").first.click()
     page.get_by_role("button", name="Load", exact=True).click()
 
-    # 5. Run pipeline
-    page.get_by_role("button", name="Run pipeline").click()
+    # 5. Run — the Run-tab button is labelled "Run" (run_tab.py), not
+    # "Run pipeline" (SIGHTING-101: stale-UI drift fixed).
+    page.get_by_role("button", name="Run", exact=True).click()
 
     # 6. Wait for success
     page.wait_for_selector(
