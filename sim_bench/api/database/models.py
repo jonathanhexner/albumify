@@ -221,3 +221,83 @@ class FaceOverride(Base):
         Index('idx_face_override_status', 'status'),
         UniqueConstraint('album_id', 'face_key', name='uq_face_override_album_face'),
     )
+
+
+# ---------------------------------------------------------------------------
+# spec-086 (slice 1): normalized per-image / per-face metric tables.
+#
+# These replace the JSON-blob stitch (pipeline_results.image_metrics +
+# people.face_instances) for the People & Faces image listing. Written by
+# PipelineService alongside the blob (dual-write), read by ImageRepository via a
+# real SQL JOIN. Field set mirrors the ImageMetrics API contract (spec-085) so
+# the repository can rebuild ImageMetrics without re-deriving anything.
+# ---------------------------------------------------------------------------
+
+class ImageMetricRow(Base):
+    """One row per image in a run. Scalar per-image metrics (no per-face lists)."""
+
+    __tablename__ = "image_metric_rows"
+
+    run_id = Column(String, ForeignKey("pipeline_runs.id"), primary_key=True)
+    image_path = Column(String, primary_key=True)
+
+    iqa_score = Column(Float, nullable=True)
+    ava_score = Column(Float, nullable=True)
+    sharpness = Column(Float, nullable=True)
+    composite_score = Column(Float, nullable=True)
+    quality_score = Column(Float, nullable=True)
+    person_penalty = Column(Float, nullable=True)
+    cluster_id = Column(Integer, nullable=True)
+    face_count = Column(Integer, default=0)
+    is_selected = Column(Boolean, default=False)
+    filter_reason = Column(String, nullable=True)
+
+    # InsightFace person detection
+    person_detected = Column(Boolean, nullable=True)
+    body_facing_score = Column(Float, nullable=True)
+    person_confidence = Column(Float, nullable=True)
+    best_frontal_score = Column(Float, nullable=True)
+    best_centrality = Column(Float, nullable=True)
+
+    __table_args__ = (
+        Index('idx_imgmetric_run', 'run_id'),
+    )
+
+
+class FaceMetricRow(Base):
+    """One row per detected face. Carries bbox + per-face scores + person link."""
+
+    __tablename__ = "face_metric_rows"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String, ForeignKey("pipeline_runs.id"), nullable=False)
+    image_path = Column(String, nullable=False)
+    face_index = Column(Integer, nullable=False)
+    # person_id is the Person.id this face was clustered into (None if unassigned).
+    person_id = Column(String, ForeignKey("people.id"), nullable=True)
+
+    # Bounding box — both normalized [0,1] and pixel, as the UI overlay accepts either.
+    bbox_x = Column(Float, nullable=True)
+    bbox_y = Column(Float, nullable=True)
+    bbox_w = Column(Float, nullable=True)
+    bbox_h = Column(Float, nullable=True)
+    bbox_x_px = Column(Float, nullable=True)
+    bbox_y_px = Column(Float, nullable=True)
+    bbox_w_px = Column(Float, nullable=True)
+    bbox_h_px = Column(Float, nullable=True)
+
+    confidence = Column(Float, nullable=True)
+    filter_passed = Column(Boolean, default=True)
+    bbox_ratio = Column(Float, nullable=True)
+    relative_size = Column(Float, nullable=True)
+    eye_ratio = Column(Float, nullable=True)
+
+    pose_score = Column(Float, nullable=True)
+    eyes_score = Column(Float, nullable=True)
+    smile_score = Column(Float, nullable=True)
+    roll_angle = Column(Float, nullable=True)
+
+    __table_args__ = (
+        Index('idx_facemetric_run_person', 'run_id', 'person_id'),
+        Index('idx_facemetric_run_image', 'run_id', 'image_path'),
+    )

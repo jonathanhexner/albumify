@@ -10,7 +10,9 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from sim_bench.api.database.models import Album, PipelineRun, PipelineResult
+from sim_bench.api.database.models import (
+    Album, PipelineRun, PipelineResult, ImageMetricRow, FaceMetricRow,
+)
 from sim_bench.api.schemas.result import ImageMetrics
 from sim_bench.api.services.people_service import PeopleService
 from sim_bench.api.services.config_service import ConfigService
@@ -263,6 +265,13 @@ class PipelineService:
             # spec-084: per-image "why" reason, keyed by path. Built once.
             reason_by_path = _build_reason_by_path(job.context.step_decisions)
 
+            # Built once and reused: the blob column AND the normalized tables
+            # (spec-086) derive from the same dict, so they cannot diverge.
+            image_metrics = {
+                path: self._build_image_metrics(job.context, path, reason_by_path)
+                for path in [str(p) for p in job.context.image_paths]
+            }
+
             pipeline_result = PipelineResult(
                 id=str(uuid.uuid4()),
                 run_id=job_id,
@@ -273,10 +282,7 @@ class PipelineService:
                 scene_clusters={k: v for k, v in job.context.scene_clusters.items()},
                 face_subclusters=face_subclusters,
                 selected_images=job.context.selected_images,
-                image_metrics={
-                    path: self._build_image_metrics(job.context, path, reason_by_path)
-                    for path in [str(p) for p in job.context.image_paths]
-                },
+                image_metrics=image_metrics,
                 siamese_comparisons=job.context.siamese_comparisons or [],
                 step_timings={r.step_name: r.duration_ms for r in result.step_results},
                 total_duration_ms=result.total_duration_ms,
@@ -296,6 +302,7 @@ class PipelineService:
             people_clusters = job.context.refined_people_clusters or job.context.people_clusters
             cluster_source = "refined" if job.context.refined_people_clusters else "original"
             self._logger.info(f"People clusters in context: {len(people_clusters)} clusters (source: {cluster_source})")
+            created: list = []
             if people_clusters:
                 try:
                     people_service = PeopleService(self._session)
@@ -311,6 +318,13 @@ class PipelineService:
                     self._logger.warning(f"Failed to persist people records: {e}", exc_info=True)
             else:
                 self._logger.warning("No people_clusters found in context - skipping Person creation")
+
+            # spec-086: write the normalized metric tables (dual-write next to the
+            # blob). People exist now, so faces can be linked to their person_id.
+            try:
+                self._write_metric_tables(job_id, image_metrics, created)
+            except Exception as e:
+                self._logger.warning(f"Failed to write metric tables: {e}", exc_info=True)
         else:
             run.status = "failed"
             run.error_message = result.error_message
@@ -474,6 +488,74 @@ class PipelineService:
             best_centrality=best_centrality,
             roll_angles=roll_angles or None,
         ).model_dump()
+
+    def _write_metric_tables(
+        self, run_id: str, image_metrics: dict, people: list
+    ) -> None:
+        """spec-086: persist normalized image/face metric rows from the same
+        ``image_metrics`` dict used for the blob column. Faces are linked to the
+        Person they were clustered into so ``ImageRepository`` can JOIN on it.
+        """
+        def _norm(p: str) -> str:
+            return str(p).replace("\\", "/")
+
+        # (image_path, face_index) -> Person.id, from the just-created people.
+        face_to_person: dict = {}
+        for person in people or []:
+            for fi in (person.face_instances or []):
+                ip = fi.get("image_path")
+                if ip is None:
+                    continue
+                face_to_person[(_norm(ip), fi.get("face_index"))] = person.id
+
+        for path, m in image_metrics.items():
+            self._session.add(ImageMetricRow(
+                run_id=run_id,
+                image_path=path,
+                iqa_score=m.get("iqa_score"),
+                ava_score=m.get("ava_score"),
+                sharpness=m.get("sharpness"),
+                composite_score=m.get("composite_score"),
+                quality_score=m.get("quality_score"),
+                person_penalty=m.get("person_penalty"),
+                cluster_id=m.get("cluster_id"),
+                face_count=m.get("face_count") or 0,
+                is_selected=bool(m.get("is_selected")),
+                filter_reason=m.get("filter_reason"),
+                person_detected=m.get("person_detected"),
+                body_facing_score=m.get("body_facing_score"),
+                person_confidence=m.get("person_confidence"),
+                best_frontal_score=m.get("best_frontal_score"),
+                best_centrality=m.get("best_centrality"),
+            ))
+
+            filter_scores = m.get("filter_scores") or []
+            pose = m.get("face_pose_scores") or []
+            eyes = m.get("face_eyes_scores") or []
+            smile = m.get("face_smile_scores") or []
+            roll = m.get("roll_angles") or []
+            for i, fs in enumerate(filter_scores):
+                bbox = fs.get("bbox") or {}
+                fidx = fs.get("face_index", i)
+                self._session.add(FaceMetricRow(
+                    run_id=run_id,
+                    image_path=path,
+                    face_index=fidx,
+                    person_id=face_to_person.get((_norm(path), fidx)),
+                    bbox_x=bbox.get("x"), bbox_y=bbox.get("y"),
+                    bbox_w=bbox.get("w"), bbox_h=bbox.get("h"),
+                    bbox_x_px=bbox.get("x_px"), bbox_y_px=bbox.get("y_px"),
+                    bbox_w_px=bbox.get("w_px"), bbox_h_px=bbox.get("h_px"),
+                    confidence=fs.get("confidence"),
+                    filter_passed=bool(fs.get("filter_passed", True)),
+                    bbox_ratio=fs.get("bbox_ratio"),
+                    relative_size=fs.get("relative_size"),
+                    eye_ratio=fs.get("eye_ratio"),
+                    pose_score=pose[i] if i < len(pose) else None,
+                    eyes_score=eyes[i] if i < len(eyes) else None,
+                    smile_score=smile[i] if i < len(smile) else None,
+                    roll_angle=roll[i] if i < len(roll) else None,
+                ))
 
     def get_status(self, job_id: str) -> Optional[PipelineRun]:
         """Get the status of a pipeline run."""

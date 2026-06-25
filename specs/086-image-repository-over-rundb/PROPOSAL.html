@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec-086 — ImageRepository over run_db · Decision one-pager</title>
+<style>
+  :root{--ink:#16191d;--mut:#5b6470;--line:#d6dbe2;--bg:#f5f7fa;--ac:#2563eb;
+        --g:#15803d;--gb:#bbf7d0;--gbg:#f0fdf4;--r:#b91c1c;--rb:#fecaca;--rbg:#fef2f2;--amber:#b45309}
+  *{box-sizing:border-box}
+  body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);max-width:900px;margin:0 auto;padding:26px 22px 64px}
+  h1{font-size:21px;margin:0 0 2px}
+  .sub{color:var(--mut);margin:0 0 18px;font-size:13px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--line);padding-bottom:5px;margin:26px 0 12px}
+  code{background:var(--bg);padding:1px 5px;border-radius:4px;font:12.5px/1.4 "SF Mono",Consolas,monospace}
+  .tldr{border:1px solid var(--ac);background:#eff6ff;border-radius:10px;padding:14px 18px;margin:6px 0 4px}
+  .tldr h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--ac)}
+  .tldr ul{margin:0;padding-left:18px} .tldr li{margin:3px 0}
+  /* flow diagram */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:6px 0}
+  .node{flex:1;min-width:96px;border:1.5px solid var(--line);border-radius:9px;padding:9px 8px;text-align:center;background:#fff}
+  .node .t{font-weight:600;font-size:12.5px} .node .s{color:var(--mut);font-size:10.5px;margin-top:2px;font-family:"SF Mono",Consolas,monospace}
+  .node.new{border-color:var(--ac);background:#eff6ff} .node.bad{border-color:var(--rb);background:var(--rbg)} .node.ok{border-color:var(--gb);background:var(--gbg)}
+  .ar{display:flex;align-items:center;color:var(--mut);font-size:18px;padding:0 4px}
+  .lane{border-radius:10px;padding:11px 12px 4px;margin:8px 0}
+  .lane.before{background:var(--rbg);border:1px solid var(--rb)} .lane.after{background:var(--gbg);border:1px solid var(--gb)}
+  .lane .lab{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+  .lane.before .lab{color:var(--r)} .lane.after .lab{color:var(--g)}
+  /* ER */
+  .er{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:8px 0}
+  .tbl{border:1.5px solid var(--line);border-radius:9px;overflow:hidden;min-width:150px;background:#fff}
+  .tbl.exist .h{background:#eef2f7} .tbl.new{border-color:var(--ac)} .tbl.new .h{background:var(--ac);color:#fff}
+  .tbl .h{padding:6px 10px;font-weight:700;font-size:12.5px}
+  .tbl .row{padding:4px 10px;font:11.5px/1.4 "SF Mono",Consolas,monospace;border-top:1px solid var(--line);color:#374151}
+  .tbl .row.pk{font-weight:700;color:var(--ink)} .tbl .row.add{color:var(--ac);font-weight:700}
+  .fk{color:var(--mut);font-size:11px;text-align:center;min-width:60px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--bg);font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--mut)}
+  .tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:700}
+  .tag.new{background:#dbeafe;color:var(--ac)} .tag.edit{background:#fef3c7;color:var(--amber)} .tag.touch{background:#e5e7eb;color:#374151}
+  .pill{display:inline-block;padding:1px 8px;border-radius:9px;font-size:11px;font-weight:700}
+  .pm{background:#e5e7eb;color:#374151}
+  .note{color:var(--mut);font-size:12px} b.k{color:var(--ac)}
+  .gate{display:inline-block;background:var(--gbg);border:1px solid var(--gb);color:var(--g);border-radius:7px;padding:3px 9px;font-size:12px;font-weight:600;margin:2px 4px 2px 0}
+</style>
+</head>
+<body>
+
+<h1>spec-086 — ImageRepository over <code>run_db</code></h1>
+<p class="sub">Decision one-pager for approval · 2026-06-25 · Slice 1 of the "SQL tables + repository" migration</p>
+
+<div class="tldr">
+  <h3>The decision, in 4 lines</h3>
+  <ul>
+    <li><b>Add 1 table:</b> <code>image_selection</code> (is_selected, reason) to the existing normalized <code>run_db</code>.</li>
+    <li><b>Add 1 repository:</b> <code>ImageRepository.get_images_for_person()</code> — a real <b>SQL JOIN</b>, not JSON stitching.</li>
+    <li><b>Reuse 3 existing tables:</b> <code>images</code>, <code>faces</code>, <code>face_scores</code> (already built, already have the scores &amp; bboxes).</li>
+    <li><b>Why now:</b> fixes the People &amp; Faces blank-filter / no-face-box bugs <i>the right way</i>, and proves the pattern for the wider migration.</li>
+  </ul>
+</div>
+
+<h2>1 · What changes — before vs after</h2>
+
+<div class="lane before">
+  <div class="lab">Today — hand-coded JSON stitch (drops fields → blank UI)</div>
+  <div class="flow">
+    <div class="node"><div class="t">People page</div><div class="s">Streamlit</div></div>
+    <div class="ar">→</div>
+    <div class="node bad"><div class="t">get_person_images</div><div class="s">returns 3 fields only</div></div>
+    <div class="ar">→</div>
+    <div class="node bad"><div class="t">JSON blobs</div><div class="s">face_instances + image_metrics</div></div>
+    <div class="ar">→</div>
+    <div class="node bad"><div class="t">UI</div><div class="s">no boxes · empty filter</div></div>
+  </div>
+</div>
+
+<div class="lane after">
+  <div class="lab">Proposed — repository + SQL JOIN over normalized tables</div>
+  <div class="flow">
+    <div class="node"><div class="t">People page</div><div class="s">Streamlit (unchanged)</div></div>
+    <div class="ar">→</div>
+    <div class="node ok"><div class="t">get_person_images</div><div class="s">delegates</div></div>
+    <div class="ar">→</div>
+    <div class="node new"><div class="t">ImageRepository</div><div class="s">SQL JOIN</div></div>
+    <div class="ar">→</div>
+    <div class="node ok"><div class="t">run_db tables</div><div class="s">images·faces·scores·selection</div></div>
+    <div class="ar">→</div>
+    <div class="node ok"><div class="t">UI</div><div class="s">boxes + filters work</div></div>
+  </div>
+</div>
+<p class="note">The <code>ImageMetrics</code> response shape is <b>unchanged</b>, so the frontend lights up automatically — no UI rewrite.</p>
+
+<h2>2 · The data model — 1 new table, joined to 3 existing</h2>
+<div class="er">
+  <div class="tbl exist"><div class="h">images</div>
+    <div class="row pk">image_path 🔑</div><div class="row">iqa · ava · composite</div><div class="row">scene_cluster_id · n_faces</div></div>
+  <div class="fk">1 — N<br>→</div>
+  <div class="tbl exist"><div class="h">faces</div>
+    <div class="row pk">face_id 🔑</div><div class="row">image_path 🔗</div><div class="row">bbox_*_ratio · det_score</div></div>
+  <div class="fk">1 — 1<br>→</div>
+  <div class="tbl exist"><div class="h">face_scores</div>
+    <div class="row pk">face_id 🔗</div><div class="row">pose · eyes · expression</div></div>
+</div>
+<div class="er">
+  <div class="tbl new"><div class="h">image_selection &nbsp;<span class="tag new">NEW</span></div>
+    <div class="row pk">image_path 🔑🔗 → images</div><div class="row add">is_selected</div><div class="row add">reason</div></div>
+  <div class="note" style="flex:1;min-width:240px">The only gap: <code>is_selected</code> (from <code>select_best</code>) isn't in <code>run_db</code> today.
+  Everything else — scores, bboxes, pose/eyes — already exists in the 3 tables above. We add this one small table, then JOIN all four.</div>
+</div>
+
+<h2>3 · Modules impacted</h2>
+<table>
+  <tr><th>Module</th><th>Change</th><th>What</th></tr>
+  <tr><td><code>sim_bench/run_db/models/image_selection.py</code></td><td><span class="tag new">NEW</span></td><td>the table + writer; schema-version bump</td></tr>
+  <tr><td><code>sim_bench/api/repositories/image_repository.py</code></td><td><span class="tag new">NEW</span></td><td><code>get_images_for_person()</code> = the JOIN, returns <code>ImageMetrics</code></td></tr>
+  <tr><td><code>api/services/pipeline_service.py</code></td><td><span class="tag edit">EDIT</span></td><td><b>write path:</b> after <code>execute_spec</code>, persist run_db (it doesn't today)</td></tr>
+  <tr><td><code>api/services/people_service.py</code></td><td><span class="tag edit">EDIT</span></td><td><code>get_person_images()</code> → delegate to the repository</td></tr>
+  <tr><td><code>api/schemas/people.py</code></td><td><span class="tag edit">EDIT</span></td><td>widen <code>PersonImageResponse</code> so fields aren't stripped</td></tr>
+  <tr><td><code>streamlit/components/people_browser.py</code></td><td><span class="tag touch">SMALL</span></td><td>add "Not selected" filter option</td></tr>
+</table>
+
+<h2>4 · Effort, risk, gates</h2>
+<p><span class="pill pm">Effort: M — one focused spec</span> &nbsp; This is <b>slice 1 of ~4–6</b>. The full migration is a program; we do one vertical first to de-risk.</p>
+<table>
+  <tr><th>Risk</th><th>Mitigation</th></tr>
+  <tr><td>Two write paths (blob + run_db) could diverge</td><td>Dual-write + <b>equivalence test</b>: repo output <code>==</code> corrected blob output</td></tr>
+  <tr><td>Write-path change could break clustering invariants</td><td><b>Budapest E2E gate</b>: 15 clusters / 340 faces must stay green</td></tr>
+  <tr><td>API must know each run's directory</td><td>Open decision T0 (below)</td></tr>
+</table>
+<p>
+  <span class="gate">✓ Equivalence golden test</span>
+  <span class="gate">✓ Budapest E2E (V2 baseline)</span>
+  <span class="gate">✓ /code-review → REVIEW.md</span>
+</p>
+
+<h2>5 · One open decision before coding</h2>
+<p class="note"><b>T0 —</b> where does an API run's <code>face_clustering.db</code> live? Reuse <code>PipelineResult.fc_export_dir</code> (if always populated), or mint <code>~/.sim_bench/runs/&lt;run_id&gt;/</code>. A 30-min check decides it; everything else follows.</p>
+
+<p class="note" style="margin-top:18px">Full spec &amp; task list: <code>specs/086-image-repository-over-rundb/spec.md</code> · <code>tasks.md</code>.
+Root-cause of the bug this fixes: <code>docs/architecture/people_images_missing_metrics.html</code>.</p>
+
+</body>
+</html>

@@ -8,6 +8,11 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-087 follow-ups (from specs/087-profile-save-full-config/REVIEW.md, 2026-06-25, non-blocking)
+
+- [ ] Streamlit `AppTest` for the profile bar save/load/rerun wiring (unit tests cover the pure helpers; the button-handler + widget-reinit path is not automatically tested). | 2026-06-25 | Claude
+- [ ] (Optional) extract the profile bar out of `pipeline_runner.py` (~500 LOC, >300 budget); optionally type the profile payload (Pydantic) if it becomes a hardened contract. | 2026-06-25 | Claude
+
 ## spec-069/070 + SIGHTING-093 follow-ups (from specs/070-face-debug-overlays/REVIEW.md, 2026-06-05)
 
 - [x] **F1 (BLOCKER)** spec-068 fallout: 4 tabs exceeded the ≤80 LOC arch budget. RESOLVED 2026-06-05 — raised budget to 90 (documented "+telemetry" rationale) in the 4 `test_*_tab.py`; `tests/architecture` 139 passed. | 2026-06-05 | Claude
@@ -316,6 +321,10 @@ Review: `specs/033-data-integrity/REVIEW.md` | Roadmap: `specs/033-data-integrit
 - [ ] FR-033-6: STEP_CONFIG_MODELS registry guard → `specs/039-step-config-registry-guard/`
 - [ ] FR-033-7: Fix bridge pose-lookup operator precedence → SIGHTING-063
 - [ ] FR-033-8: Delete or relocate `notebook_diagnostic.py` (this entry) | Claude
+- [ ] spec-086-1: Lift `ImageRepository` import in `people_service.get_person_images` to module scope | Claude
+- [ ] spec-086-2: Surface `_write_metric_tables` failures (counter/sighting) instead of warn-only | Claude
+- [ ] spec-086-3: Add `ImageRepository` + `PersonImageResponse` to `classes.html`; read-side note in `data_flow.html` | Claude
+- [ ] spec-086-4: (w/ spec-085 C-full) `extra="forbid"` on the `ImageMetrics` model family | Claude
 
 ---
 

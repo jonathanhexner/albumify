@@ -81,6 +81,8 @@ For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html
 <a href="#pipeline_runs">pipeline_runs</a>
 <a href="#pipeline_results">pipeline_results</a>
 <a href="#people">people</a>
+<a href="#image_metric_rows">image_metric_rows</a>
+<a href="#face_metric_rows">face_metric_rows</a>
 <a href="#config_profiles">config_profiles</a>
 <a href="#universal_cache">universal_cache</a>
 <a href="#user_events">user_events</a>
@@ -100,6 +102,7 @@ For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html
     <tr><td><a href="#pipeline_runs">pipeline_runs</a></td><td><code>PipelineService.start_pipeline / execute_pipeline</code></td><td>Inserted at start; updated as steps complete.</td></tr>
     <tr><td><a href="#pipeline_results">pipeline_results</a></td><td><code>ResultService</code> (via PipelineService)</td><td>At run completion.</td></tr>
     <tr><td><a href="#people">people</a></td><td><code>PeopleService</code></td><td>At end of cluster_people / identity_refinement; updated on user actions.</td></tr>
+    <tr><td><a href="#image_metric_rows">image_metric_rows</a> + <a href="#face_metric_rows">face_metric_rows</a></td><td><code>PipelineService._write_metric_tables</code> (spec-086)</td><td>Dual-write next to the image_metrics blob, after people creation. Read by <code>ImageRepository</code>.</td></tr>
     <tr><td><a href="#config_profiles">config_profiles</a></td><td><code>ConfigService</code></td><td>System default loaded from yaml at startup; user profiles on save.</td></tr>
     <tr><td><a href="#universal_cache">universal_cache</a></td><td><code>UniversalCacheHandler.store_to_cache</code></td><td>Inside any cacheable <code>BaseStep</code>.</td></tr>
     <tr><td><a href="#user_events">user_events</a></td><td><code>EventService</code></td><td>From every tracked user action / undo / AI call.</td></tr>
@@ -201,6 +204,44 @@ For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html
     <tr><td><code>face_count, image_count</code></td><td>Integer</td><td>default 0</td><td>Stats.</td></tr>
     <tr><td><code>face_instances</code></td><td>JSON</td><td>default []</td><td>List of <code>{image_path, face_index, bbox, score}</code>.</td></tr>
     <tr><td><code>created_at</code></td><td>DateTime</td><td>default utcnow</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<h2 id="image_metric_rows">image_metric_rows <span class="src">SQLAlchemy · class ImageMetricRow · spec-086</span></h2>
+<p>Normalized per-image metrics. One row per image per run. <b>Replaces the JSON-blob
+read path</b> (<code>pipeline_results.image_metrics</code>) for the People &amp; Faces image
+listing — see <a href="people_images_missing_metrics.html">people_images_missing_metrics.html</a>.</p>
+<p class="callout"><b>Writer class</b>: <code>PipelineService._write_metric_tables</code> — dual-write
+next to the <code>pipeline_results.image_metrics</code> blob, from the <i>same</i> dict, so they
+cannot diverge. <b>Reader</b>: <code>sim_bench.api.repositories.image_repository.ImageRepository</code>.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>run_id</code> <span class="pill pk">PK</span> <span class="pill fk">FK</span></td><td>String</td><td>no</td><td>The run (FK pipeline_runs.id).</td></tr>
+    <tr><td><code>image_path</code> <span class="pill pk">PK</span></td><td>String</td><td>no</td><td>Image path (composite PK with run_id).</td></tr>
+    <tr><td><code>iqa_score, ava_score, sharpness, composite_score, quality_score, person_penalty</code></td><td>Float</td><td class="nullable">yes</td><td>Per-image scores.</td></tr>
+    <tr><td><code>cluster_id</code></td><td>Integer</td><td class="nullable">yes</td><td>Scene cluster id.</td></tr>
+    <tr><td><code>face_count</code></td><td>Integer</td><td>default 0</td><td>Faces in the image.</td></tr>
+    <tr><td><code>is_selected</code></td><td>Boolean</td><td>default false</td><td>Whether select_best chose this image.</td></tr>
+    <tr><td><code>filter_reason</code></td><td>String</td><td class="nullable">yes</td><td>spec-084 "why" decision reason.</td></tr>
+    <tr><td><code>person_detected, body_facing_score, person_confidence, best_frontal_score, best_centrality</code></td><td>Bool/Float</td><td class="nullable">yes</td><td>InsightFace person + frontal signals.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="face_metric_rows">face_metric_rows <span class="src">SQLAlchemy · class FaceMetricRow · spec-086</span></h2>
+<p>Normalized per-face metrics. One row per detected face. The <code>person_id</code> link is the
+JOIN key that powers <code>ImageRepository.get_images_for_person</code>.</p>
+<p class="callout"><b>Writer class</b>: <code>PipelineService._write_metric_tables</code> (after people
+creation, so faces can be linked to their Person). <b>Reader</b>: <code>ImageRepository</code>.</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>Integer</td><td>no</td><td>Autoincrement.</td></tr>
+    <tr><td><code>run_id</code> <span class="pill fk">FK</span>, <code>image_path</code>, <code>face_index</code></td><td>String/Int</td><td>no</td><td>Identifies the face (indexed by run+image and run+person).</td></tr>
+    <tr><td><code>person_id</code> <span class="pill fk">FK</span></td><td>String</td><td class="nullable">yes</td><td>Person.id this face clustered into (None if unassigned) — the JOIN key.</td></tr>
+    <tr><td><code>bbox_x/y/w/h, bbox_x_px/y_px/w_px/h_px</code></td><td>Float</td><td class="nullable">yes</td><td>Bounding box, normalized + pixel (UI overlay accepts either).</td></tr>
+    <tr><td><code>confidence, filter_passed, bbox_ratio, relative_size, eye_ratio</code></td><td>Float/Bool</td><td class="nullable">yes</td><td>Detection + filter signals.</td></tr>
+    <tr><td><code>pose_score, eyes_score, smile_score, roll_angle</code></td><td>Float</td><td class="nullable">yes</td><td>Per-face quality scores.</td></tr>
   </tbody>
 </table>
 

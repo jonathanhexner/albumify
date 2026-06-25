@@ -153,13 +153,35 @@ class PeopleService:
                 'bbox': person.thumbnail_bbox,
             }]
 
+        # spec-086: per-image metrics via the repository (SQL JOIN over the
+        # normalized tables) instead of the old 3-field stub. Keyed by normalized
+        # path so Windows backslash vs forward-slash differences still match.
+        from sim_bench.api.repositories.image_repository import ImageRepository
+
+        def _norm(p: str) -> str:
+            return str(p).replace("\\", "/")
+
+        metrics = {
+            _norm(m.path): m
+            for m in ImageRepository(self._session).get_images_for_person(
+                person.run_id, person_id
+            )
+        }
+
         result = []
         for image_path, faces in images_map.items():
-            result.append({
+            row = {
+                'path': image_path,  # ImageMetrics.path (required); overridden if metrics match
                 'image_path': image_path,
                 'face_count': len(faces),
-                'faces': faces
-            })
+                'faces': faces,
+            }
+            m = metrics.get(_norm(image_path))
+            if m:
+                # Repository supplies is_selected, scores, filter_scores (bboxes).
+                row.update(m.model_dump())
+                row['image_path'] = image_path  # keep the caller's path form
+            result.append(row)
 
         return result
 

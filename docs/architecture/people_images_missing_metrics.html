@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>People &amp; Faces — why the filter &amp; face boxes are blank</title>
+<style>
+  :root{--g:#1a7f37;--gb:#1a7f37;--r:#cf222e;--rb:#cf222e;--ink:#1f2328;--mut:#656d76;--bg:#f6f8fa;--ac:#0969da}
+  *{box-sizing:border-box}
+  body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);max-width:880px;margin:0 auto;padding:28px 20px 60px}
+  h1{font-size:22px;margin:0 0 4px}
+  h2{font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:30px 0 10px}
+  code{background:var(--bg);padding:1px 5px;border-radius:4px;font:13px/1.4 "SF Mono",Consolas,monospace}
+  .call{border-left:4px solid var(--mut);background:var(--bg);padding:12px 16px;border-radius:0 6px 6px 0;margin:10px 0}
+  .call.sym{border-color:var(--r)}
+  .call.cause{border-color:var(--ac);background:#ddf4ff}
+  .call b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin-bottom:3px}
+  .analogy{font-style:italic;color:#3a3f45;background:#fff8e6;border-left:4px solid #d4a72c;padding:12px 16px;border-radius:0 6px 6px 0;margin:10px 0}
+  .stage{border:2px solid var(--gb);border-radius:8px;padding:11px 14px;margin:8px 0;position:relative}
+  .stage.break{border-color:var(--rb);background:#fff5f5}
+  .stage .n{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:700;margin-right:8px}
+  .stage.break .n{background:var(--r)}
+  .stage .nm{font-weight:600}
+  .stage .fp{color:var(--ac);font:12px/1.4 "SF Mono",Consolas,monospace}
+  .stage .pp{color:var(--mut);font-size:13px;margin:3px 0 0 30px}
+  .verdict{float:right;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .stage .verdict{color:var(--g)} .stage.break .verdict{color:var(--r)}
+  .arrow{text-align:center;color:var(--mut);font-size:18px;line-height:1;margin:-2px 0}
+  .brk{display:inline-block;background:var(--r);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;margin-left:6px}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+  th,td{border:1px solid #d0d7de;padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:var(--bg);font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--mut)}
+  .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600}
+  .ok{background:#dafbe1;color:var(--g)} .no{background:#ffebe9;color:var(--r)}
+  .cols{display:flex;gap:14px;flex-wrap:wrap}
+  .cols>div{flex:1;min-width:300px}
+  pre{background:#0d1117;color:#e6edf3;padding:12px 14px;border-radius:8px;overflow-x:auto;font:12px/1.5 "SF Mono",Consolas,monospace;margin:6px 0}
+  pre .c{color:#7ee787}.pre .x{color:#ff7b72}
+  .bad pre{border-top:3px solid var(--r)} .good pre{border-top:3px solid var(--g)}
+  .take{background:var(--bg);border-radius:8px;padding:14px 16px;color:#3a3f45}
+</style>
+</head>
+<body>
+
+<h1>People &amp; Faces: the "Selected" filter and face boxes are blank</h1>
+<p style="color:var(--mut);margin:0 0 8px">Albumify · Streamlit + FastAPI · 2026-06-25</p>
+
+<div style="border:2px solid #15803d;background:#f0fdf4;color:#14532d;border-radius:10px;padding:12px 16px;margin:0 0 18px">
+<b>✓ RESOLVED — spec-086 (2026-06-25).</b> Fixed at the data layer, not the symptom: normalized
+<code>image_metric_rows</code> / <code>face_metric_rows</code> tables in the central API DB +
+an <code>ImageRepository</code> SQL JOIN now feed <code>get_person_images</code>. The break
+point (stage 2) no longer drops metrics. Verified live: 54 images, 7 selected / 47 not-selected,
+with bboxes. See <code>specs/086-image-repository-over-rundb/</code>.
+</div>
+
+<h2>1 · Symptom</h2>
+<div class="call sym"><b>What you see</b>
+Open a person → their photo gallery. The <code>Selected</code> filter shows
+<i>nothing</i>; "Sort by Score" does nothing; and the Image Detail popup draws
+<i>no</i> boxes around the faces — even though faces are exactly what the page is about.</div>
+
+<h2>2 · Cause in one line</h2>
+<div class="call cause"><b>Root cause</b>
+The endpoint that lists a person's photos returns only 3 fields per photo
+(<code>image_path</code>, <code>face_count</code>, <code>faces</code>) — so
+<code>is_selected</code>, <code>composite_score</code>, and the face
+<code>filter_scores</code> (which carry the box coordinates) never reach the page.</div>
+
+<h2>3 · Plain analogy</h2>
+<div class="analogy">A paper form with only 3 blank lines: <i>photo name</i>, <i>face
+count</i>, <i>face list</i>. Anything not on the form is thrown away before it reaches
+the screen. The page then asks "was this photo selected?" and "where are the faces?" —
+those lines were never on the form, so the answers come back blank. The filter matches
+nothing; the boxes have no coordinates to draw.</div>
+
+<h2>4 · Background (who's this for)</h2>
+<p>For an engineer new to this code. <b>Albumify</b> picks the best photos from an album.
+A pipeline scores every image, groups faces into <b>people</b>, and marks some images
+<b>selected</b>. The <b>People &amp; Faces</b> page lets you click a person and browse
+their photos. All per-image numbers (scores, selection flag, face boxes) live in one DB
+blob — <code>PipelineResult.image_metrics</code> — keyed by image path.</p>
+
+<h2>5 · The trace — where data survives, where it breaks</h2>
+
+<div class="stage"><span class="verdict">survives</span>
+  <span class="n">1</span><span class="nm">DB blob</span>
+  <span class="fp">PipelineResult.image_metrics[path]</span>
+  <div class="pp"><b>Purpose:</b> single store of every per-image metric. Holds
+  <code>is_selected</code>, <code>composite_score</code>, <code>filter_scores</code>
+  (with px bbox), pose/eyes/smile. <b>Everything is here.</b></div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="stage break"><span class="verdict">breaks</span>
+  <span class="n">2</span><span class="nm">People service</span><span class="brk">the break point</span>
+  <span class="fp">api/services/people_service.py:156 · get_person_images()</span>
+  <div class="pp"><b>Purpose:</b> list a person's photos. <b>Bug:</b> it builds each photo
+  from face records only — <code>{image_path, face_count, faces}</code> — and never
+  joins <code>image_metrics</code>. The metrics are dropped right here.</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="stage break"><span class="verdict">breaks</span>
+  <span class="n">3</span><span class="nm">Response schema</span>
+  <span class="fp">api/schemas/people.py:64 · PersonImageResponse</span>
+  <div class="pp"><b>Purpose:</b> defines the JSON shape FastAPI returns. It declares only
+  those same 3 fields — and FastAPI <i>silently deletes</i> any field not declared. So
+  even if stage 2 added metrics, this gate would still strip them. (Two locks on the same door.)</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="stage"><span class="verdict">survives</span>
+  <span class="n">4</span><span class="nm">Frontend parser</span>
+  <span class="fp">streamlit/api_client.py:582 · _parse_image()</span>
+  <div class="pp"><b>Purpose:</b> turn JSON into an <code>ImageInfo</code>. Works fine — but
+  with nothing to read, it defaults <code>is_selected=False</code>,
+  <code>composite_score=None</code>, <code>filter_scores=None</code>.</div>
+</div>
+<div class="arrow">↓</div>
+
+<div class="stage"><span class="verdict">survives</span>
+  <span class="n">5</span><span class="nm">Gallery filter &amp; popup</span>
+  <span class="fp">people_browser.py:244 · image_popup.py:295 (_extract_faces_for_bbox)</span>
+  <div class="pp"><b>Purpose:</b> filter "Selected" = keep <code>is_selected</code> images;
+  popup draws boxes from <code>filter_scores</code>. Logic is correct, but both inputs are
+  empty — so: empty list, and no boxes. <b>The UI isn't broken; it was starved.</b></div>
+</div>
+
+<h2>6 · Smoking-gun proof</h2>
+<p>A real photo's <code>image_metrics</code> row in the DB carries the full data —
+<code>is_selected</code> and per-face <code>bbox</code> with pixel coords:</p>
+<pre>filter_scores[0] = {face_index:0, confidence:0.83,
+                    bbox:{x_px:1719, y_px:730, w_px:511, h_px:776}}   <span class="c"># exists in DB</span>
+face_pose_scores = [0.86, 0.00]                                       <span class="c"># exists in DB</span></pre>
+<p>But <code>get_person_images()</code> returns
+<code>{image_path, face_count, faces}</code> — the exact 3 fields that <i>do</i> work,
+and not one more. The fields that vanish are precisely the ones the endpoint never copies.</p>
+
+<h2>7 · Value trace</h2>
+<table>
+<tr><th>Value</th><th>1 · DB blob</th><th>2 · people_service</th><th>3 · schema</th><th>5 · UI</th></tr>
+<tr><td><code>image_path</code></td><td><span class="pill ok">kept</span></td><td><span class="pill ok">kept</span></td><td><span class="pill ok">kept</span></td><td><span class="pill ok">shows</span></td></tr>
+<tr><td><code>is_selected</code></td><td><span class="pill ok">true</span></td><td><span class="pill no">dropped</span></td><td><span class="pill no">—</span></td><td><span class="pill no">False → filter empty</span></td></tr>
+<tr><td><code>filter_scores</code> (bbox)</td><td><span class="pill ok">present</span></td><td><span class="pill no">dropped</span></td><td><span class="pill no">—</span></td><td><span class="pill no">None → no boxes</span></td></tr>
+</table>
+
+<h2>8 · Bad vs good</h2>
+<div class="cols">
+  <div class="bad"><b>Now — metrics dropped</b>
+<pre>def get_person_images(...):
+  ...
+  result.append({
+    'image_path': image_path,
+    'face_count': len(faces),
+    'faces': faces,           <span class="c"># nothing else</span>
+  })</pre></div>
+  <div class="good"><b>Good — join the metrics that exist</b>
+<pre>m = result.image_metrics.get(image_path, {})
+result.append(ImageMetrics(
+    **m, path=image_path,
+    face_count=len(faces),
+).model_dump() | {'faces': faces})
+<span class="c"># + widen PersonImageResponse to ImageMetrics</span></pre></div>
+</div>
+
+<h2>9 · Senior-engineer take</h2>
+<div class="take">This is the <i>same class of bug</i> as spec-084's blank Results columns: a
+per-image metric silently not reaching a UI surface because an intermediate hand-built dict
++ a narrow <code>response_model</code> drop it. spec-085 already built the cure —
+<code>ImageMetrics</code>, one canonical per-image shape — and migrated the Results/Explore
+path to it. The People path was simply never migrated. Fix = route it through the same
+primitive, and the bug can't recur (a parity test guards the schema).</div>
+
+<h2>10 · Files in one place</h2>
+<table>
+<tr><th>Object</th><th>Module path</th><th>Purpose</th></tr>
+<tr><td>get_person_images()</td><td>api/services/people_service.py:156</td><td>list a person's photos — <b>the break point</b></td></tr>
+<tr><td>PersonImageResponse</td><td>api/schemas/people.py:64</td><td>JSON shape; drops undeclared fields</td></tr>
+<tr><td>ImageMetrics</td><td>api/schemas/result.py</td><td>canonical per-image contract (spec-085) — the cure</td></tr>
+<tr><td>_parse_image()</td><td>streamlit/api_client.py:582</td><td>JSON → ImageInfo; defaults the missing fields</td></tr>
+<tr><td>_render_person_images()</td><td>streamlit/components/people_browser.py:224</td><td>gallery filter/sort (Selected, Score)</td></tr>
+<tr><td>_extract_faces_for_bbox()</td><td>streamlit/components/image_popup.py:295</td><td>reads filter_scores to draw face boxes</td></tr>
+</table>
+
+</body>
+</html>

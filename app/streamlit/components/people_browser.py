@@ -230,7 +230,11 @@ def _render_person_images(person: Person, album_id: str) -> None:
 
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
-        filter_mode = st.selectbox("Filter", ["All", "Solo", "With others", "Selected"], key="filter")
+        filter_mode = st.selectbox(
+            "Filter",
+            ["All", "Solo", "With others", "Selected", "Not selected"],
+            key="filter",
+        )
     with col2:
         sort_by = st.selectbox("Sort", ["Score", "Face count", "Filename"], key="sort")
     with col3:
@@ -243,6 +247,8 @@ def _render_person_images(person: Person, album_id: str) -> None:
         images = [i for i in images if i.face_count > 1]
     elif filter_mode == "Selected":
         images = [i for i in images if i.is_selected]
+    elif filter_mode == "Not selected":
+        images = [i for i in images if not i.is_selected]
 
     # Apply sort
     if sort_by == "Score":
