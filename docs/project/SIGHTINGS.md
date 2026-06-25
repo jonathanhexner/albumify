@@ -5,7 +5,7 @@ This file tracks issues that need investigation and resolution.
 ---
 
 ### SIGHTING-106: Configure & Run profile Save/Load drops all non-clustering params (e.g. sharpness)
-**Status**: OPEN
+**Status**: FIXED (2026-06-25, spec-087) — code-review passed, no blockers
 **Severity**: High
 **Reported**: 2026-06-25
 **Persona**: Senior SW Engineer

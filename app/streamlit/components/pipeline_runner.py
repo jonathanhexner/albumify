@@ -107,6 +107,39 @@ def _save_user_settings(selected_pipeline: str, config_overrides: Dict[str, Any]
         add_notification(f"Failed to save settings: {e}", "error")
 
 
+def _build_profile_payload(ss) -> dict:
+    """spec-087: a profile stores BOTH the flat ``rc_*`` clustering keys (for cross-app
+    interop with the face_clustering Recluster tab) AND the full nested ``config`` blob
+    (stashed by the config builder as ``_last_built_config``), so non-clustering params
+    (sharpness, IQA, selection, ...) round-trip — SIGHTING-106.
+    """
+    flat = {k: ss[k] for k in _RC_PARAM_KEYS if k in ss}
+    return {**flat, "config": dict(ss.get("_last_built_config", {}))}
+
+
+def _apply_profile_to_session(profile: dict, ss) -> None:
+    """spec-087: restore a profile into session_state. Flat ``rc_*`` keys are set directly
+    (clustering widgets read them); the nested ``config`` is staged as
+    ``_pending_profile_config`` and the live ``config_*`` widget keys are cleared so they
+    re-initialise from it via the normal ``saved_config`` path (no inverse mapping).
+    """
+    for k, v in profile.items():
+        if k in _RC_PARAM_KEYS:
+            ss[k] = v
+    nested = profile.get("config")
+    if nested:
+        ss["_pending_profile_config"] = nested
+        for k in [k for k in list(ss.keys()) if k.startswith("config_")]:
+            del ss[k]
+
+
+def _resolve_saved_config(ss, api_config: dict) -> dict:
+    """spec-087: a just-loaded profile's config wins for one render (one-shot), then the
+    widgets own their values via their own session keys; otherwise use the API settings."""
+    pending = ss.pop("_pending_profile_config", None)
+    return pending if pending is not None else api_config
+
+
 def _render_profile_bar() -> None:
     """Profile load/save bar — shared with Face Clustering App (~/.sim_bench/profiles/)."""
     store = ProfileStore()
@@ -120,10 +153,7 @@ def _render_profile_bar() -> None:
         if st.button("Load", key="prf_load"):
             selected = st.session_state.get("prf_select", "(none)")
             if selected != "(none)":
-                params = store.load(selected)
-                for k, v in params.items():
-                    if k in _RC_PARAM_KEYS:
-                        st.session_state[k] = v
+                _apply_profile_to_session(store.load(selected), st.session_state)
                 add_notification(f"Loaded profile '{selected}'", "info")
                 st.rerun(scope="app")
     with col_name:
@@ -132,13 +162,11 @@ def _render_profile_bar() -> None:
         if st.button("Save", key="prf_save"):
             name = st.session_state.get("prf_name", "").strip()
             if name:
-                params = {k: st.session_state[k] for k in _RC_PARAM_KEYS if k in st.session_state}
-                store.save(name, params)
+                store.save(name, _build_profile_payload(st.session_state))
                 add_notification(f"Saved profile '{name}'", "success")
     with col_default:
         if st.button("Default", key="prf_default", help="Save current params as default profile"):
-            params = {k: st.session_state[k] for k in _RC_PARAM_KEYS if k in st.session_state}
-            store.save("default", params)
+            store.save("default", _build_profile_payload(st.session_state))
             add_notification("Saved as default profile", "success")
 
 
@@ -158,7 +186,9 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
     # Load user's saved settings (cached)
     user_settings = _load_user_settings(_get_user_id())
     saved_pipeline = user_settings.get("selected_pipeline", "default_pipeline")
-    saved_config = user_settings.get("config", {})
+    # spec-087: a just-loaded profile's config takes precedence for one render so the
+    # widgets initialise from it; otherwise fall back to the user's saved API settings.
+    saved_config = _resolve_saved_config(st.session_state, user_settings.get("config", {}))
 
     # Pipeline selection
     default_index = pipeline_names.index(saved_pipeline) if saved_pipeline in pipeline_names else 0
@@ -382,10 +412,12 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
             "detection_threshold": detection_confidence,
             "min_face_size": min_face_size,
         },
-        # InsightFace scoring configs (use same min_face_size)
+        # InsightFace scoring configs (use same min_face_size). The pose scorer
+        # works from the 5-point landmarks detection already produced (no crop,
+        # no size gate), so it has no min_face_size knob — InsightFaceScorePoseConfig
+        # is extra="forbid" and rejects it. See SIGHTING-102.
         "insightface_score_expression": {"min_face_size": min_face_size},
         "insightface_score_eyes": {"min_face_size": min_face_size},
-        "insightface_score_pose": {"min_face_size": min_face_size},
         # Person detection config
         "detect_persons": {
             "confidence_threshold": detection_confidence,
@@ -434,6 +466,10 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
             "siamese": {"enabled": siamese_enabled},
         },
     }
+
+    # spec-087: stash the live config so the profile bar (rendered earlier this run) can
+    # save the FULL settings, not just the rc_* clustering subset (SIGHTING-106).
+    st.session_state["_last_built_config"] = config
 
     is_running = state.pipeline_status == PipelineStatus.RUNNING
 
