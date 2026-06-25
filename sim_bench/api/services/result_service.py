@@ -8,6 +8,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from sim_bench.api.database.models import Album, PipelineRun, PipelineResult, Person
+from sim_bench.api.schemas.result import ImageMetrics
 
 
 class ResultService:
@@ -65,20 +66,17 @@ class ResultService:
         }
 
     def _build_image_dict(self, path: str, metrics: dict, is_selected: bool = False) -> dict:
-        """Build a standardized image dict from stored metrics."""
-        return {
-            'path': path,
-            'iqa_score': metrics.get('iqa_score'),
-            'ava_score': metrics.get('ava_score'),
-            'composite_score': metrics.get('composite_score'),
-            'sharpness': metrics.get('sharpness'),
-            'cluster_id': metrics.get('cluster_id'),
-            'face_count': metrics.get('face_count', 0),
-            'face_pose_scores': metrics.get('face_pose_scores'),
-            'face_eyes_scores': metrics.get('face_eyes_scores'),
-            'face_smile_scores': metrics.get('face_smile_scores'),
-            'is_selected': metrics.get('is_selected', is_selected),
-        }
+        """Build the API image dict from stored metrics.
+
+        spec-085: derive straight from ``ImageMetrics`` (the single source of
+        truth) instead of a hand-copied field list. Adding a per-image metric
+        now means adding it to ``ImageMetrics`` only — there is no second list to
+        keep in sync, so the field set cannot silently narrow (the spec-084 bug).
+        Unknown keys in ``metrics`` are ignored; missing ones default to None.
+        """
+        data = {**metrics, 'path': path}
+        data['is_selected'] = metrics.get('is_selected', is_selected)
+        return ImageMetrics(**data).model_dump()
 
     def get_images(
         self,

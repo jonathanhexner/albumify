@@ -352,6 +352,11 @@ class SelectBestStep(BaseStep):
             penalty = self._penalty_computer.compute_penalty(image_path, context)
             composite_score = quality_score + penalty
 
+            # spec-084: persist the breakdown so Results can show why the
+            # composite is what it is (quality_score + person_penalty).
+            context.quality_scores[image_path] = quality_score
+            context.person_penalties[image_path] = penalty
+
             scored.append((image_path, composite_score))
 
         return scored

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why the Per-Image Metrics columns are blank</title>
+<style>
+  :root {
+    --green: #1a7f3c;
+    --green-bg: #e6f5ec;
+    --red: #c0392b;
+    --red-bg: #fdeceb;
+    --accent: #6c2bd9;
+    --accent-bg: #f1eafd;
+    --ink: #1f2933;
+    --muted: #6b7280;
+    --line: #e0e4e8;
+    --code-bg: #f5f6f8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.6;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; line-height: 1.25; margin: 0 0 8px; }
+  h2 { font-size: 20px; margin: 48px 0 14px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  .sub { color: var(--muted); font-size: 15px; margin: 0 0 4px; }
+  code { font-family: "SF Mono", Consolas, "Liberation Mono", monospace; font-size: 13px; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+
+  .callout { border-radius: 10px; padding: 16px 20px; margin: 20px 0; }
+  .callout.tldr { background: #f8f9fb; border: 1px solid var(--line); }
+  .callout.accent { background: var(--accent-bg); border: 1px solid #d6c4f5; }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  .flow { margin: 24px 0; }
+  .stage {
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--green);
+    border-radius: 8px;
+    padding: 12px 16px;
+    background: #fff;
+    position: relative;
+  }
+  .stage.drop { border-left-color: var(--red); }
+  .stage.break { border-left-color: var(--accent); border: 2px solid var(--accent); border-left-width: 6px; background: var(--accent-bg); }
+  .stage .num {
+    display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center;
+    border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; margin-right: 8px;
+  }
+  .stage .title { font-weight: 700; font-size: 15px; }
+  .stage .path { font-family: "SF Mono", Consolas, monospace; font-size: 12px; color: var(--muted); display: block; margin: 4px 0 2px 30px; }
+  .stage .why { font-size: 13.5px; color: var(--ink); margin: 2px 0 0 30px; }
+  .stage .verdict { font-size: 12px; font-weight: 700; margin: 6px 0 0 30px; }
+  .verdict.ok { color: var(--green); }
+  .verdict.bad { color: var(--red); }
+  .verdict.brk { color: var(--accent); }
+  .arrow { text-align: center; color: var(--muted); font-size: 18px; line-height: 1; margin: 4px 0; }
+  .break-tag {
+    position: absolute; top: -11px; right: 14px;
+    background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 20px; letter-spacing: .03em;
+  }
+
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f8f9fb; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+  td.path { font-family: "SF Mono", Consolas, monospace; font-size: 12px; color: var(--muted); }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .pill.ok { background: var(--green-bg); color: var(--green); }
+  .pill.bad { background: var(--red-bg); color: var(--red); }
+
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .twocol .box { border-radius: 8px; padding: 14px 16px; }
+  .box.bad { background: var(--red-bg); border: 1px solid #f3c5c0; }
+  .box.good { background: var(--green-bg); border: 1px solid #b8e0c6; }
+  .box h3 { margin: 0 0 8px; font-size: 14px; }
+  .box.bad h3 { color: var(--red); }
+  .box.good h3 { color: var(--green); }
+  .box ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
+  @media (max-width: 640px) { .twocol { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<p class="sub">sim-bench &middot; Results page bug report</p>
+<h1>Why some Per-Image Metrics columns are blank</h1>
+
+<div class="callout accent" style="background:var(--green-bg);border-color:#b8e0c6;">
+  <strong style="color:var(--green);">RESOLVED — spec-085 (2026-06-25)</strong>
+  Fixed by making the break point (stage 5, <code>ImageMetrics</code>) the single source of
+  truth: it now declares every field the producer emits, and <code>_build_image_dict</code>
+  derives from it. A parity test prevents the contract from silently narrowing again. The
+  walkthrough below is kept as the explanation of the original bug.
+</div>
+
+<div class="callout tldr">
+  <strong>The symptom</strong>
+  On the Results page, the "Per-Image Metrics" table shows the columns
+  <code>Body</code>, <code>Frontal</code>, <code>Central</code>, <code>Roll</code>, <code>BodyPose</code>
+  (and the newer <code>Reason</code>, <code>Quality</code>, <code>Penalty</code>) as <b>empty</b> &mdash;
+  even though those numbers were computed and saved.
+</div>
+
+<div class="callout accent">
+  <strong>The cause, in one line</strong>
+  The pipeline computes ~20 numbers per image and saves all 20. But the API's response "form"
+  (a Pydantic class called <code>ImageMetrics</code>) has blanks for only <b>10</b> of them &mdash;
+  and FastAPI <b>silently throws away</b> every field the form doesn't list. So the page never receives the other 10.
+</div>
+
+<p style="font-size:14.5px;">
+  <b>Plain analogy:</b> <code>ImageMetrics</code> is an official form with only 10 blanks.
+  Any number that doesn't have a matching blank gets dropped in the bin <i>before</i> the page ever sees it.
+  No error is raised &mdash; the value just quietly becomes empty.
+</p>
+
+<h2>The journey of one image's numbers</h2>
+<p class="sub">Top = where data is born. Bottom = the screen. Green border = data survives, red = data lost.</p>
+
+<div class="flow">
+
+  <div class="stage">
+    <span class="num">1</span><span class="title">PipelineContext</span>
+    <span class="path">sim_bench/pipeline/context.py</span>
+    <span class="why">A shared bag of state passed through the pipeline. Not one object per image &mdash; instead ~20 separate dictionaries (<code>iqa_scores</code>, <code>persons</code>, <code>quality_scores</code>...), each keyed by image path.</span>
+    <span class="verdict ok">data lives here, scattered across many dicts</span>
+  </div>
+  <div class="arrow">&#9660;</div>
+
+  <div class="stage">
+    <span class="num">2</span><span class="title">_build_image_metrics()</span>
+    <span class="path">sim_bench/api/services/pipeline_service.py &middot; ~line 309</span>
+    <span class="why">Gathers all of one image's numbers from those scattered dicts into ONE flat dict (~20 fields). Also folds face-level scores (keyed like <code>"path:face_0"</code>) up to the image.</span>
+    <span class="verdict ok">SURVIVES &mdash; full 20 fields</span>
+  </div>
+  <div class="arrow">&#9660;</div>
+
+  <div class="stage">
+    <span class="num">3</span><span class="title">PipelineResult (database row)</span>
+    <span class="path">sim_bench/api/database/models.py &middot; SQLAlchemy model</span>
+    <span class="why">Persists the run. The <code>image_metrics</code> JSON column is shaped <code>{path: {&hellip;full 20-field dict&hellip;}}</code>, written when the run completes.</span>
+    <span class="verdict ok">SURVIVES &mdash; storage is lossless</span>
+  </div>
+  <div class="arrow">&#9660;</div>
+
+  <div class="stage drop">
+    <span class="num">4</span><span class="title">_build_image_dict()</span>
+    <span class="path">sim_bench/api/services/result_service.py &middot; line 67</span>
+    <span class="why">Reads the stored dict back intact, then hand-copies a chosen subset of fields into a new API-shaped dict. Called by <code>get_images()</code> (line 105) and <code>get_clusters()</code> (line 169).</span>
+    <span class="verdict bad">a hand-written allow-list &mdash; minor drop point</span>
+  </div>
+  <div class="arrow">&#9660;</div>
+
+  <div class="stage break">
+    <span class="break-tag">THE BREAK POINT</span>
+    <span class="num">5</span><span class="title">ImageMetrics (Pydantic schema)</span>
+    <span class="path">sim_bench/api/schemas/result.py &middot; line 8</span>
+    <span class="why">The API's response "form". Nobody calls it in code &mdash; FastAPI applies it <b>automatically</b> at the route
+      <code>routers/results.py:42</code> via <code>response_model=list[ImageMetrics]</code>. FastAPI reshapes each dict to fit this form and <b>silently drops every field the form doesn't declare</b>.</span>
+    <span class="verdict brk">It declares only 10 fields. The rest are DROPPED here. (details below)</span>
+  </div>
+  <div class="arrow">&#9660;</div>
+
+  <div class="stage">
+    <span class="num">6</span><span class="title">ImageInfo (frontend dataclass)</span>
+    <span class="path">app/streamlit/models.py &middot; line 49 &nbsp;|&nbsp; parsed in api_client.py &middot; ~line 586</span>
+    <span class="why">The client-side record. It declares ALL the fields and defaults any missing one to <code>None</code> &mdash; so the loss raises no error, it just arrives as <code>None</code>.</span>
+    <span class="verdict bad">silent &mdash; missing fields become None</span>
+  </div>
+  <div class="arrow">&#9660;</div>
+
+  <div class="stage drop">
+    <span class="num">7</span><span class="title">render_image_metrics_table</span>
+    <span class="path">app/streamlit/components/metrics.py</span>
+    <span class="why">Renders the <code>ImageInfo</code> rows into the table. A field that is <code>None</code> shows as a blank cell.</span>
+    <span class="verdict bad">blank cell on screen</span>
+  </div>
+
+</div>
+
+<h2>The smoking-gun proof</h2>
+<div class="callout accent">
+  The table columns that <b>work</b> are <b>exactly</b> the fields <code>ImageMetrics</code> declares.
+  The columns that are <b>blank</b> are <b>exactly</b> the ones it omits.
+  That one-to-one match is how we know stage 5 is the gate &mdash; not stages 1&ndash;4 (data is fine there) and not stage 7 (it just draws what it's given).
+</div>
+
+<table>
+  <tr><th style="width:50%;">Declared in ImageMetrics &rarr; column shows</th><th>Omitted &rarr; column blank</th></tr>
+  <tr>
+    <td>
+      <code>path</code>, <code>iqa_score</code>, <code>ava_score</code>,
+      <code>composite_score</code>, <code>sharpness</code>, <code>cluster_id</code>,
+      <code>face_count</code>, <code>face_pose_scores</code>, <code>face_eyes_scores</code>,
+      <code>face_smile_scores</code>, <code>is_selected</code>
+    </td>
+    <td>
+      <code>person_detected</code>, <code>body_facing_score</code>, <code>person_confidence</code>,
+      <code>best_frontal_score</code>, <code>best_centrality</code>, <code>roll_angles</code>,
+      <code>filter_stats</code>, <code>frontal_stats</code>, <code>frontal_scores</code>,
+      <code>quality_score</code>, <code>person_penalty</code>, <code>filter_reason</code>
+    </td>
+  </tr>
+</table>
+
+<h2>Three fields, traced stage by stage</h2>
+<table>
+  <tr>
+    <th>Stage</th>
+    <th><code>iqa_score</code></th>
+    <th><code>person_detected</code></th>
+    <th><code>filter_reason</code></th>
+  </tr>
+  <tr><td>1. PipelineContext</td><td><span class="pill ok">present</span></td><td><span class="pill ok">present</span></td><td><span class="pill ok">present</span></td></tr>
+  <tr><td>2. _build_image_metrics</td><td><span class="pill ok">present</span></td><td><span class="pill ok">present</span></td><td><span class="pill ok">present</span></td></tr>
+  <tr><td>3. DB (PipelineResult)</td><td><span class="pill ok">present</span></td><td><span class="pill ok">present</span></td><td><span class="pill ok">present</span></td></tr>
+  <tr><td>4. _build_image_dict</td><td><span class="pill ok">copied</span></td><td><span class="pill ok">copied</span></td><td><span class="pill ok">copied</span></td></tr>
+  <tr style="background:var(--accent-bg);">
+    <td>5. ImageMetrics &nbsp;<b>&larr; gate</b></td>
+    <td><span class="pill ok">declared &rarr; kept</span></td>
+    <td><span class="pill bad">not declared &rarr; DROPPED</span></td>
+    <td><span class="pill bad">not declared &rarr; DROPPED</span></td>
+  </tr>
+  <tr><td>6. ImageInfo (client)</td><td><span class="pill ok">value</span></td><td><span class="pill bad">None</span></td><td><span class="pill bad">None</span></td></tr>
+  <tr><td>7. table cell</td><td><span class="pill ok">shows value</span></td><td><span class="pill bad">blank</span></td><td><span class="pill bad">blank</span></td></tr>
+</table>
+
+<h2>Why this happened &mdash; and how to fix it</h2>
+<div class="twocol">
+  <div class="box bad">
+    <h3>What went wrong</h3>
+    <ul>
+      <li>The same image record is hand-re-listed in several places (stages 2, 4, 5, 6).</li>
+      <li><code>ImageMetrics</code> is <b>narrower</b> than the data behind it.</li>
+      <li>FastAPI drops undeclared fields with no warning &mdash; so the mismatch is invisible.</li>
+    </ul>
+<pre><code>class ImageMetrics(BaseModel):
+    path: str
+    iqa_score: float
+    # ...only 10 of ~20 fields
+    # person_detected, filter_reason ... NOT here
+</code></pre>
+  </div>
+  <div class="box good">
+    <h3>The fix</h3>
+    <ul>
+      <li>Derive the API shape from <b>one</b> shared definition; don't re-list fields by hand.</li>
+      <li>Add a test asserting the response schema covers every produced field.</li>
+    </ul>
+<pre><code># one canonical schema + a parity test
+def test_schema_covers_produced_fields():
+    produced = set(build_image_metrics(sample))
+    declared = set(ImageMetrics.model_fields)
+    assert produced &lt;= declared   # fails today
+</code></pre>
+  </div>
+</div>
+
+<h2>Senior engineer's take</h2>
+<div class="callout tldr">
+  This is a chain of data-transfer objects (DTOs &mdash; plain "carry the data" structs) with <b>no single source of truth</b> for the shape, plus
+  <b>two silent-failure layers</b>: FastAPI's <code>response_model</code> drops undeclared fields, and the client dataclass
+  defaults missing fields to <code>None</code>. Neither raises. Together they turn a simple schema mismatch into invisible data loss.
+  Fix: make one schema canonical and add a parity test so the contract can never silently drift from the data again.
+</div>
+
+<h2>All the files in one place</h2>
+<table>
+  <tr><th>Object</th><th>Module path</th><th>Purpose</th></tr>
+  <tr><td>PipelineContext</td><td class="path">sim_bench/pipeline/context.py</td><td>Shared bag of per-image dicts during the pipeline run.</td></tr>
+  <tr><td>_build_image_metrics()</td><td class="path">sim_bench/api/services/pipeline_service.py:309</td><td>Flattens one image's ~20 numbers into a single dict.</td></tr>
+  <tr><td>PipelineResult</td><td class="path">sim_bench/api/database/models.py</td><td>DB row; stores all metrics losslessly as JSON.</td></tr>
+  <tr><td>_build_image_dict()</td><td class="path">sim_bench/api/services/result_service.py:67</td><td>Hand-copies a subset of stored fields for the API.</td></tr>
+  <tr style="background:var(--accent-bg);"><td><b>ImageMetrics</b></td><td class="path">sim_bench/api/schemas/result.py:8</td><td><b>The 10-field response form. Drops the rest. THE BREAK POINT.</b></td></tr>
+  <tr><td>results route</td><td class="path">sim_bench/api/routers/results.py:42</td><td>Applies <code>response_model=list[ImageMetrics]</code> &mdash; where the drop fires.</td></tr>
+  <tr><td>ImageInfo</td><td class="path">app/streamlit/models.py:49</td><td>Client record; missing fields default to None.</td></tr>
+  <tr><td>_parse_image</td><td class="path">app/streamlit/api_client.py:586</td><td>Parses the API response into ImageInfo.</td></tr>
+  <tr><td>render_image_metrics_table</td><td class="path">app/streamlit/components/metrics.py</td><td>Draws the table; None &rarr; blank cell.</td></tr>
+</table>
+
+</body>
+</html>

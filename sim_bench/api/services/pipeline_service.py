@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.orm import Session
 
 from sim_bench.api.database.models import Album, PipelineRun, PipelineResult
+from sim_bench.api.schemas.result import ImageMetrics
 from sim_bench.api.services.people_service import PeopleService
 from sim_bench.api.services.config_service import ConfigService
 from sim_bench.pipeline.cache_handler import UniversalCacheHandler
@@ -44,6 +45,26 @@ class JobState:
 
 # Shared job storage across all PipelineService instances
 _jobs: dict[str, JobState] = {}
+
+
+def _build_reason_by_path(step_decisions) -> dict:
+    """Map each image path to its most informative "why" reason. spec-084.
+
+    Images filtered early (e.g. ``filter_quality``) never reach ``select_best``,
+    so a select_best-only reason would be blank for exactly the filtered images
+    the user wants explained. We therefore keep the earliest image-level reason
+    and let the final ``select_best`` decision override it when present.
+
+    Decisions are appended in step order, so the earlier rejecting step's reason
+    is recorded first and ``select_best`` (the last word) overwrites it.
+    """
+    reason_by_path: dict = {}
+    for d in (step_decisions or []):
+        if d.item_type != "image":
+            continue  # face-level decisions aren't per-image reasons
+        if d.step == "select_best" or d.item_id not in reason_by_path:
+            reason_by_path[d.item_id] = d.reason
+    return reason_by_path
 
 
 class PipelineService:
@@ -239,6 +260,9 @@ class PipelineService:
                     for scene_id, subclusters in job.context.face_clusters.items()
                 }
 
+            # spec-084: per-image "why" reason, keyed by path. Built once.
+            reason_by_path = _build_reason_by_path(job.context.step_decisions)
+
             pipeline_result = PipelineResult(
                 id=str(uuid.uuid4()),
                 run_id=job_id,
@@ -250,7 +274,7 @@ class PipelineService:
                 face_subclusters=face_subclusters,
                 selected_images=job.context.selected_images,
                 image_metrics={
-                    path: self._build_image_metrics(job.context, path)
+                    path: self._build_image_metrics(job.context, path, reason_by_path)
                     for path in [str(p) for p in job.context.image_paths]
                 },
                 siamese_comparisons=job.context.siamese_comparisons or [],
@@ -298,13 +322,18 @@ class PipelineService:
 
         job.completed = True
 
-    def _build_image_metrics(self, context: PipelineContext, path: str) -> dict:
+    def _build_image_metrics(
+        self, context: PipelineContext, path: str, reason_by_path: dict = None
+    ) -> dict:
         """Build complete metrics dict for a single image.
 
         Face scoring steps store scores keyed by cache key
         (``"<path>:face_<index>"``), not by image path.  This helper
         collects per-face values back into a list keyed by the image path
         so that they are persisted correctly in the database.
+
+        ``reason_by_path`` (spec-084): optional {path: select_best reason} map
+        so the Results table can show *why* an image was selected/filtered.
         """
         # Normalize path for cache key lookups (steps use forward slashes)
         path_normalized = path.replace('\\', '/')
@@ -411,31 +440,40 @@ class PipelineService:
                 if roll_angle is not None:
                     roll_angles.append(roll_angle)
 
-        return {
-            "iqa_score": context.iqa_scores.get(path),
-            "ava_score": context.ava_scores.get(path),
-            "sharpness": context.sharpness_scores.get(path),
-            "cluster_id": context.scene_cluster_labels.get(path),
-            "face_count": len(faces) or len(insightface_faces),
-            "face_pose_scores": pose_scores or None,
-            "face_eyes_scores": eyes_scores or None,
-            "face_smile_scores": smile_scores or None,
-            "composite_score": context.composite_scores.get(path),
-            "is_selected": path in context.selected_images,
+        # spec-085 (C-lite): build the canonical ImageMetrics directly. The schema
+        # is the single definition of the shape; this function only supplies the
+        # values (the bespoke extraction from context). Returns a dict for the
+        # JSON column. Field names/types are validated against the schema here.
+        return ImageMetrics(
+            path=path,
+            iqa_score=context.iqa_scores.get(path),
+            ava_score=context.ava_scores.get(path),
+            sharpness=context.sharpness_scores.get(path),
+            cluster_id=context.scene_cluster_labels.get(path),
+            face_count=len(faces) or len(insightface_faces),
+            face_pose_scores=pose_scores or None,
+            face_eyes_scores=eyes_scores or None,
+            face_smile_scores=smile_scores or None,
+            composite_score=context.composite_scores.get(path),
+            # spec-084: composite breakdown + the human-readable decision reason.
+            quality_score=context.quality_scores.get(path),
+            person_penalty=context.person_penalties.get(path),
+            filter_reason=(reason_by_path or {}).get(path),
+            is_selected=path in context.selected_images,
             # InsightFace-specific metrics
-            "person_detected": person_data.get('person_detected'),
-            "body_facing_score": person_data.get('body_facing_score'),
-            "person_confidence": person_data.get('confidence'),
+            person_detected=person_data.get('person_detected'),
+            body_facing_score=person_data.get('body_facing_score'),
+            person_confidence=person_data.get('confidence'),
             # Face filtering metrics
-            "filter_stats": filter_stats or None,
-            "filter_scores": filter_scores_list or None,
+            filter_stats=filter_stats or None,
+            filter_scores=filter_scores_list or None,
             # Frontal scoring metrics
-            "frontal_stats": frontal_stats or None,
-            "frontal_scores": frontal_scores_list or None,
-            "best_frontal_score": best_frontal_score,
-            "best_centrality": best_centrality,
-            "roll_angles": roll_angles or None,
-        }
+            frontal_stats=frontal_stats or None,
+            frontal_scores=frontal_scores_list or None,
+            best_frontal_score=best_frontal_score,
+            best_centrality=best_centrality,
+            roll_angles=roll_angles or None,
+        ).model_dump()
 
     def get_status(self, job_id: str) -> Optional[PipelineRun]:
         """Get the status of a pipeline run."""

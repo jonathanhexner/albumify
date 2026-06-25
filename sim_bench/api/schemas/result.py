@@ -1,12 +1,19 @@
 """Pydantic schemas for Results API."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel
 
 
 class ImageMetrics(BaseModel):
-    """Metrics for a single image."""
+    """Metrics for a single image.
+
+    spec-085: this is the SINGLE SOURCE OF TRUTH for the per-image API contract.
+    It must declare every field ``_build_image_metrics`` emits — a parity test
+    enforces that. FastAPI's ``response_model`` drops any undeclared field, so a
+    field missing here silently never reaches the UI (the spec-084 blank-columns
+    bug). Add new per-image metrics HERE; ``_build_image_dict`` derives from it.
+    """
     path: str
     iqa_score: Optional[float] = None
     ava_score: Optional[float] = None
@@ -18,6 +25,21 @@ class ImageMetrics(BaseModel):
     face_eyes_scores: Optional[list[float]] = None
     face_smile_scores: Optional[list[float]] = None
     is_selected: bool = False
+    # spec-084 composite breakdown + decision reason.
+    quality_score: Optional[float] = None
+    person_penalty: Optional[float] = None
+    filter_reason: Optional[str] = None
+    # spec-085: person detection + frontal scoring + filter stats (were dropped).
+    person_detected: Optional[bool] = None
+    body_facing_score: Optional[float] = None
+    person_confidence: Optional[float] = None
+    best_frontal_score: Optional[float] = None
+    best_centrality: Optional[float] = None
+    roll_angles: Optional[list[float]] = None
+    filter_stats: Optional[dict[str, Any]] = None
+    filter_scores: Optional[list[dict[str, Any]]] = None
+    frontal_stats: Optional[dict[str, Any]] = None
+    frontal_scores: Optional[list[dict[str, Any]]] = None
 
 
 class ClusterInfo(BaseModel):

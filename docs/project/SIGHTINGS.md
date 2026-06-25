@@ -4,6 +4,164 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-106: Configure & Run profile Save/Load drops all non-clustering params (e.g. sharpness)
+**Status**: OPEN
+**Severity**: High
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+In Albumify "Configure & Run", saving a profile (e.g. "default8") via the profile
+bar's **Save** button does NOT persist quality/detection/selection params. The user
+changed `min_sharpness` to 0.1 and saved; the value was silently dropped.
+
+Root cause (verified): the profile bar saves/loads only a fixed set of `rc_*`
+clustering keys.
+- `app/streamlit/components/pipeline_runner.py:24-31` — `_RC_PARAM_KEYS` is `rc_*` only
+  (copied from the face_clustering Recluster tab, which has no quality params).
+- `:135` (Save) — `params = {k: st.session_state[k] for k in _RC_PARAM_KEYS if ...}` —
+  the sharpness widget key `config_min_sharpness` (`:241`) is not in the set → dropped.
+- `:124-126` (Load) — only restores keys in `_RC_PARAM_KEYS`.
+
+Meanwhile the authoritative `config` dict (`:375-438`) holds the full settings
+(`filter_quality.min_sharpness`, etc.) and is used by **Run Pipeline** (`:453`) and the
+separate, working **Save Settings** button (`:464` → `_save_user_settings`). Two parallel
+config representations; the profile bar uses the thin one.
+
+**Symptoms**:
+- Edit a `config_*` field (sharpness, IQA, face size, det conf, max-per-cluster, dup
+  threshold, ...), Save a profile, reload it → the field reverts. Only `rc_*` clustering
+  params round-trip.
+
+**Suspicion / Fix — Option B (chosen): one config representation, not two.**
+Make profile Save/Load use the SAME full `config` blob that "Save Settings" already
+builds and persists (the `user_settings.config` shape), instead of the hand-listed
+`_RC_PARAM_KEYS` subset. End state: one config shape, one apply path, no key list to
+drift (same class as spec-085).
+
+Concrete steps:
+1. **Build `config` before the profile bar renders** (or extract a `build_config()` helper
+   called first). Today `config` is defined at `:375`, *after* the profile bar (`:118-141`),
+   so the Save handler can't see it — that's why it fell back to session_state keys.
+2. **Save** → `store.save(name, config)` (the full nested dict), not the `rc_*` subset.
+3. **Load** → apply the saved `config` through the SAME code path that applies
+   `user_settings.config` to the widgets at render (`:161` `saved_config = ...`), so there's
+   a single config→widget mapping, not a second one that can drift.
+4. Add a test: save a profile with `min_sharpness=0.1`, reload, assert it round-trips
+   (and at least one non-quality field too).
+
+**Design risks to decide during the fix (don't silently ignore):**
+- **Cross-app profile interop:** the comment at `:22-23` says profiles are shared with the
+  face_clustering Recluster tab, which reads top-level `rc_*` keys. If Albumify profiles
+  switch to the nested `config` shape, that app won't find the clustering params.
+  **DECISION (2026-06-25): option (b) — store BOTH** the flat `rc_*` keys (cross-app interop,
+  unchanged) AND the full nested `config` blob (new). Save writes both; Albumify Load reads
+  the nested `config`; the face_clustering app keeps reading `rc_*`. Neither app breaks.
+- This is bug-shaped but the fix is a small refactor; if it grows, promote to a spec.
+
+**Steps to Reproduce**:
+1. Configure & Run → load a profile → change Sharpness to 0.1 → name "default8" → Save.
+2. Reload "default8" → sharpness is not 0.1.
+
+### SIGHTING-105: tests/test_selection_export.py imports a deleted module
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+4 of 7 tests in `tests/test_selection_export.py` fail with
+`ModuleNotFoundError: No module named 'sim_bench.album.selection'`. The
+`BestImageSelector` class and the `sim_bench.album.selection` module no longer
+exist anywhere in the repo (selection logic moved to
+`sim_bench/album/services/selection_service.py` and the pipeline
+`select_best` step). The test was never updated after that refactor.
+
+Discovered while running regression for spec-084 (Results metrics) — NOT caused
+by it; the 3 non-importing tests in the file still pass.
+
+**Symptoms**:
+- `pytest tests/test_selection_export.py` → 4 failed (import error), 3 passed.
+
+**Suspicion / Fix**:
+Either repoint the tests at `selection_service` / `SelectBestStep`, or delete the
+dead tests if the coverage is now provided by `tests/api/test_results_metrics.py`
++ pipeline tests. Decide during a test-triage pass; out of scope for spec-084.
+
+---
+
+### SIGHTING-104: People & Faces shows gray avatars; person detail shows no bbox
+**Status**: FIXED (2026-06-25)
+**Severity**: High
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+The People & Faces grid renders the gray placeholder `👤` for every person
+instead of the cropped face (screenshot: D:\people_faces.PNG), and the person
+detail view never draws the face bounding box.
+
+Root cause is a single format mismatch. `people_service._bbox_to_xywh`
+(people_service.py:24-26) receives the spec-079 `FaceRecord.bbox` tuple, which is
+in **pixels** `(x1,y1,x2,y2)`, and stores `[x1, y1, x2-x1, y2-y1]` — still
+pixels (DB shows `[1719.0, 730.0, 511.0, 776.0]`). Every consumer assumes
+**normalized [0,1]**:
+- `people_browser.py:138` `_crop_face` multiplies bbox by image dims → pixel*dims
+  is off-canvas → degenerate crop → `_load_face_thumbnail` returns None → gray.
+- `people_browser.py:188` feeds `{"x":1719,...}` to `draw_face_bboxes` as
+  normalized → box drawn off-canvas → invisible.
+Legacy rows store ratios `[0.49, 0.15, ...]` and DO render, confirming the
+producer-side regression introduced by the spec-079 unified chain.
+
+**Symptoms**:
+- All person thumbnails gray in the grid.
+- No bounding box on the person detail's representative image.
+
+**Fix (applied)**:
+Source: added `_normalized_bbox(face)` in `people_service.py` (prefers spec-040
+`bbox_*_ratio`; else normalizes the pixel bbox via `image_*_px`; else raw
+reshape). Both write sites (`_get_thumbnail_info` + `create_from_clusters`) now
+use it, so new rows persist [0,1]. `_bbox_to_xywh` docstring corrected — it only
+reshapes, it never normalized. Consumer safety net: `people_browser._crop_face`
+and the detail-view overlay detect pixel-scale (`max(bbox) > 1.5`) and normalize,
+so existing pixel-format DB rows render WITHOUT a re-run/backfill. Verified by
+cropping the real Budapest image with the real DB bbox -> correct face crop.
+Tests: `tests/api/test_people_service_bbox.py` (6 tests, green).
+Prevention: bbox-format contract documented inline at both boundaries + unit
+test asserting normalized output.
+
+**Steps to Reproduce**:
+1. Run the Budapest pipeline (spec-079 chain), open People & Faces.
+2. Observe gray avatars; query `people.thumbnail_bbox` → values > 1.
+
+---
+
+### SIGHTING-103: Results page slow — thumbnails re-encoded from disk every rerun
+**Status**: FIXED (2026-06-25)
+**Severity**: Medium
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+The Results page (and cluster score tables) felt very slow. Streamlit reruns the
+entire script on every widget interaction. `_image_to_base64_thumbnail` in
+`components/metrics.py:15` and `components/gallery.py:185` was **uncached**, so
+every rerun re-opened, EXIF-transposed, cropped, resized, JPEG-encoded and
+base64-encoded every image on the page from disk (N disk reads + N encodes per
+interaction). Compounding (not fixed here): base64 strings embedded in
+`st.dataframe`, no pagination, and API results refetched each rerun.
+
+**Symptoms**:
+- Multi-second lag on any click in Results, scaling with image count.
+
+**Suspicion / Fix**:
+FIXED: added `@st.cache_data(show_spinner=False)` to both thumbnail encoders.
+Follow-ups (deferred to the Results spec): pagination/lazy load, cache
+`get_images`/`get_clusters` by job_id, and dedupe the 3 copies of the encoder.
+
+**Steps to Reproduce**:
+1. Open Results with a large album; click any radio/toggle; observe lag.
+
 ### SIGHTING-099: universal_cache never invalidates on schema/model_version change
 **Status**: FIXED (2026-06-20)
 **Severity**: High
@@ -164,6 +322,54 @@ rot from the spec-080 nav rework + a Streamlit upgrade, not a product regression
 **Steps to Reproduce**:
 1. `.venv/Scripts/python -m pytest -m budapest tests/face_clustering/e2e_budapest/test_scenario_a_fresh_run.py`
 2. Times out clicking "Profiles" though the app is healthy.
+
+---
+
+### SIGHTING-102: Albumify pushes `min_face_size` to `insightface_score_pose`, which forbids it
+**Status**: FIXED (2026-06-22)
+**Severity**: High (Albumify pipeline cannot start)
+**Reported**: 2026-06-22
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Running any Albumify pipeline crashes at spec validation:
+```
+PipelineSpecError: Pipeline spec invalid:
+ - invalid config for 'insightface_score_pose': 1 validation error for
+   InsightFaceScorePoseConfig
+   min_face_size  Extra inputs are not permitted [type=extra_forbidden, input_value=50]
+```
+`app/streamlit/components/pipeline_runner.py` fans `min_face_size` out to four
+InsightFace steps, including `insightface_score_pose`. But the pose scorer works
+from the 5-point landmarks detection already produced — it has no crop and no
+size gate, so `InsightFaceScorePoseConfig` (spec-040, `extra="forbid"`) defines
+only `device` and rejects the extra key. `step_configs` hands each step ONLY its
+own sub-dict, validated against its own typed model (`spec.py:80`), so the stray
+key lands directly in the pose config and fails.
+
+**Root cause**: spec-079 unification regression. When Albumify moved onto the
+shared `execute_spec` primitive, the typed configs (spec-040) became strict, but
+`pipeline_runner.py` still fanned `min_face_size` to the pose step the way the
+old loose pipeline tolerated. `configs/pipeline.yaml`'s `insightface_score_pose`
+block was already correct (`device:` only).
+
+**Symptoms**:
+- "Run Pipeline" in Albumify immediately fails; pipeline never starts.
+- Only the pose step is named in the error (detect/expression/eyes legitimately
+  accept `min_face_size`).
+
+**Suspicion / Fix**:
+FIXED — removed the `"insightface_score_pose": {"min_face_size": ...}` entry from
+the config dict in `pipeline_runner.py`. Face size is still filtered upstream at
+`insightface_detect_faces.min_face_size` (skip at detection) and
+`filter_faces.min_bbox_ratio` (the actual rejector), so the pose step loses
+nothing. Prevention: when a step's typed config goes `extra="forbid"`, audit
+every frontend that builds its `step_configs` for stray keys the loose pipeline
+used to swallow.
+
+**Steps to Reproduce**:
+1. Start Albumify (`.venv/Scripts/streamlit run app/streamlit/main.py`) + API.
+2. Configure + click "Run Pipeline" → `PipelineSpecError` on `insightface_score_pose`.
 
 ---
 

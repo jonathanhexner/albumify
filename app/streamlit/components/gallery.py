@@ -182,8 +182,13 @@ def _group_images_by_people(
     return dict(groups)
 
 
+@st.cache_data(show_spinner=False)
 def _image_to_base64_thumbnail(image_path: Path, size: int = 80) -> Optional[str]:
-    """Load an image, resize to square thumbnail, and return a base64 data URI."""
+    """Load an image, resize to square thumbnail, and return a base64 data URI.
+
+    Cached for the same reason as the metrics-table encoder (SIGHTING-103):
+    avoid re-encoding every thumbnail from disk on each Streamlit rerun.
+    """
     try:
         with Image.open(image_path) as img:
             img = ImageOps.exif_transpose(img)

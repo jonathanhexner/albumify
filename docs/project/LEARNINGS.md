@@ -6,6 +6,11 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-06-25: bbox unit mismatch (pixels vs [0,1]) silently degrades to a placeholder
+**Root cause**: spec-079's `FaceRecord.bbox` is in PIXELS; `people_service._bbox_to_xywh` only reshaped it (its docstring lied — said "normalize") while every Streamlit consumer multiplies by image dims, assuming [0,1]. Pixel×dims goes off-canvas → PIL crop collapses → `_load_face_thumbnail` returns None → gray avatar for ALL people. No exception, no log — just a silently wrong image.
+**Lesson**: A geometry value crossing a module boundary needs its UNIT in the contract, not just its shape. "xywh" is ambiguous; "xywh normalized [0,1]" is not. Helpers named "normalize" must actually normalize.
+**Prevention**: `_normalized_bbox` is now the single normalizer (uses spec-040 `bbox_*_ratio`/`image_*_px`); consumers guard `max(bbox) > 1.5`; `tests/api/test_people_service_bbox.py` asserts [0,1] output. SIGHTING-104.
+
 ### 2026-06-06: `st.dataframe` row-select is NOT "click the thumbnail" (3× user frustration)
 **Root cause**: v2 used `st.dataframe(on_select="rerun", selection_mode="single-row")` + `ImageColumn` for "clickable thumbnails." Glide-data-grid renders on a canvas and only the ~20px row-select **checkbox column** fires the selection event — clicking the thumbnail or any data cell does nothing. Users reported "I can't click on faces/images" three separate times because the only working target was invisible.
 **Lesson**: For click-to-open in this Streamlit app, use a real `st.button("Open")` under each thumbnail (the `face_grid.py` pattern), not dataframe row-select. Bonus: real buttons are Playwright-addressable, so the click path gets actual e2e coverage (scenarios J/K) — the canvas never could.

@@ -1,5 +1,6 @@
 """People browser component - Google Photos style."""
 
+import logging
 import streamlit as st
 from pathlib import Path
 from typing import List, Optional, Callable, Set
@@ -9,6 +10,8 @@ from app.streamlit.models import Person, ImageInfo
 from app.streamlit.api_client import get_client
 from app.streamlit.config import get_config
 from app.streamlit.session import add_notification
+
+logger = logging.getLogger(__name__)
 
 
 def render_people_grid(
@@ -120,6 +123,14 @@ def _load_face_thumbnail(person: Person) -> Optional[Image.Image]:
             img = _crop_face(img, person.thumbnail_bbox)
         return img
     except Exception:
+        # SIGHTING-104: this used to swallow the error silently and fall back to
+        # a gray placeholder, hiding the pixel-vs-normalized bbox bug for weeks.
+        # Log it so the next failure is visible instead of mysterious.
+        logger.warning(
+            "Failed to load face thumbnail for person %s (path=%s, bbox=%s)",
+            getattr(person, "person_id", "?"), face_path, person.thumbnail_bbox,
+            exc_info=True,
+        )
         return None
 
 
@@ -133,9 +144,18 @@ def _render_person_thumbnail(person: Person) -> None:
 
 
 def _crop_face(img: Image.Image, bbox: list) -> Image.Image:
-    """Crop image to face region with padding."""
+    """Crop image to face region with padding.
+
+    ``bbox`` is expected normalized ``[x, y, w, h]`` in [0, 1]. SIGHTING-104:
+    legacy/spec-079 rows persisted pixel-scale bboxes, which blew the crop
+    off-canvas (-> gray placeholder). Guard by detecting pixel-scale values and
+    normalizing them here so existing DB rows render without a re-run.
+    """
     img_w, img_h = img.size
-    x, y, w, h = [v * d for v, d in zip(bbox, [img_w, img_h, img_w, img_h])]
+    bx, by, bw, bh = bbox
+    if max(bx, by, bw, bh) > 1.5:  # pixel-scale -> normalize
+        bx, by, bw, bh = bx / img_w, by / img_h, bw / img_w, bh / img_h
+    x, y, w, h = [v * d for v, d in zip([bx, by, bw, bh], [img_w, img_h, img_w, img_h])]
 
     pad = 0.3
     left = max(0, int(x - w * pad))
@@ -185,8 +205,13 @@ def render_person_detail(
     if person.representative_face and person.thumbnail_bbox and len(person.thumbnail_bbox) == 4:
         from app.streamlit.components.bbox_overlay import draw_face_bboxes
         bx, by, bw, bh = person.thumbnail_bbox
-        faces = [{"bbox": {"x": bx, "y": by, "w": bw, "h": bh},
-                  "label": display_name, "confidence": None}]
+        # SIGHTING-104: pixel-scale rows must use the pixel keys (x_px/...) that
+        # draw_face_bboxes understands; normalized rows use x/y/w/h.
+        if max(person.thumbnail_bbox) > 1.5:
+            bbox_dict = {"x_px": bx, "y_px": by, "w_px": bw, "h_px": bh}
+        else:
+            bbox_dict = {"x": bx, "y": by, "w": bw, "h": bh}
+        faces = [{"bbox": bbox_dict, "label": display_name, "confidence": None}]
         annotated = draw_face_bboxes(person.representative_face, faces, highlight_index=0, max_size=300)
         if annotated:
             st.image(annotated, caption="Face highlighted in source image", width=300)

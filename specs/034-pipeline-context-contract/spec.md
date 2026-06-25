@@ -117,6 +117,8 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 | `fc_export_dir` | `Optional[str]` | path | `cluster_people` (if `export_for_analysis=True`) | `face_cluster_export` | yes (filesystem path) | cluster → end | FC App artifact dir |
 | `user_overrides` | `list` | n/a | pipeline runner (DB pre-load) | `identity_refinement` | yes (`user_overrides` table) | full run | user corrections from prior runs |
 | `composite_scores` | `dict[str, float]` | float[0,1] | `select_best` | API | NOT YET — spec-033 P-C adds `faces.composite_score` (image-level via face row) | select → end | final score |
+| `quality_scores` | `dict[str, float]` | float[0,1] | `select_best` | API (Results table) | yes (`image_metrics.quality_score`) | select → end | spec-084: quality half of composite (`composite = quality + penalty`) |
+| `person_penalties` | `dict[str, float]` | float (≤0) | `select_best` | API (Results table) | yes (`image_metrics.person_penalty`) | select → end | spec-084: penalty half of composite |
 | `siamese_comparisons` | `list[dict]` | n/a | `select_best` (siamese refinement) | API (debug) | ephemeral | select → end | debug log |
 | `selected_images` | `list[str]` | path | `select_best` | API | yes (`run_metadata.selected_images` JSON) | select → end | final selection |
 

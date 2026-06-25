@@ -53,6 +53,11 @@ class ImageInfo:
     iqa_score: Optional[float] = None
     ava_score: Optional[float] = None
     composite_score: Optional[float] = None
+    # spec-084: composite_score = quality_score + person_penalty.
+    quality_score: Optional[float] = None
+    person_penalty: Optional[float] = None
+    # spec-084: human-readable "why selected/filtered" from the select_best step.
+    filter_reason: Optional[str] = None
     face_count: int = 0
     cluster_id: Optional[int] = None
     is_selected: bool = False
