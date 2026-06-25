@@ -74,6 +74,8 @@ from sim_bench.pipeline.steps.select_best_per_person import SelectBestPerPersonS
 
 # Export
 from sim_bench.pipeline.steps.export_for_labeling import ExportForLabelingStep
+# spec-088: FC-app analysis export for the unified clustering chain (SIGHTING-107)
+from sim_bench.pipeline.steps.face_cluster_analysis_export import FaceClusterAnalysisExportStep  # noqa: F401
 
 __all__ = [
     # Discovery
@@ -126,4 +128,5 @@ __all__ = [
     "SelectBestPerPersonStep",
     # Export
     "ExportForLabelingStep",
+    "FaceClusterAnalysisExportStep",
 ]

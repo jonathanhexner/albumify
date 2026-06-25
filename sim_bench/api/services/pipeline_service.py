@@ -136,6 +136,9 @@ class PipelineService:
             source_directory=Path(album.source_path),
             cache_handler=cache_handler
         )
+        # spec-088: name the FC-app export dir after the album (was the "album"
+        # fallback in face_cluster_export.py:30 because this was never set).
+        context.album_name = album.name
 
         _jobs[run_id] = JobState(
             run_id=run_id,
@@ -175,6 +178,14 @@ class PipelineService:
         # (lets a caller override a single unified step explicitly).
         for name, cfg in fcp.to_step_configs().items():
             step_configs[name] = {**cfg, **step_configs.get(name, {})}
+        # spec-088 / SIGHTING-107: route the "Export for analysis" toggle (an IO
+        # concern, NOT an FCParams clustering knob) to the analysis-export step,
+        # along with the clustering params it serializes into the export.
+        if raw.get("export_for_analysis"):
+            step_configs["face_cluster_analysis_export"] = {
+                "export_for_analysis": True,
+                **fcp.model_dump(),
+            }
         # The clustering block was a CONFIG SOURCE, not a step. Remove it so the
         # spec validator doesn't reject it against ClusterPeopleConfig (extra=forbid)
         # — the full FCParams legitimately carries knobs that subset doesn't have.

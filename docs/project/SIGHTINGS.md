@@ -4,6 +4,46 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-107: Albumify "Export for analysis" toggle is dead (no FC export ever written)
+**Status**: FIXED (2026-06-25, spec-088) — code-review passed (no blockers); real-run verification is the user's check
+**Severity**: High
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+The Configure & Run "Export for analysis" checkbox does nothing in the current
+Albumify pipeline. No `face_clustering_*` export dir is written, so Albumify runs
+can never be opened in the Face Clustering app's analysis tabs.
+
+Root cause: the export only ever ran inside the monolithic `cluster_people` step
+(`export_for_analysis()` is called ONLY at `cluster_people.py:291`, and
+`context.fc_export_dir` is set ONLY inside it at `face_cluster_export.py:159`).
+spec-079 replaced `cluster_people` with the unified 8-step chain
+(`configs/pipeline.yaml:37-44`: quality_gate → … → assign_people_clusters), which
+has **no export**. So the flag is sent (`cluster_people.export_for_analysis=true`)
+but (a) no step reads it, and (b) `_broadcast_clustering_config` funnels the
+clustering block through `FCParams` (no `export_for_analysis` field) and drops it.
+
+**Evidence**: every run of album `Budapest2025_Google_run15` has
+`pipeline_results.fc_export_dir = NULL`; the run's stored `step_configs` contains
+`export_for_analysis: true` AND `assign_people_clusters` (unified) but no
+`cluster_people` step.
+
+**Symptoms**:
+- `results/` has no `face_clustering_*` dir for recent albums.
+- Cannot diagnose Albumify clustering in the FC app (no loadable export).
+
+**Suspicion / Fix (spec-088)**:
+Add a thin export step at the end of the unified chain that calls the existing
+`export_for_analysis()` with `context.face_records` / `core_indices` /
+`cluster_result` / `merged_cluster_result` / `merge_log` (all already populated),
+gated by the toggle. Route the flag to that step (add to `FCParams` or a dedicated
+step config) so it survives the broadcast.
+
+**Related**: separate observation (needs its own investigation once export works) —
+run15 produced 6 people / 93 faces with a 62-face mega-cluster, suggesting
+over-merging vs the FC app on the same profile.
+
 ### SIGHTING-106: Configure & Run profile Save/Load drops all non-clustering params (e.g. sharpness)
 **Status**: FIXED (2026-06-25, spec-087) — code-review passed, no blockers
 **Severity**: High

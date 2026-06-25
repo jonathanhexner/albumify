@@ -8,6 +8,11 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-088 follow-ups (from specs/088-fc-export-in-unified-chain/REVIEW.md, 2026-06-25, non-blocking)
+
+- [ ] Integration test: run a small pipeline with "Export for analysis" on, assert an export dir is written and loads via `face_cluster.loader.load_pipeline_result` (covers AC1/AC3, which unit tests can't). | 2026-06-25 | Claude
+- [ ] Update `docs/architecture/data_flow.html` for the new `face_cluster_analysis_export` step. | 2026-06-25 | Claude
+
 ## spec-087 follow-ups (from specs/087-profile-save-full-config/REVIEW.md, 2026-06-25, non-blocking)
 
 - [ ] Streamlit `AppTest` for the profile bar save/load/rerun wiring (unit tests cover the pure helpers; the button-handler + widget-reinit path is not automatically tested). | 2026-06-25 | Claude

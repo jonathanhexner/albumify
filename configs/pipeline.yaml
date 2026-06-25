@@ -42,6 +42,7 @@ default_pipeline:
   - attach_holdout_faces
   - apply_diameter_cap
   - assign_people_clusters      # produces context.people_clusters (== old cluster_people output)
+  - face_cluster_analysis_export # spec-088: write FC-app export when "Export for analysis" is on (read-only)
   - identity_refinement         # Refine clusters with exemplar-based attachment
   - cluster_by_identity         # Sub-cluster scenes by identity
   - select_best                 # Smart selection with composite scoring (incl. frontal penalty)
