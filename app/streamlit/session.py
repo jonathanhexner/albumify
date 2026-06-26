@@ -14,6 +14,8 @@ class SessionState:
     # Current album
     current_album_id: Optional[str] = None
     current_album: Optional[Album] = None
+    # spec-090: which pipeline run of the album is being viewed (None = latest)
+    current_run_id: Optional[str] = None
 
     # Pipeline state
     pipeline_status: PipelineStatus = PipelineStatus.IDLE
@@ -53,6 +55,9 @@ def reset_session() -> None:
 def set_current_album(album: Album) -> None:
     """Set the current album."""
     state = get_session()
+    # spec-090: changing albums invalidates the run selection.
+    if state.current_album_id != album.album_id:
+        state.current_run_id = None
     state.current_album = album
     state.current_album_id = album.album_id
     # Reset related state
@@ -65,10 +70,21 @@ def clear_current_album() -> None:
     state = get_session()
     state.current_album = None
     state.current_album_id = None
+    state.current_run_id = None  # spec-090
     state.selected_cluster_id = None
     state.selected_person_id = None
     state.pipeline_progress = None
     state.pipeline_status = PipelineStatus.IDLE
+
+
+def set_current_run_id(run_id: Optional[str]) -> None:
+    """spec-090: set which run of the current album is being viewed."""
+    get_session().current_run_id = run_id
+
+
+def get_current_run_id() -> Optional[str]:
+    """spec-090: the run being viewed, or None for the album's latest."""
+    return get_session().current_run_id
 
 
 def update_pipeline_progress(progress: PipelineProgress) -> None:

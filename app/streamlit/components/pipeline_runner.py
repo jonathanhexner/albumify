@@ -203,6 +203,10 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
 
     steps = pipelines.get(selected_pipeline, [])
 
+    # spec-090 follow-up: one-time tutorial explaining every profile parameter.
+    from app.streamlit.components.param_guide import render_param_guide_link
+    render_param_guide_link(key="cfg_param_guide")
+
     # Get saved config values
     saved_filter = saved_config.get("filter_quality", {})
     saved_select = saved_config.get("select_best", {})

@@ -4,6 +4,39 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-108: adaptive merge-threshold params are inert (merge always uses the fixed threshold)
+**Status**: OPEN
+**Severity**: Medium
+**Reported**: 2026-06-26
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Five profile parameters that imply adaptive per-cluster merge thresholds have NO
+effect — the conservative merge always uses the fixed `merge_exemplar_threshold`:
+`use_adaptive_merge_threshold`, `merge_exemplar_percentile`,
+`merge_global_percentile`, `merge_threshold_alpha`, `merge_threshold_beta`.
+
+Evidence (`face_cluster/merge.py`):
+- `_merge_clusters_internal` (~:288-290): comment "Fixed exemplar threshold (no
+  adaptive computation)"; `cluster_thresholds = {}`; `global_threshold =
+  self.config.merge_exemplar_threshold`.
+- `_evaluate_merge_evidence` (:576-583): `merge_threshold = self.config.merge_exemplar_threshold`;
+  `T_a = T_b = T_global_val = None`. The adaptive percentiles/alpha/beta are never read.
+
+This is a config-knob-without-a-producer (the SIGHTING-060/061 class): the UI/profile
+expose tunables that silently do nothing, so a user "tuning" them changes no behaviour.
+
+**Symptoms**:
+- Changing any of the 5 adaptive params has zero effect on clustering output.
+- The FCParams descriptions/UI imply adaptive thresholds are used.
+
+**Suspicion / Fix**:
+Either (a) implement the adaptive threshold (compute T_local from intra-cluster
+exemplar distances at `merge_exemplar_percentile`, T_global at
+`merge_global_percentile`, blend `alpha*T_local + beta*T_global`, gate on it when
+`use_adaptive_merge_threshold`), or (b) remove the 5 dead knobs from FCParams/UI.
+Until then the parameter guide labels them "currently inactive".
+
 ### SIGHTING-107: Albumify "Export for analysis" toggle is dead (no FC export ever written)
 **Status**: FIXED (2026-06-25, spec-088) — code-review passed (no blockers); real-run verification is the user's check
 **Severity**: High

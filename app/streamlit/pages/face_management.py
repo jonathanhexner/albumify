@@ -64,14 +64,15 @@ def render_face_management_page() -> None:
 
 
 def _get_active_run_id(album_id: str) -> Optional[str]:
-    """Get the active pipeline run ID for an album."""
-    client = get_client()
-    results = client.list_results(album_id)
-    if results:
-        # Return the most recent result's job_id
-        latest = results[0]
-        return latest.get("job_id", latest.get("id", ""))
-    return None
+    """Get the active pipeline run ID for an album.
+
+    spec-090: honour the run picked elsewhere (session current_run_id); fall back
+    to the latest completed run.
+    """
+    from app.streamlit.session import get_current_run_id
+    from app.streamlit.components.run_selector import resolve_run_id
+    results = get_client().list_results(album_id)
+    return resolve_run_id(results, get_current_run_id())
 
 
 def _render_no_run_state() -> None:

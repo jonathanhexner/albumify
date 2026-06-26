@@ -6,9 +6,21 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image, ImageOps
 
-from app.streamlit.session import get_session
+from app.streamlit.session import get_session, get_current_run_id
 from app.streamlit.api_client import get_client
 from app.streamlit.models import Album
+
+
+def _pick_run(results: list) -> tuple:
+    """spec-090: resolve (job_id, result_dict) for the run the user picked
+    (session current_run_id), falling back to the latest. ``results`` is newest-first."""
+    from app.streamlit.components.run_selector import resolve_run_id
+    job_id = resolve_run_id(results, get_current_run_id())
+    latest = next(
+        (r for r in results if (r.get("job_id") or r.get("id")) == job_id),
+        results[0],
+    )
+    return job_id, latest
 from app.streamlit.components.album_selector import render_album_selector
 from app.streamlit.components.gallery import render_image_gallery, render_cluster_gallery
 from app.streamlit.components.metrics import render_pipeline_metrics, render_step_timings, render_image_metrics_table
@@ -51,6 +63,15 @@ def render_results_page() -> None:
     if not album:
         st.info("Select an album to view results.")
         return
+
+    # spec-090: pick which run of the album to view (sets session current_run_id;
+    # every tab below resolves the job_id from it via _pick_run()).
+    from app.streamlit.components.run_selector import render_run_selector
+    render_run_selector(album.album_id)
+
+    # spec-090 follow-up: link to the one-time parameter guide from the report.
+    from app.streamlit.components.param_guide import render_param_guide_link
+    render_param_guide_link(key="results_param_guide")
 
     st.divider()
 
@@ -127,8 +148,7 @@ def _render_results_tab(album: Album) -> None:
         st.info("No pipeline results yet. Run the pipeline first.")
         return
 
-    latest = results[0]
-    job_id = latest.get("job_id", latest.get("id", ""))
+    job_id, latest = _pick_run(results)
 
     # Store step_decisions + images in session for popup access
     st.session_state["_popup_step_decisions"] = latest.get("step_decisions") or []
@@ -152,7 +172,7 @@ def _render_results_tab(album: Album) -> None:
     st.divider()
 
     # People summary
-    people = client.get_people(album.album_id)
+    people = client.get_people(album.album_id, run_id=job_id)  # spec-090: picked run
     if people:
         render_people_summary_row(people)
         st.divider()
@@ -204,8 +224,7 @@ def _render_metrics_table_tab(album: Album) -> None:
         st.info("No pipeline results yet. Run the pipeline first.")
         return
 
-    latest = results[0]
-    job_id = latest.get("job_id", latest.get("id", ""))
+    job_id, latest = _pick_run(results)
 
     all_images = client.get_images(job_id)
     selected = client.get_selected_images(job_id)
@@ -223,8 +242,7 @@ def _render_comparisons_tab(album: Album) -> None:
         st.info("No pipeline results yet. Run the pipeline first.")
         return
 
-    latest = results[0]
-    job_id = latest.get("job_id", latest.get("id", ""))
+    job_id, latest = _pick_run(results)
 
     comparisons = client.get_comparisons(job_id)
 
@@ -306,8 +324,7 @@ def _render_subclusters_tab(album: Album) -> None:
         st.info("No pipeline results yet. Run the pipeline first.")
         return
 
-    latest = results[0]
-    job_id = latest.get("job_id", latest.get("id", ""))
+    job_id, latest = _pick_run(results)
 
     subclusters = client.get_subclusters(job_id)
 
@@ -384,8 +401,7 @@ def _render_export_tab(album: Album) -> None:
         st.info("No results to export. Run the pipeline first.")
         return
 
-    latest = results[0]
-    job_id = latest.get("job_id", latest.get("id", ""))
+    job_id, latest = _pick_run(results)
     num_selected = latest.get("num_selected", 0)
     total_filtered = latest.get("filtered_images", latest.get("total_images", 0))
 
