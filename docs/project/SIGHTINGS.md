@@ -4,6 +4,35 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-110: Configure & Run status poll ReadTimeout during heavy pipeline steps
+**Status**: FIXED (2026-06-26, spec-091 Phase 1)
+**Severity**: High
+**Reported**: 2026-06-26
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+The Configure & Run progress fragment (`_pipeline_progress_fragment`, polls every 2s)
+crashed with `ReadTimeout (read timeout=30)` / `ApiError` while a pipeline ran. The
+pipeline executes in the API process (FastAPI BackgroundTask → threadpool); a heavy
+CPU/IO step holds the GIL / blocks long enough that the status request can't complete
+within the 30s read timeout.
+
+Aggravated by spec-088: the re-enabled "Export for analysis" step
+(`face_cluster_export._generate_crops_from_bboxes`) re-opened each full source photo
+**per face** to write crops — the biggest avoidable blocking work, run on every pipeline
+because the toggle is on.
+
+**Fix (Phase 1)**:
+- Root reduction: the export now reuses the in-memory `face.aligned_face` crop produced
+  by `align_faces` (no per-face source decode) — see `_crop_from_aligned` /
+  `_crop_from_source`. tests/pipeline/test_export_crop_reuse.py.
+- Band-aid: `_pipeline_progress_fragment` catches `ApiError` and shows "still working,
+  retrying" instead of crashing; the fragment retries on its next tick.
+
+**Deferred (spec-091 Phase 1 remainder)**: caching aligned crops to disk so `align_faces`
+itself doesn't recompute across runs — touches the clustering input, needs the budapest
+e2e gate to verify embeddings/clustering are unchanged. Not shipped in this pass.
+
 ### SIGHTING-109: loading a profile doesn't restore config_* sliders (e.g. min_sharpness)
 **Status**: FIXED (2026-06-26)
 **Severity**: High

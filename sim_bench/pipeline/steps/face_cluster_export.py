@@ -167,54 +167,71 @@ def _generate_crops_from_bboxes(face_records, output_dir) -> Dict:
 
     manifest = {}
     saved = 0
+    reused = 0
 
     for face in face_records:
-        img_path = face.image_path or getattr(face, 'image_id', None)
-        if not img_path:
-            continue
-
-        bbox = face.bbox
-        if not bbox or len(bbox) < 4:
-            continue
-
         try:
-            with Image.open(img_path) as img:
-                img = ImageOps.exif_transpose(img)
-                img_w, img_h = img.size
+            # spec-091: the align_faces step already produced a 112x112-ish aligned
+            # crop in memory (face.aligned_face). Reuse it instead of re-decoding the
+            # full source photo per face (that re-decode starved the API -> SIGHTING-110).
+            crop = _crop_from_aligned(getattr(face, "aligned_face", None))
+            if crop is None:
+                crop = _crop_from_source(face)  # fallback: decode the source photo
+            else:
+                reused += 1
+            if crop is None:
+                continue
 
-                x, y, w, h = bbox
-                if all(0 <= v <= 1.0 for v in (x, y, w, h)):
-                    x, y, w, h = x * img_w, y * img_h, w * img_w, h * img_h
-
-                pad = 0.25 * min(w, h)
-                left = max(0, int(x - pad))
-                top = max(0, int(y - pad))
-                right = min(img_w, int(x + w + pad))
-                bottom = min(img_h, int(y + h + pad))
-
-                if right <= left or bottom <= top:
-                    continue
-
-                crop = img.crop((left, top, right, bottom))
-                crop = crop.resize((112, 112), Image.Resampling.LANCZOS)
-                crop = crop.convert("RGB")
-
-                filename = f"face_{face.face_id:04d}_aligned.jpg"
-                crop_path = crops_dir / filename
-                crop.save(crop_path, "JPEG", quality=85)
-
-                manifest[face.face_id] = f"crops/{filename}"
-                saved += 1
+            filename = f"face_{face.face_id:04d}_aligned.jpg"
+            crop.save(crops_dir / filename, "JPEG", quality=85)
+            manifest[face.face_id] = f"crops/{filename}"
+            saved += 1
         except Exception as e:
-            logger.debug(f"Failed to crop face {face.face_id} from {img_path}: {e}")
+            logger.debug(f"Failed to crop face {face.face_id}: {e}")
 
     # Write crop manifest
     manifest_path = output_dir / "crop_manifest.json"
     str_manifest = {str(k): v for k, v in manifest.items()}
     manifest_path.write_text(json.dumps(str_manifest, indent=2), encoding="utf-8")
 
-    logger.info(f"Generated {saved} face crops in {crops_dir}")
+    logger.info(f"Generated %d face crops in %s (%d reused aligned, %d from source)",
+                saved, crops_dir, reused, saved - reused)
     return manifest
+
+
+def _crop_from_aligned(aligned):
+    """spec-091: build a 112x112 RGB JPEG-ready crop from an in-memory aligned face
+    (BGR uint8 HxWx3 from align_faces). Returns a PIL Image, or None if unusable."""
+    if aligned is None or not hasattr(aligned, "ndim") or aligned.ndim != 3 or aligned.shape[2] != 3:
+        return None
+    try:
+        rgb = aligned[:, :, ::-1]  # align_faces uses cv2 (BGR) -> RGB for PIL
+        img = Image.fromarray(rgb).convert("RGB")
+        if img.size != (112, 112):
+            img = img.resize((112, 112), Image.Resampling.LANCZOS)
+        return img
+    except Exception:
+        return None
+
+
+def _crop_from_source(face):
+    """Fallback: cut the face from its original photo (the old heavy path)."""
+    img_path = face.image_path or getattr(face, "image_id", None)
+    bbox = face.bbox
+    if not img_path or not bbox or len(bbox) < 4:
+        return None
+    with Image.open(img_path) as img:
+        img = ImageOps.exif_transpose(img)
+        img_w, img_h = img.size
+        x, y, w, h = bbox
+        if all(0 <= v <= 1.0 for v in (x, y, w, h)):
+            x, y, w, h = x * img_w, y * img_h, w * img_w, h * img_h
+        pad = 0.25 * min(w, h)
+        left, top = max(0, int(x - pad)), max(0, int(y - pad))
+        right, bottom = min(img_w, int(x + w + pad)), min(img_h, int(y + h + pad))
+        if right <= left or bottom <= top:
+            return None
+        return img.crop((left, top, right, bottom)).resize((112, 112), Image.Resampling.LANCZOS).convert("RGB")
 
 
 def _write_merge_log_fallback(merge_log, output_dir):
