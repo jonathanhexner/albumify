@@ -4,6 +4,36 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-109: loading a profile doesn't restore config_* sliders (e.g. min_sharpness)
+**Status**: FIXED (2026-06-26)
+**Severity**: High
+**Reported**: 2026-06-26
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Saving a profile writes the value correctly (verified: `default11.json` has
+`config.filter_quality.min_sharpness = 0.05`), but **loading** the profile leaves
+the Sharpness slider on the old value (0.2, the API setting) instead of 0.05.
+
+Root cause: spec-087's load (`_apply_profile_to_session`) used a "delete the
+`config_*` widget keys and stage the profile config in `_pending_profile_config`,
+then let the sliders re-initialise from `value=`" trick (`_resolve_saved_config`).
+That does NOT reliably override an existing keyed widget in Streamlit — the slider
+keeps its prior session value, so the loaded value never reaches the UI.
+
+**Symptoms**:
+- Load a profile → quality/detection/selection sliders show their previous values,
+  not the profile's. Only the `rc_*` clustering widgets (set directly) restored.
+
+**Fix (applied)**:
+Load now **directly sets each `config_*` widget's session_state key** from the
+profile's nested config via an explicit `widget_key -> (config path)` map
+(`_WIDGET_FROM_CONFIG`). A keyed Streamlit widget always honours its session value,
+so the loaded value reliably shows. Removed the fragile `_pending_profile_config` /
+`_resolve_saved_config` indirection. Save path (full-config stash) unchanged.
+Tests: `tests/streamlit/test_profile_save_load.py` updated to assert the widget
+keys are set on load.
+
 ### SIGHTING-108: adaptive merge-threshold params are inert (merge always uses the fixed threshold)
 **Status**: OPEN
 **Severity**: Medium

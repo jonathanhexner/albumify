@@ -117,27 +117,60 @@ def _build_profile_payload(ss) -> dict:
     return {**flat, "config": dict(ss.get("_last_built_config", {}))}
 
 
+# SIGHTING-109: map each config_* widget's session key to where its value lives in
+# the saved profile's nested ``config``. Load sets the keys DIRECTLY from this map
+# (a keyed Streamlit widget always honours its session value) — the spec-087
+# "delete + re-init from value=" trick did not reliably override existing sliders.
+_WIDGET_FROM_CONFIG: dict = {
+    "config_det_conf": ("detect_persons", "confidence_threshold"),
+    "config_min_face_size": ("insightface_detect_faces", "min_face_size"),
+    "config_min_bbox_ratio": ("filter_faces", "min_bbox_ratio"),
+    "config_min_iqa": ("filter_quality", "min_iqa_score"),
+    "config_min_sharpness": ("filter_quality", "min_sharpness"),
+    "config_embedding_backend": ("extract_face_embeddings", "backend"),
+    "config_people_method": ("cluster_people", "method"),
+    "config_fc_export": ("cluster_people", "export_for_analysis"),
+    "config_people_min_cluster": ("cluster_people", "min_cluster_size"),
+    "config_people_min_cluster_pca": ("cluster_people", "min_cluster_size"),
+    "config_cluster_epsilon": ("cluster_people", "cluster_selection_epsilon"),
+    "config_cluster_epsilon_pca": ("cluster_people", "cluster_selection_epsilon"),
+    "config_pca_components": ("cluster_people", "pca_components"),
+    "config_knn_k": ("cluster_people", "k"),
+    "config_knn_sim_threshold": ("cluster_people", "similarity_threshold"),
+    "config_people_dist": ("cluster_people", "distance_threshold"),
+    "config_max_per_cluster": ("select_best", "max_images_per_cluster"),
+    "config_min_score": ("select_best", "min_score_threshold"),
+    "config_dup_thresh": ("select_best", "dissimilarity_threshold"),
+    "config_siamese": ("select_best", "siamese", "enabled"),
+}
+
+
+def _nested_get(d: dict, path: tuple):
+    """Walk a tuple path into nested dicts; return None if any hop is missing."""
+    cur = d
+    for p in path:
+        if not isinstance(cur, dict) or p not in cur:
+            return None
+        cur = cur[p]
+    return cur
+
+
 def _apply_profile_to_session(profile: dict, ss) -> None:
-    """spec-087: restore a profile into session_state. Flat ``rc_*`` keys are set directly
-    (clustering widgets read them); the nested ``config`` is staged as
-    ``_pending_profile_config`` and the live ``config_*`` widget keys are cleared so they
-    re-initialise from it via the normal ``saved_config`` path (no inverse mapping).
+    """spec-087 / SIGHTING-109: restore a profile into session_state.
+
+    Flat ``rc_*`` clustering keys are set directly (the FC clustering widgets read
+    them). The nested ``config`` blob's values are written DIRECTLY into their
+    ``config_*`` widget session keys via ``_WIDGET_FROM_CONFIG`` — this reliably
+    overrides the sliders (the old delete-and-reinit approach did not).
     """
     for k, v in profile.items():
         if k in _RC_PARAM_KEYS:
             ss[k] = v
-    nested = profile.get("config")
-    if nested:
-        ss["_pending_profile_config"] = nested
-        for k in [k for k in list(ss.keys()) if k.startswith("config_")]:
-            del ss[k]
-
-
-def _resolve_saved_config(ss, api_config: dict) -> dict:
-    """spec-087: a just-loaded profile's config wins for one render (one-shot), then the
-    widgets own their values via their own session keys; otherwise use the API settings."""
-    pending = ss.pop("_pending_profile_config", None)
-    return pending if pending is not None else api_config
+    nested = profile.get("config") or {}
+    for widget_key, path in _WIDGET_FROM_CONFIG.items():
+        val = _nested_get(nested, path)
+        if val is not None:
+            ss[widget_key] = val
 
 
 def _render_profile_bar() -> None:
@@ -186,9 +219,10 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
     # Load user's saved settings (cached)
     user_settings = _load_user_settings(_get_user_id())
     saved_pipeline = user_settings.get("selected_pipeline", "default_pipeline")
-    # spec-087: a just-loaded profile's config takes precedence for one render so the
-    # widgets initialise from it; otherwise fall back to the user's saved API settings.
-    saved_config = _resolve_saved_config(st.session_state, user_settings.get("config", {}))
+    # SIGHTING-109: a loaded profile writes its values straight into the widget
+    # session keys (see _apply_profile_to_session), so saved_config is just the
+    # API defaults for the first render / unset widgets.
+    saved_config = user_settings.get("config", {})
 
     # Pipeline selection
     default_index = pipeline_names.index(saved_pipeline) if saved_pipeline in pipeline_names else 0
