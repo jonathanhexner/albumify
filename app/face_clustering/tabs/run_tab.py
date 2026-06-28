@@ -72,6 +72,8 @@ def render_run_tab():
     st.header("Run Pipeline")
     _render_import_existing_run()
     render_profile_bar(_RUN_PARAM_KEYS, widget_prefix="run_")
+    from gphotos.ui_streamlit import render_import_button
+    render_import_button(key="fc_run", target_key="last_image_dir")
     col1, col2 = st.columns(2)
     with col1:
         image_dir = st.text_input(

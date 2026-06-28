@@ -48,6 +48,11 @@ def render_album_creator(on_created: Optional[Callable[[Album], None]] = None) -
         col1, col2 = st.columns([2, 1])
 
         with col1:
+            # Import button BEFORE the keyed text field: it sets
+            # session_state["new_album_source"] then st.rerun(), which is only
+            # valid while that widget has not yet been instantiated this run.
+            from gphotos.ui_streamlit import render_import_button
+            render_import_button(key="albumify_new_album", target_key="new_album_source")
             source_dir = st.text_input(
                 "Source Directory",
                 placeholder="C:/Photos/Vacation2024",

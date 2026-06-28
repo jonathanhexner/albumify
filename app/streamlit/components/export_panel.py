@@ -45,6 +45,47 @@ def render_export_panel(
             else:
                 _do_export(job_id, output_path, include_selected, include_all, organize_by_cluster, organize_by_person, copy_mode, on_export_complete)
 
+    _render_google_photos_export(job_id)
+
+
+def _render_google_photos_export(job_id: str) -> None:
+    """spec-092 P6: push selected images into an app-owned Google Photos album."""
+    with st.expander("Export to Google Photos", expanded=False):
+        if not Path("client_secret.json").exists():
+            st.caption(
+                ":grey[Unavailable - missing client_secret.json. See "
+                "specs/092-google-photos-integration/IMPLEMENTATION_GUIDE.html.]"
+            )
+            return
+        title = st.text_input("Album title", value="sim-bench album", key="gphotos_export_title")
+        st.caption(
+            "Creates a NEW album owned by this app - Google does not allow writing "
+            "into your existing albums."
+        )
+        if not st.button("Export to Google Photos", key="gphotos_export_btn"):
+            return
+
+        images = get_client().get_selected_images(job_id)
+        paths = [img.path for img in images if getattr(img, "path", None)]
+        if not paths:
+            st.warning("No selected images to export.")
+            return
+        with st.spinner(
+            f"Uploading {len(paths)} photo(s) to Google Photos - "
+            "consent in the browser on first run..."
+        ):
+            try:
+                from gphotos.export_album import export_album_to_google_photos
+                res = export_album_to_google_photos(paths, title)
+            except Exception as exc:  # surface, never crash the page
+                st.error(f"Export failed: {exc}")
+                return
+        st.success(
+            f"Exported to Google Photos album '{res.album_title}': "
+            f"{res.created} created, {res.skipped} skipped, {len(res.failed)} failed."
+        )
+        add_notification(f"Exported {res.created} photo(s) to Google Photos", "success")
+
 
 def _do_export(
     job_id: str,
