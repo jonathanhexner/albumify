@@ -3,10 +3,18 @@
 # Discovery
 from sim_bench.pipeline.steps.discover_images import DiscoverImagesStep
 
+# Geo-temporal (spec-022)
+from sim_bench.pipeline.steps.extract_geo_metadata import ExtractGeoMetadataStep
+from sim_bench.pipeline.steps.geo_temporal_segment import GeoTemporalSegmentStep
+from sim_bench.pipeline.steps.infer_geo_clip import InferGeoClipStep
+from sim_bench.pipeline.steps.infer_geo_coords import InferGeoCoordsStep
+from sim_bench.pipeline.steps.caption_images import CaptionImagesStep
+
 # Scoring
 from sim_bench.pipeline.steps.score_iqa import ScoreIQAStep
 from sim_bench.pipeline.steps.score_ava import ScoreAVAStep
 from sim_bench.pipeline.steps.score_face_quality import ScoreFaceQualityStep
+from sim_bench.pipeline.steps.score_quality import ScoreQualityStep  # spec-093
 
 # Face Scoring (individual steps for flexible pipelines)
 from sim_bench.pipeline.steps.score_face_pose import ScoreFacePoseStep
@@ -80,6 +88,12 @@ from sim_bench.pipeline.steps.face_cluster_analysis_export import FaceClusterAna
 __all__ = [
     # Discovery
     "DiscoverImagesStep",
+    # Geo-temporal (spec-022)
+    "ExtractGeoMetadataStep",
+    "GeoTemporalSegmentStep",
+    "InferGeoClipStep",
+    "InferGeoCoordsStep",
+    "CaptionImagesStep",
     # Scoring
     "ScoreIQAStep",
     "ScoreAVAStep",

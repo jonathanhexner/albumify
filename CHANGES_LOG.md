@@ -2,6 +2,25 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-06-29 [FEATURE] spec-093 Slices 1-2 — pyiqa scorers + generic ScoreQualityStep
+**Files**: `sim_bench/image_quality_models/pyiqa_model_wrapper.py` (new), `sim_bench/image_quality_models/model_factory.py`, `sim_bench/pipeline/context.py` (+method_scores), `sim_bench/pipeline/steps/score_quality.py` (new), `sim_bench/pipeline/steps/all_steps.py`, `tests/image_quality_models/test_pyiqa_model.py` (new), `tests/pipeline/test_score_quality_step.py` (new), `docs/architecture/data_flow.html`.
+**Change**: `PyIQAModel` (BaseQualityModel) fronts maniqa/musiq/hyperiqa/brisque/niqe/clipiqa via pyiqa, direction-normalized to higher=better (raw_score keeps un-flipped value). `ScoreQualityStep` runs N methods over images, caching per-method (`quality_<method>`) in universal_cache, writing `context.method_scores`. 10 unit tests pass + real brisque/niqe run on finger_occlusion examples.
+**Reason**: spec-093 backend (Slice 3 app descoped → owned by spec-094). Integration point corrected from the archived legacy QualityAssessor registry to the live `image_quality_models` factory where AVA/IQA live. NOTE: spec-094 engine (built in parallel) can adopt these pyiqa keys into its image_quality family.
+
+### 2026-06-29 [FEATURE] spec-094 Slice 2 — Image Analysis Studio engine
+**Files**: new `app/image_studio/{__init__.py,engine.py}`; new `tests/image_studio/{__init__.py,test_engine.py}`.
+**Change**: Pure (no-UI) generalized comparison engine. `AnalysisColumn` normalizes any method's
+output (kind = numeric|label_conf|text|coord, with sort_value + display + full top-k). `discover_images`
+filters/sorts/caps a folder. A method registry maps keys to `universal_cache`-backed steps across two
+families — geo_location_and_caption (exif, streetclip, geoclip, blip) and image_quality (iqa, sharpness,
+ava) — each with an availability check. `run_methods(paths, selected, cache_handler=, config=, progress=)`
+runs only selected methods, dedups shared backing steps (iqa+sharpness → one score_iqa run), skips a
+failing method without sinking the run, and returns `{path:{key:AnalysisColumn}}`. `available_methods()`
++ `categories()` drive the Slice-3 UI. 12 unit tests pass; real-data smoke over Budapest EXIF via
+universal_cache verified.
+**Reason**: spec-094 Slice 2 — one engine + uniform column model so IQA and geo/caption families share
+storage and rendering; "flat vs category tabs" becomes a pure view concern (Slice 3).
+
 ### 2026-06-29 [REFACTOR] spec-094 Slice 1 — geo/vision steps persist via universal_cache
 **Files**: `sim_bench/pipeline/steps/{extract_geo_metadata,infer_geo_clip,infer_geo_coords,caption_images}.py`;
 `geo_cluster/{captioning,streetclip,geoclip_locator}.py`; deleted `geo_cluster/_imcache.py`;

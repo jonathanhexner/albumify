@@ -1,6 +1,6 @@
 # Spec 093 — IQA Method Comparison
 
-**Status:** Draft
+**Status:** Code Review (backend Slices 1-2 done + REVIEW.md PASS; Slice 3 superseded by spec-094)
 **Author:** Jonathan Hexner
 **Created:** 2026-06-29
 
@@ -65,16 +65,26 @@ Album path ─► DiscoverImagesStep ─► ScoreQualityStep(methods=[...]) ─�
           normalizes via metric.lower_better
 ```
 
-### 1. `PyIQAQuality` scorer (`sim_bench/quality_assessment/pyiqa_quality.py`)
+### 1. `PyIQAModel` scorer (`sim_bench/image_quality_models/pyiqa_model_wrapper.py`)
 
-- Subclass of `QualityAssessor`; one class, registered under each pyiqa metric
-  name: `maniqa`, `hyperiqa`, `brisque`, `niqe`, `clipiqa`.
-  (`musiq` already has a class wrapping pyiqa — leave it.)
-- `__init__(metric_name, device)` lazily calls `pyiqa.create_metric(metric_name)`.
-- `assess_image` returns a float; **normalize direction** so higher = better
-  by reading `metric.lower_better` (flip BRISQUE / NIQE).
-- `is_available()` returns `False` (not raise) when `pyiqa` is not importable,
-  so the app/registry can grey the method out.
+**Corrected integration point (2026-06-29):** the legacy `QualityAssessor` +
+`QualityMethodRegistry` referenced in the original draft is **archived** under
+`sim_bench/legacy/`. The live abstraction is `sim_bench/image_quality_models/`
+(`BaseQualityModel` + `MODEL_REGISTRY` / `create_model`), where AVA and IQA
+already live. PyIQA plugs in there for consistency.
+
+- Subclass of `BaseQualityModel`; ONE class, registered in `MODEL_REGISTRY`
+  under each pyiqa metric type: `maniqa`, `musiq`, `hyperiqa`, `brisque`,
+  `niqe`, `clipiqa`.
+- `__init__(metric_name, device)` lazily `import pyiqa; pyiqa.create_metric(...)`;
+  reads `metric.lower_better`.
+- `score_image()` returns a float honoring the `BaseQualityModel` contract
+  (**higher = better**): negates the raw value when `lower_better` (BRISQUE/NIQE).
+- `raw_score()` exposes the un-flipped pyiqa value for display; the comparison
+  UI shows raw + ranks by `score_image`.
+- `is_available()` classmethod returns `False` (not raise) when `pyiqa` is not
+  importable, so the studio (spec-094) can grey the method out.
+- `from_config(config)` reads the metric name from `config['type']`.
 
 ### 2. `ScoreQualityStep` (`sim_bench/pipeline/steps/score_quality.py`)
 

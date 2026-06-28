@@ -7,6 +7,7 @@ import numpy as np
 
 if TYPE_CHECKING:
     from sim_bench.pipeline.cache_handler import UniversalCacheHandler
+    from geo_cluster.types import GeoMetadata
 
 from face_cluster.filter_context import FilterContext
 
@@ -37,10 +38,34 @@ class PipelineContext:
     # Discovery
     image_paths: list[Path] = field(default_factory=list)
 
+    # Geo-temporal metadata (spec-022): EXIF GPS + capture time, keyed by
+    # image path string. Produced by the extract_geo_metadata step; absent
+    # fields are None (graceful degradation, FR-011).
+    geo_metadata: dict[str, "GeoMetadata"] = field(default_factory=dict)
+
+    # Geo-temporal segmentation (spec-022): produced by geo_temporal_segment.
+    # geo_segments is the winning axis's segments (empty if FLAT); geo_home is
+    # the auto-detected home anchor (lat, lon) or None.
+    geo_segments: list = field(default_factory=list)
+    geo_home: Optional[tuple] = None
+
+    # Vision-model outputs (spec-022): StreetCLIP city guesses + BLIP captions,
+    # keyed by image path string.
+    # geo_clip_predictions[path] = [{"label": "Budapest, Hungary", "score": 0.87}, ...] top-k (StreetCLIP)
+    geo_clip_predictions: dict[str, list] = field(default_factory=dict)
+    # geo_coord_predictions[path] = [{"lat":.., "lon":.., "prob":.., "place":"Budapest, HU"}, ...] (GeoCLIP)
+    geo_coord_predictions: dict[str, list] = field(default_factory=dict)
+    image_captions: dict[str, str] = field(default_factory=dict)
+
     # Analysis scores (keyed by image path string)
     iqa_scores: dict[str, float] = field(default_factory=dict)
     ava_scores: dict[str, float] = field(default_factory=dict)
     sharpness_scores: dict[str, float] = field(default_factory=dict)
+
+    # spec-093: generic multi-method quality scores from ScoreQualityStep.
+    # In-run hand-off only (persistence is universal_cache); keyed
+    # path -> {method: score} where score honors higher=better.
+    method_scores: dict[str, dict[str, float]] = field(default_factory=dict)
 
     # spec-040 Phase 3: canonical Pydantic representation for face state.
     # Producer steps (insightface_detect_faces, align_faces, score_*,

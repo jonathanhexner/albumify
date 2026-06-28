@@ -9,24 +9,26 @@
       Weights download to `~/.cache/torch/hub/pyiqa/`; maniqa cold-load ≈7s.
       `lower_better`: brisque/niqe = True, maniqa = False → direction-flip confirmed.
 
-## Slice 1 — PyIQA scorer
-- [ ] T1.1 `sim_bench/quality_assessment/pyiqa_quality.py`: `PyIQAQuality`
-      (lazy `create_metric`, `assess_image`, direction-normalize via
-      `metric.lower_better`, `is_available`).
-- [ ] T1.2 Register under maniqa/hyperiqa/brisque/niqe/clipiqa; import in
-      whatever module the registry auto-loads (mirror musiq/cnn_methods).
-- [ ] T1.3 `ut_PyIQAQuality` unit test (availability + normalization on mock).
-- [ ] T1.4 CHANGES_LOG entry [FEATURE].
+## Slice 1 — PyIQA scorer  ✅ DONE 2026-06-29
+- [x] T1.1 `sim_bench/image_quality_models/pyiqa_model_wrapper.py`: `PyIQAModel`
+      (BaseQualityModel; lazy `create_metric`; `score_image` direction-normalized
+      via `lower_better`; `raw_score`; `is_available`). NOTE: integration point
+      corrected to `image_quality_models` (legacy QualityAssessor archived).
+- [x] T1.2 Registered maniqa/musiq/hyperiqa/brisque/niqe/clipiqa in
+      `model_factory.MODEL_REGISTRY` (all front PyIQAModel).
+- [x] T1.3 `tests/image_quality_models/test_pyiqa_model.py` (6 tests:
+      registry, availability, direction both branches, from_config, real BRISQUE).
+- [x] T1.4 CHANGES_LOG entry.
 
-## Slice 2 — Generic pipeline step
-- [ ] T2.1 Add `method_scores: Dict[str, Dict[str, float]]` to `PipelineContext`.
-- [ ] T2.2 `sim_bench/pipeline/steps/score_quality.py` `ScoreQualityStep`
-      (thin; dispatch via registry; per-(image,method) cache).
-- [ ] T2.3 Register in `all_steps.py`.
-- [ ] T2.4 `test_score_quality_step`: dispatch + cache-hit on 2nd run, over
-      `examples/finger_occlusion/`.
-- [ ] T2.5 Update `docs/architecture/` (classes + pipeline step list).
-- [ ] T2.6 CHANGES_LOG entry.
+## Slice 2 — Generic pipeline step  ✅ DONE 2026-06-29
+- [x] T2.1 Added `method_scores: dict[str, dict[str, float]]` to `PipelineContext`.
+- [x] T2.2 `sim_bench/pipeline/steps/score_quality.py` `ScoreQualityStep`
+      (overrides process() for per-method `quality_<method>` cache namespace).
+- [x] T2.3 Registered in `all_steps.py`.
+- [x] T2.4 `tests/pipeline/test_score_quality_step.py` (dispatch, cache-hit,
+      unknown-method skip, empty album). Plus real brisque+niqe run on examples.
+- [x] T2.5 Updated `docs/architecture/data_flow.html` (step + method_scores field).
+- [x] T2.6 CHANGES_LOG entry.
 
 ## Slice 3 — Standalone comparison app  ❌ SUPERSEDED BY spec-094
 The standalone IQA app is replaced by spec-094 (Image Analysis Studio), whose
