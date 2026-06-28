@@ -4,6 +4,54 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-111: Three conflicting OpenCV variants installed in .venv
+**Status**: FIXED (2026-06-29)
+**Severity**: Medium
+**Reported**: 2026-06-29 (found during spec-093 Task 0 pyiqa spike)
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`.venv` has THREE packages that all ship the same `cv2` module and overwrite each
+other's files:
+- `opencv-python` 4.11.0.86
+- `opencv-contrib-python` 4.9.0.80
+- `opencv-python-headless` 4.11.0.86 (re-pinned from 4.13 by the pyiqa install)
+
+Because they install into the same `cv2/` dir, the active build is whichever pip
+wrote last — non-deterministic across reinstalls, and pip metadata is inconsistent.
+This is what caused the `WinError 5: cv2.pyd Access is denied` mid-install when apps
+were running (the file was being swapped while loaded).
+
+**Suspicion / root cause**: incremental installs over time each pulled a different
+opencv flavor; nothing pinned a single one in `setup.cfg`.
+
+**Reproduction**: `.venv/Scripts/pip list | findstr opencv` -> 3 rows.
+
+**Proposed fix (separate task, has blast radius - every `cv2` import)**:
+1. `grep` for GUI calls (`cv2.imshow`, `cv2.namedWindow`, `cv2.waitKey`) to decide
+   headless-vs-GUI. This is a server/Streamlit app -> likely none -> headless is fine.
+2. Uninstall all three; reinstall exactly ONE (`opencv-contrib-python` if contrib
+   modules are used and GUI is needed; else `opencv-python-headless`).
+3. Pin it in `setup.cfg`. Run the test suite + a cv2-using pipeline step.
+
+**Resolution (2026-06-29)**:
+Collapsed to ONE variant: **`opencv-contrib-python==4.11.0.86`** (the superset).
+Steps: uninstalled all three, deleted the leftover `site-packages/cv2/` dir, fresh
+install, refreshed editable `sim-bench` metadata, widened `setup.cfg` pin to
+`>=4.8,<4.12`.
+
+Key learning — **no single opencv package satisfies every dependent's declared
+name**: `mediapipe` + our own pkg want `opencv-contrib-python`; `facexlib`,
+`sixdrepnet`, `ultralytics` want `opencv-python`; `pyiqa`, `albucore`,
+`albumentations` want `opencv-python-headless`. They all merely `import cv2`, which
+ANY variant provides, so the superset (contrib) is functionally correct for all.
+`pip check` still emits cosmetic name-mismatch lines for the headless/plain
+declarers — **expected and harmless**; verified by importing cv2, mediapipe,
+ultralytics, insightface, facexlib, pyiqa (all OK). Chose contrib over headless
+because `mediapipe` (core dep) declares contrib and contrib is a strict superset.
+
+---
+
 ### SIGHTING-110: Configure & Run status poll ReadTimeout during heavy pipeline steps
 **Status**: FIXED (2026-06-26, spec-091 Phase 1)
 **Severity**: High

@@ -6,6 +6,11 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-06-29: Multiple OpenCV PyPI variants silently corrupt the cv2 install
+**Root cause**: `opencv-python`, `opencv-contrib-python`, `opencv-python-headless` are separate PyPI names but all unpack into the SAME `site-packages/cv2/` dir — last installer wins. Different deps pull different variants (mediapipe→contrib, ultralytics/facexlib→plain, pyiqa/albumentations→headless), so three accumulated. The live build was headless (GUI:NONE) even though pip listed the GUI package as installed — pip metadata != disk truth. Also caused a `WinError 5: cv2.pyd Access denied` when swapping while an app held it loaded.
+**Lesson**: No single opencv package satisfies all dependents' declared *names*, so `pip check` will always warn — but functionally they all just `import cv2`, which any one variant provides. Install exactly ONE (the superset `opencv-contrib-python`); treat the residual name-mismatch warnings as cosmetic after verifying the real importers load.
+**Prevention**: One opencv pinned in `setup.cfg` (`opencv-contrib-python>=4.8,<4.12`); SIGHTING-111 documents the diagnosis + the "name vs import" rule. When a heavy ML dep is added, `pip check` for opencv duplication.
+
 ### 2026-06-25: bbox unit mismatch (pixels vs [0,1]) silently degrades to a placeholder
 **Root cause**: spec-079's `FaceRecord.bbox` is in PIXELS; `people_service._bbox_to_xywh` only reshaped it (its docstring lied — said "normalize") while every Streamlit consumer multiplies by image dims, assuming [0,1]. Pixel×dims goes off-canvas → PIL crop collapses → `_load_face_thumbnail` returns None → gray avatar for ALL people. No exception, no log — just a silently wrong image.
 **Lesson**: A geometry value crossing a module boundary needs its UNIT in the contract, not just its shape. "xywh" is ambiguous; "xywh normalized [0,1]" is not. Helpers named "normalize" must actually normalize.
