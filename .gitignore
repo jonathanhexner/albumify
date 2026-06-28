@@ -266,3 +266,10 @@ sim_bench/analysis/reports/*.pdf
 # Face-pipeline diagnostic artifacts (generated)
 docs/project/face_pipeline_crops*/
 docs/project/face_pipeline_diagnostic*.html
+
+# Google OAuth client secrets + tokens (spec-092) — never commit
+client_secret.json
+client_secret_*.apps.googleusercontent.com.json
+client_secret_*.json
+*gphotos_token*.json
+*gphotos_library_token*.json
