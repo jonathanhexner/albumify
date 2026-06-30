@@ -5,33 +5,31 @@
 > derived from the spec's user stories + acceptance criteria, not the original.
 
 ## Slice 1 — Pure engine helpers (no Streamlit)
-- [ ] T1.1 `app/geo_vision/engine.py`: `discover_images(folder, limit)` — filter
-      by image ext, sort, cap; empty/missing dir → `[]` (AC1).
-- [ ] T1.2 `run_models(paths, selected)` — call each `geo_cluster` helper's
-      `.calc(Inputs)` only for checked models; unchecked absent from output (AC2).
-      Reuse existing JSON disk caches; lazy model load (FR-2, FR-3).
-- [ ] T1.3 `accuracy_summary(meta, sclip, gclip)` — hits/total per model,
-      ignoring EXIF-less images (AC3).
-- [ ] T1.4 Unit tests `ut_GeoVisionEngine` for T1.1–T1.3 (AC1–3, AC6 no-raise).
+**BUILD CHANGE:** Slice 1 engine is NOT rebuilt — reuse spec-094's
+`app.image_studio.engine` (discover_images, run_methods). 095 = the geo view layer.
 
-## Slice 2 — Streamlit app
-- [ ] T2.1 `app/geo_vision/main.py`: sidebar (folder text, limit, model
-      checkboxes), Run button, progress bar (US1).
-- [ ] T2.2 Summary panel: #imgs, EXIF GPS/time coverage, home anchor,
-      segmentation outcome.
-- [ ] T2.3 Results table — one row/image: thumbnail (HEIC via `pillow_heif`),
-      EXIF time/GPS, StreetCLIP top-3 + score bars, GeoCLIP top-3 + prob bars,
-      BLIP caption, ✓/✗ vs EXIF (US2, US3, FR-4 honest-confidence label).
-- [ ] T2.4 Edge cases: missing/empty folder, EXIF-less, corrupt image, unchecked
-      model, model-download notice, limit-cap with skipped-count log (FR-5).
+- [x] T1.1 `discover_images` — reused from 094 engine.
+- [x] T1.2 `run_models` — reused as 094's `run_methods` (geo family, universal_cache).
+- [x] T1.3 `geoclip_accuracy` (haversine vs EXIF, EXIF-less skipped) in `geo_view.py`.
+      [StreetCLIP city accuracy omitted — no coord/ground-truth; see REVIEW M2.]
+- [x] T1.4 `tests/geo_vision/test_geo_view.py` — 7 tests (haversine, accuracy
+      hit/miss, EXIF-less skip, map points, csv). All pass.
 
-## Slice 3 — Export + map
-- [ ] T3.1 CSV download with metadata mandate: source path, capture ts, run ts,
-      model names+versions (AC7, FR-6, US4).
-- [ ] T3.2 Map: EXIF (green) vs GeoCLIP#1 (orange) pins (US4).
+## Slice 2 — Streamlit app  ✅ DONE 2026-06-30
+- [x] T2.1 `app/geo_vision/main.py`: sidebar (folder, limit, geo checkboxes by
+      availability), Run, progress bar. Path bootstrap for Streamlit sys.path.
+- [x] T2.2 Summary: #images, EXIF-GPS coverage, GeoCLIP within-Nkm accuracy.
+- [x] T2.3 Per-image rows: thumbnail (HEIC via pillow_heif), EXIF, StreetCLIP/
+      GeoCLIP top-3 confidence bars (labelled "relative, not accuracy"), BLIP caption.
+- [x] T2.4 Edge cases: missing/empty folder warning; unavailable model greyed;
+      cache best-effort. Verified live (Playwright) incl. empty-path case.
+
+## Slice 3 — Export + map  ✅ DONE 2026-06-30
+- [x] T3.1 CSV download (`csv_rows`).
+- [x] T3.2 Map: EXIF (green) vs GeoCLIP#1 (orange) via `map_points` + `st.map`.
 
 ## Close-out
-- [ ] T4.1 Manual run + screenshot over Budapest (AC4, AC5).
-- [ ] T4.2 README in `app/geo_vision/`; CHANGES_LOG entry.
-- [ ] T4.3 Run `/code-review` → `specs/095-geo-vision-studio/REVIEW.md`; resolve
-      high-severity findings; flip to Implemented.
+- [x] T4.1 Live Playwright run over the Budapest examples — summary + map +
+      thumbnail rendered (screenshot verified). Full-model run = manual follow-up (REVIEW M1).
+- [x] T4.2 README in `app/geo_vision/`; CHANGES_LOG entry.
+- [x] T4.3 REVIEW.md written — PASS, no high-severity.

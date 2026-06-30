@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-06-30 [FEATURE] spec-095 — Geo-Vision Studio (on the spec-094 engine)
+**Files**: `app/geo_vision/{__init__.py,geo_view.py,main.py,README.md}` (new), `tests/geo_vision/test_geo_view.py` (new), `specs/095-geo-vision-studio/{spec.md,tasks.md,REVIEW.md}`.
+**Change**: Standalone Streamlit app for geo/vision model inspection, built as a thin UI over the spec-094 engine (`run_methods`, universal_cache) — NO duplicate engine. `geo_view.py` pure helpers: haversine, geoclip_accuracy (top-1 vs EXIF GPS), map_points (EXIF/GeoCLIP), csv_rows. `main.py`: sidebar model checkboxes, summary metrics, EXIF-vs-GeoCLIP map, per-image confidence bars + thumbnails, CSV. 7 unit tests pass; live Playwright run over Budapest examples rendered summary + map + thumbnail (screenshot verified).
+**Reason**: spec-095 implemented (user-approved build-on-094 decision). Avoids duplicating 094's geo engine; 095 owns only the map/confidence view layer.
+
 ### 2026-06-29 [FEATURE] spec-093 Slices 1-2 — pyiqa scorers + generic ScoreQualityStep
 **Files**: `sim_bench/image_quality_models/pyiqa_model_wrapper.py` (new), `sim_bench/image_quality_models/model_factory.py`, `sim_bench/pipeline/context.py` (+method_scores), `sim_bench/pipeline/steps/score_quality.py` (new), `sim_bench/pipeline/steps/all_steps.py`, `tests/image_quality_models/test_pyiqa_model.py` (new), `tests/pipeline/test_score_quality_step.py` (new), `docs/architecture/data_flow.html`.
 **Change**: `PyIQAModel` (BaseQualityModel) fronts maniqa/musiq/hyperiqa/brisque/niqe/clipiqa via pyiqa, direction-normalized to higher=better (raw_score keeps un-flipped value). `ScoreQualityStep` runs N methods over images, caching per-method (`quality_<method>`) in universal_cache, writing `context.method_scores`. 10 unit tests pass + real brisque/niqe run on finger_occlusion examples.
