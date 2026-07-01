@@ -20,6 +20,12 @@ geo-specific view layer:
   family + availability), Run → `run_methods`, then summary metrics, the map,
   per-image confidence bars + thumbnails, and CSV export.
 
+## Related app — which to use
+This app is the **geo-only** deep dive (map + top-1 accuracy vs EXIF). For comparing **all**
+families (image quality + geo + caption) in category tabs with sortable per-method scores, use
+**`app/image_studio`** (spec-094) — the generalized studio on the same engine. Both call
+`run_methods`; neither duplicates scoring logic.
+
 ## Notes
 - Confidence is **relative ranking, not accuracy** (labelled in the UI).
 - First run downloads CLIP/BLIP weights (~1.6GB); re-runs hit `universal_cache`.
