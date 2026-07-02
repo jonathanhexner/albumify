@@ -1,12 +1,18 @@
 # spec-095 — Geo-Vision Studio (standalone Streamlit app)
 
-**Created**: 2026-06-29 · **Status**: Code Review (implemented on the spec-094 engine; REVIEW.md PASS) · **Priority**: P2
+**Created**: 2026-06-29 · **Status**: MERGED INTO spec-094 (standalone app retired) · **Priority**: P2
 
-> **Build decision (2026-06-30, user-approved):** built as a thin UI **on top of the
-> spec-094 engine** (`app.image_studio.engine.run_methods`, universal_cache-backed),
-> NOT a duplicate engine over `geo_cluster` helpers. 095 owns only its unique view
-> layer: confidence bars + the EXIF-vs-GeoCLIP map + geo accuracy. The pure helpers
-> live in `app/geo_vision/geo_view.py`; the app is `app/geo_vision/main.py`.
+> **Consolidation (2026-07-03, user-approved):** the standalone Geo-Vision Studio is
+> **merged into spec-094 (Image Analysis Studio)** — one app, not two. Its unique parts
+> (EXIF-vs-GeoCLIP **map**, GeoCLIP-within-Nkm **accuracy**, **confidence bars**) become
+> the **Geo & Caption** tab of spec-094's Browse Run page. See
+> `specs/094-image-analysis-studio/{ARCHITECTURE.html,MOCK.html}`.
+>
+> **Kept:** `app/geo_vision/geo_view.py` (pure helpers: haversine, geoclip_accuracy,
+> map_points, csv_rows) + its tests — imported by the studio. **Dropped:**
+> `app/geo_vision/main.py` (the standalone Streamlit app).
+>
+> Original build (2026-06-30): a thin UI on the spec-094 engine. Superseded by the merge.
 **Source**: user — wants a standalone Streamlit app to point at any photo folder and run the
 spec-022 vision/geo models (StreetCLIP, GeoCLIP, BLIP) + EXIF, and inspect what each gives
 per image, including the model confidence.

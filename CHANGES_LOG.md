@@ -2,6 +2,46 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-07-03 [DOCS] spec-094 v2 design — consolidate 095, Configure/Browse UI, RunStore
+**Files**: `specs/094-image-analysis-studio/{ARCHITECTURE.html,MOCK.html,spec.md}`; `specs/095-geo-vision-studio/spec.md`.
+**Change**: Design artifacts for the consolidated Image Analysis Studio. ARCHITECTURE.html (5-layer diagram, method families, data flow, run-storage, 095 consolidation, spec map) + MOCK.html (navbar Configure Run / Browse Run, method-family checkboxes, results table, folded-in geo map — both pages screenshot-verified). spec-094 gains v2 design decisions; spec-095 marked MERGED INTO 094 (standalone geo app retired, geo_view.py kept). No app code changed yet — design/mock only, ahead of implementation.
+**Reason**: User asked to consolidate the two overlapping apps into one and produce architecture + mock for the spec. Run persistence = sub-folders (RunStore) now, DB later (strangler-fig).
+
+### 2026-07-01 [FEATURE] spec-094 Slice 4 — wire spec-093 pyiqa metrics + reconcile spec-095
+**Files**: `app/image_studio/engine.py`; `tests/image_studio/test_engine.py`;
+`app/image_studio/README.md`; `app/geo_vision/README.md`.
+**Change**: (1) Wired spec-093's pyiqa metrics (maniqa/musiq/hyperiqa/brisque/niqe/clipiqa) into the
+engine's image_quality family via `ScoreQualityStep`, mapping `ctx.method_scores[path][metric]` to
+numeric AnalysisColumns. All share `step_id="score_quality"`; `run_methods` now GROUPS methods by
+backing step and MERGES their configs (`methods` lists unioned via new `_merge_configs`), so
+maniqa+niqe run as one score_quality call — fixing a latent bug where a distinct step_id per metric
+would let each `ScoreQualityStep.process` (which replaces `ctx.method_scores`) wipe the previous
+metric. Availability via `PyIQAModel.is_available`; old iqa/sharpness/ava retained. (2) Per user
+decision, kept both `app/image_studio` (all-families studio) and `app/geo_vision` (spec-095 geo
+map/accuracy deep-dive) and cross-linked "which to use" tables in both READMEs. 3 new tests (config
+merge, single-run-for-two-metrics, registry); full geo+studio suite 38 passed; real brisque+niqe smoke
+over Budapest via universal_cache (scored together, 2nd run cached).
+**Reason**: spec-094 image_quality family should consume 093's ScoreQualityStep/method_scores (per
+094's dependency note); resolve the two-geo-studio overlap by documentation, not code churn.
+
+### 2026-06-30 [FEATURE] spec-094 Slice 3 — Image Analysis Studio app (Streamlit)
+**Files**: new `app/image_studio/{main.py,view.py,README.md}`.
+**Change**: Standalone Streamlit studio over the Slice-2 engine. Sidebar: folder + image limit +
+method checkboxes grouped by category (unavailable greyed). Run executes `engine.run_methods` with a
+real `universal_cache` handler (`get_session_direct()`, shared with Albumify) + a progress bar.
+Results render as per-category `st.tabs` (geo_location_and_caption | image_quality) plus a flat **All**
+tab; each is a clickable `st.button` thumbnail grid (v2 rule — not `st.dataframe`) + a sortable table
+(numeric-column sort + Desc) with confidence bars labelled "relative, not accuracy". Clicking a
+thumbnail enlarges it with all columns + top-k expanders. CSV export carries the metadata mandate
+(source path, run timestamp, spec version, folder). `main.py` prepends repo root to `sys.path`
+(Streamlit runs the file directly). Verified live via Playwright over 12 Budapest images
+(EXIF+StreetCLIP+BLIP+IQA): tabs, sort, bars, 36 clickable thumbs, click-to-enlarge all working with
+real values; screenshots captured. NOTE overlap to reconcile: spec-095 `app/geo_vision` is also a
+geo studio on this engine, and spec-093 shipped `ScoreQualityStep`/`method_scores` (pyiqa) that the
+094 engine's image_quality family does NOT yet consume (still maps old score_iqa/score_ava).
+**Reason**: spec-094 Slice 3 — the human-facing comparison studio; closes the end state (clickable
+thumbnail, sortable per-method scores, category tabs).
+
 ### 2026-06-30 [FEATURE] spec-095 — Geo-Vision Studio (on the spec-094 engine)
 **Files**: `app/geo_vision/{__init__.py,geo_view.py,main.py,README.md}` (new), `tests/geo_vision/test_geo_view.py` (new), `specs/095-geo-vision-studio/{spec.md,tasks.md,REVIEW.md}`.
 **Change**: Standalone Streamlit app for geo/vision model inspection, built as a thin UI over the spec-094 engine (`run_methods`, universal_cache) — NO duplicate engine. `geo_view.py` pure helpers: haversine, geoclip_accuracy (top-1 vs EXIF GPS), map_points (EXIF/GeoCLIP), csv_rows. `main.py`: sidebar model checkboxes, summary metrics, EXIF-vs-GeoCLIP map, per-image confidence bars + thumbnails, CSV. 7 unit tests pass; live Playwright run over Budapest examples rendered summary + map + thumbnail (screenshot verified).

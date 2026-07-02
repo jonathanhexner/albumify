@@ -1,9 +1,27 @@
 # spec-094 — Image Analysis Studio (generalized per-image multi-method comparison)
 
-**Created**: 2026-06-29 · **Status**: Draft · **Priority**: P2
+**Created**: 2026-06-29 · **Status**: Draft (v2 design) · **Priority**: P2
 **Source**: user — wants one place to point at a folder, run many per-image analyses
 (image quality, geo-location, caption, …), and inspect every model's output in a
 clickable-thumbnail + sortable table, grouped into category tabs.
+
+## Design artifacts (2026-07-03)
+- **[ARCHITECTURE.html](ARCHITECTURE.html)** — layered architecture, method families, data flow,
+  run-storage design, the spec-095 consolidation, and the spec map.
+- **[MOCK.html](MOCK.html)** — UI mock of the consolidated app (navbar: Configure Run / Browse Run,
+  method families, results table, folded-in geo map).
+
+## v2 design decisions (2026-07-03, user-approved)
+1. **Consolidate spec-095 into this app.** The standalone Geo-Vision Studio is retired; its map +
+   GeoCLIP-vs-EXIF accuracy + confidence bars become the **Geo & Caption** tab of Browse Run.
+   `app/geo_vision/geo_view.py` (pure helpers) is kept and imported; `geo_vision/main.py` is dropped.
+2. **Two-page navbar: Configure Run | Browse Run.** Configure Run = today's sidebar (folder + methods +
+   Run + progress). Browse Run = pick a saved run → results table + map (no recompute). Replaces the
+   current single-page (config-in-sidebar, results-inline) layout.
+3. **Run persistence = sub-folders (RunStore).** Each run snapshots to
+   `<folder>/.studio_runs/<run_id>/{run.json,results.csv}` via a `FolderRunStore`. Scores still cache in
+   `universal_cache` (the sub-folder is the run manifest, not the scores). A future `DbRunStore` swaps to
+   the Albumify universal DB behind the same interface — **do not build the DB now** (strangler-fig).
 
 ## Problem
 We have several per-image analyses scattered across the pipeline — IQA/AVA quality scorers,
