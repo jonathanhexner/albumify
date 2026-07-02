@@ -55,6 +55,16 @@ ALLOW_LIST: dict[str, str] = {
         "scoring producer; filter_quality consumes the scores",
     "sim_bench/pipeline/steps/score_ava.py":
         "scoring producer",
+    "sim_bench/pipeline/steps/score_quality.py":
+        "scoring producer (spec-093 multi-method IQA over all images)",
+    "sim_bench/pipeline/steps/extract_geo_metadata.py":
+        "producer of geo_metadata (EXIF per image, spec-094)",
+    "sim_bench/pipeline/steps/infer_geo_clip.py":
+        "producer of geo_clip_predictions (StreetCLIP per image)",
+    "sim_bench/pipeline/steps/infer_geo_coords.py":
+        "producer of geo_coord_predictions (GeoCLIP per image)",
+    "sim_bench/pipeline/steps/caption_images.py":
+        "producer of image_captions (BLIP per image)",
     "sim_bench/pipeline/steps/score_face_quality.py":
         "scoring producer for per-face quality",
     "sim_bench/pipeline/steps/extract_scene_embedding.py":

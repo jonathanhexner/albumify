@@ -46,6 +46,13 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 | `iqa_scores` | `dict[str, float]` | float[0,1] | `score_iqa` | `filter_quality`, `select_best`, `cluster_by_identity` | NOT YET — spec-033 P-C adds `faces.iqa_score` | from `score_iqa` → end | currently dropped at export (SIGHTING-059) |
 | `ava_scores` | `dict[str, float]` | float[0,1] | `score_ava` | `select_best`, `filter_quality` | NOT YET — spec-033 P-C adds `faces.ava_score` | from `score_ava` → end | currently dropped at export |
 | `sharpness_scores` | `dict[str, float]` | float[0,1] | (legacy MediaPipe path) | `filter_quality` | NOT YET — spec-033 P-C adds `faces.sharpness_score` | computed once, used at filter time | NULL on InsightFace pipeline runs today |
+| `method_scores` | `dict[str, dict[str, float]]` | float (higher=better) | `score_quality` (spec-093) | Image Analysis Studio (spec-094) | `universal_cache` per (image, `quality_<method>`) | from `score_quality` → end | path → {method: score}; in-run hand-off, cache is the store |
+| `geo_metadata` | `dict[str, GeoMetadata]` | lat/lon/time | `extract_geo_metadata` (spec-022) | `geo_temporal_segment`, studio geo view | `universal_cache` (`geo_exif`) | producer → end | absent fields None (graceful) |
+| `geo_segments` | `list` | — | `geo_temporal_segment` | trip detection | not persisted | run-scoped | winning-axis segments (empty if FLAT) |
+| `geo_home` | `Optional[tuple]` | (lat, lon) | `geo_temporal_segment` | trip detection | not persisted | run-scoped | auto-detected home anchor or None |
+| `geo_clip_predictions` | `dict[str, list]` | label+score | `infer_geo_clip` (StreetCLIP) | studio geo view | `universal_cache` (`geo_streetclip`) | producer → end | top-k city guesses |
+| `geo_coord_predictions` | `dict[str, list]` | lat/lon+prob | `infer_geo_coords` (GeoCLIP) | studio geo view | `universal_cache` (`geo_geoclip`) | producer → end | top-k coord guesses |
+| `image_captions` | `dict[str, str]` | text | `caption_images` (BLIP) | studio geo view | `universal_cache` (`blip_caption`) | producer → end | scene caption per image |
 
 ### 3.3 Face-specific (MediaPipe legacy path)
 

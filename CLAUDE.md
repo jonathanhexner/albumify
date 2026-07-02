@@ -117,6 +117,7 @@ After EVERY code change, append to `CHANGES_LOG.md`: date, category tag ([FEATUR
 | `sim_bench/api/main.py` | FastAPI server |
 | `app/streamlit/main.py` | Albumify frontend (7 pages) |
 | `app/face_clustering/main.py` | Face clustering app (11 tabs) |
+| `app/image_studio/main.py` | Image Analysis Studio (spec-094): Configure/Browse, quality + geo multi-method comparison |
 | `face_cluster/pipeline.py` | Standalone clustering API |
 | `configs/pipeline.yaml` | Pipeline steps and parameters |
 
