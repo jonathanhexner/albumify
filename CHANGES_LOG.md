@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-07-03 [FEATURE] spec-094 Slice 5 — Configure/Browse restructure + RunFolder + consolidate 095
+**Files**: `app/image_studio/{run_folder.py (new),main.py,view.py}`; `tests/image_studio/test_run_folder.py` (new); `app/geo_vision/main.py` (DELETED); `app/geo_vision/README.md`; `specs/094-image-analysis-studio/tasks.md`; `specs/095-geo-vision-studio/spec.md`.
+**Change**: Studio restructured into a two-page app — **Configure Run** (folder + methods + Run → `RunFolder.save`) and **Browse Run** (pick a saved run → top-level **Quality | Geo** toggle). `RunFolder` persists each run as `<folder>/.studio_runs/<run_id>/{run.json,columns.json,results.csv}` (pure, 4 tests); Browse re-opens with NO recompute. Quality = ranking table (defaults worst-first); Geo = EXIF/GeoCLIP map + accuracy (folds in spec-095's `geo_view`). Dropped the "All" tab; deleted the standalone `geo_vision/main.py` (kept `geo_view.py`). 29 studio/geo tests pass; verified live via Playwright on real Budapest images (Configure→save→Browse→toggle, real thumbnails, worst-first ranking).
+**Reason**: spec-094 v2 (user-approved). One app, family-separated browsing, browsable run history via files.
+
 ### 2026-07-03 [DOCS] spec-094 v2 design — consolidate 095, Configure/Browse UI, RunStore
 **Files**: `specs/094-image-analysis-studio/{ARCHITECTURE.html,MOCK.html,spec.md}`; `specs/095-geo-vision-studio/spec.md`.
 **Change**: Design artifacts for the consolidated Image Analysis Studio. ARCHITECTURE.html (5-layer diagram, method families, data flow, run-storage, 095 consolidation, spec map) + MOCK.html (navbar Configure Run / Browse Run, method-family checkboxes, results table, folded-in geo map — both pages screenshot-verified). spec-094 gains v2 design decisions; spec-095 marked MERGED INTO 094 (standalone geo app retired, geo_view.py kept). No app code changed yet — design/mock only, ahead of implementation.

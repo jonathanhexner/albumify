@@ -1,6 +1,6 @@
 # spec-095 — Geo-Vision Studio (standalone Streamlit app)
 
-**Created**: 2026-06-29 · **Status**: MERGED INTO spec-094 (standalone app retired) · **Priority**: P2
+**Created**: 2026-06-29 · **Status**: IMPLEMENTED-AS-MERGED into spec-094 (2026-07-03; `app/geo_vision/main.py` deleted, `geo_view.py` kept) · **Priority**: P2
 
 > **Consolidation (2026-07-03, user-approved):** the standalone Geo-Vision Studio is
 > **merged into spec-094 (Image Analysis Studio)** — one app, not two. Its unique parts

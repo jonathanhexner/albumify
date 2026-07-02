@@ -57,14 +57,21 @@ def _sortable_keys(method_keys: List[str], columns: Dict[str, Dict[str, Analysis
     return out
 
 
-def render_table(paths, columns, method_keys, thumbs, key_prefix):
-    """One sortable, clickable-thumbnail table for a set of method columns."""
+def render_table(paths, columns, method_keys, thumbs, key_prefix,
+                 default_sort=None, default_desc=True):
+    """One sortable, clickable-thumbnail table for a set of method columns.
+
+    ``default_sort`` — a method key to sort by initially (else file name);
+    ``default_desc`` — initial sort direction.
+    """
     sortable = _sortable_keys(method_keys, columns)
     ordered = sorted(paths, key=_basename)
     if sortable:
+        options = ["(file name)"] + sortable
+        idx = options.index(default_sort) if default_sort in options else 0
         c1, c2 = st.columns([3, 1])
-        sort_key = c1.selectbox("Sort by", ["(file name)"] + sortable, key=f"{key_prefix}_sort")
-        desc = c2.checkbox("Desc", value=True, key=f"{key_prefix}_desc")
+        sort_key = c1.selectbox("Sort by", options, index=idx, key=f"{key_prefix}_sort")
+        desc = c2.checkbox("Desc", value=default_desc, key=f"{key_prefix}_desc")
         if sort_key != "(file name)":
             def sv(p):
                 c = columns.get(p, {}).get(sort_key)
@@ -138,18 +145,65 @@ def build_csv(paths, columns, method_keys, folder: str = "") -> bytes:
     return buf.getvalue().encode("utf-8")
 
 
-def render_results(paths, columns, selected, thumbs, folder=""):
-    """Category tabs + flat All tab + CSV export."""
+def quality_keys(selected):
+    return [k for k in selected if METHODS[k].category == engine.CATEGORY_QUALITY]
+
+
+def geo_keys(selected):
+    return [k for k in selected if METHODS[k].category == engine.CATEGORY_GEO]
+
+
+def render_quality(paths, columns, selected, thumbs, folder=""):
+    """Image-quality family: a sortable ranking table (worst -> best)."""
+    keys = quality_keys(selected)
+    if not keys:
+        st.info("This run has no image-quality methods. Configure a run with MANIQA / BRISQUE / "
+                "NIQE / IQA / AVA to compare quality here.")
+        return
     render_selected(columns)
-    cats = [c for c in engine.categories() if any(METHODS[k].category == c for k in selected)]
-    sel_by_cat = {c: [k for k in selected if METHODS[k].category == c] for c in cats}
-    labels = [c.replace("_", " ") for c in cats] + ["All"]
-    tabs = st.tabs(labels)
-    for i, c in enumerate(cats):
-        with tabs[i]:
-            render_table(paths, columns, sel_by_cat[c], thumbs, key_prefix=f"tab_{c}")
-    with tabs[-1]:
-        render_table(paths, columns, selected, thumbs, key_prefix="tab_all")
-        st.download_button("Download CSV", build_csv(paths, columns, selected, folder),
-                           file_name="image_analysis.csv", mime="text/csv",
-                           key="studio_csv")
+    st.caption("Ranking table — sorted worst→best by the first metric (higher = better). "
+               "Change the sort or click a file to enlarge.")
+    first = next((k for k in keys if any(
+        (per.get(k) and per[k].sort_value is not None) for per in columns.values())), None)
+    render_table(paths, columns, keys, thumbs, key_prefix="q",
+                 default_sort=first, default_desc=False)  # ascending = worst quality first
+    st.download_button("Download CSV (quality)", build_csv(paths, columns, keys, folder),
+                       file_name="image_quality.csv", mime="text/csv", key="csv_q")
+
+
+def render_geo(paths, columns, selected, thumbs, folder=""):
+    """Geo & caption family: EXIF-vs-GeoCLIP map + accuracy + a label/caption table."""
+    keys = geo_keys(selected)
+    if not keys:
+        st.info("This run has no geo/caption methods. Configure a run with EXIF / StreetCLIP / "
+                "GeoCLIP / BLIP to see the map here.")
+        return
+    render_selected(columns)
+    from app.geo_vision import geo_view
+    import pandas as pd
+
+    n = len(paths)
+    with_gps = sum(1 for p in paths if geo_view._exif_latlon(columns.get(p, {})) is not None)
+    m = st.columns(3)
+    m[0].metric("Images", n)
+    m[1].metric("With EXIF GPS", with_gps)
+    if "geoclip" in keys:
+        acc = geo_view.geoclip_accuracy(columns)
+        m[2].metric(f"GeoCLIP within {int(acc['threshold_km'])} km",
+                    f"{acc['hits']}/{acc['total']}" if acc["total"] else "n/a")
+
+    pts = geo_view.map_points(columns)
+    if pts:
+        st.markdown("**Map — EXIF (green) vs GeoCLIP #1 (orange)**")
+        df = pd.DataFrame(pts)
+        df["color"] = df["source"].map({"exif": "#2ca02c", "geoclip": "#e3903a"})
+        try:
+            st.map(df, latitude="lat", longitude="lon", color="color", size=8)
+        except Exception:
+            st.map(df[["lat", "lon"]])
+    else:
+        st.info("No EXIF GPS or GeoCLIP coordinates to map for this run.")
+
+    render_table(paths, columns, keys, thumbs, key_prefix="g")
+    st.download_button("Download CSV (geo)", build_csv(paths, columns, keys, folder),
+                       file_name="image_geo.csv", mime="text/csv", key="csv_g")

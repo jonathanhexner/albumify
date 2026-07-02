@@ -164,22 +164,26 @@ the Geo view and retire the standalone geo app.
   `app/geo_vision/main.py`** (keep `geo_view.py` + its tests). Both READMEs: geo_vision is now a helper
   module, not an app.
 
-### Tasks
-- [ ] T5.1  `app/image_studio/run_folder.py` — `RunFolder.save/list/load` (pure; run.json + columns.json
-      + results.csv; malformed dir skipped, never raises).
-- [ ] T5.2  `tests/image_studio/test_run_folder.py` — save→list→load round-trip in a temp dir; columns
-      reconstructed (kind/sort_value/display/topk); malformed dir skipped; empty/missing folder → `[]`.
-      ASCII, Windows, no network.
-- [ ] T5.3  `main.py` — navbar (Configure Run / Browse Run); folder shared via `session_state`.
-- [ ] T5.4  Configure Run — Run → `run_methods` → `RunFolder.save`; success note linking to Browse.
-- [ ] T5.5  Browse Run — run picker (`RunFolder.list`) + top-level `Quality | Geo` segmented toggle.
-- [ ] T5.6  `view.render_quality` — ranking table (sort selectbox + score bars + rank), image_quality
-      only; clickable thumbnails + enlarge retained.
-- [ ] T5.7  `view.render_geo` — `st.map` (EXIF vs GeoCLIP via `geo_view.map_points`) + accuracy metrics
-      (`geo_view.geoclip_accuracy`) + label_conf/caption table.
-- [ ] T5.8  Remove the "All" tab; **delete `app/geo_vision/main.py`** (keep `geo_view.py` + tests);
-      update both READMEs.
-- [ ] T5.9  CHANGES_LOG entries; update `ARCHITECTURE.html` if the RunFolder schema drifts from the doc.
+### Tasks  ✅ DONE 2026-07-03
+- [x] T5.1  `app/image_studio/run_folder.py` — `save/list_runs/load` (pure; run.json + columns.json
+      + results.csv; malformed dir skipped, never raises; paths re-anchored by basename on load).
+- [x] T5.2  `tests/image_studio/test_run_folder.py` — 4 tests: round-trip (columns reconstructed
+      incl. topk), newest-first, malformed-dir skipped, empty/missing → `[]`. All pass.
+- [x] T5.3  `main.py` — top navbar (Configure Run / Browse Run) via `st.radio`; folder shared via
+      `session_state`.
+- [x] T5.4  Configure Run — Run → `run_methods` (cache_handler) → `RunFolder.save`; success note +
+      "Open in Browse Run" jump.
+- [x] T5.5  Browse Run — run picker (`list_runs`) + top-level `Quality | Geo` toggle.
+- [x] T5.6  `view.render_quality` — ranking table, defaults to first metric ascending (**worst
+      quality first**), score bars, clickable thumbnails + enlarge.
+- [x] T5.7  `view.render_geo` — `st.map` (EXIF green / GeoCLIP orange via `geo_view.map_points`) +
+      accuracy (`geo_view.geoclip_accuracy`) + label_conf/caption table.
+- [x] T5.8  Removed the "All" tab; **deleted `app/geo_vision/main.py`** (kept `geo_view.py` + tests);
+      updated geo_vision README (now a helper module).
+- [x] T5.9  CHANGES_LOG entry.
+- **Verified live (G5.1/G5.2)**: Playwright drove the real app over 8 Budapest images
+      (exif+iqa+brisque+niqe) → RunFolder written → Browse Run re-opened it with **no recompute**,
+      Quality ranking (worst-first, real thumbnails) + Geo map (EXIF pins) rendered. Screenshots captured.
 
 ### Gate (restructure → Implemented)
 - [ ] G5.1  **Live Playwright** over `D:/Budapest2025_Google` (limit ~12): Configure a run
