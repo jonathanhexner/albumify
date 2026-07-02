@@ -58,8 +58,11 @@ geo app is retired.
 
 <div class="layer"><div class="n">5</div><div class="b">
   <b>App / UI</b> — <code>app/image_studio/{main,view}.py</code> (Streamlit).
-  Navbar: <b>Configure Run</b> (pick folder + methods → Run) and <b>Browse Run</b> (open a saved run →
-  table + map). Pure rendering; zero model logic. <span class="pill new">restructure: add navbar + Browse</span>
+  Navbar: <b>Configure Run</b> (pick folder + methods → Run) and <b>Browse Run</b> (open a saved run).
+  Browse has a <b>top-level Quality | Geo toggle</b> — the two families get <i>different views</i>, not just
+  different columns: <b>Quality</b> = sortable ranking table (worst→best); <b>Geo</b> = map (EXIF vs GeoCLIP)
+  + accuracy + caption table. No mixed "All" table. Pure rendering; zero model logic.
+  <span class="pill new">restructure: navbar + Browse + Quality|Geo toggle</span>
 </div></div>
 <div class="layer"><div class="n">4</div><div class="b">
   <b>RunStore</b> <span class="pill new">NEW</span> — persists a <i>run</i> (its methods, image list, column
@@ -117,8 +120,10 @@ Configure Run, never run.</p>
 
 BROWSE RUN
   RunStore.list(folder) ──► [run manifests]
-  pick run ──► RunStore.load(run_id) ──► columns ──► view.render (tabs + map + CSV)
-                                                     (no recompute)</div>
+  pick run ──► RunStore.load(run_id) ──► columns
+        ├─ [Quality] ──► ranking table (sortable worst→best, score bars)
+        └─ [Geo]     ──► map (EXIF vs GeoCLIP) + accuracy + caption table
+                         (no recompute; top-level toggle, no mixed "All" view)</div>
 
 <h2>4 · Run storage — sub-folders now, DB later</h2>
 <div class="two">

@@ -50,6 +50,11 @@
   .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:6px 0 14px}
   .tab{padding:7px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;font-weight:600}
   .tab.active{color:#fff;border-color:var(--accent)}
+  /* segmented Quality|Geo toggle (top-level browse axis) */
+  .seg{display:inline-flex;background:#0b0e13;border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg span{padding:7px 22px;border-radius:7px;cursor:pointer;color:var(--muted);font-weight:700}
+  .seg span.active{background:var(--accent);color:#06121f}
+  .segrow{display:flex;align-items:center;gap:12px;margin:2px 0 16px}
   /* table */
   table{border-collapse:collapse;width:100%;font-size:12.5px}
   th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:middle}
@@ -162,12 +167,14 @@ switch pages. Static mock; numbers illustrative.</p>
     </div>
     <div class="main">
       <h2>Run · maniqa-brisque-niqe-geo <span class="muted" style="font-size:13px">· 122 images · 8 methods</span></h2>
-      <div class="tabs">
-        <span class="tab active" onclick="tab('q',this)">Image Quality</span>
-        <span class="tab" onclick="tab('g',this)">Geo &amp; Caption</span>
-        <span class="tab" onclick="tab('a',this)">All</span>
+      <div class="segrow">
+        <div class="seg">
+          <span id="sQ" class="active" onclick="fam('q')">Quality</span>
+          <span id="sG" onclick="fam('g')">Geo</span>
+        </div>
+        <span class="muted" style="font-size:12px">top-level toggle — each family has its own view</span>
         <span class="spacer"></span>
-        <span class="btn" style="align-self:center">⬇ CSV</span>
+        <span class="btn">⬇ CSV</span>
       </div>
 
       <!-- quality tab -->
@@ -229,12 +236,6 @@ switch pages. Static mock; numbers illustrative.</p>
           (<b>relative ranking, not accuracy</b>). ✓/✗ compares top-1 vs EXIF GPS (haversine ≤ 25 km).</p>
       </div>
 
-      <!-- all tab -->
-      <div id="ta" class="hide">
-        <p class="muted">Every selected method as one flat, sortable table (quality + geo columns side by side).
-          Same clickable thumbnails; CSV includes all columns + the metadata mandate
-          (source path, run timestamp, model versions).</p>
-      </div>
     </div>
   </div>
 </div>
@@ -249,10 +250,10 @@ consolidated app — spec-095's map + accuracy live in the <b>Geo &amp; Caption<
     document.getElementById('nCfg').classList.toggle('active', id==='cfg');
     document.getElementById('nBrowse').classList.toggle('active', id==='browse');
   }
-  function tab(id, el){
-    ['q','g','a'].forEach(x=>document.getElementById('t'+x).classList.toggle('hide', x!==id));
-    document.querySelectorAll('#browse .tab').forEach(t=>t.classList.remove('active'));
-    el.classList.add('active');
+  function fam(id){
+    ['q','g'].forEach(x=>document.getElementById('t'+x).classList.toggle('hide', x!==id));
+    document.getElementById('sQ').classList.toggle('active', id==='q');
+    document.getElementById('sG').classList.toggle('active', id==='g');
   }
 </script>
 </body>

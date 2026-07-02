@@ -16,8 +16,12 @@ clickable-thumbnail + sortable table, grouped into category tabs.
    GeoCLIP-vs-EXIF accuracy + confidence bars become the **Geo & Caption** tab of Browse Run.
    `app/geo_vision/geo_view.py` (pure helpers) is kept and imported; `geo_vision/main.py` is dropped.
 2. **Two-page navbar: Configure Run | Browse Run.** Configure Run = today's sidebar (folder + methods +
-   Run + progress). Browse Run = pick a saved run → results table + map (no recompute). Replaces the
-   current single-page (config-in-sidebar, results-inline) layout.
+   Run + progress). Browse Run = pick a saved run → results (no recompute). Replaces the current
+   single-page layout.
+   - **Browse has a top-level `Quality | Geo` toggle** (user decision 2026-07-03). The two families get
+     *different views*, not just different columns: **Quality** = sortable ranking table (worst→best,
+     score bars); **Geo** = map (EXIF vs GeoCLIP) + accuracy + caption table. The old mixed "All" tab is
+     **dropped** (a flat table mixing a ranking-family with a map-family fought the separation).
 3. **Run persistence = sub-folders (RunStore).** Each run snapshots to
    `<folder>/.studio_runs/<run_id>/{run.json,results.csv}` via a `FolderRunStore`. Scores still cache in
    `universal_cache` (the sub-folder is the run manifest, not the scores). A future `DbRunStore` swaps to
