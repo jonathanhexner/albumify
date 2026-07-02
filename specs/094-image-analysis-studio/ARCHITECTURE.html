@@ -65,9 +65,9 @@ geo app is retired.
   <span class="pill new">restructure: navbar + Browse + Quality|Geo toggle</span>
 </div></div>
 <div class="layer"><div class="n">4</div><div class="b">
-  <b>RunStore</b> <span class="pill new">NEW</span> — persists a <i>run</i> (its methods, image list, column
-  results) as a snapshot. <code>FolderRunStore</code> writes <code>&lt;folder&gt;/.studio_runs/&lt;run_id&gt;/</code>
-  now; a future <code>DbRunStore</code> swaps to the Albumify universal DB behind the same interface.
+  <b>RunFolder</b> <span class="pill new">NEW</span> — persists a <i>run</i> (its methods, image list, column
+  results) as a snapshot. <code>RunFolder</code> writes <code>&lt;folder&gt;/.studio_runs/&lt;run_id&gt;/</code>
+  now; a future <code>DB-backed RunFolder</code> swaps to the Albumify universal DB behind the same interface.
 </div></div>
 <div class="layer"><div class="n">3</div><div class="b">
   <b>Engine</b> — <code>app/image_studio/engine.py</code>. A <code>METHODS</code> registry (one entry per
@@ -116,11 +116,11 @@ Configure Run, never run.</p>
                 • group methods by backing step (maniqa+niqe+brisque → one score_quality run)
                 • each step: read universal_cache ─ hit? use it : compute + write
                 • map each step's context output ──► {path: {method: AnalysisColumn}}
-        └─► RunStore.save(run_id, folder, methods, columns)  ──►  &lt;folder&gt;/.studio_runs/&lt;run_id&gt;/
+        └─► RunFolder.save(run_id, folder, methods, columns)  ──►  &lt;folder&gt;/.studio_runs/&lt;run_id&gt;/
 
 BROWSE RUN
-  RunStore.list(folder) ──► [run manifests]
-  pick run ──► RunStore.load(run_id) ──► columns
+  RunFolder.list(folder) ──► [run manifests]
+  pick run ──► RunFolder.load(run_id) ──► columns
         ├─ [Quality] ──► ranking table (sortable worst→best, score bars)
         └─ [Geo]     ──► map (EXIF vs GeoCLIP) + accuracy + caption table
                          (no recompute; top-level toggle, no mixed "All" view)</div>
@@ -128,7 +128,7 @@ BROWSE RUN
 <h2>4 · Run storage — sub-folders now, DB later</h2>
 <div class="two">
 <div class="card">
-<h3>FolderRunStore (build now)</h3>
+<h3>RunFolder (build now)</h3>
 <div class="flow">D:/Budapest2025_Google/
   .studio_runs/
     2026-07-03_143000_maniqa-niqe/
@@ -144,9 +144,9 @@ BROWSE RUN
 </ul>
 </div>
 <div class="card">
-<h3>DbRunStore (future — Albumify)</h3>
+<h3>DB-backed RunFolder (future — Albumify)</h3>
 <ul>
-<li>Same <code>RunStore</code> interface: <code>save / list / load</code>.</li>
+<li>Same <code>RunFolder</code> interface: <code>save / list / load</code>.</li>
 <li>Backed by the Albumify universal DB (a <code>runs</code> table) once the studio integrates.</li>
 <li>Swap is one wiring line; no UI or engine change (strangler-fig).</li>
 </ul>
@@ -157,7 +157,7 @@ Albumify already owns run history; the studio adopts it at integration time.</p>
 
 <h2>5 · Two persistence layers (don't conflate)</h2>
 <table>
-<tr><th></th><th>universal_cache</th><th>RunStore</th></tr>
+<tr><th></th><th>universal_cache</th><th>RunFolder</th></tr>
 <tr><td>Holds</td><td>one score per (image, method)</td><td>a run: which methods, on which images, the result table</td></tr>
 <tr><td>Keyed by</td><td><code>(image_path, quality_&lt;metric&gt;, model)</code></td><td><code>run_id</code></td></tr>
 <tr><td>Purpose</td><td>never recompute a score</td><td>re-open a past run without re-running</td></tr>
@@ -182,7 +182,7 @@ tab of Browse Run:
 <table>
 <tr><th>Spec</th><th>Owns</th><th>Status</th></tr>
 <tr><td>093</td><td><code>PyIQAModel</code> + <code>ScoreQualityStep</code> (the 6 quality metrics). Backend, no UI.</td><td><span class="pill g">done</span></td></tr>
-<tr><td>094</td><td><b>This app</b>: engine + Configure/Browse UI + RunStore. Absorbs 095.</td><td><span class="pill new">this design</span></td></tr>
+<tr><td>094</td><td><b>This app</b>: engine + Configure/Browse UI + RunFolder. Absorbs 095.</td><td><span class="pill new">this design</span></td></tr>
 <tr><td>095</td><td>Geo view helpers (kept); standalone app retired.</td><td><span class="pill muted">merged → 094</span></td></tr>
 </table>
 

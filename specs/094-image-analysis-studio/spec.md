@@ -22,9 +22,9 @@ clickable-thumbnail + sortable table, grouped into category tabs.
      *different views*, not just different columns: **Quality** = sortable ranking table (worst→best,
      score bars); **Geo** = map (EXIF vs GeoCLIP) + accuracy + caption table. The old mixed "All" tab is
      **dropped** (a flat table mixing a ranking-family with a map-family fought the separation).
-3. **Run persistence = sub-folders (RunStore).** Each run snapshots to
-   `<folder>/.studio_runs/<run_id>/{run.json,results.csv}` via a `FolderRunStore`. Scores still cache in
-   `universal_cache` (the sub-folder is the run manifest, not the scores). A future `DbRunStore` swaps to
+3. **Run persistence = sub-folders (RunFolder).** Each run snapshots to
+   `<folder>/.studio_runs/<run_id>/{run.json,results.csv}` via a `RunFolder`. Scores still cache in
+   `universal_cache` (the sub-folder is the run manifest, not the scores). A future `DB-backed RunFolder` swaps to
    the Albumify universal DB behind the same interface — **do not build the DB now** (strangler-fig).
 
 ## Problem
