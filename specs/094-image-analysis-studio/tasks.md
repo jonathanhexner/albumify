@@ -1,8 +1,10 @@
 # spec-094 Tasks — Image Analysis Studio
 
-**Status**: In Progress
+**Status**: In Progress (Slices 1-4 done; Slice 5 = v2 restructure, not started)
 **Scope**: (A) refactor geo/vision steps onto `universal_cache`; (B) generalized comparison
-engine + tabbed studio app. See `spec.md` for WHAT and the column model.
+engine + studio app; (C) **v2 restructure** — Configure/Browse navbar, top-level Quality|Geo
+toggle, `RunFolder` persistence, consolidate spec-095. See `spec.md`, `ARCHITECTURE.html`,
+`MOCK.html`.
 
 ## Design notes (HOW)
 
@@ -49,27 +51,55 @@ engine + tabbed studio app. See `spec.md` for WHAT and the column model.
       (no recompute), StreetCLIP/GeoCLIP full-top-k persist + cache-hit, BLIP caption cache-hit,
       step works with no cache handler. **All pass; full geo suite 24 passed.** (AC1, AC8)
 
-## Slice 2 — Generalized engine
+## Slice 2 — Generalized engine  ✅ DONE 2026-06-29
 
-- [ ] T2.1  `app/image_studio/__init__.py` (empty) + `engine.discover_images(folder, limit)`
-      (ext filter, sort, cap; empty → `[]`; logs skipped). (AC3)
-- [ ] T2.2  `engine.AnalysisColumn` dataclass + per-family mappers (quality, geo/caption).
-- [ ] T2.3  `engine.run_methods(paths, selected) -> {path:{key:AnalysisColumn}}` — builds each
-      step/helper's Inputs, calls `.calc()`/step, maps to columns; only selected methods. (AC2)
-- [ ] T2.4  `engine.available_methods()` — registry of (key, category, is_available) for checkboxes.
+- [x] T2.1  `app/image_studio/__init__.py` (empty) + `engine.discover_images(folder, limit)`
+      (ext filter, sort, cap; missing/empty → `[]`; logs skipped count). (AC3)
+- [x] T2.2  `engine.AnalysisColumn` dataclass (key/category/kind/sort_value/display/topk) + mappers
+      for both families: geo/caption (exif=coord, streetclip/geoclip=label_conf sorted by
+      confidence, blip=text) and image_quality (iqa/sharpness/ava=numeric).
+- [x] T2.3  `engine.run_methods(paths, selected, cache_handler=, config=, progress=)` →
+      `{path:{key:AnalysisColumn}}`; runs only selected methods, dedups shared backing steps
+      (iqa+sharpness → one `score_iqa` run), a failing method is logged+skipped (never fatal). (AC2)
+- [x] T2.4  `engine.available_methods()` (key/category/label/available) + `engine.categories()`.
+- [x] Tests: `tests/image_studio/test_engine.py` — 12 tests (discover filter/sort/cap/empty;
+      all mappers incl. empty-preds; run_methods only-selected, shared-step-once, failing-skip;
+      registry). **All pass.** Real-data smoke: engine over 4 Budapest imgs via `universal_cache`
+      maps EXIF correctly, 2nd run consistent.
 
-## Slice 3 — Studio app (tabs + flat + click + export)
+## Slice 3 — Studio app (tabs + flat + click + export)  ✅ DONE 2026-06-30
 
-- [ ] T3.1  `main.py` — sidebar: folder text, limit, method checkboxes grouped by category,
-      Run button; `st.progress` during run; one-time "downloading weights" notice per family.
-- [ ] T3.2  `view.py` — per-category `st.tabs`; clickable `st.button` thumbnail grid + sortable
-      table (numeric-column sort selectbox). (AC4, FR-5)
-- [ ] T3.3  Flat **All** tab = union of columns across families. (AC4)
-- [ ] T3.4  Thumbnail click → enlarge image + list all its columns/top-k. (AC5)
-- [ ] T3.5  Confidence rendered as bar + value, labelled "relative, not accuracy". (FR-7)
-- [ ] T3.6  `view.build_csv(...)` + `st.download_button` incl. metadata mandate. (AC7)
-- [ ] T3.7  Empty/missing folder + EXIF-less/corrupt images → friendly, no exception. (AC6)
-- [ ] T3.8  `app/image_studio/README.md` — run command, weights/caching, CPU caveat.
+- [x] T3.1  `main.py` — sidebar: folder text, limit, method checkboxes grouped by category
+      (unavailable greyed), Run; `st.progress` callback during run; one-time vision/AVA
+      "downloading weights" notice. Repo-root `sys.path` bootstrap (Streamlit runs file directly).
+- [x] T3.2  `view.py` — per-category `st.tabs`; clickable `st.button` thumbnail grid + sortable
+      table (numeric-column sort selectbox + Desc). (AC4, FR-5)
+- [x] T3.3  Flat **All** tab = union of columns across families. (AC4)
+- [x] T3.4  Thumbnail click → enlarge image + all columns + top-k expanders. (AC5)
+- [x] T3.5  Confidence bar + value, labelled "relative, not accuracy". (FR-7)
+- [x] T3.6  `view.build_csv(...)` + `st.download_button` incl. metadata mandate
+      (source_path, run_timestamp, spec_version, source_folder). (AC7)
+- [x] T3.7  Empty/missing folder → warning; no methods → warning; corrupt image thumb → "(no
+      preview)", never raises. (AC6)
+- [x] T3.8  `app/image_studio/README.md` — run command, methods, caching, confidence caveat.
+- [x] **Verified live (gate G.1)**: Playwright drove the real app over 12 Budapest images with
+      EXIF+StreetCLIP+BLIP+IQA → category tabs, sortable table, confidence bars, 36 clickable
+      thumbnails, click-to-enlarge with top-k all rendered with real values. Screenshots captured.
+
+## Slice 4 — Reconcile with parallel work (spec-093 + spec-095)  ✅ DONE 2026-07-01
+
+- [x] T4.a  **Wire spec-093 pyiqa metrics** into the engine's `image_quality` family: 6 metrics
+      (maniqa/musiq/hyperiqa/brisque/niqe/clipiqa) backed by `ScoreQualityStep`, reading
+      `ctx.method_scores[path][metric]`. All share `step_id="score_quality"`; `run_methods` now
+      groups by step + merges per-method config (`methods` lists unioned) so maniqa+niqe = ONE
+      score_quality run (a distinct step_id per metric would be wrong — `process` replaces
+      `method_scores`). Added `_merge_configs`. Availability via `PyIQAModel.is_available`.
+      Old `iqa`/`sharpness`/`ava` kept. 3 new tests (merge, single-run, registry); real
+      brisque+niqe smoke over Budapest via universal_cache (scored together, 2nd run cached).
+- [x] T4.b  **Overlap with spec-095 `app/geo_vision`** (user decision: keep both, document roles):
+      cross-linked README "which to use" tables in both `app/image_studio/README.md` and
+      `app/geo_vision/README.md`. image_studio = all-families studio; geo_vision = geo map/accuracy
+      deep-dive. Both call `run_methods`; no duplicated scoring.
 
 ## Tests
 
@@ -93,3 +123,71 @@ engine + tabbed studio app. See `spec.md` for WHAT and the column model.
 - [ ] G.7  Coordinate with spec-093: its IQA scorers register as the `image_quality` family; its
       standalone app deprecated in favor of this studio (note in 093).
 ```
+
+---
+
+## Slice 5 — v2 restructure: Configure/Browse + Quality|Geo + RunFolder + consolidate 095  (NEW 2026-07-03)
+
+Design refs: `ARCHITECTURE.html`, `MOCK.html`. User decisions (all confirmed):
+navbar **Configure Run | Browse Run**; Browse has a **top-level `Quality | Geo` toggle** (drop the
+"All" tab); runs persist as **sub-folders** (`RunFolder`); **merge spec-095** (map + accuracy) into
+the Geo view and retire the standalone geo app.
+
+### Design notes (HOW)
+- **`RunFolder`** (`app/image_studio/run_folder.py`, PURE — no Streamlit; the ONLY new storage):
+  - `run_id = "<YYYY-MM-DD_HHMMSS>_<methods-slug>"`. Timestamp is **passed in**, not generated inside
+    (keeps it deterministic/testable).
+  - `save(folder, run_id, methods, paths, columns)` → writes `<folder>/.studio_runs/<run_id>/`:
+    - `run.json` — manifest `{run_id, source_folder, methods, images:[basename…], created_ts, spec_version, n_images}`
+    - `columns.json` — full render payload `{path:{key:{kind,sort_value,display,topk}}}` so Browse
+      renders with **no recompute**.
+    - `results.csv` — export/human artifact (image × method: display+score) + metadata mandate.
+  - `list(folder) -> [manifest]` — read every `.studio_runs/*/run.json`, newest-first; **skip malformed
+    dirs, never raise**.
+  - `load(folder, run_id) -> {paths, columns, methods, manifest}` — rebuild `AnalysisColumn`s from
+    `columns.json`.
+  - Filesystem-only. A future DB-backed variant implements the same 3 methods — **do NOT build now**.
+- **Navbar** (`main.py`): `st.sidebar.radio(["Configure Run","Browse Run"])`; folder kept in
+  `session_state` so both pages share it.
+- **Configure Run**: today's sidebar (folder, limit, method checkboxes by family) + Run. On Run:
+  `run_methods` → `RunFolder.save(...)` → success note "saved as `<run_id>` → open in Browse Run".
+- **Browse Run**: `RunFolder.list(folder)` → run picker (left). On select → `RunFolder.load`. Top-level
+  segmented **`Quality | Geo`**:
+  - **Quality** → `view.render_quality(...)`: ranking table (sortable, score bars, rank col),
+    image_quality columns only.
+  - **Geo** → `view.render_geo(...)`: `geo_view.map_points` → `st.map` (EXIF green / GeoCLIP orange)
+    + `geo_view.geoclip_accuracy` metrics + label_conf/caption table, geo columns only.
+  - **No "All" tab.**
+- **view.py**: add `render_quality` + `render_geo` (split of today's `render_results`); keep the
+  clickable `st.button` thumbnail grid + click-to-enlarge; delete the All-tab path.
+- **Consolidate 095**: import `app.geo_vision.geo_view` into the geo render. **Delete
+  `app/geo_vision/main.py`** (keep `geo_view.py` + its tests). Both READMEs: geo_vision is now a helper
+  module, not an app.
+
+### Tasks
+- [ ] T5.1  `app/image_studio/run_folder.py` — `RunFolder.save/list/load` (pure; run.json + columns.json
+      + results.csv; malformed dir skipped, never raises).
+- [ ] T5.2  `tests/image_studio/test_run_folder.py` — save→list→load round-trip in a temp dir; columns
+      reconstructed (kind/sort_value/display/topk); malformed dir skipped; empty/missing folder → `[]`.
+      ASCII, Windows, no network.
+- [ ] T5.3  `main.py` — navbar (Configure Run / Browse Run); folder shared via `session_state`.
+- [ ] T5.4  Configure Run — Run → `run_methods` → `RunFolder.save`; success note linking to Browse.
+- [ ] T5.5  Browse Run — run picker (`RunFolder.list`) + top-level `Quality | Geo` segmented toggle.
+- [ ] T5.6  `view.render_quality` — ranking table (sort selectbox + score bars + rank), image_quality
+      only; clickable thumbnails + enlarge retained.
+- [ ] T5.7  `view.render_geo` — `st.map` (EXIF vs GeoCLIP via `geo_view.map_points`) + accuracy metrics
+      (`geo_view.geoclip_accuracy`) + label_conf/caption table.
+- [ ] T5.8  Remove the "All" tab; **delete `app/geo_vision/main.py`** (keep `geo_view.py` + tests);
+      update both READMEs.
+- [ ] T5.9  CHANGES_LOG entries; update `ARCHITECTURE.html` if the RunFolder schema drifts from the doc.
+
+### Gate (restructure → Implemented)
+- [ ] G5.1  **Live Playwright** over `D:/Budapest2025_Google` (limit ~12): Configure a run
+      (EXIF+StreetCLIP+GeoCLIP+IQA+MANIQA) → confirm `.studio_runs/<run_id>/` written → Browse Run:
+      pick the run, toggle **Quality** (ranking table) then **Geo** (map + accuracy). Screenshots.
+- [ ] G5.2  Re-open the saved run → renders with **NO recompute** (no model load; assert `run_methods`
+      not called / no cache miss).
+- [ ] G5.3  `/code-review` → update `REVIEW.md`; resolve High findings.
+- [ ] G5.4  Docs: update `docs/architecture/` + `CLAUDE.md` Key Entry Points (studio app; drop
+      `geo_vision` app if listed).
+- [ ] G5.5  Flip spec-095 → Implemented-as-merged; confirm `app/geo_vision/main.py` deleted.
