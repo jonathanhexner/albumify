@@ -1,6 +1,6 @@
 # spec-094 — Image Analysis Studio (generalized per-image multi-method comparison)
 
-**Created**: 2026-06-29 · **Status**: Draft (v2 design) · **Priority**: P2
+**Created**: 2026-06-29 · **Status**: Implemented (2026-07-03; Slices 1-5, REVIEW.md PASS) · **Priority**: P2
 **Source**: user — wants one place to point at a folder, run many per-image analyses
 (image quality, geo-location, caption, …), and inspect every model's output in a
 clickable-thumbnail + sortable table, grouped into category tabs.
