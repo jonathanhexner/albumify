@@ -17,6 +17,24 @@ import streamlit as st
 
 from app.image_studio import engine
 from app.image_studio.engine import METHODS, AnalysisColumn
+from app.image_studio.method_info import METHOD_INFO
+
+
+def render_legend(method_keys):
+    """Expander explaining what each selected column measures + its range/direction."""
+    with st.expander("ℹ️  What does each column mean? (measures · range · what's better)"):
+        rows = ["| Column | What it measures | Range | Better |", "|---|---|---|---|"]
+        for k in method_keys:
+            info = METHOD_INFO.get(k)
+            if not info:
+                continue
+            label = METHODS[k].label if k in METHODS else k
+            measures, rng, _raw_dir, in_table = info
+            rows.append(f"| **{label}** | {measures} | `{rng}` | {in_table} |")
+        st.markdown("\n".join(rows))
+        st.caption("Quality scores are shown so **higher = better for every column** — the app "
+                   "negates distortion metrics (BRISQUE/NIQE), whose raw value is lower-is-better. "
+                   "Geo confidence is the model's certainty, **not** accuracy.")
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +179,7 @@ def render_quality(paths, columns, selected, thumbs, folder=""):
                 "NIQE / IQA / AVA to compare quality here.")
         return
     render_selected(columns)
+    render_legend(keys)
     st.caption("Ranking table — sorted worst→best by the first metric (higher = better). "
                "Change the sort or click a file to enlarge.")
     first = next((k for k in keys if any(
@@ -179,6 +198,7 @@ def render_geo(paths, columns, selected, thumbs, folder=""):
                 "GeoCLIP / BLIP to see the map here.")
         return
     render_selected(columns)
+    render_legend(keys)
     from app.geo_vision import geo_view
     import pandas as pd
 
