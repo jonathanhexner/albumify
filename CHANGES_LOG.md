@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-07-03 [BUGFIX] SIGHTING-112 — normalize universal_cache path keys
+**Files**: `sim_bench/pipeline/cache_handler.py` (`CacheKey.__post_init__`); `tests/pipeline/test_cache_key_normalization.py` (new); `docs/project/SIGHTINGS.md`.
+**Change**: `CacheKey` now applies `os.path.normpath` to `image_path` (separators only, case preserved), so `D:/album\file.jpg` (studio, forward-slash folder) and `D:\album\file.jpg` (batch/os.path.join) map to ONE key. Fixes the studio recomputing everything (musiq ~19 min hang) instead of reusing cache — verified 0.1s cache-hit after fix. 4 new tests; 36 cache-using tests green.
+**Reason**: cache key was the raw path string; separator differences silently defeated reuse across every cached step. normpath (not normcase — that would lowercase and orphan existing Windows rows).
+
 ### 2026-07-03 [FEATURE] spec-094 Slice 5 — Configure/Browse restructure + RunFolder + consolidate 095
 **Files**: `app/image_studio/{run_folder.py (new),main.py,view.py}`; `tests/image_studio/test_run_folder.py` (new); `app/geo_vision/main.py` (DELETED); `app/geo_vision/README.md`; `specs/094-image-analysis-studio/tasks.md`; `specs/095-geo-vision-studio/spec.md`.
 **Change**: Studio restructured into a two-page app — **Configure Run** (folder + methods + Run → `RunFolder.save`) and **Browse Run** (pick a saved run → top-level **Quality | Geo** toggle). `RunFolder` persists each run as `<folder>/.studio_runs/<run_id>/{run.json,columns.json,results.csv}` (pure, 4 tests); Browse re-opens with NO recompute. Quality = ranking table (defaults worst-first); Geo = EXIF/GeoCLIP map + accuracy (folds in spec-095's `geo_view`). Dropped the "All" tab; deleted the standalone `geo_vision/main.py` (kept `geo_view.py`). 29 studio/geo tests pass; verified live via Playwright on real Budapest images (Configure→save→Browse→toggle, real thumbnails, worst-first ranking).

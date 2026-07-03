@@ -33,7 +33,7 @@ to a `scripts/` or `tests/manual/` area or guarded so the suite is collectable h
 ---
 
 ### SIGHTING-112: universal_cache keys are path-string-sensitive (separator mismatch → no cache reuse)
-**Status**: OPEN
+**Status**: FIXED (2026-07-03)
 **Severity**: Medium
 **Reported**: 2026-07-03 (found verifying the Image Analysis Studio end-to-end)
 **Persona**: Senior SW Engineer
@@ -60,6 +60,14 @@ does `image_path = str(Path(image_path).resolve())` (or `.as_posix()`), OR `disc
 returns normalized paths. One-line-ish at the seam; add a test asserting `D:\x\a.jpg` and
 `D:/x/a.jpg` map to the same key. Note: changing the key format invalidates existing rows
 (one-time recompute) — acceptable, or migrate.
+
+**Resolution (2026-07-03)**: `CacheKey.__post_init__` now applies `os.path.normpath` to
+`image_path` (separators only, CASE PRESERVED — so existing Windows rows still match; `normcase`
+would have lowercased and orphaned them). Chosen over `.resolve()` (which stats the filesystem
+per key). Bonus: the studio's forward-slash keys now normalize to the SAME backslash form the
+batch stored, so the studio immediately reuses the 122 already-cached Budapest scores — verified:
+musiq over 6 studio-path images went from ~19 min recompute → **0.1 s cache hit**. Tests:
+`tests/pipeline/test_cache_key_normalization.py` (4). 36 cache-using tests green, no regression.
 
 ---
 
