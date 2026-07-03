@@ -4,6 +4,37 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-112: universal_cache keys are path-string-sensitive (separator mismatch → no cache reuse)
+**Status**: OPEN
+**Severity**: Medium
+**Reported**: 2026-07-03 (found verifying the Image Analysis Studio end-to-end)
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`universal_cache` keys a feature by the raw `image_path` STRING. The same image scored via a
+folder typed as `D:\Budapest2025_Google` (batch script, backslash) vs `D:/Budapest2025_Google`
+(studio text input, forward slash) produces DIFFERENT keys — so no cache is shared and the
+studio recomputed everything (musiq at ~190 s/img over 6 images ≈ 19 min hang).
+
+Evidence: `SELECT DISTINCT image_path FROM universal_cache WHERE feature_type='quality_musiq'`
+returns both `D:\Budapest2025_Google\file.jpg` (122, from the batch) and
+`D:/Budapest2025_Google\file.jpg` (6, from the studio — note forward-slash folder + backslash
+filename from `os.path.join` on Windows). 122 backslash vs 6 forward-slash keys for the same images.
+
+**Root cause**: no path normalization before building the `CacheKey`. The key is whatever string
+the caller passed, which depends on how the folder was typed + `os.path.join`'s OS separator.
+
+**Impact**: cache is fragile — same album, different separator ⇒ full recompute. Affects EVERY
+cached step (score_quality, score_ava, geo steps), not just the studio.
+
+**Proposed fix**: normalize the path once at the cache boundary — e.g. `CacheKey.__post_init__`
+does `image_path = str(Path(image_path).resolve())` (or `.as_posix()`), OR `discover_images`
+returns normalized paths. One-line-ish at the seam; add a test asserting `D:\x\a.jpg` and
+`D:/x/a.jpg` map to the same key. Note: changing the key format invalidates existing rows
+(one-time recompute) — acceptable, or migrate.
+
+---
+
 ### SIGHTING-111: Three conflicting OpenCV variants installed in .venv
 **Status**: FIXED (2026-06-29)
 **Severity**: Medium
