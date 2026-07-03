@@ -4,6 +4,34 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-113: 3 pre-existing test failures on the unification/spec-040 base (not spec-093/094/095)
+**Status**: OPEN
+**Severity**: Medium (blocks a clean full-suite before merge)
+**Reported**: 2026-07-03 (found running the suite to verify the Image Analysis Studio)
+**Persona**: Senior SW Engineer
+
+**Problem Description**: On branch `specs/093-095-analysis-studios` (off `unification/spec-040`),
+the proper test packages run **354 passed, 2 failed, 1 error** (7 min). All 3 trace to the
+spec-079 clustering-unification base work (commit `419185f`), NOT the analysis-studio commits —
+verified: no 093/094/095 commit touches these files or their targets.
+
+1. **ERROR** `tests/pipeline/test_face_embedding_validation.py` — `ModuleNotFoundError:
+   sim_bench.pipeline.steps.filter_quality_gate`. That module **exists on `main`** but was deleted
+   by the spec-079 unification; the test's top-level import was never updated. → update/remove the test.
+2. **FAIL** `tests/pipeline/test_scoring_strategy.py::test_person_penalty_strategy` —
+   `assert 0.22 == 0.02`; `PersonPenaltyStrategy` math drifted from the test's expectation
+   (scoring code untouched by studio work). → reconcile expected value or the penalty formula.
+3. **FAIL** `tests/architecture/test_app_cluster_equivalence.py::test_same_profile_yields_same_clusters`
+   — app-vs-pipeline clustering no longer produce identical clusters (spec-079 territory). → investigate
+   determinism / the two paths.
+
+**Also**: `pytest tests/` as a WHOLE cannot run — ~30 script-style files under `tests/` do
+module-level `sys.exit(1)` / hit live services (e.g. `test_full_e2e_flow.py` needs the backend on
+:8000). One `SystemExit` at collection aborts the entire run (INTERNALERROR). These should be moved
+to a `scripts/` or `tests/manual/` area or guarded so the suite is collectable headless.
+
+---
+
 ### SIGHTING-112: universal_cache keys are path-string-sensitive (separator mismatch → no cache reuse)
 **Status**: OPEN
 **Severity**: Medium
