@@ -6,6 +6,17 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-07-05: Finger-occlusion detection needs a trained model — 5 whole-image/heuristic approaches all fail
+**Root cause**: A finger over the lens is a LOCALIZED corner defect on an otherwise good photo. Whole-image scorers see the (good) main subject and ignore the corner; hand-crafted rules can't separate a blurry warm finger blob from a warm smooth WALL.
+**What was tried (all on the 2 `examples/finger_occlusion/` images vs the 122 Budapest album)**:
+1. No-reference IQA (BRISQUE/MANIQA/MUSIQ/HyperIQA/CLIP-IQA/NIQE) — rate the finger photos MIDDLE-to-GOOD (HyperIQA put them in the top 6%). Don't flag it.
+2. CLIP-prompt "clear vs finger-over-lens" (`clip_occlusion`, whole-image) — finger P(clear) 0.37/0.32 >= some clean images. Tiling (worst 3x3 tile) only marginal.
+3. Classical 4-cue (relative-blur outlier + low-texture + warm/skin + large border-connected blob) — FLAGS the fingers, and correctly rejects cool lakes/sky (warmth cue), but WARM SMOOTH WALLS (beige/white museum walls) score higher than the fingers.
+4. + per-cell edge-free cue — measured no help: a flat wall INTERIOR is as edge-free (~0.001-0.003) as a finger.
+5. + ring-around-blob sharpness cue (reject blobs surrounded by sharp in-focus frames) — removed the worst wall (27->20 flagged) but 4 warm-wall/night-shot false positives still outrank the fingers (rank 6th/10th of 124).
+**Lesson**: Each hand-crafted cue nudges but none cleanly separates finger-over-lens from warm smooth surfaces — the boundary is too subtle for rules. Stop adding cues (diminishing returns).
+**Prevention / next step**: Use a LEARNED boundary — cheapest is CLIP image embeddings + a logistic-regression linear probe on ~40-80 labeled finger/clean images (zero-shot CLIP prompts fail, but the embedding still encodes it). `clip_occlusion` is kept in the studio (spec-094) labeled "experimental (does not reliably flag occlusion)".
+
 ### 2026-06-29: Multiple OpenCV PyPI variants silently corrupt the cv2 install
 **Root cause**: `opencv-python`, `opencv-contrib-python`, `opencv-python-headless` are separate PyPI names but all unpack into the SAME `site-packages/cv2/` dir — last installer wins. Different deps pull different variants (mediapipe→contrib, ultralytics/facexlib→plain, pyiqa/albumentations→headless), so three accumulated. The live build was headless (GUI:NONE) even though pip listed the GUI package as installed — pip metadata != disk truth. Also caused a `WinError 5: cv2.pyd Access denied` when swapping while an app held it loaded.
 **Lesson**: No single opencv package satisfies all dependents' declared *names*, so `pip check` will always warn — but functionally they all just `import cv2`, which any one variant provides. Install exactly ONE (the superset `opencv-contrib-python`); treat the residual name-mismatch warnings as cosmetic after verifying the real importers load.
