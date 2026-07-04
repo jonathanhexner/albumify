@@ -27,6 +27,7 @@ from sim_bench.pipeline.steps.score_iqa import ScoreIQAStep
 from sim_bench.pipeline.steps.score_ava import ScoreAVAStep
 from sim_bench.pipeline.steps.score_quality import ScoreQualityStep  # spec-093
 from sim_bench.image_quality_models.pyiqa_model_wrapper import PyIQAModel, PYIQA_METRICS
+from sim_bench.image_quality_models.clip_prompt_model import ClipPromptModel
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +224,16 @@ for _i, _mk in enumerate(PYIQA_METRICS):
         make_step=lambda: ScoreQualityStep(), config={"methods": [_mk]},
         available=PyIQAModel.is_available, to_columns=_method_scores_mapper(_mk),
     )
+
+# EXPERIMENTAL: CLIP prompt-based clarity/occlusion score. NOTE (tested 2026-07-05):
+# does NOT reliably flag finger-over-lens occlusion — whole-image CLIP is dominated
+# by the main subject. Kept as a configurable-prompt scorer; higher = clearer.
+METHODS["clip_occlusion"] = _Method(
+    key="clip_occlusion", category=CATEGORY_QUALITY, label="CLIP clarity (experimental)",
+    order=40, step_id="score_quality", make_step=lambda: ScoreQualityStep(),
+    config={"methods": ["clip_occlusion"]},
+    available=ClipPromptModel.is_available, to_columns=_method_scores_mapper("clip_occlusion"),
+)
 
 
 def available_methods() -> List[dict]:

@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-07-05 [FEATURE] CLIP-prompt occlusion method (added + tested — NEGATIVE result)
+**Files**: `sim_bench/image_quality_models/clip_prompt_model.py` (new), `model_factory.py`; `app/image_studio/{engine.py,method_info.py}`; `tests/image_quality_models/test_clip_prompt_model.py` (new).
+**Change**: `ClipPromptModel` (BaseQualityModel) scores P(clear) vs P(finger-over-lens) via CLIP antonym prompts (openai-clip ViT-B/32); registered `clip_occlusion`, wired into the studio's image_quality family as "CLIP clarity (experimental)". **Tested on the finger-occlusion examples vs clean Budapest photos: it does NOT reliably flag occlusion** — finger images scored P(clear) 0.37/0.32, HIGHER than some clean images (0.18-0.34); tiling (worst 3x3 tile) only marginally helped. Kept as a configurable-prompt scorer, labeled experimental in the legend.
+**Reason**: user asked to add + test a CLIP-prompt occlusion method. Finding: finger occlusion is a LOCALIZED corner defect that whole-image scorers (IQA and CLIP-prompt alike) miss; a targeted blurry-warm-blob-at-edge detector is the right tool. 21 tests pass.
+
 ### 2026-07-03 [FEATURE] spec-094 — in-app column legend (measures / range / direction)
 **Files**: `app/image_studio/method_info.py` (new), `app/image_studio/view.py`; `scripts/start_studio.bat` (new).
 **Change**: Browse Quality/Geo views gain a "What does each column mean?" expander — a table of every selected method with what it measures, its range, and what's better. Notes that quality scores are shown higher=better (BRISQUE/NIQE negated) and geo confidence is certainty not accuracy. Added `start_studio.bat` (launches the studio on port 8503). Legend verified live via Playwright.

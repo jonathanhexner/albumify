@@ -28,6 +28,10 @@ METHOD_INFO = {
              "~0 – 25 raw (natural ≈ 2–8)", "LOWER raw = better", "higher ↑ (app negates)"),
     "clipiqa": ("CLIP-based 'is this a good photo?' likelihood (prompt-driven, no training)",
                 "0 – 1", "higher = better", "higher ↑"),
+    "clip_occlusion": ("EXPERIMENTAL — CLIP 'clear vs finger-over-lens' prompt score. "
+                       "Tested: does NOT reliably flag corner occlusion (whole-image CLIP is "
+                       "dominated by the main subject). Configurable prompts",
+                       "0 – 1 P(clear)", "higher = clearer", "higher ↑ (weak signal)"),
     # --- geo & caption -----------------------------------------------------
     "exif": ("GPS coordinates + capture time read from the file's EXIF (ground truth)",
              "lat/lon + timestamp", "n/a — this is truth", "—"),

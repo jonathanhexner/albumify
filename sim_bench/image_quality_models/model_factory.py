@@ -14,6 +14,7 @@ from sim_bench.image_quality_models.iqa_model_wrapper import (
     ContrastOnlyIQAModel
 )
 from sim_bench.image_quality_models.pyiqa_model_wrapper import PyIQAModel, PYIQA_METRICS
+from sim_bench.image_quality_models.clip_prompt_model import ClipPromptModel
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,9 @@ MODEL_REGISTRY = {
 # all front the single PyIQAModel class, keyed by metric name.
 for _metric in PYIQA_METRICS:
     MODEL_REGISTRY[_metric] = PyIQAModel
+
+# spec-094 follow-up: CLIP prompt-based occlusion detector (finger over lens etc.)
+MODEL_REGISTRY['clip_occlusion'] = ClipPromptModel
 
 
 def create_model(model_config: Dict) -> BaseQualityModel:
