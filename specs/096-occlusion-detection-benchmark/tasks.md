@@ -31,3 +31,12 @@ Parallel tracks after Slice 1 (dataset is the shared foundation).
 ## Close-out
 - [ ] T9.1 `eval.py` — one harness, all candidates, RESULTS.md frontier table.
 - [ ] T9.2 /code-review → REVIEW.md; CHANGES_LOG; LEARNINGS update with the verdict.
+
+## Progress log
+- 2026-07-06 Slice 1 DONE (dataset 51pos/776neg + group-aware split after user caught
+  near-dupe leakage: 19 pos scenes / 345 neg groups; 3 tests green).
+- 2026-07-06 T9.1 DONE minimal eval.py (StratifiedGroupKFold, scene-level PR-AUC,
+  class x 1/group_size weights).
+- 2026-07-06 Track F (user-proposed LoG-stats + LR) FIRST RESULT:
+  scene PR-AUC mean 0.51 [0.35-0.64], image 0.44, vs random-baseline 0.062 (8x lift).
+  First candidate with real learned signal; now the number to beat.
