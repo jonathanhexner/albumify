@@ -45,3 +45,7 @@ Parallel tracks after Slice 1 (dataset is the shared foundation).
   CLIP-embedding probes DOMINATE (F LoG 0.51, E 0.43, A Haiku 0.41). Tiles add
   ~+0.07 over global — localization hypothesis confirmed. Zero-shot CLIP prompts
   failed at this exact task; the LEARNED boundary in the same embedding space wins.
+- 2026-07-06 Track D RESULTS: D1 frozen-ResNet18 probe CV scene 0.64 (CLIP features
+  beat ImageNet features for this task: 0.75-0.83 vs 0.64). D2 synth-trained CNN:
+  test-split scene 0.87 BUT only 3 positive scenes in test (high variance);
+  in-sample train 0.74. Synthetic->real transfer works at least partially.
