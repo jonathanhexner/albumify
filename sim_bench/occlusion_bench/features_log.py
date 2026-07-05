@@ -31,7 +31,15 @@ SIGMA = 2.0       # Gaussian scale before Laplacian
 EPS_FRAC = 0.05   # near-zero threshold = EPS_FRAC * global median(r)
 
 STAT_NAMES = ["mean", "std", "entropy", "near_zero_fraction",
-              "p50", "p90", "p99", "tail_ratio", "iqr"]
+              "p50", "p90", "p99", "tail_ratio", "iqr", "kurtosis"]
+
+
+def _kurtosis(r: np.ndarray) -> float:
+    v = r.ravel().astype(np.float64)
+    m, s = v.mean(), v.std()
+    if s < 1e-12:
+        return 0.0
+    return float(((v - m) ** 4).mean() / s ** 4 - 3.0)  # excess kurtosis
 
 
 def _entropy(r: np.ndarray, bins: int = 32) -> float:
@@ -56,6 +64,9 @@ def patch_stats(r: np.ndarray, eps: float) -> Dict[str, float]:
         "tail_ratio": float(np.percentile(r, 95) / (p50 + 1e-6)),
         # user-proposed: robust spread — immune to the noise spikes that inflate std
         "iqr": float(np.percentile(r, 75) - np.percentile(r, 25)),
+        # user hypothesis: blur = folded-Gaussian noise (low kurtosis) vs sharp =
+        # sparse heavy-tailed edge response (high kurtosis)
+        "kurtosis": float(_kurtosis(r)),
     }
 
 
@@ -113,6 +124,15 @@ def image_features(path: str) -> Optional[Dict[str, float]]:
         feats[f"{name}_border_max"] = float(bvals.max())
     feats["global_near_zero_fraction"] = float(np.mean(r < eps))
     feats["global_tail_ratio"] = float(np.percentile(r, 95) / (np.percentile(r, 50) + 1e-6))
+
+    # user-proposed EXTENT features: how MANY patches are much flatter than the
+    # image's own overall spread (area of the blurred region, self-normalized).
+    global_iqr = float(np.percentile(r, 75) - np.percentile(r, 25)) + 1e-9
+    iqr_vals = np.array([pp["iqr"] for pp in per_patch])
+    iqr_border = iqr_vals[border_idx]
+    for f in (0.25, 0.5, 1.0):
+        feats[f"iqr_count_lt_{int(f*100):03d}"] = float((iqr_vals < f * global_iqr).sum())
+        feats[f"iqr_border_count_lt_{int(f*100):03d}"] = float((iqr_border < f * global_iqr).sum())
     return feats
 
 
@@ -120,6 +140,7 @@ FEATURE_NAMES: List[str] = (
     [f"{n}_{agg}" for n in STAT_NAMES
      for agg in ("min", "p10", "p50", "p90", "max", "border_min", "border_max")]
     + ["global_near_zero_fraction", "global_tail_ratio"]
+    + [f"iqr_{b}count_lt_{int(f*100):03d}" for f in (0.25, 0.5, 1.0) for b in ("", "border_")]
 )
 
 
