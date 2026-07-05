@@ -20,6 +20,12 @@ import numpy as np
 logger = logging.getLogger(__name__)
 ROOT = os.environ.get("OCCLUSION_DATASET", r"D:\occlusion_dataset")
 
+try:  # albums contain .heic — register before any PIL open
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except ImportError:  # pragma: no cover
+    pass
+
 
 def _device_setup():
     import torch
