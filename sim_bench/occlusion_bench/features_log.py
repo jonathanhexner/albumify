@@ -31,7 +31,7 @@ SIGMA = 2.0       # Gaussian scale before Laplacian
 EPS_FRAC = 0.05   # near-zero threshold = EPS_FRAC * global median(r)
 
 STAT_NAMES = ["mean", "std", "entropy", "near_zero_fraction",
-              "p50", "p90", "p99", "tail_ratio"]
+              "p50", "p90", "p99", "tail_ratio", "iqr"]
 
 
 def _entropy(r: np.ndarray, bins: int = 32) -> float:
@@ -54,6 +54,8 @@ def patch_stats(r: np.ndarray, eps: float) -> Dict[str, float]:
         "p90": float(np.percentile(r, 90)),
         "p99": float(np.percentile(r, 99)),
         "tail_ratio": float(np.percentile(r, 95) / (p50 + 1e-6)),
+        # user-proposed: robust spread — immune to the noise spikes that inflate std
+        "iqr": float(np.percentile(r, 75) - np.percentile(r, 25)),
     }
 
 
