@@ -40,3 +40,8 @@ Parallel tracks after Slice 1 (dataset is the shared foundation).
 - 2026-07-06 Track F (user-proposed LoG-stats + LR) FIRST RESULT:
   scene PR-AUC mean 0.51 [0.35-0.64], image 0.44, vs random-baseline 0.062 (8x lift).
   First candidate with real learned signal; now the number to beat.
+- 2026-07-06 Track B (CLIP probes) RESULTS (pre-adjudication labels):
+  global 0.754 | tile_max 0.815 | tile_mean 0.827 | global+max 0.829 scene PR-AUC.
+  CLIP-embedding probes DOMINATE (F LoG 0.51, E 0.43, A Haiku 0.41). Tiles add
+  ~+0.07 over global — localization hypothesis confirmed. Zero-shot CLIP prompts
+  failed at this exact task; the LEARNED boundary in the same embedding space wins.
