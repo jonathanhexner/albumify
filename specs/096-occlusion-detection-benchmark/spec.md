@@ -48,6 +48,14 @@ frontier) in `RESULTS.md` + optionally surfaced in the Analysis Studio later.
 
 ## Rules
 - Frozen test split: no candidate trains on it; probes/CNN use CV on train only.
+- **Group-aware split (T1.4, user-caught 2026-07-06)**: albums are full of NEAR-duplicates
+  (bursts/retakes) that sha1 dedupe misses. Near-dupes are grouped (dHash hamming ≤ 8 OR
+  filename-timestamp within 15 s, per source; union-find) and the split derives from the
+  GROUP — a scene can never straddle train/test. Under the naive per-file split, 93 groups /
+  377 rows (~45% of the dataset) were leak-prone.
+- **Effective sample size = groups, not files**: 51 positive images = **19 distinct scenes**;
+  776 negatives = 345 groups. All CV is grouped-by-scene; report scene counts alongside
+  image counts everywhere.
 - Augmented/synthetic variants: group-split by base image (no leakage).
 - Imbalance: keep all negatives; `class_weight`/loss-weighting; never report accuracy.
 

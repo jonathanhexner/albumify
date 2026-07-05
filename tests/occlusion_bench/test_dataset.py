@@ -48,3 +48,22 @@ def test_split_is_deterministic(tmp_path):
     s1 = {r["id"]: r["split"] for r in (ds.build(srcs, out1), ds.load_manifest(out1))[1]}
     s2 = {r["id"]: r["split"] for r in (ds.build(srcs, out2), ds.load_manifest(out2))[1]}
     assert s1 == s2  # sha1-derived, no RNG
+
+
+def test_group_split_keeps_bursts_together(tmp_path):
+    """Near-duplicates (burst frames) must land in the SAME split (T1.4)."""
+    from sim_bench.occlusion_bench.dataset import apply_group_split, load_manifest
+    pos = tmp_path / "pos"; neg = tmp_path / "neg"
+    pos.mkdir(); neg.mkdir()
+    # a "burst": same scene, filename timestamps 3s apart (near-dupe pixels too)
+    _img(str(pos / "20260705_215104.jpg"), (200, 60, 60))
+    _img(str(pos / "20260705_215107.jpg"), (201, 61, 61))
+    _img(str(neg / "20250822_120000.jpg"), (60, 60, 200))
+    out = str(tmp_path / "out")
+    ds.build([ds.SourceDir("occl", str(pos), 1), ds.SourceDir("alb", str(neg), 0)], out)
+    apply_group_split(out)
+    rows = {r["id"]: r for r in load_manifest(out)}
+    a = rows["occl__20260705_215104.jpg"]; b = rows["occl__20260705_215107.jpg"]
+    assert a["group_id"] == b["group_id"]          # burst grouped
+    assert a["split"] == b["split"]                # -> same split, no leakage
+    assert rows["alb__20250822_120000.jpg"]["group_id"] != a["group_id"]

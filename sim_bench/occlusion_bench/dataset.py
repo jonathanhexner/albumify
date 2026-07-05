@@ -123,3 +123,44 @@ def build(sources: List[SourceDir], out_dir: str,
 def load_manifest(out_dir: str) -> List[dict]:
     with open(os.path.join(out_dir, "manifest.csv"), newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
+
+
+def apply_group_split(out_dir: str) -> dict:
+    """spec-096 T1.4: near-duplicate-safe split.
+
+    Groups near-duplicates (bursts/retakes — see ``grouping``), sets ``group_id``
+    per row and re-derives ``split`` from the GROUP id, so no scene straddles
+    train/test. Returns stats incl. how many rows the old per-file split leaked.
+    """
+    from sim_bench.occlusion_bench.grouping import group_rows
+    rows = load_manifest(out_dir)
+    gids = group_rows(rows, out_dir)
+
+    # leakage under the OLD per-file split: groups spanning both splits
+    by_gid: Dict[str, set] = {}
+    for r in rows:
+        by_gid.setdefault(gids[r["id"]], set()).add(r["split"])
+    leaked_groups = {g for g, splits in by_gid.items() if len(splits) > 1}
+    leaked_rows = sum(1 for r in rows if gids[r["id"]] in leaked_groups)
+
+    for r in rows:
+        r["group_id"] = gids[r["id"]]
+        r["split"] = _split_for(r["group_id"])  # group-derived, deterministic
+
+    manifest = os.path.join(out_dir, "manifest.csv")
+    with open(manifest, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+
+    n_groups_pos = len({r["group_id"] for r in rows if str(r["label"]) == "1"})
+    n_groups_neg = len({r["group_id"] for r in rows if str(r["label"]) == "0"})
+    stats = {
+        "n_rows": len(rows),
+        "n_groups_pos": n_groups_pos,
+        "n_groups_neg": n_groups_neg,
+        "old_split_leaked_groups": len(leaked_groups),
+        "old_split_leaked_rows": leaked_rows,
+    }
+    logger.info("group split: %s", stats)
+    return stats
