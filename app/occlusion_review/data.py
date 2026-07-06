@@ -44,6 +44,17 @@ def load_all(root: Optional[str] = None) -> List[dict]:
     haiku = _csv("haiku_labels.csv")
     classical = _csv("classical_scores.csv")
     log_probs = _load_log_probs(root, rows)
+    # per-image model scores: OOF probes (model_scores.csv), CNN, tiny-VLM —
+    # merged dynamically so new candidates appear in the app automatically
+    oof = _csv("model_scores.csv")
+    cnn = _csv("cnn_scores.csv")
+    vlm = _csv("tinyvlm_scores.csv")
+
+    def _f(d, rid, key):
+        try:
+            return float(d.get(rid, {}).get(key, "nan"))
+        except (TypeError, ValueError):
+            return float("nan")
 
     out = []
     for r in rows:
@@ -54,6 +65,10 @@ def load_all(root: Optional[str] = None) -> List[dict]:
         rec["haiku_reason"] = h.get("haiku_reason", "")
         rec["classical_score"] = float(classical.get(r["id"], {}).get("score", 0.0) or 0.0)
         rec["log_prob"] = log_probs.get(r["id"], float("nan"))
+        rec["B_clip_oof"] = _f(oof, r["id"], "B_clip_oof")
+        rec["F_log_oof"] = _f(oof, r["id"], "F_log_oof")
+        rec["D2_cnn"] = _f(cnn, r["id"], "score")
+        rec["C_tinyvlm_level"] = _f(vlm, r["id"], "level")
         out.append(rec)
     return out
 

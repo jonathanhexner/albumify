@@ -37,13 +37,15 @@ def _explainer():
 
 
 def _opinions(rec):
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("user label", "occluded" if rec["label"] == "1" else "clean")
     hk = "occluded" if rec["haiku_occluded"] == "1" else ("clean" if rec["haiku_occluded"] == "0" else "?")
     c2.metric("Haiku", f"{hk} L{rec['haiku_level'] or '-'}")
     c3.metric("classical", f"{rec['classical_score']:.2f}")
     lp = rec["log_prob"]
     c4.metric("LoG P(occl)", "-" if lp != lp else f"{lp:.2f}")
+    bp = rec.get("B_clip_oof", float("nan"))
+    c5.metric("CLIP probe (OOF)", "-" if bp != bp else f"{bp:.2f}")
     if rec["haiku_reason"]:
         st.caption(f"Haiku: {rec['haiku_reason']}")
 
@@ -102,11 +104,14 @@ def page_explain(records):
 def page_table(records):
     st.subheader("Model table — every opinion, side by side")
     corr = D.load_corrections(ROOT)
+    def _r(v, nd=3):
+        return round(v, nd) if v == v else None  # NaN -> None
     rows = [{"id": r["id"], "source": r["source_dataset"], "user": r["label"],
              "corrected": D.effective_label(r, corr) if r["id"] in corr else "",
+             "B_clip": _r(r["B_clip_oof"]), "F_log": _r(r["F_log_oof"]),
+             "D2_cnn": _r(r["D2_cnn"]), "C_vlm_L": _r(r["C_tinyvlm_level"], 0),
              "haiku": r["haiku_occluded"], "haiku_L": r["haiku_level"],
              "classical": round(r["classical_score"], 3),
-             "log_prob": (round(r["log_prob"], 3) if r["log_prob"] == r["log_prob"] else None),
              "disagree": (r["haiku_occluded"] != "" and r["haiku_occluded"] != r["label"]),
              "haiku_reason": r["haiku_reason"]} for r in records]
     only_dis = st.checkbox("disagreements only", value=True)

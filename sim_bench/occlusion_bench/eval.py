@@ -80,3 +80,24 @@ def cv_evaluate(X, y, groups, n_splits: int = 5, C: float = 0.1) -> Dict[str, ob
             "scene_pr_auc_min": min(scene), "scene_pr_auc_max": max(scene),
             "scene_pr_auc_mean": float(np.mean(scene)),
             "image_pr_auc_mean": float(np.mean(image))}
+
+
+def cv_oof_scores(X, y, groups, n_splits: int = 5, C: float = 0.1):
+    """Out-of-fold probabilities: every image scored by the fold-model that did
+    NOT train on its group. The honest way to show per-image model scores."""
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import StratifiedGroupKFold
+    from sklearn.preprocessing import StandardScaler
+    X, y, groups = np.asarray(X, dtype=float), np.asarray(y), np.asarray(groups)
+    gsize = {g: int((groups == g).sum()) for g in set(groups.tolist())}
+    n_pos, n_neg = int(y.sum()), int((y == 0).sum())
+    cls_w = {1: len(y) / (2.0 * n_pos), 0: len(y) / (2.0 * n_neg)}
+    w = np.array([cls_w[int(yi)] / gsize[g] for yi, g in zip(y, groups)])
+    oof = np.full(len(y), np.nan)
+    skf = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=42)
+    for tr, te in skf.split(X, y, groups):
+        sc = StandardScaler().fit(X[tr])
+        clf = LogisticRegression(max_iter=2000, C=C)
+        clf.fit(sc.transform(X[tr]), y[tr], sample_weight=w[tr])
+        oof[te] = clf.predict_proba(sc.transform(X[te]))[:, 1]
+    return oof
