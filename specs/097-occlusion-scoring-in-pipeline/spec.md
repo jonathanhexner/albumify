@@ -26,12 +26,15 @@ Never auto-delete; a human sees the ranking.
 Subject mask ladder (cheapest-first; updated 2026-07-07 after the CLIP-semantic panels):
 1. faces ∪ person boxes (already in context: insightface + detect_persons;
    covered 111/122 Budapest — the primary source)
-2. else: **CLIP-semantic saliency** — tile↔global embedding similarity ("which
-   region is most what-this-photo-is-about"); reuses the occlusion probe's tile
-   embeddings, and drew visibly better subject boxes than classical saliency
-   in the research panels
-3. last resort: spectral-residual × center prior (cv2.saliency, zero-torch)
-4. (only if all above fail in practice: U2-Net-lite, ~5MB)
+2. else: **SLIC-superpixel-refined saliency FUSION** (user-proposed intersection,
+   validated 2026-07-07): oversegment with SLIC (cv2.ximgproc — in our pinned
+   opencv-contrib), score each superpixel by the MEAN of a fused saliency map
+   (CLIP-semantic tile↔global similarity + spectral-residual), keep the hot
+   component → an OBJECT-SHAPED mask instead of a fuzzy box.
+   Panel evidence: SR×SLIC traces the basilica's towers/dome; CLIPsem×SLIC
+   captures the full person; each alone fails the other case → fuse.
+   Bonus: masks (not boxes) make the Stage-2 overlap computation exact.
+3. (only if 1-2 fail in practice: U2-Net-lite ~5MB, or FastSAM)
 
 Blur/occlusion region: tile scores from Stage 1 (learned, preferred) and/or the
 LoG **flat-but-noisy** box (`occlusion_bench/saliency.blur_bbox`).
