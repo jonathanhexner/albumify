@@ -23,11 +23,15 @@ Never auto-delete; a human sees the ranking.
    Analysis Studio gains an `occlusion` column in image_quality.
 
 ## Stage 2 — subject-aware severity
-Subject mask ladder (cheapest-first, all zero-install):
-1. faces ∪ person boxes (already in context: insightface + detect_persons)
-2. else: spectral-residual saliency × center prior (cv2.saliency — in our pinned
-   opencv-contrib) → largest component box
-3. (upgrade only if 2 fails in practice: U2-Net-lite, ~5MB)
+Subject mask ladder (cheapest-first; updated 2026-07-07 after the CLIP-semantic panels):
+1. faces ∪ person boxes (already in context: insightface + detect_persons;
+   covered 111/122 Budapest — the primary source)
+2. else: **CLIP-semantic saliency** — tile↔global embedding similarity ("which
+   region is most what-this-photo-is-about"); reuses the occlusion probe's tile
+   embeddings, and drew visibly better subject boxes than classical saliency
+   in the research panels
+3. last resort: spectral-residual × center prior (cv2.saliency, zero-torch)
+4. (only if all above fail in practice: U2-Net-lite, ~5MB)
 
 Blur/occlusion region: tile scores from Stage 1 (learned, preferred) and/or the
 LoG **flat-but-noisy** box (`occlusion_bench/saliency.blur_bbox`).
