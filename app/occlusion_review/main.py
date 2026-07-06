@@ -121,30 +121,58 @@ def page_table(records):
     st.caption(f"{len(rows)} rows. Pick an id on the LoG Explain page for the overlay view.")
 
 
+# model key -> (record field, default threshold, is_binary)
+_GALLERY_MODELS = {
+    "CLIP probe (B, OOF)": ("B_clip_oof", 0.5, False),
+    "LoG stats (F, OOF)": ("F_log_oof", 0.5, False),
+    "CNN (D2, synth-trained)": ("D2_cnn", 0.5, False),
+    "classical (E)": ("classical_score", 0.001, False),
+    "tiny VLM (C, level)": ("C_tinyvlm_level", 0.5, False),
+    "Haiku (A)": ("haiku_occluded", 0.5, True),
+}
+
+
 def page_gallery(records):
-    st.subheader("Error gallery — pattern spotting")
+    st.subheader("Error gallery — per-model misses & false alarms")
     corr = D.load_corrections(ROOT)
-    mode = st.selectbox("show", [
-        "Haiku misses (label=occluded, haiku=clean)",
-        "Haiku false alarms (label=clean, haiku=occluded)",
-        "classical misses (score=0 on occluded)",
-        "LoG misses (P<0.5 on occluded)",
-    ])
+    c1, c2, c3 = st.columns([2, 2, 1.4])
+    model = c1.selectbox("model", list(_GALLERY_MODELS))
+    kind = c2.radio("error type", ["misses (occluded, model says clean)",
+                                   "false alarms (clean, model flags)"], horizontal=False)
+    field, thr_default, is_binary = _GALLERY_MODELS[model]
+    thr = thr_default if is_binary else c3.slider("threshold", 0.0, 1.0, float(thr_default), 0.05)
+
+    def score(r):
+        v = r.get(field)
+        if is_binary:
+            return 1.0 if v == "1" else (0.0 if v == "0" else float("nan"))
+        try:
+            f = float(v)
+            return f if f == f else float("nan")
+        except (TypeError, ValueError):
+            return float("nan")
+
     def lbl(r):
         return D.effective_label(r, corr)
-    if "Haiku misses" in mode:
-        sel = [r for r in records if lbl(r) == "1" and r["haiku_occluded"] == "0"]
-    elif "false alarms" in mode:
-        sel = [r for r in records if lbl(r) == "0" and r["haiku_occluded"] == "1"]
-    elif "classical" in mode:
-        sel = [r for r in records if lbl(r) == "1" and r["classical_score"] == 0.0]
+
+    fg_skipped = sum(1 for r in records if lbl(r) == "fg")
+    scored = [(r, score(r)) for r in records if lbl(r) in ("0", "1")]
+    scored = [(r, s) for r, s in scored if s == s]  # drop unscored (e.g. VLM in progress)
+    if "misses" in kind:
+        sel = [(r, s) for r, s in scored if lbl(r) == "1" and s < thr]
+        sel.sort(key=lambda t: t[1])          # most confidently wrong first
     else:
-        sel = [r for r in records if lbl(r) == "1" and r["log_prob"] == r["log_prob"] and r["log_prob"] < 0.5]
-    st.caption(f"{len(sel)} images (labels include your corrections)")
+        sel = [(r, s) for r, s in scored if lbl(r) == "0" and s >= thr]
+        sel.sort(key=lambda t: -t[1])
+    st.caption(f"{len(sel)} errors of {sum(1 for r,_ in scored if lbl(r)== ('1' if 'misses' in kind else '0'))} "
+               f"eligible images - labels include your corrections"
+               + (f" - {fg_skipped} foreground-object images excluded" if fg_skipped else "")
+               + " - sorted most-confidently-wrong first")
     cols = st.columns(4)
-    for i, r in enumerate(sel[:40]):
+    for i, (r, s) in enumerate(sel[:40]):
         with cols[i % 4]:
-            st.image(D.image_path(ROOT, r), caption=f"{r['id'][:34]}", use_container_width=True)
+            st.image(D.image_path(ROOT, r), caption=f"{s:.2f} - {r['id'][:30]}",
+                     use_container_width=True)
             if st.button("explain", key=f"g_{r['id']}"):
                 st.session_state["explain_id"] = r["id"]
                 st.session_state["page"] = "LoG Explain"
