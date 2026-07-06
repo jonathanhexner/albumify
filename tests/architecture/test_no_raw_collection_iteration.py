@@ -65,6 +65,8 @@ ALLOW_LIST: dict[str, str] = {
         "producer of geo_coord_predictions (GeoCLIP per image)",
     "sim_bench/pipeline/steps/caption_images.py":
         "producer of image_captions (BLIP per image)",
+    "sim_bench/pipeline/steps/classify_scene.py":
+        "producer of scene_tags (CLIP zero-shot per image)",
     "sim_bench/pipeline/steps/score_face_quality.py":
         "scoring producer for per-face quality",
     "sim_bench/pipeline/steps/extract_scene_embedding.py":

@@ -41,4 +41,7 @@ METHOD_INFO = {
                 "prob 0 – 1; distance km vs EXIF", "higher prob = surer; closer km = better", "closer to EXIF = better"),
     "blip": ("Scene caption describing the photo (BLIP)",
              "free text", "n/a", "—"),
+    "scene_tag": ("Scene CATEGORY (portrait / scenery / nature / night life / ...) via "
+                  "CLIP zero-shot; full ranked list stored",
+                  "softmax 0 – 1 over ~10 categories", "higher = surer (relative)", "browse/group, not filter"),
 }

@@ -62,6 +62,10 @@ class PipelineContext:
     ava_scores: dict[str, float] = field(default_factory=dict)
     sharpness_scores: dict[str, float] = field(default_factory=dict)
 
+    # spec-094 follow-up: zero-shot CLIP scene tags, keyed by image path string.
+    # scene_tags[path] = [{"label": "...", "score": 0.31}, ...] full ranked list.
+    scene_tags: dict[str, list] = field(default_factory=dict)
+
     # spec-093: generic multi-method quality scores from ScoreQualityStep.
     # In-run hand-off only (persistence is universal_cache); keyed
     # path -> {method: score} where score honors higher=better.

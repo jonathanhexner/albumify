@@ -23,6 +23,7 @@ from sim_bench.pipeline.steps.extract_geo_metadata import ExtractGeoMetadataStep
 from sim_bench.pipeline.steps.infer_geo_clip import InferGeoClipStep
 from sim_bench.pipeline.steps.infer_geo_coords import InferGeoCoordsStep
 from sim_bench.pipeline.steps.caption_images import CaptionImagesStep
+from sim_bench.pipeline.steps.classify_scene import ClassifySceneStep  # spec-094 scene tags
 from sim_bench.pipeline.steps.score_iqa import ScoreIQAStep
 from sim_bench.pipeline.steps.score_ava import ScoreAVAStep
 from sim_bench.pipeline.steps.score_quality import ScoreQualityStep  # spec-093
@@ -121,6 +122,19 @@ def _map_blip(ctx: PipelineContext) -> Dict[str, AnalysisColumn]:
             for p, cap in ctx.image_captions.items()}
 
 
+def _map_scene(ctx: PipelineContext) -> Dict[str, AnalysisColumn]:
+    out = {}
+    for p, tags in ctx.scene_tags.items():
+        if tags:
+            top = tags[0]
+            short = top["label"].split("/")[0].strip()
+            out[p] = AnalysisColumn("scene_tag", CATEGORY_GEO, LABEL_CONF,
+                                    float(top["score"]), f"{short} ({top['score']:.2f})", tags)
+        else:
+            out[p] = AnalysisColumn("scene_tag", CATEGORY_GEO, LABEL_CONF, None, "-", [])
+    return out
+
+
 def _scalar_mapper(field_name: str, key: str) -> Callable[[PipelineContext], Dict[str, AnalysisColumn]]:
     def mapper(ctx: PipelineContext) -> Dict[str, AnalysisColumn]:
         scores = getattr(ctx, field_name, {}) or {}
@@ -180,6 +194,8 @@ METHODS: Dict[str, _Method] = {m.key: m for m in [
             lambda: InferGeoCoordsStep(), {"top_k": 3}, lambda: _have("geoclip"), _map_geoclip),
     _Method("blip", CATEGORY_GEO, "BLIP (caption)", 13, "caption_images",
             lambda: CaptionImagesStep(), {}, _VISION, _map_blip),
+    _Method("scene_tag", CATEGORY_GEO, "Scene tag (CLIP zero-shot)", 14, "classify_scene",
+            lambda: ClassifySceneStep(), {}, lambda: _have("clip", "torch"), _map_scene),
     # --- image-quality family: existing rule-based/AVA steps ----------------
     _Method("iqa", CATEGORY_QUALITY, "Rule-based IQA", 20, "score_iqa",
             lambda: ScoreIQAStep(), {}, lambda: True, _scalar_mapper("iqa_scores", "iqa")),

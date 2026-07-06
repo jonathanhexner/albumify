@@ -53,6 +53,7 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 | `geo_clip_predictions` | `dict[str, list]` | label+score | `infer_geo_clip` (StreetCLIP) | studio geo view | `universal_cache` (`geo_streetclip`) | producer → end | top-k city guesses |
 | `geo_coord_predictions` | `dict[str, list]` | lat/lon+prob | `infer_geo_coords` (GeoCLIP) | studio geo view | `universal_cache` (`geo_geoclip`) | producer → end | top-k coord guesses |
 | `image_captions` | `dict[str, str]` | text | `caption_images` (BLIP) | studio geo view | `universal_cache` (`blip_caption`) | producer → end | scene caption per image |
+| `scene_tags` | `dict[str, list]` | label+softmax | `classify_scene` (CLIP zero-shot) | studio geo view | `universal_cache` (`scene_tag`) | producer → end | full ranked category list; confidence relative |
 
 ### 3.3 Face-specific (MediaPipe legacy path)
 

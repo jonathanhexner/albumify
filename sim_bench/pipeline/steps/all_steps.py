@@ -15,6 +15,7 @@ from sim_bench.pipeline.steps.score_iqa import ScoreIQAStep
 from sim_bench.pipeline.steps.score_ava import ScoreAVAStep
 from sim_bench.pipeline.steps.score_face_quality import ScoreFaceQualityStep
 from sim_bench.pipeline.steps.score_quality import ScoreQualityStep  # spec-093
+from sim_bench.pipeline.steps.classify_scene import ClassifySceneStep  # spec-094 scene tags
 
 # Face Scoring (individual steps for flexible pipelines)
 from sim_bench.pipeline.steps.score_face_pose import ScoreFacePoseStep
