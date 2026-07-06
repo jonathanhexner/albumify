@@ -92,13 +92,13 @@ def blur_bbox(path: str, grid: int = 8) -> Optional[Box]:
             # FLAT (low spread) but NOISY (sits on a sensor-noise floor).
             # Sky/walls are flat AND near-zero -> excluded. Defocused occluders
             # are flat with response ABOVE the floor (the LR's sign-flip insight).
-            flat[row, col] = 1 if (iqr < 0.25 * g_iqr and med > 0.08 * g_med) else 0
+            flat[row, col] = 1 if (iqr < 0.15 * g_iqr and med > 0.08 * g_med) else 0
     n, labels = cv2.connectedComponents(flat)
     best, area = None, 0
     for i in range(1, n):
         ys, xs = np.where(labels == i)
         touches = ys.min() == 0 or ys.max() == grid - 1 or xs.min() == 0 or xs.max() == grid - 1
-        if touches and len(ys) > area and len(ys) >= 2:
+        if touches and len(ys) > area and len(ys) >= 3:
             area = len(ys)
             best = (xs.min() / grid, ys.min() / grid, (xs.max() + 1) / grid, (ys.max() + 1) / grid)
     return best
