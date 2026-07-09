@@ -54,6 +54,9 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 | `geo_coord_predictions` | `dict[str, list]` | lat/lon+prob | `infer_geo_coords` (GeoCLIP) | studio geo view | `universal_cache` (`geo_geoclip`) | producer → end | top-k coord guesses |
 | `image_captions` | `dict[str, str]` | text | `caption_images` (BLIP) | studio geo view | `universal_cache` (`blip_caption`) | producer → end | scene caption per image |
 | `scene_tags` | `dict[str, list]` | label+softmax | `classify_scene` (CLIP zero-shot) | studio geo view | `universal_cache` (`scene_tag`) | producer → end | full ranked category list; confidence relative |
+| `occlusion_scores` | `dict[str, float]` | P(occluded) 0–1 | `score_occlusion` (spec-096 CLIP probe) | `select_best` penalty; studio | `universal_cache` (`occlusion`) | producer → end | spec-097 Stage 1 |
+| `occlusion_tiles` | `dict[str, list]` | 9 tile scores 0–1 | `score_occlusion` | UI detail / Stage-2 severity | `universal_cache` (`occlusion`, same blob) | producer → end | 3×3 row-major localization |
+| `occlusion_penalties` | `dict[str, float]` | ≤0 | `select_best` | Results breakdown | run blob | producer → end | third composite half (spec-084 pattern) |
 
 ### 3.3 Face-specific (MediaPipe legacy path)
 

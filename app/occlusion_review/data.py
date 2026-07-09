@@ -5,8 +5,10 @@ computes the disagreement worklist, and reads/writes ``corrections.csv``
 (the adjudication output; resumable, append-only).
 
 Decision vocabulary (user-approved): ``occluded_l1|occluded_l2|occluded_l3``,
-``clean``, ``foreground_object`` (branch/head/strap near the camera but not on
-the lens — kept as its own class so its fate is a later, explicit decision).
+``occluded`` (level unspecified — the one-click confirm; honest about not
+grading severity), ``clean``, ``foreground_object`` (branch/head/strap near
+the camera but not on the lens — kept as its own class so its fate is a
+later, explicit decision).
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
-DECISIONS = ["occluded_l1", "occluded_l2", "occluded_l3", "clean", "foreground_object"]
+DECISIONS = ["occluded", "occluded_l1", "occluded_l2", "occluded_l3", "clean", "foreground_object"]
 
 
 def dataset_root() -> str:

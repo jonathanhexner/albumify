@@ -2,6 +2,36 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-07-09 [FEATURE] spec-097 Stage 1 — occlusion scoring + penalty in the pipeline (+ spec-096 CLOSED)
+**Files**: `sim_bench/occlusion_bench/scorer.py` (new), `sim_bench/pipeline/steps/score_occlusion.py` (new), `sim_bench/pipeline/scoring/occlusion_penalty.py` (new), `sim_bench/pipeline/{context.py,steps/{all_steps.py,select_best.py}}`, `configs/pipeline.yaml`, `app/image_studio/{engine.py,method_info.py}`, `models/occlusion/clip_b32_gmax_v1.npz` (new artifact), `scripts/train_occlusion_artifact.py` (new), `tests/pipeline/{test_score_occlusion.py,test_occlusion_penalty.py}` (new), spec-034 contract, raw-iteration allow-list, `docs/architecture/{data_flow.html,classes.html}`, specs 096/097 (REVIEW.md both; 096 → Implemented).
+**Change**: composite = quality + person_penalty + **occlusion_penalty** (0 unless P≥0.8 gate; weight·P·area_factor(tiles), floor −0.5). Detector = spec-096 winner (CLIP ViT-B/32 global+tile-max probe, 0.86 adjudicated), cached per image+artifact-version. Studio gains "Occlusion (trained probe)" column (1−P, higher=clearer). User-mandated validations passed: blur separation 0/60+0/60+0/60 blurred-clean over gate vs 56/56 occluded; tile-explain gallery (localization 13/26 — Stage-2 material). E2E verified: fingers P=0.83 → −0.155 penalty flips select_best to the clean sibling; suites 279+14 green (pre-existing failures → SIGHTING-113 update).
+**Reason**: user: "go ahead" on spec-096 close-out + Stage 1, with blur-separation and explainability checks required before shipping.
+
+### 2026-07-09 [FEATURE] spec-096 — batch-2 positives ingested + FINAL refit (winner 0.86)
+**Files**: `scripts/refit_after_adjudication.py` (new), `scripts/extract_log_features.py` (new, recommits the never-saved Track-F extractor), `scripts/experiment_crop_probe_real.py` (new), `specs/096-.../RESULTS.md` (final table); data: manifest 832 rows (56 pos/18 scenes), regenerated `clip_embeddings.npz`, `features_log.npz`, `resnet_features.npz`, `results_final.json`, `model_scores.csv`.
+**Change**: ingested the user's 5 new positives (rename+append+regroup, split leak-free); full refit on adjudicated labels. Winner CLIP global+tile-max: 0.83 (round-1) → 0.76 (adjudicated) → **0.86 [0.79–0.92]** with batch-2. Haiku fell to 0.17 (user right 80/82). Crop-probe with 6-source diverse negatives (user design): fingers rank 6,17/47 — best so far; exposed LoG proposer recall = 23/49 on the full positive set.
+**Reason**: user adjudicated all 82 disagreements and added a capture batch; "run the refit".
+
+### 2026-07-09 [DOCS] spec-097 — crop-verify experiments report (CLIP on candidate blur boxes)
+**Files**: `specs/097-occlusion-scoring-in-pipeline/CROP_VERIFY_REPORT.html` (new), `scripts/experiment_crop_verify_clip.py` (new), `scripts/experiment_crop_probe_clip.py` (new); galleries → `D:\occlusion_dataset\research_saliency\crop_probe\`.
+**Change**: tested the user's "verify LoG candidate boxes with CLIP" idea. (1) Zero-shot prompt ensembles on the 47 real Budapest crops FAIL — fingers rank 7–31/47; the blurry-vs-sharp contrast ranks sky ABOVE fingers. (2) Synth-trained crop probe run was INVALID: diff-based positive extraction produced whole-photo "crops" (soft alpha edge), probe learned photo-vs-patch (train acc 1.0, fingers 23/43). Report documents both honestly + proposes: real-crop probe next, tight-mask synth redo, user captures now justified, ship Stage 1 regardless.
+**Reason**: user asked for an HTML summary with examples of what was done and proposed.
+
+### 2026-07-08 [BUGFIX] SIGHTING-114 — Adjudicate crashed on HEIC images
+**Files**: `app/occlusion_review/main.py`, `docs/project/SIGHTINGS.md`, `docs/project/LEARNINGS.md`.
+**Change**: register `pillow_heif` opener at app entry (124/776 negatives are .heic; Streamlit→PIL cannot decode HEIC otherwise) + try/except around the adjudicate image render so an unreadable file can never block the queue (buttons stay usable). Verified live: the exact failing image (`germany1__20240616_151011.heic`, #12 in the queue) now renders at :8534 (Playwright screenshot).
+**Reason**: user hit `PIL.UnidentifiedImageError` at image 12 of the adjudication gate.
+
+### 2026-07-08 [FEATURE] spec-096 — one-click adjudication (review app UX)
+**Files**: `app/occlusion_review/main.py` (page_adjudicate), `app/occlusion_review/data.py` (+`occluded` decision).
+**Change**: Adjudicate page redesigned for speed: single button row ABOVE the image — primary "CONFIRM MINE: OCCLUDED/CLEAN" (defaults to the user's original label), "no - <flip>", "foreground object", optional L1/L2/L3 severity. Every button saves + auto-advances; the old scroll-down radio + Save is gone. New `occluded` (level-unspecified) decision added to the vocabulary so one-click confirm doesn't fabricate severity; `effective_label` already maps it via startswith. Verified live at :8534 via Playwright screenshot (no decision clicked — writes are the user's).
+**Reason**: user: default to my label, one button, no scrolling, auto-advance.
+
+### 2026-07-07 [DOCS] spec-097 — comprehensive occlusion status report (with image evidence)
+**Files**: `specs/097-occlusion-scoring-in-pipeline/STATUS_REPORT.html` (new), `scripts/experiment_blurbox_audit.py` (new), `scripts/experiment_slic_fusion_panels.py` (new); panels → `D:\occlusion_dataset\research_saliency\slic_fusion\`.
+**Change**: HTML report answering the user's questions: the 0.83 PR-AUC belongs to the CLIP-probe DETECTION score, not the blur-BOX (a physics heuristic, never AUC-scored, un-gated in research panels). Fresh audit: 47 boxes/122 Budapest imgs — 2/2 real fingers, 45 FPs (24 sky/haze: flat-but-noisy band overlaps dark-finger band at med/g 0.09-0.13). Regenerated SLIC-fusion subject-mask panels (person excludes finger; basilica excludes sky). Ledger of gates: everything blocked on the 82 adjudications.
+**Reason**: user asked for a comprehensive status report with image examples, specifically how sky FPs coexist with the measured AUC.
+
 ### 2026-07-05 [FEATURE] CLIP-prompt occlusion method (added + tested — NEGATIVE result)
 **Files**: `sim_bench/image_quality_models/clip_prompt_model.py` (new), `model_factory.py`; `app/image_studio/{engine.py,method_info.py}`; `tests/image_quality_models/test_clip_prompt_model.py` (new).
 **Change**: `ClipPromptModel` (BaseQualityModel) scores P(clear) vs P(finger-over-lens) via CLIP antonym prompts (openai-clip ViT-B/32); registered `clip_occlusion`, wired into the studio's image_quality family as "CLIP clarity (experimental)". **Tested on the finger-occlusion examples vs clean Budapest photos: it does NOT reliably flag occlusion** — finger images scored P(clear) 0.37/0.32, HIGHER than some clean images (0.18-0.34); tiling (worst 3x3 tile) only marginally helped. Kept as a configurable-prompt scorer, labeled experimental in the legend.

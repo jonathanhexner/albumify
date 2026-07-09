@@ -4,11 +4,43 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-114: Adjudicate page crashes on HEIC images (PIL.UnidentifiedImageError)
+**Status**: RESOLVED (2026-07-08)
+**Severity**: High (blocked the 82-adjudication gate at image 12)
+**Reported**: 2026-07-08 by user, mid-adjudication
+**Persona**: Senior SW Engineer
+
+**Problem**: `st.image(path)` in `app/occlusion_review/main.py` crashed with
+`PIL.UnidentifiedImageError` when the worklist reached a `.heic` file (124 of the 776
+negatives are HEIC, from the Austria/Germany albums). Streamlit decodes image bytes via
+PIL, which cannot read HEIC unless `pillow_heif` registers its opener. `explain.py` and
+`occlusion_bench/saliency.py` already registered it; the app's display path did not —
+the recurring HEIC blind spot (same class as the Track-D skip bug).
+
+**Root cause**: pillow_heif registration was done per-module ad hoc instead of once at
+app entry. **Prevention**: registration moved to app entry (`main.py` import time), and
+the adjudicate image render is wrapped so a single unreadable file can never block the
+queue (decision buttons render above the image and stay usable).
+
+---
+
 ### SIGHTING-113: 3 pre-existing test failures on the unification/spec-040 base (not spec-093/094/095)
 **Status**: OPEN
 **Severity**: Medium (blocks a clean full-suite before merge)
 **Reported**: 2026-07-03 (found running the suite to verify the Image Analysis Studio)
 **Persona**: Senior SW Engineer
+
+**UPDATE 2026-07-09** (spec-097 Stage-1 suite run, `tests/pipeline` + `tests/architecture`,
+279 passed): two ADDITIONAL pre-existing items surfaced (these files previously weren't
+reached because full runs aborted at the item-1 collection error):
+4. **5 ERRORs** `tests/pipeline/test_face_pipeline_e2e.py` — class fixture passes
+   `det_size`/`det_thresh` to `InsightFaceDetectFacesConfig` (`extra="forbid"`): the test
+   was never updated when the config schema changed. Test drift, same class as item 1.
+5. **FAIL** `tests/pipeline/test_face_recognition_benchmark.py::test_intra_person_similarity`
+   — Person 00000 mean similarity 0.407 < 0.5 threshold (real-data drift; item-3 territory).
+Also: item 3 (`test_app_cluster_equivalence`) PASSED in this run — may be flaky or fixed
+en route; keep watching. None of the 5 touch spec-097 files (occlusion step/penalty/scorer);
+spec-097's own 14 tests are green.
 
 **Problem Description**: On branch `specs/093-095-analysis-studios` (off `unification/spec-040`),
 the proper test packages run **354 passed, 2 failed, 1 error** (7 min). All 3 trace to the

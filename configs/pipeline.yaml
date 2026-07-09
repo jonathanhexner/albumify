@@ -14,8 +14,10 @@
 # ACTIVE: InsightFace pipeline (used by API by default)
 default_pipeline:
   - discover_images
+  - extract_geo_metadata        # spec-022: EXIF GPS + capture time per image
   - score_iqa
   - score_ava
+  - score_occlusion             # spec-097: P(lens occlusion) per image (CLIP probe, cached)
   - detect_persons              # YOLOv8-Pose for person detection
   - insightface_detect_faces    # InsightFace SCRFD for face detection
   - filter_faces                # Filter small/low-confidence faces
@@ -101,12 +103,20 @@ score_face_eyes:
 score_face_smile:
   width_threshold: 0.15        # Mouth width ratio threshold for smile detection
 
+# Geo Metadata Extraction (extract_geo_metadata) - spec-022
+extract_geo_metadata:
+  min_year: 1990               # Reject EXIF capture dates before this year
+
 # IQA Scoring (score_iqa)
 score_iqa: {}
 
 # AVA Scoring (score_ava)
 score_ava:
   checkpoint_path: models/album_app/ava_resnet50.pt
+
+# Occlusion Scoring (score_occlusion, spec-097 Stage 1)
+# Model: spec-096 winner (CLIP ViT-B/32 global+tile-max probe, 0.86 scene PR-AUC).
+score_occlusion: {}             # artifact_path override optional; default models/occlusion/clip_b32_gmax_v1.npz
 
 # Quality Filtering (filter_quality)
 filter_quality:
@@ -207,7 +217,7 @@ cluster_by_identity:
   method: agglomerative        # Clustering method
 
 # Selection (select_best)
-# NEW DESIGN: composite_score = image_quality_score + person_penalty
+# composite_score = image_quality_score + person_penalty + occlusion_penalty (spec-097)
 select_best:
   max_images_per_cluster: 2    # Maximum images per cluster
   min_score_threshold: 0.4     # Minimum composite score to keep image
@@ -248,6 +258,14 @@ select_best:
     pose_threshold: 0.5        # Below this = face turned
     frontal_threshold: 0.6     # Below this = non-frontal penalty
     use_centrality_weighting: true # Weight frontal penalty by face centrality
+
+  # Occlusion penalty (spec-097 Stage 1; needs score_occlusion upstream)
+  occlusion_penalty:
+    enabled: true
+    gate: 0.8                  # ~86%-precision operating point (spec-096 adjudicated)
+    weight: -0.35              # penalty = weight * P * area_factor
+    tile_threshold: 0.5        # tile counts as "hot" above this
+    max_penalty: -0.5          # floor — never disqualifies on its own
 
   # Siamese model config
   siamese:

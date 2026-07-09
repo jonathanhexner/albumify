@@ -6,6 +6,16 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-07-09: spec-096 verdict — real positives are the entire game for rare-defect detection
+**Root cause of every plateau**: data, not modeling. Prompt engineering (3 ensembles), hand-crafted features (3 rounds), synthetic training (2 attempts) all failed or stalled; meanwhile 5 new REAL positives moved the CLIP probe +0.10 scene PR-AUC (0.76→0.86) and lifted the worst fold 0.61→0.79.
+**Lessons**: (1) learned boundary in embedding space ≫ zero-shot text, confirmed at whole-image AND crop level; (2) validate synthetic data by EYEBALLING what the model actually trains on (the "whole-photo positive crops" bug survived until the report's example images exposed it); (3) an LLM validator (Haiku, 0.17 as detector) is still worth its cost as a label-miner — it found the dark-occluder class and the one hidden positive.
+**Prevention**: for the next rare-defect detector (subject motion blur, lens flare…), start with a capture session + adjudication loop, not with features or prompts.
+
+### 2026-07-08: HEIC is a recurring blind spot — register pillow_heif at APP ENTRY, not per-module (SIGHTING-114)
+**Root cause**: PIL (and thus Streamlit's `st.image`) cannot decode HEIC without `pillow_heif.register_heif_opener()`. Registration was added ad hoc to individual modules (`explain.py`, `saliency.py`, Track D) as each broke — so every NEW image code path (this time the adjudicate page's display) crashed on the 124 `.heic` files, blocking the user mid-adjudication at image 12.
+**Lesson**: Second HEIC failure of this class (Track D silently skipped .heic; now the review UI crashed on it). Any path that opens dataset images must assume HEIC.
+**Prevention**: register the opener once at app/process entry (done in `app/occlusion_review/main.py`); wrap per-image UI renders in try/except so one unreadable file degrades to a warning instead of blocking a whole worklist.
+
 ### 2026-07-05: Finger-occlusion detection needs a trained model — 5 whole-image/heuristic approaches all fail
 **Root cause**: A finger over the lens is a LOCALIZED corner defect on an otherwise good photo. Whole-image scorers see the (good) main subject and ignore the corner; hand-crafted rules can't separate a blurry warm finger blob from a warm smooth WALL.
 **What was tried (all on the 2 `examples/finger_occlusion/` images vs the 122 Budapest album)**:

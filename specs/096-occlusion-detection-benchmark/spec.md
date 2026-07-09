@@ -1,6 +1,7 @@
 # spec-096 — Occlusion Detection Benchmark
 
-**Created**: 2026-07-05 · **Status**: In Progress · **Priority**: P2
+**Created**: 2026-07-05 · **Status**: Implemented (2026-07-09, REVIEW.md pass-with-followups;
+winner CLIP global+tile-max 0.86 scene PR-AUC — see RESULTS.md) · **Priority**: P2
 **Source**: user — after 5 hand-built approaches failed to reliably flag finger-over-lens
 occlusion (see LEARNINGS 2026-07-05), benchmark multiple detector families on a
 human-labeled dataset and pick by accuracy-vs-cost.

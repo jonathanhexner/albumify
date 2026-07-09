@@ -19,6 +19,12 @@ if str(_repo_root) not in sys.path:
 
 import streamlit as st
 
+try:  # SIGHTING-114: 124/776 negatives are HEIC; PIL needs the opener registered
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except ImportError:
+    pass
+
 from app.occlusion_review import data as D
 from app.occlusion_review import explain as E
 
@@ -61,21 +67,39 @@ def page_adjudicate(records):
         st.success("All disagreements adjudicated. corrections.csv is complete.")
         return
     rec = todo[0]
+    mine = "OCCLUDED" if rec["label"] == "1" else "CLEAN"
+
+    def _save(decision: str) -> None:
+        notes = st.session_state.get(f"n_{rec['id']}", "")
+        D.save_correction(rec["id"], rec["label"], decision, notes, ROOT)
+        st.rerun()
+
+    # One-click row, ABOVE the image so no scrolling. Primary = confirm the
+    # user's original label; every button saves immediately and advances.
+    b = st.columns([2.4, 1.7, 1.9, 0.9, 0.9, 0.9])
+    if b[0].button(f"CONFIRM MINE: {mine}", type="primary", use_container_width=True,
+                   help="Keep your original label and move to the next image"):
+        _save("occluded" if mine == "OCCLUDED" else "clean")
+    other = "clean" if mine == "OCCLUDED" else "occluded"
+    if b[1].button(f"no - {other}", use_container_width=True,
+                   help="Haiku was right; flip the label"):
+        _save(other)
+    if b[2].button("foreground object", use_container_width=True,
+                   help="branch/head/strap near the camera, NOT on the lens"):
+        _save("foreground_object")
+    for i, lv in enumerate(("L1", "L2", "L3")):
+        if b[3 + i].button(lv, use_container_width=True,
+                           help=f"occluded, severity {lv} (optional - only if you want to grade it)"):
+            _save(f"occluded_{lv.lower()}")
+
     st.markdown(f"**{rec['id']}** &nbsp; ({rec['source_dataset']}, "
                 f"{'flagged by Haiku' if rec['label'] == '0' else 'MISSED by Haiku'})")
     _opinions(rec)
-    st.image(D.image_path(ROOT, rec), width=760)
-    choice = st.radio("Your verdict", ["occluded L1 (slight)", "occluded L2 (moderate)",
-                                       "occluded L3 (severe)", "clean",
-                                       "foreground object (branch/head/strap - not on lens)"],
-                      horizontal=False, key=f"v_{rec['id']}")
-    notes = st.text_input("notes (optional)", key=f"n_{rec['id']}")
-    if st.button("Save & next", type="primary"):
-        decision = {"occluded L1 (slight)": "occluded_l1", "occluded L2 (moderate)": "occluded_l2",
-                    "occluded L3 (severe)": "occluded_l3", "clean": "clean",
-                    "foreground object (branch/head/strap - not on lens)": "foreground_object"}[choice]
-        D.save_correction(rec["id"], rec["label"], decision, notes, ROOT)
-        st.rerun()
+    try:  # SIGHTING-114: never let one unreadable file block the queue
+        st.image(D.image_path(ROOT, rec), width=760)
+    except Exception as exc:  # buttons above stay usable; adjudicate from the path
+        st.error(f"Cannot render {rec['id']}: {exc}. File: {D.image_path(ROOT, rec)}")
+    st.text_input("notes (optional, saved with the NEXT button you click)", key=f"n_{rec['id']}")
 
 
 def page_explain(records):

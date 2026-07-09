@@ -66,6 +66,12 @@ class PipelineContext:
     # scene_tags[path] = [{"label": "...", "score": 0.31}, ...] full ranked list.
     scene_tags: dict[str, list] = field(default_factory=dict)
 
+    # spec-097 Stage 1: lens-occlusion detector (spec-096 winner), keyed by path.
+    # occlusion_scores[path] = P(occluded); occlusion_tiles[path] = 9 tile scores
+    # (3x3 row-major) — localization signal for UI + Stage-2 severity.
+    occlusion_scores: dict[str, float] = field(default_factory=dict)
+    occlusion_tiles: dict[str, list] = field(default_factory=dict)
+
     # spec-093: generic multi-method quality scores from ScoreQualityStep.
     # In-run hand-off only (persistence is universal_cache); keyed
     # path -> {method: score} where score honors higher=better.
@@ -138,6 +144,8 @@ class PipelineContext:
     # Stored so the Results table can explain *why* the composite is what it is.
     quality_scores: dict[str, float] = field(default_factory=dict)
     person_penalties: dict[str, float] = field(default_factory=dict)
+    # spec-097: third composite component (0 unless P(occluded) >= gate).
+    occlusion_penalties: dict[str, float] = field(default_factory=dict)
 
     # Siamese comparison log (list of comparison results for debugging/display)
     # Each entry: {cluster_id, img1, img2, winner, confidence, comparison_type}

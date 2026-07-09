@@ -1,8 +1,9 @@
 # spec-097 — Occlusion Scoring in the Pipeline (penalize, don't delete)
 
-**Created**: 2026-07-07 · **Status**: Draft · **Priority**: P2
-**Depends on**: spec-096 (benchmark; winner = CLIP tile probe 0.83 scene PR-AUC,
-pending adjudicated refit). Design discussed + user-approved in session 2026-07-07.
+**Created**: 2026-07-07 · **Status**: In Progress — Stage 1 Implemented 2026-07-09
+(REVIEW.md §Slice-1; Stage 2 open) · **Priority**: P2
+**Depends on**: spec-096 (CLOSED 2026-07-09; winner = CLIP global+tile-max probe,
+**0.86** scene PR-AUC on adjudicated labels). Design user-approved 2026-07-07.
 
 ## Goal
 Photos with lens occlusion (finger/strap blobs) get penalized in Albumify's

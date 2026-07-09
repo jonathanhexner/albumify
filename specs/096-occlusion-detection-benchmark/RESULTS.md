@@ -1,6 +1,35 @@
-# spec-096 — Benchmark Results (round 1, pre-adjudication labels)
+# spec-096 — Benchmark Results
 
-**Date**: 2026-07-07 · **Dataset**: 51 positives (19 scenes) / 776 negatives (345 groups),
+## FINAL (2026-07-09): adjudicated labels + user batch-2 positives
+
+**Dataset**: 832 images, 56 positives (18 scenes) / 776 negatives (345 groups); user
+adjudicated all 82 Haiku disagreements (2 flips: 1 hidden positive found by Haiku,
+1 positive reclassified clean; 0 foreground-object). Random baseline ≈ 0.067.
+
+| # | Candidate | Scene PR-AUC | Image | vs round 1 |
+|---|---|---|---|---|
+| 1 | **B: CLIP probe global+tile-max** | **0.86** [0.79–0.92] | 0.85 | 0.83 → 0.76 (adjudicated) → **0.86** (+5 positives) |
+| 2 | B: tile-mean | 0.83 | 0.83 | |
+| 3 | B: tile-max | 0.82 | 0.82 | |
+| 4 | B: global | 0.79 | 0.76 | |
+| 5 | D2: synth CNN (round-1 model, NOT retrained; in-sample-tainted) | 0.67* | 0.61* | 0.87* exposed as 3-scene mirage |
+| 6 | D1: frozen ResNet probe | 0.66 | 0.55 | |
+| 7 | E: classical 4-cue | 0.45 | 0.33 | |
+| 8 | F: LoG stats + LR | 0.44 | 0.48 | |
+| 9 | A: Haiku zero-shot | 0.17 | 0.16 | user right in 80/82 disagreements |
+
+**Headline**: 5 new real positives (one capture session, 2026-07-09) moved the winner
++0.10 scene PR-AUC and raised the worst-fold floor 0.61 → 0.79. Real positives are the
+binding constraint — each new positive scene is worth ~2 PR-AUC points at this size.
+
+**Production pick (confirmed)**: CLIP tile probe (global+tile-max). Operating point at
+P≥0.8: ~86% precision / 37% recall (pre-batch-2 numbers; recompute at integration).
+
+---
+
+# Round 1 (2026-07-07, pre-adjudication labels — kept for history)
+
+**Dataset**: 51 positives (19 scenes) / 776 negatives (345 groups),
 grouped+stratified 5-fold CV, scene-level PR-AUC primary. Random baseline ≈ 0.06.
 **Caveat**: labels are PRE-adjudication (82 disputed images pending user review); every
 trainable candidate refits in seconds once corrections land.

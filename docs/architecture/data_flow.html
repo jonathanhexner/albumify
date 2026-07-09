@@ -100,13 +100,18 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
   <div class="head"><span class="name">C · pipeline steps run</span><span class="src">configs/pipeline.yaml::default_pipeline</span></div>
   <div class="body">
     detect_persons (YOLOv8) → insightface_detect_faces (SCRFD) → filter_faces<br>
-    align_faces → insightface_score_{expression,eyes,pose} → score_iqa, score_ava<br>
+    align_faces → insightface_score_{expression,eyes,pose} → score_iqa, score_ava, <b>score_occlusion</b> (spec-097)<br>
     filter_quality → cluster_scenes → extract_face_embeddings → <b>cluster_people</b><br>
     <span style="opacity:.8">analysis (opt-in, spec-093): <code>score_quality</code> — runs N IQA methods
     (MANIQA/MUSIQ/HyperIQA/BRISQUE/NIQE/CLIP-IQA via <code>image_quality_models.create_model</code>),
-    cached per-method in universal_cache → <code>context.method_scores</code></span>
+    cached per-method in universal_cache → <code>context.method_scores</code></span><br>
+    <span style="opacity:.8">occlusion (spec-097 Stage 1): <code>score_occlusion</code> — CLIP ViT-B/32
+    global+tile-max probe (artifact <code>models/occlusion/clip_b32_gmax_v1.npz</code>, spec-096 winner
+    0.86 scene PR-AUC) → <code>context.occlusion_scores/_tiles</code>, cached (<code>occlusion</code>);
+    consumed by <code>select_best</code>: composite = quality + person_penalty + <b>occlusion_penalty</b>
+    (0 unless P ≥ 0.8 gate; <code>scoring/occlusion_penalty.py</code>)</span>
   </div>
-  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, method_scores (spec-093), scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
+  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, method_scores (spec-093), occlusion_scores/_tiles/_penalties (spec-097), scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
   <div class="target"><b>Target (specs/037):</b> insert <code>insightface_score_blur</code> after <code>align_faces</code>.</div>
 </div>
 

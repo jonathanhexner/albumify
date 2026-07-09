@@ -27,6 +27,7 @@ from sim_bench.pipeline.steps.classify_scene import ClassifySceneStep  # spec-09
 from sim_bench.pipeline.steps.score_iqa import ScoreIQAStep
 from sim_bench.pipeline.steps.score_ava import ScoreAVAStep
 from sim_bench.pipeline.steps.score_quality import ScoreQualityStep  # spec-093
+from sim_bench.pipeline.steps.score_occlusion import ScoreOcclusionStep  # spec-097
 from sim_bench.image_quality_models.pyiqa_model_wrapper import PyIQAModel, PYIQA_METRICS
 from sim_bench.image_quality_models.clip_prompt_model import ClipPromptModel
 
@@ -240,6 +241,30 @@ for _i, _mk in enumerate(PYIQA_METRICS):
         make_step=lambda: ScoreQualityStep(), config={"methods": [_mk]},
         available=PyIQAModel.is_available, to_columns=_method_scores_mapper(_mk),
     )
+
+# spec-097: the TRAINED occlusion detector (spec-096 winner, 0.86 scene PR-AUC).
+# Displayed direction-normalized like every quality column: value = 1 - P(occluded),
+# so higher = clearer. Tile scores ship in the detail payload.
+def _map_occlusion(ctx: PipelineContext) -> Dict[str, AnalysisColumn]:
+    out = {}
+    for p, prob in (getattr(ctx, "occlusion_scores", None) or {}).items():
+        clear = 1.0 - float(prob)
+        out[p] = AnalysisColumn("occlusion", CATEGORY_QUALITY, NUMERIC, clear,
+                                f"{clear:.3f}", ctx.occlusion_tiles.get(p, []))
+    return out
+
+
+def _occlusion_available() -> bool:
+    from sim_bench.occlusion_bench.scorer import DEFAULT_ARTIFACT
+    return _have("clip", "torch") and os.path.exists(DEFAULT_ARTIFACT)
+
+
+METHODS["occlusion"] = _Method(
+    key="occlusion", category=CATEGORY_QUALITY, label="Occlusion (trained probe)",
+    order=39, step_id="score_occlusion",
+    make_step=lambda: ScoreOcclusionStep(),
+    config={}, available=_occlusion_available, to_columns=_map_occlusion,
+)
 
 # EXPERIMENTAL: CLIP prompt-based clarity/occlusion score. NOTE (tested 2026-07-05):
 # does NOT reliably flag finger-over-lens occlusion — whole-image CLIP is dominated

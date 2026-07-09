@@ -17,6 +17,10 @@ from sim_bench.pipeline.scoring.person_penalty import (
     PersonPenaltyFactory,
     PersonPenaltyComputer,
 )
+from sim_bench.pipeline.scoring.occlusion_penalty import (
+    OcclusionPenaltyFactory,
+    OcclusionPenaltyComputer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +31,15 @@ class SelectBestStep(BaseStep):
     Select best images from each cluster using composite scoring.
 
     Scoring Model:
-        composite_score = image_quality_score + person_penalty
+        composite_score = image_quality_score + person_penalty + occlusion_penalty
 
         image_quality_score: Technical/aesthetic quality (IQA + AVA + optional Siamese)
         person_penalty: Portrait-specific penalties (0 to -0.7)
             - No person: 0 penalty
             - Person with issues: penalties for face occlusion, eyes closed, etc.
+        occlusion_penalty (spec-097): 0 unless P(occluded) >= gate (0.8);
+            then weight * P * area_factor, floored at -0.5. Requires the
+            score_occlusion step upstream; absent scores mean 0 penalty.
 
     Selection Rules:
         1. Compute composite scores for all images
@@ -102,6 +109,18 @@ class SelectBestStep(BaseStep):
                         },
                         "description": "Penalty values for portrait issues"
                     },
+                    "occlusion_penalty": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {"type": "boolean", "default": True},
+                            "gate": {"type": "number", "default": 0.8},
+                            "weight": {"type": "number", "default": -0.35},
+                            "tile_threshold": {"type": "number", "default": 0.5},
+                            "max_penalty": {"type": "number", "default": -0.5}
+                        },
+                        "description": "spec-097: lens-occlusion penalty; 0 unless "
+                                       "P(occluded) >= gate (needs score_occlusion upstream)"
+                    },
                     "siamese": {
                         "type": "object",
                         "properties": {
@@ -128,6 +147,7 @@ class SelectBestStep(BaseStep):
         self._config = None
         self._quality_strategy: Optional[ImageQualityStrategy] = None
         self._penalty_computer: Optional[PersonPenaltyComputer] = None
+        self._occlusion_penalty: Optional[OcclusionPenaltyComputer] = None
 
     def _get_siamese_model(self, checkpoint_path: str):
         """Lazy load Siamese model."""
@@ -188,6 +208,10 @@ class SelectBestStep(BaseStep):
         # Initialize person penalty computer
         penalty_config = config.get("person_penalties", {})
         self._penalty_computer = PersonPenaltyFactory.create(penalty_config)
+
+        # spec-097: occlusion penalty (0 for every image unless score_occlusion ran)
+        self._occlusion_penalty = OcclusionPenaltyFactory.create(
+            config.get("occlusion_penalty", {}))
 
         # Load Siamese model if needed
         siamese_config = config.get("siamese", {})
@@ -341,7 +365,7 @@ class SelectBestStep(BaseStep):
         """
         Compute composite scores for all images.
 
-        composite_score = image_quality_score + person_penalty
+        composite_score = image_quality_score + person_penalty + occlusion_penalty
         """
         scored = []
 
@@ -350,12 +374,14 @@ class SelectBestStep(BaseStep):
                 image_path, context, siamese_model, image_paths
             )
             penalty = self._penalty_computer.compute_penalty(image_path, context)
-            composite_score = quality_score + penalty
+            occ_penalty = self._occlusion_penalty.compute_penalty(image_path, context)
+            composite_score = quality_score + penalty + occ_penalty
 
             # spec-084: persist the breakdown so Results can show why the
-            # composite is what it is (quality_score + person_penalty).
+            # composite is what it is (quality + person_penalty + occlusion_penalty).
             context.quality_scores[image_path] = quality_score
             context.person_penalties[image_path] = penalty
+            context.occlusion_penalties[image_path] = occ_penalty
 
             scored.append((image_path, composite_score))
 
