@@ -1,0 +1,299 @@
+{
+  "stats": {
+    "n_negatives": 776,
+    "gate": 0.8,
+    "artifact_over_gate": 1,
+    "artifact_over_half": 4,
+    "artifact_max": 0.9070197850165655,
+    "oof_over_gate": 3,
+    "oof_over_half": 19,
+    "oof_max": 0.8733,
+    "blurriest_n": 40,
+    "blurriest_artifact_over_gate": 0,
+    "blurriest_artifact_max": 0.2134,
+    "blurriest_oof_over_gate": 0,
+    "blurriest_oof_max": 0.4293
+  },
+  "gallery": [
+    {
+      "id": "austria24__20230817_212354.jpg",
+      "img": "imgs_partA/A__austria24__20230817_212354.jpg",
+      "lapvar": 98.5,
+      "p_artifact": 0.0303,
+      "p_oof": 0.0457
+    },
+    {
+      "id": "austria24__20230817_212315.jpg",
+      "img": "imgs_partA/A__austria24__20230817_212315.jpg",
+      "lapvar": 100.5,
+      "p_artifact": 0.02,
+      "p_oof": 0.0245
+    },
+    {
+      "id": "austria24__20230817_212312.jpg",
+      "img": "imgs_partA/A__austria24__20230817_212312.jpg",
+      "lapvar": 153.5,
+      "p_artifact": 0.0215,
+      "p_oof": 0.0309
+    },
+    {
+      "id": "austria24__20230818_215834.jpg",
+      "img": "imgs_partA/A__austria24__20230818_215834.jpg",
+      "lapvar": 166.2,
+      "p_artifact": 0.152,
+      "p_oof": 0.236
+    },
+    {
+      "id": "austria24__20230818_215829.jpg",
+      "img": "imgs_partA/A__austria24__20230818_215829.jpg",
+      "lapvar": 249.8,
+      "p_artifact": 0.1675,
+      "p_oof": 0.2095
+    },
+    {
+      "id": "germany1__20240816_152405.jpg",
+      "img": "imgs_partA/A__germany1__20240816_152405.jpg",
+      "lapvar": 251.2,
+      "p_artifact": 0.0172,
+      "p_oof": 0.0183
+    },
+    {
+      "id": "austria24__20230817_151937.jpg",
+      "img": "imgs_partA/A__austria24__20230817_151937.jpg",
+      "lapvar": 271.2,
+      "p_artifact": 0.0226,
+      "p_oof": 0.0239
+    },
+    {
+      "id": "austria24__20230824_144717.jpg",
+      "img": "imgs_partA/A__austria24__20230824_144717.jpg",
+      "lapvar": 273.6,
+      "p_artifact": 0.0164,
+      "p_oof": 0.0187
+    },
+    {
+      "id": "austria24__20230823_170810.jpg",
+      "img": "imgs_partA/A__austria24__20230823_170810.jpg",
+      "lapvar": 285.6,
+      "p_artifact": 0.0326,
+      "p_oof": 0.0303
+    },
+    {
+      "id": "germany1__20240816_152403.jpg",
+      "img": "imgs_partA/A__germany1__20240816_152403.jpg",
+      "lapvar": 316.5,
+      "p_artifact": 0.0332,
+      "p_oof": 0.0334
+    },
+    {
+      "id": "austria24__20230817_151932.jpg",
+      "img": "imgs_partA/A__austria24__20230817_151932.jpg",
+      "lapvar": 318.9,
+      "p_artifact": 0.0279,
+      "p_oof": 0.0303
+    },
+    {
+      "id": "austria24__20230817_151934.jpg",
+      "img": "imgs_partA/A__austria24__20230817_151934.jpg",
+      "lapvar": 332.1,
+      "p_artifact": 0.0237,
+      "p_oof": 0.026
+    },
+    {
+      "id": "budapest__20250822_122539.jpg",
+      "img": "imgs_partA/A__budapest__20250822_122539.jpg",
+      "lapvar": 332.3,
+      "p_artifact": 0.2134,
+      "p_oof": 0.4293
+    },
+    {
+      "id": "austria24__20230817_151935.jpg",
+      "img": "imgs_partA/A__austria24__20230817_151935.jpg",
+      "lapvar": 333.7,
+      "p_artifact": 0.0383,
+      "p_oof": 0.0365
+    },
+    {
+      "id": "austria24__20230823_191028.jpg",
+      "img": "imgs_partA/A__austria24__20230823_191028.jpg",
+      "lapvar": 338.6,
+      "p_artifact": 0.0068,
+      "p_oof": 0.0083
+    },
+    {
+      "id": "austria24__20230821_120129.jpg",
+      "img": "imgs_partA/A__austria24__20230821_120129.jpg",
+      "lapvar": 343.7,
+      "p_artifact": 0.0047,
+      "p_oof": 0.0047
+    },
+    {
+      "id": "austria24__20230821_120132.jpg",
+      "img": "imgs_partA/A__austria24__20230821_120132.jpg",
+      "lapvar": 344.5,
+      "p_artifact": 0.0064,
+      "p_oof": 0.0074
+    },
+    {
+      "id": "austria24__20230823_191034.jpg",
+      "img": "imgs_partA/A__austria24__20230823_191034.jpg",
+      "lapvar": 347.5,
+      "p_artifact": 0.0214,
+      "p_oof": 0.0209
+    },
+    {
+      "id": "austria24__20230821_120133.jpg",
+      "img": "imgs_partA/A__austria24__20230821_120133.jpg",
+      "lapvar": 350.7,
+      "p_artifact": 0.004,
+      "p_oof": 0.0044
+    },
+    {
+      "id": "austria24__20230821_111359.jpg",
+      "img": "imgs_partA/A__austria24__20230821_111359.jpg",
+      "lapvar": 351.8,
+      "p_artifact": 0.0047,
+      "p_oof": 0.0058
+    },
+    {
+      "id": "austria24__20230821_120122.jpg",
+      "img": "imgs_partA/A__austria24__20230821_120122.jpg",
+      "lapvar": 353.3,
+      "p_artifact": 0.0056,
+      "p_oof": 0.0065
+    },
+    {
+      "id": "germany1__20240818_124938.jpg",
+      "img": "imgs_partA/A__germany1__20240818_124938.jpg",
+      "lapvar": 355.6,
+      "p_artifact": 0.0241,
+      "p_oof": 0.0304
+    },
+    {
+      "id": "austria24__20230826_125819.jpg",
+      "img": "imgs_partA/A__austria24__20230826_125819.jpg",
+      "lapvar": 361.1,
+      "p_artifact": 0.0479,
+      "p_oof": 0.0587
+    },
+    {
+      "id": "budapest__20250822_192248.jpg",
+      "img": "imgs_partA/A__budapest__20250822_192248.jpg",
+      "lapvar": 363.9,
+      "p_artifact": 0.1003,
+      "p_oof": 0.1309
+    },
+    {
+      "id": "austria24__20230821_130236~2.jpg",
+      "img": "imgs_partA/A__austria24__20230821_130236~2.jpg",
+      "lapvar": 364.1,
+      "p_artifact": 0.0007,
+      "p_oof": 0.0009
+    },
+    {
+      "id": "austria24__20230823_191037.jpg",
+      "img": "imgs_partA/A__austria24__20230823_191037.jpg",
+      "lapvar": 365.1,
+      "p_artifact": 0.0282,
+      "p_oof": 0.0296
+    },
+    {
+      "id": "austria24__20230821_111400.jpg",
+      "img": "imgs_partA/A__austria24__20230821_111400.jpg",
+      "lapvar": 368.2,
+      "p_artifact": 0.0032,
+      "p_oof": 0.0045
+    },
+    {
+      "id": "austria24__20230821_111357.jpg",
+      "img": "imgs_partA/A__austria24__20230821_111357.jpg",
+      "lapvar": 371.5,
+      "p_artifact": 0.0033,
+      "p_oof": 0.0043
+    },
+    {
+      "id": "austria24__20230821_120140.jpg",
+      "img": "imgs_partA/A__austria24__20230821_120140.jpg",
+      "lapvar": 374.0,
+      "p_artifact": 0.003,
+      "p_oof": 0.0033
+    },
+    {
+      "id": "austria24__20230821_111356.jpg",
+      "img": "imgs_partA/A__austria24__20230821_111356.jpg",
+      "lapvar": 375.6,
+      "p_artifact": 0.0026,
+      "p_oof": 0.0034
+    },
+    {
+      "id": "austria24__20230821_120135.jpg",
+      "img": "imgs_partA/A__austria24__20230821_120135.jpg",
+      "lapvar": 377.9,
+      "p_artifact": 0.0074,
+      "p_oof": 0.0073
+    },
+    {
+      "id": "austria24__20230821_120139.jpg",
+      "img": "imgs_partA/A__austria24__20230821_120139.jpg",
+      "lapvar": 382.2,
+      "p_artifact": 0.003,
+      "p_oof": 0.003
+    },
+    {
+      "id": "austria24__20230817_151939.jpg",
+      "img": "imgs_partA/A__austria24__20230817_151939.jpg",
+      "lapvar": 390.3,
+      "p_artifact": 0.0245,
+      "p_oof": 0.0274
+    },
+    {
+      "id": "austria24__20230821_115414.jpg",
+      "img": "imgs_partA/A__austria24__20230821_115414.jpg",
+      "lapvar": 394.6,
+      "p_artifact": 0.0059,
+      "p_oof": 0.0068
+    },
+    {
+      "id": "austria24__20230823_191033.jpg",
+      "img": "imgs_partA/A__austria24__20230823_191033.jpg",
+      "lapvar": 398.0,
+      "p_artifact": 0.0133,
+      "p_oof": 0.0149
+    },
+    {
+      "id": "austria24__20230821_115416.jpg",
+      "img": "imgs_partA/A__austria24__20230821_115416.jpg",
+      "lapvar": 399.2,
+      "p_artifact": 0.0042,
+      "p_oof": 0.0064
+    },
+    {
+      "id": "austria24__20230823_170800.jpg",
+      "img": "imgs_partA/A__austria24__20230823_170800.jpg",
+      "lapvar": 400.8,
+      "p_artifact": 0.059,
+      "p_oof": 0.0541
+    },
+    {
+      "id": "austria24__20230826_125813.jpg",
+      "img": "imgs_partA/A__austria24__20230826_125813.jpg",
+      "lapvar": 408.0,
+      "p_artifact": 0.0224,
+      "p_oof": 0.0312
+    },
+    {
+      "id": "austria24__20230820_074142.jpg",
+      "img": "imgs_partA/A__austria24__20230820_074142.jpg",
+      "lapvar": 409.6,
+      "p_artifact": 0.0655,
+      "p_oof": 0.1105
+    },
+    {
+      "id": "austria24__20230821_115354.jpg",
+      "img": "imgs_partA/A__austria24__20230821_115354.jpg",
+      "lapvar": 423.5,
+      "p_artifact": 0.0072,
+      "p_oof": 0.0106
+    }
+  ]
+}

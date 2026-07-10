@@ -1,0 +1,60 @@
+{
+  "gate": 0.8,
+  "n_rb_train": 140,
+  "n_rb_holdout": 282,
+  "holdout_v1": {
+    "over_gate": 31,
+    "over_half": 206,
+    "max": 0.9229376657885919,
+    "mean": 0.6019808267828143
+  },
+  "holdout_v2": {
+    "over_gate": 0,
+    "over_half": 0,
+    "max": 0.29023209359256325,
+    "mean": 0.0410506497159968
+  },
+  "cv_scene_pr_auc_orig": {
+    "v1_recipe": 0.7772,
+    "v2_recipe_rb_pinned": 0.774
+  },
+  "pos_recall_gate_v1": "56/56",
+  "pos_recall_gate_v2": "56/56",
+  "synthetic_blur_v2": {
+    "n": 60,
+    "motion": 0,
+    "defocus": 0,
+    "clean": 0,
+    "pos_flagged": 56,
+    "n_pos": 56
+  },
+  "explain_v1": "13/26",
+  "explain_v2": "10/26",
+  "near_misses": {
+    "austria24__20230818_112645.jpg": {
+      "v1": 0.4437,
+      "v2": 0.4807
+    },
+    "austria24__20230818_112650.jpg": {
+      "v1": 0.5775,
+      "v2": 0.5731
+    },
+    "austria24__20230818_112656.jpg": {
+      "v1": 0.4682,
+      "v2": 0.5123
+    },
+    "occl__20260705_214913.jpg": {
+      "v1": 0.6471,
+      "v2": 0.352
+    },
+    "budapest__20250822_123518.jpg": {
+      "v1": 0.517,
+      "v2": 0.4654
+    },
+    "budapest__20250822_123521.jpg": {
+      "v1": 0.5777,
+      "v2": 0.4416
+    }
+  },
+  "hot_tile_changed": 16
+}

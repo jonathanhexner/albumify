@@ -1,0 +1,43 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>ResNet18 fine-tune vs CLIP probe (2026-07-10)</title><style>
+body{font-family:'Segoe UI',sans-serif;max-width:1150px;margin:24px auto;padding:0 16px;color:#222}
+h1{border-bottom:3px solid #2563eb} h2{margin-top:32px;border-bottom:1px solid #ccc}
+table{border-collapse:collapse;margin:12px 0} td,th{border:1px solid #bbb;padding:6px 12px}
+th{background:#eef2ff} .grid{display:flex;flex-wrap:wrap;gap:10px}
+.card{width:250px} .card img{width:100%;border:1px solid #999;border-radius:4px}
+.cap{font-size:12px;color:#444} .verdict{background:#f0fdf4;border-left:5px solid #15803d;padding:10px 16px}
+code{background:#f3f4f6;padding:1px 5px;border-radius:3px}</style></head><body>
+<h1>CNN (ResNet18 fine-tuned + augmentation) vs CLIP+LR probe</h1>
+<p><b>Date</b>: 2026-07-10 · identical protocol for both: 856 originals (80 pos) + 140 RealBlur
+negatives, 5-fold grouped+stratified OOF CV seed 0, scene = max over burst group.
+ResNet18: ImageNet weights, ALL layers fine-tuned, 6 epochs/fold, weighted BCE,
+on-the-fly aug (flip / ±12° rot / crop 85-100% / color jitter / noise).</p>
+
+<h2>Head-to-head (OOF, seed 0)</h2>
+<table><tr><th>model</th><th>scene PR-AUC</th><th>scene ROC-AUC</th><th>image PR-AUC</th>
+<th>image ROC-AUC</th><th>FP ≥ gate</th><th>FN &lt; gate (of 80)</th></tr>
+<tr><td>CLIP ViT-B/32 + LR (+RealBlur) — production recipe</td><td>0.8985</td><td>0.9820</td><td>0.9109</td><td>0.9820</td><td>2</td><td>32</td></tr>
+<tr><td>ResNet18 fine-tuned + aug</td><td>0.7685</td><td>0.9351</td><td>0.7357</td><td>0.9292</td><td>10</td><td>38</td></tr></table>
+
+<h2>ROC overlay</h2>
+<img src='roc_overlay.png' style='max-width:100%;border:1px solid #ccc'>
+
+<h2>ResNet's mistakes (context for the gap)</h2>
+<h3>False positives at gate (top 8)</h3>
+<div class='grid'><div class='card'><img src='imgs/fp__germany1__20240816_150847.jpg' loading='lazy'><div class='cap'>germany1__20240816_150847.heic<br>OOF P=1.00</div></div><div class='card'><img src='imgs/fp__budapest__20250822_123528.jpg' loading='lazy'><div class='cap'>budapest__20250822_123528.jpg<br>OOF P=1.00</div></div><div class='card'><img src='imgs/fp__germany1__20240817_150601.jpg' loading='lazy'><div class='cap'>germany1__20240817_150601.heic<br>OOF P=0.99</div></div><div class='card'><img src='imgs/fp__occl__20260705_214913.jpg' loading='lazy'><div class='cap'>occl__20260705_214913.jpg<br>OOF P=0.98</div></div><div class='card'><img src='imgs/fp__budapest__20250822_123448.jpg' loading='lazy'><div class='cap'>budapest__20250822_123448.jpg<br>OOF P=0.97</div></div><div class='card'><img src='imgs/fp__austria24__20230820_130048.jpg' loading='lazy'><div class='cap'>austria24__20230820_130048.jpg<br>OOF P=0.97</div></div><div class='card'><img src='imgs/fp__budapest__20250822_123443.jpg' loading='lazy'><div class='cap'>budapest__20250822_123443.jpg<br>OOF P=0.95</div></div><div class='card'><img src='imgs/fp__austria24__20230818_215834.jpg' loading='lazy'><div class='cap'>austria24__20230818_215834.jpg<br>OOF P=0.95</div></div></div>
+<h3>Worst false negatives (top 8)</h3>
+<div class='grid'><div class='card'><img src='imgs/fn__occl__20260705_215415.jpg' loading='lazy'><div class='cap'>occl__20260705_215415.jpg<br>OOF P=0.00</div></div><div class='card'><img src='imgs/fn__germany1__20240816_151011.jpg' loading='lazy'><div class='cap'>germany1__20240816_151011.heic<br>OOF P=0.00</div></div><div class='card'><img src='imgs/fn__occl__20260705_215419.jpg' loading='lazy'><div class='cap'>occl__20260705_215419.jpg<br>OOF P=0.00</div></div><div class='card'><img src='imgs/fn__budapest__20250822_122626.jpg' loading='lazy'><div class='cap'>budapest__20250822_122626.jpg<br>OOF P=0.00</div></div><div class='card'><img src='imgs/fn__occl__20260705_215438.jpg' loading='lazy'><div class='cap'>occl__20260705_215438.jpg<br>OOF P=0.01</div></div><div class='card'><img src='imgs/fn__occl__20260705_215428.jpg' loading='lazy'><div class='cap'>occl__20260705_215428.jpg<br>OOF P=0.01</div></div><div class='card'><img src='imgs/fn__budapest__20250822_122617.jpg' loading='lazy'><div class='cap'>budapest__20250822_122617.jpg<br>OOF P=0.01</div></div><div class='card'><img src='imgs/fn__occl__20260628_182527.jpg' loading='lazy'><div class='cap'>occl__20260628_182527.jpg<br>OOF P=0.02</div></div></div>
+
+<div class='verdict'><b>Verdict</b>: the frozen-CLIP probe beats the fine-tuned CNN by
+~13 scene PR-AUC points
+(0.899 vs 0.768) with 5× fewer false positives at the gate.
+Training loss fell to ~0.01 (the CNN memorized the training set) while OOF stayed far behind —
+80 positives is simply not enough data to fine-tune a CNN, even with heavy augmentation,
+whereas CLIP's 400M-image pretraining already encodes the needed invariances and the LR head
+only has ~1k parameters to fit. Augmentation helped neither model (CLIP: null; ResNet: still
+overfits through it). Consistent with spec-096's frozen-ResNet50 result (0.66).</div>
+
+<h2>Reproduce</h2>
+<p><code>scripts/experiment_resnet_finetune.py</code> → <code>scripts/experiment_resnet_report.py</code>.
+OOF arrays: <code>resnet_oof.npz</code>. Cache: <code>D:\occlusion_dataset\_cache256</code>.</p>
+</body></html>

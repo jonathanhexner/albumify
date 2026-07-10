@@ -1,0 +1,15 @@
+{
+  "model": "resnet18 fine-tuned (all layers), aug on-the-fly",
+  "epochs": 6,
+  "n": 856,
+  "n_pos": 80,
+  "gate": 0.8,
+  "seed": 0,
+  "img_roc": 0.9292,
+  "img_pr": 0.7357,
+  "scene_roc": 0.9351,
+  "scene_pr": 0.7685,
+  "fp_over_gate": 10,
+  "fn_under_gate": 38,
+  "fp_over_half": 23
+}

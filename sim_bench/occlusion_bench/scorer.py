@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 TILE_GRID = 3  # 3x3 tiles, matching the benchmark's clip_embed layout
 DEFAULT_ARTIFACT = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "models", "occlusion", "clip_b32_gmax_v1.npz")
+    "models", "occlusion", "clip_b32_gmax_v2.npz")
 
 
 @dataclass

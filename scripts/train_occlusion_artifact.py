@@ -28,10 +28,14 @@ logger = logging.getLogger("train_occlusion")
 
 ROOT = os.environ.get("OCCLUSION_DATASET", r"D:\occlusion_dataset")
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ARTIFACT = os.path.join(REPO, "models", "occlusion", "clip_b32_gmax_v1.npz")
-VERSION = "clip_b32_gmax_v1"
+ARTIFACT = os.path.join(REPO, "models", "occlusion", "clip_b32_gmax_v2.npz")
+VERSION = "clip_b32_gmax_v2"
 GATE = 0.8
 N_BLUR_SAMPLE = 60
+# v2 (2026-07-10): RealBlur-J hard negatives joined training after the
+# blur-robustness experiment showed real camera shake fooled v1
+# (52/702 over gate; 0/282 holdout after). 1 image per train scene.
+RB_TRAIN_SCENE_FRAC = 0.6
 
 
 def corrected_labels(ids, y_orig):
@@ -45,6 +49,24 @@ def corrected_labels(ids, y_orig):
     return y
 
 
+def realblur_negatives():
+    """(X, groups) for the RealBlur-J hard negatives — 1 per train scene."""
+    rb = np.load(os.path.join(ROOT, "realblur", "realblur_embeddings.npz"),
+                 allow_pickle=True)
+    names = [str(x) for x in rb["names"]]
+    scenes = sorted({n.split("__")[0] for n in names})
+    train_scenes = set(scenes[:int(len(scenes) * RB_TRAIN_SCENE_FRAC)])
+    seen, sel = set(), []
+    for i, n in enumerate(names):
+        s = n.split("__")[0]
+        if s in train_scenes and s not in seen:
+            seen.add(s)
+            sel.append(i)
+    X = np.concatenate([rb["emb_global"][sel],
+                        rb["emb_tiles"][sel].max(axis=1)], axis=1)
+    return X, np.array(["rb_" + names[i].split("__")[0] for i in sel])
+
+
 def train():
     from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import StandardScaler
@@ -53,6 +75,14 @@ def train():
     y = corrected_labels(ids, d["y"].astype(int))
     g = d["groups"]
     X = np.concatenate([d["emb_global"], d["emb_tiles"].max(axis=1)], axis=1)
+
+    Xrb, grb = realblur_negatives()
+    n_orig = len(y)
+    X = np.vstack([X, Xrb])
+    y = np.concatenate([y, np.zeros(len(Xrb), int)])
+    g = np.concatenate([np.array([str(x) for x in g]), grb])
+    logger.info("training on %d originals (%d pos) + %d realblur negatives",
+                n_orig, int(y.sum()), len(Xrb))
 
     gsize = {gg: int((g == gg).sum()) for gg in set(g.tolist())}
     n_pos, n_neg = int(y.sum()), int((y == 0).sum())
@@ -67,11 +97,13 @@ def train():
     np.savez_compressed(
         ARTIFACT, mean=sc.mean_, scale=sc.scale_, coef=clf.coef_,
         intercept=np.array(clf.intercept_[0]), version=VERSION,
-        meta=json.dumps({"trained": "2026-07-09", "n_images": len(y),
+        meta=json.dumps({"trained": "2026-07-10", "n_images": n_orig,
                          "n_pos": int(y.sum()), "clip": "ViT-B/32",
-                         "benchmark": "spec-096 FINAL 0.86 scene PR-AUC"}))
-    logger.info("artifact saved: %s (%d imgs, %d pos)", ARTIFACT, len(y), int(y.sum()))
-    return d, ids, y
+                         "hard_negatives": f"realblur-J 1/scene x{len(Xrb)}",
+                         "benchmark": "grouped OOF scene PR-AUC ~0.91 (2026-07-10)"}))
+    logger.info("artifact saved: %s (%d orig + %d rb, %d pos)",
+                ARTIFACT, n_orig, len(Xrb), int(y.sum()))
+    return d, ids, y[:n_orig]  # validations run on originals only
 
 
 def validate_blur(scorer, d, ids, y):
@@ -192,7 +224,7 @@ def explain_positives(scorer, d, ids, y):
         f.write(doc)
     logger.info("EXPLAIN CHECK: hot tile inside LoG box %d/%d; gallery %s",
                 agree, with_box, os.path.join(out_dir, "index.html"))
-    return {"agree": agree, "with_box": with_box, "n_pos": len(rows)}
+    return {"agree": int(agree), "with_box": int(with_box), "n_pos": len(rows)}
 
 
 if __name__ == "__main__":

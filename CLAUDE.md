@@ -79,6 +79,14 @@ Spec lifecycle: `Draft` → `In Progress` → `Code Review` → `Implemented`.
 6. **Test the full data path** — `py_compile` passing means nothing without real data.
 7. **Do not report a feature as complete when you know parts are unimplemented.** If it needs to be in 4 places and you did 1, that is 25% done. Say so, or finish the job.
 
+## Experiment reports (mandatory)
+Every exploration/experiment (model comparison, detector research, validation study, threshold sweep) MUST leave an inspectable trail in `reports/`:
+1. `reports/<YYYY-MM-DD>_<slug>/report.html` — experiment goal, method, **a few sample images inline** (downscaled copies inside the folder), how to access the full image set (path on data drive), and outcomes.
+2. `reports/<YYYY-MM-DD>_<slug>/summary.md` — short markdown summary of the same.
+3. Append a **2-line entry** to `reports/EXPERIMENTS.md` (the index): line 1 = name + goal, line 2 = outcome + link.
+- Transient artifacts (e.g. generated blur variants) must NOT be score-and-delete: save at least a sample set into the report folder so results can be eyeballed later.
+- Large image sets stay on the data drive (e.g. `D:\occlusion_dataset\...`); the report links to them.
+
 ## Coding
 - Python 3.10+. Type hints. Full imports (no relative). Logging over prints.
 - `__init__.py` kept empty except `face_cluster/__init__.py`.
