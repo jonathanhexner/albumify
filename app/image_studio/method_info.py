@@ -29,10 +29,10 @@ METHOD_INFO = {
     "clipiqa": ("CLIP-based 'is this a good photo?' likelihood (prompt-driven, no training)",
                 "0 – 1", "higher = better", "higher ↑"),
     "occlusion": ("Lens occlusion (finger/strap over lens) — TRAINED detector, spec-096 "
-                  "benchmark winner (0.86 scene PR-AUC on adjudicated labels). Shown as "
-                  "1 − P(occluded) so higher = clearer; below 0.2 means the pipeline "
-                  "penalty gate (P ≥ 0.8) fires",
-                  "0 – 1 (= 1 − P)", "higher = clearer", "higher ↑ (< 0.2 ⇒ penalized)"),
+                  "winner, v2 model (0.91 OOF scene PR-AUC, 2026-07-10). Shown as "
+                  "1 − P(occluded) so higher = clearer; below 0.25 means the pipeline "
+                  "penalty gate (P ≥ 0.75) fires",
+                  "0 – 1 (= 1 − P)", "higher = clearer", "higher ↑ (< 0.25 ⇒ penalized)"),
     "clip_occlusion": ("EXPERIMENTAL — CLIP 'clear vs finger-over-lens' prompt score. "
                        "Tested: does NOT reliably flag corner occlusion (whole-image CLIP is "
                        "dominated by the main subject). Superseded by 'occlusion' (trained). "

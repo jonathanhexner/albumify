@@ -262,7 +262,7 @@ select_best:
   # Occlusion penalty (spec-097 Stage 1; needs score_occlusion upstream)
   occlusion_penalty:
     enabled: true
-    gate: 0.8                  # ~86%-precision operating point (spec-096 adjudicated)
+    gate: 0.75                 # v2 OOF sweep 2026-07-10: same FPs as gate 0.8, recall 60%->71%
     weight: -0.35              # penalty = weight * P * area_factor
     tile_threshold: 0.5        # tile counts as "hot" above this
     max_penalty: -0.5          # floor — never disqualifies on its own

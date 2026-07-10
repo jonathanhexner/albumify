@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-07-10 [CONFIG] spec-097 — occlusion_penalty gate 0.8 → 0.75 (user-approved)
+**Files**: `configs/pipeline.yaml`, `app/image_studio/method_info.py` (legend threshold + v2 benchmark text).
+**Change**: v2 OOF sweep showed 0.75 strictly dominates 0.8 (same 3 false positives, recall 60%→71%; re-captures the subtle Budapest finger pair at P=0.77/0.79). Verified: gate loads from yaml, penalty fires at P=0.77 (−0.126) and stays 0 at P=0.70; 6 penalty tests green.
+**Reason**: user: "yes change it to 0.75".
+
 ### 2026-07-10 [FEATURE] spec-097 — SHIP occlusion model v2 (clip_b32_gmax_v2: 859 imgs / 83 pos + RealBlur negatives; OOF scene PR-AUC 0.910)
 **Files**: `models/occlusion/clip_b32_gmax_v2.npz` (new production artifact; v1 kept for rollback), `sim_bench/occlusion_bench/scorer.py` (DEFAULT_ARTIFACT → v2), `scripts/train_occlusion_artifact.py` (RealBlur hard negatives now part of the production recipe; version v2; numpy-int json fix), `scripts/ingest_positive_batch.py` (new, reusable positive-batch ingest: rename/burst-group/embed/manifest-append).
 **Change**: user approved shipping after 3 experiment rounds. Final recipe: CLIP ViT-B/32 global+tile-max LR on 859 originals (83 positives incl. batches 3-4) + 140 RealBlur-J negatives (1/train-scene). Benchmark (grouped OOF ×3 seeds): scene PR-AUC **0.910 ± 0.004** (was 0.777 pre-batch-3). Ship gates re-passed: blur separation 0/60 clean + 0/60 motion + 0/60 defocus over gate vs 78/83 real; explainability 13/36 (tile localization still Stage-2). Cache self-invalidates via version bump. Tests: 138 passed (pipeline occlusion + architecture). Known at gate 0.8: the two minor Budapest fingers score 0.77/0.79 (in-sample) — below gate; OOF sweep shows gate 0.75 strictly dominates (same 3 FP, recall 60→71%) — left at 0.8 pending user call.
