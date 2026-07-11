@@ -42,6 +42,26 @@ Also: item 3 (`test_app_cluster_equivalence`) PASSED in this run — may be flak
 en route; keep watching. None of the 5 touch spec-097 files (occlusion step/penalty/scorer);
 spec-097's own 14 tests are green.
 
+**UPDATE 2026-07-12** (spec-098 A4 verification — hard evidence for item 3):
+`scripts/run_profile.py --profile profile_4.json --src D:\Budapest2025_Google` on BASELINE code
+(spec-098 stashed) produced 7 clusters `[26,20,12,7,3,2,2]` (run `4b6d2fdb`), NOT the 15-cluster
+`[35,24,14,…]` shape of reference run `6437d335` that the e2e_budapest suite pins. The headless
+pipeline path cannot reproduce the v2 app's fresh-run baseline on this branch regardless of
+spec-098. Scenario B (loading the stored reference run) still passes. Also 3 e2e_budapest scenarios
+(A: "Load profile" locator timeout before any clustering; C: parent_run_id mismatch; F: quality-tab
+plotly chart never renders) fail identically on baseline code — UI-level pre-existing breakage,
+verified by stash-and-rerun. → the fresh-run E2E baseline needs re-anchoring once item 3 is fixed.
+
+**UPDATE 2026-07-11** (spec-098 review run, `tests/quality_assessment`):
+6. **ERROR (collection)** `tests/quality_assessment/test_learned_clip.py` —
+   `ModuleNotFoundError: sim_bench.quality_assessment.clip_aesthetic`. The module was
+   archived by commit `30e3791` (2026-01-19, "Archive legacy quality assessment system")
+   but the test's import was never updated; it aborts collection for the whole
+   `tests/quality_assessment` package (spec-098's `test_noise_robust.py` runs green when
+   selected directly). Same class as item 1. → update/remove the test (also check
+   `test_learned_prompts_only.py` and the 8 other clip_aesthetic references in
+   examples/scripts/agent).
+
 **Problem Description**: On branch `specs/093-095-analysis-studios` (off `unification/spec-040`),
 the proper test packages run **354 passed, 2 failed, 1 error** (7 min). All 3 trace to the
 spec-079 clustering-unification base work (commit `419185f`), NOT the analysis-studio commits —

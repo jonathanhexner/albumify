@@ -2,6 +2,16 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-07-12 [FEATURE] spec-098 — noise-aware quality scoring (Implemented)
+**Files**: `sim_bench/quality_assessment/noise_robust.py` (new), `rule_based.py`, `pipeline/context.py`, `pipeline/steps/score_iqa.py`, `image_quality_models/{iqa_model_wrapper,model_factory}.py`, `app/image_studio/engine.py`, `face_cluster/quality.py`, `face_pipeline/quality_scorer.py`, `setup.cfg`, `tests/quality_assessment/test_noise_robust.py` (new, 13 tests), `~/.sim_bench/profiles_v2/profile_{4,5}.json` (blur_min 150→73.3), docs (classes/data_flow/spec-034), sweeps `scripts/experiment_spec098_sweep{,2,3}.py`, validation `reports/2026-07-11_spec098_validation/`.
+**Change**: sharpness = `max(lap(median3)−5σ²,0)` (noise-corrected); new wavelet-σ noise component (weight .30, colorfulness cut to .05); Studio "Noise" column; `score_iqa` cache bumped to `rule_based_v2` (unit-test-pinned); face blur gate noise-robust with calibrated threshold. Gates: SIDD 0%→99.4% pair acc, inflation 39×→0×, RealBlur 99.29% (≥99%), σ 33 ms @16MP. REVIEW.md: ACCEPT.
+**Reason**: 2026-07-10 noise benchmark showed scoring was inverted (noisy twin won 480/480 pairs); user approved spec + option-1 threshold re-calibration.
+
+### 2026-07-10 [TEST] defect-scoring benchmarks — blur/noise/exposure/rotation vs classical + SOTA
+**Files**: `scripts/experiment_defectscore_{blur,noise,exposure,rotation}.py` (new), `reports/2026-07-10_defect_{blur,noise,exposure,rotation}/` (reports), `reports/EXPERIMENTS.md` (4 entries). Installed `PyWavelets` (for `skimage.restoration.estimate_sigma`).
+**Change**: benchmarked pipeline quality scores against 1 classical + 1 SOTA method per defect on real datasets (RealBlur-J, SIDD-Small, PIQA23, generated rotations). Findings: blur competitive (99.4% pair acc); noise scoring INVERTED (0/480 pairs — Laplacian inflated 39x by noise); exposure score compressed into [0.89,0.99], loses to 1-line mid-gray baseline; rotation detection = chance (EXIF-only). Fix proposals in reports, not implemented (per propose-don't-fix).
+**Reason**: user request — research reports on pipeline's ability to detect image defects.
+
 ### 2026-07-10 [CONFIG] spec-097 — occlusion_penalty gate 0.8 → 0.75 (user-approved)
 **Files**: `configs/pipeline.yaml`, `app/image_studio/method_info.py` (legend threshold + v2 benchmark text).
 **Change**: v2 OOF sweep showed 0.75 strictly dominates 0.8 (same 3 false positives, recall 60%→71%; re-captures the subtle Budapest finger pair at P=0.77/0.79). Verified: gate loads from yaml, penalty fires at P=0.77 (−0.126) and stays 0 at P=0.70; 6 penalty tests green.

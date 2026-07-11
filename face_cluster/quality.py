@@ -9,6 +9,7 @@ from PIL import Image
 
 from face_cluster.types import FaceRecord, GateResult, QualityVerdict
 from face_cluster.config import PipelineConfig
+from sim_bench.quality_assessment.noise_robust import noise_robust_laplacian_var
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,8 @@ class QualityGater:
     def compute_blur_scores(self, faces: List[FaceRecord]) -> List[FaceRecord]:
         """Compute blur scores for all faces.
 
-        Uses variance of Laplacian on aligned face crop.
+        Uses noise-robust variance of Laplacian on aligned face crop (spec-098:
+        3x3 median blur first, so sensor grain no longer reads as sharpness).
 
         Args:
             faces: List of FaceRecord objects
@@ -177,10 +179,8 @@ class QualityGater:
             else:
                 gray = img
 
-            # Compute Laplacian variance
-            laplacian = cv2.Laplacian(gray, cv2.CV_64F)
-            variance = laplacian.var()
-            face.blur_score = variance
+            # Compute noise-robust Laplacian variance (spec-098)
+            face.blur_score = noise_robust_laplacian_var(gray)
 
         logger.info(f"Computed blur scores for {len(faces)} faces")
         return faces

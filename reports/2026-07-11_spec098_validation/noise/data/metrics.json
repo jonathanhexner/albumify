@@ -1,0 +1,103 @@
+{
+  "n_pairs": 480,
+  "n_scenes": 160,
+  "dataset": "D:\\DataSets\\SIDD_Small_sRGB_Only",
+  "ours_overall": {
+    "pair_acc": 0.99375,
+    "auc": 0.9458767361111111,
+    "median_gt": 0.46783456584084027,
+    "median_noisy": 0.3654891609268863
+  },
+  "ours_sharpness_laplacian": {
+    "pair_acc": 0.0,
+    "auc": 0.0134765625,
+    "median_gt": 12.51860684750136,
+    "median_noisy": 487.8046245991718
+  },
+  "ours_noise_robust_laplacian": {
+    "pair_acc": 0.825,
+    "auc": 0.8536328125,
+    "median_gt": 2.2640214298982766,
+    "median_noisy": 0.0
+  },
+  "classical_wavelet_sigma": {
+    "pair_acc": 1.0,
+    "auc": 0.9930360243055556,
+    "median_gt": -0.6368871856889812,
+    "median_noisy": -5.178454627274496
+  },
+  "sota_musiq": {
+    "pair_acc": 0.61875,
+    "auc": 0.5722005208333333,
+    "median_gt": 20.92860221862793,
+    "median_noisy": 20.00145435333252
+  },
+  "high_iso_subset": {
+    "n": 117,
+    "ours_overall": {
+      "pair_acc": 0.9829059829059829
+    },
+    "ours_sharpness_laplacian": {
+      "pair_acc": 0.0
+    },
+    "ours_noise_robust_laplacian": {
+      "pair_acc": 0.6666666666666666
+    },
+    "classical_wavelet_sigma": {
+      "pair_acc": 1.0
+    },
+    "sota_musiq": {
+      "pair_acc": 0.5213675213675214
+    }
+  },
+  "samples": [
+    {
+      "scene": "0083_004_GP_00050_00020_4400_N",
+      "patch": "010_0_9",
+      "camera": "GP",
+      "iso": 50,
+      "lap_gt": 20.51029945886694,
+      "rlap_gt": 16.576185392176136,
+      "overall_gt": 0.5166334448853557,
+      "sigma_gt": 0.3375453823643018,
+      "musiq_gt": 24.052799224853516,
+      "lap_noisy": 72.71962159872055,
+      "rlap_noisy": 23.31680629898997,
+      "overall_noisy": 0.445851432971296,
+      "sigma_noisy": 1.341390634477472,
+      "musiq_noisy": 22.237022399902344
+    },
+    {
+      "scene": "0089_004_IP_00500_00250_5500_N",
+      "patch": "010_9_13",
+      "camera": "IP",
+      "iso": 500,
+      "lap_gt": 14.211317784851417,
+      "rlap_gt": 7.8864415198304965,
+      "overall_gt": 0.5162820455608532,
+      "sigma_gt": 0.6888315137090246,
+      "musiq_gt": 24.447372436523438,
+      "lap_noisy": 521.2534316999372,
+      "rlap_noisy": 0.0,
+      "overall_noisy": 0.40870145229940036,
+      "sigma_noisy": 5.170772545316366,
+      "musiq_noisy": 21.25489616394043
+    },
+    {
+      "scene": "0015_001_S6_03200_01600_5500_L",
+      "patch": "010_1_0",
+      "camera": "S6",
+      "iso": 3200,
+      "lap_gt": 95.45860992372036,
+      "rlap_gt": 45.83112954476033,
+      "overall_gt": 0.4285821216012437,
+      "sigma_gt": 1.2062377174716359,
+      "musiq_gt": 17.81533432006836,
+      "lap_noisy": 12736.242477131775,
+      "rlap_noisy": 0.0,
+      "overall_noisy": 0.3397472607630889,
+      "sigma_noisy": 22.764556556025784,
+      "musiq_noisy": 35.37251663208008
+    }
+  ]
+}

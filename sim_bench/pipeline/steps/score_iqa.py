@@ -16,10 +16,10 @@ class ScoreIQAStep(BaseStep):
         self._metadata = StepMetadata(
             name="score_iqa",
             display_name="Score Technical Quality",
-            description="Assess technical image quality (sharpness, exposure, contrast) using rule-based IQA.",
+            description="Assess technical image quality (sharpness, exposure, contrast, noise) using rule-based IQA.",
             category="analysis",
             requires={"image_paths"},
-            produces={"iqa_scores", "sharpness_scores"},
+            produces={"iqa_scores", "sharpness_scores", "noise_scores"},
             depends_on=["discover_images"],
             config_schema={
                 "type": "object",
@@ -46,8 +46,10 @@ class ScoreIQAStep(BaseStep):
         
         return {
             "items": image_paths,
-            "feature_type": "iqa_scores",  # Cache both scores together
-            "model_name": "rule_based",
+            "feature_type": "iqa_scores",  # Cache all scores together
+            # spec-098: v2 = noise-robust sharpness + noise component. Bumped so
+            # stale v1 cache entries (raw Laplacian, no noise) are NOT served.
+            "model_name": "rule_based_v2",
             "metadata": {}
         }
     
@@ -65,7 +67,8 @@ class ScoreIQAStep(BaseStep):
             scores = model.get_detailed_scores(path_str)
             results[path_str] = {
                 "iqa": scores["overall"],
-                "sharpness": scores["sharpness_normalized"]
+                "sharpness": scores["sharpness_normalized"],
+                "noise": scores["noise_score"]
             }
             
             progress = (i + 1) / len(items)
@@ -99,4 +102,10 @@ class ScoreIQAStep(BaseStep):
         context.sharpness_scores = {
             path: scores["sharpness"]
             for path, scores in results.items()
+        }
+        # spec-098: .get() tolerates pre-v2 cache rows that lack "noise"
+        context.noise_scores = {
+            path: scores["noise"]
+            for path, scores in results.items()
+            if scores.get("noise") is not None
         }

@@ -22,6 +22,7 @@ from sim_bench.face_pipeline.pose_estimator import SixDRepNetEstimator
 from sim_bench.face_pipeline.types import FaceQualityScore, CroppedFace
 from sim_bench.portrait_analysis.eye_state import detect_eye_state
 from sim_bench.portrait_analysis.smile_detection import detect_smile
+from sim_bench.quality_assessment.noise_robust import noise_robust_laplacian_var
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +86,10 @@ class FaceQualityScorer:
         logger.info("MediaPipe face mesh loaded for quality scoring")
 
     def _compute_sharpness(self, image: Image.Image) -> float:
-        """Compute normalized sharpness score (0-1)."""
+        """Compute normalized sharpness score (0-1), noise-robust (spec-098)."""
         image_np = np.array(image)
         gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
-        sharpness_raw = cv2.Laplacian(gray, cv2.CV_64F).var()
+        sharpness_raw = noise_robust_laplacian_var(gray)
         sharpness_score = min(1.0, sharpness_raw / self._sharpness_norm)
         return float(sharpness_score)
 

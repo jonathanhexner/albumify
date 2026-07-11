@@ -248,8 +248,11 @@ introduces the change.
         <td><strong>spec-045</strong> typed read + compute API for the v2 Cluster Analysis tab. Streamlit-free; owns one <code>ClusterAnalysisRepository</code>. Cancels in-flight <code>AsyncHandle</code>s of the same compute kind on every new call (single-cluster contract per spec §6.1).</td>
         <td>Reads: <code>list_clusters()</code>, <code>get_cluster_ids()</code>. Async compute: <code>compute_detail_async(cluster_id) -&gt; AsyncHandle[ClusterView]</code>, <code>compute_debug_async(cluster_id) -&gt; AsyncHandle[ClusterDebugView]</code>. Force-merge: <code>preview_force_merge(a, b) -&gt; ForceMergePreview</code>, <code>apply_force_merge(a, b, *, merge_round) -&gt; ForceMergeResult</code>.</td></tr>
     <tr><td><code>QualityGater</code></td><td>face_cluster/quality.py</td>
-        <td>Per-face quality gates: blur, pose_yaw, pose_pitch, area, top_k_per_image, det_score.</td>
+        <td>Per-face quality gates: blur, pose_yaw, pose_pitch, area, top_k_per_image, det_score. spec-098: blur uses noise-robust Laplacian (3×3 median blur first) from <code>sim_bench/quality_assessment/noise_robust.py</code> — sensor grain no longer reads as sharpness.</td>
         <td><code>select_core_set(face_records)</code></td></tr>
+    <tr><td><code>noise_robust</code> <span class="pill plain">module</span></td><td>sim_bench/quality_assessment/noise_robust.py</td>
+        <td><strong>spec-098</strong> noise-robust sharpness + wavelet noise estimation. Fixes the SIDD inversion (raw Laplacian inflated 39× by noise; noisy twin won 480/480 pairs). Consumed by <code>RuleBasedQuality</code> (new <code>noise</code> component, weights .35/.25/.15/.10/.15), <code>QualityGater.compute_blur_scores</code>, legacy <code>FaceQualityScorer</code>. <code>ScoreIQAStep</code> cache model_name bumped to <code>rule_based_v2</code>.</td>
+        <td><code>noise_robust_laplacian_var(gray)</code>, <code>estimate_noise_sigma(img)</code> (green-channel, 1024px central crop), <code>noise_sigma_to_score(sigma)</code> (SIGMA_HALF=2.0)</td></tr>
     <tr><td><code>FilterContext</code></td><td>face_cluster/filter_context.py</td>
         <td>spec-032 typed filter-decision primitive. Shared by Albumify <code>PipelineContext.filters</code> and FC App <code>_RunContext.filters</code>.</td>
         <td><code>record(item_id, filter_name=..., rejected=..., reason=..., measured=...)</code>, <code>active(item_type)</code>, <code>summary()</code></td></tr>

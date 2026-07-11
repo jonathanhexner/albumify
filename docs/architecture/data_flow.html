@@ -111,7 +111,7 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
     consumed by <code>select_best</code>: composite = quality + person_penalty + <b>occlusion_penalty</b>
     (0 unless P ≥ 0.8 gate; <code>scoring/occlusion_penalty.py</code>)</span>
   </div>
-  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, method_scores (spec-093), occlusion_scores/_tiles/_penalties (spec-097), scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
+  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, noise_scores (spec-098: wavelet noise, higher = cleaner; <code>score_iqa</code> cache bumped to <code>rule_based_v2</code>), method_scores (spec-093), occlusion_scores/_tiles/_penalties (spec-097), scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
   <div class="target"><b>Target (specs/037):</b> insert <code>insightface_score_blur</code> after <code>align_faces</code>.</div>
 </div>
 

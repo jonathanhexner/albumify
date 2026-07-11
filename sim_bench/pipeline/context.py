@@ -61,6 +61,8 @@ class PipelineContext:
     iqa_scores: dict[str, float] = field(default_factory=dict)
     ava_scores: dict[str, float] = field(default_factory=dict)
     sharpness_scores: dict[str, float] = field(default_factory=dict)
+    # spec-098: wavelet noise score [0,1], higher = cleaner
+    noise_scores: dict[str, float] = field(default_factory=dict)
 
     # spec-094 follow-up: zero-shot CLIP scene tags, keyed by image path string.
     # scene_tags[path] = [{"label": "...", "score": 0.31}, ...] full ranked list.

@@ -8,6 +8,14 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-098 noise-aware quality (2026-07-11)
+
+- [x] Implement spec-098: noise-robust sharpness + wavelet noise metric (Phases 0-2, validation reruns, headless Budapest A4, REVIEW.md; Implemented 2026-07-12). | 2026-07-11 | Claude
+- [ ] Fix `tests/quality_assessment/test_learned_clip.py` + `test_learned_prompts_only.py` — import archived `clip_aesthetic`, abort package collection (SIGHTING-113 item 6). | 2026-07-12 | Claude
+- [ ] Sweep for hard-coded blur thresholds outside profiles_v2 (notebooks, old configs) needing the spec-098 ×0.49 rescale (150→73.3 mapping). | 2026-07-12 | Claude
+- [ ] Exposure-score fix (defect-scoring finding #3: compressed [0.89,0.99], loses to mid-gray baseline) — needs own spec if approved. | 2026-07-11 | Claude
+- [ ] Rotation detection via CLIP zero-shot on EXIF-less images (defect finding #4) — needs own spec if wanted. | 2026-07-11 | Claude
+
 ## spec-088 follow-ups (from specs/088-fc-export-in-unified-chain/REVIEW.md, 2026-06-25, non-blocking)
 
 - [ ] Integration test: run a small pipeline with "Export for analysis" on, assert an export dir is written and loads via `face_cluster.loader.load_pipeline_result` (covers AC1/AC3, which unit tests can't). | 2026-06-25 | Claude

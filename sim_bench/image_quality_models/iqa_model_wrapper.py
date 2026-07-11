@@ -87,6 +87,26 @@ class ColorfulnessOnlyIQAModel(BaseQualityModel):
         return cls(device)
 
 
+class NoiseOnlyIQAModel(BaseQualityModel):
+    """Noise-only IQA metric (spec-098): wavelet sigma mapped to [0,1], higher = cleaner."""
+
+    def __init__(self, device: str = 'cpu'):
+        """Initialize noise-only IQA."""
+        super().__init__(name='Noise-Only', device=device)
+        self.iqa = RuleBasedQuality(device=device)
+
+    def score_image(self, image_path: Path) -> float:
+        """Return noise quality score (1 = clean, 0 = very noisy)."""
+        scores = self.iqa.get_detailed_scores(str(image_path))
+        return scores['noise_score']
+
+    @classmethod
+    def from_config(cls, config: Dict) -> 'NoiseOnlyIQAModel':
+        """Create from config dict."""
+        device = config.get('device', 'cpu')
+        return cls(device)
+
+
 class ContrastOnlyIQAModel(BaseQualityModel):
     """Contrast-only IQA metric."""
     

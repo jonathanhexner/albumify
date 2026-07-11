@@ -202,6 +202,9 @@ METHODS: Dict[str, _Method] = {m.key: m for m in [
             lambda: ScoreIQAStep(), {}, lambda: True, _scalar_mapper("iqa_scores", "iqa")),
     _Method("sharpness", CATEGORY_QUALITY, "Sharpness", 21, "score_iqa",
             lambda: ScoreIQAStep(), {}, lambda: True, _scalar_mapper("sharpness_scores", "sharpness")),
+    # spec-098: wavelet noise score, higher = cleaner (same ScoreIQAStep run)
+    _Method("noise", CATEGORY_QUALITY, "Noise (clean-ness)", 23, "score_iqa",
+            lambda: ScoreIQAStep(), {}, lambda: True, _scalar_mapper("noise_scores", "noise")),
     _Method("ava", CATEGORY_QUALITY, "AVA aesthetic", 22, "score_ava",
             lambda: ScoreAVAStep(), {"checkpoint_path": _DEFAULT_AVA_CKPT},
             lambda: os.path.exists(_DEFAULT_AVA_CKPT), _scalar_mapper("ava_scores", "ava")),

@@ -11,7 +11,8 @@ from sim_bench.image_quality_models.iqa_model_wrapper import (
     SharpnessOnlyIQAModel,
     ExposureOnlyIQAModel,
     ColorfulnessOnlyIQAModel,
-    ContrastOnlyIQAModel
+    ContrastOnlyIQAModel,
+    NoiseOnlyIQAModel
 )
 from sim_bench.image_quality_models.pyiqa_model_wrapper import PyIQAModel, PYIQA_METRICS
 from sim_bench.image_quality_models.clip_prompt_model import ClipPromptModel
@@ -27,6 +28,7 @@ MODEL_REGISTRY = {
     'exposure_iqa': ExposureOnlyIQAModel,
     'colorfulness_iqa': ColorfulnessOnlyIQAModel,
     'contrast_iqa': ContrastOnlyIQAModel,
+    'noise_iqa': NoiseOnlyIQAModel,  # spec-098: wavelet noise score
 }
 
 # spec-093: pyiqa no-reference metrics (MANIQA/MUSIQ/HyperIQA/BRISQUE/NIQE/CLIP-IQA)

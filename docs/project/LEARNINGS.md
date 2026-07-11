@@ -6,6 +6,11 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-07-12: spec-098 — a plausible fix that isn't measured is a guess (median blur was not enough)
+**What happened**: the "obvious" noise fix (median-blur before Laplacian) only cut noise-inflation 39×→11× on real SIDD noise — the first validation re-run FAILED its own acceptance gates (62% vs ≥95%). The passing formula needed a second, measured idea (subtract the noise's own σ² contribution), found via two quick parameter sweeps against real data.
+**Second lesson**: changing a metric's formula silently invalidates every absolute threshold tuned against it — the face blur gate (blur_min=150) over-rejected 4× until re-calibrated (→73.3) from paired old/new scores in the run DBs.
+**Prevention**: (1) define acceptance gates BEFORE the fix and re-run the same real-data benchmark after; (2) grep for absolute thresholds on any score whose formula changes; (3) when a baseline check fails, stash-and-rerun on baseline code before attributing — 3 E2E failures + the unreproducible 15-cluster anchor all predated the change.
+
 ### 2026-07-09: spec-096 verdict — real positives are the entire game for rare-defect detection
 **Root cause of every plateau**: data, not modeling. Prompt engineering (3 ensembles), hand-crafted features (3 rounds), synthetic training (2 attempts) all failed or stalled; meanwhile 5 new REAL positives moved the CLIP probe +0.10 scene PR-AUC (0.76→0.86) and lifted the worst fold 0.61→0.79.
 **Lessons**: (1) learned boundary in embedding space ≫ zero-shot text, confirmed at whole-image AND crop level; (2) validate synthetic data by EYEBALLING what the model actually trains on (the "whole-photo positive crops" bug survived until the report's example images exposed it); (3) an LLM validator (Haiku, 0.17 as detector) is still worth its cost as a label-miner — it found the dark-occluder class and the one hidden positive.
