@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Defect scoring #2: Noise — pipeline vs classical vs SOTA (2026-07-10)</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;max-width:960px;margin:24px auto;color:#222;line-height:1.5}
+h1{font-size:1.5em;border-bottom:2px solid #b53;padding-bottom:6px}
+h2{font-size:1.15em;margin-top:28px;color:#742}
+table{border-collapse:collapse;margin:12px 0}
+th,td{border:1px solid #bbb;padding:5px 12px;text-align:right}
+th{background:#f5e9e4}td:first-child,th:first-child{text-align:left}
+.win{background:#d8f0d8;font-weight:bold}.fail{background:#f6d3d3;font-weight:bold}
+.pair{display:inline-block;margin:8px;text-align:center;font-size:0.85em}
+.pair img{max-width:260px;display:block;border:1px solid #999}
+code{background:#f2f2f2;padding:1px 4px}
+.verdict{background:#fdeeee;border-left:4px solid #b53;padding:10px 14px;margin:16px 0}
+</style>
+</head>
+<body>
+<h1>Defect scoring #2: Noise</h1>
+<p><b>Goal.</b> The pipeline declares a noise metric in <code>rule_based.py</code>'s docstring but never
+implemented one. Does any existing pipeline score detect real sensor noise — and what would a noise metric cost?</p>
+
+<h2>Method</h2>
+<ul>
+<li><b>Dataset</b>: SIDD-Small sRGB (Abdelhamed et al., CVPR 2018) — 160 real smartphone scenes
+(5 phone models, ISO 50–10000), paired noisy capture / clean ground truth, pre-cropped patches.
+Local copy: <code>D:\DataSets\SIDD_Small_sRGB_Only</code>. Sampled 3 patch pairs per scene = <b>480 pairs</b>.</li>
+<li><b>Ours (proxies)</b>: overall rule-based quality score, and the Laplacian sharpness component alone.
+Hypothesis going in: noise <i>inflates</i> Laplacian variance, so noisy images would score as sharper.</li>
+<li><b>Classical</b>: wavelet noise-sigma estimate (<code>skimage.restoration.estimate_sigma</code>), negated so higher = cleaner.</li>
+<li><b>SOTA</b>: MUSIQ (pyiqa).</li>
+<li><b>Metric</b>: pair accuracy = fraction of pairs where the clean image outscores its noisy twin. Chance = 50%.</li>
+<li>Reproduce: <code>.venv/Scripts/python scripts/experiment_defectscore_noise.py</code>. Raw scores: <code>data/scores.csv</code>.</li>
+</ul>
+
+<h2>Results (480 pairs, 160 scenes)</h2>
+<table>
+<tr><th>Method</th><th>Pair accuracy</th><th>AUC</th><th>Pair acc, ISO&ge;1600 (n=117)</th></tr>
+<tr><td>Ours — overall rule-based score</td><td class="fail">0.0%</td><td>0.054</td><td class="fail">0.0%</td></tr>
+<tr><td>Ours — Laplacian sharpness</td><td class="fail">0.0%</td><td>0.013</td><td class="fail">0.0%</td></tr>
+<tr><td>Classical — wavelet sigma</td><td class="win">100.0%</td><td class="win">0.993</td><td class="win">100.0%</td></tr>
+<tr><td>SOTA — MUSIQ</td><td>61.9%</td><td>0.572</td><td>52.1%</td></tr>
+</table>
+
+<p><b>The hypothesis is confirmed, catastrophically.</b> Our scores are not merely blind to noise — they are
+<i>inverted</i>. Sensor noise is high-frequency energy, so Laplacian variance explodes on noisy images
+(median 12.5 clean &rarr; <b>487.9</b> noisy — a 39&times; inflation), and since sharpness carries 40% of the
+overall score, the noisy image wins <i>every single one of the 480 pairs</i>. At ISO 3200 a noisy patch scored
+overall 0.88 vs 0.32 for its clean twin. MUSIQ is also unreliable on these patches (61.9%, barely above chance —
+it was trained on whole photos, not 256-px crops). The 30-year-old wavelet estimator is essentially perfect and costs ~20 ms/image.</p>
+
+<h2>Sample pairs (left = clean GT, right = noisy capture)</h2>
+<div>
+<div class="pair"><img src="samples/0015_001_010_1_0_gt.jpg"><br>S6, ISO 3200 — GT: lap 95, overall 0.32, sigma 1.2</div>
+<div class="pair"><img src="samples/0015_001_010_1_0_noisy.jpg"><br>noisy: lap <b>12736</b>, overall <b>0.88</b>, sigma 22.8</div>
+</div>
+<div>
+<div class="pair"><img src="samples/0089_004_010_9_13_gt.jpg"><br>iPhone, ISO 500 — GT: lap 14, overall 0.38</div>
+<div class="pair"><img src="samples/0089_004_010_9_13_noisy.jpg"><br>noisy: lap <b>521</b>, overall <b>0.61</b></div>
+</div>
+<div>
+<div class="pair"><img src="samples/0083_004_010_0_9_gt.jpg"><br>Pixel, ISO 50 (mild) — GT: lap 20.5</div>
+<div class="pair"><img src="samples/0083_004_010_0_9_noisy.jpg"><br>noisy: lap 72.7 — still inverted even at base ISO</div>
+</div>
+<p>Full image set: <code>D:\DataSets\SIDD_Small_sRGB_Only</code> (160 scene dirs, GT/NOISY patch pairs).</p>
+
+<h2>Verdict</h2>
+<div class="verdict">
+<b>The pipeline actively prefers noisy images.</b> Any album containing high-ISO shots (night, indoor) will
+have its "best shot" selection biased toward the noisiest frame of a burst, and the blur gate is silently
+defeated by noise (a noisy blurred photo can outscore a clean sharp one). Recommended fix (proposal only, per
+workflow — needs a spec): (1) add <code>estimate_sigma</code> as a noise metric — near-perfect here and ~20 ms;
+(2) noise-correct the sharpness score, e.g. median-denoise before the Laplacian or subtract a sigma-dependent
+term; (3) re-run the RealBlur benchmark to confirm blur ranking survives the correction.
+</div>
+
+<p style="color:#777;font-size:0.85em">Generated 2026-07-10 by <code>scripts/experiment_defectscore_noise.py</code>;
+metrics in <code>data/metrics.json</code>.</p>
+</body>
+</html>

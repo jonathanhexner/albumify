@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Defect scoring #3: Exposure — pipeline vs classical vs SOTA (2026-07-10)</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;max-width:960px;margin:24px auto;color:#222;line-height:1.5}
+h1{font-size:1.5em;border-bottom:2px solid #a80;padding-bottom:6px}
+h2{font-size:1.15em;margin-top:28px;color:#763}
+table{border-collapse:collapse;margin:12px 0}
+th,td{border:1px solid #bbb;padding:5px 12px;text-align:right}
+th{background:#f5f0e0}td:first-child,th:first-child{text-align:left}
+.win{background:#d8f0d8;font-weight:bold}.fail{background:#f6d3d3;font-weight:bold}
+.pair{display:inline-block;margin:8px;text-align:center;font-size:0.85em;vertical-align:top}
+.pair img{max-width:290px;display:block;border:1px solid #999}
+code{background:#f2f2f2;padding:1px 4px}
+.verdict{background:#faf5e8;border-left:4px solid #a80;padding:10px 14px;margin:16px 0}
+</style>
+</head>
+<body>
+<h1>Defect scoring #3: Over/under-exposure</h1>
+<p><b>Goal.</b> Benchmark the pipeline's exposure score
+(<code>RuleBasedQuality._compute_exposure_quality</code>: histogram-clipping penalty + entropy, 30% of the
+overall quality score) against human judgments, a trivial classical baseline, and deep IQA metrics.</p>
+
+<h2>Method</h2>
+<ul>
+<li><b>Dataset</b>: PIQA23 Exposure attribute (Portrait IQA, CVPR 2023) — smartphone shots of the same scenes
+across an exposure ladder, human-scored via pairwise comparisons into <b>JOD</b> (just-objectionable-difference)
+units. Higher JOD = better. Local copy: <code>D:\DataSets\PIQA23\Exposure</code> + <code>Scores_Exposure.csv</code>.</li>
+<li><b>Sample</b>: 50 scenes, stratified by JOD to 30 images/scene = <b>1,500 images</b> (of 5,116).</li>
+<li><b>Ours</b>: <code>_compute_exposure_quality</code> — (1 − clip<sub>0/255</sub>)·0.5 + entropy·0.5.</li>
+<li><b>Classical</b>: mid-gray distance — 1 − 2·|mean/255 − 0.5|. One line of code.</li>
+<li><b>SOTA</b>: MUSIQ and CLIPIQA (pyiqa, CPU, native resolution).</li>
+<li><b>Metric</b>: Spearman rank correlation (SROCC) vs human JOD — global and per-scene mean (per-scene is the
+fair test: JOD comparisons were collected within scene).</li>
+<li>Reproduce: <code>.venv/Scripts/python scripts/experiment_defectscore_exposure.py</code>. Raw scores: <code>data/scores.csv</code>.</li>
+</ul>
+
+<h2>Results (1,500 images, 50 scenes)</h2>
+<table>
+<tr><th>Method</th><th>SROCC per-scene mean</th><th>SROCC global</th><th>Per-scene min … max</th></tr>
+<tr><td>Ours — clip + entropy</td><td class="fail">0.276</td><td>0.213</td><td>−0.44 … 0.86</td></tr>
+<tr><td>Classical — mid-gray distance</td><td>0.327</td><td>0.239</td><td>−0.44 … 0.87</td></tr>
+<tr><td>SOTA — MUSIQ</td><td class="win">0.571</td><td class="win">0.360</td><td>0.05 … 0.86</td></tr>
+<tr><td>SOTA — CLIPIQA</td><td>0.306</td><td>0.161</td><td>−0.36 … 0.78</td></tr>
+</table>
+
+<p><b>Why ours is weak — score compression.</b> Human JOD spans 11.4 units (−6.7 … +4.7), but our exposure
+score packs 90% of all 1,500 images into <b>[0.89, 0.99]</b>: the entropy term is ≈1 for any natural photo, and
+the clipping penalty counts only <i>pure</i> 0/255 histogram bins, which modern smartphone pipelines
+(tone-mapping, denoise) almost never emit even in badly over/under-exposed shots. The metric ends up ranking on
+noise-level differences of a near-constant. A severely under-exposed image (JOD −3.0) scores 0.965 — above many
+well-exposed ones. Even the one-line mid-gray baseline beats it. MUSIQ is clearly better but far from the
+human ceiling; per-scene it never goes anti-correlated (min 0.05), unlike all the shallow metrics.</p>
+
+<h2>Samples (scene ladder: low / mid / high human score)</h2>
+<div>
+<div class="pair"><img src="samples/Indoor_Scene_0_low_jod-3.0.jpg"><br>JOD −3.0 — ours 0.965 (!)</div>
+<div class="pair"><img src="samples/Indoor_Scene_0_mid_jod-0.2.jpg"><br>JOD −0.2 — ours 0.980</div>
+<div class="pair"><img src="samples/Indoor_Scene_0_high_jod4.6.jpg"><br>JOD +4.6 — ours 0.978</div>
+</div>
+<div>
+<div class="pair"><img src="samples/Indoor_Scene_1_low_jod-4.0.jpg"><br>JOD −4.0 — ours 0.944, musiq 16.2</div>
+<div class="pair"><img src="samples/Indoor_Scene_1_mid_jod-0.1.jpg"><br>JOD −0.1 — ours 0.971, musiq 25.2</div>
+<div class="pair"><img src="samples/Indoor_Scene_1_high_jod3.8.jpg"><br>JOD +3.8 — ours 0.952, musiq 35.7</div>
+</div>
+<p>Full image set: <code>D:\DataSets\PIQA23\Exposure</code> (5,116 images, 3 score CSVs incl. Details/Overall attributes).</p>
+
+<h2>Verdict</h2>
+<div class="verdict">
+<b>Our exposure score barely discriminates (SROCC 0.28) and loses to a one-line brightness baseline (0.33);
+MUSIQ doubles it (0.57).</b> The 30%-weighted exposure component of the overall quality score is close to a
+constant on real photos. Proposed directions (needs a spec, not implemented): (1) soft-clipping penalty —
+count near-black/near-white mass (e.g. &lt;5 / &gt;250) instead of exact 0/255 bins; (2) add the mid-gray term;
+(3) or replace the component with MUSIQ where its ~1s/image CPU cost is acceptable. PIQA23 also ships
+<code>Details</code> and <code>Overall</code> attribute scores — usable to validate sharpness against human
+perception later.
+</div>
+
+<p style="color:#777;font-size:0.85em">Generated 2026-07-10 by <code>scripts/experiment_defectscore_exposure.py</code>;
+metrics in <code>data/metrics.json</code>.</p>
+</body>
+</html>

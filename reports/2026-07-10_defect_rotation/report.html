@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Defect scoring #4: Rotation — pipeline vs classical vs SOTA (2026-07-10)</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;max-width:960px;margin:24px auto;color:#222;line-height:1.5}
+h1{font-size:1.5em;border-bottom:2px solid #46a;padding-bottom:6px}
+h2{font-size:1.15em;margin-top:28px;color:#246}
+table{border-collapse:collapse;margin:12px 0}
+th,td{border:1px solid #bbb;padding:5px 12px;text-align:right}
+th{background:#e8ecf5}td:first-child,th:first-child{text-align:left}
+.win{background:#d8f0d8;font-weight:bold}.fail{background:#f6d3d3;font-weight:bold}
+.pair{display:inline-block;margin:8px;text-align:center;font-size:0.85em}
+.pair img{max-height:240px;display:block;border:1px solid #999;margin:0 auto}
+code{background:#f2f2f2;padding:1px 4px}
+.verdict{background:#eef1fa;border-left:4px solid #46a;padding:10px 14px;margin:16px 0}
+</style>
+</head>
+<body>
+<h1>Defect scoring #4: Rotation (wrong orientation)</h1>
+<p><b>Goal.</b> The pipeline's only orientation handling is EXIF-based
+(<code>ImageOps.exif_transpose</code> in <code>rule_based.py</code>; landmark-based orientation exists only for
+face crops). Photos with wrong or stripped EXIF (screenshots, WhatsApp exports, scanned prints) rotate
+undetected. Can any scorer detect content rotation?</p>
+
+<h2>Method</h2>
+<ul>
+<li><b>Dataset</b>: generated — 122 real album photos (<code>D:\Budapest2025_Google</code>), EXIF-normalized,
+downscaled to 1024 px, then pixel-rotated to 0/90/180/270&deg; and re-encoded (strips EXIF) = <b>488 variants</b>.
+Variants kept in <code>data/variants/</code>.</li>
+<li><b>Ours</b>: pipeline overall rule-based score — expected rotation-invariant (histograms and gradient
+statistics barely change under 90&deg; rotations).</li>
+<li><b>Classical</b>: sky prior — top third of a correctly oriented photo should be brighter than the bottom third.</li>
+<li><b>SOTA</b>: CLIP ViT-B/32 zero-shot — upright score = sim("right side up") &minus; max(sim("rotated sideways"), sim("upside down")).</li>
+<li><b>Metrics</b>: 4-way accuracy = the upright variant gets the highest score among a photo's 4 rotations
+(chance 25%); AUC = upright vs rotated separability (chance 0.5).</li>
+<li>Reproduce: <code>.venv/Scripts/python scripts/experiment_defectscore_rotation.py</code>. Raw scores: <code>data/scores.csv</code>.</li>
+</ul>
+
+<h2>Results (122 photos &times; 4 orientations)</h2>
+<table>
+<tr><th>Method</th><th>4-way accuracy (chance 25%)</th><th>AUC upright vs rotated</th></tr>
+<tr><td>Ours — pipeline overall score</td><td class="fail">22.1%</td><td class="fail">0.500</td></tr>
+<tr><td>Classical — sky prior</td><td>47.5%</td><td>0.722</td></tr>
+<tr><td>SOTA — CLIP zero-shot</td><td class="win">82.0%</td><td class="win">0.822</td></tr>
+</table>
+<p>Our score is <i>exactly</i> chance: mean 0.81056 upright vs 0.81057 rotated — the pipeline is blind to
+orientation by construction, as predicted. The sky prior gets half of outdoor shots but fails indoors and on
+90&deg; rotations. CLIP zero-shot — with three text prompts and no training — reaches 82%; its misses are
+mostly close-ups and symmetric scenes with no gravity cue.</p>
+
+<h2>Sample: one photo, 4 orientations (identical pipeline score ~0.81 for all four)</h2>
+<div>
+<div class="pair"><img src="samples/20250822_193945_r0.jpg"><br>0&deg; (correct)</div>
+<div class="pair"><img src="samples/20250822_193945_r90.jpg"><br>90&deg;</div>
+<div class="pair"><img src="samples/20250822_193945_r180.jpg"><br>180&deg;</div>
+<div class="pair"><img src="samples/20250822_193945_r270.jpg"><br>270&deg;</div>
+</div>
+<p>Full variant set: <code>reports/2026-07-10_defect_rotation/data/variants/</code> (488 images).</p>
+
+<h2>Verdict</h2>
+<div class="verdict">
+<b>The pipeline cannot detect a rotated photo (AUC 0.500)</b> — acceptable while EXIF is trustworthy, broken
+for EXIF-stripped sources. CLIP zero-shot is a cheap viable detector (82% 4-way, no training, model already
+in the stack from spec-097); a face-orientation cross-check could raise it further on people shots. If
+rotation detection is wanted, propose a spec: flag when CLIP upright-score for the current orientation is
+beaten by a rotated variant, on EXIF-less images only. Dedicated orientation CNNs (~98% in literature) are
+the upgrade path if CLIP proves insufficient.
+</div>
+
+<p style="color:#777;font-size:0.85em">Generated 2026-07-10 by <code>scripts/experiment_defectscore_rotation.py</code>;
+metrics in <code>data/metrics.json</code>.</p>
+</body>
+</html>

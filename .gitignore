@@ -273,3 +273,6 @@ client_secret_*.apps.googleusercontent.com.json
 client_secret_*.json
 *gphotos_token*.json
 *gphotos_library_token*.json
+
+# spec-098: generated rotation-variant image sets (144 MB) stay on disk, not in git
+reports/*/data/variants/

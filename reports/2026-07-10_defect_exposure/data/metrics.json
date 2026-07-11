@@ -1,0 +1,85 @@
+{
+  "n_images": 1500,
+  "n_scenes": 50,
+  "dataset": "D:\\DataSets\\PIQA23\\Exposure",
+  "ours_exposure": {
+    "srocc_global": 0.21310163464624052,
+    "srocc_per_scene_mean": 0.27572847148714213,
+    "srocc_per_scene_min": -0.4411568409343715,
+    "srocc_per_scene_max": 0.8567296996662959
+  },
+  "classical_midgray": {
+    "srocc_global": 0.23872670919182937,
+    "srocc_per_scene_mean": 0.32733366197804803,
+    "srocc_per_scene_min": -0.4407119021134594,
+    "srocc_per_scene_max": 0.8731924360400445
+  },
+  "sota_musiq": {
+    "srocc_global": 0.35974391519239596,
+    "srocc_per_scene_mean": 0.5711178427657292,
+    "srocc_per_scene_min": 0.047830923248053395,
+    "srocc_per_scene_max": 0.8598442714126807
+  },
+  "sota_clipiqa": {
+    "srocc_global": 0.16050283428659806,
+    "srocc_per_scene_mean": 0.30609195596177596,
+    "srocc_per_scene_min": -0.36240266963292544,
+    "srocc_per_scene_max": 0.7810901001112347
+  },
+  "samples": [
+    {
+      "name": "29_Indoor_Scene_0.jpg",
+      "scene": "Indoor_Scene_0",
+      "jod": -2.983846415969875,
+      "ours_exposure": 0.9647107894788346,
+      "classical_midgray": 0.8561755290700157,
+      "sota_musiq": 49.75154113769531,
+      "sota_clipiqa": 0.3412679135799408
+    },
+    {
+      "name": "26_Indoor_Scene_0.jpg",
+      "scene": "Indoor_Scene_0",
+      "jod": -0.1933893410461731,
+      "ours_exposure": 0.9797112577793603,
+      "classical_midgray": 0.9064197940962877,
+      "sota_musiq": 47.79283905029297,
+      "sota_clipiqa": 0.37171220779418945
+    },
+    {
+      "name": "17_Indoor_Scene_0.jpg",
+      "scene": "Indoor_Scene_0",
+      "jod": 4.641290732021198,
+      "ours_exposure": 0.9780679501344258,
+      "classical_midgray": 0.9902331342645991,
+      "sota_musiq": 52.320457458496094,
+      "sota_clipiqa": 0.42650848627090454
+    },
+    {
+      "name": "122_Indoor_Scene_1.tiff",
+      "scene": "Indoor_Scene_1",
+      "jod": -4.034502525681749,
+      "ours_exposure": 0.9438934916491052,
+      "classical_midgray": 0.6072044085608099,
+      "sota_musiq": 16.195133209228516,
+      "sota_clipiqa": 0.4073738157749176
+    },
+    {
+      "name": "155_Indoor_Scene_1.jpg",
+      "scene": "Indoor_Scene_1",
+      "jod": -0.1059236527560703,
+      "ours_exposure": 0.971240589544349,
+      "classical_midgray": 0.9638538203255158,
+      "sota_musiq": 25.173625946044922,
+      "sota_clipiqa": 0.30430465936660767
+    },
+    {
+      "name": "113_Indoor_Scene_1.jpg",
+      "scene": "Indoor_Scene_1",
+      "jod": 3.762825230411833,
+      "ours_exposure": 0.9520637070555542,
+      "classical_midgray": 0.6997496894356872,
+      "sota_musiq": 35.68238830566406,
+      "sota_clipiqa": 0.3157009482383728
+    }
+  ]
+}
