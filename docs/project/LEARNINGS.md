@@ -6,6 +6,16 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-07-13: spec-100 — the learned model works where classical failed, but a dry-run saved the env, and coverage is content-bound
+**What happened**: GeoCalib recovered injected tilt at 0.25–0.45° MAE (vs classical's 5% coverage) AND stopped flagging the slanted-scenery false positives — the confidence signal (`roll_uncertainty`) abstains honestly on kaleidoscope/mirror shots (10–30° unc). BUT on the family-vacation album it's only confident on ~28% of photos (few architectural verticals), so the ≥70% coverage gate missed. Also: a naive `pip install geocalib` would have silently upgraded numpy 1.26→2.4 and swapped opencv-contrib→opencv-python — a `--dry-run` caught it; safe recipe = `kornia kornia_rs "numpy<2"` then `geocalib --no-deps`.
+**Lesson**: (1) coverage of a learned-prior detector is bound by scene content, not just model quality — validate on the album type you'll ship to. (2) Always `pip install --dry-run` a torch-ecosystem package before committing; greedy resolvers upgrade pinned foundational deps. (3) Low coverage ≠ unsafe for a tie-breaker penalty if the confidence gate abstains honestly.
+**Prevention**: spec-100 T0 codified the dry-run-first dependency gate; any new pyiqa-adjacent install repeats it.
+
+### 2026-07-12: spec-099 — benchmark the detector BEFORE wiring the penalty (tilt negative result)
+**What happened**: a classical tilt estimator hit 0.32° MAE on injected rotations — looked shippable — but its confident real-album flags were upright photos with slanted *scenery* (tunnel perspective, illusion art). Camera-tilt vs world-tilt is unresolvable from pixels alone.
+**Lesson**: angular precision on synthetic degradations ≠ semantic correctness on real photos; always eyeball the detector's confident REAL positives before letting it move any score. Phase-0 gates that can kill a spec cheaply (one day, no pipeline wiring) are worth their cost — this one prevented a penalty that would punish upright photos.
+**Prevention**: any future penalty spec keeps the "Phase 0 = standalone benchmark with real-positive inspection" structure; tilt revisit requires a gravity reference or learned horizon model.
+
 ### 2026-07-12: spec-098 — a plausible fix that isn't measured is a guess (median blur was not enough)
 **What happened**: the "obvious" noise fix (median-blur before Laplacian) only cut noise-inflation 39×→11× on real SIDD noise — the first validation re-run FAILED its own acceptance gates (62% vs ≥95%). The passing formula needed a second, measured idea (subtract the noise's own σ² contribution), found via two quick parameter sweeps against real data.
 **Second lesson**: changing a metric's formula silently invalidates every absolute threshold tuned against it — the face blur gate (blur_min=150) over-rejected 4× until re-calibrated (→73.3) from paired old/new scores in the run DBs.

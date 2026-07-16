@@ -18,7 +18,8 @@ default_pipeline:
   - score_iqa
   - score_ava
   - score_occlusion             # spec-097: P(lens occlusion) per image (CLIP probe, cached)
-  - detect_persons              # YOLOv8-Pose for person detection
+  - score_tilt                  # spec-099/spec-100: crooked-photo roll angle (GeoCalib, cached)
+  - detect_persons              # YOLOv8-Pose person detection (feeds tilt fixability + straighten gate)
   - insightface_detect_faces    # InsightFace SCRFD for face detection
   - filter_faces                # Filter small/low-confidence faces
   - score_face_frontal          # Compute frontal score, roll angle, centrality
@@ -48,6 +49,7 @@ default_pipeline:
   - identity_refinement         # Refine clusters with exemplar-based attachment
   - cluster_by_identity         # Sub-cluster scenes by identity
   - select_best                 # Smart selection with composite scoring (incl. frontal penalty)
+  - straighten_images           # spec-101: TERMINAL — straighten the selected winners (after selection)
 
 # MINIMAL: No face detection (fast, scene-only)
 minimal_pipeline:
@@ -117,6 +119,22 @@ score_ava:
 # Occlusion Scoring (score_occlusion, spec-097 Stage 1)
 # Model: spec-096 winner (CLIP ViT-B/32 global+tile-max probe, 0.86 scene PR-AUC).
 score_occlusion: {}             # artifact_path override optional; default models/occlusion/clip_b32_gmax_v1.npz
+
+# Tilt Scoring (score_tilt, spec-099 Phase 1 / spec-100)
+# Model: GeoCalib learned single-image roll (~1.9 s/img CPU, cached per image).
+score_tilt: {}
+
+# Auto-straighten (straighten_images, spec-101 option A) — TERMINAL, straightens the
+# selected winners after select_best. enabled:false = penalize-only (still docks tilt in
+# selection). Straightens only confident tilts that keep >= min_retained_area AND don't crop
+# a person filling >= prominent_person_frac of the frame.
+straighten_images:
+  enabled: true
+  conf_gate: 0.5
+  gate_deg: 3.0
+  min_retained_area: 0.70
+  prominent_person_frac: 0.15    # user-tunable: person bigger than this blocks the crop
+  preserve_aspect: true
 
 # Quality Filtering (filter_quality)
 filter_quality:
@@ -266,6 +284,20 @@ select_best:
     weight: -0.35              # penalty = weight * P * area_factor
     tile_threshold: 0.5        # tile counts as "hot" above this
     max_penalty: -0.5          # floor — never disqualifies on its own
+
+  # Tilt penalty (spec-099 / spec-101 option A; needs score_tilt + detect_persons).
+  # Scaled by fixability: cleanly-straightenable tilts lose only the small FOV cost of
+  # the crop; tilts that can't be fixed without clipping a prominent person keep the
+  # full angle penalty. Small tie-breaker: blur > noise > exposure > tilt.
+  tilt_penalty:
+    enabled: true
+    conf_gate: 0.5             # spec-100 operating point (~roll uncertainty 1.4 deg)
+    gate_deg: 3.0              # below this |angle| is imperceptible / within noise
+    slope: 0.02               # per-degree penalty for UNFIXABLE tilts
+    cap: 0.15                  # floor -0.15; stays subordinate to sharpness/occlusion
+    fov_weight: 0.4           # penalty per unit lost area for FIXABLE tilts
+    min_retained_area: 0.70   # must match straighten_images (fixable threshold)
+    prominent_person_frac: 0.15 # must match straighten_images
 
   # Siamese model config
   siamese:

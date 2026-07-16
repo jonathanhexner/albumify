@@ -28,6 +28,7 @@ from sim_bench.pipeline.steps.score_iqa import ScoreIQAStep
 from sim_bench.pipeline.steps.score_ava import ScoreAVAStep
 from sim_bench.pipeline.steps.score_quality import ScoreQualityStep  # spec-093
 from sim_bench.pipeline.steps.score_occlusion import ScoreOcclusionStep  # spec-097
+from sim_bench.pipeline.steps.score_tilt import ScoreTiltStep  # spec-099/spec-100
 from sim_bench.image_quality_models.pyiqa_model_wrapper import PyIQAModel, PYIQA_METRICS
 from sim_bench.image_quality_models.clip_prompt_model import ClipPromptModel
 
@@ -267,6 +268,34 @@ METHODS["occlusion"] = _Method(
     order=39, step_id="score_occlusion",
     make_step=lambda: ScoreOcclusionStep(),
     config={}, available=_occlusion_available, to_columns=_map_occlusion,
+)
+
+# spec-099/spec-100: learned crooked-photo detector (GeoCalib). Shown as -|roll|
+# so higher = straighter (matches the higher-is-better contract); the signed
+# angle + confidence ride in the detail payload. GeoCalib abstains on
+# structureless scenes (low confidence), so a big |roll| with low conf is noise.
+def _map_tilt(ctx: PipelineContext) -> Dict[str, AnalysisColumn]:
+    out = {}
+    angles = getattr(ctx, "tilt_angles", None) or {}
+    confs = getattr(ctx, "tilt_confidences", None) or {}
+    for p, angle in angles.items():
+        a = float(angle)
+        conf = float(confs.get(p, 0.0))
+        out[p] = AnalysisColumn("tilt", CATEGORY_QUALITY, NUMERIC, -abs(a),
+                                f"{a:+.1f} deg", [conf])
+    return out
+
+
+def _tilt_available() -> bool:
+    import importlib.util
+    return importlib.util.find_spec("geocalib") is not None
+
+
+METHODS["tilt"] = _Method(
+    key="tilt", category=CATEGORY_QUALITY, label="Tilt (GeoCalib roll)",
+    order=41, step_id="score_tilt",
+    make_step=lambda: ScoreTiltStep(),
+    config={}, available=_tilt_available, to_columns=_map_tilt,
 )
 
 # EXPERIMENTAL: CLIP prompt-based clarity/occlusion score. NOTE (tested 2026-07-05):

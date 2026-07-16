@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>spec-099 Phase 0: tilt detection benchmark — negative result (2026-07-12)</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;max-width:960px;margin:24px auto;color:#222;line-height:1.5}
+h1{font-size:1.5em;border-bottom:2px solid #955;padding-bottom:6px}
+h2{font-size:1.15em;margin-top:28px;color:#644}
+table{border-collapse:collapse;margin:12px 0}
+th,td{border:1px solid #bbb;padding:5px 12px;text-align:right}
+th{background:#f2e8e8}td:first-child,th:first-child{text-align:left}
+.win{background:#d8f0d8;font-weight:bold}.fail{background:#f6d3d3;font-weight:bold}
+.pair{display:inline-block;margin:8px;text-align:center;font-size:0.85em;vertical-align:top}
+.pair img{max-width:420px;display:block;border:1px solid #999}
+code{background:#f2f2f2;padding:1px 4px}
+.verdict{background:#fdeeee;border-left:4px solid #955;padding:10px 14px;margin:16px 0}
+</style>
+</head>
+<body>
+<h1>spec-099 Phase 0: crooked-photo detection — honest negative result</h1>
+<p><b>Goal.</b> Validate a classical tilt estimator (Canny → Hough segments → per-family
+histogram-peak with horizontal/vertical agreement check) before wiring a tilt penalty into
+<code>select_best</code>. Gates: MAE &lt; 1.5°, ≥80% of ≥4° tilts caught, ≤5% upright photos falsely
+flagged.</p>
+
+<h2>Method</h2>
+<ul>
+<li>122 real album photos (<code>D:\Budapest2025_Google</code>), EXIF-normalized, rotated by known
+±{2,4,6,8,10}° (central 72% crop hides corners). Recovery measured <i>relatively</i>
+(estimate(rotated) − estimate(original)) so each photo's own tilt cancels.</li>
+<li>Three estimator iterations: pooled median (failed: MAE 4.6°); per-family
+horizontal/vertical estimates + cross-family agreement (perspective check); support-saturation
+sweep. Code: <code>sim_bench/quality_assessment/tilt.py</code>, 13 unit tests green.</li>
+</ul>
+
+<h2>Results (best configuration, confidence gate 0.3)</h2>
+<table>
+<tr><th>Metric</th><th>Value</th><th>Gate</th><th>Verdict</th></tr>
+<tr><td>Angular MAE on confident estimates</td><td class="win">0.32°</td><td>&lt; 1.5°</td><td>pass</td></tr>
+<tr><td>Recall within confident pairs (≥4° within ±2°)</td><td class="win">100%</td><td>—</td><td>pass</td></tr>
+<tr><td>Coverage: album photos measurable at all</td><td class="fail">4.9%</td><td>(implied high)</td><td>FAIL</td></tr>
+<tr><td>Confidently flagged originals &gt;3°</td><td>2.5% (3 photos)</td><td>≤5%</td><td>nominal pass, but see below</td></tr>
+<tr><td>Perf per estimate</td><td class="win">49 ms</td><td>&lt; 100 ms</td><td>pass</td></tr>
+</table>
+<p>Relaxing the confidence gate to raise coverage destroys precision (support-sat 0.75: coverage
+6% but MAE 3.3°; gate 0.2: MAE 2.9-4.6°). The precision/coverage tradeoff has no good middle on
+this album. Full sweep: <code>metrics.json</code>.</p>
+
+<h2>The killer finding: the confident "detections" are false</h2>
+<p>Both inspectable confidently-flagged <i>originals</i> are upright photos whose <b>scene lines</b>
+are slanted — a tunnel's converging railings, and a deliberately-distorted optical-illusion
+artwork. The estimator measures line angles perfectly; it cannot know whether the <i>camera</i> or
+the <i>world</i> was tilted. That distinction needs a gravity reference (IMU data or a learned
+semantic prior), which pixels alone don't carry.</p>
+<div>
+<div class="pair"><img src="samples/flagged_20250822_194451.jpg"><br>Upright photo, tunnel perspective — falsely +9.1°</div>
+<div class="pair"><img src="samples/flagged_20250822_195832.jpg"><br>Upright photo, illusion-room artwork — falsely +13.8°</div>
+</div>
+
+<h2>Verdict</h2>
+<div class="verdict">
+<b>Do NOT ship a tilt penalty on this estimator.</b> It would fire on ~5% of photos and, on the
+evidence above, a large share of those firings would punish upright photos for their scenery —
+violating the spec's own first rule ("a guessed tilt never moves a score"). Options forward:
+(a) shelve spec-099 (recommended for now — crookedness is rare in this user's albums: 0 verified
+true positives in 122 photos); (b) revisit with a learned horizon/orientation model (new
+dependency, needs its own evaluation); (c) keep the estimator as an informational-only Studio
+column, clearly labeled low-trust. The estimator + 13 tests + this benchmark remain in the repo
+for any future attempt.
+</div>
+
+<p style="color:#777;font-size:0.85em">Generated 2026-07-12 by <code>scripts/experiment_tilt_benchmark.py</code>;
+estimator <code>sim_bench/quality_assessment/tilt.py</code>; spec <code>specs/099-tilt-detection-penalty/</code>.</p>
+</body>
+</html>

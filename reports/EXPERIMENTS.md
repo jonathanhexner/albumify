@@ -4,6 +4,9 @@ One entry per experiment, 2 lines each: (1) name + goal, (2) outcome + link.
 Convention: `reports/<YYYY-MM-DD>_<slug>/report.html` + `summary.md` (see CLAUDE.md §Experiment reports).
 Entries below predate the convention; their reports live at the linked legacy locations.
 
+- **2026-07-12 spec-099 Phase 0: tilt (crooked-photo) detection** — validate classical Hough-based tilt estimation before wiring a penalty; 122 photos × ±2..10° injected rotations.
+  **Negative result, penalty not shipped**: 0.32° MAE when confident but only 4.9% coverage, and the confident flags are upright photos with slanted scenery (tunnel, illusion art) — pixels can't separate camera-tilt from world-tilt. [report](2026-07-12_tilt_benchmark/report.html) · [summary](2026-07-12_tilt_benchmark/summary.md)
+
 - **2026-07-11 spec-098 validation: noise-aware quality scoring** — re-run SIDD/RealBlur benchmarks + Budapest face-gate check against pre-registered gates after the noise fix.
   SIDD 0%→**99.4%** pair acc, inflation 39×→0×, RealBlur intact 99.3%; median-blur-only FAILED first (62%) — σ²-subtraction formula found by sweep; face gate re-calibrated 150→73.3. [report](2026-07-11_spec098_validation/report.html) · [summary](2026-07-11_spec098_validation/summary.md)
 
@@ -45,3 +48,12 @@ Entries below predate the convention; their reports live at the linked legacy lo
 
 - **2026-07-05..09 spec-096 occlusion model benchmark** — 9 tracks (CLIP probes, ResNet, LoG features, Haiku, zero-shot) on 832 adjudicated images.
   Winner CLIP global+tile-max probe, 0.86 [0.79–0.92] scene PR-AUC. Full results: `specs/096-occlusion-detection-bench/RESULTS.md`.
+
+- **2026-07-13 spec-100 learned tilt (GeoCalib) benchmark** — swap classical Hough for GeoCalib (ECCV'24) on the same injected-rotation harness (122 Budapest photos, ±2–10°).
+  Accurate-when-confident (MAE 0.25–0.45°, ~100% recall, fixes the slanted-scenery FPs) but coverage 28% on this people-heavy album (G2≥70% missed, AUC 0.835). Native `roll_uncertainty` abstains honestly (kaleidoscope shots → 10–30° unc). Verdict: gated tie-breaker candidate, not a clean auto-pass. Report: `reports/2026-07-13_geocalib_budapest_tilt/report.html`; gates `reports/2026-07-12_geocalib_tilt/`.
+
+- **2026-07-13 spec-100 GeoCalib tilt tutorial** — step-by-step CV explainer of single-image roll estimation on a high-tilt vs near-zero photo, every intermediate tensor rendered (up-field, latitude, confidence, LM fit, roll geometry, uncertainty, penalty).
+  Pedagogical, not a new result. Report: `reports/2026-07-13_geocalib_tutorial/report.html`.
+
+- **2026-07-17 spec-101 auto-straighten before/after** — real subject-aware gate (YOLO persons) on the 10 confident tilted Budapest photos: 7 straightened, 3 declined (portraits below the 70% area floor).
+  Median retained area on straightened = 79% → fov penalty 0.086 at fov_weight=0.4 (validates the default). Report: `reports/2026-07-17_auto_straighten/report.html`.

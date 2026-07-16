@@ -58,6 +58,10 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 | `occlusion_scores` | `dict[str, float]` | P(occluded) 0–1 | `score_occlusion` (spec-096 CLIP probe) | `select_best` penalty; studio | `universal_cache` (`occlusion`) | producer → end | spec-097 Stage 1 |
 | `occlusion_tiles` | `dict[str, list]` | 9 tile scores 0–1 | `score_occlusion` | UI detail / Stage-2 severity | `universal_cache` (`occlusion`, same blob) | producer → end | 3×3 row-major localization |
 | `occlusion_penalties` | `dict[str, float]` | ≤0 | `select_best` | Results breakdown | run blob | producer → end | third composite half (spec-084 pattern) |
+| `tilt_angles` | `dict[str, float]` | signed roll deg | `score_tilt` (spec-100 GeoCalib) | `select_best` penalty; studio | `universal_cache` (`tilt`) | producer → end | + = content clockwise |
+| `tilt_confidences` | `dict[str, float]` | [0,1] | `score_tilt` | `select_best` penalty; studio detail | `universal_cache` (`tilt`, same blob) | producer → end | from GeoCalib roll uncertainty; low = abstain |
+| `tilt_penalties` | `dict[str, float]` | ≤0 | `select_best` | Results breakdown | run blob | producer → end | fourth composite component (spec-099) |
+| `straightened_from` | `dict[str, str]` | derived→original path | `straighten_images` (spec-101, terminal) | provenance / export trace-back | run blob | producer → end | present only for straightened winners in `selected_images` |
 
 ### 3.3 Face-specific (MediaPipe legacy path)
 

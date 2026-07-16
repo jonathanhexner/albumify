@@ -33,6 +33,11 @@ METHOD_INFO = {
                   "1 − P(occluded) so higher = clearer; below 0.25 means the pipeline "
                   "penalty gate (P ≥ 0.75) fires",
                   "0 – 1 (= 1 − P)", "higher = clearer", "higher ↑ (< 0.25 ⇒ penalized)"),
+    "tilt": ("Crooked-photo roll angle — TRAINED single-image gravity estimator (GeoCalib, "
+             "spec-100). Shown as signed degrees (+ = clockwise); confidence in the detail. "
+             "Sorted by -|roll| so straighter = higher. Pipeline penalty fires only when "
+             "confident (conf >= 0.5) AND |roll| > 3 deg",
+             "-45 – 45 deg (0 = level)", "|roll| lower = straighter", "straighter ↑ (penalty > 3 deg)"),
     "clip_occlusion": ("EXPERIMENTAL — CLIP 'clear vs finger-over-lens' prompt score. "
                        "Tested: does NOT reliably flag corner occlusion (whole-image CLIP is "
                        "dominated by the main subject). Superseded by 'occlusion' (trained). "

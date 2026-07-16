@@ -74,6 +74,17 @@ class PipelineContext:
     occlusion_scores: dict[str, float] = field(default_factory=dict)
     occlusion_tiles: dict[str, list] = field(default_factory=dict)
 
+    # spec-099/spec-100: crooked-photo (tilt) detector, GeoCalib backend, keyed by path.
+    # tilt_angles[path] = signed roll deg (+ = content clockwise); tilt_confidences[path]
+    # = [0,1] from GeoCalib roll uncertainty. Low confidence -> tilt_penalty ignores it.
+    tilt_angles: dict[str, float] = field(default_factory=dict)
+    tilt_confidences: dict[str, float] = field(default_factory=dict)
+
+    # spec-101 (option A): terminal straighten_images repoints straightened winners in
+    # selected_images to derived (leveled) files; this maps derived -> original for
+    # provenance (display/export trace-back). Present only for straightened winners.
+    straightened_from: dict[str, str] = field(default_factory=dict)
+
     # spec-093: generic multi-method quality scores from ScoreQualityStep.
     # In-run hand-off only (persistence is universal_cache); keyed
     # path -> {method: score} where score honors higher=better.
@@ -148,6 +159,8 @@ class PipelineContext:
     person_penalties: dict[str, float] = field(default_factory=dict)
     # spec-097: third composite component (0 unless P(occluded) >= gate).
     occlusion_penalties: dict[str, float] = field(default_factory=dict)
+    # spec-099: fourth composite component (0 unless confident tilt > gate_deg).
+    tilt_penalties: dict[str, float] = field(default_factory=dict)
 
     # Siamese comparison log (list of comparison results for debugging/display)
     # Each entry: {cluster_id, img1, img2, winner, confidence, comparison_type}

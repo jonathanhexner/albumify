@@ -13,6 +13,22 @@
 - [x] Implement spec-098: noise-robust sharpness + wavelet noise metric (Phases 0-2, validation reruns, headless Budapest A4, REVIEW.md; Implemented 2026-07-12). | 2026-07-11 | Claude
 - [ ] Fix `tests/quality_assessment/test_learned_clip.py` + `test_learned_prompts_only.py` — import archived `clip_aesthetic`, abort package collection (SIGHTING-113 item 6). | 2026-07-12 | Claude
 - [ ] Sweep for hard-coded blur thresholds outside profiles_v2 (notebooks, old configs) needing the spec-098 ×0.49 rescale (150→73.3 mapping). | 2026-07-12 | Claude
+
+## spec-099 tilt detection (2026-07-12)
+
+- [x] spec-099 Phase 0: classical tilt estimator + benchmark → NEGATIVE result (camera-tilt vs world-tilt unresolvable from pixels); penalty NOT shipped; spec On Hold. | 2026-07-12 | Claude
+- [x] spec-100: learned tilt (GeoCalib) benchmark + Budapest report → SHIP as gated tie-breaker (option a). | 2026-07-13 | Claude
+- [>] spec-099 Phases 1-2: wire GeoCalib tilt penalty into pipeline (score_tilt step, tilt_penalty in select_best, Studio column, docs, tests, REVIEW.md ACCEPT). Awaiting user calls on default-pipeline perf + e2e_budapest waiver before flip to Implemented. | 2026-07-13 | Claude
+- [ ] (spec-099 review follow-up) extract shared `_lookup` path-tolerance helper across person/occlusion/tilt penalty computers. | 2026-07-13 | Claude
+- [ ] (spec-099 review follow-up) architecture test pinning the `numpy<2` + geocalib `--no-deps` install invariant. | 2026-07-13 | Claude
+
+## spec-101 auto-straighten (2026-07-17)
+
+- [x] spec-101 IMPLEMENTED: auto-straighten (option A — terminal straighten + fixability-scaled tilt_penalty). 44 tests + real-data E2E, REVIEW ACCEPT, before/after report + outcome artifact. | 2026-07-17 | Claude
+- [x] spec-101 §5 BLOCKER CLEARED: option A (terminal + fixability penalty). E2E proved early design broke ordering; reverted. Committed real-data E2E green; no dependency drag. | 2026-07-17 | Claude
+- [ ] spec-101 review follow-up: `decide()` param grouping (>4 params). | 2026-07-17 | Claude
+- [ ] spec-101 review follow-up: provenance wiring — DB/export/UI must map derived→original via `straightened_from` before user-visible. | 2026-07-17 | Claude
+- [ ] spec-101 T4: before/after report + retained-area stats on real tilts (spec A7). | 2026-07-17 | Claude
 - [ ] Exposure-score fix (defect-scoring finding #3: compressed [0.89,0.99], loses to mid-gray baseline) — needs own spec if approved. | 2026-07-11 | Claude
 - [ ] Rotation detection via CLIP zero-shot on EXIF-less images (defect finding #4) — needs own spec if wanted. | 2026-07-11 | Claude
 

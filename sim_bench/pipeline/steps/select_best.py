@@ -21,6 +21,10 @@ from sim_bench.pipeline.scoring.occlusion_penalty import (
     OcclusionPenaltyFactory,
     OcclusionPenaltyComputer,
 )
+from sim_bench.pipeline.scoring.tilt_penalty import (
+    TiltPenaltyFactory,
+    TiltPenaltyComputer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +125,23 @@ class SelectBestStep(BaseStep):
                         "description": "spec-097: lens-occlusion penalty; 0 unless "
                                        "P(occluded) >= gate (needs score_occlusion upstream)"
                     },
+                    "tilt_penalty": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {"type": "boolean", "default": True},
+                            "conf_gate": {"type": "number", "default": 0.5},
+                            "gate_deg": {"type": "number", "default": 3.0},
+                            "slope": {"type": "number", "default": 0.02},
+                            "cap": {"type": "number", "default": 0.15},
+                            "fov_weight": {"type": "number", "default": 0.4},
+                            "min_retained_area": {"type": "number", "default": 0.70},
+                            "prominent_person_frac": {"type": "number", "default": 0.15}
+                        },
+                        "description": "spec-099/101: crooked-photo penalty scaled by fixability — "
+                                       "small FOV cost if cleanly straightenable, full angle penalty "
+                                       "if the crop would clip a prominent person (needs score_tilt + "
+                                       "detect_persons upstream)"
+                    },
                     "siamese": {
                         "type": "object",
                         "properties": {
@@ -148,6 +169,7 @@ class SelectBestStep(BaseStep):
         self._quality_strategy: Optional[ImageQualityStrategy] = None
         self._penalty_computer: Optional[PersonPenaltyComputer] = None
         self._occlusion_penalty: Optional[OcclusionPenaltyComputer] = None
+        self._tilt_penalty: Optional[TiltPenaltyComputer] = None
 
     def _get_siamese_model(self, checkpoint_path: str):
         """Lazy load Siamese model."""
@@ -212,6 +234,10 @@ class SelectBestStep(BaseStep):
         # spec-097: occlusion penalty (0 for every image unless score_occlusion ran)
         self._occlusion_penalty = OcclusionPenaltyFactory.create(
             config.get("occlusion_penalty", {}))
+
+        # spec-099: tilt penalty (0 for every image unless score_tilt ran)
+        self._tilt_penalty = TiltPenaltyFactory.create(
+            config.get("tilt_penalty", {}))
 
         # Load Siamese model if needed
         siamese_config = config.get("siamese", {})
@@ -366,6 +392,7 @@ class SelectBestStep(BaseStep):
         Compute composite scores for all images.
 
         composite_score = image_quality_score + person_penalty + occlusion_penalty
+                        + tilt_penalty
         """
         scored = []
 
@@ -375,13 +402,15 @@ class SelectBestStep(BaseStep):
             )
             penalty = self._penalty_computer.compute_penalty(image_path, context)
             occ_penalty = self._occlusion_penalty.compute_penalty(image_path, context)
-            composite_score = quality_score + penalty + occ_penalty
+            tilt_penalty = self._tilt_penalty.compute_penalty(image_path, context)
+            composite_score = quality_score + penalty + occ_penalty + tilt_penalty
 
-            # spec-084: persist the breakdown so Results can show why the
-            # composite is what it is (quality + person_penalty + occlusion_penalty).
+            # spec-084: persist the breakdown so Results can show why the composite
+            # is what it is (quality + person + occlusion + tilt penalties).
             context.quality_scores[image_path] = quality_score
             context.person_penalties[image_path] = penalty
             context.occlusion_penalties[image_path] = occ_penalty
+            context.tilt_penalties[image_path] = tilt_penalty
 
             scored.append((image_path, composite_score))
 

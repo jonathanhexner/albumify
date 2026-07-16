@@ -4,6 +4,39 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-115: test_face_embedding_validation.py fails to collect (stale import)
+**Status**: OPEN (found 2026-07-13 during spec-099 tilt wiring)
+**Severity**: Low (one test file; unrelated to tilt work — does not touch it)
+**Reported**: 2026-07-13
+**Persona**: SW Engineer
+
+**Problem**: `tests/pipeline/test_face_embedding_validation.py:30` imports
+`sim_bench.pipeline.steps.filter_quality_gate`, which does not exist (only
+`filter_quality.py` does). Collection errors out, interrupting any `pytest tests/pipeline/`
+run. The file is unchanged since commit 01d292c; the module was evidently renamed/removed
+without updating this test.
+**Suspicion**: `filter_quality_gate` → `filter_quality` rename (or the gate step folded in)
+left this import dangling. **Repro**: `.venv/Scripts/python -m pytest tests/pipeline/test_face_embedding_validation.py --co`.
+**Fix (proposed, not done)**: update the import to the current step, or delete the test if
+the gate step is gone. Left for the owner of that step to adjudicate (propose-don't-fix).
+
+### SIGHTING-116: test_person_penalty_strategy expects stale penalty value (0.02 vs 0.22)
+**Status**: OPEN (found 2026-07-13 during spec-099 review)
+**Severity**: Low (one test; unrelated to tilt — code path untouched by spec-099)
+**Reported**: 2026-07-13
+**Persona**: SW Engineer
+
+**Problem**: `tests/pipeline/test_scoring_strategy.py::test_person_penalty_strategy` asserts a
+body-orientation penalty of `0.1 * (1 - 0.8) = 0.02` but the current `PersonPenaltyComputer`
+returns `0.22`. `person_penalty.py` / `scoring_strategy.py` are unchanged by spec-099, so this is a
+stale test vs an evolved penalty formula/weights, not a regression.
+**Repro**: `.venv/Scripts/python -m pytest tests/pipeline/test_scoring_strategy.py::test_person_penalty_strategy`.
+**Fix (proposed, not done)**: re-derive the expected value from the current penalty config, or
+update the test to construct the computer with an explicit weight. Owner: person-penalty author.
+
+Note: `tests/pipeline/test_face_pipeline_e2e.py` also ERRORs (face-detection model / data
+fixtures) — pre-existing environment dependency, same triage bucket.
+
 ### SIGHTING-114: Adjudicate page crashes on HEIC images (PIL.UnidentifiedImageError)
 **Status**: RESOLVED (2026-07-08)
 **Severity**: High (blocked the 82-adjudication gate at image 12)

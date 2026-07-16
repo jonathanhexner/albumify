@@ -1,0 +1,222 @@
+<title>How GeoCalib measures tilt — a step-by-step tutorial</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#e4e4e4;--card:#fafafa;
+  --hi:#c0392b;--lo:#1565c0;--accent:#7b3fb3;--code:#f2f2f4;--ok:#1a8a4a;}
+@media(prefers-color-scheme:dark){:root{--bg:#141414;--fg:#e8e8e8;--mut:#9a9a9a;--line:#2c2c2c;
+  --card:#1d1d1d;--hi:#ff6b5b;--lo:#6ea8ff;--accent:#c08bff;--code:#20202a;--ok:#4fd07f;}}
+:root[data-theme=dark]{--bg:#141414;--fg:#e8e8e8;--mut:#9a9a9a;--line:#2c2c2c;--card:#1d1d1d;
+  --hi:#ff6b5b;--lo:#6ea8ff;--accent:#c08bff;--code:#20202a;--ok:#4fd07f;}
+:root[data-theme=light]{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#e4e4e4;--card:#fafafa;
+  --hi:#c0392b;--lo:#1565c0;--accent:#7b3fb3;--code:#f2f2f4;--ok:#1a8a4a;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;
+  max-width:1080px;margin:0 auto;padding:28px}
+h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:22px;margin:44px 0 6px;letter-spacing:-.01em}
+.step-no{color:var(--accent);font-weight:700}
+.lead{color:var(--mut);font-size:17px;margin:0 0 8px}
+p{margin:10px 0}
+code{background:var(--code);padding:1px 6px;border-radius:4px;font:14px ui-monospace,Consolas,monospace}
+.mono{font-family:ui-monospace,Consolas,monospace}
+.hi{color:var(--hi);font-weight:700}.lo{color:var(--lo);font-weight:700}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.pane{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+.pane .cap{padding:7px 12px;font-size:13px;font-weight:600;border-bottom:1px solid var(--line)}
+.pane.hcap .cap{color:var(--hi)}.pane.lcap .cap{color:var(--lo)}
+.pane img{width:100%;display:block;background:#000}
+.formula{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:8px;padding:12px 16px;margin:14px 0;font-family:ui-monospace,Consolas,monospace;
+  font-size:14.5px;overflow-x:auto}
+.formula .n{color:var(--mut)}
+.aside{background:var(--card);border-left:3px solid var(--mut);border-radius:6px;padding:10px 14px;
+  margin:14px 0;font-size:14.5px;color:var(--mut)}
+.aside b{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14.5px}
+th,td{border-bottom:1px solid var(--line);padding:8px 11px;text-align:left}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,Consolas,monospace}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:20px}
+.tag.h{background:color-mix(in srgb,var(--hi) 18%,transparent);color:var(--hi)}
+.tag.l{background:color-mix(in srgb,var(--lo) 18%,transparent);color:var(--lo)}
+.wrap{overflow-x:auto}
+hr{border:none;border-top:1px solid var(--line);margin:34px 0}
+.verdict{border:1px solid var(--line);border-radius:10px;padding:14px 18px;background:var(--card)}
+</style>
+
+<h1>How GeoCalib measures tilt</h1>
+<p class="lead">A step-by-step walk-through of single-image roll estimation (GeoCalib, ECCV&nbsp;2024),
+worked on two real photos side by side. Audience: basic CV background. spec-100.</p>
+
+<p>We want one number per photo: the <b>roll</b> — how many degrees the camera was rotated about its
+optical axis (a crooked horizon). EXIF only stores 90° steps, so we must recover it from pixels.
+The classical trick (detect straight lines, assume they're vertical/horizontal) fails on slanted
+<i>scenery</i>. GeoCalib instead learns <i>which way is up</i> from scene semantics, then solves a
+small geometry problem. We'll follow it stage by stage on:</p>
+
+<div class="pair">
+  <div class="pane hcap"><div class="cap"><span class="tag h">HIGH TILT</span> &nbsp;20250822_123528</div>
+    <img src="img/high_1_input.jpg" alt="tilted input"></div>
+  <div class="pane lcap"><div class="cap"><span class="tag l">LOW TILT</span> &nbsp;20250822_112359</div>
+    <img src="img/low_1_input.jpg" alt="upright input"></div>
+</div>
+<p>Both are Budapest street shots with strong architecture. The <span class="hi">left</span> was
+shot hand-held and crooked; the <span class="lo">right</span> is essentially level. Ground truth is
+unknown — that's the whole point — so watch how the algorithm arrives at its own answer and how sure
+it is.</p>
+
+<hr>
+
+<h2><span class="step-no">Step 1.</span> Predict a dense "up" field (the learned core)</h2>
+<p>A convolutional network (GeoCalib's backbone) ingests the resized image and outputs, at
+<b>every pixel</b>, a unit 2-D vector <code>û(x,y)</code> — the image-plane direction that points
+<i>away from gravity</i> there. This is a <b>perspective field</b>: the net infers it from semantic
+cues (people stand up, walls and window frames are vertical, the ground is level). Because it reads
+<i>content</i>, a slanted painting or a diagonal staircase does not fool it the way an edge detector
+would.</p>
+<div class="pair">
+  <div class="pane hcap"><div class="cap">up-field û(x,y) — raw network output</div><img src="img/high_2_upfield.jpg"></div>
+  <div class="pane lcap"><div class="cap">up-field û(x,y) — raw network output</div><img src="img/low_2_upfield.jpg"></div>
+</div>
+<p>Read the arrows: on the <span class="lo">level</span> photo they stand vertical; on the
+<span class="hi">tilted</span> photo they lean together, consistently, by roughly the roll angle.
+The field is noisy per-pixel (it's a raw prediction) — Step&nbsp;4 will distill it into one clean
+camera pose.</p>
+
+<h2><span class="step-no">Step 2.</span> The latitude field &rarr; the horizon</h2>
+<p>The net also predicts a scalar <b>latitude</b> <code>φ(x,y)</code> at each pixel: the angle of that
+viewing ray above (&plus;) or below (&minus;) the true horizon. The horizon is simply the
+<b>zero-level contour</b> <code>φ=0</code>.</p>
+<div class="pair">
+  <div class="pane hcap"><div class="cap">latitude φ (red +, blue −); black = horizon φ=0</div><img src="img/high_3_latitude.jpg"></div>
+  <div class="pane lcap"><div class="cap">latitude φ (red +, blue −); black = horizon φ=0</div><img src="img/low_3_latitude.jpg"></div>
+</div>
+<p>On the <span class="hi">tilted</span> photo the horizon contour is visibly <i>sloped</i> — that
+slope is the roll. On the <span class="lo">level</span> one it's nearly flat. (Its vertical position
+encodes <b>pitch</b>, how far up/down the camera looked — a bonus output we don't use for tilt.)</p>
+
+<h2><span class="step-no">Step 3.</span> Confidence — where the signal actually lives</h2>
+<p>Crucially, the net emits a <b>per-pixel confidence</b> for its up/latitude estimates. Bright =
+"I'm sure here," dark = "no usable gravity cue here."</p>
+<div class="pair">
+  <div class="pane hcap"><div class="cap">up-confidence (bright = reliable)</div><img src="img/high_4_confidence.jpg"></div>
+  <div class="pane lcap"><div class="cap">up-confidence (bright = reliable)</div><img src="img/low_4_confidence.jpg"></div>
+</div>
+<p>Confidence concentrates on <b>man-made structure</b> — window rows, cornices, straight vertical
+edges — and collapses on textureless sky. This is the key to safety: a structureless image (think a
+kaleidoscope mirror room) lights up <i>nowhere</i>, so the solve that follows is barely constrained
+and reports huge uncertainty. The model abstains instead of guessing.</p>
+
+<h2><span class="step-no">Step 4.</span> Fit a camera + gravity to the fields (the optimization)</h2>
+<p>Now the geometry. A pinhole camera with focal length <code>f</code>, <b>roll</b> <code>r</code> and
+<b>pitch</b> <code>p</code> produces an <i>analytic</i> up-field <code>u<sub>θ</sub></code> and
+latitude field <code>φ<sub>θ</sub></code>. GeoCalib finds the parameters
+<code>θ=(f,r,p)</code> whose analytic fields best match the network's, weighted by confidence:</p>
+<div class="formula">
+θ* = argmin<sub>θ</sub> &nbsp; Σ<sub>pixels p</sub> &nbsp; w<sub>p</sub> &middot;
+[ &nbsp;ρ( u<sub>θ</sub>(p) − û(p) ) &nbsp;+&nbsp; ρ( φ<sub>θ</sub>(p) − φ̂(p) ) &nbsp;]
+<br><span class="n">&nbsp;&nbsp;w<sub>p</sub> = network confidence &nbsp;·&nbsp; ρ = robust (Huber) loss
+&nbsp;·&nbsp; solved by Levenberg&ndash;Marquardt (iterative non-linear least squares)</span>
+</div>
+<p>The result is a single, geometrically-consistent pose. Below, the up-field
+<i>re-projected from the fitted θ</i> (blue) — smooth and coherent, no longer the noisy raw output —
+plus the fitted horizon:</p>
+<div class="pair">
+  <div class="pane hcap"><div class="cap">fitted up-field + horizon (from θ*)</div><img src="img/high_5_fitted.jpg"></div>
+  <div class="pane lcap"><div class="cap">fitted up-field + horizon (from θ*)</div><img src="img/low_5_fitted.jpg"></div>
+</div>
+<div class="wrap"><table>
+<thead><tr><th>Fitted parameter</th><th>HIGH tilt</th><th>LOW tilt</th></tr></thead>
+<tbody>
+<tr><td>roll <code>r</code></td><td class="num hi">+16.5&deg;</td><td class="num lo">&minus;0.01&deg;</td></tr>
+<tr><td>pitch <code>p</code></td><td class="num">+6.6&deg;</td><td class="num">+12.4&deg;</td></tr>
+<tr><td>vertical FoV</td><td class="num">79.3&deg;</td><td class="num">35.8&deg;</td></tr>
+</tbody></table></div>
+
+<div class="aside"><b>Why solve instead of just averaging the arrows?</b> Naively averaging the raw
+up-vectors of the <span class="hi">tilted</span> photo gives a direction only ~4.6&deg; off vertical
+— not 16.5&deg;. Averaging unit vectors shrinks toward the mean and ignores how up-vectors <i>bend</i>
+across the frame with pitch and focal length. The joint least-squares fit models that bending and
+recovers the true roll. That gap is exactly why Step&nbsp;4 exists.</div>
+
+<h2><span class="step-no">Step 5.</span> Read off the roll</h2>
+<p>Roll is just the in-plane component of the fitted gravity: the angle between the camera's
+<b>screen-vertical</b> and the fitted <b>scene-up</b> at the image centre.</p>
+<div class="formula">
+roll = angle( fitted&nbsp;up , screen&nbsp;up ) &nbsp;=&nbsp; atan2( u<sub>x</sub>, −u<sub>y</sub> )
+&nbsp;&nbsp;&rarr;&nbsp;&nbsp; <span class="hi">HIGH = +16.5&deg;</span> &nbsp;&nbsp;
+<span class="lo">LOW = −0.01&deg;</span>
+</div>
+<div class="pair">
+  <div class="pane hcap"><div class="cap">roll = angle(fitted up, screen up)</div><img src="img/high_6_roll.jpg"></div>
+  <div class="pane lcap"><div class="cap">roll = angle(fitted up, screen up)</div><img src="img/low_6_roll.jpg"></div>
+</div>
+<p>The green "fitted up" on the <span class="hi">left</span> runs parallel to the Parliament's true
+verticals, 16.5&deg; off the white screen-vertical. On the <span class="lo">right</span> the two
+arrows coincide — the shot was level.</p>
+
+<h2><span class="step-no">Step 6.</span> How sure? The uncertainty</h2>
+<p>Levenberg&ndash;Marquardt also returns the <b>covariance</b> of the solution (from the inverse
+Hessian at the optimum). The roll's standard deviation is our confidence signal:</p>
+<div class="formula">
+σ<sub>roll</sub> = sqrt( Cov[roll, roll] )
+&nbsp;&nbsp;&rarr;&nbsp;&nbsp; <span class="hi">HIGH σ = 0.95&deg;</span> &nbsp;&nbsp;
+<span class="lo">LOW σ = 0.82&deg;</span> &nbsp;&nbsp;<span class="n">(both tightly constrained by strong architecture)</span>
+</div>
+<p>Both photos are rich in structure, so both solves are tight. Contrast a kaleidoscope/mirror photo
+from the same album: no consistent up-cue anywhere &rarr; σ<sub>roll</sub> &asymp; 10&ndash;30&deg;.
+That large σ is how the model says "don't trust this angle," and it's what keeps the pipeline safe.</p>
+
+<h2><span class="step-no">Step 7.</span> From angle to a scoring penalty (the product tie-in)</h2>
+<p>The pipeline maps σ to a bounded confidence, then applies a small, gated tie-breaker penalty when
+a photo is <i>confidently</i> crooked:</p>
+<div class="formula">
+conf = exp( −σ<sub>roll</sub> / 2&deg; )
+&nbsp;&nbsp;&rarr;&nbsp;&nbsp; <span class="hi">HIGH = 0.62</span> &nbsp; <span class="lo">LOW = 0.66</span><br>
+penalty = 0 &nbsp;if&nbsp; conf &lt; 0.5 &nbsp;OR&nbsp; |roll| &lt; 3&deg;;
+&nbsp; else &nbsp; −min( 0.02·(|roll|−3&deg;), &nbsp;0.15 )
+</div>
+<div class="wrap"><table>
+<thead><tr><th></th><th>HIGH tilt</th><th>LOW tilt</th></tr></thead>
+<tbody>
+<tr><td>confidence gate (≥0.5)</td><td class="num">0.62 &check;</td><td class="num">0.66 &check;</td></tr>
+<tr><td>angle gate (|roll|&gt;3&deg;)</td><td class="num hi">16.5&deg; &check;</td><td class="num lo">0.01&deg; &cross;</td></tr>
+<tr><td>raw penalty −0.02·(|roll|−3)</td><td class="num">−0.27</td><td class="num">—</td></tr>
+<tr><td><b>final penalty</b> (cap −0.15)</td><td class="num hi"><b>−0.15</b></td><td class="num lo"><b>0.00</b></td></tr>
+</tbody></table></div>
+<p>The <span class="hi">tilted</span> photo is confident <i>and</i> well past 3&deg;, so it takes the
+capped &minus;0.15 — enough to lose a tie against an otherwise-equal straight duplicate, never enough
+to override real sharpness/occlusion differences (blur&nbsp;&gt;&nbsp;noise&nbsp;&gt;&nbsp;exposure&nbsp;&gt;&nbsp;tilt).
+The <span class="lo">level</span> photo is below the angle gate &rarr; exactly zero, so nothing changes.</p>
+
+<h2><span class="step-no">Step 8.</span> (Optional) Straighten</h2>
+<p>Rotating each image by <code>−roll</code> levels it. We don't auto-straighten in the pipeline
+(out of scope) — but it's the visual proof the angle is right:</p>
+<div class="pair">
+  <div class="pane hcap"><div class="cap">rotated −16.5&deg; &rarr; level</div><img src="img/high_7_straight.jpg"></div>
+  <div class="pane lcap"><div class="cap">rotated +0.0&deg; &rarr; unchanged</div><img src="img/low_7_straight.jpg"></div>
+</div>
+
+<hr>
+
+<h2>Side-by-side summary</h2>
+<div class="wrap"><table>
+<thead><tr><th>Stage</th><th>HIGH tilt (123528)</th><th>LOW tilt (112359)</th></tr></thead>
+<tbody>
+<tr><td>up-field arrows</td><td>lean together ~16&deg;</td><td>vertical</td></tr>
+<tr><td>horizon (latitude=0)</td><td>sloped</td><td>flat</td></tr>
+<tr><td>fitted roll</td><td class="num hi">+16.5&deg;</td><td class="num lo">−0.01&deg;</td></tr>
+<tr><td>uncertainty σ<sub>roll</sub></td><td class="num">0.95&deg;</td><td class="num">0.82&deg;</td></tr>
+<tr><td>confidence exp(−σ/2)</td><td class="num">0.62</td><td class="num">0.66</td></tr>
+<tr><td>penalty</td><td class="num hi">−0.15</td><td class="num lo">0.00</td></tr>
+<tr><td>outcome</td><td>flagged crooked, gently demoted</td><td>left untouched</td></tr>
+</tbody></table></div>
+
+<div class="verdict"><b>The one-line takeaway.</b> GeoCalib turns "is this crooked?" into a
+well-posed geometry problem: a network paints a confidence-weighted "which-way-is-up" field from
+scene semantics, and a small least-squares solve reads a camera roll (plus its uncertainty) out of
+that field. The uncertainty is what makes it safe — it abstains exactly when the image has no real
+"up," which is where the old line-based method confidently went wrong.</div>
+
+<p style="color:var(--mut);font-size:13px;margin-top:24px">Generated from
+<code>scripts/geocalib_tutorial.py</code> · GeoCalib (Veicht et&nbsp;al., ECCV&nbsp;2024) ·
+spec-100 · all intermediate tensors are the model's real output on these two photos.</p>

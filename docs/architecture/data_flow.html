@@ -100,7 +100,8 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
   <div class="head"><span class="name">C · pipeline steps run</span><span class="src">configs/pipeline.yaml::default_pipeline</span></div>
   <div class="body">
     detect_persons (YOLOv8) → insightface_detect_faces (SCRFD) → filter_faces<br>
-    align_faces → insightface_score_{expression,eyes,pose} → score_iqa, score_ava, <b>score_occlusion</b> (spec-097)<br>
+    score_iqa, score_ava, <b>score_occlusion</b> (spec-097), <b>score_tilt</b> (spec-099/100) → detect_persons → insightface_detect_faces<br>
+    align_faces → insightface_score_{expression,eyes,pose} → … → select_best → <b>straighten_images</b> (spec-101 A, TERMINAL: straightens the winners)<br>
     filter_quality → cluster_scenes → extract_face_embeddings → <b>cluster_people</b><br>
     <span style="opacity:.8">analysis (opt-in, spec-093): <code>score_quality</code> — runs N IQA methods
     (MANIQA/MUSIQ/HyperIQA/BRISQUE/NIQE/CLIP-IQA via <code>image_quality_models.create_model</code>),
@@ -109,9 +110,20 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
     global+tile-max probe (artifact <code>models/occlusion/clip_b32_gmax_v1.npz</code>, spec-096 winner
     0.86 scene PR-AUC) → <code>context.occlusion_scores/_tiles</code>, cached (<code>occlusion</code>);
     consumed by <code>select_best</code>: composite = quality + person_penalty + <b>occlusion_penalty</b>
-    (0 unless P ≥ 0.8 gate; <code>scoring/occlusion_penalty.py</code>)</span>
+    (0 unless P ≥ 0.8 gate; <code>scoring/occlusion_penalty.py</code>)</span><br>
+    <span style="opacity:.8">tilt (spec-099 Phase 1 / spec-100): <code>score_tilt</code> — GeoCalib learned roll
+    (~1.9 s/img CPU, cached <code>tilt</code>/<code>geocalib_v1</code>) → <code>context.tilt_angles/_confidences</code>;
+    consumed by <code>select_best</code>: composite += <b>tilt_penalty</b> (0 unless confident |roll| > 3°;
+    small tie-breaker, cap −0.15; <code>scoring/tilt_penalty.py</code>)</span><br>
+    <span style="opacity:.8">auto-straighten (spec-101, option A): selection accounts for the crop via the
+    <b>fixability-scaled</b> <code>tilt_penalty</code> (small FOV cost if cleanly straightenable, full
+    angle penalty if a prominent YOLO person would be clipped — <code>straighten_gate.decide</code>).
+    Then <code>straighten_images</code> runs TERMINAL (after <code>select_best</code>): it straightens
+    the selected winners that pass the gate, writes a leveled derivative and repoints
+    <code>selected_images</code>. Terminal so nothing depends on it → no dependency-drag into other
+    pipelines. Provenance: <code>context.straightened_from</code>.</span>
   </div>
-  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, noise_scores (spec-098: wavelet noise, higher = cleaner; <code>score_iqa</code> cache bumped to <code>rule_based_v2</code>), method_scores (spec-093), occlusion_scores/_tiles/_penalties (spec-097), scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
+  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, noise_scores (spec-098: wavelet noise, higher = cleaner; <code>score_iqa</code> cache bumped to <code>rule_based_v2</code>), method_scores (spec-093), occlusion_scores/_tiles/_penalties (spec-097), tilt_angles/_confidences/_penalties (spec-099/100), scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
   <div class="target"><b>Target (specs/037):</b> insert <code>insightface_score_blur</code> after <code>align_faces</code>.</div>
 </div>
 

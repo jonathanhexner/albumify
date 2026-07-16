@@ -17,6 +17,8 @@ from sim_bench.pipeline.steps.score_face_quality import ScoreFaceQualityStep
 from sim_bench.pipeline.steps.score_quality import ScoreQualityStep  # spec-093
 from sim_bench.pipeline.steps.classify_scene import ClassifySceneStep  # spec-094 scene tags
 from sim_bench.pipeline.steps.score_occlusion import ScoreOcclusionStep  # spec-097 Stage 1
+from sim_bench.pipeline.steps.score_tilt import ScoreTiltStep  # spec-099/spec-100
+from sim_bench.pipeline.steps.straighten_images import StraightenImagesStep  # spec-101
 
 # Face Scoring (individual steps for flexible pipelines)
 from sim_bench.pipeline.steps.score_face_pose import ScoreFacePoseStep
