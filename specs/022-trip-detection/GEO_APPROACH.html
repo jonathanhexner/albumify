@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec-022 · Geo-Temporal Grouping &amp; Segment Classification</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --ink:#e8ecf3; --mut:#9aa4b2;
+    --line:#2a2f3a; --accent:#6ea8fe; --accent2:#39d3bb;
+    --trip:#5b9cff; --event:#f0a843; --everyday:#52c479; --dayout:#b483f0; --unsorted:#7c8493;
+    --radius:14px; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .wrap{max-width:1060px;margin:0 auto;padding:48px 24px 120px;}
+  header.hero{border:1px solid var(--line);border-radius:var(--radius);
+    background:linear-gradient(160deg,#1b2030,#13161d);padding:36px 34px;margin-bottom:34px;}
+  .tag{display:inline-block;font:600 12px/1 var(--mono);letter-spacing:.12em;
+    color:var(--accent2);text-transform:uppercase;margin-bottom:14px;}
+  h1{font-size:32px;margin:.1em 0 .3em;letter-spacing:-.02em}
+  h2{font-size:22px;margin:54px 0 14px;letter-spacing:-.01em;
+     border-left:3px solid var(--accent);padding-left:12px}
+  h3{font-size:16px;margin:26px 0 8px;color:#cdd6e4}
+  p{color:#d4dbe6}.mut{color:var(--mut)}
+  .lead{font-size:18px;color:#c3ccda;max-width:74ch}
+  code{font-family:var(--mono);font-size:.9em;background:#10131a;border:1px solid var(--line);
+    padding:1px 6px;border-radius:6px;color:#cfe0ff}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin:16px 0}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:760px){.g2,.g3{grid-template-columns:1fr}}
+  .pill{display:inline-flex;align-items:center;gap:7px;font:600 12px/1 var(--mono);
+    padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#11141b}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .k-trip{color:var(--trip)} .b-trip{background:var(--trip)}
+  .k-event{color:var(--event)} .b-event{background:var(--event)}
+  .k-everyday{color:var(--everyday)} .b-everyday{background:var(--everyday)}
+  .k-dayout{color:var(--dayout)} .b-dayout{background:var(--dayout)}
+  .k-unsorted{color:var(--unsorted)} .b-unsorted{background:var(--unsorted)}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14.5px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+  .callout{border-left:3px solid var(--event);background:#1d1a12;padding:14px 18px;border-radius:0 10px 10px 0;margin:16px 0}
+  .callout.good{border-color:var(--everyday);background:#13201a}
+  .num{font-family:var(--mono);color:var(--accent)}
+  svg{display:block;max-width:100%}
+  .figcap{font-size:13px;color:var(--mut);margin-top:8px;text-align:center}
+  .mockframe{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel2)}
+  .mockbar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#11141b;border-bottom:1px solid var(--line)}
+  .mockbar i{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .seg{display:grid;grid-template-columns:150px 1fr;gap:0;border-bottom:1px solid var(--line)}
+  .seg:last-child{border-bottom:0}
+  .seg .left{padding:18px;border-right:1px solid var(--line);background:#15181f}
+  .seg .right{padding:18px}
+  .thumbs{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .thumb{width:46px;height:46px;border-radius:7px;border:1px solid var(--line)}
+  .badge{font:600 11px/1 var(--mono);padding:4px 9px;border-radius:999px;display:inline-block}
+  .minimap{border-radius:8px;border:1px solid var(--line)}
+  ol.steps{counter-reset:s;list-style:none;padding-left:0}
+  ol.steps li{position:relative;padding:6px 0 6px 38px;margin:4px 0}
+  ol.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:4px;
+    width:26px;height:26px;border-radius:50%;background:#1d2330;border:1px solid var(--accent);
+    color:var(--accent);font:700 13px/26px var(--mono);text-align:center}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .toc a{color:#bcd0f5;text-decoration:none;font-size:13px;border:1px solid var(--line);
+    padding:6px 11px;border-radius:8px;background:#11141b}
+  .toc a:hover{border-color:var(--accent)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 4px}
+  .legend .pill{cursor:default}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <span class="tag">Spec-022 · Geo-Temporal Album Enrichment</span>
+  <h1>How we group photos by place &amp; time — without assuming everyone is on a trip</h1>
+  <p class="lead">The pipeline learns <em>where</em>, <em>when</em>, <em>who</em>, and <em>what</em> each photo is about,
+  then lets several ways of grouping compete. The best-scoring one wins — and if none is convincing, it
+  <strong>declines to segment</strong> rather than invent a story. The wording adapts so we never label a birthday
+  party "Your trip to&hellip;".</p>
+  <div class="toc">
+    <a href="#big">The big idea</a>
+    <a href="#axes">The competition</a>
+    <a href="#group">1 · Grouping</a>
+    <a href="#gran">2 · Granularity</a>
+    <a href="#home">3 · Home anchor</a>
+    <a href="#classify">4 · Classifier</a>
+    <a href="#llm">5 · Where the LLM fits</a>
+    <a href="#examples">6 · Worked examples</a>
+    <a href="#mock">7 · UI mock</a>
+    <a href="#store">8 · Storage</a>
+    <a href="#decide">9 · Your decisions</a>
+  </div>
+</header>
+
+<!-- ============================ BIG IDEA ============================ -->
+<h2 id="big">The big idea: two separate jobs</h2>
+<p>The original spec blurred two very different jobs into one word ("trip"). We split them apart. The first job is pure
+geometry and makes <em>no</em> claim about meaning. The second job decides meaning.</p>
+
+<div class="card">
+<svg viewBox="0 0 1000 250" role="img" aria-label="Two-layer architecture">
+  <!-- input -->
+  <rect x="20" y="95" width="150" height="60" rx="10" fill="#1e222b" stroke="#2a2f3a"/>
+  <text x="95" y="120" fill="#e8ecf3" font-size="14" text-anchor="middle" font-weight="600">Photos</text>
+  <text x="95" y="140" fill="#9aa4b2" font-size="12" text-anchor="middle">+ EXIF (GPS, time)</text>
+  <!-- arrow -->
+  <path d="M170 125 H210" stroke="#6ea8fe" stroke-width="2" marker-end="url(#a)"/>
+  <!-- layer1 -->
+  <rect x="210" y="60" width="250" height="130" rx="12" fill="#141a26" stroke="#5b9cff"/>
+  <text x="335" y="86" fill="#5b9cff" font-size="13" text-anchor="middle" font-weight="700">LAYER 1 · GROUPING</text>
+  <text x="335" y="110" fill="#d4dbe6" font-size="13" text-anchor="middle">cluster by place + time</text>
+  <text x="335" y="130" fill="#9aa4b2" font-size="12" text-anchor="middle">deterministic geometry</text>
+  <text x="335" y="150" fill="#9aa4b2" font-size="12" text-anchor="middle">"these photos are near</text>
+  <text x="335" y="167" fill="#9aa4b2" font-size="12" text-anchor="middle">each other in space &amp; time"</text>
+  <path d="M460 125 H500" stroke="#6ea8fe" stroke-width="2" marker-end="url(#a)"/>
+  <!-- layer2 -->
+  <rect x="500" y="60" width="250" height="130" rx="12" fill="#1c1726" stroke="#b483f0"/>
+  <text x="625" y="86" fill="#b483f0" font-size="13" text-anchor="middle" font-weight="700">LAYER 2 · MEANING</text>
+  <text x="625" y="110" fill="#d4dbe6" font-size="13" text-anchor="middle">classify each group</text>
+  <text x="625" y="130" fill="#9aa4b2" font-size="12" text-anchor="middle">trip? event? everyday?</text>
+  <text x="625" y="150" fill="#9aa4b2" font-size="12" text-anchor="middle">signals + home anchor</text>
+  <text x="625" y="167" fill="#9aa4b2" font-size="12" text-anchor="middle">(+ optional local LLM)</text>
+  <path d="M750 125 H790" stroke="#6ea8fe" stroke-width="2" marker-end="url(#a)"/>
+  <!-- caption -->
+  <rect x="790" y="80" width="190" height="90" rx="10" fill="#13201a" stroke="#52c479"/>
+  <text x="885" y="106" fill="#52c479" font-size="13" text-anchor="middle" font-weight="700">CAPTION</text>
+  <text x="885" y="128" fill="#d4dbe6" font-size="12" text-anchor="middle">kind-appropriate</text>
+  <text x="885" y="146" fill="#d4dbe6" font-size="12" text-anchor="middle">wording per group</text>
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+    <path d="M0 0 L9 4.5 L0 9 z" fill="#6ea8fe"/></marker></defs>
+</svg>
+<p class="figcap">Layer 1 is the same math for home photos and for Rome. Only Layer 2 decides what the group means.</p>
+</div>
+
+<!-- ============================ COMPETITION ============================ -->
+<h2 id="axes">The grouping job is a competition — and it can be declined</h2>
+<p>"Group by place &amp; time" is only one way to organise an album. Some albums are really organised by
+<em>who's in them</em>, or by <em>what's happening</em>. So Layer&nbsp;1 isn't a single algorithm — it runs several
+<strong>candidate axes</strong> in parallel, scores each one, and keeps the winner. Crucially, if the best score is still
+weak, it keeps <em>nothing</em> and shows a flat gallery. We never impose structure that isn't there.</p>
+
+<div class="card">
+<svg viewBox="0 0 1000 320" role="img" aria-label="Competing axes and quality gate">
+  <defs><marker id="e" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+    <path d="M0 0 L9 4.5 L0 9 z" fill="#6ea8fe"/></marker></defs>
+  <rect x="20" y="135" width="130" height="50" rx="9" fill="#1e222b" stroke="#2a2f3a"/>
+  <text x="85" y="165" fill="#e8ecf3" font-size="14" text-anchor="middle">album</text>
+  <!-- four axes -->
+  <g font-size="12.5" text-anchor="middle">
+    <rect x="200" y="20"  width="220" height="46" rx="9" fill="#141a26" stroke="#5b9cff"/>
+    <text x="262" y="48" fill="#5b9cff" font-weight="700">GEO</text><text x="345" y="48" fill="#9aa4b2">where</text>
+    <rect x="200" y="96" width="220" height="46" rx="9" fill="#13201d" stroke="#39d3bb"/>
+    <text x="262" y="124" fill="#39d3bb" font-weight="700">TIME</text><text x="345" y="124" fill="#9aa4b2">when</text>
+    <rect x="200" y="172" width="220" height="46" rx="9" fill="#13201a" stroke="#52c479"/>
+    <text x="258" y="200" fill="#52c479" font-weight="700">IDENTITY</text><text x="352" y="200" fill="#9aa4b2">who</text>
+    <rect x="200" y="248" width="220" height="46" rx="9" fill="#1d1a12" stroke="#f0a843"/>
+    <text x="262" y="276" fill="#f0a843" font-weight="700">SEMANTIC</text><text x="352" y="276" fill="#9aa4b2">what</text>
+  </g>
+  <path d="M150 160 H196" stroke="#6ea8fe" stroke-width="2" marker-end="url(#e)"/>
+  <path d="M150 160 C175 160 175 43 196 43"  stroke="#2f3a4d" fill="none"/>
+  <path d="M150 160 C175 160 175 119 196 119" stroke="#2f3a4d" fill="none"/>
+  <path d="M150 160 C175 160 175 195 196 195" stroke="#2f3a4d" fill="none"/>
+  <path d="M150 160 C175 160 175 271 196 271" stroke="#2f3a4d" fill="none"/>
+  <!-- score -->
+  <g font-size="12" text-anchor="middle">
+    <path d="M420 43 H520" stroke="#6ea8fe" stroke-width="1.6" marker-end="url(#e)"/>
+    <path d="M420 119 H520" stroke="#6ea8fe" stroke-width="1.6" marker-end="url(#e)"/>
+    <path d="M420 195 H520" stroke="#6ea8fe" stroke-width="1.6" marker-end="url(#e)"/>
+    <path d="M420 271 H520" stroke="#6ea8fe" stroke-width="1.6" marker-end="url(#e)"/>
+    <rect x="522" y="120" width="150" height="74" rx="10" fill="#11141b" stroke="#f0a843"/>
+    <text x="597" y="150" fill="#f6cd8e" font-weight="700">quality score</text>
+    <text x="597" y="170" fill="#9aa4b2">0–1 per axis</text>
+    <text x="597" y="186" fill="#9aa4b2">pick the best</text>
+  </g>
+  <path d="M672 157 H720" stroke="#6ea8fe" stroke-width="2" marker-end="url(#e)"/>
+  <path d="M720 157 l40 -34 40 34 -40 34 z" fill="#11141b" stroke="#5b9cff"/>
+  <text x="760" y="153" fill="#cfe0ff" font-size="11" text-anchor="middle">best ≥</text>
+  <text x="760" y="167" fill="#cfe0ff" font-size="11" text-anchor="middle">floor?</text>
+  <path d="M800 157 H850" stroke="#6ea8fe" stroke-width="2" marker-end="url(#e)"/>
+  <text x="825" y="148" fill="#9be8b4" font-size="11" text-anchor="middle">yes</text>
+  <rect x="850" y="120" width="130" height="44" rx="9" fill="#13201a" stroke="#52c479"/>
+  <text x="915" y="147" fill="#52c479" font-size="12.5" text-anchor="middle" font-weight="700">segment it</text>
+  <path d="M760 191 V250 H850" stroke="#6ea8fe" stroke-width="2" marker-end="url(#e)"/>
+  <text x="792" y="242" fill="#ff9a9a" font-size="11" text-anchor="middle">no</text>
+  <rect x="850" y="230" width="130" height="44" rx="9" fill="#191b20" stroke="#7c8493"/>
+  <text x="915" y="251" fill="#c7ccd4" font-size="12" text-anchor="middle" font-weight="700">FLAT</text>
+  <text x="915" y="266" fill="#9aa4b2" font-size="10" text-anchor="middle">no story imposed</text>
+</svg>
+<p class="figcap">Four candidate axes compete on one score. Winner-takes-all — or, below the floor, no segmentation at all.</p>
+</div>
+
+<h3>The four axes</h3>
+<div class="grid g2">
+  <div class="card"><span class="pill"><span class="dot b-trip"></span><span class="k-trip">GEO · where</span></span>
+    <p class="mut" style="margin:10px 0 0">Cluster by GPS location (§1). Wins for travel and multi-place albums.</p></div>
+  <div class="card"><span class="pill"><span class="dot" style="background:var(--accent2)"></span><span style="color:var(--accent2)">TIME · when</span></span>
+    <p class="mut" style="margin:10px 0 0">Cluster by capture-time gaps. Wins when there's no GPS but clear temporal bursts.</p></div>
+  <div class="card"><span class="pill"><span class="dot b-everyday"></span><span class="k-everyday">IDENTITY · who</span></span>
+    <p class="mut" style="margin:10px 0 0">Group by the people present, reusing the face-clustering <code>people_clusters</code> we already
+    compute. <strong>Wins when one or two people are the theme</strong> — "Noa through the year" — and place/time are flat.</p></div>
+  <div class="card"><span class="pill"><span class="dot b-event"></span><span class="k-event">SEMANTIC · what</span></span>
+    <p class="mut" style="margin:10px 0 0">Group by scene content via cheap image captions (below). The flexible fallback when the
+    other three are weak. Off by default — it's the most expensive and least deterministic.</p></div>
+</div>
+
+<h3>The quality score — "is this segmentation real, or imposed?"</h3>
+<p>Every candidate axis is scored 0–1 from four cheap signals. The best axis wins; if even the best is below a
+<strong>floor</strong>, we decline to segment. This is the safety valve against forcing structure onto an album that doesn't have any.</p>
+<div class="card">
+<table>
+<thead><tr><th>Component</th><th>Asks</th><th>Score drops when…</th></tr></thead>
+<tbody>
+<tr><td><b>Separation</b></td><td>are groups far apart in the axis vs. their internal spread? (silhouette-style)</td>
+    <td>groups bleed into each other — no real boundary</td></tr>
+<tr><td><b>Coverage</b></td><td>what fraction of photos even carry the needed signal?</td>
+    <td>most photos lack GPS / time / faces for that axis</td></tr>
+<tr><td><b>Balance</b></td><td>sensible group sizes — not one blob, not N singletons</td>
+    <td>one giant group + dust, or hundreds of fragments</td></tr>
+<tr><td><b>Stability</b></td><td>does it survive a small nudge of the threshold?</td>
+    <td>a 30→35&nbsp;km tweak reshuffles everything — fragile</td></tr>
+</tbody>
+</table>
+</div>
+<div class="callout"><strong>The floor is the "drop it if we're strongly off" rule.</strong> Below it the album shows as a
+flat gallery (optionally with plain month headers) and makes <em>no</em> place/event/person claim. Silence beats a wrong story.</div>
+
+<h3>The semantic axis — cheap ViT captions, then the LLM</h3>
+<p>For the "what's happening" axis we run a small vision model that writes a one-line caption per image
+(<em>"kids playing on a beach"</em>). Those captions are tiny <strong>text</strong>, cached per photo just like embeddings — so
+the cost is one-time. The LLM then reasons over the <em>text</em>, never the pixels.</p>
+<div class="card">
+<svg viewBox="0 0 1000 200" role="img" aria-label="ViT caption to LLM">
+  <defs><marker id="f" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+    <path d="M0 0 L9 4.5 L0 9 z" fill="#6ea8fe"/></marker></defs>
+  <rect x="20" y="78" width="150" height="50" rx="9" fill="#1e222b" stroke="#2a2f3a"/>
+  <text x="95" y="100" fill="#e8ecf3" font-size="13" text-anchor="middle">each image</text>
+  <text x="95" y="118" fill="#9aa4b2" font-size="11" text-anchor="middle">(pixels)</text>
+  <path d="M170 103 H214" stroke="#6ea8fe" stroke-width="2" marker-end="url(#f)"/>
+  <rect x="214" y="74" width="190" height="58" rx="9" fill="#1d1a12" stroke="#f0a843"/>
+  <text x="309" y="98" fill="#f0a843" font-size="12.5" text-anchor="middle" font-weight="700">cheap ViT captioner</text>
+  <text x="309" y="116" fill="#9aa4b2" font-size="11" text-anchor="middle">→ "kids on a beach" · cached</text>
+  <path d="M404 103 H448" stroke="#6ea8fe" stroke-width="2" marker-end="url(#f)"/>
+  <rect x="448" y="74" width="150" height="58" rx="9" fill="#11141b" stroke="#2a2f3a"/>
+  <text x="523" y="98" fill="#d4dbe6" font-size="12" text-anchor="middle">captions =</text>
+  <text x="523" y="116" fill="#d4dbe6" font-size="12" text-anchor="middle">tiny text</text>
+  <path d="M598 103 H642" stroke="#6ea8fe" stroke-width="2" marker-end="url(#f)"/>
+  <rect x="642" y="40" width="338" height="58" rx="9" fill="#1c1726" stroke="#b483f0"/>
+  <text x="811" y="63" fill="#e3d4ff" font-size="12.5" text-anchor="middle" font-weight="700">LLM names a segment (cheap, default)</text>
+  <text x="811" y="81" fill="#9aa4b2" font-size="11" text-anchor="middle">~10 sampled captions per segment → one warm sentence</text>
+  <rect x="642" y="110" width="338" height="58" rx="9" fill="#191b20" stroke="#7c8493"/>
+  <text x="811" y="133" fill="#c7ccd4" font-size="12.5" text-anchor="middle" font-weight="700">LLM clusters from scratch (last resort)</text>
+  <text x="811" y="151" fill="#9aa4b2" font-size="11" text-anchor="middle">only when geo/time/identity all score below the floor</text>
+  <path d="M598 118 C620 118 620 139 642 139" stroke="#2f3a4d" fill="none"/>
+</svg>
+<p class="figcap">Two jobs, very different cost. Naming from a small sample is cheap and runs often; clustering all
+captions from scratch is a token blow-up, so it's reserved as the fallback axis.</p>
+</div>
+<div class="callout"><strong>Cost guardrail:</strong> we never hand the LLM all 1,000 captions to invent groupings by default —
+that's expensive and non-deterministic. The semantic axis mainly <em>names</em> segments the cheaper axes already found,
+and only acts as a <em>clusterer</em> when everything else fails.</div>
+
+<!-- ============================ GROUPING ============================ -->
+<h2 id="group">1 · Grouping — the clustering algorithm</h2>
+<p>Every image carries (at best) a GPS coordinate and a capture time. Some carry only one; some carry neither.
+We branch on what's available, then cluster.</p>
+
+<div class="card">
+<svg viewBox="0 0 1000 360" role="img" aria-label="Clustering flow">
+  <defs><marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+    <path d="M0 0 L9 4.5 L0 9 z" fill="#7c8493"/></marker></defs>
+  <rect x="380" y="14" width="240" height="44" rx="9" fill="#1e222b" stroke="#2a2f3a"/>
+  <text x="500" y="41" fill="#e8ecf3" font-size="14" text-anchor="middle">all images, with EXIF</text>
+  <path d="M500 58 V86" stroke="#7c8493" stroke-width="2" marker-end="url(#b)"/>
+  <text x="500" y="78" fill="#9aa4b2" font-size="11" text-anchor="middle">partition by available EXIF</text>
+
+  <!-- three branches -->
+  <rect x="60" y="92" width="250" height="50" rx="9" fill="#141a26" stroke="#5b9cff"/>
+  <text x="185" y="113" fill="#cfe0ff" font-size="13" text-anchor="middle" font-weight="600">has GPS + time</text>
+  <text x="185" y="131" fill="#9aa4b2" font-size="11" text-anchor="middle">full path below</text>
+
+  <rect x="375" y="92" width="250" height="50" rx="9" fill="#1c1c26" stroke="#b483f0"/>
+  <text x="500" y="113" fill="#e3d4ff" font-size="13" text-anchor="middle" font-weight="600">time only (no GPS)</text>
+  <text x="500" y="131" fill="#9aa4b2" font-size="11" text-anchor="middle">time-gap split only</text>
+
+  <rect x="690" y="92" width="250" height="50" rx="9" fill="#191b20" stroke="#7c8493"/>
+  <text x="815" y="113" fill="#c7ccd4" font-size="13" text-anchor="middle" font-weight="600">neither</text>
+  <text x="815" y="131" fill="#9aa4b2" font-size="11" text-anchor="middle">&rarr; "Unsorted" bucket</text>
+
+  <path d="M185 142 V170" stroke="#5b9cff" stroke-width="2" marker-end="url(#b)"/>
+  <!-- gps sub-steps -->
+  <rect x="40" y="174" width="290" height="44" rx="9" fill="#11141b" stroke="#2a2f3a"/>
+  <text x="185" y="195" fill="#d4dbe6" font-size="12.5" text-anchor="middle">① cluster GPS, radius &asymp; 30 km</text>
+  <text x="185" y="211" fill="#9aa4b2" font-size="11" text-anchor="middle">neighbouring towns merge into one place</text>
+  <path d="M185 218 V244" stroke="#5b9cff" stroke-width="2" marker-end="url(#b)"/>
+  <rect x="40" y="248" width="290" height="44" rx="9" fill="#11141b" stroke="#2a2f3a"/>
+  <text x="185" y="269" fill="#d4dbe6" font-size="12.5" text-anchor="middle">② within a place, sort by time</text>
+  <text x="185" y="285" fill="#9aa4b2" font-size="11" text-anchor="middle">chronological order</text>
+  <path d="M185 292 V318" stroke="#5b9cff" stroke-width="2" marker-end="url(#b)"/>
+  <rect x="40" y="322" width="290" height="44" rx="9" fill="#11141b" stroke="#2a2f3a"/>
+  <text x="185" y="343" fill="#d4dbe6" font-size="12.5" text-anchor="middle">③ split where time-gap &gt; threshold</text>
+  <text x="185" y="359" fill="#9aa4b2" font-size="11" text-anchor="middle">separates two visits to the same place</text>
+</svg>
+<p class="figcap">"30&nbsp;km" and the time-gap threshold are config knobs (<code>geo_radius_km</code>, <code>time_gap_hours</code>).</p>
+</div>
+
+<div class="callout">
+<strong>This stage assumes nothing.</strong> A cluster of 40 photos near one coordinate over 3 hours could be a wedding,
+a park afternoon, or breakfast in Lisbon. Grouping just says "these belong together." Naming comes next.
+</div>
+
+<!-- ============================ GRANULARITY ============================ -->
+<h2 id="gran">2 · The fragmentation trap (kids/home photos)</h2>
+<p>Here's the failure you intuited. If you blindly split on every <span class="num">8-hour</span> gap, two years of
+everyday home photos shatter into <strong>hundreds of meaningless 8-hour "segments."</strong> That's noise, not structure.</p>
+
+<div class="grid g2">
+  <div class="card" style="border-color:#7c3a3a">
+    <h3 style="color:#ff9a9a">❌ Naïve fixed split</h3>
+    <svg viewBox="0 0 420 90"><g>
+      <rect x="0" y="30" width="420" height="30" rx="5" fill="#11141b" stroke="#2a2f3a"/>
+      <!-- many tiny ticks -->
+      <g fill="#ff9a9a">
+        <rect x="8" y="34" width="16" height="22"/><rect x="30" y="34" width="10" height="22"/>
+        <rect x="46" y="34" width="20" height="22"/><rect x="72" y="34" width="8" height="22"/>
+        <rect x="86" y="34" width="14" height="22"/><rect x="106" y="34" width="10" height="22"/>
+        <rect x="122" y="34" width="22" height="22"/><rect x="150" y="34" width="9" height="22"/>
+        <rect x="165" y="34" width="13" height="22"/><rect x="184" y="34" width="17" height="22"/>
+        <rect x="207" y="34" width="9" height="22"/><rect x="222" y="34" width="15" height="22"/>
+        <rect x="243" y="34" width="11" height="22"/><rect x="260" y="34" width="19" height="22"/>
+        <rect x="285" y="34" width="9" height="22"/><rect x="300" y="34" width="14" height="22"/>
+        <rect x="320" y="34" width="12" height="22"/><rect x="338" y="34" width="20" height="22"/>
+        <rect x="364" y="34" width="10" height="22"/><rect x="380" y="34" width="16" height="22"/>
+      </g></g></svg>
+    <p class="mut" style="margin:6px 0 0">~200 tiny "segments" over 2 years. Useless to browse.</p>
+  </div>
+  <div class="card good" style="border-color:#3a6b4a">
+    <h3 style="color:#9be8b4">✓ Context-adaptive granularity</h3>
+    <svg viewBox="0 0 420 90"><g>
+      <rect x="0" y="30" width="420" height="30" rx="5" fill="#11141b" stroke="#2a2f3a"/>
+      <g fill="#52c479">
+        <rect x="6" y="34" width="64" height="22" rx="3"/><rect x="78" y="34" width="64" height="22" rx="3"/>
+        <rect x="150" y="34" width="64" height="22" rx="3"/><rect x="222" y="34" width="64" height="22" rx="3"/>
+        <rect x="294" y="34" width="56" height="22" rx="3"/><rect x="358" y="34" width="56" height="22" rx="3"/>
+      </g>
+      <g fill="#9aa4b2" font-size="9" text-anchor="middle">
+        <text x="38" y="78">Jan</text><text x="110" y="78">Feb</text><text x="182" y="78">Mar</text>
+        <text x="254" y="78">Apr</text><text x="322" y="78">May</text><text x="386" y="78">Jun</text></g></g></svg>
+    <p class="mut" style="margin:6px 0 0">Home life groups by <strong>month/season</strong>, not by burst.</p>
+  </div>
+</div>
+
+<div class="callout good">
+<strong>Rule:</strong> granularity follows meaning. Once a segment is judged <span class="k-everyday">everyday / at-home</span>,
+group it coarsely (month or season). A <span class="k-trip">trip</span> keeps the fine place+burst grouping, because there
+every day is different. So Layer 2 feeds back into Layer 1's cutting.
+</div>
+
+<!-- ============================ HOME ANCHOR ============================ -->
+<h2 id="home">3 · The "home" anchor — the key to telling trips from routine</h2>
+<p>One simple idea does most of the work: <strong>home</strong> = the place where most of life happens.
+We compute it automatically per album as the GPS cluster holding the <em>most distinct days</em>. Then a "trip" is
+simply photos taken <em>far from home</em>; routine is photos <em>near home</em>.</p>
+
+<div class="card">
+<svg viewBox="0 0 1000 300" role="img" aria-label="Home anchor map concept">
+  <rect x="0" y="0" width="1000" height="300" rx="10" fill="#0d1017"/>
+  <!-- faux map grid -->
+  <g stroke="#1a1f2a" stroke-width="1">
+    <line x1="0" y1="60" x2="1000" y2="60"/><line x1="0" y1="120" x2="1000" y2="120"/>
+    <line x1="0" y1="180" x2="1000" y2="180"/><line x1="0" y1="240" x2="1000" y2="240"/>
+    <line x1="200" y1="0" x2="200" y2="300"/><line x1="400" y1="0" x2="400" y2="300"/>
+    <line x1="600" y1="0" x2="600" y2="300"/><line x1="800" y1="0" x2="800" y2="300"/>
+  </g>
+  <!-- home cluster: big -->
+  <circle cx="300" cy="170" r="58" fill="#52c47922" stroke="#52c479" stroke-dasharray="4 4"/>
+  <g fill="#52c479"><circle cx="285" cy="160" r="6"/><circle cx="305" cy="150" r="6"/>
+    <circle cx="320" cy="175" r="6"/><circle cx="290" cy="185" r="6"/><circle cx="312" cy="190" r="6"/>
+    <circle cx="298" cy="170" r="6"/><circle cx="330" cy="160" r="6"/></g>
+  <path d="M300 100 l9 18 20 3 -15 14 4 20 -18 -10 -18 10 4 -20 -15 -14 20 -3 z" fill="#52c479"/>
+  <text x="300" y="250" fill="#9be8b4" font-size="13" text-anchor="middle" font-weight="700">HOME</text>
+  <text x="300" y="268" fill="#9aa4b2" font-size="11" text-anchor="middle">most distinct days · 1,200 photos</text>
+
+  <!-- far cluster A (trip) -->
+  <circle cx="720" cy="90" r="34" fill="#5b9cff22" stroke="#5b9cff" stroke-dasharray="4 4"/>
+  <g fill="#5b9cff"><circle cx="712" cy="84" r="5"/><circle cx="726" cy="80" r="5"/>
+    <circle cx="730" cy="96" r="5"/><circle cx="714" cy="98" r="5"/></g>
+  <text x="720" y="148" fill="#bcd6ff" font-size="12" text-anchor="middle" font-weight="600">far · 4 days · 90 photos</text>
+  <text x="720" y="165" fill="#9aa4b2" font-size="11" text-anchor="middle">&rarr; looks like a TRIP</text>
+
+  <!-- near cluster B (day out) -->
+  <circle cx="470" cy="235" r="26" fill="#b483f022" stroke="#b483f0" stroke-dasharray="4 4"/>
+  <g fill="#b483f0"><circle cx="464" cy="231" r="5"/><circle cx="476" cy="228" r="5"/><circle cx="472" cy="242" r="5"/></g>
+  <text x="470" y="282" fill="#d8c4f8" font-size="11" text-anchor="middle">near, 1 day &rarr; DAY-OUT</text>
+
+  <!-- dashed distance line -->
+  <line x1="350" y1="150" x2="690" y2="100" stroke="#5b9cff" stroke-width="1.4" stroke-dasharray="6 5"/>
+  <text x="540" y="118" fill="#7fb0ff" font-size="11" text-anchor="middle" transform="rotate(-8 540 118)">distance from home</text>
+</svg>
+<p class="figcap">Home is re-derived for every album, so it adapts to whoever's photos these are — no manual setup.</p>
+</div>
+
+<!-- ============================ CLASSIFIER ============================ -->
+<h2 id="classify">4 · The classifier — signals &rarr; "kind"</h2>
+<p>Once the <span class="k-trip">GEO</span>/<span style="color:var(--accent2)">TIME</span> axis wins, each segment still
+needs a label. For each segment we already have cheap, structured signals (no model needed): distance from home, how many
+days it spans, how dense it is, how many distinct people appear (from face clustering). A small set of rules maps those to a
+<strong>kind</strong>, and the kind picks the caption template. (The IDENTITY and SEMANTIC axes carry their own labels —
+a person name, or a captioned theme.)</p>
+
+<div class="card">
+<div class="legend">
+  <span class="pill"><span class="dot b-trip"></span><span class="k-trip">TRIP</span></span>
+  <span class="pill"><span class="dot b-dayout"></span><span class="k-dayout">DAY-OUT</span></span>
+  <span class="pill"><span class="dot b-event"></span><span class="k-event">EVENT</span></span>
+  <span class="pill"><span class="dot b-everyday"></span><span class="k-everyday">EVERYDAY</span></span>
+  <span class="pill"><span class="dot b-unsorted"></span><span class="k-unsorted">UNSORTED</span></span>
+</div>
+<table>
+<thead><tr><th>Kind</th><th>Signal signature</th><th>Caption template (example)</th></tr></thead>
+<tbody>
+<tr><td><span class="k-trip">TRIP</span></td>
+    <td>far from home · spans multiple days <em>or</em> multiple places</td>
+    <td>"A week in <b>Dubai</b>" · "Exploring the Austrian Alps"</td></tr>
+<tr><td><span class="k-dayout">DAY-OUT</span></td>
+    <td>far from home · single day</td>
+    <td>"A day at <b>Lake Balaton</b>"</td></tr>
+<tr><td><span class="k-event">EVENT</span></td>
+    <td>any place · short burst · high photo density · many distinct faces</td>
+    <td>"A lovely gathering, <b>July 2024</b>"</td></tr>
+<tr><td><span class="k-everyday">EVERYDAY</span></td>
+    <td>at / near home · low density · spread over a long span</td>
+    <td>"Everyday moments at home, <b>spring 2024</b>"</td></tr>
+<tr><td><span class="k-unsorted">UNSORTED</span></td>
+    <td>no usable GPS &amp; no usable time</td>
+    <td>(no place/time claim — plain "Untagged photos")</td></tr>
+</tbody>
+</table>
+<p class="mut" style="margin:8px 0 0">The word "trip" only ever appears for the TRIP kind. Home and event photos get their own warm, accurate wording.</p>
+</div>
+
+<h3>How a single segment is decided</h3>
+<div class="card">
+<svg viewBox="0 0 1000 250" role="img" aria-label="Decision flow">
+  <defs><marker id="c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+    <path d="M0 0 L9 4.5 L0 9 z" fill="#6ea8fe"/></marker></defs>
+  <rect x="20" y="100" width="150" height="50" rx="9" fill="#1e222b" stroke="#2a2f3a"/>
+  <text x="95" y="123" fill="#e8ecf3" font-size="13" text-anchor="middle">one segment</text>
+  <text x="95" y="140" fill="#9aa4b2" font-size="11" text-anchor="middle">+ its signals</text>
+  <path d="M170 125 H214" stroke="#6ea8fe" stroke-width="2" marker-end="url(#c)"/>
+
+  <path d="M215 125 l40 -34 40 34 -40 34 z" fill="#141a26" stroke="#5b9cff"/>
+  <text x="255" y="121" fill="#cfe0ff" font-size="11" text-anchor="middle">far from</text>
+  <text x="255" y="135" fill="#cfe0ff" font-size="11" text-anchor="middle">home?</text>
+
+  <path d="M295 125 H360" stroke="#6ea8fe" stroke-width="2" marker-end="url(#c)"/>
+  <text x="328" y="116" fill="#9be8b4" font-size="11" text-anchor="middle">yes</text>
+  <path d="M255 159 V210 H120" stroke="#6ea8fe" stroke-width="2" marker-end="url(#c)"/>
+  <text x="240" y="200" fill="#ff9a9a" font-size="11" text-anchor="middle">no</text>
+
+  <!-- yes branch: multiday? -->
+  <path d="M400 125 l40 -34 40 34 -40 34 z" fill="#141a26" stroke="#5b9cff"/>
+  <text x="440" y="128" fill="#cfe0ff" font-size="11" text-anchor="middle">multi-day?</text>
+  <path d="M480 125 H560" stroke="#6ea8fe" stroke-width="2" marker-end="url(#c)"/>
+  <text x="520" y="116" fill="#9be8b4" font-size="11" text-anchor="middle">yes</text>
+  <rect x="560" y="100" width="120" height="50" rx="9" fill="#141a26" stroke="#5b9cff"/>
+  <text x="620" y="130" fill="#5b9cff" font-size="13" text-anchor="middle" font-weight="700">TRIP</text>
+  <path d="M440 159 V196" stroke="#6ea8fe" stroke-width="2" marker-end="url(#c)"/>
+  <text x="456" y="182" fill="#ff9a9a" font-size="11" text-anchor="middle">no</text>
+  <rect x="380" y="200" width="120" height="42" rx="9" fill="#1c1726" stroke="#b483f0"/>
+  <text x="440" y="226" fill="#b483f0" font-size="13" text-anchor="middle" font-weight="700">DAY-OUT</text>
+
+  <!-- no branch: dense burst? -->
+  <path d="M40 230 l40 -34 40 34 -40 34 z" fill="#1d1a12" stroke="#f0a843"/>
+  <text x="80" y="226" fill="#f6cd8e" font-size="10.5" text-anchor="middle">dense</text>
+  <text x="80" y="239" fill="#f6cd8e" font-size="10.5" text-anchor="middle">burst?</text>
+  <path d="M120 230 H210" stroke="#6ea8fe" stroke-width="2" marker-end="url(#c)"/>
+  <text x="165" y="221" fill="#9be8b4" font-size="11" text-anchor="middle">yes</text>
+  <rect x="210" y="209" width="110" height="42" rx="9" fill="#1d1a12" stroke="#f0a843"/>
+  <text x="265" y="235" fill="#f0a843" font-size="13" text-anchor="middle" font-weight="700">EVENT</text>
+  <path d="M80 264 V288 H225 V202" stroke="#6ea8fe" stroke-width="2" fill="none" marker-end="url(#c)"/>
+  <text x="100" y="282" fill="#ff9a9a" font-size="11">no</text>
+  <rect x="150" y="166" width="150" height="34" rx="9" fill="#13201a" stroke="#52c479"/>
+  <text x="225" y="188" fill="#52c479" font-size="12.5" text-anchor="middle" font-weight="700">EVERYDAY</text>
+</svg>
+<p class="figcap">A compact rule tree. Each branch is a threshold on a signal we already compute. Every segment also gets a
+<strong>confidence</strong> from how clearly it fell on one side of each threshold.</p>
+</div>
+
+<!-- ============================ LLM ============================ -->
+<h2 id="llm">5 · Where the LLM fits — narrow, local, optional</h2>
+<p>You asked whether to use an LLM to decide. My recommendation: <strong>not as the primary decider.</strong> The rules
+above settle the clear majority instantly, offline, and reproducibly. The LLM earns its keep in exactly two narrow
+spots — and only a <strong>local</strong> model, because GPS is private and the pipeline must not call the network.</p>
+
+<div class="card">
+<svg viewBox="0 0 1000 240" role="img" aria-label="LLM confidence gate">
+  <defs><marker id="d" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+    <path d="M0 0 L9 4.5 L0 9 z" fill="#6ea8fe"/></marker></defs>
+  <rect x="20" y="95" width="170" height="56" rx="9" fill="#141a26" stroke="#5b9cff"/>
+  <text x="105" y="118" fill="#cfe0ff" font-size="13" text-anchor="middle" font-weight="600">rule classifier</text>
+  <text x="105" y="137" fill="#9aa4b2" font-size="11" text-anchor="middle">kind + confidence</text>
+  <path d="M190 123 H250" stroke="#6ea8fe" stroke-width="2" marker-end="url(#d)"/>
+  <path d="M250 123 l44 -36 44 36 -44 36 z" fill="#11141b" stroke="#f0a843"/>
+  <text x="294" y="119" fill="#f6cd8e" font-size="11" text-anchor="middle">confident?</text>
+
+  <path d="M338 123 H470" stroke="#6ea8fe" stroke-width="2" marker-end="url(#d)"/>
+  <text x="404" y="113" fill="#9be8b4" font-size="11" text-anchor="middle">yes (most segments)</text>
+  <rect x="470" y="96" width="150" height="54" rx="9" fill="#13201a" stroke="#52c479"/>
+  <text x="545" y="120" fill="#52c479" font-size="12.5" text-anchor="middle" font-weight="700">use the kind</text>
+  <text x="545" y="138" fill="#9aa4b2" font-size="11" text-anchor="middle">no model call</text>
+
+  <path d="M294 159 V200 H470" stroke="#6ea8fe" stroke-width="2" marker-end="url(#d)"/>
+  <text x="330" y="192" fill="#ff9a9a" font-size="11">borderline</text>
+  <rect x="470" y="178" width="200" height="46" rx="9" fill="#1c1726" stroke="#b483f0"/>
+  <text x="570" y="198" fill="#e3d4ff" font-size="12" text-anchor="middle" font-weight="600">local LLM tie-breaks (A)</text>
+  <text x="570" y="215" fill="#9aa4b2" font-size="10.5" text-anchor="middle">gets a tiny fact-sheet, not images</text>
+
+  <path d="M620 123 H700" stroke="#6ea8fe" stroke-width="2" marker-end="url(#d)"/>
+  <rect x="700" y="96" width="270" height="54" rx="9" fill="#1c1726" stroke="#b483f0"/>
+  <text x="835" y="116" fill="#e3d4ff" font-size="12" text-anchor="middle" font-weight="600">caption phrasing (B)</text>
+  <text x="835" y="135" fill="#9aa4b2" font-size="10.5" text-anchor="middle">template (default) · local LLM (flag on)</text>
+</svg>
+</div>
+
+<div class="grid g2">
+  <div class="card"><h3 class="k-dayout">(A) Tie-break the kind</h3>
+    <p class="mut">Only for low-confidence segments. The model receives a compact JSON fact-sheet —
+    <code>{city, dist_from_home_km, n_days, n_photos, n_people, time_of_day}</code> — <strong>never raw
+    coordinates over a network, never the photos.</strong> It returns a kind. Most runs never trigger this.</p></div>
+  <div class="card"><h3 class="k-dayout">(B) Phrase the caption</h3>
+    <p class="mut">Turns the structured facts into one warm sentence. Default is a deterministic template;
+    flip <code>caption_strategy: local_llm</code> to route through a small local model for richer wording.
+    This is the flag we already stubbed in Slice&nbsp;2.</p></div>
+</div>
+<div class="callout">
+<strong>Privacy &amp; reproducibility guardrail:</strong> any LLM here is local-only (NFR-002: no external calls during
+the pipeline). Default behaviour with both flags off is 100% deterministic — same album in, same segments &amp; captions out.
+</div>
+
+<!-- ============================ EXAMPLES ============================ -->
+<h2 id="examples">6 · Worked examples — same pipeline, three very different albums</h2>
+
+<div class="card">
+  <div class="pill"><span class="dot b-trip"></span> Album A · "a year of travel" (the obvious case)</div>
+  <svg viewBox="0 0 960 70" style="margin-top:12px">
+    <rect x="0" y="26" width="960" height="22" rx="5" fill="#11141b" stroke="#2a2f3a"/>
+    <rect x="10" y="30" width="150" height="14" rx="3" fill="#52c479"/><text x="85" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">home (Jan–Mar)</text>
+    <rect x="180" y="30" width="120" height="14" rx="3" fill="#5b9cff"/><text x="240" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">TRIP · Dubai</text>
+    <rect x="320" y="30" width="200" height="14" rx="3" fill="#52c479"/><text x="420" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">home (Apr–Jul)</text>
+    <rect x="540" y="30" width="150" height="14" rx="3" fill="#5b9cff"/><text x="615" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">TRIP · Alps</text>
+    <rect x="710" y="30" width="240" height="14" rx="3" fill="#52c479"/><text x="830" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">home (Aug–Dec)</text>
+  </svg>
+  <p class="mut" style="margin:4px 0 0">Two far-from-home multi-day blocks &rarr; <span class="k-trip">TRIP</span>. The rest is
+  correctly <span class="k-everyday">everyday</span>, grouped by month — <em>not</em> sliced into a hundred fragments.</p>
+</div>
+
+<div class="card">
+  <div class="pill"><span class="dot b-everyday"></span> Album B · "our kids this year" (your worry — no trips at all)</div>
+  <svg viewBox="0 0 960 70" style="margin-top:12px">
+    <rect x="0" y="26" width="960" height="22" rx="5" fill="#11141b" stroke="#2a2f3a"/>
+    <rect x="10" y="30" width="150" height="14" rx="3" fill="#52c479"/>
+    <rect x="170" y="30" width="150" height="14" rx="3" fill="#52c479"/>
+    <rect x="330" y="30" width="120" height="14" rx="3" fill="#f0a843"/>
+    <rect x="460" y="30" width="150" height="14" rx="3" fill="#52c479"/>
+    <rect x="620" y="30" width="150" height="14" rx="3" fill="#52c479"/>
+    <rect x="780" y="30" width="170" height="14" rx="3" fill="#52c479"/>
+    <text x="85" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">winter</text>
+    <text x="245" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">spring</text>
+    <text x="390" y="64" fill="#f0a843" font-size="10" text-anchor="middle">birthday</text>
+    <text x="535" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">summer</text>
+    <text x="695" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">autumn</text>
+    <text x="865" y="64" fill="#9aa4b2" font-size="10" text-anchor="middle">winter</text>
+  </svg>
+  <p class="mut" style="margin:4px 0 0">All near home &rarr; <span class="k-everyday">EVERYDAY</span> grouped by season, with one
+  dense high-people burst lifted out as an <span class="k-event">EVENT</span> (the birthday). <strong>Zero "trips" invented.</strong></p>
+</div>
+
+<div class="card">
+  <div class="pill"><span class="dot b-event"></span> Album C · "Maya's wedding weekend" (single place, single burst)</div>
+  <svg viewBox="0 0 960 70" style="margin-top:12px">
+    <rect x="0" y="26" width="960" height="22" rx="5" fill="#11141b" stroke="#2a2f3a"/>
+    <rect x="380" y="30" width="200" height="14" rx="3" fill="#f0a843"/>
+    <text x="480" y="64" fill="#f0a843" font-size="10" text-anchor="middle">one venue · 2 days · 600 photos · 40 faces &rarr; EVENT</text>
+  </svg>
+  <p class="mut" style="margin:4px 0 0">High density + many distinct faces, even if near-ish home &rarr;
+  <span class="k-event">EVENT</span>, not a trip. Caption: "A beautiful celebration, June 2024."</p>
+</div>
+
+<!-- ============================ MOCK ============================ -->
+<h2 id="mock">7 · What the user sees (UI mock)</h2>
+<p>The Results page stops being a flat gallery. Photos sit under segment headers whose <strong>badge and caption match
+the kind</strong> — and "Unsorted" sits quietly at the end, never forced into a story.</p>
+
+<div class="mockframe">
+  <div class="mockbar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i>
+    <span class="mut" style="font-size:12px;margin-left:8px;font-family:var(--mono)">Albumify · Results · "Family 2024"</span></div>
+
+  <!-- TRIP segment -->
+  <div class="seg">
+    <div class="left">
+      <span class="badge" style="background:#13203a;color:#7fb0ff">✈ TRIP</span>
+      <div style="margin-top:10px;font-size:13px;color:#9aa4b2">May 12–18, 2024 · 90 photos</div>
+      <svg class="minimap" width="118" height="70" style="margin-top:10px" viewBox="0 0 118 70">
+        <rect width="118" height="70" fill="#0d1017"/>
+        <g stroke="#1a1f2a"><line x1="0" y1="35" x2="118" y2="35"/><line x1="59" y1="0" x2="59" y2="70"/></g>
+        <circle cx="70" cy="30" r="4" fill="#5b9cff"/><circle cx="78" cy="36" r="4" fill="#5b9cff"/>
+        <circle cx="64" cy="40" r="4" fill="#5b9cff"/></svg>
+    </div>
+    <div class="right">
+      <div style="font-size:18px;font-weight:600;color:#eaf1ff">A magical week exploring Dubai's skyline</div>
+      <div class="mut" style="font-size:13px;margin-top:3px">Dubai, United Arab Emirates · near Burj Khalifa · with Noa, Dad, Mom</div>
+      <div class="thumbs">
+        <div class="thumb" style="background:linear-gradient(135deg,#3a5a8a,#26405f)"></div>
+        <div class="thumb" style="background:linear-gradient(135deg,#5a7bb0,#314c70)"></div>
+        <div class="thumb" style="background:linear-gradient(135deg,#2f496a,#22384f)"></div>
+        <div class="thumb" style="background:linear-gradient(135deg,#456,#234)"></div>
+        <div class="thumb" style="display:flex;align-items:center;justify-content:center;color:#9aa4b2;font-size:12px;background:#11141b">+86</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVERYDAY segment -->
+  <div class="seg">
+    <div class="left">
+      <span class="badge" style="background:#13261b;color:#7fe0a0">🏡 EVERYDAY</span>
+      <div style="margin-top:10px;font-size:13px;color:#9aa4b2">Apr–Jul 2024 · 210 photos</div>
+    </div>
+    <div class="right">
+      <div style="font-size:18px;font-weight:600;color:#eaf1ff">Everyday moments at home this spring</div>
+      <div class="mut" style="font-size:13px;margin-top:3px">Tel Aviv area · mostly Noa &amp; family</div>
+      <div class="thumbs">
+        <div class="thumb" style="background:linear-gradient(135deg,#3a6b4a,#244a32)"></div>
+        <div class="thumb" style="background:linear-gradient(135deg,#4a7a58,#2c5a3a)"></div>
+        <div class="thumb" style="background:linear-gradient(135deg,#568,#345)"></div>
+        <div class="thumb" style="display:flex;align-items:center;justify-content:center;color:#9aa4b2;font-size:12px;background:#11141b">+207</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVENT segment -->
+  <div class="seg">
+    <div class="left">
+      <span class="badge" style="background:#2a2110;color:#f3c889">🎉 EVENT</span>
+      <div style="margin-top:10px;font-size:13px;color:#9aa4b2">Jun 22, 2024 · 64 photos</div>
+    </div>
+    <div class="right">
+      <div style="font-size:18px;font-weight:600;color:#eaf1ff">A joyful birthday gathering</div>
+      <div class="mut" style="font-size:13px;margin-top:3px">Home · 12 people detected</div>
+      <div class="thumbs">
+        <div class="thumb" style="background:linear-gradient(135deg,#8a6a3a,#5f4626)"></div>
+        <div class="thumb" style="background:linear-gradient(135deg,#b0894a,#70552c)"></div>
+        <div class="thumb" style="display:flex;align-items:center;justify-content:center;color:#9aa4b2;font-size:12px;background:#11141b">+62</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNSORTED -->
+  <div class="seg">
+    <div class="left">
+      <span class="badge" style="background:#1a1d23;color:#9aa4b2">▦ UNSORTED</span>
+      <div style="margin-top:10px;font-size:13px;color:#9aa4b2">no date/place · 18 photos</div>
+    </div>
+    <div class="right">
+      <div style="font-size:16px;font-weight:600;color:#c7ccd4">Untagged photos</div>
+      <div class="mut" style="font-size:13px;margin-top:3px">No EXIF location or time — shown without a story.</div>
+    </div>
+  </div>
+</div>
+<p class="figcap">Each segment's badge, emoji, and sentence come straight from its classified <em>kind</em>. Map &amp; people
+list are later slices (3 &amp; 4); this mock shows the end goal.</p>
+
+<!-- ============================ STORAGE ============================ -->
+<h2 id="store">8 · Where it's stored (recap)</h2>
+<div class="grid g2">
+  <div class="card"><h3 class="k-trip">Per image</h3>
+    <p class="mut">lat, lon, capture-time &rarr; columns on the existing per-image table
+    <code>image_metric_rows</code> (one row / image / run). Queryable, joinable.</p></div>
+  <div class="card"><h3 class="k-dayout">Per segment</h3>
+    <p class="mut">the groupings (kind, caption, date range, city, member photos, confidence) &rarr; new
+    <code>geo_segments</code> JSON column on <code>pipeline_results</code> (one blob / run).</p></div>
+</div>
+<p class="mut">Both are built from the single <code>image_metrics</code> dict in <code>pipeline_service.py</code>, so the
+JSON blob and the normalized tables can't drift apart.</p>
+
+<!-- ============================ DECISIONS ============================ -->
+<h2 id="decide">9 · The decisions I need from you</h2>
+<div class="grid g2">
+  <div class="card">
+    <h3>① Who decides the "kind"?</h3>
+    <table>
+      <tr><td><b>Rules + LLM tie-break</b><div class="mut">recommended</div></td>
+          <td class="mut">rules decide most; local LLM only on borderline segments. Offline, fast, reproducible.</td></tr>
+      <tr><td>Rules only</td><td class="mut">ambiguous &rarr; generic "Moments". No model for classification at all.</td></tr>
+      <tr><td>LLM-first</td><td class="mut">model decides every segment. Flexible but slow &amp; non-deterministic.</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>② How is "home" defined?</h3>
+    <table>
+      <tr><td><b>Auto: dominant location</b><div class="mut">recommended</div></td>
+          <td class="mut">most-distinct-days GPS cluster. Zero config, per-album.</td></tr>
+      <tr><td>Auto + manual pin</td><td class="mut">same, plus a setting to override. More UI work.</td></tr>
+      <tr><td>No home concept</td><td class="mut">classify on spread/density only. Simpler, weaker.</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>③ Which ViT captioner (semantic axis)?</h3>
+    <table>
+      <tr><td><b>BLIP/BLIP-2 base</b></td>
+          <td class="mut">true sentence captions (~1&nbsp;GB). Richest text for the LLM; heavier.</td></tr>
+      <tr><td>CLIP zero-shot tags</td>
+          <td class="mut">fixed tag vocabulary, lighter, OpenCLIP already present. Less expressive.</td></tr>
+      <tr><td class="mut" colspan="2">Only matters for Slice&nbsp;5 — decide later.</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>④ Semantic axis default</h3>
+    <table>
+      <tr><td><b>Off by default</b><div class="mut">recommended</div></td>
+          <td class="mut">naming + fallback only. Cheapest, deterministic core ships without it.</td></tr>
+      <tr><td>On by default</td><td class="mut">every album gets caption-driven themes. Slower per run.</td></tr>
+    </table>
+  </div>
+</div>
+
+<p class="mut" style="margin-top:40px;font-size:13px;border-top:1px solid var(--line);padding-top:18px">
+Spec-022 · planning artifact · pairs with <code>PLAN.md</code> and <code>tasks.md</code>. Slice 1 (EXIF extraction) is
+implemented &amp; tested. Phasing: <b>Slice 2–3</b> geo+time axes &amp; the quality-score gate (deterministic core) ·
+<b>Slice 4</b> identity axis (reuse <code>people_clusters</code>) · <b>Slice 5</b> semantic axis (ViT captioner + LLM
+naming, flagged off). The quality gate is the load-bearing piece and lands first; the extra axes plug in without rework.</p>
+
+</div>
+</body>
+</html>

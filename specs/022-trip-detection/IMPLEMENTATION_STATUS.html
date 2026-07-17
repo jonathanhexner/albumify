@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec-022 · Implementation Status</title>
+<style>
+  :root{--bg:#0f1115;--panel:#171a21;--panel2:#1e222b;--ink:#e8ecf3;--mut:#9aa4b2;--line:#2a2f3a;
+    --ok:#52c479;--part:#f0a843;--no:#7c8493;--accent:#6ea8fe;--mono:ui-monospace,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:42px 24px 110px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:20px;margin:46px 0 12px;border-left:3px solid var(--accent);padding-left:11px}
+  h3{font-size:15px;margin:20px 0 6px;color:#cdd6e4}
+  .sub{color:var(--mut);max-width:80ch}
+  code{font-family:var(--mono);font-size:.88em;background:#10131a;border:1px solid var(--line);
+    padding:1px 6px;border-radius:6px;color:#cfe0ff}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px 22px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+  td.mono,code.path{font-family:var(--mono);font-size:12.5px;color:#bcd0f5}
+  .st{font:600 11px/1 var(--mono);padding:4px 9px;border-radius:999px;white-space:nowrap;display:inline-block}
+  .s-ok{background:#13201a;color:var(--ok);border:1px solid #2f5b41}
+  .s-part{background:#241d10;color:var(--part);border:1px solid #5b4524}
+  .s-no{background:#191b20;color:var(--no);border:1px solid #343a45}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 2px}
+  .grid{display:grid;gap:13px}.g3{grid-template-columns:1fr 1fr 1fr}.g2{grid-template-columns:1fr 1fr}
+  @media(max-width:760px){.g3,.g2{grid-template-columns:1fr}}
+  pre{background:#0c0f15;border:1px solid var(--line);border-radius:9px;padding:13px 15px;overflow:auto;
+    font-family:var(--mono);font-size:12.5px;color:#d6e2f5;margin:8px 0}
+  .callout{border-left:3px solid var(--part);background:#1d1a12;padding:13px 17px;border-radius:0 10px 10px 0;margin:14px 0}
+  .callout.no{border-color:var(--no);background:#16181d}
+  .callout.ok{border-color:var(--ok);background:#11201a}
+  .big{font-size:17px;font-weight:700}
+  svg{display:block;max-width:100%}
+  .figcap{font-size:12.5px;color:var(--mut);text-align:center;margin-top:6px}
+  ul{margin:6px 0 6px 2px;padding-left:18px}li{margin:3px 0}
+  .pillrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .pill{font:600 12px/1 var(--mono);padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:#11141b}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Spec-022 — Geo-Temporal Albums · Implementation Status</h1>
+<p class="sub">For engineering review. Updated 2026-06-28. This is the <b>exact</b> state of the code: what exists,
+where it lives, what you can run today, and the honest gaps. <b>Update since 06-27:</b> the vision models are now
+real — StreetCLIP (city), GeoCLIP (lat/lon) and BLIP (captions) are built, registered pipeline steps with disk
+caching. The semantic <i>axis</i> (turning captions into themed groups) is still the next build; the captioner
+that feeds it now exists.</p>
+
+<div class="legend" style="margin-top:14px">
+  <span class="st s-ok">● DONE — built &amp; tested</span>
+  <span class="st s-part">● PARTIAL — built, not wired</span>
+  <span class="st s-no">● NOT STARTED — stub / absent</span>
+</div>
+
+<!-- ===================== ONE-LINE TRUTH ===================== -->
+<div class="callout ok" style="margin-top:18px">
+<span class="big">One sentence:</span> A standalone, real-pipeline experiment groups Budapest photos by
+<b>GPS</b> and by <b>time</b>, scores which grouping is real (or declines), shows it on an interactive map, and now
+also runs <b>three vision models per image</b> — StreetCLIP (guess the city), GeoCLIP (guess lat/lon), BLIP (caption
+the scene) — so GPS-less photos still get a location and every photo gets a description; the remaining gap is the
+<b>semantic axis + LLM theming</b> that would turn those captions into named groups, and <b>DB persistence / Albumify wiring</b>.
+</div>
+
+<!-- ===================== WHAT WE DISCUSSED VS WHAT EXISTS ===================== -->
+<h2>The 3 axes we discussed — current reality</h2>
+<div class="grid g3">
+  <div class="card"><span class="st s-ok">DONE</span>
+    <h3>⏱ TIME</h3>
+    <p class="sub">Cluster photos by capture-time gaps. Real, tested, drives the timeline in the app.</p>
+    <code class="path">axes/time_axis.py</code></div>
+  <div class="card"><span class="st s-ok">DONE</span>
+    <h3>📍 GEO</h3>
+    <p class="sub">Cluster photos by GPS location (haversine). Real, tested, drives the map pins + home anchor.</p>
+    <code class="path">axes/geo_axis.py</code></div>
+  <div class="card"><span class="st s-part">CAPTIONER BUILT</span>
+    <h3>🖼 SEMANTIC (BLIP)</h3>
+    <p class="sub"><b>The captioner is real now</b> — BLIP writes one caption per image (cached). The <i>axis</i> that
+    clusters/names those captions still returns <code>None</code>; no LLM theming yet.</p>
+    <code class="path">captioning.py · axes/semantic_axis.py</code></div>
+</div>
+
+<div class="callout ok">
+<b>New: a vision layer feeds the axes.</b> Three models run per image, each disk-cached so re-runs are instant:
+<ul>
+<li>📍 <b>StreetCLIP</b> — zero-shot pick of the most likely city from a fixed candidate list. The <i>GPS fallback</i>
+when EXIF has no location. <code class="path">streetclip.py</code></li>
+<li>🌐 <b>GeoCLIP</b> — regresses an actual (lat, lon) directly (no candidate list), then reverse-geocodes it offline
+to a place name. <code class="path">geoclip_locator.py</code></li>
+<li>📝 <b>BLIP</b> — free-text caption ("a group of people on a bridge"). Raw material for the future semantic axis.
+<code class="path">captioning.py</code></li>
+</ul>
+</div>
+<div class="callout no">
+<b>Still precise about SEMANTIC:</b> captions exist, but the step from <i>captions → themed, named groups</i> (cluster
+the captions / ask a local LLM) is <b>not built</b> — the axis reads "insufficient." Identity (group by people) is
+similar: coded, but only activates when face clusters are supplied; the explorers don't feed them yet.
+</div>
+
+<!-- ===================== WHAT YOU CAN TEST TODAY ===================== -->
+<h2>What you can run today (4 things)</h2>
+
+<div class="card">
+<h3>1 · Album explorer — per-image CLIP/BLIP table <span class="st s-ok">DONE</span></h3>
+<p class="sub">Newest UI. Point it at a folder, hit <b>Run</b>, and it executes the real pipeline
+(<code>discover → extract_geo_metadata → infer_geo_clip → caption_images → geo_temporal_segment</code>) and shows a
+per-image table: EXIF time/GPS, StreetCLIP top-3 cities, BLIP caption, plus the home + segment summary.</p>
+<pre>.venv/Scripts/python -m uvicorn app.album_explorer.server:app --port 8078
+# open http://127.0.0.1:8078 — type a folder, set a limit, click Run</pre>
+<p class="sub">First run downloads StreetCLIP (~600 MB) + BLIP (~1 GB); after that per-image results are disk-cached
+(<code>~/.sim_bench/cache_streetclip.json</code>, <code>cache_blip.json</code>, <code>cache_geoclip.json</code>).
+CPU inference — keep the limit small. Or run <code>scripts/explore_geo_budapest.py</code> for a static HTML report
+(<code>BUDAPEST_EXPLORATION.html</code>) covering all four signals incl. GeoCLIP.</p>
+</div>
+
+<div class="card">
+<h3>2 · Geo explorer — live map + sliders <span class="st s-ok">DONE</span></h3>
+<p class="sub">Runs the real pipeline on a folder, then serves a Leaflet map (pins coloured by GPS cluster, auto
+home marker, click → thumbnail), a timeline (ticks coloured by time gap), live sliders (GPS radius / time gap /
+floor), and the live competition score table.</p>
+<pre>$env:GEO_EXPLORER_DIR = "D:/Budapest2025_Google"
+.venv/Scripts/python -m uvicorn app.geo_explorer.server:app --port 8077
+# open http://127.0.0.1:8077</pre>
+<p class="sub">Verified result: 122 photos · 44 with GPS · 84 with time · home auto-detected at 47.51, 19.05
+(central Budapest). GPS spans only ~2 km, so geo makes 1 cluster and <b>time wins</b>; drop radius to 1 km to watch
+it split into 2 GPS clusters and the map recolour live.</p>
+</div>
+
+<div class="grid g2">
+  <div class="card">
+  <h3>3 · Scoring experiment <span class="st s-ok">DONE</span></h3>
+  <p class="sub">Synthetic albums (traveler / kids-at-home / wedding / no-metadata) prove the right axis wins or the
+  album is declined. Writes <code>EXPERIMENT_RESULTS.html</code>.</p>
+  <pre>.venv/Scripts/python \
+  scripts/experiment_geo_segmentation.py
+# add --dir D:/Budapest2025_Google for real EXIF</pre>
+  </div>
+  <div class="card">
+  <h3>4 · Unit tests <span class="st s-ok">19 pass</span></h3>
+  <p class="sub">EXIF parsing (13) + the segmentation competition behaviour (6).</p>
+  <pre>.venv/Scripts/python -m pytest tests/geo/ -v</pre>
+  </div>
+</div>
+
+<!-- ===================== DATA FLOW ===================== -->
+<h2>How it fits together</h2>
+<div class="card">
+<svg viewBox="0 0 1000 250" role="img" aria-label="data flow">
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+    <path d="M0 0 L9 4.5 L0 9 z" fill="#6ea8fe"/></marker></defs>
+  <rect x="20" y="100" width="150" height="52" rx="9" fill="#1e222b" stroke="#2a2f3a"/>
+  <text x="95" y="122" fill="#e8ecf3" font-size="13" text-anchor="middle">photo folder</text>
+  <text x="95" y="140" fill="#9aa4b2" font-size="11" text-anchor="middle">(Budapest)</text>
+  <path d="M170 126 H206" stroke="#6ea8fe" stroke-width="2" marker-end="url(#a)"/>
+
+  <rect x="206" y="74" width="300" height="104" rx="11" fill="#141a26" stroke="#5b9cff"/>
+  <text x="356" y="96" fill="#5b9cff" font-size="12.5" text-anchor="middle" font-weight="700">PIPELINE (execute_spec)</text>
+  <text x="356" y="120" fill="#cfe0ff" font-size="12" text-anchor="middle">discover_images</text>
+  <text x="356" y="138" fill="#cfe0ff" font-size="12" text-anchor="middle">extract_geo_metadata ✅</text>
+  <text x="356" y="156" fill="#cfe0ff" font-size="12" text-anchor="middle">geo_temporal_segment ✅</text>
+  <path d="M506 126 H542" stroke="#6ea8fe" stroke-width="2" marker-end="url(#a)"/>
+
+  <rect x="542" y="86" width="180" height="80" rx="10" fill="#13201d" stroke="#39d3bb"/>
+  <text x="632" y="110" fill="#39d3bb" font-size="12.5" text-anchor="middle" font-weight="700">geo_cluster/</text>
+  <text x="632" y="130" fill="#9aa4b2" font-size="11" text-anchor="middle">axes · scorer ·</text>
+  <text x="632" y="146" fill="#9aa4b2" font-size="11" text-anchor="middle">selector · home</text>
+  <path d="M722 126 H758" stroke="#6ea8fe" stroke-width="2" marker-end="url(#a)"/>
+
+  <rect x="758" y="86" width="220" height="80" rx="10" fill="#1c1726" stroke="#b483f0"/>
+  <text x="868" y="110" fill="#e3d4ff" font-size="12.5" text-anchor="middle" font-weight="700">explorer (FastAPI)</text>
+  <text x="868" y="130" fill="#9aa4b2" font-size="11" text-anchor="middle">map · timeline · sliders</text>
+  <text x="868" y="146" fill="#9aa4b2" font-size="11" text-anchor="middle">live re-segment</text>
+
+  <rect x="206" y="196" width="300" height="40" rx="9" fill="#11141b" stroke="#343a45" stroke-dasharray="5 4"/>
+  <text x="356" y="221" fill="#7c8493" font-size="11.5" text-anchor="middle">DB persistence + Albumify UI — NOT wired yet</text>
+  <path d="M356 178 V196" stroke="#343a45" stroke-width="2" stroke-dasharray="4 4"/>
+</svg>
+<p class="figcap">Same <code>geo_cluster/</code> code powers the pipeline step and the explorer's live re-segmentation — one implementation.</p>
+</div>
+
+<!-- ===================== MODULE MAP ===================== -->
+<h2>Exact module map (750 LOC in <code>geo_cluster/</code>)</h2>
+<div class="card">
+<table>
+<thead><tr><th>Module</th><th>LOC</th><th>Role</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td class="mono">geo_cluster/types.py</td><td>116</td><td>Dataclasses: GeoMetadata, Segment, Segmentation, AxisScore, SegmentationOutcome, SegmentKind</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/exif_reader.py</td><td>119</td><td>EXIF GPS+time → GeoMetadata (<code>GeoMetadataExtractor.calc</code>); missing/bad → None</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/_clustering.py</td><td>56</td><td>Haversine agglomerative location clustering + time-gap split</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/home.py</td><td>39</td><td>HomeAnchor — dominant-location (most distinct days)</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/scoring.py</td><td>139</td><td>QualityScorer — separation/coverage/balance/stability/parsimony → 0–1</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/selector.py</td><td>60</td><td>SegmentationSelector — run axes, score, winner or FLAT (floor)</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/axes/base.py</td><td>53</td><td>SegmentationAxis protocol + <code>@register_axis</code> registry + AxisInputs</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/axes/geo_axis.py</td><td>49</td><td>GEO axis — cluster by GPS location</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/axes/time_axis.py</td><td>46</td><td>TIME axis — cluster by time gaps</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/axes/identity_axis.py</td><td>44</td><td>IDENTITY axis — group by people_clusters</td><td><span class="st s-part">PARTIAL</span></td></tr>
+<tr><td class="mono">geo_cluster/axes/semantic_axis.py</td><td>29</td><td>SEMANTIC axis — <b>stub, returns None</b> (captioner exists, theming not built)</td><td><span class="st s-no">STUB</span></td></tr>
+</tbody>
+</table>
+<p class="sub" style="margin-top:10px"><b>New vision layer</b> (~380 LOC) — models load once per process, results disk-cached:</p>
+<table>
+<thead><tr><th>Module</th><th>LOC</th><th>Role</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td class="mono">geo_cluster/streetclip.py</td><td>103</td><td>StreetCLIP zero-shot city pick (<code>StreetCLIPLocator.calc</code>); GPS fallback</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/geoclip_locator.py</td><td>101</td><td>GeoCLIP (lat,lon) regression + offline reverse-geocode (<code>GeoCLIPLocator.calc</code>)</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/captioning.py</td><td>87</td><td>BLIP per-image caption (<code>BlipCaptioner.calc</code>)</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/world_cities.py</td><td>54</td><td>Candidate city list + "(city, country)" prompt builder for StreetCLIP</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">geo_cluster/_imcache.py / _hf_compat.py</td><td>~</td><td>JSON disk cache (per-file key) + torch&lt;2.6 <code>.bin</code> load shim</td><td><span class="st s-ok">DONE</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card">
+<h3>Pipeline steps &amp; app</h3>
+<table>
+<tbody>
+<tr><td class="mono">sim_bench/pipeline/steps/extract_geo_metadata.py</td><td>Step: EXIF → <code>context.geo_metadata</code></td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">sim_bench/pipeline/steps/geo_temporal_segment.py</td><td>Step: run competition → <code>context.geo_segments</code>. Registered &amp; runnable, <b>not in default_pipeline</b></td><td><span class="st s-part">PARTIAL</span></td></tr>
+<tr><td class="mono">sim_bench/pipeline/steps/infer_geo_clip.py</td><td>Step: StreetCLIP → <code>context.geo_clip_predictions</code>. Registered, not in default_pipeline</td><td><span class="st s-part">PARTIAL</span></td></tr>
+<tr><td class="mono">sim_bench/pipeline/steps/infer_geo_coords.py</td><td>Step: GeoCLIP → <code>context.geo_coord_predictions</code>. Registered, not in default_pipeline</td><td><span class="st s-part">PARTIAL</span></td></tr>
+<tr><td class="mono">sim_bench/pipeline/steps/caption_images.py</td><td>Step: BLIP → <code>context.image_captions</code>. Registered, not in default_pipeline</td><td><span class="st s-part">PARTIAL</span></td></tr>
+<tr><td class="mono">app/album_explorer/server.py + static/</td><td>FastAPI per-image table (EXIF · StreetCLIP · BLIP · segment summary)</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">app/geo_explorer/server.py + static/index.html</td><td>FastAPI + Leaflet explorer (map, timeline, sliders, scores)</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">scripts/experiment_geo_segmentation.py</td><td>Synthetic + real-dir scoring experiment → HTML</td><td><span class="st s-ok">DONE</span></td></tr>
+<tr><td class="mono">tests/geo/ (2 files)</td><td>13 EXIF + 6 selector behaviour tests</td><td><span class="st s-ok">19 PASS</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ===================== NOT DONE ===================== -->
+<h2>Honest gaps — what is NOT built</h2>
+<div class="card">
+<table>
+<thead><tr><th>Capability</th><th>State</th><th>Where it will go</th></tr></thead>
+<tbody>
+<tr><td>Per-image caption (BLIP)</td><td><span class="st s-ok">DONE</span></td><td><code>captioning.py</code> + <code>caption_images</code> step</td></tr>
+<tr><td>CLIP geolocation (StreetCLIP city + GeoCLIP lat/lon)</td><td><span class="st s-ok">DONE</span></td><td><code>streetclip.py</code> / <code>geoclip_locator.py</code> + steps</td></tr>
+<tr><td>Reverse-geocode (lat/lon → city/country)</td><td><span class="st s-ok">DONE</span></td><td>offline <code>reverse_geocoder</code> in <code>geoclip_locator.py</code></td></tr>
+<tr><td>Semantic <b>axis</b> — captions → themed/named groups</td><td><span class="st s-no">NOT STARTED</span></td><td><code>semantic_axis.py</code> (consumes BLIP captions)</td></tr>
+<tr><td>LLM naming / borderline tie-break (local)</td><td><span class="st s-no">NOT STARTED</span></td><td>new <code>describe.py</code> / classifier strategy</td></tr>
+<tr><td>Landmark detection</td><td><span class="st s-no">NOT STARTED</span></td><td>new <code>landmarks.py</code> (Slice 3–4)</td></tr>
+<tr><td>Captions ("A week in Dubai")</td><td><span class="st s-no">NOT STARTED</span></td><td>new <code>describe.py</code> (Slice 2)</td></tr>
+<tr><td>Persist segments to DB</td><td><span class="st s-no">NOT STARTED</span></td><td><code>image_metric_rows</code> + <code>pipeline_results.geo_segments</code></td></tr>
+<tr><td>Albumify UI (segmented results page)</td><td><span class="st s-no">NOT STARTED</span></td><td>Streamlit Results page (Slice 2)</td></tr>
+<tr><td>Identity axis live (needs face clusters fed in)</td><td><span class="st s-part">CODED, NOT FED</span></td><td>wire <code>people_clusters</code> into AxisInputs</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ===================== NEXT ===================== -->
+<h2>What's next (recommended order)</h2>
+<div class="card">
+<table>
+<thead><tr><th>#</th><th>Step</th><th>Outcome</th></tr></thead>
+<tbody>
+<tr><td>A</td><td><b>Semantic axis</b> — captioner already exists (BLIP); now cluster/label those captions (embed + cluster, or local LLM) so the axis returns real themed groups</td><td>the 3rd axis becomes real; albums with no GPS/clear-time can still be themed</td></tr>
+<tr><td>A′</td><td><b>Wire CLIP geo into the segmentation axes</b> — feed StreetCLIP/GeoCLIP predictions to the GEO axis as a fallback when EXIF GPS is missing (today they only display, don't drive grouping)</td><td>GPS-less albums get geo-clustered, not just labelled</td></tr>
+<tr><td>B</td><td>Feed <code>people_clusters</code> into the explorer/step</td><td>identity axis activates ("the kids/one-person theme" case)</td></tr>
+<tr><td>C</td><td>Reverse-geocode + caption strategy</td><td>segments get real names ("Budapest, Jun 22") instead of indices</td></tr>
+<tr><td>D</td><td>Persist <code>geo_segments</code> + per-image lat/lon to DB</td><td>survives a run; queryable</td></tr>
+<tr><td>E</td><td>Wire <code>geo_temporal_segment</code> into Albumify + Results UI</td><td>real users see segmented albums</td></tr>
+</tbody>
+</table>
+<p class="sub" style="margin-top:10px">The architecture is built so each of these is additive: a new axis = one class + <code>@register_axis</code>;
+a new naming/home/captioner = a swappable strategy. None require touching the selector or scorer.</p>
+</div>
+
+<p class="sub" style="margin-top:34px;border-top:1px solid var(--line);padding-top:16px;font-size:13px">
+Companion docs in <code>specs/022-trip-detection/</code>: <code>GEO_APPROACH.html</code> (design + the multi-axis
+competition), <code>EXPERIMENT_RESULTS.html</code> (synthetic scoring run), <code>PLAN.md</code> (architecture &amp;
+slices), <code>tasks.md</code> (checklist). App usage: <code>app/geo_explorer/README.md</code>.</p>
+
+</div>
+</body>
+</html>
