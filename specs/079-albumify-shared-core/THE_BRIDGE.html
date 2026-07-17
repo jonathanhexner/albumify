@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>The bridge — what it is and the proposal</title>
+<style>
+:root{--bg:#0f1220;--card:#171a2b;--bd:#2c3150;--ink:#e8eaf2;--mut:#9aa0bd;--blue:#6ea8fe;--red:#ff6b6b;--grn:#5bd99a;--amb:#f4c95d}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:Segoe UI,Arial;max-width:1000px;margin:0 auto;padding:34px 24px;line-height:1.55}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:19px;border-top:1px solid var(--bd);padding-top:16px;margin-top:28px}
+h3{font-size:15px;margin:16px 0 6px;color:#cdd2ee}
+.sub{color:var(--mut);margin:0 0 6px}
+code{font-family:Consolas,monospace;font-size:12px;background:#10131f;border:1px solid var(--bd);border-radius:4px;padding:1px 5px;color:#cfe0ff}
+.f{color:var(--mut);font-size:11px;font-family:Consolas,monospace}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin:14px 0}
+.tldr{border-left:4px solid var(--blue)}.bad{border-left:4px solid var(--red)}.good{border-left:4px solid var(--grn)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}td,th{border:1px solid var(--bd);padding:6px 9px;text-align:left;vertical-align:top}th{background:#1e2238}
+.x{color:var(--red);font-weight:700}.ok{color:var(--grn);font-weight:700}
+.box{background:#10131f;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin:7px 0;font-size:12.5px}
+.box.good{border-color:#1f4d36}.box.bad{border-color:#5a2230}
+.arrow{color:var(--blue);text-align:center;font-size:15px;margin:1px 0}
+.cols{display:flex;gap:16px;flex-wrap:wrap}.cols>div{flex:1;min-width:300px}
+ul{margin:6px 0;padding-left:20px}li{margin:4px 0}
+</style></head><body>
+
+<h1>The "bridge" and the "buggy converter" — and the proposal</h1>
+<p class="sub">Why Albumify (13 identities) still differs from FC v2 (8), in precise terms. spec-079 · 2026-06-08</p>
+
+<div class="card tldr"><b>In one line.</b> One detection step produces the face data in <b>two forms</b>: a clean typed
+list (<code>face_records</code>) and a raw dict (<code>insightface_faces</code>). FC v2 uses the clean list.
+Albumify throws it away and <b>rebuilds</b> the typed faces from the raw dict through a deprecated module — the
+<b>bridge</b> — whose rebuild step (the <b>buggy converter</b>) loses or corrupts face attributes. That rebuild
+is the source of the remaining divergence. The proposal: delete the rebuild; have Albumify use the clean list FC
+v2 already uses.</div>
+
+<h2>1 · The starting point — one step, two forms of the same data</h2>
+<p class="sub">The step <code>insightface_detect_faces</code> detects faces and writes them to the pipeline
+context in <b>two</b> shapes:</p>
+<table>
+<tr><th>Form</th><th>Type</th><th>Contents</th><th>Who uses it</th></tr>
+<tr><td><code>context.face_records</code></td><td><b>List[FaceRecord]</b> — clean, typed objects</td><td>embedding, <b>pose</b>, blur, area (pixels), det_score, landmarks, image_id — all populated</td><td class="ok">FC v2</td></tr>
+<tr><td><code>context.insightface_faces</code></td><td><b>dict</b> — raw nested dict keyed by image path</td><td>the same facts, but as loose dict entries (e.g. pose under a <code>'pose'</code> list key)</td><td class="x">Albumify (rebuilds from this)</td></tr>
+</table>
+<p class="f">insightface_detect_faces.py — produces {"insightface_faces", "face_records"}; _build_face_records() fills the typed list (pose at L212).</p>
+
+<h2>2 · The two paths</h2>
+<div class="cols">
+  <div>
+    <h3 class="ok">FC v2 — uses the clean list</h3>
+    <div class="box good"><code>context.face_records</code> (clean, typed)</div>
+    <div class="arrow">▼ unified clustering steps read it directly</div>
+    <div class="box good">quality_gate → knn → cluster → merge<div class="f">face_cluster/fc_app_runner.py · steps/quality_gate.py</div></div>
+    <div class="arrow">▼</div>
+    <div class="box good"><b>8 identities</b></div>
+  </div>
+  <div>
+    <h3 class="x">Albumify — rebuilds via the bridge</h3>
+    <div class="box bad"><code>context.insightface_faces</code> (raw dict)</div>
+    <div class="arrow">▼ cluster_people builds lightweight <code>FaceForClustering</code> (path, index, embedding, bbox — <b>no pose/blur/area</b>)</div>
+    <div class="box bad">the <b>BRIDGE</b> rebuilds typed faces<div class="f">steps/cluster_people.py → steps/face_cluster_bridge.py</div></div>
+    <div class="arrow">▼ same clustering algorithm</div>
+    <div class="box bad"><b>13 identities</b></div>
+  </div>
+</div>
+
+<h2>3 · What "the bridge" is</h2>
+<div class="card">
+<b><code>sim_bench/pipeline/steps/face_cluster_bridge.py</code></b> — a module whose own header says
+<i>"DEPRECATED — scheduled for deletion in spec-040 Phase 7… Do not add new callers."</i> It exists only because
+Albumify's <code>cluster_people</code> step still calls it. It does three things:
+<ul>
+<li><b><code>faces_to_face_records()</code> — the "buggy converter."</b> Takes the lightweight
+<code>FaceForClustering</code> objects and rebuilds full <code>FaceRecord</code>s, re-looking-up the missing
+attributes (pose, blur, det, landmarks) from the raw <code>insightface_faces</code> dict.</li>
+<li><code>build_fc_config()</code> — turns the step's config dict into the algorithm config.</li>
+<li><code>run_face_cluster_knn()</code> — runs the clustering.</li>
+</ul>
+</div>
+
+<h2>4 · What's "buggy" about the converter</h2>
+<p class="sub">Rebuilding faces from the raw dict is fragile, and it has been wrong in three ways — each one a
+piece of the divergence:</p>
+<table>
+<tr><th>Attribute</th><th>Bug</th><th>Effect</th><th>State</th></tr>
+<tr><td><b>pose</b></td><td>It looked up the dict with a Windows backslash path, but the dict is keyed by forward-slash → lookup always missed; AND it read the wrong key shape (<code>pose_scores</code> dict vs the actual <code>'pose'</code> list).</td><td>pose was <b>None</b> for every face → the pose gate never fired → 53 off-angle faces wrongly kept (20 vs 8).</td><td class="ok">FIXED (20→13)</td></tr>
+<tr><td><b>blur</b></td><td><code>build_fc_config()</code> <b>hardcodes</b> <code>blur_min=0.0</code> regardless of the profile.</td><td>FC v2 drops blurry faces (<code>blur_min=150</code>); Albumify keeps them (part of 10 vs 8).</td><td class="x">still wrong</td></tr>
+<tr><td><b>fingerprints<br>(embeddings / area / id)</b></td><td>The rebuilt faces carry different <code>area</code> (normalized vs pixels), <code>image_id</code> (full path vs filename), and re-looked-up embeddings — not the canonical ones FC v2 clusters.</td><td>Same faces, slightly different inputs → looser graph → more, smaller clusters (13 vs ~10).</td><td class="x">still wrong</td></tr>
+</table>
+<div class="card bad"><b>Why it's whack-a-mole:</b> the bridge is a <i>second, parallel re-implementation</i> of building
+face data. Every attribute it has to re-derive is a chance to drift from FC v2. Fixing them one at a time never
+ends — the next attribute is always waiting.</div>
+
+<h2>5 · The proposal</h2>
+<div class="card good">
+<b>Delete the rebuild. Have Albumify use <code>context.face_records</code> — the clean typed list FC v2 already
+uses — and run the same unified clustering steps on it.</b> The clean list is <i>already produced</i> by
+<code>insightface_detect_faces</code> on the Albumify path; <code>cluster_people</code> simply ignores it today.
+</div>
+<h3>What this removes, by construction</h3>
+<ul>
+<li><b>pose / blur / fingerprint divergences</b> — gone, because Albumify stops re-deriving faces and uses the same objects FC v2 does.</li>
+<li><b>the <code>build_fc_config</code> blur pin</b> — gone, because the unified <code>quality_gate</code> step honors the real <code>blur_min</code> and computes blur itself.</li>
+<li><b>the deprecated bridge</b> — no longer called (finishes spec-040 Phase 7).</li>
+</ul>
+<h3>What it does NOT change</h3>
+<ul>
+<li>Albumify keeps its own extra steps (scene clustering, selection) and its own persistence (the people table). Only the <b>face-identity clustering</b> portion switches to the shared clean path.</li>
+</ul>
+<h3>Honest caveat</h3>
+<p class="sub">Albumify's producer chain still runs a couple of steps FC v2 doesn't (e.g. <code>filter_faces</code>),
+which can drop ~3 faces. After the switch I will <b>measure</b>, not assume: if a small residual remains, it is
+that producer-step difference — a separate, visible question — not the bridge. <b>I won't call it "aligned"
+until one run shows Albumify == FC v2 == 8.</b></p>
+
+</body></html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Unification — Status for Head of Engineering (spec-079 / spec-040)</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171d26; --panel2:#1d2530; --ink:#e6edf3; --mut:#8b98a9;
+    --line:#2a3340; --accent:#4f9dff; --good:#2ea043; --warn:#d29922; --bad:#f85149;
+    --done:#1f6f3d; --partial:#7a5b12; --open:#5a2327;
+    --mono:"SF Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 28px 90px}
+  header.title{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:30px}
+  h1{font-size:27px;margin:0 0 6px;letter-spacing:-.3px}
+  .sub{color:var(--mut);font-size:14px}
+  .meta{margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--mut)}
+  h2{font-size:20px;margin:42px 0 14px;padding-top:10px;border-top:1px solid var(--line);letter-spacing:-.2px}
+  h3{font-size:16px;margin:26px 0 10px;color:#c8d3e0}
+  p{margin:10px 0}
+  code{font-family:var(--mono);background:#0b0f14;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px}
+  .lede{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);
+        border-radius:8px;padding:18px 22px;margin:18px 0}
+  .lede .verdict{font-size:18px;font-weight:600;margin:0 0 6px}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;
+        padding:2px 9px;border-radius:20px;vertical-align:middle;letter-spacing:.3px;text-transform:uppercase}
+  .p-done{background:var(--done);color:#b7f0c6}
+  .p-partial{background:var(--partial);color:#ffe2a3}
+  .p-open{background:var(--open);color:#ffc2c2}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  tr:hover td{background:#10161e}
+  td code{font-size:12px}
+  .num{font-family:var(--mono);text-align:right;white-space:nowrap}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 22px 14px;margin:16px 0}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+  .card h4{margin:0 0 4px;font-size:14px}
+  .card .big{font-family:var(--mono);font-size:26px;font-weight:700;margin:6px 0 2px}
+  .card .lbl{color:var(--mut);font-size:12px}
+  .flow{font-family:var(--mono);font-size:12.5px;background:#0b0f14;border:1px solid var(--line);
+        border-radius:8px;padding:16px 18px;overflow-x:auto;white-space:pre;color:#cdd9e5;line-height:1.5}
+  .flow .h{color:var(--accent);font-weight:700}
+  .flow .ok{color:#56d364}
+  .flow .x{color:#ff7b72}
+  .flow .d{color:var(--mut)}
+  .tag{font-family:var(--mono);font-size:11px;padding:1px 6px;border-radius:4px}
+  .t-green{background:#10331c;color:#56d364}.t-red{background:#3a1518;color:#ff7b72}
+  .t-amber{background:#3a2e10;color:#e3b341}.t-grey{background:#1c232c;color:#8b98a9}
+  ul.tight{margin:8px 0;padding-left:22px}ul.tight li{margin:4px 0}
+  .note{color:var(--mut);font-size:12.5px}
+  .barrow{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:13px}
+  .bar{height:18px;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;
+       padding-right:7px;font-family:var(--mono);font-size:11px;color:#0b0f14;font-weight:700}
+  .blab{width:120px;color:var(--mut);font-size:12.5px;flex:none}
+  footer{margin-top:50px;border-top:1px solid var(--line);padding-top:18px;color:var(--mut);font-size:12px}
+  .chk{color:var(--good)}.cross{color:var(--bad)}.dash{color:var(--warn)}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="title">
+  <h1>Pipeline Unification — Status Review</h1>
+  <div class="sub">Aligning <strong>Face-Clustering v2</strong> and <strong>Albumify</strong> on one pipeline architecture and one frontend&rarr;pipeline interface — spec-079 (Track A) on branch <code>unification/spec-040</code></div>
+  <div class="meta">Prepared for: Head of Engineering &nbsp;•&nbsp; Authors: Senior SW Engineer + Senior Algorithms Engineer &nbsp;•&nbsp; 2026-06-19 &nbsp;•&nbsp; HEAD <code>051f4df</code> + uncommitted Stage-3 WIP</div>
+</header>
+
+<!-- ============ EXECUTIVE SUMMARY ============ -->
+<div class="lede">
+  <p class="verdict">Are we done? &nbsp;<span class="pill p-partial">No — ~60% there</span></p>
+  <p style="margin:6px 0 0">The <strong>execution layer is unified and shipped</strong>: both apps now submit a <code>PipelineSpec</code> to one validated primitive (<code>execute_spec</code>). What is <em>not</em> done is the goal that actually matters — <strong>identical config &rarr; identical clusters</strong>. On the binding benchmark the two apps still disagree (<strong>8 vs 20 identities</strong>), and we have now pinned the cause precisely. A partial fix is in the working tree (uncommitted) that closes most of the gap (<strong>20&nbsp;&rarr;&nbsp;13</strong>) but does not yet reach equivalence.</p>
+</div>
+
+<div class="grid3">
+  <div class="card" style="border-left:3px solid var(--good)">
+    <h4>Execution unified</h4>
+    <div class="big" style="color:var(--good)">DONE</div>
+    <div class="lbl">One <code>execute_spec</code>; both apps + CLI route through it. Validator + contract tests green.</div>
+  </div>
+  <div class="card" style="border-left:3px solid var(--warn)">
+    <h4>Config interface</h4>
+    <div class="big" style="color:var(--warn)">PARTIAL</div>
+    <div class="lbl">FC v2 is typed (<code>FCParams</code>). Albumify still submits untyped dicts + a subset config.</div>
+  </div>
+  <div class="card" style="border-left:3px solid var(--bad)">
+    <h4>Output equivalence</h4>
+    <div class="big" style="color:var(--bad)">NOT MET</div>
+    <div class="lbl">Anchor = 8 identities. Albumify = 20 (committed) / 13 (WIP). Root cause = the <strong>pose gate</strong>.</div>
+  </div>
+</div>
+
+<!-- ============ OBJECTIVE ============ -->
+<h2>1. The objective, restated</h2>
+<p>One pipeline infrastructure for both products; one clean contract from each frontend into that pipeline; and the acceptance property that <strong>the same configuration run through either app produces the same result</strong>. We decomposed this into three layers. The headline finding of this review is that they are at three different maturities — and conflating them is what made it feel "almost done" when it was not.</p>
+
+<div class="panel">
+<div class="flow"><span class="h">LAYER 1 — EXECUTION</span>   how a pipeline runs        <span class="ok">DONE</span>
+<span class="h">LAYER 2 — CONFIG</span>      how the frontend talks    <span class="d">PARTIAL (FC v2 typed; Albumify untyped)</span>
+<span class="h">LAYER 3 — STEP CHAIN</span>  what actually runs         <span class="x">DIVERGENT  &lt;-- the behavioral gap lives here</span></div>
+</div>
+
+<!-- ============ LAYER 1 ============ -->
+<h2>2. Layer 1 — Execution <span class="pill p-done">Done</span></h2>
+<p>Both entrypoints now build a <code>PipelineSpec</code> (ordered steps + per-step params) and hand it to a single primitive. There is no second runner, no per-app hardcoded executor pass.</p>
+
+<div class="panel">
+<div class="flow"><span class="d">FC v2 UI / CLI</span>                          <span class="d">Albumify API</span>
+   run_profile.py / run_pipeline()             PipelineService.execute_pipeline()
+        |                                            |
+        |  PipelineSpec(steps, step_configs)         |  PipelineSpec(run.steps, run.step_configs)
+        v                                            v
+        +--------------------&gt;  <span class="h">execute_spec(spec, context)</span>  &lt;--------------------+
+                                       |
+                       validate_spec_or_raise()   <span class="d"># mandatory steps, deps, typed params</span>
+                                       |
+                       PipelineExecutor.execute()  <span class="ok"># ONE pass over spec.steps</span>
+                                       |
+                  +--------------------+--------------------+
+                  v                                         v
+        FC v2: RunExporter -&gt; v5 run dir         Albumify: PeopleService -&gt; central DB
+                  <span class="d">(persistence is caller-owned by design)</span></div>
+</div>
+<p class="note"><strong>SW-engineering note.</strong> The split is deliberate and correct: <em>execution + validation</em> are shared; <em>persistence</em> is not (FC v2 writes a v5 run dir, Albumify writes people rows). This is the right seam — forcing a shared persistence layer would have coupled two products that legitimately store different things. Verified by reading <code>sim_bench/pipeline/run.py</code> and <code>sim_bench/api/services/pipeline_service.py:167</code>.</p>
+
+<!-- ============ LAYER 2 ============ -->
+<h2>3. Layer 2 — Config contract <span class="pill p-partial">Partial</span></h2>
+<table>
+  <tr><th>Path</th><th>How config arrives</th><th>Typed?</th></tr>
+  <tr><td>FC v2</td><td><code>FCParams</code> (Pydantic) &rarr; <code>to_step_configs()</code> broadcasts the full typed knob-set over the 8 clustering steps</td><td><span class="tag t-green">typed</span></td></tr>
+  <tr><td>Albumify</td><td>API stores <code>run.step_configs</code> as free-form dicts; only <code>cluster_people</code> is validated, against <code>ClusterPeopleConfig</code> — a <em>subset</em> of <code>FCParams</code></td><td><span class="tag t-amber">untyped + subset</span></td></tr>
+</table>
+<p>So the two frontends do <strong>not</strong> yet speak the same language to the pipeline. Unifying on <code>FCParams</code> as the single contract is open work (Stage 4). Note: <code>ClusterPeopleConfig</code> <em>does</em> already expose the gate knobs (<code>yaw_max</code>, <code>pitch_max</code>, <code>roll_max</code>, <code>blur_min</code>, <code>det_score_min</code>) — so the divergence below is <strong>not</strong> a missing-knob problem. The knob was set; its <em>input data</em> never arrived. That distinction is the crux of this review.</p>
+
+<!-- ============ LAYER 3 / ROOT CAUSE ============ -->
+<h2>4. Layer 3 — The step chain, and the real root cause <span class="pill p-open">Open</span></h2>
+<p>The two apps run <strong>different step lists</strong>, and crucially clustering itself is reached two different ways:</p>
+<table>
+  <tr><th>App</th><th>Clustering reached via</th><th>Reads faces from</th></tr>
+  <tr><td>FC v2</td><td>8 explicit unified steps (<code>quality_gate</code> &rarr; … &rarr; <code>assign_people_clusters</code>)</td><td><code>context.face_records</code> directly</td></tr>
+  <tr><td>Albumify</td><td>monolithic <code>cluster_people</code> step &rarr; <code>face_cluster_bridge</code> (deprecated)</td><td>rebuilds records via <code>faces_to_face_records()</code></td></tr>
+</table>
+
+<h3>The algorithmic finding: it is the POSE gate</h3>
+<p>We proved (Stage 0b, <code>scripts/localize_gap.py</code>) that the clustering <em>code</em> is equivalent — the bridge and the 8 unified steps agree sub-stage for sub-stage on identical input. The divergence is therefore entirely in the <strong>face set</strong> that reaches the identical clusterer:</p>
+
+<div style="margin:16px 0">
+  <div class="barrow"><span class="blab">FC v2 core set</span>
+    <div class="bar" style="width:39%;background:#2ea043">133</div></div>
+  <div class="barrow"><span class="blab">Albumify core set</span>
+    <div class="bar" style="width:55%;background:#f85149">186</div>
+    <span class="note">&nbsp;+53 faces &nbsp;=&nbsp; the entire gap</span></div>
+</div>
+
+<p>Stage 0c (<code>scripts/diff_face_sets.py</code>) attributed those <strong>53 extra faces</strong> exactly: they are off-angle faces that FC v2's pose gate rejects (<code>pose_yaw</code> 46 + <code>pose_pitch</code> 7, under profile_5's yaw&le;30/pitch&le;25). Albumify rejected <strong>zero</strong> of them — because on the Albumify path <code>FaceRecord.pose</code> was <code>None</code> for every face, and the gate is permissive when pose is absent. Same images, same faces, same gate config — the gate simply had no pose data to act on.</p>
+
+<div class="panel">
+<div class="flow"><span class="h">WHY pose was None on the Albumify path</span> (the concrete bug)
+
+insightface_detect_faces  ->  serializes pose as a <span class="ok">[yaw,pitch,roll] LIST</span> under key 'pose',
+                              keyed by a <span class="ok">canonical forward-slash path</span>
+                                       |
+face_cluster_bridge       ->  (a) looked up faces by the raw <span class="x">backslash</span> Windows path  -> MISS
+.faces_to_face_records()      (b) read pose only from a <span class="x">dict under 'pose_scores'</span>     -> MISS
+                                       |
+                              FaceRecord.pose = None  for every face
+                                       |
+                              pose gate passes 53 off-angle faces it should reject
+                                       |
+                              core 133 -> 186   ===&gt;   8 identities -> 20</div>
+</div>
+<p class="note"><strong>This is a textbook "plumb the field through needs an upstream producer" failure</strong> (already in LEARNINGS, 2026-05-15): a gate was unlocked at the boundary while its input silently never arrived. Two independent defects compounded it — a path-key mismatch and a shape mismatch (list vs dict).</p>
+
+<h3>Where the numbers stand</h3>
+<div style="margin:16px 0">
+  <div class="barrow"><span class="blab">FC v2 (anchor)</span><div class="bar" style="width:16%;background:#2ea043">8</div></div>
+  <div class="barrow"><span class="blab">Albumify WIP</span><div class="bar" style="width:26%;background:#d29922">13</div><span class="note">&nbsp;uncommitted bridge fix</span></div>
+  <div class="barrow"><span class="blab">Albumify committed</span><div class="bar" style="width:40%;background:#f85149">20</div></div>
+</div>
+<p>The uncommitted Stage-3 fix (patches the bridge to read pose + normalize the path key) moves Albumify <strong>20&rarr;13 identities, 100&rarr;75 faces assigned</strong> — most of the gap. It does <strong>not</strong> reach 8 because a second producer gap remains: <code>blur_min</code> is still pinned to <code>0.0</code> (Albumify has no blur-scoring step, so honoring a real threshold would reject every face). That is Stage 2.</p>
+
+<!-- ============ MODULES ============ -->
+<h2>5. Relevant modules</h2>
+<table>
+  <tr><th>Module</th><th>Role in the objective</th><th>Status</th></tr>
+  <tr><td><code>sim_bench/pipeline/spec.py</code></td><td><code>PipelineSpec</code> + <code>validate_spec</code> — the data definition of a pipeline</td><td><span class="tag t-green">shipped</span></td></tr>
+  <tr><td><code>sim_bench/pipeline/run.py</code></td><td><code>execute_spec</code> (shared primitive) + <code>run_pipeline</code> (FC v2 wrapper)</td><td><span class="tag t-green">shipped</span></td></tr>
+  <tr><td><code>sim_bench/api/services/pipeline_service.py</code></td><td>Albumify entry; builds a spec, calls <code>execute_spec</code>, owns people persistence</td><td><span class="tag t-green">on shared path</span></td></tr>
+  <tr><td><code>face_cluster/fc_params.py</code></td><td>The typed config (<code>FCParams.to_step_configs</code>) — the intended single contract</td><td><span class="tag t-amber">FC v2 only</span></td></tr>
+  <tr><td><code>sim_bench/.../configs/cluster_people.py</code></td><td>Albumify's subset config; to be retired in favor of <code>FCParams</code></td><td><span class="tag t-amber">to retire</span></td></tr>
+  <tr><td><code>app/face_clustering_v2/pipeline.py</code></td><td>FC v2 <code>PRODUCER_STEPS</code> (detect&rarr;align&rarr;embed) — populates <code>pose</code></td><td><span class="tag t-green">reference chain</span></td></tr>
+  <tr><td><code>configs/pipeline.yaml</code> <code>default_pipeline</code></td><td>Albumify's step list — uses monolithic <code>cluster_people</code></td><td><span class="tag t-amber">divergent</span></td></tr>
+  <tr><td><code>sim_bench/.../face_cluster_bridge.py</code></td><td>Deprecated adapter; locus of the pose/path bug; deleted in Stage 5</td><td><span class="tag t-red">WIP fix here</span></td></tr>
+  <tr><td><code>sim_bench/.../insightface_detect_faces.py</code></td><td>The true upstream pose producer; durable fix should land pose here for both apps</td><td><span class="tag t-grey">target</span></td></tr>
+</table>
+
+<!-- ============ TESTS ============ -->
+<h2>6. Tests — what verifies this, and what does not yet</h2>
+<table>
+  <tr><th>Test</th><th>Verifies</th><th>State</th></tr>
+  <tr><td><code>tests/pipeline/test_pipeline_spec.py</code></td><td>Validator: mandatory/unknown steps, deps, typed params</td><td><span class="tag t-green">green ✓ ran</span></td></tr>
+  <tr><td><code>tests/pipeline/test_albumify_default_spec.py</code></td><td>Contract guard: Albumify's <code>default_pipeline</code> validates clean</td><td><span class="tag t-green">green ✓ ran</span></td></tr>
+  <tr><td><code>tests/pipeline/test_bridge_pose_plumbing.py</code></td><td>Regression: bridge plumbs the <code>[yaw,pitch,roll]</code> list + path-key normalize</td><td><span class="tag t-green">green ✓ ran (untracked)</span></td></tr>
+  <tr><td><code>tests/architecture/test_config_parity.py</code></td><td>Hand-matched FCConfig dicts agree</td><td><span class="tag t-amber">green but false-confidence*</span></td></tr>
+  <tr><td><code>tests/face_clustering/test_legacy_vs_v2_equivalence.py</code></td><td>Legacy vs unified clustering chain agree</td><td><span class="tag t-red">red — SIGHTING-070</span></td></tr>
+  <tr><td><code>tests/architecture/test_app_cluster_equivalence.py</code></td><td><strong>The acceptance test</strong>: same profile through BOTH apps &rarr; identical cluster sizes</td><td><span class="tag t-grey">does not exist (Stage 1)</span></td></tr>
+  <tr><td><code>tests/_fixtures/budapest_golden/*.json</code></td><td>Albumify golden baseline</td><td><span class="tag t-amber">WIP-edited to 13 (was 20)</span></td></tr>
+</table>
+<p class="note">* <code>test_config_parity</code> compares hand-constructed dicts, so it passes even though the live apps diverge — it never exercises the real producer chains. Stage 1 explicitly supersedes it with a real cross-app run. <strong>The single most valuable missing artifact is <code>test_app_cluster_equivalence.py</code></strong>: it is the only test that would have caught — and will gate — the actual objective. It should be committed RED now (8&ne;20) as the executable definition of done.</p>
+
+<!-- ============ REMAINING WORK ============ -->
+<h2>7. Remaining work &amp; risk register</h2>
+<table>
+  <tr><th>Stage</th><th>Work</th><th>Risk if skipped</th></tr>
+  <tr><td>1</td><td>Commit the RED cross-app equivalence test (<code>test_app_cluster_equivalence</code>); retire the false-confidence parity test</td><td>No executable definition of "done"; regressions invisible</td></tr>
+  <tr><td>2</td><td>Add a blur-scoring step to the shared producer chain; un-pin <code>blur_min=0.0</code></td><td>Albumify stays &gt;8; gate config is a no-op</td></tr>
+  <tr><td>3</td><td>Populate pose into <code>FaceRecord</code> on Albumify <em>at the producer</em> (not the soon-deleted bridge)</td><td>WIP fix is throwaway code; 13&ne;8 persists</td></tr>
+  <tr><td>4</td><td><code>FCParams</code> as the single typed contract for both apps; retire <code>ClusterPeopleConfig</code></td><td>Two config languages; drift returns</td></tr>
+  <tr><td>5</td><td>Delete <code>face_cluster_bridge.py</code> + monolithic <code>cluster_people</code> (finish spec-040 Phase 7)</td><td>Deprecated dual code path remains</td></tr>
+</table>
+
+<!-- ============ RECOMMENDATION ============ -->
+<h2>8. Recommendation</h2>
+<ul class="tight">
+  <li><strong>Do not commit the edited golden fixtures yet.</strong> They re-baseline the expected answer to <strong>13</strong>, which would silently bless a non-equivalent state as correct. The anchor is 8.</li>
+  <li><strong>Sequence: Stage 1 (RED test) &rarr; Stage 2 (blur) &rarr; Stage 3 (pose at producer) &rarr; re-baseline goldens once 8==8.</strong> The in-flight bridge patch is a useful diagnostic confirmation, but the durable fix belongs in <code>insightface_detect_faces</code> so both apps benefit and Stage 5 can delete the bridge cleanly.</li>
+  <li><strong>Reframe "done."</strong> Execution unification shipped; that is real progress. But the product-visible goal — same config, same people — is gated on Stages 2–3 and is currently <em>verified absent</em> (8 vs 20). We should report it that way.</li>
+</ul>
+
+<footer>
+  <strong>Verification log.</strong> Claims in this document were checked against code at HEAD <code>051f4df</code> plus the uncommitted working tree on <code>unification/spec-040</code>:
+  <ul class="tight">
+    <li>Shared execution path — read <code>run.py</code>, <code>spec.py</code>, <code>pipeline_service.py:167</code>.</li>
+    <li>Producer step lists — read <code>app/face_clustering_v2/pipeline.py:37</code>, <code>fc_app_runner.py:42</code>, <code>configs/pipeline.yaml</code>.</li>
+    <li>Config surfaces — read <code>configs/cluster_people.py</code>, <code>fc_params.py:228</code>.</li>
+    <li>Tests — <code>pytest</code> run: <code>test_pipeline_spec</code> + <code>test_albumify_default_spec</code> + <code>test_config_parity</code> = 7 passed; <code>test_bridge_pose_plumbing</code> = 1 passed; <code>test_app_cluster_equivalence.py</code> confirmed absent.</li>
+    <li>Numbers (8 / 20 / 13 / 133 / 186 / 53) — from CHANGES_LOG Stage 0–0c entries, SIGHTING-096, and the WIP <code>summary.json</code> diff (20&rarr;13).</li>
+    <li><em>Not</em> independently re-run here (heavy, real-album): the full FC-v2 vs Albumify end-to-end on <code>D:\Budapest2025_Google</code>. Cited figures are from the recorded diagnostic runs, not a fresh execution.</li>
+  </ul>
+</footer>
+
+</div>
+</body>
+</html>

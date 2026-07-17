@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Album Pipeline Explorer · spec-022</title>
+<style>
+  :root{--bg:#0f1115;--panel:#171a21;--line:#2a2f3a;--ink:#e8ecf3;--mut:#9aa4b2;--accent:#6ea8fe;
+    --ok:#52c479;--mono:ui-monospace,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 system-ui,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line);
+    background:#12151c;position:sticky;top:0;z-index:5}
+  header h1{font-size:16px;margin:0;letter-spacing:-.01em}
+  input[type=text],input[type=number]{background:#0d1017;border:1px solid var(--line);color:var(--ink);
+    border-radius:8px;padding:7px 10px;font:13px var(--mono)}
+  input#folder{width:340px}
+  input#limit{width:70px}
+  button{background:var(--accent);color:#08101f;border:0;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  .stat{color:var(--mut);font-size:12.5px}.stat b{color:var(--ink)}
+  .wrap{padding:16px 18px 80px}
+  .banner{background:#11141b;border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:12px;
+    color:var(--mut);font-size:13px}
+  .home-badge{background:#13201a;color:#7fe0a0;border:1px solid #2f5b41;border-radius:6px;padding:3px 8px;font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+  th{position:sticky;top:53px;background:#12151c;color:var(--mut);font-size:11px;text-transform:uppercase;
+    letter-spacing:.05em;z-index:3}
+  td.thumb{width:90px}
+  td.thumb img{width:78px;height:78px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:#11141b}
+  .file{font-family:var(--mono);font-size:12px;color:#bcd0f5;word-break:break-all}
+  .time{font-family:var(--mono);font-size:12px;color:#cdd6e4;white-space:nowrap}
+  .gps{font-family:var(--mono);font-size:12px}
+  .gps.has{color:#7fe0a0}.gps.no{color:#6b7280}
+  .sc-row{display:flex;align-items:center;gap:8px;margin:2px 0}
+  .sc-row .city{min-width:150px;font-size:12.5px;display:flex;flex-direction:column}
+  .sc-row .coord{font-family:var(--mono);font-size:10.5px;color:var(--mut)}
+  .sc-row .bar{flex:1;height:7px;background:#1a1d24;border-radius:4px;overflow:hidden;max-width:120px}
+  .sc-row .bar>i{display:block;height:7px;background:var(--accent)}
+  .sc-row .pct{font-family:var(--mono);font-size:11px;color:var(--mut);width:42px;text-align:right}
+  .sc-row.top .city{color:#fff;font-weight:600}
+  .cap{font-size:13.5px;color:#e8ecf3;font-style:italic;max-width:240px}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid #2a2f3a;border-top-color:var(--accent);
+    border-radius:50%;animation:r .8s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes r{to{transform:rotate(360deg)}}
+  .err{color:#ff9a9a}
+  .legend{font-size:12px;color:var(--mut);margin:4px 0 12px}
+  .pipeline{font-family:var(--mono);font-size:11.5px;color:#7fb0ff}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 Album Pipeline Explorer</h1>
+  <input id="folder" type="text" placeholder="C:/path/to/album">
+  <label class="stat">limit <input id="limit" type="number" value="12" min="1" max="500"></label>
+  <button id="run">Run pipeline</button>
+  <span id="status" class="stat"></span>
+</header>
+
+<div class="wrap">
+  <div class="banner">
+    <span class="pipeline">discover_images → extract_geo_metadata → infer_geo_clip (StreetCLIP) → caption_images (BLIP) → geo_temporal_segment</span><br>
+    Runs through the real <code>execute_spec</code> engine — same as Albumify. First run downloads the StreetCLIP (~600 MB) and BLIP (~1 GB) models, then results are disk-cached per image.
+  </div>
+  <div id="summary"></div>
+  <div class="legend">GPS column shows EXIF location when present; <b>StreetCLIP</b> is the model's guess (the fallback when GPS is missing).</div>
+  <table id="tbl">
+    <thead><tr>
+      <th>photo</th><th>file</th><th>time (EXIF)</th><th>GPS (EXIF)</th>
+      <th>StreetCLIP — top 3 cities</th><th>GeoCLIP — predicted location</th><th>BLIP caption</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+async function init(){ const d=await (await fetch('/api/default')).json(); $('#folder').value=d.folder; }
+init();
+
+$('#run').addEventListener('click', run);
+async function run(){
+  const folder=$('#folder').value.trim(), limit=+$('#limit').value;
+  $('#run').disabled=true;
+  $('#status').innerHTML='<span class="spin"></span>running pipeline… (first run downloads models, be patient)';
+  $('#tbl tbody').innerHTML=''; $('#summary').innerHTML='';
+  try{
+    const res=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({folder,limit})});
+    const data=await res.json();
+    if(data.error){ $('#status').innerHTML='<span class="err">'+data.error+'</span>'; return; }
+    render(data);
+    $('#status').textContent='done';
+  }catch(e){ $('#status').innerHTML='<span class="err">'+e+'</span>'; }
+  finally{ $('#run').disabled=false; }
+}
+
+function render(data){
+  const s=data.summary;
+  $('#summary').innerHTML =
+    `<div class="banner"><b>${s.n}</b> images · <b>${s.n_gps}</b> with GPS · <b>${s.n_time}</b> with time `+
+    (s.home? `· <span class="home-badge">🏠 home ${s.home[0].toFixed(3)}, ${s.home[1].toFixed(3)}</span> `:'')+
+    `· <b>${s.n_segments}</b> geo segments · <span class="file">${s.source}</span></div>`;
+  const tb=$('#tbl tbody'); tb.innerHTML='';
+  for(const r of data.rows){
+    const tr=document.createElement('tr');
+    const gps = r.lat!=null ? `<span class="gps has">${r.lat.toFixed(5)}, ${r.lon.toFixed(5)}</span>`
+                            : `<span class="gps no">— none —</span>`;
+    const sc = (r.streetclip||[]).map((c,i)=>{
+      const pct=Math.round(c.score*100);
+      return `<div class="sc-row ${i===0?'top':''}"><span class="city">${c.label}</span>`+
+             `<span class="bar"><i style="width:${pct}%"></i></span><span class="pct">${pct}%</span></div>`;
+    }).join('') || '<span class="gps no">—</span>';
+    // GeoCLIP top-k are often near-identical points; dedupe by place, sum prob,
+    // show bars relative to the strongest guess (raw probs are tiny by design).
+    const groups={};
+    for(const c of (r.geoclip||[])){
+      const key=c.place||`${c.lat.toFixed(2)},${c.lon.toFixed(2)}`;
+      if(!groups[key]) groups[key]={place:c.place,lat:c.lat,lon:c.lon,prob:0};
+      groups[key].prob+=c.prob;
+    }
+    const glist=Object.values(groups).sort((a,b)=>b.prob-a.prob);
+    const gmax=glist.length?glist[0].prob:1;
+    const gc = glist.map((c,i)=>{
+      const w=Math.round(c.prob/gmax*100);
+      const place=c.place || `${c.lat.toFixed(3)}, ${c.lon.toFixed(3)}`;
+      return `<div class="sc-row ${i===0?'top':''}"><span class="city">${place}`+
+             `<span class="coord">${c.lat.toFixed(3)}, ${c.lon.toFixed(3)}</span></span>`+
+             `<span class="bar"><i style="width:${w}%;background:#52c479"></i></span></div>`;
+    }).join('') || '<span class="gps no">—</span>';
+    tr.innerHTML =
+      `<td class="thumb"><img loading="lazy" src="/thumb?path=${encodeURIComponent(r.path)}"></td>`+
+      `<td class="file">${r.name}</td>`+
+      `<td class="time">${r.time||'—'}</td>`+
+      `<td>${gps}</td>`+
+      `<td>${sc}</td>`+
+      `<td>${gc}</td>`+
+      `<td class="cap">${r.caption? '“'+r.caption+'”':'—'}</td>`;
+    tb.appendChild(tr);
+  }
+}
+</script>
+</body>
+</html>

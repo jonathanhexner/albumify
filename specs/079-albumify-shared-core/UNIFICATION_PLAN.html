@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Unification — Execution Plan (spec-079)</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171d26; --ink:#e6edf3; --mut:#8b98a9; --line:#2a3340;
+    --accent:#4f9dff; --good:#2ea043; --warn:#d29922; --bad:#f85149;
+    --mono:"Cascadia Code",Consolas,ui-monospace,monospace;
+    --sans:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:14.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:38px 28px 90px}
+  h1{font-size:25px;margin:0 0 6px}
+  .sub{color:var(--mut);font-size:13.5px;margin-bottom:6px}
+  h2{font-size:19px;margin:42px 0 6px;padding-top:13px;border-top:1px solid var(--line)}
+  .q{color:var(--accent);font-weight:600;margin:2px 0 12px}
+  p{margin:9px 0}
+  code{font-family:var(--mono);background:#0b0f14;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin:16px 0}
+  .fig .cap{color:var(--mut);font-size:12px;margin-top:9px;text-align:center}
+  .mermaid{display:flex;justify-content:center}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12.8px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  .tag{font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:4px;white-space:nowrap}
+  .t-green{background:#10331c;color:#56d364}.t-red{background:#3a1518;color:#ff7b72}
+  .t-amber{background:#3a2e10;color:#e3b341}.t-blue{background:#10243a;color:#79c0ff}.t-grey{background:#1c232c;color:#8b98a9}
+  b.g{color:var(--good)}b.w{color:var(--warn)}b.r{color:var(--bad)}b.b{color:var(--accent)}
+  .key{background:#0b0f14;border-left:4px solid var(--accent);border-radius:6px;padding:11px 15px;margin:13px 0;font-size:13.5px}
+  .key.bad{border-left-color:var(--bad)}.key.good{border-left-color:var(--good)}
+  footer{margin-top:46px;border-top:1px solid var(--line);padding-top:15px;color:var(--mut);font-size:12px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Pipeline Unification — Execution Plan</h1>
+<div class="sub">spec-079 · branch <code>unification/spec-040</code> · 2026-06-19 · for Head of Engineering</div>
+<div class="sub">Companions: <a href="UNIFICATION_EXPLAINED.html">EXPLAINED</a> (architecture) · <a href="UNIFICATION_STATUS.html">STATUS</a> (detail)</div>
+
+<!-- ===== GOAL + GATE ===== -->
+<h2>1 · Goal &amp; definition of done</h2>
+<p class="q">Same config through either app → identical people. Verified, not asserted.</p>
+<div class="fig">
+<pre class="mermaid">
+flowchart LR
+    G["DEFINITION OF DONE (executable)"]
+    G --> A["profile_5: FC v2 == Albumify<br/><b>8 == 8 identities</b>"]
+    G --> B["profile_4 budapest baseline UNCHANGED<br/><b>15 clusters · 340 faces</b>"]
+    G --> C["one config language (FCParams)<br/>one clustering chain · no bridge"]
+    style G fill:#1d2530,stroke:#4f9dff,color:#e6edf3
+    style A fill:#16331c,stroke:#2ea043,color:#b7f0c6
+    style B fill:#16331c,stroke:#2ea043,color:#b7f0c6
+    style C fill:#16331c,stroke:#2ea043,color:#b7f0c6
+</pre>
+<div class="cap">Figure 1 — Two numeric gates (equivalence + no-regression) plus one structural gate. All three must hold.</div>
+</div>
+
+<!-- ===== ROADMAP ===== -->
+<h2>2 · The plan — 5 stages + 1 refactor</h2>
+<p class="q">Lock the target first; fix the two producer gaps; unify the contract; delete the dead path.</p>
+<div class="fig">
+<pre class="mermaid">
+flowchart TB
+    S1["STAGE 1 · LOCK TARGET<br/>commit RED test_app_cluster_equivalence (8≠20)<br/>retire false-confidence parity test"]:::blue
+    S2["STAGE 2 · BLUR PRODUCER<br/>add blur-scoring step to shared chain<br/>un-pin blur_min=0.0"]:::warn
+    S3["STAGE 3 · POSE AT SOURCE<br/>populate FaceRecord.pose in insightface_detect_faces<br/>(the durable fix — not the bridge)"]:::warn
+    S4["STAGE 4 · ONE CONTRACT<br/>FCParams = single typed config, made HIERARCHICAL<br/>composed of configs/*.py models · retire ClusterPeopleConfig"]:::warn
+    S5["STAGE 5 · DELETE DEAD PATH<br/>remove face_cluster_bridge.py + monolithic cluster_people<br/>Albumify default_pipeline → 8 unified steps"]:::grey
+    R["REFACTOR (anytime, parallel) · SIGHTING<br/>empty configs/__init__.py → move STEP_CONFIG_MODELS to registry.py"]:::grey
+    S1 --> S2 --> S3 --> S4 --> S5
+    DONE(["GATE: equivalence GREEN 8==8<br/>then re-baseline goldens"]):::good
+    S5 --> DONE
+    classDef blue fill:#10243a,stroke:#4f9dff,color:#cfe6ff
+    classDef warn fill:#2a2310,stroke:#d29922,color:#ffe2a3
+    classDef grey fill:#1c232c,stroke:#8b98a9,color:#c8d3e0
+    classDef good fill:#16331c,stroke:#2ea043,color:#b7f0c6
+</pre>
+<div class="cap">Figure 2 — Sequence is binding: the RED test exists before any fix, so goldens are only re-baselined once 8==8 is real.</div>
+</div>
+
+<table>
+  <tr><th>Stage</th><th>Changes (module)</th><th>Why it moves the number</th><th>Effort</th></tr>
+  <tr><td><b class="b">1</b></td><td>+<code>tests/architecture/test_app_cluster_equivalence.py</code>; −<code>test_config_parity.py</code></td><td>No prod change — gives an executable "done" &amp; kills false confidence</td><td>S</td></tr>
+  <tr><td><b class="w">2</b></td><td>+blur scorer in producer chain (<code>steps/</code>); <code>fc_params.blur_min</code> un-pinned</td><td>Albumify gains the blur gate it never had → drops over-kept faces</td><td>M</td></tr>
+  <tr><td><b class="w">3</b></td><td><code>steps/insightface_detect_faces.py</code> writes <code>FaceRecord.pose</code> for both apps</td><td>Pose gate finally has data on the Albumify path → rejects the 53 off-angle faces (20→toward 8)</td><td>M</td></tr>
+  <tr><td><b class="w">4</b></td><td><code>fc_params.py</code> → nested model over <code>steps/configs/*.py</code>; retire <code>ClusterPeopleConfig</code></td><td>One language; <code>extra="forbid"</code> per step → typos caught; ends config drift</td><td>L</td></tr>
+  <tr><td><b class="grey">5</b></td><td>delete <code>face_cluster_bridge.py</code> + <code>steps/cluster_people.py</code>; edit <code>configs/pipeline.yaml</code></td><td>Removes the divergent path entirely → one chain by construction</td><td>M</td></tr>
+  <tr><td><b class="grey">R</b></td><td><code>steps/configs/__init__.py</code> → empty; +<code>configs/registry.py</code></td><td>Restores empty-<code>__init__</code> convention; no behavior change</td><td>S</td></tr>
+</table>
+
+<!-- ===== HIERARCHICAL CONFIG ===== -->
+<h2>3 · Stage 4 detail — flat → hierarchical config</h2>
+<p class="q">Today two config systems compete. Hierarchy collapses them into one.</p>
+<div class="fig">
+<pre class="mermaid">
+flowchart LR
+    subgraph NOW["TODAY (two systems)"]
+        N1["FCParams · FLAT 40 knobs<br/>broadcast SAME blob to all 8 steps<br/>extra=forbid impossible"]:::bad
+        N2["configs/*.py · per-step models<br/>extra=forbid · orphaned"]:::bad
+    end
+    subgraph TGT["STAGE 4 (one system)"]
+        T1["FCParams<br/>├ gating · ├ graph · ├ exemplars<br/>├ split · └ merge"]:::good
+        T2["to_step_configs(): project each<br/>sub-model → its owning step"]:::good
+        T1 --> T2
+    end
+    NOW ==> TGT
+    classDef bad fill:#3a1518,stroke:#f85149,color:#ffc2c2
+    classDef good fill:#16331c,stroke:#2ea043,color:#b7f0c6
+</pre>
+<div class="cap">Figure 3 — The nested sub-models ARE the existing <code>configs/*.py</code> models. Hierarchy is the bridge that merges the two config systems instead of orphaning one.</div>
+</div>
+
+<!-- ===== NO-HARM ===== -->
+<h2>4 · No-harm verification — how we know nothing broke</h2>
+<p class="q">Two guards stay GREEN at every stage; one target test flips RED→GREEN exactly once.</p>
+<div class="fig">
+<pre class="mermaid">
+flowchart TB
+    subgraph GUARD["REGRESSION GUARDS — must be green after EVERY stage"]
+        B1["budapest E2E · profile_4<br/>15 clusters · 340 faces · run 6437d335"]:::good
+        B2["validator contract<br/>test_pipeline_spec · test_albumify_default_spec"]:::good
+        B3["FC v2 anchor unchanged · profile_5 → 8"]:::good
+    end
+    subgraph TARGET["TARGET — flips once, at the end"]
+        T["test_app_cluster_equivalence<br/>RED (8≠20) ───────────► GREEN (8==8)"]:::blue
+    end
+    classDef good fill:#16331c,stroke:#2ea043,color:#b7f0c6
+    classDef blue fill:#10243a,stroke:#4f9dff,color:#cfe6ff
+</pre>
+<div class="cap">Figure 4 — If a stage moves the FC v2 anchor or the budapest baseline, it introduced harm — stop and diagnose.</div>
+</div>
+
+<table>
+  <tr><th>Stage</th><th>What could break</th><th>Test that catches it</th><th>Expected after</th></tr>
+  <tr><td><b class="b">1</b></td><td>nothing (test-only)</td><td>full suite</td><td>all green <i>except</i> new test RED (intended) <span class="tag t-blue">by design</span></td></tr>
+  <tr><td><b class="w">2</b></td><td>blur scorer also culls FC v2 / budapest faces</td><td>budapest E2E; FC v2 anchor; +unit <code>ut_BlurScorer</code></td><td>budapest 15/340 &amp; anchor 8 <b>unchanged</b>; Albumify faces drop <span class="tag t-green">no regress</span></td></tr>
+  <tr><td><b class="w">3</b></td><td>pose source double-counts / shifts FC v2 gate</td><td>budapest E2E; anchor; <code>test_bridge_pose_plumbing</code> → migrates to <code>test_detector_pose</code></td><td>anchor 8 unchanged; Albumify 20→~13 <span class="tag t-amber">expected move</span></td></tr>
+  <tr><td><b class="w">4</b></td><td>knob mapping drift; <code>extra=forbid</code> rejects a live key</td><td>+<code>test_fcparams_projection</code> (every step knob reachable, no orphans, round-trip); budapest; equivalence</td><td>identical step_configs to pre-refactor <span class="tag t-green">byte-equal</span></td></tr>
+  <tr><td><b class="grey">5</b></td><td>a live caller still imports the bridge</td><td><code>grep</code> no refs; budapest; equivalence; <code>test_albumify_default_spec</code></td><td>equivalence still 8==8; bridge gone <span class="tag t-green">clean</span></td></tr>
+  <tr><td><b class="grey">R</b></td><td>broken import of <code>STEP_CONFIG_MODELS</code></td><td>import smoke + full suite</td><td>all green; <code>__init__</code> empty <span class="tag t-green">no behavior</span></td></tr>
+</table>
+
+<div class="key bad"><b>Hard rule:</b> the edited golden fixtures (<code>budapest_golden/*.json</code>, currently WIP-set to 13) are <b>not committed</b> until equivalence is GREEN at 8==8. Re-baselining early blesses a wrong answer as correct.</div>
+
+<!-- ===== RISK ===== -->
+<h2>5 · Risk register</h2>
+<table>
+  <tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr>
+  <tr><td>Stage 3 reaches 13, not 8 (a third producer gap hides behind blur+pose)</td><td><span class="tag t-amber">medium</span></td><td>Stage 1's RED test makes any residual gap visible &amp; quantified before we call it done</td></tr>
+  <tr><td>Blur scorer changes FC v2 results (it already had blur)</td><td><span class="tag t-grey">low</span></td><td>FC v2 already honors <code>blur_min=50</code>; Stage 2 only adds it to the <i>Albumify</i> chain — anchor test confirms FC v2 untouched</td></tr>
+  <tr><td>Stage 4 <code>extra="forbid"</code> rejects a key the flat broadcast tolerated</td><td><span class="tag t-amber">medium</span></td><td>projection test asserts byte-equal <code>step_configs</code> vs pre-refactor before forbid is enabled</td></tr>
+  <tr><td>Goldens re-baselined to a non-equivalent state</td><td><span class="tag t-red">high impact</span></td><td>hard rule above; goldens gated on the GREEN equivalence run</td></tr>
+</table>
+
+<!-- ===== ASKS ===== -->
+<h2>6 · Decisions requested</h2>
+<table>
+  <tr><th>#</th><th>Decision</th><th>Recommendation</th></tr>
+  <tr><td>1</td><td>Commit the RED equivalence test now (visibly failing)?</td><td><b class="g">Yes</b> — it is the only executable definition of done</td></tr>
+  <tr><td>2</td><td>Fold "hierarchical FCParams" into Stage 4, or defer?</td><td><b class="g">Fold in</b> — deferring leaves <code>configs/*.py</code> orphaned and re-introduces drift</td></tr>
+  <tr><td>3</td><td>Run Refactor R now (empty <code>__init__</code>) as a sighting?</td><td><b class="b">Your call</b> — isolated, zero-behavior, low cost; file as sighting per CLAUDE.md</td></tr>
+</table>
+
+<footer>
+Verified against HEAD <code>051f4df</code> + uncommitted WIP on <code>unification/spec-040</code>. Anchor 8 / Albumify 20→13 / 53-face gap from CHANGES_LOG Stage 0–0c, SIGHTING-096, WIP summary diff. budapest baseline (15/340, run 6437d335) per CLAUDE.md v2 gate. No fresh full E2E re-run in this document.
+<script>mermaid.initialize({startOnLoad:true,theme:"dark",themeVariables:{fontFamily:"Segoe UI, sans-serif",fontSize:"13px"}});</script>
+</footer>
+
+</div>
+</body>
+</html>
