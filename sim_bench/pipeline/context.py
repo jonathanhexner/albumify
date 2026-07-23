@@ -128,6 +128,15 @@ class PipelineContext:
     scene_clusters: dict[int, list[str]] = field(default_factory=dict)
     scene_cluster_labels: dict[str, int] = field(default_factory=dict)
 
+    # spec-103: optional fused scene distance produced by the build_scene_distance step (Path A:
+    # visual + short-range capture-time boost). When present, cluster_scenes clusters this precomputed
+    # NxN distance (metric="precomputed") instead of the raw embeddings; when absent (default), scene
+    # clustering is byte-identical to before. scene_distance is a SceneDistanceResult (holds the matrix
+    # and its image_ids order); scene_distance_signal maps image_id -> priors actually used ('visual',
+    # 'time') for stratified reporting.
+    scene_distance: Optional[Any] = None
+    scene_distance_signal: dict = field(default_factory=dict)
+
     # Face clustering (within scenes)
     face_clusters: dict[int, dict[int, list[str]]] = field(default_factory=dict)
 

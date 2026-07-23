@@ -1,0 +1,190 @@
+<title>Pipeline or VLM — a division of labor</title>
+<style>
+  :root{
+    --ground:#f6f7f9; --panel:#ffffff; --edge:#e3e6ec;
+    --ink:#1b2438;            /* body text */
+    --muted:#5c6577;
+    --structure:#245b7a;      /* cool — the pipeline / structure side */
+    --structure-bg:#eaf2f6;
+    --judgment:#9a5a22;       /* warm bronze — the VLM / judgment side */
+    --judgment-bg:#f6ede2;
+    --rule:#cfd4dd;
+    --good:#2f7d4f; --warn:#9a5a22;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ground:#12151b; --panel:#191d25; --edge:#2a2f3a;
+      --ink:#e7e9ee; --muted:#9aa3b2;
+      --structure:#6fb6d8; --structure-bg:#152a35;
+      --judgment:#d69a5f; --judgment-bg:#2c2317;
+      --rule:#333a47; --good:#63b98a; --warn:#d69a5f;
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#f6f7f9; --panel:#ffffff; --edge:#e3e6ec; --ink:#1b2438; --muted:#5c6577;
+    --structure:#245b7a; --structure-bg:#eaf2f6; --judgment:#9a5a22; --judgment-bg:#f6ede2;
+    --rule:#cfd4dd; --good:#2f7d4f; --warn:#9a5a22;
+  }
+  :root[data-theme="dark"]{
+    --ground:#12151b; --panel:#191d25; --edge:#2a2f3a; --ink:#e7e9ee; --muted:#9aa3b2;
+    --structure:#6fb6d8; --structure-bg:#152a35; --judgment:#d69a5f; --judgment-bg:#2c2317;
+    --rule:#333a47; --good:#63b98a; --warn:#d69a5f;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--ground);color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    margin:0;padding:3rem 1.25rem 5rem}
+  .wrap{max-width:760px;margin:0 auto}
+  .eyebrow{font:600 12px/1 -apple-system,Segoe UI,sans-serif;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 .8rem}
+  h1{font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:2.5rem;line-height:1.1;
+    text-wrap:balance;margin:0 0 .6rem;letter-spacing:-.01em}
+  .lede{font-size:1.18rem;color:var(--muted);text-wrap:balance;margin:0 0 2.5rem}
+  h2{font-family:Georgia,serif;font-size:1.5rem;margin:3rem 0 .4rem;text-wrap:balance}
+  h2 .n{color:var(--structure);font-size:1rem;vertical-align:.35em;margin-right:.5rem;font-family:-apple-system,sans-serif}
+  p{margin:.7rem 0}
+  strong{color:var(--ink)}
+  .sub{color:var(--muted);font-size:.95rem}
+  code{font:.86em ui-monospace,"SF Mono",Consolas,monospace;background:var(--structure-bg);
+    padding:.1em .4em;border-radius:4px}
+  /* two-column division of labor */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.5rem 0}
+  .col{border:1px solid var(--edge);border-radius:12px;padding:1.2rem 1.3rem;background:var(--panel)}
+  .col.s{border-top:4px solid var(--structure)}
+  .col.j{border-top:4px solid var(--judgment)}
+  .col h3{margin:.2rem 0 .1rem;font-size:1.15rem}
+  .col.s h3{color:var(--structure)} .col.j h3{color:var(--judgment)}
+  .col .tag{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+  .col.s .tag{color:var(--structure)} .col.j .tag{color:var(--judgment)}
+  .col ul{margin:.7rem 0 0;padding-left:1.1rem} .col li{margin:.35rem 0;font-size:.94rem}
+  .col .foot{margin-top:.9rem;padding-top:.7rem;border-top:1px dashed var(--rule);
+    font-size:.82rem;color:var(--muted)}
+  .flow{text-align:center;font-size:.9rem;color:var(--muted);margin:.3rem 0 0}
+  .flow b{color:var(--ink)}
+  /* callouts */
+  .note{border-left:3px solid var(--judgment);background:var(--judgment-bg);
+    padding:.9rem 1.1rem;border-radius:0 8px 8px 0;margin:1.4rem 0;font-size:.96rem}
+  .note.good{border-color:var(--good)}
+  .note .h{font-weight:700;display:block;margin-bottom:.2rem}
+  table{border-collapse:collapse;width:100%;margin:1.2rem 0;font-size:.92rem}
+  th,td{border-bottom:1px solid var(--edge);padding:.55rem .6rem;text-align:left;vertical-align:top}
+  th{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  /* recommendation steps */
+  ol.steps{list-style:none;counter-reset:s;padding:0;margin:1.2rem 0}
+  ol.steps li{counter-increment:s;position:relative;padding:.7rem 0 .7rem 2.6rem;
+    border-bottom:1px solid var(--edge)}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:.7rem;
+    width:1.8rem;height:1.8rem;border-radius:50%;background:var(--structure);color:#fff;
+    font:700 .9rem/1.8rem -apple-system,sans-serif;text-align:center}
+  ol.steps li.key::before{background:var(--judgment)}
+  .lit{border:1px solid var(--edge);border-radius:10px;padding:1rem 1.2rem;background:var(--panel);margin:1rem 0}
+  .lit a{color:var(--structure)}
+  hr{border:0;border-top:1px solid var(--edge);margin:3rem 0}
+  a{color:var(--structure)}
+  @media(max-width:620px){.split{grid-template-columns:1fr}h1{font-size:2rem}}
+</style>
+<div class="wrap">
+  <p class="eyebrow">Albumify · strategy note · 2026-07-21</p>
+  <h1>It isn't pipeline <em>or</em> VLM. They solve opposite-shaped problems.</h1>
+  <p class="lede">The curation task splits cleanly into <strong>structure</strong> (global, combinatorial —
+    the pipeline's home turf) and <strong>judgment</strong> (local, semantic — where a VLM earns its cost).
+    The design question is where to put the seam, not which side to delete.</p>
+
+  <h2>The reframe</h2>
+  <p>"Best 20 photos of 800, organized by theme" is really two problems wearing one coat, and they have
+    <em>opposite computational shapes</em>. Mixing them up is what makes the pipeline-vs-VLM debate feel unresolvable.</p>
+
+  <div class="split">
+    <div class="col s">
+      <span class="tag">Structure · reduction</span>
+      <h3>The pipeline wins</h3>
+      <p class="sub">Global, O(N²), over all 800 photos at once.</p>
+      <ul>
+        <li>De-dup &amp; near-duplicate collapse</li>
+        <li>Group same <b>scene</b> (visual + your new time/geo fusion)</li>
+        <li>Group same <b>person</b> (face embeddings)</li>
+        <li>Segment by <b>event / place</b> (time backbone)</li>
+      </ul>
+      <p class="foot">Deterministic, cheap, scales to thousands. A VLM <em>cannot</em> do this — it can't hold
+        800 photos in context or compare photo #3 to #700 reliably.</p>
+    </div>
+    <div class="col j">
+      <span class="tag">Judgment · selection</span>
+      <h3>The VLM wins</h3>
+      <p class="sub">Local, semantic, over a handful of candidates.</p>
+      <ul>
+        <li>Best-of-N <b>within one moment</b> (5 near-dupes → the keeper)</li>
+        <li>"Is this worth keeping?" — interest, not just sharpness</li>
+        <li><b>Theme / caption / album arc</b> (a language task)</li>
+        <li>Narrative ordering of the survivors</li>
+      </ul>
+      <p class="foot">Aesthetic &amp; semantic judgment, improving fast. Expensive per image — so only ever
+        run it on the <em>small</em> set the pipeline already reduced to.</p>
+    </div>
+  </div>
+  <p class="flow"><b>Pipeline</b> reduces 800 → ~40 candidates &nbsp;·&nbsp; <b>VLM</b> judges the 40 → final 20 + labels them</p>
+
+  <div class="note good">
+    <span class="h">The seam is the whole design.</span>
+    The pipeline does the heavy reduction the VLM literally can't (context window). The VLM does the semantic
+    call on the small survivor set, where its cost is bounded and its strength shows. Metadata the VLM never
+    sees — that two shots are 40&nbsp;seconds and 5&nbsp;metres apart — is exactly what your time/geo fusion feeds
+    the reduction. The two halves make each other better.
+  </div>
+
+  <h2>What <em>our own</em> experiments already told us</h2>
+  <table>
+    <tr><th>Signal</th><th>What it showed</th><th>Read</th></tr>
+    <tr><td><b>EXP-2</b> best-frame</td>
+        <td>Composite score &amp; VLM disagree on the keeper in <b>10 of 13</b> clusters (77%).</td>
+        <td class="sub">This is the exact seam where the VLM <em>might</em> beat the cheap score — or might be noise. Undecided until a human blind-picks.</td></tr>
+    <tr><td><b>Scene fusion</b></td>
+        <td>Noise bucket (orphan photos) shrank <b>−44 / −34 / −51%</b> across 3 trips; time carried the geo-poor trip.</td>
+        <td class="sub">The pipeline's <em>reduction</em> got materially better — cleaner candidate sets for whatever judges them.</td></tr>
+  </table>
+  <div class="note">
+    <span class="h">The one honest gap.</span>
+    That 77% is <em>disagreement</em>, not "VLM is better." Nothing tells us which pick is right yet — that
+    needs the human judging pass EXP-2 already built the harness for. It is the single decision-critical
+    unknown, and it's ~90% done.
+  </div>
+
+  <h2>What the literature says</h2>
+  <div class="lit">
+    <p><strong>The pipeline path is the textbook method, not a legacy hack.</strong> Personal-album summarization
+      has, for 15+ years, meant: cluster into events by <em>time + content</em>, then pick a representative per
+      event (affinity-propagation exemplars, aesthetic/sentiment ranking, multi-space face+background+time
+      clustering). Your pipeline <em>is</em> this literature.</p>
+    <p><strong>VLM-for-selection is a live frontier, not a settled win.</strong> 2024–25 work applies VLMs to
+      image aesthetics &amp; personalized quality (and it's improving), but surveys explicitly flag that a
+      systematic "does a VLM actually beat a learned score at keeper selection" comparison is <em>still missing</em>.
+      So finishing EXP-2's judging doesn't just settle your product — it's on the open edge of the field.</p>
+    <p class="sub">Sources: Personal photo album summarization; Clustering techniques for personal photo album
+      management; Context in Photo Albums (user behavior in clustering &amp; selection); What VLMs encode for
+      personalized image aesthetics; MLLMs in low-level vision (survey).</p>
+  </div>
+
+  <h2>How to proceed</h2>
+  <ol class="steps">
+    <li><strong>Keep the pipeline as the structure engine.</strong> It's doing the part VLMs can't. Your
+      scene-fusion work strengthens exactly this — better reduction = better candidate sets.</li>
+    <li><strong>Insert a VLM only at the two judgment points, on the reduced set:</strong> best-of-N within a
+      cluster, and theme/caption/narrative. A cheaper VLM is fine for annotation, as you said.</li>
+    <li class="key"><strong>Finish EXP-2's human judging — this gates everything.</strong> Blind-pick keepers
+      for the 13 clusters. VLM wins → route selection through it. Wash → keep the cheap score and save the
+      money. This is the decision, and the harness already exists.</li>
+    <li><strong>Feed the VLM what it can't see.</strong> Time/geo priors sharpen the pipeline's reduction, so
+      the VLM's small-set job gets easier <em>and</em> cheaper. That's the spec-103 work paying off twice.</li>
+  </ol>
+
+  <div class="note">
+    <span class="h">Bottom line.</span>
+    Combination, with a clear seam: <strong>pipeline reduces &amp; structures; VLM judges &amp; narrates the
+    survivors.</strong> Don't throw away the pipeline — it's the part the VLM can't do and the part the
+    literature keeps re-deriving. The only open question is whether the VLM earns a seat at <em>selection</em>
+    or just at <em>annotation</em>, and one afternoon of blind judging answers it.
+  </div>
+  <hr>
+  <p class="sub">Grounded in EXP-1/EXP-2 (spec-102) + scene-fusion (spec-103) on Budapest / Austria / Germany,
+    and the album-summarization &amp; VLM-aesthetics literature.</p>
+</div>

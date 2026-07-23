@@ -103,6 +103,11 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
     score_iqa, score_ava, <b>score_occlusion</b> (spec-097), <b>score_tilt</b> (spec-099/100) → detect_persons → insightface_detect_faces<br>
     align_faces → insightface_score_{expression,eyes,pose} → … → select_best → <b>straighten_images</b> (spec-101 A, TERMINAL: straightens the winners)<br>
     filter_quality → cluster_scenes → extract_face_embeddings → <b>cluster_people</b><br>
+    <span style="opacity:.8">scene distance (spec-103, OPT-IN, NOT in default_pipeline): <code>build_scene_distance</code>
+    — inserted between <code>extract_scene_embedding</code> and <code>cluster_scenes</code>, fuses DINOv2
+    visual distance with a one-sided SHORT-RANGE capture-time boost (Path A: <code>d = visual·(1−boost·exp(−dt/τ))</code>)
+    → <code>context.scene_distance</code>; <code>cluster_scenes</code> then clusters that precomputed matrix
+    (metric=precomputed). Absent by default → scene clustering byte-identical (<code>scene_cluster/geo_time_fusion.py</code>)</span><br>
     <span style="opacity:.8">analysis (opt-in, spec-093): <code>score_quality</code> — runs N IQA methods
     (MANIQA/MUSIQ/HyperIQA/BRISQUE/NIQE/CLIP-IQA via <code>image_quality_models.create_model</code>),
     cached per-method in universal_cache → <code>context.method_scores</code></span><br>

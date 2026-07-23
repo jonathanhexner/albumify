@@ -54,6 +54,7 @@ from sim_bench.pipeline.steps.insightface_score_pose import InsightFaceScorePose
 
 # Scene Embedding & Clustering
 from sim_bench.pipeline.steps.extract_scene_embedding import ExtractSceneEmbeddingStep
+from sim_bench.pipeline.steps.build_scene_distance import BuildSceneDistanceStep  # spec-103 (gated off)
 from sim_bench.pipeline.steps.cluster_scenes import ClusterScenesStep
 
 # People Clustering
@@ -130,6 +131,7 @@ __all__ = [
     "InsightFaceScorePoseStep",
     # Scene Embedding & Clustering
     "ExtractSceneEmbeddingStep",
+    "BuildSceneDistanceStep",
     "ClusterScenesStep",
     # People Clustering
     "ClusterPeopleStep",

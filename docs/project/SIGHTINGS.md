@@ -4,6 +4,81 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-118: three pre-existing test failures surfaced by the spec-103 full pipeline+architecture run
+**Status**: OPEN (found 2026-07-22 during spec-103 build_scene_distance close-out; NOT caused by spec-103 — all three are in code paths untouched by the scene-distance change)
+**Severity**: Low-Medium (unit/architecture debt; none block scene clustering or the default album run)
+**Reported**: 2026-07-22
+**Persona**: SW Engineer / Pipeline
+
+**Problem**: `pytest tests/pipeline tests/architecture` has 3 failures unrelated to scene clustering:
+1. `test_no_raw_collection_iteration_outside_allow_list` — `sim_bench/pipeline/steps/score_tilt.py:58`
+   does `paths = [str(p) for p in context.image_paths]` (raw collection iteration) without going
+   through `ctx.filters.active(...)` and is not in the guard's ALLOW_LIST. Pre-existing debt from
+   spec-099/100 (verified: the line predates this session; my only score_tilt edit was the SIGHTING-117
+   `release()` hook). Fix = migrate to `ctx.filters` OR allow-list the file with a reason.
+2. `test_scoring_strategy.py::test_person_penalty_strategy` — expects person_penalty `0.02`, code
+   produces `0.22` (10x). Test-vs-code drift, likely from a penalty-formula change (spec-084/098 area).
+3. `test_face_recognition_benchmark.py::test_intra_person_similarity` — InsightFace intra-person mean
+   similarity `0.407 < 0.5` threshold (person 00000). Data/model/threshold; environmental.
+   ALSO: `test_face_embedding_validation.py` fails COLLECTION — imports the deleted
+   `sim_bench.pipeline.steps.filter_quality_gate` (consolidated into `quality_gate` by spec-053). Stale test.
+**Repro**: `.venv/Scripts/python -m pytest tests/pipeline tests/architecture -q --ignore=tests/pipeline/test_face_embedding_validation.py`
+**Suspicion**: (1) allow-list omission, (2) expectation not updated after a penalty change, (3) model/threshold,
+(4) test references a module deleted by spec-053. None touch scene clustering.
+
+---
+
+### SIGHTING-117: full album pipeline OOM-kills at occlusion CLIP load (no models freed between steps)
+**Status**: FIXED 2026-07-19 (release-model-per-step landed; see Resolution). Streaming-InsightFace half deferred.
+**Status (history)**: OPEN (found 2026-07-17 during spec-102 Albumify-vs-VLM pilot)
+**Severity**: Medium (blocks running the full 33-step `default_pipeline` on low-RAM machines; forces a reduced `faces` variant that drops occlusion/tilt penalties)
+**Reported**: 2026-07-17
+**Persona**: SW Engineer / Pipeline
+
+**Problem**: Running `default_pipeline` on 122 Budapest images (768px) via `execute_spec` dies
+**silently** (no Python traceback) immediately after `occlusion scorer loaded: clip_b32_gmax_v2`
+logs. All prior steps completed (faces, DINOv2 scene embedding, IQA, AVA). Signature of an OS OOM
+kill: every heavy model (YOLOv8s-pose, InsightFace buffalo_l, DINOv2-base, AVA resnet50, CLIP-b32)
+stays resident because steps never release their model after finishing, so peak RSS = the SUM of all
+models, and CLIP tips it over.
+**Repro**: `.venv/Scripts/python scripts/experiment_albumify_vs_vlm.py albumify --trip budapest --pipeline default`
+(watch it end at the occlusion-load line with no traceback).
+**Workaround in use**: spec-102 added a `faces` pipeline variant (default minus score_occlusion/
+score_tilt/straighten + the post-select_best face tail) which completes — but the album arm then has
+NO occlusion/tilt penalties.
+**UPDATE 2026-07-18 (spec-102 expansion)**: the `faces` variant ALSO OOMs at scale — hard
+`MemoryError` in `insightface_detect_faces` on Austria's 474 images (InsightFace retains detections
+for every image; memory grows with image count, not just model count). So `faces` only works for
+small trips (~120 imgs, Budapest). For Austria (474) / Germany (797) the album arm fell back to the
+`minimal` pipeline (DINOv2 scene-dedup + IQA/AVA, no InsightFace) — which scales (per-batch memory)
+but has NO person-penalty either. Net: on this machine the full people-aware album pipeline cannot
+run beyond ~120 images. The real fix (release-model-per-step + stream/batch InsightFace instead of
+holding all detections) is needed for any production album run on real-size trips.
+**Fix (proposed, not done)**: have each model-owning step release its model (del + gc/torch cache
+clear) once its outputs are in context, OR add a lightweight step-teardown hook so peak memory is
+one-model-at-a-time. Root cause = no model lifecycle management across the step sequence.
+
+**RESOLUTION 2026-07-19 (release-model-per-step)**: added a `release()` lifecycle hook to
+`BaseStep` (default no-op) + `_release_models(*attrs)` helper (nulls handles, `gc.collect()`).
+`PipelineExecutor._execute_step` now calls `step.release()` in a `finally` after every step —
+success OR failure — so peak RSS is ONE model, not the sum. All 12 model-owning steps override it:
+score_occlusion (CLIP), classify_scene (CLIP), score_ava, score_iqa, score_tilt (GeoCalib),
+insightface_detect_faces, insightface_score_eyes, insightface_score_expression, score_face_quality,
+select_best (Siamese), detect_persons (YOLO), extract_scene_embedding (DINOv2). Steps whose model is
+a method-local (caption_images/BLIP, infer_geo_clip/StreetCLIP, validate_alignment/InsightFace) never
+leaked and need no override. Design rule (owner, 2026-07-19): a model is kept resident ONLY if a later
+step needs it, and then it must live in `context` as an explicit shared dependency (executor releases
+those at end-of-run) — private step state that is neither shared nor released is a pure leak.
+Tests: `tests/pipeline/test_step_release.py` (6, incl. release-called-on-failure). Verified end-to-end:
+full 33-step `default_pipeline` on 122 Budapest imgs now completes with occlusion+tilt populated (was
+a silent OOM kill before).
+**DEFERRED (separate follow-up)**: the InsightFace-holds-all-detections memory growth on big trips
+(Austria 474 / Germany 797) is a DIFFERENT axis (data, not model count). Release-per-step lets the
+full pipeline run on small/medium trips; streaming/batching InsightFace detections is still needed for
+production-size trips. Tracked as the remaining half of this sighting.
+
+---
+
 ### SIGHTING-115: test_face_embedding_validation.py fails to collect (stale import)
 **Status**: OPEN (found 2026-07-13 during spec-099 tilt wiring)
 **Severity**: Low (one test file; unrelated to tilt work — does not touch it)

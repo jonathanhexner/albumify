@@ -104,6 +104,8 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 |---|---|---|---|---|---|---|---|
 | `scene_clusters` | `dict[int, list[str]]` | id → paths | `cluster_scenes` | `cluster_by_identity`, `select_best` | NOT YET — spec-033 P-C adds `faces.scene_cluster_id` | cluster → end | image-level scene assignment |
 | `scene_cluster_labels` | `dict[str, int]` | path → id | `cluster_scenes` | `cluster_by_identity`, `select_best` | NOT YET — spec-033 P-C adds `faces.scene_cluster_id` | cluster → end | inverse view of `scene_clusters` |
+| `scene_distance` | `Optional[Any]` | NxN + `image_ids` (SceneDistanceResult) | `build_scene_distance` (spec-103, opt-in) | `cluster_scenes` | no (in-run only) | build → cluster | precomputed fused scene distance; None by default (step gated off) → cluster_scenes byte-identical |
+| `scene_distance_signal` | `dict` | image_id → priors used (`['visual','time']`) | `build_scene_distance` (spec-103, opt-in) | reporting | no (in-run only) | build → report | which priors applied per photo (geo-stratified reporting) |
 | `face_clusters` | `dict[int, dict[int, list[str]]]` | scene_id → cluster_id → paths | `cluster_by_identity` | `select_best` | yes (`cluster_assignments` table) | cluster → end | per-scene identity subclusters |
 
 ### 3.8 Global face clustering (People feature)

@@ -11,6 +11,7 @@ can't read a typo'd attribute either.
 text — eliminating the label-vs-reality drift class that motivated spec-033 P-A.
 """
 from sim_bench.pipeline.steps.configs.align_faces import AlignFacesConfig
+from sim_bench.pipeline.steps.configs.build_scene_distance import BuildSceneDistanceConfig
 from sim_bench.pipeline.steps.configs.cluster_people import ClusterPeopleConfig
 from sim_bench.pipeline.steps.configs.cluster_scenes import ClusterScenesConfig
 from sim_bench.pipeline.steps.configs.detect_face_orientation import DetectFaceOrientationConfig
@@ -38,6 +39,7 @@ STEP_CONFIG_MODELS = {
     "insightface_detect_faces":     InsightFaceDetectFacesConfig,
     # Added in spec-040 Phase 2:
     "align_faces":                  AlignFacesConfig,
+    "build_scene_distance":         BuildSceneDistanceConfig,  # spec-103
     "cluster_scenes":               ClusterScenesConfig,
     "detect_face_orientation":      DetectFaceOrientationConfig,
     "detect_persons":               DetectPersonsConfig,
@@ -52,6 +54,7 @@ STEP_CONFIG_MODELS = {
 
 __all__ = [
     "AlignFacesConfig",
+    "BuildSceneDistanceConfig",
     "ClusterPeopleConfig",
     "ClusterScenesConfig",
     "DetectFaceOrientationConfig",

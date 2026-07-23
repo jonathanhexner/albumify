@@ -6,6 +6,25 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-07-22: spec-103 — additive metadata fusion over-merges; a ONE-SIDED short-range boost is the safe shape
+**What happened**: fusing capture-time into scene clustering as an ADDITIVE distance
+(`w_v·visual + w_t·time`) over-merged: its symmetric time term *pushed apart* visually-similar shots a
+few minutes apart AND *pulled together* visually-different ones. Eyeballing three trips showed a 4-min-apart
+pair wrongly glued. The fix (Path A, validated) is a MULTIPLICATIVE one-sided boost
+`d = visual · (1 - boost·exp(-dt/τ))`, τ≈60s: time only ever SHRINKS distance for near-simultaneous
+photos, never grows it, so past ~2-3 min looks decide. Also: a hand-rolled single-linkage
+connected-components clusterer *chained* (49-photo, 112-min, diameter-1.01 "scene"); feeding the same
+one-sided distance to the EXISTING production HDBSCAN (density-based) killed the chaining without a new
+clusterer.
+**Lesson**: (1) a metadata prior should modulate the primary signal one-sidedly (pull-only), not enter as
+a symmetric additive term that can override it in both directions. (2) Prefer improving the *distance* fed
+to the existing clusterer over building a parallel clusterer — single-linkage chaining is a real failure
+mode HDBSCAN already resists. (3) "Perfect" auto-grouping is unattainable (a scene is subjective) → ship a
+good default + a user tightness knob.
+**Prevention**: `SceneDistanceBuilder` ships the one-sided form; `ut_SceneDistance_never_pushes_apart` fails
+if anyone reintroduces a term that increases distance. The additive `SceneDistanceFuser` is retained only
+for the experiment sweep, explicitly labeled superseded.
+
 ### 2026-07-13: spec-100 — the learned model works where classical failed, but a dry-run saved the env, and coverage is content-bound
 **What happened**: GeoCalib recovered injected tilt at 0.25–0.45° MAE (vs classical's 5% coverage) AND stopped flagging the slanted-scenery false positives — the confidence signal (`roll_uncertainty`) abstains honestly on kaleidoscope/mirror shots (10–30° unc). BUT on the family-vacation album it's only confident on ~28% of photos (few architectural verticals), so the ≥70% coverage gate missed. Also: a naive `pip install geocalib` would have silently upgraded numpy 1.26→2.4 and swapped opencv-contrib→opencv-python — a `--dry-run` caught it; safe recipe = `kornia kornia_rs "numpy<2"` then `geocalib --no-deps`.
 **Lesson**: (1) coverage of a learned-prior detector is bound by scene content, not just model quality — validate on the album type you'll ship to. (2) Always `pip install --dry-run` a torch-ecosystem package before committing; greedy resolvers upgrade pinned foundational deps. (3) Low coverage ≠ unsafe for a tie-breaker penalty if the confidence gate abstains honestly.

@@ -61,12 +61,23 @@ class ClusterScenesStep(BaseStep):
             context.report_progress("cluster_scenes", 1.0, "No embeddings to cluster")
             return
 
-        image_paths = list(context.scene_embeddings.keys())
-        features = np.array([context.scene_embeddings[p] for p in image_paths])
+        # spec-103: if a build_scene_distance step produced a precomputed scene distance, cluster THAT
+        # (metric=precomputed). When absent (default), fall through to the original embedding path -
+        # byte-identical to before.
+        if context.scene_distance is not None:
+            sd = context.scene_distance
+            image_paths = list(sd.image_ids)
+            features = np.asarray(sd.distance_matrix, dtype=float)
+            context.report_progress(
+                "cluster_scenes", 0.2,
+                f"Clustering {len(image_paths)} images (precomputed scene distance)")
+            clusterer = self._get_clusterer({**config, "metric": "precomputed"})
+        else:
+            image_paths = list(context.scene_embeddings.keys())
+            features = np.array([context.scene_embeddings[p] for p in image_paths])
+            context.report_progress("cluster_scenes", 0.2, f"Clustering {len(image_paths)} images")
+            clusterer = self._get_clusterer(config)
 
-        context.report_progress("cluster_scenes", 0.2, f"Clustering {len(image_paths)} images")
-
-        clusterer = self._get_clusterer(config)
         labels, stats = clusterer.cluster(features)
 
         clusters: dict[int, list[str]] = {}

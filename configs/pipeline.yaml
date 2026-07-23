@@ -146,6 +146,17 @@ extract_scene_embedding:
   model: dinov2                # Options: dinov2, openclip, resnet50
   device: cpu                  # Options: cpu, cuda, mps
 
+# Scene Distance (build_scene_distance) - spec-103, OPT-IN (gated by presence).
+# NOT in default_pipeline: default scene clustering is byte-identical to before. To enable, insert
+# `build_scene_distance` between extract_scene_embedding and cluster_scenes in a pipeline's step list.
+# It fuses DINOv2 visual distance with a one-sided SHORT-RANGE capture-time boost (Path A):
+#   d(i,j) = visual_cos(i,j) * (1 - boost * exp(-dt_seconds / tau_sec))
+# Photos <=~tau_sec apart get pulled together; beyond a couple minutes time does nothing (looks decide).
+# cluster_scenes then clusters this precomputed distance (metric=precomputed) with its usual params.
+build_scene_distance:
+  boost: 0.6                   # Short-range time pull strength (0=off .. 1=collapse near-simultaneous)
+  tau_sec: 60.0                # Time constant (s); ~1 min gap gets the boost, >~3 min negligible
+
 # Scene Clustering (cluster_scenes)
 cluster_scenes:
   method: hdbscan              # Options: hdbscan, dbscan, kmeans
