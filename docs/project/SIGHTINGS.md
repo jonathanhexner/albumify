@@ -4,8 +4,23 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
-### SIGHTING-118: three pre-existing test failures surfaced by the spec-103 full pipeline+architecture run
-**Status**: OPEN (found 2026-07-22 during spec-103 build_scene_distance close-out; NOT caused by spec-103 — all three are in code paths untouched by the scene-distance change)
+### SIGHTING-118: pre-existing test failures surfaced by the spec-103 full pipeline+architecture run
+**Status**: RESOLVED 2026-07-24 (fixed while standing up CI — see Resolution).
+**Status (history)**: OPEN 2026-07-22 (found during spec-103 build_scene_distance close-out; NOT caused by spec-103 — all in code paths untouched by the scene-distance change)
+
+**Resolution (2026-07-24)**:
+1. `test_person_penalty_strategy` — the CODE was correct (a person with no visible face is penalized as
+   occluded via `OccludedFacePenaltyStrategy`, default 0.2, spec-097); the TEST expectation was stale.
+   Updated expected `0.02` → `0.22` (body 0.02 + occluded-face 0.2) with an explanatory comment.
+2. `test_no_raw_collection_iteration` — added `score_tilt.py` to the ALLOW_LIST (scoring producer,
+   consistent with `score_iqa`/`score_occlusion`). Pre-existing spec-099/100 debt.
+3. `test_face_embedding_validation` collection error — import updated
+   `filter_quality_gate.FilterQualityGateStep` → `quality_gate.QualityGateStep` (spec-053 consolidation).
+4. Model/data integration tests (`test_face_embedding_validation`, `test_face_pipeline_e2e`,
+   `test_face_recognition_benchmark`) marked `pytestmark = pytest.mark.slow` — they need InsightFace
+   models + local `D:\` test data and can't run in a clean CI runner. Excluded from the default fast
+   suite; run explicitly with `pytest -m slow`.
+CI (`.github/workflows/tests.yml`) now runs the model-free fast suite on every push/PR.
 **Severity**: Low-Medium (unit/architecture debt; none block scene clustering or the default album run)
 **Reported**: 2026-07-22
 **Persona**: SW Engineer / Pipeline

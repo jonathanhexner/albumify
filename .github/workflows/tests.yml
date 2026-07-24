@@ -1,0 +1,49 @@
+name: tests
+
+# Fast, model-free test suite. Runs on every push and PR.
+#
+# A clean CI runner has NO InsightFace/DINOv2/YOLO models and none of the local D:\ test-data drives,
+# so the model/data-dependent tests are marked `slow` / `e2e` / `face_e2e` / `budapest` and excluded
+# here (run them locally with `pytest -m slow`, etc.). This job installs only the light core deps
+# (setup.cfg install_requires) plus hdbscan + sqlalchemy, which is everything the scoped tests import —
+# it deliberately does NOT pull torch/insightface/mediapipe, keeping CI fast and reliable.
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout (skip LFS blobs — not needed for tests)
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install light deps (no torch/insightface/mediapipe)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest hdbscan sqlalchemy
+
+      - name: Run fast test suite
+        run: |
+          pytest -m "not slow and not e2e and not budapest and not face_e2e" \
+            tests/architecture \
+            tests/scene_cluster \
+            tests/pipeline/test_build_scene_distance.py \
+            tests/pipeline/test_scoring_strategy.py \
+            tests/albumify_vs_vlm/test_scene_distance_insertion.py \
+            -q -p no:cacheprovider

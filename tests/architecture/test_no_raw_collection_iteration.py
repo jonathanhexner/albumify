@@ -69,6 +69,8 @@ ALLOW_LIST: dict[str, str] = {
         "producer of scene_tags (CLIP zero-shot per image)",
     "sim_bench/pipeline/steps/score_occlusion.py":
         "producer of occlusion_scores/tiles (spec-097 CLIP probe per image)",
+    "sim_bench/pipeline/steps/score_tilt.py":
+        "producer of tilt_angles/confidences (spec-099/100 GeoCalib roll per image)",
     "sim_bench/pipeline/steps/score_face_quality.py":
         "scoring producer for per-face quality",
     "sim_bench/pipeline/steps/extract_scene_embedding.py":

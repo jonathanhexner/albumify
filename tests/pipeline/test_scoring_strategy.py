@@ -66,9 +66,12 @@ def test_person_penalty_strategy():
     context.insightface_faces = {}
     
     penalties = strategy.compute('test.jpg', context, computer)
-    
-    # Should have body orientation penalty
-    expected = 0.1 * (1.0 - 0.8)  # weight * (1 - score)
+
+    # Person detected but NO visible face (insightface_faces empty) => body-orientation penalty PLUS
+    # the occluded-face penalty: PersonPenaltyStrategy routes a faceless person through
+    # OccludedFacePenaltyStrategy (default face_occlusion weight 0.2), i.e. a hidden face is treated
+    # as occluded (spec-097 design). So the total is body(0.02) + occluded-face(0.2) = 0.22.
+    expected = 0.1 * (1.0 - 0.8) + 0.2
     assert penalties == pytest.approx(expected, rel=0.01)
     logger.info(f"Person penalties: {penalties}")
 
