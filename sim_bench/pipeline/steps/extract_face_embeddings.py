@@ -94,6 +94,18 @@ class ExtractFaceEmbeddingsStep(BaseStep):
             logger.info(f"Using face embedding backend: {self._extractor.model_name}")
         return self._extractor
 
+    def release(self) -> None:
+        """SIGHTING-117: free the ArcFace/InsightFace embedding model after
+        extraction. This step was MISSED in the original release-per-step pass
+        (it had no override), so its model stayed resident for the whole run —
+        measured ~360 MB of leaked RSS. Downstream reads context.face_embeddings /
+        face_records, not this extractor. Unlike the torch steps, this backend is
+        ONNX, which does drop on gc (verified: insightface_detect_faces frees
+        cleanly), so nulling the handle genuinely reclaims the memory.
+        _extractor_config is reset so a later run re-lazy-loads via _get_extractor."""
+        self._release_models("_extractor")
+        self._extractor_config = None
+
     def _get_all_faces(self, context: PipelineContext) -> List[CroppedFace]:
         """Get all aligned faces from context."""
         if not hasattr(context, 'aligned_faces') or not context.aligned_faces:
