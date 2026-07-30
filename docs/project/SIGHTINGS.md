@@ -44,7 +44,26 @@ CI (`.github/workflows/tests.yml`) now runs the model-free fast suite on every p
 ---
 
 ### SIGHTING-117: full album pipeline OOM-kills at occlusion CLIP load (no models freed between steps)
-**Status**: FIXED 2026-07-19 (release-model-per-step landed; see Resolution). Streaming-InsightFace half deferred.
+**Status**: PARTIAL — release-per-step landed 2026-07-19; cheap half (extract_face_embeddings) fixed 2026-07-30; durable half (torch creep → process isolation) re-diagnosed 2026-07-30 and specced. See Resolution + UPDATE 2026-07-30.
+
+**UPDATE 2026-07-30 — MEASURED root cause CORRECTS this sighting's text.** Three probes
+(scratchpad/sighting117_probe*.py, isolation_proto.py) on the real 768px working sets:
+1. The recorded cause ("InsightFace retains detections; grows with image count") is WRONG.
+   Detections are tiny; aligned crops are also small (Budapest 67 MB, Austria 149 MB).
+2. Real cause = **stacked model memory that release() never returns to the OS.** Full `faces`
+   pipeline peaks 1735 MB (122 imgs) / 2090 MB (474). Peak is ~model-count-bound; image count
+   adds only a few hundred MB. Default pipeline (+CLIP occlusion +GeoCalib tilt +Siamese) → 3 GB+.
+3. Per-step "freed": only InsightFace ONNX steps release cleanly (detect freed ~471 MB). The
+   torch steps (DINOv2 extract_scene_embedding +425, score_ava +187, detect_persons +164) each
+   null their handle + gc yet RSS drops 0. On Windows there is no in-process way to return torch
+   CPU memory (no CUDA empty_cache equiv, no malloc_trim). Process isolation PROVEN to recover
+   100% (child does DINOv2 work → parent RSS delta +0 MB; in-process → +1105 MB retained).
+- **FIXED (cheap half) 2026-07-30**: `extract_face_embeddings` had NO release() override (pure
+  omission from the 2026-07-19 pass) → added it, reclaims ~360 MB (ONNX, so it works). Verified.
+- **REMAINING (durable half)**: the ~776 MB torch creep needs per-stage process isolation. Now
+  specced as the level-based staged pipeline (image/face/scene stages, each a subprocess that
+  exits). Supersedes the "stream/batch InsightFace detections" framing (which would NOT have
+  fixed it — the grower is models, not detections).
 **Status (history)**: OPEN (found 2026-07-17 during spec-102 Albumify-vs-VLM pilot)
 **Severity**: Medium (blocks running the full 33-step `default_pipeline` on low-RAM machines; forces a reduced `faces` variant that drops occlusion/tilt penalties)
 **Reported**: 2026-07-17

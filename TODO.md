@@ -8,6 +8,16 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-104 staged process isolation — SIGHTING-117 durable fix (2026-07-30)
+
+- [x] Phase 0: add missing `extract_face_embeddings.release()` (~360 MB reclaimed, verified by probe); re-diagnose SIGHTING-117 (real cause = stacked torch model memory, not detections/crops). | 2026-07-30 | Claude
+- [ ] Phase 1: executor subprocess-stage primitive (marshal imports/exports, progress relay, error + crash handling), default OFF. Awaiting user calls on 3 open Qs (stage granularity / import-export declaration / auto-enable threshold). | 2026-07-30 | Claude
+- [ ] Phases 2-4: declare image/face/scene stages, equivalence + memory gates, wire Albumify/API, docs+REVIEW. See `specs/104-staged-process-isolation/tasks.md`. | 2026-07-30 | Claude
+
+## spec-102 Albumify vs VLM experiment (2026-07-17)
+
+- [ ] spec-102 DRAFT written (spec.md + tasks.md + EXPERT_REVIEW.md). Awaiting user approval to start T1 (harness). Open Qs: rater pool size (>=5 / >=3 / solo N=1), Claude-only vs +GPT. | 2026-07-17 | Claude
+
 ## spec-098 noise-aware quality (2026-07-11)
 
 - [x] Implement spec-098: noise-robust sharpness + wavelet noise metric (Phases 0-2, validation reruns, headless Budapest A4, REVIEW.md; Implemented 2026-07-12). | 2026-07-11 | Claude
