@@ -204,6 +204,15 @@ class PipelineExecutor:
                 duration_ms=duration_ms,
                 error_message=f"{type(e).__name__}: {e}"
             )
+        finally:
+            # SIGHTING-117: free this step's model before the next step loads its
+            # own, so peak RSS is one model instead of the sum of all. Runs on
+            # success AND failure. Best-effort: a release() bug must never mask
+            # the step's real result.
+            try:
+                step.release()
+            except Exception:
+                logger.warning("%s: release() failed (non-fatal)", step_name, exc_info=True)
 
         duration_ms = int((time.time() - start_time) * 1000)
 

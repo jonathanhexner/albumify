@@ -189,6 +189,10 @@ class SelectBestStep(BaseStep):
 
         return self._siamese_model
 
+    def release(self) -> None:
+        """SIGHTING-117: free the optional Siamese quality model after selection."""
+        self._release_models("_siamese_model")
+
     def _build_quality_config(self, config: dict, strategy_name: str) -> dict:
         """Build quality strategy config from select_best config."""
         quality_weights = config.get("quality_weights", {"iqa": 0.3, "ava": 0.7})

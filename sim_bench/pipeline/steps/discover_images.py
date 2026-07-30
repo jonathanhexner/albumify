@@ -28,6 +28,10 @@ class DiscoverImagesStep(BaseStep):
                         "items": {"type": "string"},
                         "default": [".jpg", ".jpeg", ".png", ".heic", ".raw"],
                         "description": "File extensions to include"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Optional cap on number of images (0/absent = all)"
                     }
                 }
             }
@@ -42,6 +46,9 @@ class DiscoverImagesStep(BaseStep):
             images.extend(context.source_directory.rglob(f"*{ext.upper()}"))
 
         images = sorted(set(images))
+        limit = config.get("limit")
+        if limit:
+            images = images[:int(limit)]
         context.image_paths = images
         context.active_images = {str(p) for p in images}
 

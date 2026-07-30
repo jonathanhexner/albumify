@@ -67,7 +67,12 @@ class InsightFaceDetectFacesStep(BaseStep):
         """Lazy load face analyzer."""
         self._analyzer = self._analyzer or InsightFaceFaceAnalyzer(config)
         return self._analyzer
-    
+
+    def release(self) -> None:
+        """SIGHTING-117: free the InsightFace SCRFD+ArcFace models after detection.
+        Downstream face steps read context.insightface_faces, not this analyzer."""
+        self._release_models("_analyzer")
+
     def _get_cache_config(self, context: PipelineContext, config: dict) -> Optional[Dict[str, Any]]:
         """Get cache configuration for face detection."""
         # Normalize paths to forward slashes for consistent keys

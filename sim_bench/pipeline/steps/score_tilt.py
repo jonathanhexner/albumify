@@ -49,6 +49,11 @@ class ScoreTiltStep(BaseStep):
                 logger.warning("tilt scorer unavailable (%s); tilt penalty disabled", exc)
         return self._scorer
 
+    def release(self) -> None:
+        """SIGHTING-117: free the GeoCalib model after scoring. Leaves
+        ``_scorer_failed`` set so a known-bad load is not retried next run."""
+        self._release_models("_scorer")
+
     def _get_cache_config(self, context: PipelineContext, config: dict) -> Optional[Dict[str, Any]]:
         paths = [str(p) for p in context.image_paths]
         scorer = self._get_scorer(config)

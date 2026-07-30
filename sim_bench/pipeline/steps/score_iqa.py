@@ -34,6 +34,10 @@ class ScoreIQAStep(BaseStep):
             self._iqa_model = RuleBasedQuality()
         return self._iqa_model
 
+    def release(self) -> None:
+        """SIGHTING-117: free the IQA model after scoring."""
+        self._release_models("_iqa_model")
+
     def _get_cache_config(
         self,
         context: PipelineContext,

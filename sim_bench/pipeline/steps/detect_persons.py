@@ -52,7 +52,11 @@ class DetectPersonsStep(BaseStep):
         """Lazy load person detector."""
         self._detector = self._detector or YOLOPersonDetector(config)
         return self._detector
-    
+
+    def release(self) -> None:
+        """SIGHTING-117: free the YOLOv8-Pose detector after person detection."""
+        self._release_models("_detector")
+
     def _get_cache_config(self, context: PipelineContext, config: dict) -> Optional[Dict[str, Any]]:
         """Get cache configuration for person detection."""
         image_paths = [str(p) for p in context.image_paths]

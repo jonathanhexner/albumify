@@ -81,6 +81,11 @@ class ClassifySceneStep(BaseStep):
             self._text_key = key
         return cats
 
+    def release(self) -> None:
+        """SIGHTING-117: free the CLIP ViT-B/32 backbone after tagging. Also
+        clears the cached text features + key so they recompute on reload."""
+        self._release_models("_model", "_preprocess", "_text_feats", "_text_key")
+
     def _process_uncached(self, items: List[str], context: PipelineContext,
                           config: dict) -> Dict[str, list]:
         import torch

@@ -87,6 +87,44 @@ class BaseStep(ABC):
     def metadata(self) -> StepMetadata:
         return self._metadata
 
+    def release(self) -> None:
+        """Free heavy per-step resources (ML models) after the step completes.
+
+        SIGHTING-117: steps lazy-load their model and hold it as private state
+        (``self._scorer`` etc.) for the whole run, so peak RSS = the SUM of every
+        model in the pipeline — which OOM-kills the box when occlusion CLIP loads
+        atop YOLO+InsightFace+DINOv2+AVA. The executor calls ``release()`` after
+        every step (success OR failure); model-owning steps override it to drop
+        the handle + ``gc.collect()`` so only one model is resident at a time.
+
+        Default is a no-op: steps that hold no model need not override. Releasing
+        only frees the MODEL, never context data (already stored) — the model's
+        outputs live in context and downstream steps read those, not the model.
+        A subsequent run re-lazy-loads via the same ``if self._x is None`` guard,
+        so ``release()`` is simply the symmetric partner of the lazy load.
+
+        A model genuinely shared by >=2 steps in one run is NOT this method's job:
+        it belongs in the context as an explicit dependency, released at end-of-run.
+        """
+        pass
+
+    def _release_models(self, *attr_names: str) -> None:
+        """release() helper: null the named model handles and force a GC pass.
+
+        Nulling the handle drops the last reference so Python frees the weights;
+        ``gc.collect()`` reclaims them now rather than at some later cycle. The
+        next run re-lazy-loads via each step's ``if self._x is None`` guard, so
+        config-tracker fields (e.g. ``_checkpoint_path``) need not be cleared.
+        """
+        import gc
+        freed = False
+        for name in attr_names:
+            if getattr(self, name, None) is not None:
+                setattr(self, name, None)
+                freed = True
+        if freed:
+            gc.collect()
+
     def validate(self, context: "PipelineContext") -> list[str]:
         """Default validation: required context keys must exist (not None).
 

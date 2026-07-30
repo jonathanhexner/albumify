@@ -54,6 +54,10 @@ class ExtractSceneEmbeddingStep(BaseStep):
             self._current_method = method
         return self._extractor
 
+    def release(self) -> None:
+        """SIGHTING-117: free the DINOv2 (or other) embedding extractor."""
+        self._release_models("_extractor")
+
     def _get_cache_config(
         self,
         context: PipelineContext,

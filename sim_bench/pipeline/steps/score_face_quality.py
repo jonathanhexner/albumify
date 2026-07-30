@@ -65,6 +65,10 @@ class ScoreFaceQualityStep(BaseStep):
             self._quality_scorer = FaceQualityScorer(full_config)
         return self._quality_scorer
 
+    def release(self) -> None:
+        """SIGHTING-117: free the face quality scorer (MediaPipe + SixDRepNet)."""
+        self._release_models("_quality_scorer")
+
     def _generate_cache_key(self, face) -> str:
         """Generate unique cache key for a face."""
         return f"{face.original_path}:face_{face.face_index}"
