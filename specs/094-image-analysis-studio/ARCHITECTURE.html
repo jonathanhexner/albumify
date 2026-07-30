@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Analysis Studio — Architecture (spec-094, consolidated)</title>
+<style>
+  :root{--bg:#0f131a;--panel:#161c26;--panel2:#1d2530;--line:#2b3543;--txt:#dce3ec;
+        --muted:#8fa0b4;--accent:#6ea8fe;--green:#3fb950;--orange:#e3903a;--purple:#a371f7;--pink:#db61a2;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:32px 24px 80px}
+  h1{font-size:26px;margin:0 0 4px}
+  h2{font-size:19px;margin:38px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  h3{font-size:15px;margin:22px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);margin:0 0 6px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--panel2);
+       border:1px solid var(--line);color:var(--muted);margin-right:6px}
+  code{background:#0b0e13;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px;color:#c9d5e5}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:12px 0}
+  .layer{display:flex;gap:14px;align-items:stretch;margin:10px 0}
+  .layer .n{flex:0 0 46px;display:flex;align-items:center;justify-content:center;font-weight:700;
+            background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--accent)}
+  .layer .b{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .layer .b b{color:#fff}
+  .flow{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px;white-space:pre;
+        background:#0b0e13;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;color:#bcd}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#fff}
+  .pill{font-size:11px;padding:1px 7px;border-radius:20px;border:1px solid var(--line)}
+  .q{color:var(--accent);border-color:#28405f;background:#132133}
+  .g{color:var(--green);border-color:#1f4429;background:#10231a}
+  .new{color:var(--orange);border-color:#4a3620;background:#241a10}
+  .muted{color:var(--muted)}
+  ul{margin:8px 0 8px 18px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Image Analysis Studio — Architecture</h1>
+<p class="sub">Consolidated <b>spec-094</b> (absorbs spec-095 Geo-Vision). Backend = <b>spec-093</b>.
+Status: <span class="tag">Design</span> · updated 2026-07-03</p>
+
+<div class="card">
+<b>One app, two pages.</b> Point at a folder, pick per-image methods across two families
+(<span class="pill q">image quality</span> <span class="pill q">geo &amp; caption</span>), run them, and
+browse the results as a sortable, clickable-thumbnail table — with a map for the geo family. Every score
+persists in <code>universal_cache</code>; every run is snapshotted to a <b>sub-folder</b> so it can be
+re-opened later without recomputing. spec-095's map + accuracy fold in here as the geo tab; the standalone
+geo app is retired.
+</div>
+
+<h2>1 · Layered architecture</h2>
+
+<div class="layer"><div class="n">5</div><div class="b">
+  <b>App / UI</b> — <code>app/image_studio/{main,view}.py</code> (Streamlit).
+  Navbar: <b>Configure Run</b> (pick folder + methods → Run) and <b>Browse Run</b> (open a saved run).
+  Browse has a <b>top-level Quality | Geo toggle</b> — the two families get <i>different views</i>, not just
+  different columns: <b>Quality</b> = sortable ranking table (worst→best); <b>Geo</b> = map (EXIF vs GeoCLIP)
+  + accuracy + caption table. No mixed "All" table. Pure rendering; zero model logic.
+  <span class="pill new">restructure: navbar + Browse + Quality|Geo toggle</span>
+</div></div>
+<div class="layer"><div class="n">4</div><div class="b">
+  <b>RunFolder</b> <span class="pill new">NEW</span> — persists a <i>run</i> (its methods, image list, column
+  results) as a snapshot. <code>RunFolder</code> writes <code>&lt;folder&gt;/.studio_runs/&lt;run_id&gt;/</code>
+  now; a future <code>DB-backed RunFolder</code> swaps to the Albumify universal DB behind the same interface.
+</div></div>
+<div class="layer"><div class="n">3</div><div class="b">
+  <b>Engine</b> — <code>app/image_studio/engine.py</code>. A <code>METHODS</code> registry (one entry per
+  method), <code>run_methods()</code> (groups methods by backing step, merges configs, runs each step once),
+  and <code>AnalysisColumn</code> — the uniform per-image output (kind = numeric | label_conf | text | coord).
+  This one abstraction makes "flat vs category tabs" a pure view concern.
+</div></div>
+<div class="layer"><div class="n">2</div><div class="b">
+  <b>Pipeline steps</b> (<code>sim_bench/pipeline/steps/</code>) — each method is backed by a real,
+  <code>universal_cache</code>-persisted step: <code>ScoreQualityStep</code> (spec-093), <code>score_iqa</code>,
+  <code>score_ava</code>, and the geo steps (<code>extract_geo_metadata</code>, <code>infer_geo_clip</code>,
+  <code>infer_geo_coords</code>, <code>caption_images</code>). Same steps run inside Albumify's pipeline.
+</div></div>
+<div class="layer"><div class="n">1</div><div class="b">
+  <b>Models</b> — <code>image_quality_models</code> (<code>PyIQAModel</code> = 6 pyiqa metrics + AVA + rule-based
+  IQA, via <code>create_model</code>) and <code>geo_cluster</code> helpers (StreetCLIP, GeoCLIP, BLIP, EXIF).
+</div></div>
+
+<h2>2 · Methods (two families)</h2>
+<table>
+<tr><th>Family</th><th>Method</th><th>Backing step</th><th>Column kind</th><th>Sort by / shows</th></tr>
+<tr><td rowspan="9"><span class="pill q">image quality</span></td>
+    <td>Rule-based IQA</td><td><code>score_iqa</code></td><td>numeric</td><td>0–1 overall</td></tr>
+<tr><td>Sharpness</td><td><code>score_iqa</code></td><td>numeric</td><td>0–1</td></tr>
+<tr><td>AVA aesthetic</td><td><code>score_ava</code></td><td>numeric</td><td>1–10 (needs checkpoint)</td></tr>
+<tr><td>MANIQA</td><td rowspan="6"><code>score_quality</code><br>(spec-093)</td><td>numeric</td><td>higher=better</td></tr>
+<tr><td>MUSIQ</td><td>numeric</td><td>higher=better</td></tr>
+<tr><td>HyperIQA</td><td>numeric</td><td>higher=better</td></tr>
+<tr><td>BRISQUE</td><td>numeric</td><td>higher=better (raw is lower=better, shown too)</td></tr>
+<tr><td>NIQE</td><td>numeric</td><td>higher=better (raw is lower=better)</td></tr>
+<tr><td>CLIP-IQA</td><td>numeric</td><td>0–1</td></tr>
+<tr><td rowspan="4"><span class="pill q">geo &amp; caption</span></td>
+    <td>EXIF (GPS+time)</td><td><code>extract_geo_metadata</code></td><td>coord</td><td>lat/lon + time (truth)</td></tr>
+<tr><td>StreetCLIP</td><td><code>infer_geo_clip</code></td><td>label_conf</td><td>city + top-3 confidence</td></tr>
+<tr><td>GeoCLIP</td><td><code>infer_geo_coords</code></td><td>label_conf/coord</td><td>lat/lon + place + prob</td></tr>
+<tr><td>BLIP</td><td><code>caption_images</code></td><td>text</td><td>caption</td></tr>
+</table>
+<p class="muted">Availability is checked per method (<code>is_available()</code>); unavailable ones are greyed in
+Configure Run, never run.</p>
+
+<h2>3 · Data flow</h2>
+<div class="flow">CONFIGURE RUN
+  folder + limit ──► engine.discover_images ──► [paths]
+  paths + selected methods
+        └─► engine.run_methods(paths, selected, cache_handler)
+                • group methods by backing step (maniqa+niqe+brisque → one score_quality run)
+                • each step: read universal_cache ─ hit? use it : compute + write
+                • map each step's context output ──► {path: {method: AnalysisColumn}}
+        └─► RunFolder.save(run_id, folder, methods, columns)  ──►  &lt;folder&gt;/.studio_runs/&lt;run_id&gt;/
+
+BROWSE RUN
+  RunFolder.list(folder) ──► [run manifests]
+  pick run ──► RunFolder.load(run_id) ──► columns
+        ├─ [Quality] ──► ranking table (sortable worst→best, score bars)
+        └─ [Geo]     ──► map (EXIF vs GeoCLIP) + accuracy + caption table
+                         (no recompute; top-level toggle, no mixed "All" view)</div>
+
+<h2>4 · Run storage — sub-folders now, DB later</h2>
+<div class="two">
+<div class="card">
+<h3>RunFolder (build now)</h3>
+<div class="flow">D:/Budapest2025_Google/
+  .studio_runs/
+    2026-07-03_143000_maniqa-niqe/
+      run.json      ← folder, methods,
+                      image list, timestamps,
+                      spec version
+      results.csv   ← image × method
+                      score + rank</div>
+<ul>
+<li>Portable, standalone, zero schema/migration.</li>
+<li>Scores still live in <code>universal_cache</code>; the sub-folder is the run <b>manifest + snapshot</b>.</li>
+<li>Deleting <code>.studio_runs/</code> loses run history, not scores.</li>
+</ul>
+</div>
+<div class="card">
+<h3>DB-backed RunFolder (future — Albumify)</h3>
+<ul>
+<li>Same <code>RunFolder</code> interface: <code>save / list / load</code>.</li>
+<li>Backed by the Albumify universal DB (a <code>runs</code> table) once the studio integrates.</li>
+<li>Swap is one wiring line; no UI or engine change (strangler-fig).</li>
+</ul>
+<p class="muted">Decision: start with folders. Don't couple the standalone studio to the DB prematurely —
+Albumify already owns run history; the studio adopts it at integration time.</p>
+</div>
+</div>
+
+<h2>5 · Two persistence layers (don't conflate)</h2>
+<table>
+<tr><th></th><th>universal_cache</th><th>RunFolder</th></tr>
+<tr><td>Holds</td><td>one score per (image, method)</td><td>a run: which methods, on which images, the result table</td></tr>
+<tr><td>Keyed by</td><td><code>(image_path, quality_&lt;metric&gt;, model)</code></td><td><code>run_id</code></td></tr>
+<tr><td>Purpose</td><td>never recompute a score</td><td>re-open a past run without re-running</td></tr>
+<tr><td>Backend</td><td>SQLite <code>~/.sim_bench/sim_bench.db</code></td><td>sub-folders → (future) DB</td></tr>
+</table>
+
+<h2>6 · Consolidation: spec-095 folds in</h2>
+<div class="card">
+spec-095 (Geo-Vision Studio) was a second, geo-only app on the same engine. It is <b>merged into this
+studio</b> and retired as a standalone. Its unique parts move into the <span class="pill q">geo &amp; caption</span>
+tab of Browse Run:
+<ul>
+<li><b>Map</b> — EXIF (green) vs GeoCLIP#1 (orange) pins (<code>geo_view.map_points</code>).</li>
+<li><b>Accuracy</b> — GeoCLIP top-1 within N km of EXIF GPS (<code>geo_view.geoclip_accuracy</code>, haversine).</li>
+<li><b>Confidence bars</b> — already in the studio's table renderer.</li>
+</ul>
+<code>app/geo_vision/geo_view.py</code> (pure, unit-tested) is kept and imported by the studio; the standalone
+<code>geo_vision/main.py</code> is dropped.
+</div>
+
+<h2>7 · Spec map</h2>
+<table>
+<tr><th>Spec</th><th>Owns</th><th>Status</th></tr>
+<tr><td>093</td><td><code>PyIQAModel</code> + <code>ScoreQualityStep</code> (the 6 quality metrics). Backend, no UI.</td><td><span class="pill g">done</span></td></tr>
+<tr><td>094</td><td><b>This app</b>: engine + Configure/Browse UI + RunFolder. Absorbs 095.</td><td><span class="pill new">this design</span></td></tr>
+<tr><td>095</td><td>Geo view helpers (kept); standalone app retired.</td><td><span class="pill muted">merged → 094</span></td></tr>
+</table>
+
+</div>
+</body>
+</html>

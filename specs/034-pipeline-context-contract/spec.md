@@ -46,12 +46,29 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 | `iqa_scores` | `dict[str, float]` | float[0,1] | `score_iqa` | `filter_quality`, `select_best`, `cluster_by_identity` | NOT YET — spec-033 P-C adds `faces.iqa_score` | from `score_iqa` → end | currently dropped at export (SIGHTING-059) |
 | `ava_scores` | `dict[str, float]` | float[0,1] | `score_ava` | `select_best`, `filter_quality` | NOT YET — spec-033 P-C adds `faces.ava_score` | from `score_ava` → end | currently dropped at export |
 | `sharpness_scores` | `dict[str, float]` | float[0,1] | (legacy MediaPipe path) | `filter_quality` | NOT YET — spec-033 P-C adds `faces.sharpness_score` | computed once, used at filter time | NULL on InsightFace pipeline runs today |
+| `noise_scores` | `dict[str, float]` | float[0,1] higher=cleaner | `score_iqa` (spec-098) | Image Analysis Studio "Noise" column | `universal_cache` (`iqa_scores`, model `rule_based_v2`) | from `score_iqa` → end | wavelet sigma via `noise_sigma_to_score`; cache bumped v2 so stale v1 rows aren't served |
+| `method_scores` | `dict[str, dict[str, float]]` | float (higher=better) | `score_quality` (spec-093) | Image Analysis Studio (spec-094) | `universal_cache` per (image, `quality_<method>`) | from `score_quality` → end | path → {method: score}; in-run hand-off, cache is the store |
+| `geo_metadata` | `dict[str, GeoMetadata]` | lat/lon/time | `extract_geo_metadata` (spec-022) | `geo_temporal_segment`, studio geo view | `universal_cache` (`geo_exif`) | producer → end | absent fields None (graceful) |
+| `geo_segments` | `list` | — | `geo_temporal_segment` | trip detection | not persisted | run-scoped | winning-axis segments (empty if FLAT) |
+| `geo_home` | `Optional[tuple]` | (lat, lon) | `geo_temporal_segment` | trip detection | not persisted | run-scoped | auto-detected home anchor or None |
+| `geo_clip_predictions` | `dict[str, list]` | label+score | `infer_geo_clip` (StreetCLIP) | studio geo view | `universal_cache` (`geo_streetclip`) | producer → end | top-k city guesses |
+| `geo_coord_predictions` | `dict[str, list]` | lat/lon+prob | `infer_geo_coords` (GeoCLIP) | studio geo view | `universal_cache` (`geo_geoclip`) | producer → end | top-k coord guesses |
+| `image_captions` | `dict[str, str]` | text | `caption_images` (BLIP) | studio geo view | `universal_cache` (`blip_caption`) | producer → end | scene caption per image |
+| `scene_tags` | `dict[str, list]` | label+softmax | `classify_scene` (CLIP zero-shot) | studio geo view | `universal_cache` (`scene_tag`) | producer → end | full ranked category list; confidence relative |
+| `occlusion_scores` | `dict[str, float]` | P(occluded) 0–1 | `score_occlusion` (spec-096 CLIP probe) | `select_best` penalty; studio | `universal_cache` (`occlusion`) | producer → end | spec-097 Stage 1 |
+| `occlusion_tiles` | `dict[str, list]` | 9 tile scores 0–1 | `score_occlusion` | UI detail / Stage-2 severity | `universal_cache` (`occlusion`, same blob) | producer → end | 3×3 row-major localization |
+| `occlusion_penalties` | `dict[str, float]` | ≤0 | `select_best` | Results breakdown | run blob | producer → end | third composite half (spec-084 pattern) |
+| `tilt_angles` | `dict[str, float]` | signed roll deg | `score_tilt` (spec-100 GeoCalib) | `select_best` penalty; studio | `universal_cache` (`tilt`) | producer → end | + = content clockwise |
+| `tilt_confidences` | `dict[str, float]` | [0,1] | `score_tilt` | `select_best` penalty; studio detail | `universal_cache` (`tilt`, same blob) | producer → end | from GeoCalib roll uncertainty; low = abstain |
+| `tilt_penalties` | `dict[str, float]` | ≤0 | `select_best` | Results breakdown | run blob | producer → end | fourth composite component (spec-099) |
+| `straightened_from` | `dict[str, str]` | derived→original path | `straighten_images` (spec-101, terminal) | provenance / export trace-back | run blob | producer → end | present only for straightened winners in `selected_images` |
 
 ### 3.3 Face-specific (MediaPipe legacy path)
 
 | Field | Type | Unit | Producer | Consumer(s) | Persisted | Lifecycle | Notes |
 |---|---|---|---|---|---|---|---|
-| `faces` | `dict[str, list]` | n/a | `detect_faces` (MediaPipe) | `score_face_*`, `cluster_by_identity` | indirectly via `insightface_faces` on the active pipeline | full run | LEGACY — InsightFace pipeline uses `insightface_faces` |
+| `face_records` | `list[FaceRecord]` | n/a (typed object) | spec-040 producer steps (insightface_detect_faces, align_faces, score_*, extract_face_embeddings, filter_faces) | spec-040 clustering chain (quality_gate_faces → assign_people_clusters); RunExporter at write time | yes (`faces` + `face_scores` tables) | full run from detect → end | spec-040 Phase 3 canonical face state; replaces the dict-based `faces` / `insightface_faces` / `face_embeddings` fields below as those are phased out |
+| `faces` | `dict[str, list]` | n/a | `detect_faces` (MediaPipe) | `score_face_*`, `cluster_by_identity` | indirectly via `insightface_faces` on the active pipeline | full run | LEGACY — InsightFace pipeline uses `insightface_faces`; spec-040 Phase 7 deletes |
 | `face_pose_scores` | `dict[str, list[float]]` | float[0,1] | `score_face_pose` | `select_best` | ephemeral (legacy) | scoring → end | legacy path only |
 | `face_eyes_scores` | `dict[str, list[float]]` | float[0,1] | `score_face_eyes` | `select_best` | ephemeral (legacy) | scoring → end | legacy path only |
 | `face_smile_scores` | `dict[str, list[float]]` | float[0,1] | `score_face_smile` | `select_best` | ephemeral (legacy) | scoring → end | legacy path only |
@@ -87,6 +104,8 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 |---|---|---|---|---|---|---|---|
 | `scene_clusters` | `dict[int, list[str]]` | id → paths | `cluster_scenes` | `cluster_by_identity`, `select_best` | NOT YET — spec-033 P-C adds `faces.scene_cluster_id` | cluster → end | image-level scene assignment |
 | `scene_cluster_labels` | `dict[str, int]` | path → id | `cluster_scenes` | `cluster_by_identity`, `select_best` | NOT YET — spec-033 P-C adds `faces.scene_cluster_id` | cluster → end | inverse view of `scene_clusters` |
+| `scene_distance` | `Optional[Any]` | NxN + `image_ids` (SceneDistanceResult) | `build_scene_distance` (spec-103, opt-in) | `cluster_scenes` | no (in-run only) | build → cluster | precomputed fused scene distance; None by default (step gated off) → cluster_scenes byte-identical |
+| `scene_distance_signal` | `dict` | image_id → priors used (`['visual','time']`) | `build_scene_distance` (spec-103, opt-in) | reporting | no (in-run only) | build → report | which priors applied per photo (geo-stratified reporting) |
 | `face_clusters` | `dict[int, dict[int, list[str]]]` | scene_id → cluster_id → paths | `cluster_by_identity` | `select_best` | yes (`cluster_assignments` table) | cluster → end | per-scene identity subclusters |
 
 ### 3.8 Global face clustering (People feature)
@@ -116,6 +135,8 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 | `fc_export_dir` | `Optional[str]` | path | `cluster_people` (if `export_for_analysis=True`) | `face_cluster_export` | yes (filesystem path) | cluster → end | FC App artifact dir |
 | `user_overrides` | `list` | n/a | pipeline runner (DB pre-load) | `identity_refinement` | yes (`user_overrides` table) | full run | user corrections from prior runs |
 | `composite_scores` | `dict[str, float]` | float[0,1] | `select_best` | API | NOT YET — spec-033 P-C adds `faces.composite_score` (image-level via face row) | select → end | final score |
+| `quality_scores` | `dict[str, float]` | float[0,1] | `select_best` | API (Results table) | yes (`image_metrics.quality_score`) | select → end | spec-084: quality half of composite (`composite = quality + penalty`) |
+| `person_penalties` | `dict[str, float]` | float (≤0) | `select_best` | API (Results table) | yes (`image_metrics.person_penalty`) | select → end | spec-084: penalty half of composite |
 | `siamese_comparisons` | `list[dict]` | n/a | `select_best` (siamese refinement) | API (debug) | ephemeral | select → end | debug log |
 | `selected_images` | `list[str]` | path | `select_best` | API | yes (`run_metadata.selected_images` JSON) | select → end | final selection |
 

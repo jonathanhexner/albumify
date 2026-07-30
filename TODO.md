@@ -8,6 +8,89 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-104 staged process isolation — SIGHTING-117 durable fix (2026-07-30)
+
+- [x] Phase 0: add missing `extract_face_embeddings.release()` (~360 MB reclaimed, verified by probe); re-diagnose SIGHTING-117 (real cause = stacked torch model memory, not detections/crops). | 2026-07-30 | Claude
+- [ ] Phase 1: executor subprocess-stage primitive (marshal imports/exports, progress relay, error + crash handling), default OFF. Awaiting user calls on 3 open Qs (stage granularity / import-export declaration / auto-enable threshold). | 2026-07-30 | Claude
+- [ ] Phases 2-4: declare image/face/scene stages, equivalence + memory gates, wire Albumify/API, docs+REVIEW. See `specs/104-staged-process-isolation/tasks.md`. | 2026-07-30 | Claude
+
+## spec-102 Albumify vs VLM experiment (2026-07-17)
+
+- [ ] spec-102 DRAFT written (spec.md + tasks.md + EXPERT_REVIEW.md). Awaiting user approval to start T1 (harness). Open Qs: rater pool size (>=5 / >=3 / solo N=1), Claude-only vs +GPT. | 2026-07-17 | Claude
+
+## spec-098 noise-aware quality (2026-07-11)
+
+- [x] Implement spec-098: noise-robust sharpness + wavelet noise metric (Phases 0-2, validation reruns, headless Budapest A4, REVIEW.md; Implemented 2026-07-12). | 2026-07-11 | Claude
+- [ ] Fix `tests/quality_assessment/test_learned_clip.py` + `test_learned_prompts_only.py` — import archived `clip_aesthetic`, abort package collection (SIGHTING-113 item 6). | 2026-07-12 | Claude
+- [ ] Sweep for hard-coded blur thresholds outside profiles_v2 (notebooks, old configs) needing the spec-098 ×0.49 rescale (150→73.3 mapping). | 2026-07-12 | Claude
+
+## spec-099 tilt detection (2026-07-12)
+
+- [x] spec-099 Phase 0: classical tilt estimator + benchmark → NEGATIVE result (camera-tilt vs world-tilt unresolvable from pixels); penalty NOT shipped; spec On Hold. | 2026-07-12 | Claude
+- [x] spec-100: learned tilt (GeoCalib) benchmark + Budapest report → SHIP as gated tie-breaker (option a). | 2026-07-13 | Claude
+- [>] spec-099 Phases 1-2: wire GeoCalib tilt penalty into pipeline (score_tilt step, tilt_penalty in select_best, Studio column, docs, tests, REVIEW.md ACCEPT). Awaiting user calls on default-pipeline perf + e2e_budapest waiver before flip to Implemented. | 2026-07-13 | Claude
+- [ ] (spec-099 review follow-up) extract shared `_lookup` path-tolerance helper across person/occlusion/tilt penalty computers. | 2026-07-13 | Claude
+- [ ] (spec-099 review follow-up) architecture test pinning the `numpy<2` + geocalib `--no-deps` install invariant. | 2026-07-13 | Claude
+
+## spec-101 auto-straighten (2026-07-17)
+
+- [x] spec-101 IMPLEMENTED: auto-straighten (option A — terminal straighten + fixability-scaled tilt_penalty). 44 tests + real-data E2E, REVIEW ACCEPT, before/after report + outcome artifact. | 2026-07-17 | Claude
+- [x] spec-101 §5 BLOCKER CLEARED: option A (terminal + fixability penalty). E2E proved early design broke ordering; reverted. Committed real-data E2E green; no dependency drag. | 2026-07-17 | Claude
+- [ ] spec-101 review follow-up: `decide()` param grouping (>4 params). | 2026-07-17 | Claude
+- [ ] spec-101 review follow-up: provenance wiring — DB/export/UI must map derived→original via `straightened_from` before user-visible. | 2026-07-17 | Claude
+- [ ] spec-101 T4: before/after report + retained-area stats on real tilts (spec A7). | 2026-07-17 | Claude
+- [ ] Exposure-score fix (defect-scoring finding #3: compressed [0.89,0.99], loses to mid-gray baseline) — needs own spec if approved. | 2026-07-11 | Claude
+- [ ] Rotation detection via CLIP zero-shot on EXIF-less images (defect finding #4) — needs own spec if wanted. | 2026-07-11 | Claude
+
+## spec-088 follow-ups (from specs/088-fc-export-in-unified-chain/REVIEW.md, 2026-06-25, non-blocking)
+
+- [ ] Integration test: run a small pipeline with "Export for analysis" on, assert an export dir is written and loads via `face_cluster.loader.load_pipeline_result` (covers AC1/AC3, which unit tests can't). | 2026-06-25 | Claude
+- [ ] Update `docs/architecture/data_flow.html` for the new `face_cluster_analysis_export` step. | 2026-06-25 | Claude
+
+## spec-087 follow-ups (from specs/087-profile-save-full-config/REVIEW.md, 2026-06-25, non-blocking)
+
+- [ ] Streamlit `AppTest` for the profile bar save/load/rerun wiring (unit tests cover the pure helpers; the button-handler + widget-reinit path is not automatically tested). | 2026-06-25 | Claude
+- [ ] (Optional) extract the profile bar out of `pipeline_runner.py` (~500 LOC, >300 budget); optionally type the profile payload (Pydantic) if it becomes a hardened contract. | 2026-06-25 | Claude
+
+## spec-069/070 + SIGHTING-093 follow-ups (from specs/070-face-debug-overlays/REVIEW.md, 2026-06-05)
+
+- [x] **F1 (BLOCKER)** spec-068 fallout: 4 tabs exceeded the ≤80 LOC arch budget. RESOLVED 2026-06-05 — raised budget to 90 (documented "+telemetry" rationale) in the 4 `test_*_tab.py`; `tests/architecture` 139 passed. | 2026-06-05 | Claude
+- [ ] F2/F3: extract `face_metrics_tab.py` (139 LOC) thumbnail+pagination into a `components/face_table.py` helper (<80 LOC) and add `tests/architecture/test_face_metrics_tab.py` (LOC + no-cfg.get + docstring + no-direct-DB, like siblings). | 2026-06-05 | Claude
+- [ ] F4: update `docs/architecture/classes.html` (FaceMetricsService, FaceMetricRow, InsightFaceDetection.pose, overlays helpers) + `data_flow.html` (detection captures pose; Face Metrics read path). | 2026-06-05 | Claude
+- [ ] F5: LEARNINGS.md entry — "a capability can be fully coded yet unreachable because FCParams doesn't expose its toggle and a wrapper silently drops the field" (the pose case). | 2026-06-05 | Claude
+
+## spec-058 follow-ups (from REVIEW.md, low severity)
+
+- [x] spec-058 F-1: add `test_foreign_keys_match_per_table` to `tests/face_clustering/db/test_orm_matches_schema.py` using `PRAGMA foreign_key_list` so FK drift is caught by the drift-guard. 2026-05-30.
+- [x] spec-058 F-2: add "ORM models (per-run DB)" subsection to `docs/architecture/classes.html` listing the 10 new model classes + note that the per-run `Base` is separate from `face_cluster/repositories/_orm_base.py`. 2026-05-30.
+
+## spec-059 follow-ups (from REVIEW.md, low severity)
+
+- [x] spec-059 F-1: add `test_engine_disposed_on_repository_gc` to `tests/run_db/test_session.py` — assert the cached engine releases its connection when the owning RunStore / Repository is garbage collected. 2026-05-30 (shipped as `test_engine_dispose_releases_file_handle`).
+- [x] spec-059 F-2: update `docs/architecture/classes.html` — RunStore + ClusterAnalysisRepository rows mention SQLAlchemy backing; add `sim_bench/run_db/_session.py` factory entry. 2026-05-30.
+- [x] spec-059 F-3: update `docs/architecture/data_flow.html` — read-path nodes show ORM models instead of raw SQL. 2026-05-30.
+
+---
+
+## spec-044 follow-ups (from REVIEW.md, 2026-05-25)
+- [x] F-1 docs/architecture/classes.html: add RunHistoryRepository section (spec-043 oversight) + ColumnDef row (spec-044 addition). Cross-link to architecture_standards.md §B0 / §B0.1. | 2026-05-25 | Claude
+- [x] F-2 docs/architecture/db_global.html action_log section: replace "module-level functions (no class wrapper)" with RunHistoryRepository (lines ~283, 285); add producer column row to the column table (~line 297). | 2026-05-25 | Claude
+- [~] F-3 OBSOLETE — superseded by spec-046. The entire ColumnDef / _COLUMNS pattern is being retired (replaced by SQLAlchemy ORM models + Alembic). | 2026-05-28 | spec-046
+
+---
+
+## spec-046 — SQLAlchemy + Alembic data layer  ✅ IMPLEMENTED 2026-05-28
+Full plan: `specs/046-sqlalchemy-data-layer/tasks.md` — see REVIEW.md and CODE_AUDIT.html.
+
+## spec-048 — Data layer cleanup (spec-046 follow-ups)  ✅ IMPLEMENTED 2026-05-28
+Full plan: `specs/048-data-layer-cleanup/tasks.md` — see REVIEW.md.
+Resolved spec-046 SMELL-1/2/3/4/5/8 and added centralized `face_cluster/_paths.py`. 6 new permanent drift-guard tests.
+
+- [ ] F-2 follow-up (P3, ~15 min): Annotate `docs/architecture/classes.html` + `db_global.html` for the spec-046 ORM-based design (carry-over from spec-046 F-1). | 2026-05-28 | unassigned
+
+## spec-047 (planned, depends on spec-046) — Full-system E2E gate
+- [ ] Spec to be drafted. One Playwright test that runs the real pipeline against `D:\sim-bench\test_data\face_clustering`, verifies DB writes via Repository, verifies UI render. Universal ship gate for future architectural specs. | 2026-05-28 | unassigned
+
 ---
 
 ## ML Merge Interface (spec 010)
@@ -277,6 +360,10 @@ Review: `specs/033-data-integrity/REVIEW.md` | Roadmap: `specs/033-data-integrit
 - [ ] FR-033-6: STEP_CONFIG_MODELS registry guard → `specs/039-step-config-registry-guard/`
 - [ ] FR-033-7: Fix bridge pose-lookup operator precedence → SIGHTING-063
 - [ ] FR-033-8: Delete or relocate `notebook_diagnostic.py` (this entry) | Claude
+- [ ] spec-086-1: Lift `ImageRepository` import in `people_service.get_person_images` to module scope | Claude
+- [ ] spec-086-2: Surface `_write_metric_tables` failures (counter/sighting) instead of warn-only | Claude
+- [ ] spec-086-3: Add `ImageRepository` + `PersonImageResponse` to `classes.html`; read-side note in `data_flow.html` | Claude
+- [ ] spec-086-4: (w/ spec-085 C-full) `extra="forbid"` on the `ImageMetrics` model family | Claude
 
 ---
 

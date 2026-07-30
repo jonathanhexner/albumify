@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>spec-046 — Code Audit</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 1200px; margin: 2em auto; padding: 0 1em; color: #222; line-height: 1.5; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: 0.3em; }
+  h2 { margin-top: 2em; color: #1a4d8c; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+  h3 { margin-top: 1.5em; color: #444; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.95em; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; vertical-align: top; text-align: left; }
+  th { background: #eef; }
+  td.score-A { background: #d8f0d8; font-weight: bold; color: #114; }
+  td.score-B { background: #fff5d0; font-weight: bold; color: #663; }
+  td.score-C { background: #ffd8c8; font-weight: bold; color: #722; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  code, pre { font-family: "Consolas", "Menlo", monospace; background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
+  pre { padding: 0.7em 1em; overflow-x: auto; }
+  .smell { background: #fff5f5; border-left: 3px solid #c33; padding: 0.4em 0.8em; margin: 0.5em 0; }
+  .nit   { background: #fffbe6; border-left: 3px solid #c93; padding: 0.4em 0.8em; margin: 0.5em 0; }
+  .good  { background: #f0fff0; border-left: 3px solid #393; padding: 0.4em 0.8em; margin: 0.5em 0; }
+  .tag   { display: inline-block; font-size: 0.75em; padding: 1px 6px; border-radius: 8px; margin-right: 4px; }
+  .tag-smell  { background: #c33; color: white; }
+  .tag-nit    { background: #c93; color: white; }
+  .tag-dup    { background: #663cb3; color: white; }
+  .tag-block  { background: #555; color: white; }
+  .summary-card { background: #fafafa; border: 1px solid #ddd; padding: 1em 1.5em; border-radius: 6px; margin-bottom: 1em; }
+</style>
+</head>
+<body>
+
+<h1>spec-046 SQLAlchemy + Alembic Data Layer — Code Audit</h1>
+
+<div class="summary-card">
+  <strong>Audit date:</strong> 2026-05-28 &nbsp;|&nbsp;
+  <strong>Modules audited:</strong> 15 &nbsp;|&nbsp;
+  <strong>Total LOC:</strong> 1,333 &nbsp;|&nbsp;
+  <strong>Tests added:</strong> 13 (4 deleted) &nbsp;|&nbsp;
+  <strong>Overall:</strong> <span style="background:#d8f0d8; padding:2px 8px; border-radius:4px;"><b>B+</b></span> — ships, but 4 issues worth fixing in a follow-up.
+</div>
+
+<h2>1. Module inventory</h2>
+
+<table>
+<thead>
+<tr><th>Module</th><th class="num">LOC</th><th class="num">Classes</th><th class="num">Public Methods</th><th>Responsibility</th><th>Score</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>face_cluster/repositories/_orm_base.py</code></td>
+  <td class="num">27</td><td class="num">1</td><td class="num">0</td>
+  <td>SQLAlchemy <code>Base(DeclarativeBase)</code> + naming convention so Alembic autogenerate is deterministic.</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>face_cluster/repositories/_engine.py</code></td>
+  <td class="num">30</td><td class="num">0</td><td class="num">1</td>
+  <td>SQLite engine factory with WAL / foreign_keys / busy_timeout pragmas.</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>face_cluster/repositories/_session.py</code></td>
+  <td class="num">36</td><td class="num">0</td><td class="num">2</td>
+  <td><code>make_sessionmaker(engine)</code> + <code>session_scope(sm)</code> context manager (commit/rollback/close).</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>face_cluster/repositories/_base_repository.py</code></td>
+  <td class="num">43</td><td class="num">1</td><td class="num">2 (static)</td>
+  <td>Shared error-translation helpers. Subclasses inherit; no Repository methods.</td>
+  <td class="score-B">B</td>
+</tr>
+<tr>
+  <td><code>face_cluster/repositories/models/action_log.py</code></td>
+  <td class="num">62</td><td class="num">1</td><td class="num">0</td>
+  <td>ORM model — 24 columns matching production schema. Single source of truth for action_log.</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>face_cluster/repositories/run_history_repo.py</code></td>
+  <td class="num">394</td><td class="num">3</td><td class="num">9 public + 9 private</td>
+  <td>The Repository. <code>find / find_one / count / get_by_id / distinct_albums / start_action / complete_action / fail_action / update_comment</code>. Engine + sessionmaker caching, schema bootstrap, criteria→<code>select()</code> translation.</td>
+  <td class="score-B">B</td>
+</tr>
+<tr>
+  <td><code>face_cluster/repositories/__init__.py</code></td>
+  <td class="num">29</td><td class="num">0</td><td class="num">0</td>
+  <td>Public surface. Re-exports <code>RunHistoryRepository</code>, <code>RunHistoryCriteria</code>, <code>RunHistoryRepoConfig</code>, error types.</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>alembic.ini</code> + <code>alembic/env.py</code></td>
+  <td class="num">75</td><td class="num">0</td><td class="num">3</td>
+  <td>Migration environment. Reads DB URL from <code>SIM_BENCH_DB_URL</code> env var; targets <code>Base.metadata</code>.</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>alembic/versions/20260528_..._baseline_action_log.py</code></td>
+  <td class="num">70</td><td class="num">0</td><td class="num">2</td>
+  <td>Autogenerated baseline migration. 24 columns + 4 indexes, matching legacy schema verbatim.</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>tests/face_clustering/repositories/conftest.py</code></td>
+  <td class="num">77</td><td class="num">0</td><td class="num">5 fixtures</td>
+  <td>Shared fixtures: <code>fresh_db_engine</code>, <code>transactional_session</code>, <code>golden_run_history_db_path</code>, <code>golden_run_history_db_copy</code>.</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>tests/face_clustering/repositories/test_session_infra.py</code></td>
+  <td class="num">52</td><td class="num">0</td><td class="num">3 tests</td>
+  <td>Engine pragmas + session_scope commit/rollback smoke tests.</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>tests/face_clustering/repositories/test_alembic_baseline.py</code></td>
+  <td class="num">123</td><td class="num">0</td><td class="num">2 tests + 4 helpers</td>
+  <td>Head DDL ≡ legacy DDL; stamp-on-populated is idempotent. Helpers normalise SQLite type affinities.</td>
+  <td class="score-B">B</td>
+</tr>
+<tr>
+  <td><code>tests/face_clustering/repositories/test_golden_fixture.py</code></td>
+  <td class="num">47</td><td class="num">0</td><td class="num">1 test</td>
+  <td>Asserts fixture shape (row count, status diversity, edge cases present).</td>
+  <td class="score-A">A</td>
+</tr>
+<tr>
+  <td><code>tests/face_clustering/fixtures/rebuild_golden.py</code></td>
+  <td class="num">224</td><td class="num">0</td><td class="num">2 + main</td>
+  <td>Builds <code>golden_run_history.db</code> by calling legacy free functions in a hand-tuned sequence.</td>
+  <td class="score-C">C</td>
+</tr>
+<tr>
+  <td><code>tests/architecture/test_orm_models_in_sync_with_alembic.py</code></td>
+  <td class="num">44</td><td class="num">0</td><td class="num">1 test</td>
+  <td>Runs <code>alembic check</code> as a drift guard. Replaces the four deleted <code>_COLUMNS</code> drift tests.</td>
+  <td class="score-B">B</td>
+</tr>
+</tbody>
+</table>
+
+<h2>2. Test coverage</h2>
+
+<table>
+<thead>
+<tr><th>Layer</th><th>Coverage</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td>Engine + session infra</td><td>✓ 3 tests</td><td>Pragmas verified; commit + rollback paths verified.</td></tr>
+<tr><td>Alembic baseline migration</td><td>✓ 2 tests</td><td>Empty-DB DDL ≡ legacy DDL; stamp-on-populated idempotent.</td></tr>
+<tr><td>Golden fixture shape</td><td>✓ 1 test</td><td>Diversity assertions across status, action_type, unicode, NULL hot fields.</td></tr>
+<tr><td>Repository equivalence vs legacy</td><td>✓ 24/24 (Phase 5, since deleted)</td><td>Was the swap proof. Now lives as Phase 5 record in spec.</td></tr>
+<tr><td>Repository synthetic correctness</td><td>✓ 33 tests (pre-existing, all pass)</td><td>All public methods, criteria axes, validation guards.</td></tr>
+<tr><td>Repository real-data</td><td>✓ 3 tests (pre-existing, all pass)</td><td>Against checked-in real run dir.</td></tr>
+<tr><td>HistoryService integration</td><td>✓ 35 tests (pre-existing, all pass)</td><td>Service layer driving the v2 History tab.</td></tr>
+<tr><td>ORM↔Alembic drift</td><td>✓ 1 test</td><td>The permanent guard. Single test replaces 4.</td></tr>
+<tr><td>Browser-level UI</td><td>⚠ assumed-pass</td><td>No new Playwright test added; deferred to spec-047 (full-system E2E).</td></tr>
+<tr><td>Cross-process WAL behaviour</td><td>— not tested</td><td>Standard SQLite + WAL; pre-existing behaviour preserved.</td></tr>
+</tbody>
+</table>
+
+<h2>3. Findings</h2>
+
+<h3>3.1 Code smells</h3>
+
+<div class="smell">
+  <span class="tag tag-smell">SMELL-1</span>
+  <strong style="color:#0a7d2c">[RESOLVED in spec-048 Phase 1]</strong>
+  <strong>Subprocess shell-out to <code>alembic.exe</code> from production code.</strong>
+  <code>run_history_repo.py::_ensure_schema</code> calls <code>subprocess.run([.venv/Scripts/alembic.exe, "upgrade", "head"])</code> when a fresh DB needs the schema. This is slow (~250 ms per fresh DB), Windows-only (hardcoded <code>.exe</code>), and brittle (any change to the venv layout breaks it).
+  <br><br>
+  <strong>Fix:</strong> use <code>alembic.command.upgrade(cfg, "head")</code> from the Python API. Removes the subprocess, removes the venv-path coupling, ~3 ms per call. → <em>Replaced by <code>face_cluster/repositories/_schema.py::ensure_schema</code>. Drift guard: <code>tests/architecture/test_no_subprocess_alembic_in_repos.py</code>.</em>
+</div>
+
+<div class="smell">
+  <span class="tag tag-smell">SMELL-2</span>
+  <span class="tag tag-dup">duplication</span>
+  <strong style="color:#0a7d2c">[RESOLVED in spec-048 Phase 1]</strong>
+  <strong>Hardcoded <code>.venv/Scripts/alembic.exe</code> appears in 3 places.</strong>
+  <code>run_history_repo.py::_ensure_schema</code>, <code>tests/face_clustering/repositories/test_alembic_baseline.py</code>, <code>tests/architecture/test_orm_models_in_sync_with_alembic.py</code>, plus <code>tests/face_clustering/repositories/conftest.py</code>. All construct the same path the same way. Fix SMELL-1 and the test usages become a single helper or the Alembic Python API directly. → <em>All 4 sites ported to <code>alembic.command</code> Python API. Grep guard in <code>tests/architecture/test_no_subprocess_alembic_in_repos.py</code>.</em>
+</div>
+
+<div class="smell">
+  <span class="tag tag-smell">SMELL-3</span>
+  <span class="tag tag-dup">duplication</span>
+  <strong style="color:#0a7d2c">[RESOLVED in spec-048 Phase 4]</strong>
+  <strong><code>_to_run_row</code> is a 24-line manual column-to-attribute mapping.</strong>
+  Every column on <code>ActionLog</code> appears again in <code>_to_run_row</code>. Adding a column requires editing the ORM model AND <code>_to_run_row</code> AND <code>RunRow</code> (three places), defeating the "2-file edit" claim in §B0.2. The deleted spec-044 drift guard <code>test_runrow_fields_match_columns_registry</code> was preventing exactly this drift.
+  <br><br>
+  <strong>Fix:</strong> add a small architecture test that asserts <code>RunRow</code> fields ⊇ <code>ActionLog</code> column names. Or, better, generate <code>RunRow</code> from <code>ActionLog</code> via a small helper. → <em>Replaced by <code>RunRow.from_orm(model)</code> classmethod (column-driven, 5 LOC). Drift guard: <code>tests/architecture/test_runrow_matches_action_log.py</code>. Byte-equivalence verified across 24 golden rows.</em>
+</div>
+
+<div class="nit">
+  <span class="tag tag-nit">SMELL-4</span>
+  <strong style="color:#0a7d2c">[RESOLVED in spec-048 Phase 3]</strong>
+  <strong>Hardcoded hot-fields tuple in <code>run_history_repo.py</code>.</strong>
+  <code>_HOT_FIELDS = ("run_id", "source_dir", ... 16 names)</code>. This is leaked from the legacy spec-044 design (columns writable through payload). It duplicates field names that the ORM model already knows. Today there's no drift guard.
+  <br><br>
+  <strong>Fix:</strong> either move the "is hot" attribute onto the ORM model via <code>Column.info={"hot": True}</code> and derive the tuple, or add a small test that asserts every name in <code>_HOT_FIELDS</code> exists on <code>ActionLog</code>. → <em>Each hot column carries <code>info={"updated_on_complete": True}</code> on its <code>mapped_column</code>; <code>ActionLog.hot_field_names()</code> reads it back. Equivalence verified in <code>tests/face_clustering/repositories/test_hot_fields.py</code>.</em>
+</div>
+
+<div class="nit">
+  <span class="tag tag-nit">SMELL-5</span>
+  <strong style="color:#0a7d2c">[RESOLVED in spec-048 Phase 2]</strong>
+  <em>(Engine cache removed; engine + sessionmaker now created per-instance in <code>__init__</code>. Drift guard: <code>tests/architecture/test_no_module_level_caches_in_repos.py</code>. Construction perf bound: <code>test_repo_construction_perf.py</code>.)</em><br><br>
+  <strong>Module-level mutable <code>_engine_cache</code> dict.</strong>
+  Process-wide cache of engines keyed by db_path. Works, but SQLAlchemy already has a connection pool per engine; the extra layer mostly avoids the cost of re-running <code>_ensure_schema</code>. Once SMELL-1 is fixed (cheap schema check), the cache is dispensable.
+</div>
+
+<div class="nit">
+  <span class="tag tag-nit">SMELL-6</span>
+  <strong><code>_check_writable</code> repeated at the top of 4 mutation methods.</strong>
+  <code>start_action</code>, <code>complete_action</code>, <code>fail_action</code>, <code>update_comment</code> each begin with <code>self._check_writable()</code>. Could be a single decorator <code>@_mutates</code> for clarity. Low priority — 4 lines.
+</div>
+
+<div class="nit">
+  <span class="tag tag-nit">SMELL-7</span>
+  <strong><code>BaseRepository</code> static methods are unused by <code>RunHistoryRepository</code>.</strong>
+  <code>_translate_not_found</code> / <code>_translate_integrity</code> are written for subclasses to inherit, but <code>RunHistoryRepository</code> raises <code>NotFoundError</code> directly without going through them. Dead code until the next Repository (spec-045) actually uses the helpers.
+</div>
+
+<div class="smell">
+  <span class="tag tag-smell">SMELL-8</span>
+  <strong style="color:#0a7d2c">[RESOLVED in spec-048 Phase 5]</strong>
+  <em>(<code>rebuild_golden.py</code> rewritten to use <code>RunHistoryRepository</code>. AST-based drift guard: <code>tests/architecture/test_rebuild_golden_not_locked_to_legacy.py</code>. Survives 2026-06-08 legacy-shim deletion.)</em><br><br>
+  <strong><code>rebuild_golden.py</code> is locked to legacy modules slated for deletion (2026-06-08).</strong>
+  The script imports <code>face_cluster.run_history_db</code> free functions to seed the fixture. Once those modules are deleted in the burn-in window, the script breaks and the fixture can't be regenerated.
+  <br><br>
+  <strong>Fix:</strong> migrate the rebuild script to use the new <code>RunHistoryRepository</code> before 2026-06-08. The fixture itself is committed and stable; only regeneration breaks.
+</div>
+
+<h3>3.2 Missing contracts</h3>
+
+<div class="smell">
+  <span class="tag tag-smell">CONTRACT-1</span>
+  <strong>No drift guard between <code>ActionLog</code> ORM model and <code>RunRow</code> dataclass.</strong>
+  The deleted spec-044 test (<code>test_runrow_fields_match_columns_registry</code>) covered this. We deleted it because <code>_COLUMNS</code> is gone — but <code>RunRow</code> still exists and still needs to mirror the ORM model. Currently no test catches "added a column to <code>ActionLog</code>, forgot to add it to <code>RunRow</code> + <code>_to_run_row</code>".
+  <br><br>
+  <strong>Risk:</strong> medium. Manifests as <code>AttributeError</code> at runtime when a method reads the new field via <code>RunRow</code>.
+</div>
+
+<div class="nit">
+  <span class="tag tag-nit">CONTRACT-2</span>
+  <strong><code>RunHistoryRepoConfig</code> kept for backwards compat but no longer extensible without breaking changes.</strong>
+  Two fields: <code>db_path</code>, <code>read_only</code>. The legacy <code>auto_migrate</code> / <code>log_queries</code> / <code>connection_timeout_s</code> fields are gone (no equivalent in the new design). Tests passing these would silently fail with <code>TypeError</code>.
+  <br><br>
+  <strong>Fix:</strong> if any test or caller passed those fields, this would already have surfaced — confirm via grep. Otherwise: add a deprecation note in the Config docstring referencing spec-046.
+</div>
+
+<div class="nit">
+  <span class="tag tag-nit">CONTRACT-3</span>
+  <strong>No <code>__repr__</code> on <code>ActionLog</code>.</strong>
+  Debug output shows <code>&lt;ActionLog 0x...&gt;</code>. A two-line <code>__repr__</code> returning <code>id</code>, <code>action_type</code>, <code>status</code> would make logs and assertion failures readable.
+</div>
+
+<div class="nit">
+  <span class="tag tag-nit">CONTRACT-4</span>
+  <strong>No type annotation on <code>_engine_cache</code> module-level value usage.</strong>
+  Declared as <code>dict[Path, tuple[Engine, sessionmaker[Session]]]</code> but the function returning from it lacks explicit assertion that the cached tuple is well-formed. Low-priority — runtime type errors would surface immediately on the first read.
+</div>
+
+<h3>3.3 Hardcoded column lists (status)</h3>
+
+<table>
+<thead><tr><th>Location</th><th>What</th><th>Drift risk</th><th>Guard</th></tr></thead>
+<tbody>
+<tr>
+  <td><code>action_log.py</code></td>
+  <td>24 column definitions (ORM)</td>
+  <td>Source of truth</td>
+  <td>n/a</td>
+</tr>
+<tr>
+  <td><code>alembic/versions/20260528_...py</code></td>
+  <td>24 columns + 4 indexes</td>
+  <td>Out of sync with model = autogen drift</td>
+  <td>✓ <code>alembic check</code> arch test</td>
+</tr>
+<tr>
+  <td><code>run_history.py::RunRow</code></td>
+  <td>24 dataclass fields</td>
+  <td>Forget to add → AttributeError at runtime</td>
+  <td>✗ <strong>no guard</strong> (CONTRACT-1)</td>
+</tr>
+<tr>
+  <td><code>run_history_repo.py::_to_run_row</code></td>
+  <td>24-line mapping</td>
+  <td>Forget to add → field is always None</td>
+  <td>✗ <strong>no guard</strong> (SMELL-3)</td>
+</tr>
+<tr>
+  <td><code>run_history_repo.py::_HOT_FIELDS</code></td>
+  <td>16 names — "writable via payload"</td>
+  <td>Forget to add → payload key silently ignored</td>
+  <td>✗ no guard (SMELL-4)</td>
+</tr>
+<tr>
+  <td><code>run_history_repo.py::_TEXT_FIELD_ALLOWLIST</code></td>
+  <td>5 names — searchable text columns</td>
+  <td>Rename column → allowlist drifts; <code>find(text=...)</code> raises ValidationError</td>
+  <td>✗ no guard</td>
+</tr>
+</tbody>
+</table>
+
+<p>
+  <strong>Net:</strong> we eliminated the <code>_COLUMNS</code> registry and the four hand-maintained derived constants, but introduced three new manual lists (<code>RunRow</code>, <code>_to_run_row</code>, <code>_HOT_FIELDS</code>) without drift guards. Net column-list count went from <strong>9 unguarded</strong> (legacy) → <strong>3 unguarded + 1 guarded</strong> (now). Progress, but not the "single source of truth" the spec advertised.
+</p>
+
+<h3>3.4 Things done well</h3>
+
+<div class="good">
+  <strong>Equivalence test as the swap-safety mechanism.</strong> 24/24 parametrised cases (reads + mutations) against real data proved byte-identical output before the swap. This is the right pattern for any data-layer migration.
+</div>
+
+<div class="good">
+  <strong>Naming convention on <code>Base.metadata</code>.</strong> Deterministic constraint names mean <code>alembic --autogenerate</code> output is stable across machines. Easy to miss; we got it right.
+</div>
+
+<div class="good">
+  <strong><code>alembic check</code> as the permanent drift guard.</strong> Single test replaces four hand-rolled ones; the framework guarantees the invariant by construction.
+</div>
+
+<div class="good">
+  <strong>Real-data fixture committed to git.</strong> 24 rows, ~50 KB, deterministic, regenerable. Beats synthetic fixtures for equivalence testing.
+</div>
+
+<div class="good">
+  <strong>Shared fixtures live under <code>tests/face_clustering/repositories/conftest.py</code>.</strong> <code>transactional_session</code> + <code>fresh_db_engine</code> are the primitives spec-045 and every future Repository test will reuse without writing new ones.
+</div>
+
+<h2>4. Score summary</h2>
+
+<table>
+<thead>
+<tr><th>Category</th><th>Score</th><th>Reasoning</th></tr>
+</thead>
+<tbody>
+<tr><td>Correctness</td><td class="score-A">A</td><td>24/24 equivalence cases green pre-swap; 111 spec-046-relevant tests green post-swap.</td></tr>
+<tr><td>Architecture</td><td class="score-A">A</td><td>Textbook Repository + Data Mapper + Migration stack. Recognisable to any Python dev.</td></tr>
+<tr><td>Testing</td><td class="score-B">B</td><td>Good equivalence + smoke + shape coverage. Missing: <code>RunRow</code>↔ORM drift guard; subprocess-free alembic path.</td></tr>
+<tr><td>Code clarity</td><td class="score-B">B</td><td>Most modules are clear and short. <code>run_history_repo.py</code> at 394 LOC has the subprocess shell-out (SMELL-1) and the manual <code>_to_run_row</code> mapping (SMELL-3).</td></tr>
+<tr><td>Duplication / drift risk</td><td class="score-C">C</td><td>Three unguarded column-list duplications introduced (<code>RunRow</code>, <code>_to_run_row</code>, <code>_HOT_FIELDS</code>). Worse than the legacy claim suggests; better than legacy reality.</td></tr>
+<tr><td>Performance</td><td class="score-B">B</td><td>Fine for production. Subprocess to alembic adds ~250 ms per fresh-DB test (SMELL-1) — measurable in CI.</td></tr>
+<tr><td>Documentation</td><td class="score-A">A</td><td>§B0.2 written; CHANGES_LOG entry detailed; REVIEW.md filed.</td></tr>
+<tr><td><strong>Overall</strong></td><td class="score-A">B+</td><td>Ships safely. Three drift guards and one subprocess removal would close the gaps and earn an A.</td></tr>
+</tbody>
+</table>
+
+<h2>5. Recommended follow-ups (in priority order)</h2>
+
+<table>
+<thead><tr><th>Pri</th><th>Item</th><th>Effort</th><th>Closes</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td>Replace <code>subprocess.run(["alembic.exe", ...])</code> with <code>alembic.command.upgrade(cfg, "head")</code> in <code>_ensure_schema</code>; same fix in the two test files.</td><td>30 min</td><td>SMELL-1, SMELL-2</td></tr>
+<tr><td>P1</td><td>Add arch test asserting <code>RunRow</code> field set ⊇ <code>ActionLog</code> column names.</td><td>15 min</td><td>CONTRACT-1, SMELL-3 (partially)</td></tr>
+<tr><td>P2</td><td>Add arch test asserting every <code>_HOT_FIELDS</code> name is an <code>ActionLog</code> column.</td><td>10 min</td><td>SMELL-4</td></tr>
+<tr><td>P2</td><td>Migrate <code>rebuild_golden.py</code> from legacy free functions to <code>RunHistoryRepository</code> before 2026-06-08 burn-in deletion.</td><td>45 min</td><td>SMELL-8</td></tr>
+<tr><td>P3</td><td>Drop the <code>_engine_cache</code> dict; rely on SQLAlchemy's pool. Confirms SMELL-1 fix didn't regress.</td><td>15 min</td><td>SMELL-5</td></tr>
+<tr><td>P3</td><td>Add <code>__repr__</code> on <code>ActionLog</code>; tighten <code>BaseRepository</code> dead-code helpers when spec-045 lands.</td><td>10 min</td><td>CONTRACT-3, SMELL-7</td></tr>
+</tbody>
+</table>
+
+<p>Total follow-up effort: ~2 hours. None block spec-046 handoff; the spec is at <strong>Implemented</strong>.</p>
+
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>v2 app — roadmap to tab-parity (2026-05-30)</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1180px; margin: 1.4em auto; padding: 0 1.4em;
+         color:#1a1a1a; line-height:1.55; background:#fafbfc; font-size:14px; }
+  h1 { border-bottom:2px solid #333; padding-bottom:.25em; margin-bottom:.1em; }
+  h1+.subtitle { color:#666; margin-top:.1em; font-style:italic; }
+  h2 { border-bottom:1px solid #ccc; padding-bottom:.2em; margin-top:1.8em; font-size:18px; }
+  h3 { color:#1f5fc7; margin-top:1.2em; font-size:15px; }
+  table { border-collapse:collapse; margin:.6em 0; width:100%; font-size:13px; background:#fff; }
+  th,td { border:1px solid #ddd; padding:6px 9px; text-align:left; vertical-align:top; }
+  th { background:#f4f4f6; font-weight:600; }
+  code { background:#eef0f4; padding:1px 5px; border-radius:3px; font-size:12px; font-family:Consolas,monospace; }
+  pre { background:#fff; border:1px solid #ddd; border-radius:4px; padding:10px 12px;
+        font-size:12px; overflow-x:auto; font-family:Consolas,monospace; white-space:pre; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px; font-size:11px; font-weight:600; }
+  .done { background:#e3f5e0; color:#236623; }
+  .next { background:#fff3cd; color:#856404; }
+  .later{ background:#eef2ff; color:#1d3a8a; }
+  .gate { background:#fde2e2; color:#8a2e2e; }
+  .baseline-box { background:#e9f5ea; border-left:4px solid #2e7d32;
+                  padding:.9em 1.1em; margin:1em 0; font-size:14px; }
+  .principle { background:#fff8f0; border-left:4px solid #b8860b;
+               padding:.7em 1em; margin:.6em 0; font-size:13px; }
+</style>
+</head>
+<body>
+
+<h1>v2 app — roadmap to tab-parity</h1>
+<p class="subtitle">2026-05-30. Plain-English plan: where we are, what's next, in what order, with what gates.</p>
+
+<div class="baseline-box">
+<b>The contract for everything below.</b> Every commit on every tab spec (063–066) must keep
+<code>tests/face_clustering/e2e_budapest/</code> green. The baseline is:
+<ul style="margin:.4em 0;">
+  <li><b>Source</b>: <code>D:\Budapest2025_Google</code></li>
+  <li><b>Profile</b>: <code>profile_4.json</code></li>
+  <li><b>Expected</b>: <code>n_clusters == 15</code>, <code>n_faces == 340</code></li>
+  <li><b>Reference run</b> (Scenario B): <code>6437d335de914755bc3edb825c9591c0</code></li>
+</ul>
+Run with: <code>.venv/Scripts/python -m pytest -m budapest tests/face_clustering/e2e_budapest/ -v</code>.<br>
+Each new tab spec adds a Scenario (C/D/E/F/G/H) — by the time spec-066 lands, the baseline has 8 scenarios pinning the entire v2 surface.
+</div>
+
+<h2>1 · Status now</h2>
+
+<table>
+  <thead><tr><th>Tab</th><th>Priority</th><th>Status</th><th>Spec</th><th>Shipped</th></tr></thead>
+  <tbody>
+    <tr><td>Run</td><td>—</td><td><span class="pill done">✓ shipped</span></td><td>spec-040 MVP</td><td>weeks ago</td></tr>
+    <tr><td>History</td><td>P1</td><td><span class="pill done">✓ shipped</span></td><td>spec-042 pilot</td><td>2026-05-25</td></tr>
+    <tr><td>Cluster Analysis</td><td>P1</td><td><span class="pill done">✓ shipped</span></td><td>spec-045</td><td>2026-05-28</td></tr>
+    <tr><td><b>Recluster</b></td><td>P1</td><td><span class="pill next">▶ next</span></td><td><b>spec-063</b></td><td>—</td></tr>
+    <tr><td><b>Face Analysis</b></td><td>P2</td><td><span class="pill next">queued</span></td><td><b>spec-064</b></td><td>—</td></tr>
+    <tr><td><b>Merged Clusters</b></td><td>P2</td><td><span class="pill next">queued</span></td><td><b>spec-065 (grouped)</b></td><td>—</td></tr>
+    <tr><td><b>Quality</b></td><td>P2</td><td><span class="pill next">queued</span></td><td><b>spec-065 (grouped)</b></td><td>—</td></tr>
+    <tr><td><b>Gallery</b></td><td>P3</td><td><span class="pill later">later</span></td><td><b>spec-066 (grouped)</b></td><td>—</td></tr>
+    <tr><td><b>Overview</b></td><td>P3</td><td><span class="pill later">later</span></td><td><b>spec-066 (grouped)</b></td><td>—</td></tr>
+  </tbody>
+</table>
+
+<h2>2 · Sequence + dependencies</h2>
+
+<pre>spec-063  Recluster                   (~4-6 h)   needs: FCAppRunner.recluster() runner mode
+   |
+   v   (independent of Recluster — could run in parallel)
+spec-064  Face Analysis               (~3-4 h)   needs: cross-tab nav via session_state
+   |
+   v   (independent of 063/064)
+spec-065  Merged Clusters + Quality   (~4-5 h)   grouped — both pure read-only viewers
+   |
+   v   (depends on patterns from 065)
+spec-066  Gallery + Overview          (~3-4 h)   grouped — last; flips spec-042 to Implemented
+
+──── all four specs share ────
++ spec-062  Click-every-button Playwright gate (planned; draft)
++ spec-061  V5 read-path audit (Implemented — discovery already done)
++ baseline  tests/face_clustering/e2e_budapest/ (NEW today, all tabs add Scenarios)
+</pre>
+
+<p><b>Total remaining effort: ~14-19 h across 4 specs.</b> Parallel-friendly because 063 / 064 / 065 don't depend on each other.</p>
+
+<h2>3 · The architecture every new tab MUST follow</h2>
+
+<p>spec-045 (Cluster Analysis) established the canonical 4-layer split. Every new tab clones this shape — no exceptions. Architecture tests (extending <code>tests/architecture/test_cluster_analysis_tab.py</code>) enforce.</p>
+
+<pre>+---------------------------------------------------------+
+|  TAB  (Streamlit only — orchestration)                  |
+|  &lt;tab_name&gt;_tab.py ≤ 80 LOC                              |
+|    - no SQL                                              |
+|    - no FS reads                                         |
+|    - no cfg.get("field", "?") literals                   |
+|    - no AsyncHandle (use st.spinner — spec-079 lesson)   |
++---------------------------------------------------------+
+                         |  typed dataclasses only
+                         v
++---------------------------------------------------------+
+|  COMPONENTS  (stateless render fns)                     |
+|  components/&lt;name&gt;.py — each ≤ 100 LOC                   |
+|  Consume typed inputs (ClusterRow, FaceRow, FaceView…)  |
++---------------------------------------------------------+
+                         |
+                         v
++---------------------------------------------------------+
+|  SERVICE  (Streamlit-free)                              |
+|  &lt;name&gt;Service in face_cluster/views/&lt;name&gt;.py            |
+|    - sync methods returning typed dataclasses           |
+|    - no st.session_state writes                          |
+|    - composes Repository                                 |
++---------------------------------------------------------+
+                         |  typed Criteria in / typed Rows out
+                         v
++---------------------------------------------------------+
+|  REPOSITORY  (B0b — query-shape)                        |
+|  ClusterAnalysisRepository (existing — extended)         |
+|    - composes RunStore                                   |
+|    - SQLAlchemy ORM after spec-059                       |
+|    - typed Config + Criteria                             |
++---------------------------------------------------------+
+                         |
+                         v
+        per-run face_clustering.db   +   embeddings.npy
+        action_log (~/.sim_bench/sim_bench.db)
+</pre>
+
+<div class="principle">
+<b>Pattern, not preference.</b> spec-045 + spec-058/059 codified this stack. Every cross-cutting change this week (SIGHTING-078/079/080/089) was rooted in a layer skipping its contract. Architecture tests catch the pattern violation; the Budapest baseline catches the user-visible effect.
+</div>
+
+<h2>4 · Class diagram — current + planned</h2>
+
+<p>What exists today (solid) vs what specs 063-066 add (dotted).</p>
+
+<pre>                         ┌─────────────────────────────────────┐
+                         │      ClusterAnalysisRepository      │  ← spec-045/059
+                         │   (composes RunStore; SQLAlchemy)   │
+                         └──────────────────┬──────────────────┘
+                                            │
+                ┌───────────────────────────┼───────────────────────────┐
+                │                           │                           │
+        ┌───────▼────────┐         ┌────────▼────────┐         ┌────────▼─────────┐
+        │ ClusterAnalysis│         │ MergedClusters  │.........│ QualityService   │
+        │    Service     │         │   Service       │  spec   │                  │
+        │   (spec-045)   │         │   (spec-065)    │   065   │   (spec-065)     │
+        └───────┬────────┘         └────────┬────────┘         └────────┬─────────┘
+                │                           │                           │
+                │   ┌───────────────────────┼───────────────────────┐   │
+                │   │                       │                       │   │
+        ┌───────▼───▼────┐         ┌────────▼──────┐         ┌──────▼───▼────────┐
+        │  cluster_      │         │  merged_       │         │  quality_         │
+        │  analysis_tab  │         │  clusters_tab  │.........│  tab.py           │
+        │   (spec-045)   │         │  (spec-065)    │  spec   │  (spec-065)       │
+        └───────┬────────┘         └────────────────┘   065   └───────────────────┘
+                │
+                │  click "Open" on face_grid thumbnail
+                │  → writes selected_face_id
+                ▼
+        ┌────────────────┐         ┌─────────────────┐         ┌───────────────────┐
+        │ FaceAnalysis   │.........│  face_analysis_ │         │  ReclusterService │
+        │   Service      │  spec   │  tab.py         │.........│      (spec-063)   │
+        │  (spec-064)    │   064   │  (spec-064)     │  spec   │                   │
+        └────────────────┘         └─────────────────┘   063   └─────────┬─────────┘
+                                                                         │
+                                            ┌────────────────────────────┘
+                                            ▼
+                                  ┌─────────────────────┐
+                                  │ FCAppRunner         │  ← existing; +recluster() in 063
+                                  │   .run()             │
+                                  │   .recluster()  ←NEW │
+                                  └──────────┬──────────┘
+                                             │
+                       writes new run dir   │   reads via RunStore
+                                             ▼
+                                  ┌─────────────────────┐
+                                  │ per-run             │
+                                  │ face_clustering.db  │
+                                  └─────────────────────┘
+
+        ┌──────────────────────────────────────────────────────────────────┐
+        │  OverviewService  (spec-066)                                     │
+        │     reads RunHistoryRepository (action_log)                      │
+        │     + iterates ClusterAnalysisRepository per run                 │
+        │     → typed DashboardMetrics                                     │
+        └──────────────────────────────────────────────────────────────────┘
+                                          │
+                              ┌───────────┴────────────┐
+                              ▼                        ▼
+                    ┌──────────────┐         ┌──────────────────┐
+                    │ gallery_tab  │.........│  overview_tab    │
+                    │  (spec-066)  │  spec   │   (spec-066)     │
+                    └──────────────┘   066   └──────────────────┘
+
+  Legend:  ───── exists today
+           ····· planned in spec listed on the edge
+</pre>
+
+<h2>5 · Test gates — the binding contract</h2>
+
+<table>
+  <thead><tr><th>Test layer</th><th>What it catches</th><th>Where it lives</th><th>When it runs</th></tr></thead>
+  <tbody>
+    <tr><td>Unit (synthetic)</td><td>Service method contracts on small inputs</td><td><code>tests/face_clustering/views/test_&lt;svc&gt;_synthetic.py</code></td><td>default <code>pytest</code></td></tr>
+    <tr><td>Service real-fixture</td><td>"Service can read the user's real Budapest run"</td><td>same file, opt-in <code>slow</code> marker</td><td><code>pytest -m slow</code></td></tr>
+    <tr><td>Architecture</td><td>Layering invariants (no DB in tabs, ≤ 80 LOC, no cfg.get)</td><td><code>tests/architecture/test_&lt;tab&gt;.py</code></td><td>default <code>pytest</code></td></tr>
+    <tr><td>AppTest (Streamlit)</td><td>"Page renders without raising"</td><td><code>tests/face_clustering/test_v2_app_smoke.py</code></td><td><code>pytest -m slow</code></td></tr>
+    <tr><td><b>Baseline (Playwright)</b></td><td><b>"User-visible behavior on real Budapest data" — every tab adds a Scenario</b></td><td><b><code>tests/face_clustering/e2e_budapest/</code></b></td><td><b><code>pytest -m budapest</code></b></td></tr>
+  </tbody>
+</table>
+
+<div class="baseline-box">
+<b>The new rule (CLAUDE.md §"Delivery Quality"):</b> A v2 commit is not Implemented until <code>pytest -m budapest</code> is green. Unit tests passing alone is not sufficient — three sightings this week proved that ("tests pass, user sees broken UI").
+</div>
+
+<h2>6 · Risks and how each spec handles them</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Caught by</th><th>Mitigated in spec</th></tr></thead>
+  <tbody>
+    <tr><td>"Tab renders captions but no thumbnails" (today's bug)</td><td>Baseline Scenario B (and per-tab D/E/...) — counts <code>&lt;img&gt;</code> elements</td><td>064 (Face Analysis), 066 (Gallery)</td></tr>
+    <tr><td>"Tab stuck on Analysing cluster…" (SIGHTING-079)</td><td>Baseline + per-tab Scenarios assert metric widgets visible</td><td>All — sync compute only, no AsyncHandle in UI</td></tr>
+    <tr><td>"History rejects v2 runs" (SIGHTING-080)</td><td>Baseline Scenario B clicks Load Run end-to-end</td><td>Already shipped — keeps green here</td></tr>
+    <tr><td>"History panel blank for v2 runs" (SIGHTING-089)</td><td>Scenario B + new per-tab Scenarios will fail if RunSummary fields are None</td><td>Shipped in spec-061; new tabs MUST NOT regress it</td></tr>
+    <tr><td>Recluster equivalence drift</td><td>Service real-fixture test asserts n_clusters in [12, 18] band around the 15 baseline</td><td>063 explicitly</td></tr>
+    <tr><td>"Click button does nothing"</td><td>spec-062 (Playwright click-every-button gate) when it lands</td><td>062 (Draft today)</td></tr>
+  </tbody>
+</table>
+
+<h2>7 · What the user does next</h2>
+
+<ol>
+  <li><b>Right now</b> — run <code>pytest -m budapest tests/face_clustering/e2e_budapest/::test_v2_scenario_b_load_reference_run_and_see_clusters -v</code>. Scenario B doesn't run the pipeline — it just opens the History tab + loads the reference run + checks the Cluster Analysis tab renders. ~30 s. Confirms today's fixes work end-to-end.</li>
+  <li><b>Pick a spec to start</b> — recommendation: <b>063 Recluster</b> (strict priority + last P1) OR <b>065 Merged+Quality</b> (fastest, two tabs in one go). Both unblock 064 / 066.</li>
+  <li><b>Each new tab</b> = new commit + new baseline Scenario green + arch test pass + CHANGES_LOG entry. Same template as spec-045.</li>
+</ol>
+
+<p style="margin-top:1.6em; color:#888; font-size:12px;">
+Related: <code>specs/060-v2-e2e-gold-standard/</code> (foundational PRD for the e2e gate),
+<code>specs/062-v2-click-every-button-e2e/</code> (the structural gate against "no exception but broken UI"),
+<code>specs/061-v5-readpath-audit/AUDIT_FINDINGS.md</code> (last week's audit results),
+<code>specs/042-fc-app-v2-tab-parity/EXECUTIVE_REPORT_2026-05-29.html</code> (why this week was hard).
+</p>
+
+</body>
+</html>

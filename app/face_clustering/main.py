@@ -15,6 +15,16 @@ _pkg_dir = Path(__file__).parent
 if str(_pkg_dir) not in sys.path:
     sys.path.insert(0, str(_pkg_dir))
 
+# Repo root for sim_bench.* imports.
+_repo_root = Path(__file__).resolve().parents[2]
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+# spec-041 follow-up: align logging with Albumify / v2. Writes to
+# logs/<timestamp>/fc_app_legacy.log.
+from sim_bench.logging_setup import setup_logging  # noqa: E402
+setup_logging("fc_app_legacy")
+
 import streamlit as st
 
 from state import _init_state

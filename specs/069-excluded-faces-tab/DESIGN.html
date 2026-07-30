@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec-069 — Excluded Faces tab · Design</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --ink:#e6e9ef; --mut:#9aa3b2;
+    --line:#2a2f3a; --accent:#5b9dff; --gate:#e0a458; --noise:#c977d6;
+    --ok:#5fd29b; --bad:#ef6f6f; --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:28px 32px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#141821,#0f1115)}
+  h1{margin:0 0 4px;font-size:22px}
+  header .sub{color:var(--mut);font-size:13px}
+  main{max-width:1080px;margin:0 auto;padding:8px 24px 80px}
+  section{margin:34px 0;border:1px solid var(--line);border-radius:12px;
+    background:var(--panel);overflow:hidden}
+  section>h2{margin:0;padding:14px 20px;font-size:15px;letter-spacing:.02em;
+    background:var(--panel2);border-bottom:1px solid var(--line)}
+  section>h2 .n{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:8px}
+  .body{padding:20px}
+  p{color:var(--mut);margin:0 0 14px}
+  code,pre{font-family:var(--mono)}
+  pre{background:#0c0e13;border:1px solid var(--line);border-radius:8px;
+    padding:14px 16px;overflow:auto;font-size:12.5px;color:#cdd6e4}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 7px;
+    border-radius:5px;border:1px solid var(--line)}
+  .tag.gate{color:var(--gate);border-color:#5a4a2c;background:#241d10}
+  .tag.noise{color:var(--noise);border-color:#4d2a52;background:#231325}
+  /* ---- Mock ---- */
+  .mock{background:#fff;color:#1b1f27;border-radius:10px;padding:18px 20px;
+    font:14px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif}
+  .mock .mtabs{display:flex;gap:18px;border-bottom:1px solid #e7e9ee;padding-bottom:8px;
+    font-size:13px;color:#5a6473}
+  .mock .mtabs .active{color:#e5484d;border-bottom:2px solid #e5484d;padding-bottom:8px;font-weight:600}
+  .mock h3{margin:16px 0 4px;font-size:20px}
+  .funnel{display:flex;align-items:stretch;gap:0;margin:14px 0 6px}
+  .funnel .step{flex:1;padding:12px 10px;text-align:center;border-right:1px solid #eef0f4;position:relative}
+  .funnel .step:last-child{border-right:0}
+  .funnel .num{font-size:24px;font-weight:700}
+  .funnel .lab{font-size:11px;color:#7b8493;text-transform:uppercase;letter-spacing:.04em}
+  .funnel .det .num{color:#1b1f27}
+  .funnel .gate .num{color:#b9772a}
+  .funnel .noise .num{color:#a23bb0}
+  .funnel .ok .num{color:#1f9d63}
+  .mbar{height:8px;border-radius:6px;display:flex;overflow:hidden;margin:6px 0 16px;background:#eef0f4}
+  .mbar i{display:block;height:100%}
+  .controls{display:flex;gap:10px;align-items:center;margin:8px 0 14px;font-size:13px}
+  .sel{border:1px solid #d7dbe2;border-radius:7px;padding:6px 10px;color:#1b1f27;background:#fff}
+  .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+  .cell{border:1px solid #e7e9ee;border-radius:8px;overflow:hidden;background:#fafbfc}
+  .thumb{height:74px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#dfe4ec,#eef1f6);color:#aab2c0;font-size:11px}
+  .cell .meta{padding:6px 7px;font-size:10.5px;color:#5a6473}
+  .badge{display:inline-block;font-size:9.5px;padding:1px 6px;border-radius:4px;font-weight:600}
+  .badge.g{background:#fbf0dc;color:#9a6a1d}
+  .badge.n{background:#f6e3f8;color:#8a2d97}
+  /* ---- diagram ---- */
+  .flow{font-family:var(--mono);font-size:12.5px;color:#cdd6e4;white-space:pre;
+    background:#0c0e13;border:1px solid var(--line);border-radius:8px;padding:16px;overflow:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--ink);font-weight:600}
+  td{color:var(--mut)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.two{grid-template-columns:1fr}.grid{grid-template-columns:repeat(3,1fr)}}
+  .note{border-left:3px solid var(--accent);padding:8px 14px;background:#121723;color:#bcc6d8;
+    border-radius:0 8px 8px 0;font-size:13px;margin:12px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>spec-069 — Excluded Faces tab</h1>
+  <div class="sub">Unified funnel: gate-rejected (#1) + unassigned/noise (#2) ·
+    resolves SIGHTING-092 · design artifact for spec.md</div>
+</header>
+<main>
+
+<!-- 1. MOCK -->
+<section>
+  <h2><span class="n">1.</span>Mock</h2>
+  <div class="body">
+    <p>One tab. Funnel strip on top, a reason filter, then a face grid where every
+       excluded face carries the reason it's out. Numbers below are illustrative.</p>
+    <div class="mock">
+      <div class="mtabs">
+        <span>Run</span><span>Cluster Analysis</span><span>Face Analysis</span>
+        <span>Merged Clusters</span><span class="active">Excluded Faces</span>
+        <span>Recluster</span><span>History</span>
+      </div>
+      <h3>Excluded Faces</h3>
+      <div class="funnel">
+        <div class="step det"><div class="num">340</div><div class="lab">detected</div></div>
+        <div class="step gate"><div class="num">88</div><div class="lab">gate-rejected</div></div>
+        <div class="step noise"><div class="num">145</div><div class="lab">unassigned</div></div>
+        <div class="step ok"><div class="num">107</div><div class="lab">assigned</div></div>
+      </div>
+      <div class="mbar">
+        <i style="width:25.9%;background:#e0a458"></i>
+        <i style="width:42.6%;background:#c977d6"></i>
+        <i style="width:31.5%;background:#5fd29b"></i>
+      </div>
+      <div class="controls">
+        <span>Show:</span>
+        <span class="sel">reason ▾ &nbsp;(all)</span>
+        <span class="sel">stage ▾ &nbsp;(all)</span>
+        <span style="color:#7b8493">233 excluded faces</span>
+      </div>
+      <div class="grid">
+        <div class="cell"><div class="thumb">face_012</div><div class="meta">#12 <span class="badge g">blur</span><br>blur=18 (&lt;50)</div></div>
+        <div class="cell"><div class="thumb">face_034</div><div class="meta">#34 <span class="badge g">area</span><br>area=410px (&lt;1100)</div></div>
+        <div class="cell"><div class="thumb">face_051</div><div class="meta">#51 <span class="badge g">pose</span><br>yaw=42 (&gt;30)</div></div>
+        <div class="cell"><div class="thumb">face_087</div><div class="meta">#87 <span class="badge n">unassigned</span><br>noise</div></div>
+        <div class="cell"><div class="thumb">face_120</div><div class="meta">#120 <span class="badge n">unassigned</span><br>noise</div></div>
+        <div class="cell"><div class="thumb">face_133</div><div class="meta">#133 <span class="badge g">det_score</span><br>0.31 (&lt;0.5)</div></div>
+      </div>
+    </div>
+    <div class="note">Reason badge: <span class="tag gate">gate</span> = blur / pose / area /
+      det_score (failed quality, never clustered). <span class="tag noise">unassigned</span> =
+      passed quality but matched no cluster (noise).</div>
+  </div>
+</section>
+
+<!-- 2. DESIGN FE/BE -->
+<section>
+  <h2><span class="n">2.</span>Design — Frontend / Backend</h2>
+  <div class="body">
+    <div class="flow">FRONTEND  app/face_clustering_v2/tabs/excluded_faces_tab.py  (Streamlit, ~60 LOC)
+  render_excluded_faces_tab()
+    st.header("Excluded Faces")  -> spec-068 tab_start/tab_done telemetry
+    funnel strip (st.columns metrics)   <- summary
+    reason + stage filter (st.selectbox) -> ExcludedFacesCriteria
+    face grid (thumbnails + reason badge) <- list_excluded(criteria)
+        |  builds Criteria, reads typed results, renders. NO sql / fs / cfg.get.
+        v
+BACKEND   face_cluster/views/excluded_faces.py  (Streamlit-free, ~80 LOC)
+  ExcludedFacesService(repo)
+    .summary()        -> ExcludedFacesSummary   (funnel counts + per-gate)
+    .list_excluded(c) -> list[ExcludedFace]
+        |  composes two sources:
+        |    #1 gate  : repo.list_filter_decisions(rejected=True)   [FilterDecisionRow]
+        |    #2 noise : repo.get_assignment_rows(include_noise=True) where cluster_id==NOISE_LABEL
+        |    crops    : repo.get_face_records(face_ids)              [FaceRecord.crop_path]
+        v
+REPO      sim_bench/db/face_clustering/cluster_analysis_repo.py  (exists; read-only)
+          per-run face_clustering.db  (filter_decisions + cluster_assignments)</div>
+    <p style="margin-top:14px">Mirrors the spec-063/064/065 split: thin tab → typed
+       service → repository. The service is the only new logic; the tab is layout;
+       the repo already exposes everything needed (no schema change).</p>
+  </div>
+</section>
+
+<!-- 3. DATA CONTRACTS -->
+<section>
+  <h2><span class="n">3.</span>Data Contracts</h2>
+  <div class="body">
+    <p>New typed objects (frozen dataclasses, like <code>QualitySummary</code>).
+       <code>GateCounts</code> is reused from <code>face_cluster.views.quality</code>.</p>
+    <pre>@dataclass(frozen=True, slots=True)
+class ExcludedFace:
+    face_id: int
+    stage: str                 # "gate" | "unassigned"
+    reason: str                # gate name (blur|pose|area|det_score) or "unassigned"
+    measured: dict             # gate measurements; {} for unassigned
+    crop_path: Optional[str]   # aligned-crop path for the thumbnail
+
+@dataclass(frozen=True, slots=True)
+class ExcludedFacesSummary:
+    n_detected: int
+    n_gate_rejected: int       # distinct faces with >=1 rejected filter_decision
+    n_unassigned: int          # assignment rows where cluster_id == NOISE_LABEL
+    n_assigned: int            # assignment rows in a real cluster
+    gates: list[GateCounts]    # reused from quality.py (per-gate pass/reject)
+
+    @property
+    def pass_rate(self) -> float: ...
+    def funnel_closes(self) -> bool:
+        return self.n_gate_rejected + self.n_assigned + self.n_unassigned == self.n_detected
+
+@dataclass
+class ExcludedFacesCriteria:
+    stage: Optional[str] = None   # "gate" | "unassigned" | None=all
+    gate:  Optional[str] = None   # restrict to one gate name</pre>
+    <div class="note"><b>Funnel invariant</b> (the Phase-2 test's backbone):
+      <code>n_gate_rejected + n_assigned + n_unassigned == n_detected</code>.
+      If it ever fails, a face leaked between stages.</div>
+  </div>
+</section>
+
+<!-- 4. INTERFACES -->
+<section>
+  <h2><span class="n">4.</span>Interfaces</h2>
+  <div class="body">
+    <table>
+      <tr><th>Layer</th><th>Signature</th><th>Notes</th></tr>
+      <tr><td>Service</td><td><code>ExcludedFacesService(repo: ClusterAnalysisRepository)</code></td><td>raises on None repo</td></tr>
+      <tr><td>Service</td><td><code>.summary() -&gt; ExcludedFacesSummary</code></td><td>one pass over filter_decisions + assignments</td></tr>
+      <tr><td>Service</td><td><code>.list_excluded(c: ExcludedFacesCriteria) -&gt; list[ExcludedFace]</code></td><td>merged + reason-tagged, crop paths attached</td></tr>
+      <tr><td>Tab</td><td><code>render_excluded_faces_tab() -&gt; None</code></td><td>replaces <code>render_quality_tab</code> in main.py tab list</td></tr>
+      <tr><td>Repo (existing)</td><td><code>list_filter_decisions(FilterDecisionCriteria)</code></td><td>gate side — already used by QualityService</td></tr>
+      <tr><td>Repo (existing)</td><td><code>get_assignment_rows(AssignmentCriteria(include_noise=True))</code></td><td>noise side — filter cluster_id==NOISE_LABEL</td></tr>
+      <tr><td>Repo (existing)</td><td><code>get_face_records(face_ids) -&gt; list[FaceRecord]</code></td><td>crop paths for thumbnails</td></tr>
+    </table>
+    <p style="margin-top:14px">No repository or DB-schema change — every read method
+       already exists. <code>QualityService</code> stays (gate-only) or is absorbed;
+       the tab swap is the only main.py edit.</p>
+  </div>
+</section>
+
+<!-- 5. TEST -->
+<section>
+  <h2><span class="n">5.</span>Test — human-validated golden baseline</h2>
+  <div class="body">
+    <p>We do not guess count bands up front (that produced the unvalidated 12–18
+       and 220–240 bands that bit spec-067). Two phases:</p>
+    <div class="two">
+      <div>
+        <h3 style="font-size:14px;margin:0 0 6px;color:var(--ink)">Phase 1 — build &amp; eyeball (this spec)</h3>
+        <table>
+          <tr><th>Layer</th><th>Check</th></tr>
+          <tr><td>Service (synthetic)</td><td>summary() funnel counts; list_excluded tags stage/reason; crop paths present</td></tr>
+          <tr><td>AppTest</td><td>tab renders; spec-068 <code>tab.done name=excluded_faces</code>; legacy run (0 filter_decisions) renders noise side without error</td></tr>
+          <tr><td><b>User sign-off</b></td><td>run <code>scripts/run_v2.py</code> on Budapest → open the tab → <b>you confirm it looks right</b></td></tr>
+        </table>
+      </div>
+      <div>
+        <h3 style="font-size:14px;margin:0 0 6px;color:var(--ink)">Phase 2 — freeze baseline (after sign-off)</h3>
+        <table>
+          <tr><th>Layer</th><th>Check</th></tr>
+          <tr><td>Endpoint test<br>(headless, ~5s)</td><td>freeze the counts you approved as the expected criteria; assert counts ≈ baseline (small tolerance) over the v2 run</td></tr>
+          <tr><td>Invariant</td><td><code>funnel_closes()</code> — gate + assigned + unassigned == detected</td></tr>
+        </table>
+        <div class="note">Mirrors spec-067 Scenario C's endpoint test: no browser,
+          real run, fast, criteria validated by a human before being locked.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

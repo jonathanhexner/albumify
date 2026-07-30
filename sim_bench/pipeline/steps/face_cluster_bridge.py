@@ -1,9 +1,22 @@
 """Bridge between main pipeline's FaceForClustering and face_cluster's FaceRecord.
 
-Runs the face_cluster_knn algorithm: quality gating → kNN graph →
-connected components → exemplar selection → optional merge/attach.
+**DEPRECATED — scheduled for deletion in spec-040 Phase 7.**
 
-spec-033 P-C C-1: the bridge now plumbs blur_score, pose, det_score,
+This module is the legacy adapter that converts Albumify's dict-of-dicts
+state (``context.insightface_faces`` + ``context.face_embeddings``) into
+``face_cluster.types.FaceRecord`` and runs the bridge clustering chain.
+It is replaced by the unified 8-step chain in
+``sim_bench/pipeline/steps/face_clustering_steps.py`` plus
+``face_cluster.fc_app_runner.FCAppRunner``, which read ``context.face_records``
+directly (populated by the spec-040 A1 producer dual-write).
+
+Today it is still imported by ``cluster_people`` because Albumify's
+``default_pipeline`` in ``configs/pipeline.yaml`` invokes ``cluster_people``
+with ``method: face_cluster_knn``. Phase 7 deletes this file once the new
+FC App at ``app/face_clustering_v2/`` ships and the equivalence sweep
+holds green for 2 weeks. **Do not add new callers.**
+
+spec-033 P-C C-1: the bridge plumbs blur_score, pose, det_score,
 landmarks, aligned_face from ``context.insightface_faces`` instead of
 dropping them. This unblocks the quality gates that were previously
 force-disabled (``build_fc_config`` no longer hardcodes 999.0 / 0.0).
@@ -11,6 +24,7 @@ force-disabled (``build_fc_config`` no longer hardcodes 999.0 / 0.0).
 
 import copy
 import logging
+import warnings
 from typing import List, Optional
 
 import numpy as np
@@ -28,6 +42,16 @@ from sim_bench.pipeline.context import PipelineContext
 
 logger = logging.getLogger(__name__)
 
+warnings.warn(
+    "sim_bench.pipeline.steps.face_cluster_bridge is deprecated and scheduled "
+    "for deletion in spec-040 Phase 7. New callers should use the unified "
+    "8-step clustering chain in sim_bench.pipeline.steps.face_clustering_steps "
+    "or face_cluster.fc_app_runner.FCAppRunner, both of which read "
+    "context.face_records directly.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 def _lookup_insightface_face(context: Optional[PipelineContext], image_path: str, face_index: int) -> dict:
     """Find the matching insightface_faces entry for a (image, face_index) pair.
@@ -39,7 +63,17 @@ def _lookup_insightface_face(context: Optional[PipelineContext], image_path: str
     """
     if context is None:
         return {}
-    face_data = (getattr(context, "insightface_faces", None) or {}).get(image_path, {})
+    faces_map = getattr(context, "insightface_faces", None) or {}
+    # spec-079 Stage 3: context.insightface_faces is keyed by CANONICAL
+    # forward-slash paths (insightface_detect_faces line 68), but callers pass
+    # str(face.original_path) which is backslash on Windows. Without this
+    # normalization the lookup always missed → pose/blur/det/landmarks were
+    # silently dropped on the Albumify path (pose gate then passed every face:
+    # 20 identities vs FC v2's 8).
+    canonical = str(image_path).replace("\\", "/")
+    face_data = faces_map.get(canonical)
+    if face_data is None:
+        face_data = faces_map.get(image_path, {})
     faces = face_data.get("faces", []) if isinstance(face_data, dict) else []
     for f in faces:
         if f.get("face_index") == face_index:
@@ -85,14 +119,25 @@ def faces_to_face_records(
             else (float(if_face.get("confidence")) if if_face.get("confidence") is not None else None)
         )
         pose = getattr(face, "pose", None)
-        if pose is None:
-            pose_scores = if_face.get("pose_scores") or if_scores.get("pose") if isinstance(if_face, dict) else None
-            if isinstance(pose_scores, dict) and {"yaw", "pitch", "roll"} <= set(pose_scores):
-                pose = (
-                    float(pose_scores["yaw"]),
-                    float(pose_scores["pitch"]),
-                    float(pose_scores["roll"]),
-                )
+        if pose is None and isinstance(if_face, dict):
+            # spec-079 Stage 3: insightface_detect_faces serializes pose as a
+            # [yaw, pitch, roll] LIST under the top-level 'pose' key (see
+            # insightface_detect_faces._serialize_face). The bridge previously
+            # looked only for a dict under 'pose_scores'/scores['pose'], so pose
+            # was silently dropped on the Albumify path — the pose gate then
+            # passed every face, inflating the core set (186 vs FC v2's 133) and
+            # the identity count (20 vs 8). Read the actual key/shape here.
+            raw = if_face.get("pose")
+            if isinstance(raw, (list, tuple)) and len(raw) == 3:
+                pose = (float(raw[0]), float(raw[1]), float(raw[2]))
+            else:  # legacy fallback: dict form under pose_scores / scores['pose']
+                pose_scores = if_face.get("pose_scores") or if_scores.get("pose")
+                if isinstance(pose_scores, dict) and {"yaw", "pitch", "roll"} <= set(pose_scores):
+                    pose = (
+                        float(pose_scores["yaw"]),
+                        float(pose_scores["pitch"]),
+                        float(pose_scores["roll"]),
+                    )
         landmarks = if_face.get("landmarks") if isinstance(if_face, dict) else None
         if landmarks is not None and not isinstance(landmarks, np.ndarray):
             try:

@@ -15,6 +15,7 @@ from typing import Dict, Any, List, Tuple
 import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
+from sim_bench.pipeline.clustering_labels import NOISE_LABEL, is_noise
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.registry import register_step
 
@@ -273,7 +274,7 @@ class ComputeDebugDistancesStep(BaseStep):
 
         # Validation: All core faces should have neighbors (unless single-face cluster)
         for node in core_indices:
-            if cluster_id_map.get(node, -1) == -1:
+            if is_noise(cluster_id_map.get(node, NOISE_LABEL)):
                 continue  # Noise face
 
             cluster_id = cluster_id_map[node]

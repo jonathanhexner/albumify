@@ -1,7 +1,7 @@
 # Feature Specification: Geo-Temporal Album Enrichment
 
 **Created**: 2026-05-01
-**Status**: Draft
+**Status**: In Progress (Slice 1 done — see PLAN.md / tasks.md)
 **Spec**: 022
 
 ---

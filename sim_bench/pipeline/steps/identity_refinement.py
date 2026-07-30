@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
+from sim_bench.pipeline.clustering_labels import is_noise
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.steps.attachment_strategies import (
@@ -50,7 +51,15 @@ class IdentityRefinementStep(BaseStep):
             category="people",
             requires={"people_clusters", "face_embeddings"},
             produces={"refined_people_clusters", "unassigned_faces"},
-            depends_on=["cluster_people"],
+            # spec-079 / SIGHTING-100: must run AFTER the cluster producer. The
+            # unification replaced the monolithic `cluster_people` with the 8-step
+            # chain ending in `assign_people_clusters`; depending only on the
+            # (now-removed) `cluster_people` let the executor schedule this step
+            # BEFORE clustering finished -> it refined a raw pre-assignment blob.
+            # Both names are listed so legacy pipelines (that still have
+            # cluster_people) and the unified pipeline both order correctly; the
+            # builder ignores a dependency that isn't present in the run.
+            depends_on=["cluster_people", "assign_people_clusters"],
             config_schema={
                 "type": "object",
                 "properties": {
@@ -194,7 +203,14 @@ class IdentityRefinementStep(BaseStep):
 
             if best_result and best_result.attached:
                 refined_clusters[best_result.cluster_id].append(face)
-                face.cluster_id = best_result.cluster_id
+                # spec-079 / SIGHTING-100: membership is tracked in
+                # refined_clusters. The legacy face type also stamped
+                # face.cluster_id, but FaceRecord (pydantic, extra=forbid) has no
+                # such field — skip it there rather than crash.
+                try:
+                    face.cluster_id = best_result.cluster_id
+                except (ValueError, AttributeError):
+                    pass
                 stats.auto_attached += 1
                 attachment_decisions[face_key] = asdict(best_result)
             else:
@@ -210,6 +226,12 @@ class IdentityRefinementStep(BaseStep):
                                        f"Processed {i + 1}/{len(noise_faces)} noise faces")
 
         logger.info(f"Auto-attached {stats.auto_attached} faces, {len(unassigned_faces)} remain unassigned")
+
+        # spec-079 / SIGHTING-100: permanent attach diagnostic. Surfaces the
+        # distance distribution of accepted attachments and the per-cluster
+        # funnel, so over-attachment (one cluster swallowing the whole noise
+        # pool) and threshold mis-tuning are visible without re-instrumenting.
+        self._log_attach_diagnostics(attachment_decisions, len(noise_faces), context)
 
         context.report_progress("identity_refinement", 0.8, "Applying user overrides")
 
@@ -242,23 +264,65 @@ class IdentityRefinementStep(BaseStep):
 
         self._log_stats(stats)
 
+    def _log_attach_diagnostics(self, decisions: dict, noise_total: int, context) -> None:
+        """Permanent attach diagnostic (SIGHTING-100).
+
+        Logs and stores (``context.refinement_attach_diagnostics``) the size of
+        the noise pool, how many faces attached, the per-cluster funnel, and the
+        min/median/max accepted distances. A single cluster receiving most of
+        the pool, or accepted distances hugging the thresholds, both point to
+        over-attachment.
+        """
+        from collections import Counter
+
+        accepted = [d for d in decisions.values() if d.get("attached")]
+        by_cluster = Counter(d.get("cluster_id") for d in accepted)
+        cds = sorted(d["centroid_distance"] for d in accepted
+                     if d.get("centroid_distance") is not None)
+        eds = sorted(d["best_exemplar_distance"] for d in accepted
+                     if d.get("best_exemplar_distance") is not None)
+
+        def q(xs, p):
+            return round(xs[min(len(xs) - 1, int(p * len(xs)))], 3) if xs else None
+
+        summary = {
+            "noise_pool": noise_total,
+            "attached": len(accepted),
+            "by_cluster": dict(by_cluster),
+            "centroid_dist_min_med_max": [q(cds, 0.0), q(cds, 0.5), q(cds, 0.999)],
+            "exemplar_dist_min_med_max": [q(eds, 0.0), q(eds, 0.5), q(eds, 0.999)],
+        }
+        context.refinement_attach_diagnostics = summary
+        biggest = by_cluster.most_common(1)
+        logger.info("identity_refinement attach diagnostics: %s; biggest sink=%s",
+                    summary, (biggest[0] if biggest else None))
+
     def _separate_noise(self, clusters: Dict[int, list]) -> tuple:
-        """Separate core clusters from noise (cluster_id=-1)."""
+        """Separate core clusters from noise (the NOISE_LABEL bucket)."""
         core_clusters = {}
         noise_faces = []
 
         for cluster_id, faces in clusters.items():
-            if cluster_id == -1:
+            if is_noise(cluster_id):
                 noise_faces.extend(faces)
             else:
                 core_clusters[cluster_id] = faces
 
         return core_clusters, noise_faces
 
+    def _face_path(self, face) -> str:
+        """Forward-slash source path for a face, across face types.
+
+        spec-079 / SIGHTING-100: the unified chain produces ``FaceRecord``
+        (attr ``image_path``); legacy faces used ``original_path``. Support both
+        so the embedding-store key matches whichever producer fed this step.
+        """
+        path = getattr(face, "original_path", None) or getattr(face, "image_path", None)
+        return str(path).replace('\\', '/')
+
     def _face_key(self, face) -> str:
         """Generate unique key for a face."""
-        path_str = str(face.original_path).replace('\\', '/')
-        return f"{path_str}:face_{face.face_index}"
+        return f"{self._face_path(face)}:face_{face.face_index}"
 
     def _get_face_embedding(self, face, embeddings: dict) -> Optional[np.ndarray]:
         """Get embedding for a face."""
@@ -277,8 +341,7 @@ class IdentityRefinementStep(BaseStep):
         if hasattr(face, 'frontal_score') and face.frontal_score is not None:
             return face.frontal_score
 
-        face_key = self._face_key(face)
-        path_str = str(face.original_path).replace('\\', '/')
+        path_str = self._face_path(face)
 
         if hasattr(context, 'insightface_faces') and context.insightface_faces:
             face_data = context.insightface_faces.get(path_str, {})

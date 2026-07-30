@@ -100,10 +100,35 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
   <div class="head"><span class="name">C · pipeline steps run</span><span class="src">configs/pipeline.yaml::default_pipeline</span></div>
   <div class="body">
     detect_persons (YOLOv8) → insightface_detect_faces (SCRFD) → filter_faces<br>
-    align_faces → insightface_score_{expression,eyes,pose} → score_iqa, score_ava<br>
-    filter_quality → cluster_scenes → extract_face_embeddings → <b>cluster_people</b>
+    score_iqa, score_ava, <b>score_occlusion</b> (spec-097), <b>score_tilt</b> (spec-099/100) → detect_persons → insightface_detect_faces<br>
+    align_faces → insightface_score_{expression,eyes,pose} → … → select_best → <b>straighten_images</b> (spec-101 A, TERMINAL: straightens the winners)<br>
+    filter_quality → cluster_scenes → extract_face_embeddings → <b>cluster_people</b><br>
+    <span style="opacity:.8">scene distance (spec-103, OPT-IN, NOT in default_pipeline): <code>build_scene_distance</code>
+    — inserted between <code>extract_scene_embedding</code> and <code>cluster_scenes</code>, fuses DINOv2
+    visual distance with a one-sided SHORT-RANGE capture-time boost (Path A: <code>d = visual·(1−boost·exp(−dt/τ))</code>)
+    → <code>context.scene_distance</code>; <code>cluster_scenes</code> then clusters that precomputed matrix
+    (metric=precomputed). Absent by default → scene clustering byte-identical (<code>scene_cluster/geo_time_fusion.py</code>)</span><br>
+    <span style="opacity:.8">analysis (opt-in, spec-093): <code>score_quality</code> — runs N IQA methods
+    (MANIQA/MUSIQ/HyperIQA/BRISQUE/NIQE/CLIP-IQA via <code>image_quality_models.create_model</code>),
+    cached per-method in universal_cache → <code>context.method_scores</code></span><br>
+    <span style="opacity:.8">occlusion (spec-097 Stage 1): <code>score_occlusion</code> — CLIP ViT-B/32
+    global+tile-max probe (artifact <code>models/occlusion/clip_b32_gmax_v1.npz</code>, spec-096 winner
+    0.86 scene PR-AUC) → <code>context.occlusion_scores/_tiles</code>, cached (<code>occlusion</code>);
+    consumed by <code>select_best</code>: composite = quality + person_penalty + <b>occlusion_penalty</b>
+    (0 unless P ≥ 0.8 gate; <code>scoring/occlusion_penalty.py</code>)</span><br>
+    <span style="opacity:.8">tilt (spec-099 Phase 1 / spec-100): <code>score_tilt</code> — GeoCalib learned roll
+    (~1.9 s/img CPU, cached <code>tilt</code>/<code>geocalib_v1</code>) → <code>context.tilt_angles/_confidences</code>;
+    consumed by <code>select_best</code>: composite += <b>tilt_penalty</b> (0 unless confident |roll| > 3°;
+    small tie-breaker, cap −0.15; <code>scoring/tilt_penalty.py</code>)</span><br>
+    <span style="opacity:.8">auto-straighten (spec-101, option A): selection accounts for the crop via the
+    <b>fixability-scaled</b> <code>tilt_penalty</code> (small FOV cost if cleanly straightenable, full
+    angle penalty if a prominent YOLO person would be clipped — <code>straighten_gate.decide</code>).
+    Then <code>straighten_images</code> runs TERMINAL (after <code>select_best</code>): it straightens
+    the selected winners that pass the gate, writes a leveled derivative and repoints
+    <code>selected_images</code>. Terminal so nothing depends on it → no dependency-drag into other
+    pipelines. Provenance: <code>context.straightened_from</code>.</span>
   </div>
-  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
+  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, noise_scores (spec-098: wavelet noise, higher = cleaner; <code>score_iqa</code> cache bumped to <code>rule_based_v2</code>), method_scores (spec-093), occlusion_scores/_tiles/_penalties (spec-097), tilt_angles/_confidences/_penalties (spec-099/100), scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
   <div class="target"><b>Target (specs/037):</b> insert <code>insightface_score_blur</code> after <code>align_faces</code>.</div>
 </div>
 
@@ -162,7 +187,7 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
 <div class="arrow">▼</div>
 
 <div class="stage db">
-  <div class="head"><span class="name">I · RunExporter writes</span><span class="src">face_cluster/run_exporter.py</span></div>
+  <div class="head"><span class="name">I · RunExporter writes</span><span class="src">sim_bench/run_db/exporter.py</span></div>
   <div class="body">
     Builds <code>face_rows</code>, <code>score_rows</code> as List[Tuple]<br>
     → <code>FACES_SCHEMA.validate(pd.DataFrame(face_rows, columns=...))</code><br>
@@ -176,18 +201,20 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
 
 <div class="stage db">
   <div class="head"><span class="name">J · SQLite</span><span class="src">&lt;run_dir&gt;/_v4/face_clustering.db</span></div>
-  <div class="body">7 tables. DDL per-table in <code>face_cluster/db/schema.py</code>; <code>SCHEMA_VERSION = 4</code>. Field reference: <a href="db_schemas.html">db_schemas.html</a>.</div>
+  <div class="body">7 tables. DDL per-table in <code>sim_bench/run_db/_schema.py</code>; <code>SCHEMA_VERSION = 4</code>. Field reference: <a href="db_schemas.html">db_schemas.html</a>.</div>
 </div>
 
 <div class="arrow">▼</div>
 
 <div class="stage face">
-  <div class="head"><span class="name">K · RunStore.image_detail (read side)</span><span class="src">face_cluster/run_store.py</span></div>
+  <div class="head"><span class="name">K · RunStore.image_detail (read side)</span><span class="src">sim_bench/run_db/store.py</span></div>
   <div class="body">
-    Single SQL JOIN: faces + cluster_assignments + filter_decisions<br>
+    spec-059: SQLAlchemy ORM queries against spec-058 models —<br>
+    <code>select(Face)</code> + <code>select(ClusterAssignment...)</code> + <code>select(FilterDecision...)</code><br>
     → <code>ImageDetail(faces=[FaceDetail(...), ...], image_filter_decisions=[FaceFilterDecision(...), ...])</code>
   </div>
   <div class="contract"><b>Contract (P-D):</b> ImageDetail / FaceDetail / FaceFilterDecision are Pydantic with <code>extra="forbid"</code>.</div>
+  <div class="contract"><b>Backing (spec-059):</b> per-call <code>Session</code> from <code>sim_bench/run_db/_session.py::make_run_db_sessionmaker</code>; engine cached on the RunStore instance. Zero raw SQL — enforced by <code>tests/architecture/test_no_raw_sql_in_run_db_readers.py</code>.</div>
 </div>
 
 <h2>The five contract boundaries — at a glance</h2>
@@ -229,6 +256,42 @@ can't catch this. The fix is the config-to-producer graph contract (specs/036)
 plus an E2E acceptance test (specs/035).
 </p>
 
+<h2>spec-045 — Cluster Analysis read path</h2>
+
+<pre style="font-family: Consolas, monospace; font-size: 12px; background: #fafafa; border: 1px solid #ddd; padding: 10px;">  Streamlit (Tab + Components)        <-- app/face_clustering_v2/tabs/cluster_analysis_tab.py
+            |                              app/face_clustering_v2/components/cluster_*.py
+            v
+  ClusterAnalysisService                <-- face_cluster/views/cluster_analysis.py
+   - list_clusters / get_cluster_ids       (passthrough)
+   - compute_*_async  -->  AsyncHandle[T]  (face_cluster/views/_async.py)
+   - preview_force_merge / apply_force_merge
+            |
+            v
+  ClusterAnalysisRepository             <-- sim_bench/db/face_clustering/cluster_analysis_repo.py
+   - get_cluster_rows / find_assignments      (own ORM select() against spec-058 models)
+   - get_face_records / get_run_metadata /    (delegate to RunStore)
+     get_merge_log / get_cluster_result
+   - save_manual_merge_snapshot ----------> face_cluster.manual_merge_snapshot
+            |       (writes sibling merge_snap_{round}/ dir)
+            v
+        RunStore        +    SQLAlchemy Session (spec-059)
+            |                    |  (per-call session; engine cached on instance;
+            |                    |   _load_and_validate stays on raw sqlite3 — PRAGMA
+            |                    |   user_version must precede ORM machinery)
+            v                    v
+  &lt;run_dir&gt;/embeddings.npy   &lt;run_dir&gt;/face_clustering.db
+  &lt;run_dir&gt;/pipeline_run.json
+  &lt;run_dir&gt;/crops/
+</pre>
+
+<p>
+Layering invariants enforced by <code>tests/architecture/test_cluster_analysis_tab.py</code>:
+no <code>sqlite3</code> / <code>open()</code> / <code>RunStore(</code> / <code>json.loads</code> /
+<code>cfg.get(</code> in the Tab or Components layer; every Service method has a typed
+return annotation; Repository takes <code>ClusterAnalysisRepoConfig</code>;
+<code>ForceMergePreview</code> field set is locked against <code>ForceMergeResult</code>.
+</p>
+
 <h2>Related documents</h2>
 <ul>
   <li><a href="db_schemas.html">db_schemas.html</a></li>
@@ -236,6 +299,8 @@ plus an E2E acceptance test (specs/035).
   <li><a href="index.html">index.html</a> — architecture documentation index</li>
   <li><code>specs/033-data-integrity/REVIEW.md</code> — code review of the work that produced this state</li>
   <li><code>specs/033-data-integrity/MASTER_PLAN.md</code> — master plan with all 8 phases</li>
+  <li><code>specs/045-cluster-analysis-tab/spec.md</code> — Cluster Analysis tab PRD</li>
+  <li><code>specs/045-cluster-analysis-tab/LEGACY_VS_V2_CLUSTER_TAB.html</code> — legacy 383-LOC monolith vs the 4-layer split</li>
 </ul>
 
 </body>

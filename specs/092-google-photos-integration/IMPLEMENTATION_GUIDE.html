@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Google Photos Picker — Implementation Guide</title>
+<style>
+  :root{
+    --ink:#11181c; --muted:#5b6770; --line:#e3e8ec; --bg:#f7f9fb; --card:#fff;
+    --accent:#1a73e8; --accent-soft:#e8f0fe; --green:#0f9d58; --green-soft:#e6f4ea;
+    --amber:#f9ab00; --amber-soft:#fef7e0; --red:#d93025; --red-soft:#fce8e6;
+    --purple:#7c4dff; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .layout{display:grid;grid-template-columns:232px 1fr;max-width:1180px;margin:0 auto;gap:0}
+  /* sidebar */
+  nav{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:26px 18px;
+    border-right:1px solid var(--line);background:#fff}
+  nav .brand{font-weight:760;font-size:15px;letter-spacing:-.2px;margin-bottom:3px}
+  nav .brand span{color:var(--accent)}
+  nav .tagline{font-size:11.5px;color:var(--muted);margin-bottom:18px}
+  nav a{display:block;color:var(--muted);text-decoration:none;font-size:13.5px;padding:6px 10px;
+    border-radius:7px;margin:1px 0}
+  nav a:hover{background:var(--accent-soft);color:var(--accent)}
+  nav .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#9aa6ad;
+    margin:16px 10px 4px;font-weight:700}
+  main{padding:0 40px 110px;min-width:0}
+  @media(max-width:880px){.layout{grid-template-columns:1fr}nav{display:none}main{padding:0 22px 80px}}
+  header.hero{background:linear-gradient(135deg,#1a73e8 0%,#7c4dff 100%);color:#fff;
+    margin:0 -40px 36px;padding:46px 40px 40px;border-radius:0 0 22px 22px}
+  @media(max-width:880px){header.hero{margin:0 -22px 30px;padding:40px 22px 34px}}
+  .hero h1{margin:0 0 8px;font-size:30px;letter-spacing:-.5px;font-weight:740}
+  .hero p{margin:0;font-size:16px;opacity:.94;max-width:680px}
+  .hero .meta{margin-top:18px;display:flex;gap:8px;flex-wrap:wrap}
+  .pill{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);
+    padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600}
+  h2{font-size:22px;margin:46px 0 6px;letter-spacing:-.3px;padding-top:8px;display:flex;align-items:center;gap:10px}
+  h2 .n{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
+    background:var(--accent);color:#fff;border-radius:8px;font-size:14px;font-weight:700;flex:none}
+  h3{font-size:16.5px;margin:26px 0 6px}
+  h4{font-size:14px;margin:18px 0 4px;color:var(--ink)}
+  p.lead{color:var(--muted);margin-top:4px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:20px 22px;margin:16px 0;
+    box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:880px){.grid2{grid-template-columns:1fr}}
+  code{font-family:var(--mono);font-size:13px;background:#eef2f5;padding:1.5px 6px;border-radius:5px}
+  pre{margin:14px 0;background:#0f172a;color:#e2e8f0;border-radius:12px;padding:18px 20px;overflow-x:auto;
+    font-family:var(--mono);font-size:12.8px;line-height:1.55}
+  pre .c{color:#94a3b8}.k{color:#fcd34d}.s{color:#86efac}.b{color:#93c5fd}.r{color:#fca5a5}.m{color:#c4b5fd}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.6px;background:#fff;
+    border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#f1f5f8;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  td code{font-size:12.4px}
+  .callout{border-left:4px solid var(--accent);background:#fff;border-radius:0 11px 11px 0;padding:14px 18px;margin:16px 0;
+    box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .callout.warn{border-color:var(--red);background:var(--red-soft)}
+  .callout.ok{border-color:var(--green);background:var(--green-soft)}
+  .callout.note{border-color:var(--amber);background:var(--amber-soft)}
+  .callout b{display:block;margin-bottom:2px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.3px;padding:2px 8px;border-radius:6px}
+  .t-blue{background:var(--accent-soft);color:var(--accent)}.t-green{background:var(--green-soft);color:var(--green)}
+  .t-amber{background:var(--amber-soft);color:#b06000}.t-purple{background:#efe9ff;color:var(--purple)}.t-grey{background:#eef2f5;color:var(--muted)}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:14px 0}
+  .steps>li{position:relative;padding:4px 0 16px 44px;border-left:2px solid var(--line);margin-left:14px}
+  .steps>li:last-child{border-left:2px solid transparent}
+  .steps>li::before{counter-increment:s;content:counter(s);position:absolute;left:-15px;top:0;
+    width:28px;height:28px;background:var(--accent);color:#fff;border-radius:50%;display:flex;
+    align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .steps b{display:block;margin-bottom:2px}
+  .steps .small{color:var(--muted);font-size:13px}
+  .diagram{background:#0f172a;color:#e2e8f0;border-radius:13px;padding:20px 22px;margin:16px 0;
+    font-family:var(--mono);font-size:12.6px;line-height:1.5;overflow-x:auto;white-space:pre}
+  .diagram .add{color:#86efac}.diagram .key{color:#fcd34d}.diagram .dim{color:#94a3b8}.diagram .ac{color:#93c5fd}.diagram .del{color:#fca5a5}
+  .sig{font-family:var(--mono);font-size:12.6px;color:var(--ink);background:#f1f5f8;border:1px solid var(--line);
+    border-radius:7px;padding:3px 8px;display:inline-block;margin:2px 0}
+  .pf{font-family:var(--mono);font-size:12.6px;font-weight:700;color:var(--accent)}
+  .small{font-size:13px;color:var(--muted)}
+  .badge{font-size:10.5px;font-weight:800;letter-spacing:.4px;color:#fff;padding:2px 8px;border-radius:5px}
+  .b-done{background:var(--green)}.b-todo{background:var(--amber)}.b-user{background:var(--purple)}
+  ul.clean{list-style:none;padding:0;margin:8px 0}
+  ul.clean li{padding:6px 0 6px 24px;position:relative;border-bottom:1px solid var(--line);font-size:14px}
+  ul.clean li:last-child{border-bottom:none}
+  ul.clean li::before{content:"";position:absolute;left:3px;top:13px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  footer{margin-top:54px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  a.ref{color:var(--accent)}
+  .kbd{font-family:var(--mono);font-size:12px;background:#fff;border:1px solid #cdd6dd;border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav>
+  <div class="brand">Google Photos <span>Picker</span></div>
+  <div class="tagline">sim-bench · spec-092 · implementation guide</div>
+  <a href="#overview">Overview</a>
+  <div class="grp">Setup</div>
+  <a href="#prereq">1 · Prerequisites</a>
+  <a href="#console">2 · Google Cloud setup</a>
+  <a href="#run">3 · Run it</a>
+  <div class="grp">Design</div>
+  <a href="#arch">4 · Architecture</a>
+  <a href="#modules">5 · Module reference</a>
+  <a href="#oauth">6 · OAuth flow</a>
+  <a href="#session">7 · Picker session flow</a>
+  <div class="grp">Quality</div>
+  <a href="#tests">8 · Testing</a>
+  <a href="#constraints">9 · Constraints</a>
+  <a href="#roadmap">10 · Next steps</a>
+  <a href="#trouble">11 · Troubleshooting</a>
+</nav>
+
+<main>
+<header class="hero">
+  <h1>Google Photos Picker — Implementation Guide</h1>
+  <p>How sim-bench connects to a user's Google Photos to import selected photos, the software architecture behind it, and every module involved. Built; unit-tested; awaiting only your OAuth credentials to go live.</p>
+  <div class="meta">
+    <span class="pill">spec-092</span>
+    <span class="pill">Picker API (post-2025)</span>
+    <span class="pill">11 unit tests green</span>
+    <span class="pill">package <code>gphotos/</code></span>
+  </div>
+</header>
+
+<!-- OVERVIEW -->
+<h2 id="overview"><span class="n">0</span> Overview</h2>
+<p class="lead">Since March 2025, the only live-API way to read a user's Google Photos library is the <b>Picker API</b>: the user selects photos inside Google's own UI, and our app receives just those items. We download the bytes into a local cache directory that the existing pipeline ingests unchanged.</p>
+<div class="diagram"><span class="dim"># One sentence of data flow</span>
+user clicks "Import" ─▶ <span class="key">OAuth</span> ─▶ <span class="key">Picker session</span> ─▶ user picks in browser ─▶ download <span class="ac">=d</span> bytes ─▶ <span class="add">local cache/</span> ─▶ existing <span class="ac">discover_images</span> pipeline
+</div>
+<div class="grid2">
+  <div class="card"><span class="tag t-green">What's done</span>
+    <ul class="clean">
+      <li>OAuth (installed-app loopback) + token cache</li>
+      <li>Full Picker REST client (session → poll → list → download)</li>
+      <li>Idempotent download cache</li>
+      <li>2 standalone scripts + 11 unit tests</li>
+    </ul>
+  </div>
+  <div class="card"><span class="tag t-amber">What you must do</span>
+    <ul class="clean">
+      <li>Create a Google Cloud OAuth client (§2)</li>
+      <li>Drop <code>client_secret.json</code> at repo root</li>
+      <li>Run the two scripts to verify (§3)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 1 PREREQ -->
+<h2 id="prereq"><span class="n">1</span> Prerequisites</h2>
+<table>
+  <tr><th>Requirement</th><th>Detail</th></tr>
+  <tr><td>Google account</td><td>The account whose photos you'll import (also added as an OAuth "test user").</td></tr>
+  <tr><td>Python env</td><td>Project venv: <code>.venv/Scripts/python</code>. Deps already added to <code>setup.cfg</code> and installed.</td></tr>
+  <tr><td>Python packages</td><td><code>requests</code>, <code>google-auth</code>, <code>google-auth-oauthlib</code> (pulled by <code>pip install -e .</code>).</td></tr>
+  <tr><td>OAuth scope</td><td><code>photospicker.mediaitems.readonly</code> — <b>sensitive, not restricted</b> → no CASA audit needed in Testing mode.</td></tr>
+  <tr><td>Credential file</td><td><code>D:\sim-bench\client_secret.json</code> (you download this in §2; it is git-ignored — never commit it).</td></tr>
+</table>
+
+<!-- 2 CONSOLE -->
+<h2 id="console"><span class="n">2</span> Google Cloud setup <span class="badge b-user" style="margin-left:8px">YOU DO THIS</span></h2>
+<p class="lead">One-time, ~10 minutes, at <a class="ref" href="https://console.cloud.google.com">console.cloud.google.com</a>. This is the only part the code can't do for you.</p>
+<ol class="steps">
+  <li><b>Create / select a project</b><span class="small">Top bar → project dropdown → <i>New Project</i> (e.g. "sim-bench-photos").</span></li>
+  <li><b>Enable the Photos Picker API</b><span class="small">APIs &amp; Services → <i>Library</i> → search "Photos Picker API" → <b>Enable</b>. (Do <i>not</i> enable the legacy Library API — not needed for import.)</span></li>
+  <li><b>Configure the OAuth consent screen</b><span class="small">APIs &amp; Services → <i>OAuth consent screen</i> → User type <b>External</b> → fill app name + your email. Leave publishing status as <b>Testing</b>.</span></li>
+  <li><b>Add the scope</b><span class="small">On the consent screen's <i>Scopes</i> step, add <code>.../auth/photospicker.mediaitems.readonly</code> (or skip here — the code requests it at runtime).</span></li>
+  <li><b>Add yourself as a Test user</b><span class="small">Consent screen → <i>Test users</i> → <b>Add users</b> → your Google email. Required while in Testing mode (≤100 users, no security review).</span></li>
+  <li><b>Create the OAuth client ID</b><span class="small">Credentials → <i>Create credentials</i> → <i>OAuth client ID</i> → Application type <b>Desktop app</b> → Create.</span></li>
+  <li><b>Download &amp; place the secret</b><span class="small">Download JSON → save as <code>D:\sim-bench\client_secret.json</code>. Done.</span></li>
+</ol>
+<div class="callout note"><b>Why "Desktop app" + "Testing"</b>
+Desktop-app clients use the loopback redirect (<code>127.0.0.1</code>) our auth flow relies on. Testing mode lets the restricted-free Picker scope work immediately for up to 100 named users with no Google review — perfect for a personal/internal tool. Going public later would add OAuth verification (a separate decision, see the decision report).</div>
+
+<!-- 3 RUN -->
+<h2 id="run"><span class="n">3</span> Run it</h2>
+<p class="lead">Two standalone scripts — no Albumify, no API server, no database. They exercise the <code>gphotos/</code> package directly.</p>
+
+<h4>Step A — verify auth</h4>
+<pre><span class="c"># first run opens a browser for consent; later runs are silent (cached token)</span>
+.venv/Scripts/python scripts/gphotos_auth_check.py
+
+<span class="c"># expected</span>
+<span class="s">token OK</span>
+  valid:   True
+  scopes:  ['https://www.googleapis.com/auth/photospicker.mediaitems.readonly']
+  expires: 2026-06-27 12:41:00
+  stored:  C:\Users\...\.sim_bench\gphotos_token.json</pre>
+
+<h4>Step B — import photos</h4>
+<pre>.venv/Scripts/python scripts/gphotos_picker_smoke.py --out ./_gphotos_smoke/cache
+
+<span class="c"># the script:</span>
+[1/4] session created: <span class="m">a1b2c3...</span>
+[2/4] opening picker: <span class="b">https://photos.google.com/...</span>   <span class="c"># browser opens; pick photos, click Done</span>
+[3/4] picked 5 item(s)
+[4/4] downloaded 5 file(s) -> ./_gphotos_smoke/cache
+    IMG_8841.jpg
+    IMG_8842.jpg
+    ...</pre>
+<div class="callout note"><b>Tip — running browser commands in this session</b>
+These open a browser. From the Claude Code prompt, prefix with <span class="kbd">!</span> (e.g. <code>! .venv/Scripts/python scripts/gphotos_auth_check.py</code>) so the output is captured here. The flags: <code>--client-secret</code> (default <code>client_secret.json</code>), <code>--out</code> (cache dir), <code>--token</code> (token path).</div>
+
+<!-- 4 ARCH -->
+<h2 id="arch"><span class="n">4</span> Software architecture</h2>
+<p class="lead">A single self-contained package <code>gphotos/</code> sits at the <b>edge</b> of the system. It depends on Google's libraries and our own types — nothing depends back on the pipeline. The output is a folder of image files, the same contract the app already uses for local folders.</p>
+
+<div class="diagram"><span class="dim"># Layered view — arrows = "depends on / calls"</span>
+
+  <span class="ac">scripts/gphotos_auth_check.py</span>      <span class="ac">scripts/gphotos_picker_smoke.py</span>     <span class="dim">(entry points / future UI)</span>
+            │                                  │
+            ▼                                  ▼
+  ┌───────────────────────────── gphotos/ package ─────────────────────────────┐
+  │                                                                             │
+  │   <span class="key">auth.py</span>            <span class="key">picker.py</span>              <span class="key">cache.py</span>                       │
+  │   GooglePhotosAuth ─creds─▶ PickerClient ──items──▶ DownloadCache           │
+  │        │                       │                       │                    │
+  │        └──────────── all speak ──▶ <span class="add">types.py</span> ◀── (PickerSession,            │
+  │                                     PickedItem, DownloadedItem)             │
+  └─────────────────────────────────────┬───────────────────────────────────────┘
+                                         │ writes image files
+                                         ▼
+                                 <span class="add">local cache dir/</span>  ──▶  <span class="ac">discover_images</span> ─▶ … existing pipeline (UNCHANGED)
+                                         ▲
+            Google APIs ───────────────┘  (photospicker.googleapis.com + OAuth)
+</div>
+
+<table>
+  <tr><th>Layer</th><th>Responsibility</th><th>Depends on</th></tr>
+  <tr><td><b>Entry points</b><br><span class="small">scripts (today), UI tabs (P5)</span></td><td>Orchestrate: authenticate → pick → download → hand folder to pipeline</td><td>the <code>gphotos/</code> package</td></tr>
+  <tr><td><b><code>gphotos/</code></b><br><span class="small">domain package</span></td><td>All Google Photos logic, isolated behind one boundary so an API change touches one place (FR-009)</td><td>Google libs + <code>types.py</code></td></tr>
+  <tr><td><b>Output</b></td><td>A directory of image files = the pipeline's existing input contract</td><td>nothing (plain files)</td></tr>
+</table>
+<p class="small">Design rule (spec-053): framework-agnostic dataclasses, thin classes, no <code>PipelineContext</code> import. The same modules are callable from notebooks and the smoke scripts.</p>
+
+<!-- 5 MODULES -->
+<h2 id="modules"><span class="n">5</span> Module reference</h2>
+
+<h3><code>gphotos/types.py</code> <span class="tag t-grey">no I/O · no deps</span></h3>
+<p class="small">Framework-agnostic dataclasses that mirror the verified Picker REST schema. Each parses raw JSON via a <code>from_api()</code> classmethod, so the rest of the package never touches dict keys.</p>
+<table>
+  <tr><th>Type</th><th>Fields / purpose</th></tr>
+  <tr><td><span class="pf">PollingConfig</span></td><td><code>poll_interval_s</code>, <code>timeout_s</code> — server-recommended poll cadence.</td></tr>
+  <tr><td><span class="pf">PickerSession</span></td><td><code>id</code>, <code>picker_uri</code>, <code>media_items_set</code>, <code>polling</code>, <code>expire_time</code>. <span class="sig">from_api(data) → PickerSession</span></td></tr>
+  <tr><td><span class="pf">PickedItem</span></td><td><code>id</code>, <code>filename</code>, <code>base_url</code>, <code>mime_type</code>, <code>media_type</code>, <code>create_time</code> + <code>is_video</code>. <span class="sig">from_api(data) → PickedItem</span></td></tr>
+  <tr><td><span class="pf">DownloadedItem</span></td><td><code>item</code>, <code>local_path</code> — a picked item after its bytes land on disk.</td></tr>
+  <tr><td><span class="pf">_parse_duration</span></td><td>Helper: protobuf Duration string (<code>"3.5s"</code>) → float seconds, with default fallback.</td></tr>
+</table>
+
+<h3><code>gphotos/auth.py</code> <span class="tag t-blue">OAuth</span></h3>
+<p class="small">Installed-app (loopback) OAuth with on-disk token caching and silent refresh.</p>
+<pre><span class="k">class</span> <span class="b">GooglePhotosAuth</span>:
+    <span class="k">def</span> <span class="b">__init__</span>(self, client_secret_path, scopes=(PICKER_SCOPE,), token_path=DEFAULT_TOKEN_PATH)
+    <span class="k">def</span> <span class="b">get_credentials</span>(self, open_browser=True) -> Credentials   <span class="c"># load → refresh → or run consent</span>
+    <span class="k">def</span> <span class="b">clear</span>(self)                                          <span class="c"># delete cached token</span></pre>
+<ul class="clean">
+  <li><code>PICKER_SCOPE</code> = <code>.../auth/photospicker.mediaitems.readonly</code></li>
+  <li><code>DEFAULT_TOKEN_PATH</code> = <code>~/.sim_bench/gphotos_token.json</code> (created with <code>0600</code> where supported)</li>
+  <li>Logic: valid cached token → return; expired with refresh token → refresh + save; else run <code>InstalledAppFlow.run_local_server(port=0)</code>.</li>
+  <li><span class="small">Keyring storage is a P7 hardening follow-up; the file store already satisfies "persist once, refresh silently" (FR-008).</span></li>
+</ul>
+
+<h3><code>gphotos/picker.py</code> <span class="tag t-purple">REST client</span></h3>
+<p class="small">Plain REST over <code>https://photospicker.googleapis.com/v1</code> (no official Python client lib). Auth via <code>AuthorizedSession</code>, which injects + refreshes the bearer token — required even for byte downloads.</p>
+<pre><span class="k">class</span> <span class="b">PickerClient</span>:
+    <span class="k">def</span> <span class="b">__init__</span>(self, credentials=None, session=None)        <span class="c"># inject a fake session in tests</span>
+    <span class="k">def</span> <span class="b">create_session</span>(self) -> PickerSession                <span class="c"># POST /sessions</span>
+    <span class="k">def</span> <span class="b">get_session</span>(self, session_id) -> PickerSession      <span class="c"># GET  /sessions/{id}</span>
+    <span class="k">def</span> <span class="b">poll_until_ready</span>(self, session, on_wait=None, sleep=time.sleep) -> PickerSession
+    <span class="k">def</span> <span class="b">list_media_items</span>(self, session_id, page_size=100) -> list[PickedItem]   <span class="c"># GET /mediaItems (paginated)</span>
+    <span class="k">def</span> <span class="b">download_item</span>(self, item, dest) -> Path             <span class="c"># GET {baseUrl}=d → write bytes</span>
+    <span class="k">def</span> <span class="b">delete_session</span>(self, session_id)                    <span class="c"># DELETE /sessions/{id} (best-effort)</span></pre>
+<table>
+  <tr><th>Endpoint</th><th>Method</th><th>Notes</th></tr>
+  <tr><td><code>/v1/sessions</code></td><td>POST</td><td>Returns <code>pickerUri</code> + <code>pollingConfig</code>.</td></tr>
+  <tr><td><code>/v1/sessions/{id}</code></td><td>GET</td><td>Poll until <code>mediaItemsSet == true</code>.</td></tr>
+  <tr><td><code>/v1/mediaItems?sessionId=</code></td><td>GET</td><td>Page size ≤100; follows <code>nextPageToken</code>.</td></tr>
+  <tr><td><code>{baseUrl}=d</code></td><td>GET</td><td>Full bytes, EXIF kept <i>except</i> GPS. Needs the bearer header.</td></tr>
+</table>
+<p class="small"><b>Timeout/interval are locked from the initial session</b> — re-fetched poll responses may omit <code>pollingConfig</code>, so reading them each loop would silently reset the budget (a bug caught in testing).</p>
+
+<h3><code>gphotos/cache.py</code> <span class="tag t-green">materialize</span></h3>
+<p class="small">Writes picked bytes into a directory the pipeline consumes as-is. Idempotent via a small manifest, so re-runs are cheap and resumable.</p>
+<pre><span class="k">class</span> <span class="b">DownloadCache</span>:
+    <span class="k">def</span> <span class="b">__init__</span>(self, root)
+    <span class="k">def</span> <span class="b">materialize</span>(self, client, items: list[PickedItem]) -> list[DownloadedItem]</pre>
+<ul class="clean">
+  <li>Skips items already on disk (id present in <code>.gphotos_manifest.json</code> + file exists).</li>
+  <li>Sanitizes filenames and disambiguates collisions (<code>same.jpg</code> → <code>same_1.jpg</code>).</li>
+  <li>Returns <code>DownloadedItem</code>s carrying the original picked metadata + local path.</li>
+</ul>
+
+<h3>Scripts &amp; tests</h3>
+<table>
+  <tr><th>File</th><th>Role</th></tr>
+  <tr><td><code>scripts/gphotos_auth_check.py</code></td><td>Auth only → prints <code>token OK</code> + scopes. The P2 gate.</td></tr>
+  <tr><td><code>scripts/gphotos_picker_smoke.py</code></td><td>Browser import → download → list files. The P3 gate. No Albumify.</td></tr>
+  <tr><td><code>tests/gphotos/test_picker_session.py</code></td><td><code>ut_PickerSession</code> + <code>ut_DurationParse</code> — mock HTTP, no network.</td></tr>
+  <tr><td><code>tests/gphotos/test_cache.py</code></td><td><code>ut_GphotosCache</code> — download/idempotency/collision.</td></tr>
+</table>
+
+<!-- 6 OAUTH -->
+<h2 id="oauth"><span class="n">6</span> OAuth flow (first run)</h2>
+<div class="diagram">  <span class="ac">app</span>                 <span class="key">GooglePhotosAuth</span>          browser            Google
+   │  get_credentials()  │                       │                  │
+   │────────────────────▶│  no cached token      │                  │
+   │                     │  run_local_server() ──▶ opens consent ───▶│
+   │                     │                       │  user approves    │
+   │                     │◀── redirect to 127.0.0.1:PORT?code=… ─────│
+   │                     │  exchange code → tokens ──────────────────▶│
+   │                     │◀── access + refresh token ────────────────│
+   │                     │  save to ~/.sim_bench/gphotos_token.json   │
+   │◀── Credentials ─────│                                            │
+   <span class="dim">later runs: token loaded from disk; if expired, refreshed silently (no browser)</span>
+</div>
+
+<!-- 7 SESSION -->
+<h2 id="session"><span class="n">7</span> Picker session flow</h2>
+<div class="diagram">  <span class="ac">app</span>              <span class="key">PickerClient</span>            browser              Picker API
+   │ create_session() │                        │                      │
+   │─────────────────▶│ POST /sessions ───────────────────────────────▶│
+   │                  │◀── {id, pickerUri, pollingConfig} ─────────────│
+   │◀── PickerSession │                        │                      │
+   │ open pickerUri ─────────────────────────▶ user picks photos      │
+   │ poll_until_ready │ GET /sessions/{id} (every pollInterval) ──────▶│
+   │                  │◀── mediaItemsSet:false … then true ───────────│
+   │ list_media_items │ GET /mediaItems?sessionId= (paginate) ────────▶│
+   │                  │◀── [PickedItem…] with baseUrl ────────────────│
+   │ DownloadCache    │ GET {baseUrl}=d  + Bearer ────────────────────▶│
+   │  .materialize()  │◀── image bytes → write to cache/ ─────────────│
+   │ delete_session() │ DELETE /sessions/{id} (cleanup) ──────────────▶│
+</div>
+
+<!-- 8 TESTS -->
+<h2 id="tests"><span class="n">8</span> Testing</h2>
+<pre>.venv/Scripts/python -m pytest tests/gphotos -q
+<span class="s">11 passed</span></pre>
+<table>
+  <tr><th>Test</th><th>Proves</th></tr>
+  <tr><td>create_session parses polling</td><td>Duration strings → seconds; POST issued.</td></tr>
+  <tr><td>poll loops until set / times out</td><td>Polling honors cadence; raises <code>TimeoutError</code> when budget spent.</td></tr>
+  <tr><td>list paginates</td><td><code>nextPageToken</code> carried forward; items flattened.</td></tr>
+  <tr><td>download uses <code>=d</code> + writes bytes</td><td>Correct suffix; bytes persisted.</td></tr>
+  <tr><td>cache: download all / idempotent / collisions</td><td>No re-download on re-run; distinct files on name clash.</td></tr>
+</table>
+<p class="small">All tests inject a fake session/client — <b>zero network</b>, CI-safe on Windows, ASCII output. Live behavior is validated by the two scripts (§3).</p>
+
+<!-- 9 CONSTRAINTS -->
+<h2 id="constraints"><span class="n">9</span> Constraints &amp; gotchas</h2>
+<table>
+  <tr><th>Constraint</th><th>Implication</th></tr>
+  <tr><td><b>Per-session, user-picked</b></td><td>No library browse/search/auto-sync. Each import = one picker session the user completes.</td></tr>
+  <tr><td><b>GPS stripped on <code>=d</code></b></td><td>Imported photos carry timestamp/camera EXIF but <b>no location</b>. Accepted risk; geo/trip detection degrades. GPS recovery (Takeout) is the separate P1 track.</td></tr>
+  <tr><td><b>Bearer header on baseUrl</b></td><td>Downloads need the OAuth token, not just the API calls. Handled by <code>AuthorizedSession</code>.</td></tr>
+  <tr><td><b>Session expiry</b></td><td>Picked items are reachable only until <code>expireTime</code>; download promptly.</td></tr>
+  <tr><td><b>Quotas</b></td><td>~75k media-byte downloads/project/day; back off on <code>429</code> (P7 hardening).</td></tr>
+  <tr><td><b>Secrets</b></td><td><code>client_secret.json</code> and the token file are credentials — git-ignored, never logged.</td></tr>
+</table>
+
+<!-- 10 ROADMAP -->
+<h2 id="roadmap"><span class="n">10</span> Where this fits &amp; next steps</h2>
+<table>
+  <tr><th>Phase</th><th>Item</th><th>Status</th></tr>
+  <tr><td>P0</td><td>Google Cloud OAuth client + <code>client_secret.json</code></td><td><span class="badge b-user">YOU</span></td></tr>
+  <tr><td>P2</td><td><code>auth.py</code> + auth_check script</td><td><span class="badge b-done">DONE</span></td></tr>
+  <tr><td>P3</td><td><code>picker.py</code> + <code>cache.py</code> + smoke script + tests</td><td><span class="badge b-done">DONE</span></td></tr>
+  <tr><td>P4</td><td><code>ingest_source.py</code> — adapter handing the cache dir to a real pipeline run</td><td><span class="badge b-todo">NEXT</span></td></tr>
+  <tr><td>P5</td><td>UI: "Import from Google Photos" in FC <code>run_tab.py</code> + Albumify <code>configure.py</code>; GPS-coverage notice</td><td><span class="badge b-todo">TODO</span></td></tr>
+  <tr><td>P6</td><td>Export: push selected album back (<code>album/export/gphotos.py</code>)</td><td><span class="badge b-todo">TODO</span></td></tr>
+  <tr><td>P7</td><td>Harden: keyring, 429 backoff, docs, code review, Budapest gate</td><td><span class="badge b-todo">TODO</span></td></tr>
+</table>
+<div class="callout ok"><b>Immediate next action</b>
+You: complete §2 and drop in <code>client_secret.json</code>, then run §3 Step A &amp; B. Once a file downloads, P4 wires the cache dir into <code>discover_images</code> so a Google import flows through the full clustering pipeline.</div>
+
+<!-- 11 TROUBLE -->
+<h2 id="trouble"><span class="n">11</span> Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Cause → fix</th></tr>
+  <tr><td><code>FileNotFoundError: client secret</code></td><td>No <code>client_secret.json</code> → complete §2; pass <code>--client-secret PATH</code> if elsewhere.</td></tr>
+  <tr><td>Browser: "app isn't verified"</td><td>Expected in Testing mode → click <i>Advanced → continue</i>. Ensure your email is a Test user.</td></tr>
+  <tr><td><code>403</code> on download</td><td>Missing bearer on baseUrl → use <code>PickerClient</code> (AuthorizedSession), not a bare <code>requests.get</code>.</td></tr>
+  <tr><td><code>access_denied</code> at consent</td><td>Your account isn't in the Test users list → add it (§2 step 5).</td></tr>
+  <tr><td>Poll never finishes</td><td>User didn't click <i>Done</i> in the picker, or session expired → re-run; the loop raises <code>TimeoutError</code> after the budget.</td></tr>
+  <tr><td>Re-consent every run</td><td>Token not persisting → check write access to <code>~/.sim_bench/</code>; pass <code>--token PATH</code>.</td></tr>
+</table>
+
+<footer>
+  <b>Source.</b> Code: <code>gphotos/{types,auth,picker,cache}.py</code>, <code>scripts/gphotos_{auth_check,picker_smoke}.py</code>, <code>tests/gphotos/</code>.
+  Verified against Google's Picker API REST reference (<code>sessions</code>, <code>mediaItems</code>, <code>PickingSession</code>, <code>PickedMediaItem</code>) and OAuth installed-app docs.
+  See also <code>DECISION_REPORT.html</code> (strategy, GPS, distribution), <code>spec.md</code>, <code>tasks.md</code>.
+  <br><br>sim-bench · spec-092 · implementation guide · 2026-06-27 · Engineering.
+</footer>
+</main>
+</div>
+</body>
+</html>

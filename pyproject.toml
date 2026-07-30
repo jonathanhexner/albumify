@@ -5,8 +5,10 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 python_classes = ["ut_*", "Test*"]
 python_functions = ["test_*"]
-addopts = "-m 'not e2e'"
+addopts = "-m 'not e2e and not slow and not budapest'"
 markers = [
     "e2e: browser-based end-to-end tests requiring a running Streamlit server (excluded from default run)",
     "face_e2e: Albumify face-clustering pipeline E2E test on a 5-image fixture (spec-035). Slow on first run (model warmup); fast on cache hit.",
+    "slow: opt-in tests (~5+ min). Run with `pytest -m slow`. Excluded from default run.",
+    "budapest: v2 baseline e2e — Playwright + real Budapest album + profile_4. The contract every new v2 tab/feature must keep green. Run with `pytest -m budapest`. ~5-10 min.",
 ]

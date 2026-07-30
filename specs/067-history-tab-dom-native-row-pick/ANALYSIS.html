@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SIGHTING-091 — Streamlit dataframe is e2e-untestable</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'neutral', themeVariables: {
+  fontSize: '14px',
+  primaryColor: '#eef4ff',
+  primaryBorderColor: '#3b6ee0',
+  lineColor: '#444'
+}});</script>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 1100px; margin: 2em auto; padding: 0 1em; color: #222; line-height: 1.45; }
+  h1 { border-bottom: 3px solid #3b6ee0; padding-bottom: .25em; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 2em; color: #1a3a8c; }
+  h3 { color: #2a5fb8; margin-top: 1.5em; }
+  code { background: #f4f4f4; padding: 1px 5px; border-radius: 3px; font-size: 95%; }
+  pre { background: #1e1e2e; color: #cdd6f4; padding: .8em 1em; border-radius: 6px; overflow-x: auto; font-size: 87%; }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 94%; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: #eef4ff; }
+  .meta { background: #fff8d6; padding: .8em 1.2em; border-left: 5px solid #d4a017; margin: 1em 0; border-radius: 0 4px 4px 0; }
+  .verdict { background: #ffe6e6; padding: .8em 1.2em; border-left: 5px solid #cc3333; margin: 1em 0; border-radius: 0 4px 4px 0; }
+  .ok { background: #e6ffe6; padding: .8em 1.2em; border-left: 5px solid #2c9b2c; margin: 1em 0; border-radius: 0 4px 4px 0; }
+  .mermaid { background: #fafafa; padding: 1em; border-radius: 6px; margin: 1em 0; }
+  .legend { font-size: 85%; color: #666; font-style: italic; margin-top: -.5em; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 80%; font-weight: 600; }
+  .pill-red { background: #ffe0e0; color: #9b1c1c; }
+  .pill-green { background: #d8f3d8; color: #1a6b1a; }
+  .pill-blue { background: #e0ecff; color: #1c3d8c; }
+  .pill-amber { background: #fff1cc; color: #8a5c00; }
+  .small { font-size: 86%; color: #555; }
+</style>
+</head>
+<body>
+
+<h1>SIGHTING-091: Streamlit <code>st.dataframe</code> row-pick is invisible to Playwright</h1>
+
+<div class="meta">
+  <b>Status</b>: OPEN <span class="pill pill-amber">Medium severity</span><br>
+  <b>Reported</b>: 2026-05-30 (after spec-063/064/065 v2 tab additions)<br>
+  <b>Blast radius</b>: Blocks 5 of 6 budapest e2e scenarios (B, C, D, E, F). Does NOT affect the real product — users in a browser click rows fine.<br>
+  <b>Branch</b>: <code>unification/spec-040</code> &middot; <b>Last commit</b>: <code>f914e80</code>
+</div>
+
+<h2>1. TL;DR</h2>
+
+<p>
+The v2 History tab renders the runs list as a modern <code>st.dataframe</code> with
+<code>on_select="rerun"</code>. That widget is built on
+<a href="https://github.com/glideapps/glide-data-grid"><code>glide-data-grid</code></a> —
+a <b>canvas-rendered virtualised grid</b>. It does not expose its cells via standard
+ARIA <code>gridcell</code> role with the cell text as the accessible name. So the
+budapest e2e scenarios all timed out on:
+</p>
+
+<pre><code>page.get_by_role("gridcell", name="6437d335").first.click(timeout=15_000)</code></pre>
+
+<p>
+The cell <i>is</i> visible (screenshots in <code>tests/face_clustering/e2e_budapest/_failure_artifacts/</code>
+prove it). It is just not addressable by Playwright role-based selectors. The user-facing app
+is not broken; the e2e test harness can't drive the row-pick step.
+</p>
+
+<h2>2. What actually happens — the click sequence</h2>
+
+<div class="mermaid">
+sequenceDiagram
+  participant T as Playwright test
+  participant B as Chromium (headless)
+  participant ST as Streamlit frontend
+  participant GDG as glide-data-grid&lt;canvas&gt;
+  T->>B: page.get_by_role("tab", name="History").click()
+  B->>ST: route to History tab
+  ST-->>B: render h2 "History" + filter bar + st.dataframe
+  Note over ST,GDG: st.dataframe mounts a glide-data-grid<br/>component — rows are painted onto a&lt;canvas&gt;,<br/>not HTML &lt;tr&gt;/&lt;td&gt;.
+  T->>B: page.wait_for_selector("h2:has-text('History')") ✓
+  T->>B: page.get_by_role("gridcell", name="6437d335").first.click()
+  B->>B: scan DOM for role=gridcell with that accessible name
+  B--xT: 15s timeout — no DOM element matches<br/>(the cell text lives inside&lt;canvas&gt;)
+  Note right of T: pytest reports FAIL with Locator.click timeout
+</div>
+<p class="legend">Failure sequence — Playwright never finds a clickable DOM element because the cell content was drawn to a canvas instead of emitted as a DOM node.</p>
+
+<h2>3. Modules involved</h2>
+
+<div class="mermaid">
+classDiagram
+  direction LR
+
+  class history_tab["app/face_clustering_v2/tabs/history_tab.py<br/>59 LOC"] {
+    +render_history_tab()
+    -- thin orchestrator --
+    calls render_filter_bar
+    calls render_run_table 🔴
+    calls render_run_detail
+    calls render_load_button
+    calls render_actions_table
+  }
+
+  class run_table["app/face_clustering_v2/components/run_table.py<br/>60 LOC"] {
+    +render_run_table(rows, columns, key)
+    -- 🔴 the failure site --
+    st.dataframe(on_select="rerun")
+    returns selected_id or None
+  }
+
+  class actions_table["app/face_clustering_v2/components/actions_table.py<br/>62 LOC"] {
+    +render_actions_table(rows)
+    -- 🔴 also uses st.dataframe --
+    same e2e-untestable pattern
+  }
+
+  class history_service["face_cluster/views/history.py<br/>617 LOC"] {
+    +HistoryService.list_runs()
+    +HistoryService.get_run_detail()
+    +HistoryService.load_run()
+    -- pure Python, Streamlit-free --
+    ✅ unit-testable
+  }
+
+  class run_history_repo["face_cluster/repositories/run_history_repo.py<br/>311 LOC"] {
+    +RunHistoryRepository.list_actions()
+    +RunHistoryRepository.get_action()
+    -- query-shape Repository --
+    ✅ unit-testable
+  }
+
+  class conftest["tests/face_clustering/e2e_budapest/conftest.py<br/>138 LOC"] {
+    +streamlit_server (session fixture)
+    +page (per-test fixture)
+    spawns subprocess on port 8889
+    returns Playwright page
+  }
+
+  class scenario_b["tests/.../test_scenario_b_load_reference.py<br/>106 LOC"] {
+    🔴 BLOCKED HERE
+    gets gridcell name="6437d335"
+    times out at 15s
+  }
+  class scenario_c["test_scenario_c_recluster.py"] {
+    🔴 BLOCKED HERE
+  }
+  class scenario_d["test_scenario_d_face_analysis.py"] {
+    🔴 BLOCKED HERE
+  }
+  class scenario_e["test_scenario_e_merged_clusters.py"] {
+    🔴 BLOCKED HERE
+  }
+  class scenario_f["test_scenario_f_quality.py"] {
+    🔴 BLOCKED HERE
+  }
+
+  history_tab --> run_table : H2 component
+  history_tab --> actions_table : sub-section
+  history_tab --> history_service : query
+  history_service --> run_history_repo : delegates IO
+  scenario_b ..> conftest : uses page fixture
+  scenario_c ..> conftest
+  scenario_d ..> conftest
+  scenario_e ..> conftest
+  scenario_f ..> conftest
+  scenario_b ..> run_table : 🔴 click-fails on the dataframe
+  scenario_c ..> run_table : 🔴
+  scenario_d ..> run_table : 🔴
+  scenario_e ..> run_table : 🔴
+  scenario_f ..> run_table : 🔴
+</div>
+<p class="legend">Class diagram — the chokepoint is <code>run_table.py</code>'s 7-line <code>st.dataframe(...)</code> call. Everything below it (service, repo) is pure Python and fully unit-testable; everything above it (tab orchestrator) is also fine. The lone untestable surface is the widget choice.</p>
+
+<h3>3.1 Responsibilities &amp; LOC summary</h3>
+
+<table>
+<tr><th>Layer</th><th>Module</th><th>LOC</th><th>Responsibility</th><th>e2e-testable?</th></tr>
+<tr><td>Tab</td><td><code>history_tab.py</code></td><td>59</td><td>6-line orchestration (service + 5 component calls)</td><td><span class="pill pill-green">yes</span></td></tr>
+<tr><td>Component</td><td><code>run_table.py</code></td><td><b>60</b></td><td>Wraps <code>st.dataframe</code> with selection</td><td><span class="pill pill-red">NO — root cause</span></td></tr>
+<tr><td>Component</td><td><code>actions_table.py</code></td><td>62</td><td>Same pattern for the Actions sub-section</td><td><span class="pill pill-red">NO — same root cause</span></td></tr>
+<tr><td>Service</td><td><code>views/history.py</code></td><td>617</td><td>HistoryService: list, detail, load, summarise, search</td><td><span class="pill pill-green">yes (unit tests cover it)</span></td></tr>
+<tr><td>Repository</td><td><code>run_history_repo.py</code></td><td>311</td><td>SQL queries against the global action_log DB</td><td><span class="pill pill-green">yes (synthetic-fixture tests)</span></td></tr>
+<tr><td>Test infra</td><td><code>e2e_budapest/conftest.py</code></td><td>138</td><td>Streamlit subprocess + Playwright page fixture</td><td>n/a (fixture)</td></tr>
+<tr><td>Tests</td><td>5 × <code>test_scenario_*.py</code></td><td>~100 each</td><td>End-to-end click sequences, blocked at the same step</td><td><span class="pill pill-red">blocked</span></td></tr>
+</table>
+
+<h2>4. Where the lines are drawn — testability map</h2>
+
+<div class="mermaid">
+flowchart TB
+  subgraph FREE [<b>Streamlit-free — unit-testable</b>]
+    R[run_history_repo.py<br/>311 LOC<br/>✅ synthetic fixture tests]
+    S[views/history.py<br/>617 LOC<br/>✅ service tests]
+  end
+
+  subgraph TAB [<b>Streamlit-bound — AppTest-testable</b>]
+    T[history_tab.py<br/>59 LOC<br/>✅ tested via test_v2_app_smoke.py]
+  end
+
+  subgraph BLIND [<b>🔴 Streamlit-bound — Playwright-blind</b>]
+    RT[run_table.py — st.dataframe<br/>60 LOC]
+    AT[actions_table.py — st.dataframe<br/>62 LOC]
+  end
+
+  subgraph E2E [<b>Browser e2e — must drive a real click</b>]
+    SB[scenario_b: load reference]
+    SC[scenario_c: recluster]
+    SD[scenario_d: face analysis]
+    SE[scenario_e: merged clusters]
+    SF[scenario_f: quality]
+  end
+
+  R --> S --> T --> RT
+  T --> AT
+  SB --x RT
+  SC --x RT
+  SD --x RT
+  SE --x RT
+  SF --x RT
+
+  classDef red fill:#ffe0e0,stroke:#cc3333,stroke-width:2px;
+  classDef green fill:#d8f3d8,stroke:#2c9b2c;
+  classDef blue fill:#e0ecff,stroke:#3b6ee0;
+  class BLIND red;
+  class FREE green;
+  class TAB,E2E blue;
+  class RT,AT red;
+</div>
+<p class="legend">Three of four testing layers work today. Only the browser-driven row-pick is opaque. Every blocked scenario depends on getting <i>past</i> this one widget into the Cluster Analysis / Recluster / Face Analysis / Merged Clusters / Quality tabs.</p>
+
+<h2>5. Why this is hard (the deeper mechanism)</h2>
+
+<table>
+<tr><th>Layer</th><th>How it works</th><th>Why Playwright can't see it</th></tr>
+<tr>
+  <td><code>st.dataframe</code> (Streamlit Python API)</td>
+  <td>Sends the DataFrame as JSON to the frontend</td>
+  <td>(transparent — Playwright doesn't talk to Python)</td>
+</tr>
+<tr>
+  <td><code>streamlit/elements/lib/dicttools.js</code> (frontend)</td>
+  <td>Mounts the React <code>&lt;DataFrame&gt;</code> component</td>
+  <td>(React tree is in the DOM)</td>
+</tr>
+<tr>
+  <td><code>glide-data-grid</code> (npm)</td>
+  <td>Paints rows + cells onto an HTML <code>&lt;canvas&gt;</code> element for performance — virtualises so only visible rows render</td>
+  <td>🔴 <b>Canvas content has no DOM nodes.</b> ARIA <code>gridcell</code> elements are not emitted per-cell. The cell text is rasterised pixels, not text the accessibility tree can read.</td>
+</tr>
+<tr>
+  <td>What the DOM <i>does</i> expose</td>
+  <td>One <code>&lt;canvas&gt;</code> element with some loose ARIA wrappers around it. Row-checkbox column exists but with cryptic labels.</td>
+  <td><code>get_by_role("gridcell", name="6437d335")</code> finds zero matches; <code>get_by_role("cell")</code> would too.</td>
+</tr>
+</table>
+
+<h2>6. Resolution options</h2>
+
+<p>
+Three viable paths, ranked by long-term value. The middle path is the
+narrowest; the first path is the most principled.
+</p>
+
+<table>
+<tr>
+  <th>#</th><th>Approach</th><th>Effort</th><th>Pros</th><th>Cons</th>
+</tr>
+<tr>
+  <td><span class="pill pill-green">A</span></td>
+  <td><b>Replace <code>st.dataframe(on_select)</code> with a DOM-native row-pick widget</b><br>
+      — e.g. <code>st.radio</code> with a row-per-option label, or <code>st.button</code> per row inside a grid, or a Streamlit <code>data_editor</code> with row-keys exposed as HTML.</td>
+  <td>~1 day<br>UI change</td>
+  <td>
+    <ul>
+      <li>Makes the History tab e2e-testable by construction.</li>
+      <li>Also helps screen-reader users (real a11y improvement).</li>
+      <li>Catches the next 4 scenarios for free.</li>
+      <li>Pattern reusable in <code>actions_table.py</code> and any future tabular tab.</li>
+    </ul>
+  </td>
+  <td>
+    <ul>
+      <li>Loses the column sort / resize that <code>st.dataframe</code> ships.</li>
+      <li>Slight visual regression — less polished than glide-data-grid.</li>
+    </ul>
+  </td>
+</tr>
+<tr>
+  <td><span class="pill pill-amber">B</span></td>
+  <td><b>Find a Playwright selector that addresses glide-data-grid cells</b><br>
+      — empirically. Glide may expose the row-select checkbox column as a focusable element with a label like <code>"Row N"</code>, or row-bounding-box hit-testing via coordinates may work.</td>
+  <td>~half-day<br>investigation</td>
+  <td>
+    <ul>
+      <li>No UI change.</li>
+      <li>Keeps the polished dataframe widget.</li>
+    </ul>
+  </td>
+  <td>
+    <ul>
+      <li>Brittle — Streamlit / glide upgrades can break it.</li>
+      <li>Doesn't help screen-reader users.</li>
+      <li>Selectors will need to be re-found for every dataframe instance.</li>
+    </ul>
+  </td>
+</tr>
+<tr>
+  <td><span class="pill pill-blue">C</span></td>
+  <td><b>Bypass the click; drive selection via Streamlit's <code>AppTest</code> API</b><br>
+      <code>at.dataframe(0).select_row(1)</code> instead of <code>page.get_by_role("gridcell", ...).click()</code>.</td>
+  <td>~2 h<br>test refactor</td>
+  <td>
+    <ul>
+      <li>Already known to work — used in <code>test_v2_app_smoke.py</code>.</li>
+      <li>Faster (no browser).</li>
+    </ul>
+  </td>
+  <td>
+    <ul>
+      <li>🔴 Loses browser-level coverage — this is the layer where the v2_K duplicate-key crash hid.</li>
+      <li>Doesn't reproduce real-user mouse + paint behaviour.</li>
+    </ul>
+  </td>
+</tr>
+</table>
+
+<div class="ok">
+  <b>Recommended (chosen — see <a href="spec.md">spec.md</a>)</b>: <span class="pill pill-blue">C, refined</span> — bypass the ONE click via a query-param seed in <code>main.py</code>; keep <code>st.dataframe</code>. The untestable surface is a single click. Everything <i>after</i> it (5 downstream tabs and their components) renders as standard DOM and is fully Playwright-addressable. We don't lose that coverage. We do lose visual wiring of "row click + Load button → service call", which the existing AppTest smoke (<code>test_history_tab_recognizes_v2_run_as_loadable</code>) + <code>HistoryService</code> unit tests on synthetic fixtures already cover.<br><br>
+  <b>Why not option A?</b> Replacing <code>st.dataframe</code> with <code>st.radio</code> changes real UI for a benefit only the test harness sees. User pushed back on the earlier draft: <i>"we could use a test that targets the endpoints… of course we don't get the same coverage, but it'll be reasonable."</i> Correct call — option C-refined is ~2 h, zero UI change, same e2e value.<br><br>
+  <b>Production side-benefit</b>: the query-param seeder makes <code>?current_run_dir=&lt;path&gt;</code> a shareable deep-link. Free feature.<br><br>
+  SIGHTING-091 stays OPEN as a known a11y gap; we don't fix it here. If a screen-reader-focused spec arises later, option A becomes the right move.
+</div>
+
+<h2>7. Why this didn't show up earlier</h2>
+
+<table>
+<tr>
+  <th>Spec-068? Spec-042's e2e gate?</th>
+  <th>Outcome</th>
+</tr>
+<tr>
+  <td>spec-042's H2 component (<code>run_table.py</code>) used <code>st.dataframe</code> from day one. Synthetic + AppTest smoke tests passed.</td>
+  <td>The test that <i>would</i> have caught it (Scenario B) was filed under spec-062 as a planned scenario, never implemented at the Playwright level until spec-063/064/065 needed it.</td>
+</tr>
+<tr>
+  <td>spec-063/064/065 added Scenarios C/D/E/F that all reuse Scenario B's "click <code>6437d335</code> row" preamble.</td>
+  <td>All 5 inherited the same blocker. Re-running the suite for the first time (this session) surfaced it.</td>
+</tr>
+<tr>
+  <td>The v2_K duplicate-key crash earlier in this session masked Scenario A's failure mode too.</td>
+  <td>Once the duplicate-key bug was fixed (commit <code>8346597</code>), every scenario hit the gridcell timeout in seconds. Two distinct bugs, both surfaced by the same e2e run.</td>
+</tr>
+</table>
+
+<h2>8. References</h2>
+
+<ul>
+  <li><code>docs/project/SIGHTINGS.md</code> § SIGHTING-091 — short-form summary + reproduction.</li>
+  <li><code>tests/face_clustering/e2e_budapest/_failure_artifacts/</code> — screenshots showing the dataframe DOES render; the cell with <code>6437d335</code> is visible to a human, invisible to Playwright role selectors.</li>
+  <li><code>CHANGES_LOG.md</code> entries 2026-05-30 <code>[BUGFIX]</code> (commit <code>8346597</code>) and <code>fix(e2e-budapest)</code> (commit <code>f914e80</code>) — the two real bug fixes from the same e2e run; this sighting is the remaining gap.</li>
+  <li>glide-data-grid project: <a href="https://github.com/glideapps/glide-data-grid">github.com/glideapps/glide-data-grid</a> — the underlying canvas grid library Streamlit uses.</li>
+</ul>
+
+</body>
+</html>

@@ -614,6 +614,7 @@ sim-bench/
 ### System Architecture & Onboarding
 - **[System Architecture & Onboarding](docs/architecture/system_onboarding.html)** - Interactive HTML guide covering the full system: architecture diagrams, database schemas (main DB + per-run face clustering DB), pipeline engine, face cluster library, frontend apps, end-to-end data flow, and developer setup. Start here if you are new to the project.
 - **[Architecture Overview](docs/architecture/overview.md)** - High-level architecture overview (text)
+- **[Architecture Standards](docs/architecture/architecture_standards.md)** - Canonical index of the 14 patterns this repo follows (layered architecture, declarative specs, Repository pattern, error model, etc.). Every new feature spec references these. Detailed rationale + SVG diagrams in [the HTML version](specs/042-fc-app-v2-tab-parity/ARCHITECTURE_STANDARDS.html).
 
 ### Guides
 - **[Apps Guide](docs/guides/APPS.md)** - All Streamlit apps and how to start them

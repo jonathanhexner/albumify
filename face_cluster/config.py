@@ -67,6 +67,8 @@ class PipelineConfig:
     blur_min: float = 50.0
     max_faces_per_image_core: int = 3
     min_face_area: Optional[int] = None
+    min_face_area_pct: Optional[float] = None
+    """Minimum face bbox area as % of the image (0–100). None = disabled. Resolution-independent (spec-073)."""
     require_pose: bool = False
     """If True, faces without pose go to holdout. If False (default), pose filter is skipped when pose is None."""
     det_score_min: Optional[float] = None

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Crop-Verify Experiments — What We Did, What Happened, What Next</title>
+<style>
+  body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 20px; color: #1c2430; line-height: 1.55; background: #fafbfc; }
+  h1 { border-bottom: 3px solid #2563eb; padding-bottom: 8px; }
+  h2 { margin-top: 40px; color: #1e40af; border-bottom: 1px solid #dbe3ee; padding-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; background: #fff; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: #eef2f8; }
+  tr.bad { background: #fef2f2; }
+  tr.win { background: #ecfdf5; }
+  pre { background: #eef1f5; padding: 12px 14px; border-radius: 4px; overflow-x: auto; border: 1px solid #dbe3ee; font-size: 13px; }
+  .warn { background: #fff7ed; border-left: 4px solid #ea580c; padding: 10px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .ok { background: #ecfdf5; border-left: 4px solid #059669; padding: 10px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .fail { background: #fef2f2; border-left: 4px solid #dc2626; padding: 10px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  figure { margin: 18px 0; background: #fff; border: 1px solid #dbe3ee; border-radius: 8px; padding: 10px; display: inline-block; vertical-align: top; }
+  figure img { max-height: 220px; border-radius: 4px; }
+  figcaption { font-size: 13px; color: #475569; margin-top: 8px; max-width: 320px; }
+  .small { font-size: 12.5px; color: #64748b; }
+</style>
+</head>
+<body>
+
+<h1>Crop-Verify Experiments — report</h1>
+<p class="small">2026-07-09 · spec-097 research · galleries:
+<code>D:\occlusion_dataset\research_saliency\crop_probe\index.html</code> (prompts) ·
+<code>probe_index.html</code> (learned probe)</p>
+
+<h2>0 · The idea being tested (your proposal)</h2>
+<pre>
+Problem:  the LoG blur-box proposer finds ALL flat-but-noisy regions —
+          real fingers (2/2 ✅) but also sky/haze (45 false boxes on 122 Budapest images).
+
+Your idea: don't fight the proposer — VERIFY each candidate with CLIP:
+
+   image ──► LoG proposer ──► candidate box ──► CROP it ──► ask CLIP: occluder or scene?
+             (cheap, high recall)                            (the crop IS the defect —
+                                                             no subject to distract CLIP)
+
+Test set: the 47 REAL candidate crops from Budapest (2 real fingers + 45 false alarms).
+Success = the 2 fingers rank at the TOP of 47 when sorted by "occluder-ness".
+</pre>
+
+<h2>1 · What the crops actually look like</h2>
+<figure>
+  <img src="file:///D:/occlusion_dataset/research_saliency/crop_probe/crop__budapest__20250822_122617.jpg">
+  <figcaption><b>REAL FINGER crop</b> — pink defocused blob with soft gradients. This is what we want ranked #1.</figcaption>
+</figure>
+<figure>
+  <img src="file:///D:/occlusion_dataset/research_saliency/crop_probe/crop__budapest__20250822_123510.jpg">
+  <figcaption><b>FALSE-ALARM crop (sky)</b> — smooth, featureless… arguably "blurrier-looking" than the finger. This is the confusion in one image.</figcaption>
+</figure>
+
+<h2>2 · Experiment 1 — zero-shot prompts on the crops</h2>
+<p>Three prompt ensembles (not just two prompts — each side is several phrasings, scored by softmax):</p>
+<table>
+<tr><th>Ensemble</th><th>Positive side</th><th>Negative side</th><th>Finger ranks (of 47)</th></tr>
+<tr><td><b>defect-semantic</b></td><td>"a blurry finger covering the camera lens", "a dark out-of-focus object blocking the lens", "a smudge on the lens"…</td><td>"the sky", "clouds", "a lake", "a wall", "a crowd"…</td><td>10, 16</td></tr>
+<tr class="bad"><td><b>quality-contrast (your suggestion)</b></td><td>"a blurry smudged unclear region"</td><td>"a sharp, clear, detailed photo region"</td><td><b>26, 31 — below the middle</b></td></tr>
+<tr><td>combined</td><td>both positive sets</td><td>both negative sets</td><td>7, 18</td></tr>
+</table>
+<div class="fail"><b>Verdict: prompts fail, including at region level.</b> The most instructive failure is
+yours: by CLIP's lights, <b>sky is the "blurriest" content in the gallery</b> — smooth and featureless beats
+a defocused finger on any blurry-vs-sharp axis. Naming the defect helps a little (rank 7–16) but is far
+from usable. This is the third confirmation of the spec-096 lesson: <i>the signal lives in CLIP's
+embedding but cannot be addressed by text.</i></div>
+
+<h2>3 · Experiment 2 — learned probe on crops (and why it's INVALID)</h2>
+<p>Design (zero manual labels): train a logistic head on CLIP embeddings of
+<b>synthetic occluder crops</b> (positives, recovered by diffing synthetic composites against their base
+images) vs <b>self-mined false-alarm crops</b> (negatives — whatever the proposer wrongly boxes on 554
+Austria/Germany clean images). Test on the 47 real Budapest crops.</p>
+
+<table>
+<tr><th>Metric</th><th>Value</th><th>Reading</th></tr>
+<tr><td>Train accuracy</td><td>1.000</td><td>suspiciously perfect</td></tr>
+<tr class="bad"><td>Finger ranks on real crops</td><td><b>23, 43 of 47</b></td><td>worse than random placement</td></tr>
+</table>
+
+<div class="warn"><b>Post-mortem — the experiment was flawed, and here is the evidence.</b>
+I extracted positive "crops" by bounding every pixel the compositor changed. But the occluder's soft
+alpha edge faintly touches huge areas, so the diff-box often spanned the <i>whole photo</i>:</div>
+
+<figure>
+  <img src="file:///D:/occlusion_dataset/research_saliency/crop_probe/synth_example_1.jpg">
+  <figcaption><b>A training "positive crop"</b> — supposedly an occluder region; actually an entire family photo with a barely-visible blob. </figcaption>
+</figure>
+<figure>
+  <img src="file:///D:/occlusion_dataset/research_saliency/crop_probe/synth_example_2.jpg">
+  <figcaption>Another "positive" — whole scene, faint white blob top-left. The probe learned <b>"whole photo vs small texture patch"</b>, not "occluder vs scene". Hence perfect train accuracy and useless transfer.</figcaption>
+</figure>
+
+<div class="warn"><b>So experiment 2 does NOT settle whether synthetic training transfers.</b> It settles
+that my crop extraction was wrong. The question "is it just a matter of training data?" (your words)
+remains open — and is exactly what the two follow-ups below test properly.</div>
+
+<h2>4 · What I propose (in order)</h2>
+<table>
+<tr class="win"><th>1</th><td><b>Real-crop probe</b> (~30 min, existing data): train on the LoG-box crops of the
+49 non-Budapest REAL positives vs the mined false-alarm crops; test unchanged on the 47 Budapest crops.
+Every approach that ever worked on this problem trained on real data — this is that approach, at crop level.</td></tr>
+<tr><th>2</th><td><b>Redo synthetic properly</b>: tight occluder masks (threshold the diff at the blob CORE,
+largest component only — or regenerate the exact ellipse from the deterministic compositor), so positives
+are actual blob crops. Only worth it if #1 shows the concept works but starves for data.</td></tr>
+<tr><th>3</th><td><b>Your captures</b> — real fingers/straps/hair over the lens against sky / lake / walls /
+crowds, multiple sessions &amp; places (one session = the near-duplicate trap in a new costume). Now genuinely
+valuable: ~30–50 shots would roughly double the real positive pool for BOTH the whole-image detector and
+the crop verifier.</td></tr>
+<tr><th>4</th><td><b>Ship spec-097 Stage 1 regardless</b> — none of this touches the proven whole-image
+detector (CLIP tile probe 0.76, gated at P≥0.8 = 86% precision). Region verification only upgrades
+Stage-2 severity; Stage 1 doesn't wait for it.</td></tr>
+</table>
+
+<h2>5 · Scoreboard so far (the whole occlusion program)</h2>
+<table>
+<tr><th>Approach</th><th>Status</th></tr>
+<tr class="win"><td>Whole-image CLIP tile probe (real labels)</td><td><b>0.76 scene PR-AUC — production pick</b></td></tr>
+<tr><td>Whole-image CLIP prompts</td><td>failed (0.41)</td></tr>
+<tr><td>Crop-level CLIP prompts (3 ensembles)</td><td>failed (fingers rank 7–31 of 47)</td></tr>
+<tr><td>Crop-level probe, synthetic training</td><td>invalid run (extraction bug) — retest pending</td></tr>
+<tr><td>Crop-level probe, REAL training</td><td>proposed next (#1)</td></tr>
+<tr><td>LoG box proposer</td><td>keep as proposer only: 2/2 recall, FP-prone, needs a verifier</td></tr>
+</table>
+
+</body>
+</html>

@@ -57,8 +57,12 @@ class ScoreAVAStep(BaseStep):
             logger.info(f"Loading AVA model from {checkpoint_path}")
             self._ava_model = AVAQualityModel(checkpoint_path_obj, device=device)
             self._checkpoint_path = checkpoint_path
-        
+
         return self._ava_model
+
+    def release(self) -> None:
+        """SIGHTING-117: free the AVA ResNet50 after scoring."""
+        self._release_models("_ava_model")
 
     def _get_cache_config(
         self,

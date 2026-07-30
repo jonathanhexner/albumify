@@ -199,6 +199,10 @@ class InsightFaceScoreEyesStep(BaseStep):
             self._scorer_config = config_key
         return self._scorer
 
+    def release(self) -> None:
+        """SIGHTING-117: free the eye-state scorer (drops its MediaPipe FaceMesh)."""
+        self._release_models("_scorer")
+
     def _compute_eyes_score(self, face_data: Dict[str, Any], config: dict) -> float:
         """Compute eyes score for face."""
         min_face_size = config.get('min_face_size', 50)

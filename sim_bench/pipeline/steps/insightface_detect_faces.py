@@ -4,6 +4,9 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
+import numpy as np
+
+from face_cluster.types import FaceRecord
 from sim_bench.pipeline.base import BaseStep, StepMetadata
 from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
@@ -11,6 +14,12 @@ from sim_bench.pipeline.serializers import Serializers
 from sim_bench.pipeline.insightface_pipeline.face_analyzer import InsightFaceFaceAnalyzer
 
 logger = logging.getLogger(__name__)
+
+# spec-079 / SIGHTING-099: output-schema version for the detection cache. Bump
+# this whenever the serialized face dict in _serialize_face changes shape, so
+# base.py invalidates rows written by an older schema. "v2" = spec-070 added
+# the `pose` field; rows written before that (model_version=None) are recomputed.
+DETECTION_OUTPUT_VERSION = "det-v2-pose"
 
 
 @register_step
@@ -24,7 +33,10 @@ class InsightFaceDetectFacesStep(BaseStep):
             description="Detect faces using InsightFace and associate with persons.",
             category="people",
             requires={"image_paths"},
-            produces={"faces"},  # Common interface
+            # spec-041 audit fix: declares the keys this step actually writes.
+            # Previously declared {"faces"}, which doesn't exist on the context —
+            # caught by the new per-step in/out telemetry.
+            produces={"insightface_faces", "face_records"},
             depends_on=["detect_persons"],
             config_schema={
                 "type": "object",
@@ -55,7 +67,12 @@ class InsightFaceDetectFacesStep(BaseStep):
         """Lazy load face analyzer."""
         self._analyzer = self._analyzer or InsightFaceFaceAnalyzer(config)
         return self._analyzer
-    
+
+    def release(self) -> None:
+        """SIGHTING-117: free the InsightFace SCRFD+ArcFace models after detection.
+        Downstream face steps read context.insightface_faces, not this analyzer."""
+        self._release_models("_analyzer")
+
     def _get_cache_config(self, context: PipelineContext, config: dict) -> Optional[Dict[str, Any]]:
         """Get cache configuration for face detection."""
         # Normalize paths to forward slashes for consistent keys
@@ -65,7 +82,11 @@ class InsightFaceDetectFacesStep(BaseStep):
             "items": image_paths,
             "feature_type": "insightface_detection",
             "model_name": config.get('model_name', 'buffalo_l'),
-            "metadata": {"device": config.get("device", "cpu")}
+            "metadata": {
+                "device": config.get("device", "cpu"),
+                # spec-079 / SIGHTING-099: schema version → stale rows recompute.
+                "model_version": DETECTION_OUTPUT_VERSION,
+            },
         }
     
     def _process_uncached(self, items: List[str], context: PipelineContext, config: dict) -> Dict[str, Dict[str, Any]]:
@@ -97,7 +118,9 @@ class InsightFaceDetectFacesStep(BaseStep):
             'confidence': float(face.confidence),
             'landmarks': face.landmarks.tolist(),
             'person_bbox': self._serialize_bbox(face.person_bbox) if face.person_bbox else None,
-            'face_occluded': bool(face.face_occluded)
+            'face_occluded': bool(face.face_occluded),
+            # spec-070 / SIGHTING-093: (yaw, pitch, roll) degrees, or None.
+            'pose': list(face.pose) if face.pose is not None else None,
         }
     
     def _serialize_bbox(self, bbox) -> Dict[str, Any]:
@@ -124,6 +147,7 @@ class InsightFaceDetectFacesStep(BaseStep):
     def _store_results(self, context: PipelineContext, results: Dict[str, Dict[str, Any]], config: dict) -> None:
         """Store faces in context."""
         context.insightface_faces = results
+        context.face_records = self._build_face_records(results)
 
         cfg = {"detection_threshold": config.get("detection_threshold", 0.5),
                "min_face_size": config.get("min_face_size", 50)}
@@ -141,3 +165,73 @@ class InsightFaceDetectFacesStep(BaseStep):
 
         total_faces = sum(len(r.get('faces', [])) for r in results.values())
         logger.info(f"Detected {total_faces} faces across {len(results)} images")
+
+    # spec-040 A1: dual-write to context.face_records so the v2 clustering
+    # chain (face_clustering_steps + FCAppRunner) can read the same detector
+    # output without a translator step. Replaces the list rather than
+    # appending so cache re-runs do not duplicate records.
+    def _build_face_records(self, results: Dict[str, Dict[str, Any]]) -> List[FaceRecord]:
+        records: List[FaceRecord] = []
+        face_id = 0
+        for image_path, data in results.items():
+            for face in data.get("faces", []):
+                bbox = face.get("bbox", {})
+                x = float(bbox.get("x_px", 0))
+                y = float(bbox.get("y_px", 0))
+                w = float(bbox.get("w_px", 0))
+                h = float(bbox.get("h_px", 0))
+                # spec-040 Phase 4 (schema v5) — bbox dict already carries normalized
+                # ratios (x, y, w, h are 0-1 image-relative); area_ratio = w_ratio * h_ratio.
+                # Image dims derived from pixel/ratio (consistent for w>0 and h>0).
+                #
+                # spec-041 hotfix: InsightFace returns slightly-negative ratios when
+                # a face's bbox extends past the image edge. Clamp to the visible
+                # portion of the image so Pandera's in_range(0, 1) check passes —
+                # the face is still detected, just its rectangle is reported as
+                # what's actually within frame.
+                x_raw = float(bbox.get("x", 0.0))
+                y_raw = float(bbox.get("y", 0.0))
+                w_raw = float(bbox.get("w", 0.0))
+                h_raw = float(bbox.get("h", 0.0))
+                x_ratio = max(0.0, min(1.0, x_raw))
+                y_ratio = max(0.0, min(1.0, y_raw))
+                # Shrink width/height by however much we clipped x/y so the bbox
+                # stays inside [0, 1].
+                w_ratio = max(0.0, min(1.0 - x_ratio, w_raw + (x_raw - x_ratio)))
+                h_ratio = max(0.0, min(1.0 - y_ratio, h_raw + (y_raw - y_ratio)))
+                area_ratio = w_ratio * h_ratio
+                img_w = int(round(w / w_ratio)) if w_ratio > 0 else None
+                img_h = int(round(h / h_ratio)) if h_ratio > 0 else None
+                landmarks_raw = face.get("landmarks")
+                landmarks = np.asarray(landmarks_raw, dtype=np.float32) if landmarks_raw else None
+                # spec-070 / SIGHTING-093: (yaw, pitch, roll), already remapped
+                # at the detector. faces_writer persists it to yaw/pitch/roll.
+                pose_raw = face.get("pose")
+                pose = tuple(float(v) for v in pose_raw) if pose_raw else None
+                # spec-040 A1 bugfix: the embedding dual-write in
+                # extract_face_embeddings keys records by canonical forward-slash
+                # paths (see _generate_cache_key). Store the same canonical form
+                # here so the lookup succeeds on Windows — otherwise every
+                # FaceRecord.embedding_normalized stays None and kNN crashes
+                # with "inhomogeneous shape".
+                canonical_path = str(image_path).replace("\\", "/")
+                records.append(FaceRecord(
+                    face_id=face_id,
+                    image_id=Path(image_path).name,
+                    bbox=(x, y, x + w, y + h),
+                    landmarks=landmarks,
+                    area=w * h,
+                    image_path=canonical_path,
+                    face_index=int(face.get("face_index", 0)),
+                    det_score=float(face.get("confidence", 0.0)),
+                    pose=pose,
+                    area_ratio=area_ratio,
+                    bbox_x_ratio=x_ratio,
+                    bbox_y_ratio=y_ratio,
+                    bbox_w_ratio=w_ratio,
+                    bbox_h_ratio=h_ratio,
+                    image_width_px=img_w,
+                    image_height_px=img_h,
+                ))
+                face_id += 1
+        return records

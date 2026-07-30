@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>spec-040 · Code Summary for Approval</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1500px; margin: 1em auto; padding: 0 1em;
+         color: #222; line-height: 1.4; background:#fafbfc; font-size: 13px; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .2em; margin-bottom: 0; }
+  h1 + .subtitle { color: #666; margin-top: .2em; font-size: 13px; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 1.5em; font-size: 17px; }
+  table { border-collapse: collapse; margin: .5em 0; width: 100%; font-size: 12px; }
+  th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left;
+           vertical-align: top; }
+  th { background: #f4f4f6; font-weight: 600; position: sticky; top: 0; }
+  code { background:#eef0f4; padding: 0 3px; border-radius: 3px;
+         font-size: 11px; font-family: Consolas, monospace; }
+  .ok    { background:#e3f5e0; color:#236623; font-weight:600; }
+  .warn  { background:#fff3cd; color:#7a5a00; font-weight:600; }
+  .bad   { background:#fde2e2; color:#8a1a1a; font-weight:600; }
+  .neut  { background:#eef; color:#234; }
+  .a     { background:#c8f0d0; color:#1a5a26; font-weight:700; }
+  .b     { background:#dde9ff; color:#1a3a8a; font-weight:700; }
+  .c     { background:#ffe6c6; color:#7a4e00; font-weight:700; }
+  .d     { background:#fdcdcd; color:#8a1a1a; font-weight:700; }
+  .callout { background: #fff7d6; border-left: 4px solid #c9a700;
+             padding: .6em 1em; margin: .8em 0; border-radius: 0 4px 4px 0;
+             font-size: 13px; }
+  .pill { display:inline-block; padding:1px 6px; border-radius:8px;
+          font-size:10px; font-weight:600; }
+  details { margin: .3em 0; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; margin: .5em 0 1em; font-size: 12px; }
+  td.center { text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>spec-040 · Code Summary for Approval</h1>
+<p class="subtitle">Reviewer-grade inventory · 2026-05-18 · Branch <code>unification/spec-040</code> at <code>72bf376</code></p>
+
+<!-- ============================== TL;DR ============================== -->
+
+<div class="callout">
+<b>Direct answers to your questions, before the table:</b>
+<table style="margin: .5em 0; font-size: 13px;">
+<tr><th>Q</th><th>A</th></tr>
+<tr><td>Did the refactor complete?</td><td><b>No.</b> Phases 1–6 (of 8) shipped scaffolding. Phase 7 (legacy retirement) and Phase 8 (final doc collapse) are gated by 2-week burn-in. <b>Two Critical findings</b> (REVIEW.md A1, A2) say even Phases 1–6 are not production-ready.</td></tr>
+<tr><td>Is Albumify using the new classes?</td><td><b>No.</b> Albumify's <code>default_pipeline</code> still invokes <code>cluster_people</code> → <code>face_cluster_bridge.run_face_cluster_knn</code> on every run. Nothing in <code>app/streamlit/</code> imports <code>FCAppRunner</code> or the 8 new steps.</td></tr>
+<tr><td>Is the FC App using the new classes?</td><td><b>No.</b> <code>app/face_clustering/</code> still imports <code>FaceClusteringPipeline</code> from <code>face_cluster.pipeline</code> (the legacy stage runner). <code>face_cluster_legacy/</code> is a silent shim that re-exports the same thing.</td></tr>
+<tr><td>Are we storing to the DB?</td><td><b>Partial.</b> Schema v5 DDL creates the new tables (<code>images</code>, <code>scene_clusters</code>, <code>scene_cluster_assignments</code>) — they're empty (no <code>_write_*</code> methods). <code>faces</code> now has <code>area_ratio</code>/<code>bbox_*_ratio</code> columns — but always NULL because no producer sets them. RunExporter validates with Pandera before INSERT for the 3 OLD tables only.</td></tr>
+<tr><td>Files >300 lines?</td><td>2: <code>face_cluster/run_exporter.py</code> (664), <code>sim_bench/pipeline/steps/face_clustering_steps.py</code> (334).</td></tr>
+<tr><td>Print instead of logging?</td><td><b>None.</b> All new modules use <code>logging.getLogger(__name__)</code>. No <code>print()</code> in any new code.</td></tr>
+<tr><td>Multiple classes per module?</td><td><code>face_clustering_steps.py</code> has 8 classes (one logical chain — defensible). <code>fc_app_runner.py</code> has 2 (FCAppRunner + FCAppRunResult dataclass — defensible).</td></tr>
+<tr><td>Excessive if/else or try/except?</td><td><code>run_exporter.py</code>: 6 try/except + 31 if/else in 664 LOC. Pre-existing but expanded in Phase 4. The new modules have 0 try/except and ≤11 if/else (acceptable).</td></tr>
+<tr><td>SOLID violations?</td><td>Minor: <b>SRP</b> — <code>run_exporter.py</code> does schema + crops + DB write + metadata in one class (pre-existing). <b>DIP</b> — new clustering steps depend on concrete <code>QualityGater</code>/<code>KNNGraphBuilder</code>/etc. (algorithm layer not abstracted; out of spec-040 scope).</td></tr>
+<tr><td>Poor names?</td><td>Borderline: <code>face_clustering_steps.py</code> (plural) inconsistent with peer step files that use singular names like <code>cluster_people.py</code>. <code>face_cluster_legacy/</code> as a top-level package name is OK but the package re-exports only 4 symbols — partial rename.</td></tr>
+</table>
+</div>
+
+<h2>Module inventory — for approval</h2>
+
+<div class="legend">
+  <span class="pill ok">OK</span>
+  <span class="pill warn">PARTIAL</span>
+  <span class="pill bad">GAP</span>
+  <span class="pill a">A</span> excellent ·
+  <span class="pill b">B</span> good ·
+  <span class="pill c">C</span> acceptable ·
+  <span class="pill d">D</span> needs rework
+</div>
+
+<table>
+<thead>
+<tr>
+  <th>#</th>
+  <th>Module</th>
+  <th>Type</th>
+  <th>LOC</th>
+  <th>Classes / Methods</th>
+  <th>Tests</th>
+  <th>SOLID</th>
+  <th>Writes to DB?</th>
+  <th>Replaces</th>
+  <th>print / log</th>
+  <th>if·try</th>
+  <th>Naming</th>
+  <th>Score</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td>1</td>
+<td><b>face_cluster_legacy/</b><br><code>__init__.py</code></td>
+<td>Re-export shim<br>(strangler-fig)</td>
+<td>29</td>
+<td>0 classes<br>0 methods</td>
+<td>—<br>(re-exports tested via downstream)</td>
+<td><b>OK</b> — single responsibility (re-export)</td>
+<td>No (no DB code)</td>
+<td>Future: replaces <code>face_cluster.pipeline.FaceClusteringPipeline</code> after Phase 7. <b>Today</b>: just aliases it.</td>
+<td>—</td>
+<td>0 / 0</td>
+<td>Borderline — only 4 symbols aliased; partial rename</td>
+<td class="center"><span class="pill c">C+</span></td>
+</tr>
+
+<tr>
+<td>2</td>
+<td><b>sim_bench/pipeline/steps/configs/</b><br>(11 new + 5 existing models)</td>
+<td>Pydantic<br>BaseModel × 16</td>
+<td>16 files<br>~480 total</td>
+<td>16 classes<br>0 methods (data-only)</td>
+<td><code>test_typed_step_configs.py</code> (7) — every model checked for <code>extra="forbid"</code>, descriptions, range validation</td>
+<td><b>OK</b> — each model = one step's config (SRP). Open for extension via registry.</td>
+<td>No (config models)</td>
+<td>Replaces <code>config.get(key, default)</code> dict access in 16 step bodies. Closes FR-033-6 (specs/039).</td>
+<td>—</td>
+<td>0 / 0</td>
+<td>OK — <code>&lt;step_name&gt;.py</code> matches the step</td>
+<td class="center"><span class="pill a">A−</span></td>
+</tr>
+
+<tr>
+<td>3</td>
+<td><b>sim_bench/pipeline/steps/configs/__init__.py</b></td>
+<td>Registry<br>(dict)</td>
+<td>71</td>
+<td>0 classes<br><code>STEP_CONFIG_MODELS</code> dict (16 entries)</td>
+<td>Covered by <code>test_typed_step_configs.py</code></td>
+<td><b>OK</b> — Registry pattern. Adding a step = 2 lines here.</td>
+<td>No</td>
+<td>Used by <code>BaseStep.process</code> and <code>validate_step_config</code> to dispatch Pydantic validation by step name.</td>
+<td>—</td>
+<td>0 / 0</td>
+<td>OK</td>
+<td class="center"><span class="pill a">A</span></td>
+</tr>
+
+<tr>
+<td>4</td>
+<td><b>face_cluster/db/schema.py</b></td>
+<td>DDL constants<br>(SQL strings)</td>
+<td>266 <span class="pill warn">grew from ~210</span></td>
+<td>0 classes<br>0 methods (constants only)</td>
+<td>Indirectly via <code>test_run_exporter.py</code> (schema must execute cleanly)</td>
+<td><b>OK</b> — pure data. One constant per table.</td>
+<td><b>Defines</b> schema; not a writer.</td>
+<td>NEW: <code>IMAGES_DDL</code>, <code>SCENE_CLUSTERS_DDL</code>, <code>SCENE_CLUSTER_ASSIGNMENTS_DDL</code>, ratio columns. <code>SCHEMA_VERSION = 5</code>. Closes SIGHTING-064/065/066.</td>
+<td>—</td>
+<td>0 / 0</td>
+<td>OK</td>
+<td class="center"><span class="pill a">A</span></td>
+</tr>
+
+<tr>
+<td>5</td>
+<td><b>face_cluster/db/validators.py</b></td>
+<td>Pandera<br>DataFrameSchema × 6</td>
+<td>163</td>
+<td>0 classes<br>0 methods (declarative)</td>
+<td><code>test_pandera_schemas.py</code> (9) — schemas reject bad rows, accept good ones</td>
+<td><b>OK</b> — pure declarative.</td>
+<td>Used by writer; doesn't write itself.</td>
+<td>NEW: <code>IMAGES_SCHEMA</code>, <code>SCENE_CLUSTERS_SCHEMA</code>, <code>SCENE_CLUSTER_ASSIGNMENTS_SCHEMA</code>. Extended <code>FACES_SCHEMA</code> with 5 <code>*_ratio</code> columns.</td>
+<td>—</td>
+<td>0 / 0</td>
+<td>OK</td>
+<td class="center"><span class="pill a">A−</span></td>
+</tr>
+
+<tr>
+<td>6</td>
+<td><b>face_cluster/run_exporter.py</b></td>
+<td>Writer class<br>(spec-030)</td>
+<td><b>664 ⚠</b> <span class="pill bad">&gt;300</span></td>
+<td>1 class (<code>RunExporter</code>) + 1 exception + 1 helper<br>15 methods</td>
+<td><code>test_run_exporter.py</code> (12) — green</td>
+<td><b>WARN</b> — SRP: single class does schema-execute + crops + DB write + 4 table writers + metadata + JSON pointer. Pre-existing.</td>
+<td><b>Yes</b> — single writer (per spec-030 contract). After Phase 4: writes 26 columns to <code>faces</code>; <b>no</b> <code>_write_images</code> / <code>_write_scene_clusters</code> methods yet. Pandera validation on faces/face_scores/filter_decisions only.</td>
+<td>Existing module; Phase 4 extended <code>_write_faces_and_scores</code> for the 5 new ratio columns.</td>
+<td>logging ✓</td>
+<td>31 / 6</td>
+<td>OK</td>
+<td class="center"><span class="pill c">C+</span></td>
+</tr>
+
+<tr>
+<td>7</td>
+<td><b>sim_bench/pipeline/steps/face_clustering_steps.py</b></td>
+<td>BaseStep<br>subclasses × 8</td>
+<td><b>334 ⚠</b> <span class="pill bad">&gt;300</span></td>
+<td>8 classes<br>(QualityGateFacesStep, BuildFaceKNNGraphStep, ClusterFaceComponentsStep, SelectFaceExemplarsStep, MergeFaceClustersStep, AttachHoldoutFacesStep, ApplyDiameterCapStep, AssignPeopleClustersStep)<br>+ 1 helper <code>_build_fc_config</code><br>17 methods</td>
+<td><code>test_unified_clustering_steps.py</code> (3) — chain produces clusters on synthetic; no dict writes; empty input</td>
+<td><b>WARN</b> — 8 classes in one file. Defensible (one logical chain) but borders on multi-responsibility. DIP: each step calls a concrete <code>face_cluster</code> algorithm class — no abstraction layer (out of scope).</td>
+<td>Indirectly — outputs flow to <code>context.{cluster_result, merged_cluster_result, people_clusters}</code> which RunExporter persists.</td>
+<td>Replaces internals of <code>face_cluster_bridge.run_face_cluster_knn</code> with 8 named, registered steps operating on <code>context.face_records</code> directly.</td>
+<td>logging ✓</td>
+<td>11 / 0</td>
+<td>WARN — file name plural <code>face_clustering_steps.py</code> inconsistent with peers using singular step names</td>
+<td class="center"><span class="pill b">B</span></td>
+</tr>
+
+<tr>
+<td>8</td>
+<td><b>face_cluster/fc_app_runner.py</b></td>
+<td>Runner wrapper</td>
+<td>123</td>
+<td>2 classes<br>(<code>FCAppRunner</code>, <code>FCAppRunResult</code> dataclass)<br>2 methods</td>
+<td>Exercised by <code>test_legacy_vs_v2_equivalence.py</code> (2)</td>
+<td><b>OK</b> — FCAppRunner thin orchestrator (~80 LOC). FCAppRunResult dataclass — SRP-clean.</td>
+<td>No (read-side wrapper; persistence still via RunExporter from a separate path)</td>
+<td>Future replacement for <code>face_cluster_legacy.pipeline.FaceClusteringPipeline</code> (the hand-written FC App stage runner). <b>Today: not used by any app.</b></td>
+<td>logging ✓</td>
+<td>1 / 0</td>
+<td>OK</td>
+<td class="center"><span class="pill b">B+</span></td>
+</tr>
+
+<tr>
+<td>9</td>
+<td><b>sim_bench/pipeline/context.py</b></td>
+<td>dataclass<br>(extended)</td>
+<td>~150 (1 field added)</td>
+<td>1 class<br>(<code>PipelineContext</code>)</td>
+<td><code>test_pipeline_context_contract.py</code> (5) green; <code>face_records</code> row added to spec-034.</td>
+<td><b>OK</b> — additive; spec-034 contract enforced by drift test.</td>
+<td>No (in-memory state)</td>
+<td>Added <code>face_records: list</code>. Canonical Pydantic face state. <b>Today: no producer step writes to it</b> (Critical finding REVIEW.md A1).</td>
+<td>—</td>
+<td>—</td>
+<td>OK</td>
+<td class="center"><span class="pill c">C+</span></td>
+</tr>
+
+<tr>
+<td>10</td>
+<td><b>tests/face_clustering/test_unified_clustering_steps.py</b></td>
+<td>Unit tests</td>
+<td>129</td>
+<td>1 fixture + 3 tests</td>
+<td>3 tests · all green · synthetic 9-face input · validates chain + no-dict-writes + empty-input</td>
+<td><b>OK</b></td>
+<td>—</td>
+<td>NEW — proves the 8-step chain works on synthetic data.</td>
+<td>—</td>
+<td>—</td>
+<td>OK</td>
+<td class="center"><span class="pill b">B+</span></td>
+</tr>
+
+<tr>
+<td>11</td>
+<td><b>tests/face_clustering/test_legacy_vs_v2_equivalence.py</b></td>
+<td>Equivalence test<br>(merge gate)</td>
+<td>232</td>
+<td>2 tests + helpers</td>
+<td>2 tests · all green · synthetic 15-face input</td>
+<td><b>OK</b> structurally; <b>FAIL</b> as merge gate — runs on synthetic only, not the labeled fixture (REVIEW.md Critical A2)</td>
+<td>—</td>
+<td>NEW — the Phase 6 merge gate (intended).</td>
+<td>—</td>
+<td>—</td>
+<td>OK</td>
+<td class="center"><span class="pill c">C</span></td>
+</tr>
+
+<tr>
+<td>12</td>
+<td><b>sim_bench/pipeline/steps/face_cluster_bridge.py</b></td>
+<td>Legacy adapter<br>(pre-existing)</td>
+<td>228</td>
+<td>—</td>
+<td>—</td>
+<td><b>UNCHANGED</b> by spec-040 — still in production, still called by <code>cluster_people</code> on every Albumify run. No deprecation warning.</td>
+<td>—</td>
+<td>SCHEDULED for deletion in Phase 7 (not yet)</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td class="center"><span class="pill d">D</span></td>
+</tr>
+
+</tbody>
+</table>
+
+<h2>Cross-cutting findings (not module-scoped)</h2>
+
+<table>
+<thead><tr><th>Concern</th><th>Status</th><th>Where</th><th>Severity</th></tr></thead>
+<tbody>
+<tr><td>No producer writes to <code>context.face_records</code></td>
+    <td><span class="pill bad">CRITICAL</span></td>
+    <td><code>insightface_detect_faces.py</code>, <code>align_faces.py</code>, <code>extract_face_embeddings.py</code> all still write the legacy dict-of-dicts.</td>
+    <td>Blocks "Implemented"</td></tr>
+<tr><td>Equivalence test on synthetic data only</td>
+    <td><span class="pill bad">CRITICAL</span></td>
+    <td><code>test_legacy_vs_v2_equivalence.py</code> — 15 hand-built faces, no real detector.</td>
+    <td>Blocks "Implemented"</td></tr>
+<tr><td>Bridge has no <code>DeprecationWarning</code></td>
+    <td><span class="pill warn">MAJOR</span></td>
+    <td><code>face_cluster_bridge.py</code></td>
+    <td>Phase 7 risk</td></tr>
+<tr><td><code>face_cluster_legacy/</code> is a silent shim</td>
+    <td><span class="pill warn">MAJOR</span></td>
+    <td><code>face_cluster_legacy/__init__.py</code></td>
+    <td>Phase 7 risk</td></tr>
+<tr><td>New schema tables empty (no writer methods)</td>
+    <td><span class="pill warn">MAJOR</span></td>
+    <td><code>face_cluster/run_exporter.py</code> — no <code>_write_images</code> / <code>_write_scene_clusters_and_assignments</code>; the 5 ratio columns always NULL</td>
+    <td>Closes nothing claimed in CHANGES_LOG</td></tr>
+<tr><td><code>FCAppRunner</code> not wired into any UI</td>
+    <td><span class="pill warn">MAJOR</span></td>
+    <td><code>app/face_clustering/</code> still uses legacy <code>FaceClusteringPipeline</code></td>
+    <td>Phase 5 incomplete</td></tr>
+<tr><td>Pandera schemas defined for 3 new tables but never invoked</td>
+    <td><span class="pill warn">MAJOR</span></td>
+    <td><code>IMAGES_SCHEMA</code>, <code>SCENE_CLUSTERS_SCHEMA</code>, <code>SCENE_CLUSTER_ASSIGNMENTS_SCHEMA</code> — defined, no <code>.validate()</code> call</td>
+    <td>Dead code per checklist §6</td></tr>
+<tr><td><code>ApplyDiameterCapStep</code> is a no-op</td>
+    <td><span class="pill warn">MINOR</span></td>
+    <td><code>face_clustering_steps.py</code> — body just sets <code>cap_summary = {"applied": False}</code></td>
+    <td>Closes nothing for spec-031</td></tr>
+<tr><td>Equivalence not proven with <code>merge_enabled=True</code></td>
+    <td><span class="pill warn">MINOR</span></td>
+    <td>Default config has merge_enabled=False</td>
+    <td>Most-complex code path untested</td></tr>
+<tr><td>No print()</td>
+    <td><span class="pill ok">OK</span></td>
+    <td>All new modules use <code>logging.getLogger(__name__)</code></td>
+    <td>—</td></tr>
+<tr><td>Logging targeting</td>
+    <td><span class="pill ok">OK</span></td>
+    <td>Each module gets its own logger via <code>__name__</code>; respects existing handlers</td>
+    <td>—</td></tr>
+</tbody>
+</table>
+
+<h2>Test coverage breakdown</h2>
+
+<table>
+<thead><tr><th>Layer</th><th>File</th><th>Tests</th><th>Scope</th><th>Verdict</th></tr></thead>
+<tbody>
+<tr><td>Architecture (drift guards)</td><td><code>tests/architecture/*</code></td><td>40</td><td>Static checks · all green</td><td><span class="pill ok">OK</span></td></tr>
+<tr><td>Pydantic configs</td><td><code>test_typed_step_configs.py</code></td><td>7</td><td>extra=forbid, descriptions, ranges</td><td><span class="pill ok">OK</span></td></tr>
+<tr><td>Pandera schemas</td><td><code>test_pandera_schemas.py</code></td><td>9</td><td>Synthetic rows · accept / reject</td><td><span class="pill ok">OK</span></td></tr>
+<tr><td>Unified clustering chain</td><td><code>test_unified_clustering_steps.py</code></td><td>3</td><td>Synthetic 9-face input</td><td><span class="pill warn">No real data</span></td></tr>
+<tr><td>Equivalence (merge gate)</td><td><code>test_legacy_vs_v2_equivalence.py</code></td><td>2</td><td>Synthetic 15-face input</td><td><span class="pill bad">No real data</span></td></tr>
+<tr><td>Producer integration</td><td>—</td><td><b>0</b></td><td>No test invokes <code>insightface_detect_faces</code> → asserts <code>face_records</code> populated</td><td><span class="pill bad">GAP</span></td></tr>
+<tr><td>Albumify E2E (spec-035)</td><td><code>test_albumify_e2e.py</code></td><td>4</td><td>Real 5-image pipeline — but uses legacy bridge, NOT the new chain</td><td><span class="pill warn">Doesn't exercise v2</span></td></tr>
+</tbody>
+</table>
+
+<h2>SOLID assessment per module</h2>
+
+<table>
+<thead><tr><th>Module</th><th>S</th><th>O</th><th>L</th><th>I</th><th>D</th><th>Comments</th></tr></thead>
+<tbody>
+<tr><td><code>face_cluster_legacy/</code></td><td>✓</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td><td>Re-export module; SOLID irrelevant.</td></tr>
+<tr><td><code>configs/*.py</code> (Pydantic models)</td><td>✓</td><td>✓</td><td>✓</td><td>n/a</td><td>n/a</td><td>One model per step. Open for extension via registry.</td></tr>
+<tr><td><code>db/schema.py</code></td><td>✓</td><td>✓</td><td>n/a</td><td>n/a</td><td>n/a</td><td>DDL constants.</td></tr>
+<tr><td><code>db/validators.py</code></td><td>✓</td><td>✓</td><td>n/a</td><td>n/a</td><td>n/a</td><td>Pandera schemas.</td></tr>
+<tr><td><code>run_exporter.py</code></td><td><span class="pill warn">⚠</span></td><td>✓</td><td>✓</td><td>—</td><td>—</td><td><b>SRP violation</b>: one class does schema + crops + writes + metadata. Pre-existing; Phase 4 didn't worsen.</td></tr>
+<tr><td><code>face_clustering_steps.py</code></td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td><span class="pill warn">⚠</span></td><td><b>DIP gap</b>: steps depend on concrete <code>QualityGater</code>, <code>KNNGraphBuilder</code>, <code>ConservativeMerger</code>. No abstraction. Acceptable — out of spec-040 scope (algorithm-layer refactor would be a separate spec).</td></tr>
+<tr><td><code>fc_app_runner.py</code></td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>Clean thin wrapper.</td></tr>
+</tbody>
+</table>
+
+<h2>Where data is written to the DB (the writer-class question)</h2>
+
+<table>
+<thead><tr><th>Table</th><th>Writer method</th><th>Status today</th></tr></thead>
+<tbody>
+<tr><td><code>faces</code></td><td><code>RunExporter._write_faces_and_scores</code></td><td><span class="pill ok">Populated</span> (with 26 columns; 5 new <code>*_ratio</code> always NULL)</td></tr>
+<tr><td><code>face_scores</code></td><td><code>RunExporter._write_faces_and_scores</code> (same method)</td><td><span class="pill ok">Populated</span></td></tr>
+<tr><td><code>clusters</code></td><td><code>RunExporter._write_clusters_and_assignments</code></td><td><span class="pill ok">Populated</span></td></tr>
+<tr><td><code>cluster_assignments</code></td><td><code>RunExporter._write_clusters_and_assignments</code></td><td><span class="pill ok">Populated</span></td></tr>
+<tr><td><code>merge_decisions</code></td><td><code>RunExporter._write_merges</code></td><td><span class="pill ok">Populated</span></td></tr>
+<tr><td><code>filter_decisions</code></td><td><code>RunExporter._write_filter_decisions</code></td><td><span class="pill ok">Populated</span></td></tr>
+<tr><td><code>run_metadata</code></td><td><code>RunExporter._write_run_metadata</code></td><td><span class="pill ok">Populated</span></td></tr>
+<tr><td><code>images</code> <span class="pill" style="background:#1d3a8a;color:white;">NEW v5</span></td><td><b>None</b> (no <code>_write_images</code> method)</td><td><span class="pill bad">Empty table</span></td></tr>
+<tr><td><code>scene_clusters</code> <span class="pill" style="background:#1d3a8a;color:white;">NEW v5</span></td><td><b>None</b> (no writer)</td><td><span class="pill bad">Empty table</span></td></tr>
+<tr><td><code>scene_cluster_assignments</code> <span class="pill" style="background:#1d3a8a;color:white;">NEW v5</span></td><td><b>None</b> (no writer)</td><td><span class="pill bad">Empty table</span></td></tr>
+</tbody>
+</table>
+
+<h2>Overall scorecard</h2>
+
+<table>
+<thead><tr><th>Dimension</th><th>Score</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Plan + spec documentation</td><td class="center"><span class="pill a">A</span></td><td>spec.md, tasks.md, CONCRETE_PLAN.md, COVERAGE.md, ARCHITECTURE.html all current and consistent.</td></tr>
+<tr><td>Pydantic step-config coverage</td><td class="center"><span class="pill a">A−</span></td><td>16 models registered. <code>extra="forbid"</code> everywhere. Descriptions on every field. Tested.</td></tr>
+<tr><td>Schema design (v5)</td><td class="center"><span class="pill b">B+</span></td><td>Sensible additive migration. Closes SIGHTING-064/065/066 structurally — but writer side incomplete (no rows actually flow).</td></tr>
+<tr><td>Unified clustering chain (algorithm correctness)</td><td class="center"><span class="pill b">B+</span></td><td>Proven equivalent to legacy on synthetic data. Real-data validation missing.</td></tr>
+<tr><td>FCAppRunner</td><td class="center"><span class="pill b">B</span></td><td>Clean thin wrapper. Unused by any app.</td></tr>
+<tr><td>Strangler-fig discipline</td><td class="center"><span class="pill c">C+</span></td><td>Legacy preserved (✓) but not deprecated. No producer dual-write — v2 path unreachable in prod.</td></tr>
+<tr><td>Test coverage of the load-bearing claim ("v2 matches legacy")</td><td class="center"><span class="pill d">D</span></td><td>Synthetic-only. The merge gate doesn't gate anything against production.</td></tr>
+<tr><td>Production-readiness</td><td class="center"><span class="pill d">D</span></td><td>Two Critical findings (REVIEW.md A1, A2). Scaffolding complete; unification not actually achieved.</td></tr>
+<tr><td><b>Overall grade</b></td><td class="center"><span class="pill b">B−</span></td><td>Solid foundation; honest documentation of what's done and what isn't; merge-to-main as Phase 0.5 is defensible. Don't flip status to Implemented yet.</td></tr>
+</tbody>
+</table>
+
+<h2>Recommended action</h2>
+
+<div class="callout">
+<b>Approve the branch for merge to main as Phase 0.5 (additive scaffolding)</b>; <b>do NOT mark spec-040 as Implemented.</b> The two Critical findings (FR-040-1 producer dual-write, FR-040-2 real-album equivalence) become the real Phase 5/6 work. Estimate: ~2–3 more focused days before the spec can honestly close.
+
+If approval requires immediate "Implemented" status, the branch needs FR-040-1 and FR-040-2 resolved first — not mergeable today.
+</div>
+
+</body>
+</html>

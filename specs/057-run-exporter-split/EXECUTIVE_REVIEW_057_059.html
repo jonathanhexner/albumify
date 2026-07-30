@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Executive Review — specs 057 / 058 / 059 (run-store + per-run-DB on SQLAlchemy)</title>
+<style>
+  :root { --fg:#222; --mut:#666; --bg:#fff; --acc:#0a58ca; --warn:#b8860b; --bad:#b00020; --ok:#147a3a;
+          --pre:#f6f8fa; --bord:#d0d7de; }
+  body { font: 14px/1.45 -apple-system,Segoe UI,Helvetica,Arial,sans-serif; color:var(--fg);
+         background:var(--bg); margin: 20px auto; max-width: 1080px; padding: 0 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 28px 0 8px; border-bottom: 1px solid var(--bord); padding-bottom: 4px; }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; font-size: 13px; }
+  th, td { border: 1px solid var(--bord); padding: 6px 8px; vertical-align: top; text-align: left; }
+  th { background: #f3f5f7; }
+  pre { background: var(--pre); border: 1px solid var(--bord); padding: 10px 12px;
+        overflow-x: auto; font: 12px/1.4 ui-monospace,Consolas,monospace; border-radius: 4px; }
+  code { background: var(--pre); padding: 1px 4px; border-radius: 3px;
+         font: 12px/1 ui-monospace,Consolas,monospace; }
+  .ok   { color: var(--ok);   font-weight: 600; }
+  .warn { color: var(--warn); font-weight: 600; }
+  .bad  { color: var(--bad);  font-weight: 600; }
+  .mut  { color: var(--mut); }
+  .pill { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:600;
+          border:1px solid var(--bord); }
+  .pill-low  { background:#e6f4ea; color:#147a3a; border-color:#c6e6cf; }
+  .pill-med  { background:#fff8e1; color:#8a6d00; border-color:#ffe6a8; }
+  .pill-high { background:#fdecea; color:#b00020; border-color:#f5c6cb; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tldr { background:#eef5ff; border:1px solid #c6def9; border-radius:6px; padding:10px 14px; margin: 8px 0 16px; }
+  .meta { color: var(--mut); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Executive Review — specs 057 / 058 / 059</h1>
+<div class="meta">Scope: run_exporter split, per-run ORM models, RunStore + ClusterAnalysisRepository on SQLAlchemy.
+Reviewer: Claude (Opus 4.7). Date: 2026-05-29. Branch: <code>unification/spec-040</code>.</div>
+
+<div class="tldr">
+<b>TL;DR — start with spec-058.</b> It is the smallest, additive, zero-behavior-risk piece, and it
+flips the source of truth that the other two depend on. Then run 057 and 059 sequentially (or fold them
+into a single PR per writer/reader if you prefer fewer, larger commits). The specs as-written chain
+<i>057 → 058 → 059</i>, which front-loads mechanical work and forces 057's writers to be touched twice
+(once to split, once in 059 to flip to ORM). Doing 058 first lets 057's writers land on ORM from day one.
+</div>
+
+<h2>1. Module / LOC inventory</h2>
+<table>
+<tr><th>File</th><th>LOC today</th><th>Spec target</th><th>Owner spec</th><th>Notes</th></tr>
+<tr><td><code>face_cluster/run_exporter.py</code></td><td>826</td><td>≤200/file across ~11 files</td><td>057</td>
+    <td>Spec quotes 924 LOC; 826 today (spec-053 cleanup helped). Bar still busted by 4×.</td></tr>
+<tr><td><code>face_cluster/run_store.py</code></td><td>546</td><td>≤450</td><td>059</td>
+    <td>Spec quotes 617; 546 today. 13 methods; 8 are read paths that grep raw SQL.</td></tr>
+<tr><td><code>face_cluster/repositories/cluster_analysis_repo.py</code></td><td>305</td><td>≤200</td><td>059</td>
+    <td>Spec quotes 268; 305 today. 4 raw SQL stmts × 7 column literals = SMELL-1.</td></tr>
+<tr><td><code>face_cluster/db/schema.py</code></td><td>256</td><td>derived from ORM</td><td>058</td>
+    <td>DDL strings become generated post-058; constant names stay for back-compat.</td></tr>
+<tr><td><code>face_cluster/loader.py</code></td><td>464</td><td>n/a</td><td>—</td>
+    <td><b>Out of scope.</b> Spec-040 Phase 7 retires it. Don't migrate.</td></tr>
+</table>
+
+<p class="warn">⚠ LOC numbers in all three specs are stale (~10-15% off). Refresh before kickoff so AC4/AC5 thresholds in 059 aren't accidentally over-tight.</p>
+
+<h2>2. Dependency graph</h2>
+
+<pre>
+                    spec-053 (RunExportInputs/Result)        spec-046 (action_log SQLAlchemy)
+                              │                                      │
+                              ▼                                      │
+                    ┌─────────────────────┐                          │
+                    │  spec-057            │                         │
+                    │  RunExporter split   │◄── writers still raw SQL│
+                    └─────────┬───────────┘                          │
+                              │             (sibling, can run        │
+                              │              before, after, or       │
+                              ▼              concurrently)           │
+                    ┌─────────────────────┐                          │
+                    │  spec-058            │  ◄──── separate Base ───┘
+                    │  Per-run ORM models  │       (different DB, lifecycle)
+                    └─────────┬───────────┘
+                              │  (hard prereq)
+                              ▼
+                    ┌─────────────────────┐
+                    │  spec-059            │
+                    │  RunStore + CARepo   │
+                    │  on SQLAlchemy       │
+                    └─────────────────────┘
+                              │
+                              ▼
+                    Future: read-side tabs (Face Analysis,
+                    Merged Clusters, Quality, Gallery)
+</pre>
+
+<p><b>Critical observation:</b> 057 and 058 are <i>technically independent</i>. The spec authors chained
+them for narrative clarity, but 058 ships ORM models additively; 057 splits writers that still emit raw
+SQL. Only 059 needs both. Order is therefore a process choice, not a graph constraint.</p>
+
+<h2>3. Class diagrams (today → after 057-059)</h2>
+
+<h3>3.1 Write path</h3>
+<pre>
+TODAY                                              AFTER 057+058+059
+─────                                              ─────────────────
+                                                   ┌──────────────────────────┐
+                                                   │  Base (per-run, no       │
+┌──────────────────────────┐                       │   Alembic, sep namespace)│
+│ RunExporter (826 LOC,    │                       └──────────┬───────────────┘
+│   10 _write_* methods,   │                                  │
+│   19-field export())     │                          ┌───────┴────────────────┐
+│                          │                          │ Face Cluster ClusterA. │
+│ ├─ _write_faces_*        │                          │ MergeDecision Image    │
+│ ├─ _write_clusters_*     │                          │ FilterDecision Scene*  │
+│ ├─ _write_merges         │                          │ RunMetadata            │
+│ ├─ _write_filter_*       │                          │ (9 Mapped models)      │
+│ ├─ _write_images         │                          └───────▲────────────────┘
+│ ├─ _write_scene_*  (×2)  │   spec-057 + 058 + 059           │
+│ ├─ _write_run_meta       │ ────────────────────────►        │
+│ ├─ _write_embeddings_npy │                                  │
+│ ├─ _write_pipeline_run_  │            ┌─────────────────────┴──────────────┐
+│ │   json                 │            │ RunExporter (facade, ≤80 LOC)      │
+│ └─ _write_crops          │            │  └─ writers/{faces,clusters,...}   │
+│                          │            │  └─ artifact_writers/{npy,json,    │
+│  + raw sqlite3 + DDL str │            │      crops}                        │
+└──────────────────────────┘            └────────────────────────────────────┘
+</pre>
+
+<h3>3.2 Read path</h3>
+<pre>
+TODAY                                              AFTER 058 + 059
+─────                                              ───────────────
+RunStore (546 LOC)             ClusterAnalysisRepo  RunStore (~400)        CARepo (~200)
+  ├─ faces()        raw SQL    (305 LOC)              ├─ faces() ──┐         ├─ get_cluster_rows() ─┐
+  ├─ clusters()     raw SQL      ├─ get_cluster_rows raw SQL       │         │                       │
+  ├─ metadata()     raw SQL      ├─ find_assignments raw SQL       ▼         ▼                       │
+  ├─ merge_log()    raw SQL      ├─ get_face_records raw SQL    select(Face,Cluster,...)             │
+  ├─ image_detail() raw SQL ×3   ├─ get_run_metadata raw SQL    with explicit None-handling          │
+  ├─ filter_dec.()  raw SQL      ├─ save_manual_merge_snapshot  (Mapped types do bool/json coercion) │
+  ├─ embeddings()  npy file       (insert+update)                                                    │
+  └─ crop_path()    fs                                                                                │
+                                                   ◄────── shared spec-058 ORM models ───────────────┘
+</pre>
+
+<h2>4. Methods inventory (today)</h2>
+<div class="grid2">
+<div>
+<b>RunExporter (10 _write_* + 2 public)</b>
+<pre>calc(inputs)                  L129
+export(...19 fields...)        L164
+_write_faces_and_scores        L309
+_write_clusters_and_assignmts  L401
+_write_merges                  L483
+_write_filter_decisions        L501
+_write_images                  L532
+_write_scene_clusters          L620
+_write_scene_cluster_assignmts L663
+_write_run_metadata            L698
+_write_embeddings_npy          L780
+_write_pipeline_run_json       L795
+_write_crops                   L824</pre>
+</div>
+<div>
+<b>RunStore (13 methods)</b>
+<pre>metadata()              L206
+faces()                 L240
+merge_log()             L281
+image_detail(path)      L307  ← heaviest (joins ×3)
+filter_decisions()      L438
+embeddings()            L481
+crop_path(face_id)      L495
+clusters(iteration)     L520
+iteration_count()       L587
+_load_and_validate()    L147
+_resolve_iteration()    L599
+_connect()              L614</pre>
+<b>ClusterAnalysisRepository (8 public)</b>
+<pre>get_cluster_rows(iter)         L121
+get_cluster_ids(iter)          L159
+find_assignments(criteria)     L163
+get_face_records(face_ids)     L195
+get_run_metadata()             L207
+get_merge_log()                L211
+get_cluster_result(iter)       L215
+save_manual_merge_snapshot(..) L239 ← only mutation</pre>
+</div>
+</div>
+
+<h2>5. Tests — exists, planned, gaps</h2>
+<table>
+<tr><th>Spec</th><th>New tests</th><th>Existing tests that must stay green</th><th>Gap / concern</th></tr>
+<tr><td><b>057</b></td>
+    <td>• <code>test_split_equivalence.py</code> (golden hashes) — <i>load-bearing</i><br>
+        • transaction-atomicity (monkeypatch mid-export)<br>
+        • <code>test_run_exporter_layering.py</code> (LOC arch)</td>
+    <td><code>tests/face_clustering/*</code> + spec-053 RunExportInputs surface</td>
+    <td class="warn">Golden hashes are sensitive to nondeterministic output (timestamps, JSON key order). Spec doesn't say how to neutralize these — pin <code>sort_keys=True</code> + fixed clock fixture in T002.</td></tr>
+<tr><td><b>058</b></td>
+    <td>• <code>test_orm_matches_schema.py</code> (drift guard) — <i>load-bearing</i><br>
+        • mutation test (edit DDL by hand → red)</td>
+    <td>spec-057 equivalence test still green</td>
+    <td class="warn">Drift-guard normalizes whitespace but spec doesn't enumerate what else to normalize (column order, default-value formatting, PRAGMA differences). Risk: false-positive failures during burn-in.</td></tr>
+<tr><td><b>059</b></td>
+    <td>• <code>test_cluster_analysis_repo_perf.py</code> (1.2× baseline)<br>
+        • <code>test_no_raw_sql_in_run_store_or_cluster_analysis_repo.py</code><br>
+        • LOC arch extension</td>
+    <td>spec-045: 15 Repository + 16 Service + 5 arch = <b>36</b><br>
+        + all existing RunStore tests<br>
+        + spec-057 golden hashes</td>
+    <td class="warn">Perf gate is greppable but micro-bench is fragile on shared CI. Suggest reporting both mean + p95 and gating on p95 ≤ 1.5× baseline (1.2× on mean is too tight for SQLAlchemy overhead).</td></tr>
+</table>
+
+<h2>6. Risk register</h2>
+<table>
+<tr><th>Risk</th><th>Spec</th><th>Severity</th><th>Mitigation in plan?</th><th>Verdict</th></tr>
+<tr><td>Transaction atomicity regression (writer split breaks single-COMMIT)</td><td>057</td>
+    <td><span class="pill pill-high">high</span></td><td>Yes — T040 monkeypatch test</td>
+    <td class="ok">Covered.</td></tr>
+<tr><td>Golden-hash test brittle to clock / JSON ordering / OS path separators</td><td>057</td>
+    <td><span class="pill pill-med">med</span></td><td>Implicit only</td>
+    <td class="warn">Add normalization spec to T002.</td></tr>
+<tr><td>SQLAlchemy <code>create_all()</code> emits semantically-identical-but-textually-different DDL</td><td>058</td>
+    <td><span class="pill pill-med">med</span></td><td>Yes — AC2 compares post-CREATE schema, not DDL text</td>
+    <td class="ok">Covered.</td></tr>
+<tr><td>Mixed source-of-truth window (058 ships, 057 writers still raw SQL)</td><td>058</td>
+    <td><span class="pill pill-low">low</span></td><td>Explicit: schema.py constants stay derived but importable</td>
+    <td class="ok">Covered.</td></tr>
+<tr><td>Performance regression on hot read path (Streamlit polling)</td><td>059</td>
+    <td><span class="pill pill-high">high</span></td><td>Yes — AC7 perf gate + fallback to <code>session.execute(text(...))</code></td>
+    <td class="warn">Mean-only gate at 1.2× is too tight; recommend p95 ≤ 1.5×.</td></tr>
+<tr><td>Row-hydration None-handling on nullable columns (e.g. <code>face.pose</code>)</td><td>059</td>
+    <td><span class="pill pill-med">med</span></td><td>Mentioned in Risks; not in any AC</td>
+    <td class="bad">Add explicit unit test for nullable-column round-trip in T030.</td></tr>
+<tr><td>Index handling — <code>INDEXES_DDL</code> is module-level, ORM wants <code>__table_args__</code></td><td>058</td>
+    <td><span class="pill pill-low">low</span></td><td>Yes — T013</td>
+    <td class="ok">Covered.</td></tr>
+<tr><td>Writers touched twice (split in 057, flipped in 059)</td><td>057+059</td>
+    <td><span class="pill pill-med">med</span></td><td>No</td>
+    <td class="warn">Sequencing trade-off — see §7.</td></tr>
+<tr><td>Test fixtures + spec-051 isolation interact with new sessionmaker</td><td>059</td>
+    <td><span class="pill pill-low">low</span></td><td>No mention</td>
+    <td class="warn">Verify the spec-051 DB-isolation fixture still scopes correctly when the engine is created per-call.</td></tr>
+</table>
+
+<h2>7. Recommendation — sequencing</h2>
+
+<p><b>Recommended order: 058 → 057 → 059.</b></p>
+
+<table>
+<tr><th>Step</th><th>Why</th><th>Effort</th><th>Risk</th></tr>
+<tr><td>1. <b>spec-058</b> (per-run ORM models)</td>
+    <td>Additive. Zero behavior change. Establishes the type-safe column source that 057 and 059 can both target.
+        Drift guard gives you a green light before any real churn.</td>
+    <td>4-6 h</td><td><span class="pill pill-low">low</span></td></tr>
+<tr><td>2a. <b>spec-057 (modified)</b> — writers emit ORM, not raw SQL</td>
+    <td>Same split, same byte-equivalence gate, but writers go straight to <code>session.add(Face(...))</code>.
+        Eliminates the "touch every writer twice" cost. The byte-equivalence test still catches drift.</td>
+    <td>6-8 h</td><td><span class="pill pill-med">med</span></td></tr>
+<tr><td>2b. <b>spec-057 (as-specified)</b> — writers split with raw SQL</td>
+    <td>Lower-risk variant if you want the split landed independent of any ORM concern. 059 then flips them.</td>
+    <td>6-8 h (+ ~2 h re-touch in 059)</td><td><span class="pill pill-low">low</span></td></tr>
+<tr><td>3. <b>spec-059</b> — RunStore + CARepo to ORM</td>
+    <td>The payoff. ORM and split writers exist; this collapses 851 LOC of read-path raw SQL onto Mapped types.</td>
+    <td>5-6 h</td><td><span class="pill pill-med">med</span> (perf, hydration)</td></tr>
+</table>
+
+<p><b>Total:</b> ~15-20 h. Worth doing in the order above as <i>three separate PRs</i>, each independently revertable.
+Do <b>not</b> bundle into one PR — the byte-equivalence and perf gates lose meaning when stacked.</p>
+
+<h2>8. Open questions for the spec authors</h2>
+<ol>
+<li><b>057:</b> How are non-deterministic outputs (timestamps in <code>pipeline_run.json</code>, file mtimes in <code>crops/</code>) handled in the golden-hash test? Either pin a clock fixture or exclude those bytes from the hash.</li>
+<li><b>058:</b> Spec says "ORM model becomes canonical; <code>schema.py</code> DDL derived." How is <code>SCHEMA_DDL</code> serialized at import time without circular imports between <code>schema.py</code> and <code>models/</code>? Recommend: <code>schema.py</code> imports from <code>models</code>, not the other way.</li>
+<li><b>058:</b> Recommend confirming there's no production code relying on the <i>exact text</i> of <code>FACES_DDL</code> (e.g. doc generation, schema-diff tooling). A grep would close this.</li>
+<li><b>059:</b> Streamlit polling cadence — does the Cluster Analysis tab poll faster than the per-call engine-creation cost? If yes, the suggestion "cache the engine on <code>(run_dir, st.session_id)</code>" should be in scope, not deferred.</li>
+<li><b>059 vs. spec-051:</b> Confirm that <code>tests/face_clustering/run_store/</code> fixtures don't open a connection ahead of the new sessionmaker. Connection-precedence bugs are easy to ship.</li>
+</ol>
+
+<h2>9. Final binding structure (post 056 + 057 + 058 + 059)</h2>
+
+<p>The package tree, classes, and method inventory below are <b>binding</b>. Mirrored into <code>specs/056/spec.md</code>, <code>specs/057/spec.md</code>, <code>specs/058/spec.md</code>, and <code>specs/059/spec.md</code> under "Final binding structure" so each spec is self-contained for its implementer. Cross-spec drift = Code Review §1 fail.</p>
+
+<p><b>Single canonical path per class.</b> Spec-056 relocates the four files (<code>run_exporter.py</code>, <code>run_store.py</code>, <code>db/schema.py</code>, <code>repositories/cluster_analysis_repo.py</code>) from <code>face_cluster/</code> to <code>sim_bench/</code> before any refactor starts. No shim window. No two-valid-paths confusion. Importing from the old paths fails with <code>ImportError</code> after 056 lands — that IS the contract.</p>
+
+<h3>9.1 Package tree</h3>
+<pre>
+sim_bench/run_db/                            # per-run-DB layer (all real implementation)
+├─ __init__.py
+├─ _base.py                                  # class Base(DeclarativeBase) + naming convention   [058]
+├─ _session.py                               # make_run_db_sessionmaker(run_dir) -> sessionmaker [058]
+├─ _schema.py                                # SCHEMA_VERSION, SCHEMA_HISTORY (spec-054),
+│                                            # EXPECTED_ARTIFACTS; DDL DERIVED from Base.metadata [056→058]
+├─ _producers.py                             # _VALID_PRODUCERS = ("albumify","fc_app",...)      [057]
+├─ _inputs.py                                # RunExportInputs, RunExportResult, RunExporterError [057]
+├─ exporter.py                               # class RunExporter — facade (≤150 LOC)        [056→057]
+├─ store.py                                  # class RunStore (≤450 LOC)                    [056→059]
+├─ models/                                   # 9 ORM models, flat namespace                      [058]
+│  ├─ __init__.py
+│  ├─ face.py · cluster.py · cluster_assignment.py
+│  ├─ merge_decision.py · filter_decision.py
+│  ├─ image.py · scene_cluster.py · scene_cluster_assignment.py
+│  └─ run_metadata.py                        # class RunMetadataRow (suffix avoids dataclass clash)
+├─ writers/                                  # DB writer functions                                [057]
+│  ├─ __init__.py · _common.py
+│  ├─ faces_writer.py · clusters_writer.py
+│  ├─ merges_writer.py · filter_decisions_writer.py
+│  ├─ images_writer.py · scenes_writer.py
+│  └─ run_metadata_writer.py
+└─ artifact_writers/                         # filesystem (no DB)                                 [057]
+   ├─ embeddings_writer.py · pipeline_run_writer.py · crops_writer.py
+
+sim_bench/db/face_clustering/                # clustering-domain repository scope
+├─ __init__.py                                                                                  [056]
+└─ cluster_analysis_repo.py                  # class ClusterAnalysisRepository (≤200 LOC)   [056→059]
+
+face_cluster/                                # algorithm-only after 056
+├─ db/
+│  ├─ __init__.py
+│  └─ validators.py                          # unchanged (face-clustering validators only)
+│  # schema.py — relocated to sim_bench/run_db/_schema.py in spec-056
+├─ repositories/                             # sim_bench.db scope only (separate from per-run DB)
+│  ├─ _base_repository.py · _session.py · _engine.py · _errors.py
+│  ├─ _orm_base.py                           # different Base (sim_bench.db, with Alembic)
+│  ├─ _schema.py · run_history_repo.py
+│  # cluster_analysis_repo.py — relocated to sim_bench/db/face_clustering/ in spec-056
+│ # run_exporter.py — relocated to sim_bench/run_db/exporter.py in spec-056
+│ # run_store.py — relocated to sim_bench/run_db/store.py in spec-056
+├─ fc_params.py · fc_app_runner.py · pipeline.py · run_layout.py
+├─ analysis.py · exemplar/ · clustering algorithms...
+</pre>
+
+<p><b>Import policy:</b> ALL callers MUST use <code>sim_bench.run_db.*</code> and <code>sim_bench.db.face_clustering.*</code>. The old paths under <code>face_cluster.{run_exporter, run_store, db.schema, repositories.cluster_analysis_repo}</code> do not exist after spec-056. Enforced by arch test <code>tests/architecture/test_no_face_cluster_per_run_db_paths.py</code>.</p>
+
+<h3>9.2 Classes — binding inventory</h3>
+<table>
+<tr><th>Class</th><th>Module</th><th>Owner spec</th></tr>
+<tr><td><code>Base</code></td><td><code>sim_bench/run_db/_base.py</code></td><td>058</td></tr>
+<tr><td><code>Face</code></td><td><code>sim_bench/run_db/models/face.py</code></td><td>058</td></tr>
+<tr><td><code>Cluster</code></td><td><code>sim_bench/run_db/models/cluster.py</code></td><td>058</td></tr>
+<tr><td><code>ClusterAssignment</code></td><td><code>sim_bench/run_db/models/cluster_assignment.py</code></td><td>058</td></tr>
+<tr><td><code>MergeDecision</code></td><td><code>sim_bench/run_db/models/merge_decision.py</code></td><td>058</td></tr>
+<tr><td><code>FilterDecision</code></td><td><code>sim_bench/run_db/models/filter_decision.py</code></td><td>058</td></tr>
+<tr><td><code>Image</code></td><td><code>sim_bench/run_db/models/image.py</code></td><td>058</td></tr>
+<tr><td><code>SceneCluster</code></td><td><code>sim_bench/run_db/models/scene_cluster.py</code></td><td>058</td></tr>
+<tr><td><code>SceneClusterAssignment</code></td><td><code>sim_bench/run_db/models/scene_cluster_assignment.py</code></td><td>058</td></tr>
+<tr><td><code>RunMetadataRow</code></td><td><code>sim_bench/run_db/models/run_metadata.py</code></td><td>058</td></tr>
+<tr><td><code>RunExportInputs</code></td><td><code>sim_bench/run_db/_inputs.py</code></td><td>057</td></tr>
+<tr><td><code>RunExportResult</code></td><td><code>sim_bench/run_db/_inputs.py</code></td><td>057</td></tr>
+<tr><td><code>RunExporterError</code></td><td><code>sim_bench/run_db/_inputs.py</code></td><td>057</td></tr>
+<tr><td><code>RunExporter</code></td><td><code>sim_bench/run_db/exporter.py</code></td><td>056→057</td></tr>
+<tr><td><code>RunStore</code></td><td><code>sim_bench/run_db/store.py</code></td><td>056→059</td></tr>
+<tr><td><code>ClusterAnalysisRepository</code></td><td><code>sim_bench/db/face_clustering/cluster_analysis_repo.py</code></td><td>056→059</td></tr>
+</table>
+
+<h3>9.3 Methods — binding inventory</h3>
+
+<h4>RunExporter (facade)</h4>
+<pre>__init__(output_dir: Path)
+calc(inputs: RunExportInputs) -> RunExportResult       # spec-053 entry; thin
+export(inputs: RunExportInputs) -> RunExportResult     # body ≤80 LOC; opens 1 session,
+                                                       # calls every writer in order, commits once
+</pre>
+<p class="mut">All <code>_write_*</code> methods are GONE. Logic lives in the writer modules listed below.
+<code>_strict_validate_merge_log</code> moves to <code>writers/_common.py</code>.</p>
+
+<h4>Writer modules (functions, not classes) — all under <code>sim_bench/run_db/</code></h4>
+<pre>writers/_common.py:
+  open_run_db(path: Path) -> Session
+  run_in_one_transaction(session: Session) -> ContextManager
+  _strict_validate_merge_log(merge_log: list[dict]) -> None
+
+writers/faces_writer.py:                  write_faces(session, inputs) -> None
+writers/clusters_writer.py:               write_clusters_and_assignments(session, inputs) -> None
+writers/merges_writer.py:                 write_merges(session, merge_log) -> None
+writers/filter_decisions_writer.py:       write_filter_decisions(session, filters) -> None
+writers/images_writer.py:                 write_images(session, inputs) -> None
+writers/scenes_writer.py:                 write_scene_clusters(session, inputs) -> None
+                                          write_scene_cluster_assignments(session, inputs) -> None
+writers/run_metadata_writer.py:           write_run_metadata(session, inputs) -> None
+
+artifact_writers/embeddings_writer.py:    write_embeddings_npy(output_dir, faces) -> None
+artifact_writers/pipeline_run_writer.py:  write_pipeline_run_json(output_dir, inputs) -> None
+artifact_writers/crops_writer.py:         write_crops(output_dir, crops) -> None
+</pre>
+
+<h4>RunStore (sim_bench/run_db/store.py)</h4>
+<pre>__init__(run_dir: Union[str, Path])
+_load_and_validate() -> dict                    # PRAGMA user_version + file checks; KEEPS raw sqlite3
+                                                # (this method does NOT use SQLAlchemy by design;
+                                                # session creation happens AFTER validation)
+metadata() -> RunMetadata
+faces() -> List[FaceRecord]
+merge_log() -> List[MergeDecisionRow]
+image_detail(image_path: str) -> ImageDetail   # heaviest; joins Face + FilterDecision + ClusterAssignment
+filter_decisions() -> List[FilterDecisionRow]
+embeddings() -> EmbeddingMatrix                 # npy file — no DB
+crop_path(face_id: int) -> Path                 # fs — no DB
+clusters(iteration: Union[int, str]) -> ClusterResult
+iteration_count() -> int
+_resolve_iteration(iteration: Union[int, str]) -> int
+_session() -> Session                           # REPLACES _connect(); per-call session
+</pre>
+
+<h4>sim_bench/run_db/_session.py</h4>
+<pre>make_run_db_sessionmaker(run_dir: Path) -> sessionmaker
+</pre>
+
+<h4>ClusterAnalysisRepository (sim_bench/db/face_clustering/cluster_analysis_repo.py)</h4>
+<pre>__init__(config: ClusterAnalysisRepoConfig)
+get_cluster_rows(iteration: str = "final") -> List[ClusterRow]
+get_cluster_ids(iteration: str = "final") -> List[int]
+find_assignments(criteria: ClusterAnalysisCriteria) -> List[Assignment]
+get_face_records(face_ids: List[int]) -> List[FaceRecord]
+get_run_metadata() -> RunMetadata
+get_merge_log() -> List[MergeDecisionRow]
+get_cluster_result(iteration: str = "final") -> ClusterResult
+save_manual_merge_snapshot(...) -> None         # only mutation
+_session() -> Session                           # REPLACES _connect()
+_resolve_iteration(iteration: str) -> int
+_log(msg: str) -> None
+</pre>
+
+<h3>9.4 Cross-spec invariants (DO NOT violate)</h3>
+<ol>
+<li><b>Single canonical import path per class.</b> Old paths under <code>face_cluster.{run_exporter, run_store, db.schema, repositories.cluster_analysis_repo}</code> do not exist after spec-056. Enforced by arch test.</li>
+<li><b>Two distinct <code>Base</code> classes.</b> <code>face_cluster/repositories/_orm_base.py</code> (sim_bench.db, with Alembic) vs <code>sim_bench/run_db/_base.py</code> (per-run DB, no Alembic). Never merge.</li>
+<li><b>Two distinct sessionmakers.</b> <code>face_cluster/repositories/_session.py</code> (sim_bench.db) vs <code>sim_bench/run_db/_session.py</code> (per-run DB). Never cross-import.</li>
+<li><b>Public surface frozen.</b> Every <code>RunExporter</code>, <code>RunStore</code>, <code>ClusterAnalysisRepository</code> method keeps signature and return shape. Test suites prove this.</li>
+<li><b>Writers are functions, not classes.</b> If a writer grows state, refactor the data (<code>Inputs</code> sub-dataclass), not the writer.</li>
+<li><b>One transaction per <code>export()</code>.</b> The facade opens the session, BEGINs once, calls every DB writer in fixed order, COMMITs once. Writer modules never open their own session.</li>
+<li><b>RunStore <code>_load_and_validate()</code> stays on raw sqlite3.</b> Runs <code>PRAGMA user_version</code> before any ORM machinery. ORM access only after validation passes.</li>
+</ol>
+
+<h2>10. Verdict</h2>
+<table>
+<tr><th>Spec</th><th>Verdict</th><th>Blockers</th></tr>
+<tr><td>057</td><td><span class="ok">Accept with one change</span></td>
+    <td>Tighten T002 to specify how non-deterministic outputs are neutralized in the golden hash.</td></tr>
+<tr><td>058</td><td><span class="ok">Accept</span></td>
+    <td>None. Smallest, lowest-risk piece. Good to ship first.</td></tr>
+<tr><td>059</td><td><span class="warn">Accept with two changes</span></td>
+    <td>(a) Relax AC7 perf gate to p95 ≤ 1.5× baseline (mean-only at 1.2× is fragile).<br>
+        (b) Add an explicit nullable-column round-trip test to T030 (RunStore preserves None semantics).</td></tr>
+</table>
+
+<p class="meta">— end —</p>
+</body>
+</html>

@@ -39,6 +39,10 @@ def _good_face_row(face_id: int = 0) -> dict:
         "rejection_reason": None,
         "iqa_score":        0.8, "ava_score": 0.7, "sharpness_score": 0.6,
         "scene_cluster_id": 0,
+        # spec-040 Phase 4 (v5) — canonical ratios
+        "area_ratio":       0.1,
+        "bbox_x_ratio":     0.0, "bbox_y_ratio": 0.0,
+        "bbox_w_ratio":     0.3, "bbox_h_ratio": 0.3,
     }
 
 
@@ -94,21 +98,24 @@ def test_face_scores_schema_accepts_nullable_columns():
 
 
 def test_exporter_invokes_faces_schema():
-    """spec-033 P-H: the WRITER must call FACES_SCHEMA, not just import it."""
-    from face_cluster import run_exporter
-    src = inspect.getsource(run_exporter._write_faces_and_scores
-                            if hasattr(run_exporter, "_write_faces_and_scores")
-                            else run_exporter.RunExporter._write_faces_and_scores)
+    """spec-033 P-H: the WRITER must call FACES_SCHEMA, not just import it.
+
+    spec-057 relocated the validation from the monolithic exporter into
+    sim_bench/run_db/writers/faces_writer.py. The check now inspects the
+    extracted writer module.
+    """
+    from sim_bench.run_db.writers import faces_writer
+    src = inspect.getsource(faces_writer.write_faces)
     assert re.search(r"FACES_SCHEMA\.validate\b", src), (
-        "RunExporter._write_faces_and_scores must call FACES_SCHEMA.validate "
+        "faces_writer.write_faces must call FACES_SCHEMA.validate "
         "(spec-033 P-H — validation at write time, not just an unused import)."
     )
 
 
 def test_exporter_invokes_face_scores_schema():
     """Mirror: FACE_SCORES_SCHEMA must be called from the writer."""
-    from face_cluster import run_exporter
-    src = inspect.getsource(run_exporter.RunExporter._write_faces_and_scores)
+    from sim_bench.run_db.writers import faces_writer
+    src = inspect.getsource(faces_writer.write_faces)
     assert re.search(r"FACE_SCORES_SCHEMA\.validate\b", src), (
-        "RunExporter._write_faces_and_scores must call FACE_SCORES_SCHEMA.validate."
+        "faces_writer.write_faces must call FACE_SCORES_SCHEMA.validate."
     )

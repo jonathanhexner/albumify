@@ -39,9 +39,41 @@ def _render_embed_cache_status(output_dir_str: str) -> None:
         st.rerun()
 
 
+def _render_import_existing_run() -> None:
+    """spec-089: load an existing export dir (e.g. an Albumify run) into the
+    analysis tabs, reusing the same loader + session wiring as a finished run."""
+    with st.expander("Import existing run (e.g. an Albumify export)", expanded=False):
+        path_str = st.text_input(
+            "Run directory",
+            key="import_run_dir",
+            placeholder=r"results\Budapest2025_Google_run15\face_clustering_20260625_104721",
+            help="Folder containing the run (with _v4/face_clustering.db). Point at the face_clustering_<timestamp> dir.",
+        )
+        if st.button("Import", key="import_run_btn", disabled=not path_str):
+            from face_cluster.loader import load_pipeline_result
+            run_dir = Path(path_str)
+            try:
+                result = load_pipeline_result(run_dir)
+            except Exception as e:
+                st.error(f"Could not load run: {e}")
+                return
+            st.session_state.pipeline_result = result
+            st.session_state.active_run_dir = run_dir
+            st.session_state.current_source_album = Path(
+                result.summary.get("source_album", "")
+            ).name
+            _invalidate_run_caches()
+            _create_session_from_result(result)
+            st.success("Imported. Switch to **Clusters (Base)** to analyse.")
+            st.rerun()
+
+
 def render_run_tab():
     st.header("Run Pipeline")
+    _render_import_existing_run()
     render_profile_bar(_RUN_PARAM_KEYS, widget_prefix="run_")
+    from gphotos.ui_streamlit import render_import_button
+    render_import_button(key="fc_run", target_key="last_image_dir")
     col1, col2 = st.columns(2)
     with col1:
         image_dir = st.text_input(

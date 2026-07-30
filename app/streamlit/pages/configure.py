@@ -69,7 +69,15 @@ def _render_running_pipeline() -> None:
 @st.fragment(run_every=2)
 def _pipeline_progress_fragment(job_id: str) -> None:
     """Auto-refreshing pipeline progress display. Polls every 2 seconds."""
-    progress = poll_pipeline_status(job_id)
+    from app.streamlit.api_client import ApiError
+    try:
+        progress = poll_pipeline_status(job_id)
+    except ApiError:
+        # SIGHTING-110: a heavy pipeline step can block the API longer than the
+        # status read timeout. The run is still going — show a note and let the
+        # fragment retry on its next 2s tick instead of crashing the page.
+        st.info("Still working - a heavy step is busy; status check will retry shortly.")
+        return
 
     # Check for completion/failure
     if progress.status == PipelineStatus.COMPLETED:

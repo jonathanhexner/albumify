@@ -20,8 +20,8 @@ import numpy as np
 import pytest
 
 from face_cluster.config import PipelineConfig
-from face_cluster.run_exporter import RunExporter
-from face_cluster.run_store import (
+from sim_bench.run_db.exporter import RunExporter
+from sim_bench.run_db.store import (
     EmbeddingMatrix,
     RunMetadata,
     RunStore,
@@ -213,7 +213,7 @@ def test_metadata_round_trip(written_run):
     assert meta.n_iterations == 1
     assert meta.n_clusters_base == 2
     assert meta.n_clusters_final == 1
-    assert meta.schema_version == 4
+    assert meta.schema_version == 5
 
 
 def test_merge_log_full_fidelity(written_run):
@@ -296,7 +296,7 @@ def test_no_existence_chain_in_run_store():
     never inside `if x.exists(): use_x else use_y` style fallback chains.
     Specifically: the file may not contain `elif .*\\.exists\\(\\):` patterns.
     """
-    src = Path(__file__).resolve().parents[2] / "face_cluster" / "run_store.py"
+    src = Path(__file__).resolve().parents[2] / "sim_bench" / "run_db" / "store.py"
     text = src.read_text(encoding="utf-8")
 
     # Disallow elif <anything>.exists(): — that is the fallback-chain pattern.

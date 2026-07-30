@@ -22,13 +22,23 @@ class CacheKey:
     model_name: str
     
     def __post_init__(self):
-        """Validate key components."""
+        """Validate + normalize key components.
+
+        SIGHTING-112: the cache key IS the image path string, so the same image
+        reached via ``D:/album\\a.jpg`` (studio, forward-slash folder) vs
+        ``D:\\album\\a.jpg`` (batch) produced DIFFERENT keys and never shared
+        cache. Normalize path separators (``os.path.normpath`` — separators only,
+        case preserved so existing Windows rows still match) so one image → one
+        key regardless of how the folder was typed. Frozen dataclass → set via
+        ``object.__setattr__``.
+        """
         if not self.image_path:
             raise ValueError("image_path cannot be empty")
         if not self.feature_type:
             raise ValueError("feature_type cannot be empty")
         if not self.model_name:
             raise ValueError("model_name cannot be empty")
+        object.__setattr__(self, "image_path", os.path.normpath(self.image_path))
     
     def to_string(self) -> str:
         """Convert to string for logging/debugging."""

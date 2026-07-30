@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clustering in the pipeline — scene vs identity, Albumify vs FC v2</title>
+<style>
+  :root{--bg:#0f1220;--panel:#171a2b;--panel2:#1e2238;--ink:#e8eaf2;--muted:#9aa0bd;
+    --line:#2c3150;--accent:#6ea8fe;--good:#48c78e;--warn:#f6b73c;--bad:#f06a6a;--purple:#b388f0;
+    --scene:#c79a3c;--ident:#48c78e;--mono:"SF Mono",ui-monospace,Consolas,monospace;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 -apple-system,Segoe UI,Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1060px;margin:0 auto;padding:46px 28px 100px}
+  .kicker{color:var(--accent);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:12px}
+  h1{font-size:31px;line-height:1.16;margin:10px 0 6px}
+  h2{font-size:22px;margin:46px 0 12px;padding-top:15px;border-top:1px solid var(--line)}
+  h3{font-size:17px;margin:22px 0 8px;color:#cdd2ee}
+  p{color:#d4d8ec}.sub{color:var(--muted);font-size:15px;margin:0}
+  code{font-family:var(--mono);background:#0c0f1c;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px;color:#cfe0ff}
+  .mod{color:#8fd0ff}
+  ul{padding-left:20px}li{margin:5px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd2ee;font-weight:600}
+  td.y{color:var(--good)}td.n{color:var(--bad)}td.d{color:var(--warn)}
+  .correction{background:linear-gradient(180deg,#2a1c1c,#1c1526);border:1px solid var(--bad);border-radius:12px;padding:18px 22px;margin:22px 0}
+  .correction h3{margin-top:0;color:#ff9a9a}
+  .correction .row{display:flex;gap:12px;margin:9px 0;align-items:baseline}
+  .correction .row b{flex:0 0 130px;color:var(--muted);font-size:12.5px;text-transform:uppercase;letter-spacing:.06em}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;letter-spacing:.03em}
+  .badge.scene{background:rgba(199,154,60,.16);color:var(--scene);border:1px solid rgba(199,154,60,.45)}
+  .badge.ident{background:rgba(72,199,142,.16);color:var(--ident);border:1px solid rgba(72,199,142,.45)}
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin:18px 0;overflow-x:auto}
+  .steps{display:flex;gap:6px;flex-wrap:wrap;align-items:stretch}
+  .stp{font-family:var(--mono);font-size:11.5px;padding:7px 9px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);white-space:nowrap}
+  .stp.sc{border-color:rgba(199,154,60,.5);background:rgba(199,154,60,.08)}
+  .stp.id{border-color:rgba(72,199,142,.5);background:rgba(72,199,142,.08)}
+  .stp.pr{opacity:.55}
+  .lede{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:16px 20px;margin:22px 0}
+  .lede b{color:#fff}
+  .pill{font-family:var(--mono);font-size:12px;background:#0c0f1c;border:1px solid var(--line);border-radius:6px;padding:2px 8px;color:#9fd0ff}
+  .evidence{font-family:var(--mono);font-size:12px;color:var(--muted);background:#0c0f1c;border:1px solid var(--line);border-radius:8px;padding:10px 13px;margin:8px 0}
+  footer{margin-top:50px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">spec-079 · clarification</div>
+<h1>Three kinds of "clustering" — and which one actually differs</h1>
+<p class="sub">You asked: are these pipeline elements? am I confusing this with image-level clustering? Answer below, with the
+code that proves it. Short version: <b>you were right on both points.</b></p>
+
+<div class="correction">
+  <h3>Correcting my earlier claim</h3>
+  <div class="row"><b>I said</b><div>Albumify runs a "legacy" face-clustering algorithm; FC v2 runs a "unified" one — two different algorithms.</div></div>
+  <div class="row"><b>Actually</b><div>They run the <b>same</b> face-clustering algorithm. Albumify's <code>cluster_people</code> is configured with
+    <code>method: face_cluster_knn</code>, which calls the <b>same</b> <code>run_face_cluster_knn</code> bridge / <code>FCConfig</code> that FC v2 uses.</div></div>
+  <div class="row"><b>I conflated</b><div><code>cluster_by_identity</code> (and the count I quoted, <code>num_clusters</code>) are <b>image / scene level</b> — exactly what you suspected.
+    The face-identity count is a different number entirely.</div></div>
+  <div class="row"><b>Real gap</b><div><b>Config values</b> (<code>K=5</code> vs <code>51</code>, <code>blur_min=50</code> vs <code>150</code>) + one extra refinement step — not algorithms.</div></div>
+</div>
+
+<h2>1 · Yes — they are all pipeline steps. There are THREE clusterings.</h2>
+<p>The default Albumify pipeline (<code>configs/pipeline.yaml → default_pipeline</code>) is a flat list of steps. Three of them
+say "cluster", but they operate on two completely different things:</p>
+
+<table>
+  <tr><th>Step</th><th>Level</th><th>Input → Output</th><th>What it groups</th><th>Algorithm</th></tr>
+  <tr>
+    <td><code>cluster_scenes</code></td>
+    <td><span class="badge scene">IMAGE</span></td>
+    <td><code>scene_embeddings → scene_clusters</code></td>
+    <td>Similar <b>photos</b> (same place/moment)</td>
+    <td>HDBSCAN</td>
+  </tr>
+  <tr>
+    <td><code>cluster_by_identity</code></td>
+    <td><span class="badge scene">IMAGE</span></td>
+    <td><code>scene_clusters → face_subclusters</code></td>
+    <td>Sub-divides <b>scenes</b> by face-count/identity (for photo selection)</td>
+    <td>agglomerative</td>
+  </tr>
+  <tr>
+    <td><code>cluster_people</code></td>
+    <td><span class="badge ident">IDENTITY</span></td>
+    <td><code>face_embeddings → people_clusters</code></td>
+    <td><b>Faces of the same person</b></td>
+    <td><code>face_cluster_knn</code> ← <b>same as FC v2</b></td>
+  </tr>
+</table>
+
+<div class="flow">
+  <div class="steps">
+    <span class="stp pr">discover_images</span><span class="stp pr">score_iqa</span><span class="stp pr">detect_persons</span>
+    <span class="stp pr">insightface_detect_faces</span><span class="stp pr">filter_faces</span><span class="stp pr">align_faces</span>
+    <span class="stp pr">filter_quality</span>
+    <span class="stp pr">extract_scene_embedding</span>
+    <span class="stp sc">cluster_scenes</span>
+    <span class="stp pr">extract_face_embeddings</span>
+    <span class="stp id">cluster_people</span>
+    <span class="stp id">identity_refinement</span>
+    <span class="stp sc">cluster_by_identity</span>
+    <span class="stp pr">select_best</span>
+  </div>
+  <p class="sub" style="margin-top:12px">
+    <span class="badge scene">IMAGE</span> = scene/photo grouping &nbsp;·&nbsp;
+    <span class="badge ident">IDENTITY</span> = face/person grouping &nbsp;·&nbsp; grey = producer/scoring steps
+  </p>
+</div>
+
+<div class="lede">
+  <b>The number I misquoted:</b> <code>PipelineResult.num_clusters = len(scene_clusters)</code>
+  (<span class="mod">pipeline_service.py:202</span>) — that is the <span class="badge scene">IMAGE</span> count. The
+  person count is the <code>people</code> table row count. So FC v2's "15 clusters" (identities) must be compared to
+  Albumify's <b>people count (~10–13)</b>, never to <code>num_clusters</code> (scenes, 6–16). My earlier table compared the wrong two numbers.
+</div>
+
+<h2>2 · The identity clustering is genuinely shared</h2>
+<p>Albumify's <code>cluster_people</code> step dispatches on a <code>method</code> key. The configured method is
+<code>face_cluster_knn</code>, which routes straight into the same bridge FC v2's unified chain uses:</p>
+
+<div class="evidence">
+cluster_people.py:200&nbsp;&nbsp;<span style="color:#cfe0ff">elif method == "face_cluster_knn":</span> → self._run_face_cluster_knn(...)<br>
+cluster_people.py:288&nbsp;&nbsp;<span style="color:#cfe0ff">run_face_cluster_knn(faces, embeddings_norm, config, context)</span>&nbsp; (face_cluster_bridge.py)<br>
+face_cluster_bridge.py:146&nbsp;&nbsp;<span style="color:#cfe0ff">def build_fc_config(config) -> FCConfig</span>&nbsp; ← face_cluster.config.PipelineConfig<br>
+face_cluster_bridge.py:167&nbsp;&nbsp;<span style="color:#cfe0ff">FCConfig(K=config.get("K",5), distance_threshold=…, merge_*=…)</span>
+</div>
+<p>FC v2 builds the <b>same</b> <code>FCConfig</code> — it just gets its values from <code>FCParams</code>
+(<code>profile_4.json</code>) instead of the <code>cluster_people:</code> block of <code>pipeline.yaml</code>. Same algorithm,
+two config sources. <b>That</b> is the divergence.</p>
+
+<h2>3 · Where the numbers actually come from — config diff</h2>
+<p>Side-by-side of the knobs that move the person count. Same algorithm; different inputs → different clusters.</p>
+<table>
+  <tr><th>Knob</th><th>Albumify <code>cluster_people</code></th><th>FC v2 <code>profile_4</code></th><th>Effect</th></tr>
+  <tr><td><code>K</code> (kNN neighbours)</td><td class="d">5</td><td class="d">51</td><td>Biggest driver — graph connectivity. 5 vs 51 changes who links to whom.</td></tr>
+  <tr><td><code>blur_min</code></td><td class="d">50</td><td class="d">150</td><td>FC v2 drops blurrier faces → fewer, cleaner faces enter clustering.</td></tr>
+  <tr><td><code>distance_threshold</code></td><td class="y">0.35</td><td class="y">0.35</td><td>same</td></tr>
+  <tr><td><code>use_adaptive_merge_threshold</code></td><td class="n">not set (default off)</td><td class="d">true</td><td>FC v2 adapts merge cutoff by percentile; Albumify uses a fixed one.</td></tr>
+  <tr><td><code>attach_enabled</code></td><td class="y">false</td><td class="y">false</td><td>same (neither attaches inside the clusterer)</td></tr>
+</table>
+<p><b>Plus one structural difference, not a config knob:</b> Albumify runs an extra
+<code>identity_refinement</code> step after <code>cluster_people</code>, and the <code>people</code> table prefers its
+output — <code>refined_people_clusters or people_clusters</code> (<span class="mod">pipeline_service.py:227</span>). FC v2 (with
+<code>profile_4</code>) does not run that post-step. So even with identical config, Albumify's final person count can shift by
+the refinement's attach/reassign pass.</p>
+
+<h2>4 · What this means for spec-079 (much smaller than I implied)</h2>
+<ul>
+  <li><b>No algorithm swap needed.</b> Reaching FC v2's identity result is a <b>config alignment</b>: feed <code>profile_4</code>'s
+    flat knobs into the <code>cluster_people</code> step config (it already accepts the same <code>K / distance_threshold /
+    merge_* / blur_min</code> keys — same shape as <code>FCParams</code>).</li>
+  <li><b>One real decision:</b> does Albumify keep <code>identity_refinement</code> in the chain (it changes the final count vs
+    FC v2), or do we exclude it for a true apples-to-apples baseline?</li>
+  <li><b>Baseline correction (Stage 0):</b> the equivalence anchor compares FC v2's 15 identities to Albumify's
+    <b>people count</b>, not <code>num_clusters</code>. The capture script must read the <code>people</code> table, and the run
+    must pass <code>profile_4</code> knobs into <code>cluster_people</code>.</li>
+  <li>The earlier "Stage 0.5: align the clusterer" worry is downgraded: there is no separate clusterer to align — only the
+    config to pass through and the refinement step to decide on.</li>
+</ul>
+
+<h2>5 · Open questions for you</h2>
+<ul>
+  <li><b>identity_refinement:</b> keep it (Albumify's product behaviour) or drop it for the baseline (pure FC v2 match)?</li>
+  <li><b>blur_min &amp; K:</b> confirm we baseline with <code>profile_4</code>'s values (<code>K=51, blur_min=150</code>) — i.e.
+    Albumify adopts FC v2's gating — rather than its own looser defaults.</li>
+</ul>
+
+<footer>
+  Evidence files: <span class="pill">sim_bench/pipeline/steps/cluster_people.py</span> ·
+  <span class="pill">…/face_cluster_bridge.py</span> · <span class="pill">…/identity_refinement.py</span> ·
+  <span class="pill">configs/pipeline.yaml</span> · <span class="pill">sim_bench/api/services/pipeline_service.py</span>.
+  No code changed — clarification only.
+</footer>
+
+</div>
+</body>
+</html>

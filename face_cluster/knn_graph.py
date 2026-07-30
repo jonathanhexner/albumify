@@ -1,6 +1,7 @@
 """Mutual kNN graph construction with distance threshold."""
 
 import logging
+from dataclasses import dataclass
 from typing import List
 import numpy as np
 import networkx as nx
@@ -9,6 +10,26 @@ from face_cluster.types import FaceRecord, GraphResult
 from face_cluster.config import PipelineConfig
 
 logger = logging.getLogger(__name__)
+
+
+# spec-053: typed boundary for KNNGraphBuilder.calc().
+
+@dataclass(frozen=True, slots=True)
+class KNNGraphInputs:
+    """Per-call data for KNNGraphBuilder.calc()."""
+    faces: List[FaceRecord]
+    core_indices: List[int]
+
+
+@dataclass(frozen=True, slots=True)
+class KNNGraphCalcResult:
+    """Output of KNNGraphBuilder.calc().
+
+    Wraps the existing GraphResult to keep symmetry with the other
+    helpers' typed-Result pattern. ``graph`` is the same object the
+    legacy ``build_graph()`` returns.
+    """
+    graph: GraphResult
 
 
 class KNNGraphBuilder:
@@ -166,6 +187,13 @@ class KNNGraphBuilder:
             edges=edges,
             G=G,
             distance_matrix=distance_matrix
+        )
+
+    def calc(self, inputs: KNNGraphInputs) -> KNNGraphCalcResult:
+        """Single pipeline entry point (spec-053). Thin facade over
+        ``build_graph()``."""
+        return KNNGraphCalcResult(
+            graph=self.build_graph(inputs.faces, inputs.core_indices),
         )
 
     def build_graph(

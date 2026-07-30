@@ -7,6 +7,7 @@ import numpy as np
 
 if TYPE_CHECKING:
     from sim_bench.pipeline.cache_handler import UniversalCacheHandler
+    from geo_cluster.types import GeoMetadata
 
 from face_cluster.filter_context import FilterContext
 
@@ -37,12 +38,73 @@ class PipelineContext:
     # Discovery
     image_paths: list[Path] = field(default_factory=list)
 
+    # Geo-temporal metadata (spec-022): EXIF GPS + capture time, keyed by
+    # image path string. Produced by the extract_geo_metadata step; absent
+    # fields are None (graceful degradation, FR-011).
+    geo_metadata: dict[str, "GeoMetadata"] = field(default_factory=dict)
+
+    # Geo-temporal segmentation (spec-022): produced by geo_temporal_segment.
+    # geo_segments is the winning axis's segments (empty if FLAT); geo_home is
+    # the auto-detected home anchor (lat, lon) or None.
+    geo_segments: list = field(default_factory=list)
+    geo_home: Optional[tuple] = None
+
+    # Vision-model outputs (spec-022): StreetCLIP city guesses + BLIP captions,
+    # keyed by image path string.
+    # geo_clip_predictions[path] = [{"label": "Budapest, Hungary", "score": 0.87}, ...] top-k (StreetCLIP)
+    geo_clip_predictions: dict[str, list] = field(default_factory=dict)
+    # geo_coord_predictions[path] = [{"lat":.., "lon":.., "prob":.., "place":"Budapest, HU"}, ...] (GeoCLIP)
+    geo_coord_predictions: dict[str, list] = field(default_factory=dict)
+    image_captions: dict[str, str] = field(default_factory=dict)
+
     # Analysis scores (keyed by image path string)
     iqa_scores: dict[str, float] = field(default_factory=dict)
     ava_scores: dict[str, float] = field(default_factory=dict)
     sharpness_scores: dict[str, float] = field(default_factory=dict)
+    # spec-098: wavelet noise score [0,1], higher = cleaner
+    noise_scores: dict[str, float] = field(default_factory=dict)
+
+    # spec-094 follow-up: zero-shot CLIP scene tags, keyed by image path string.
+    # scene_tags[path] = [{"label": "...", "score": 0.31}, ...] full ranked list.
+    scene_tags: dict[str, list] = field(default_factory=dict)
+
+    # spec-097 Stage 1: lens-occlusion detector (spec-096 winner), keyed by path.
+    # occlusion_scores[path] = P(occluded); occlusion_tiles[path] = 9 tile scores
+    # (3x3 row-major) — localization signal for UI + Stage-2 severity.
+    occlusion_scores: dict[str, float] = field(default_factory=dict)
+    occlusion_tiles: dict[str, list] = field(default_factory=dict)
+
+    # spec-099/spec-100: crooked-photo (tilt) detector, GeoCalib backend, keyed by path.
+    # tilt_angles[path] = signed roll deg (+ = content clockwise); tilt_confidences[path]
+    # = [0,1] from GeoCalib roll uncertainty. Low confidence -> tilt_penalty ignores it.
+    tilt_angles: dict[str, float] = field(default_factory=dict)
+    tilt_confidences: dict[str, float] = field(default_factory=dict)
+
+    # spec-101 (option A): terminal straighten_images repoints straightened winners in
+    # selected_images to derived (leveled) files; this maps derived -> original for
+    # provenance (display/export trace-back). Present only for straightened winners.
+    straightened_from: dict[str, str] = field(default_factory=dict)
+
+    # spec-093: generic multi-method quality scores from ScoreQualityStep.
+    # In-run hand-off only (persistence is universal_cache); keyed
+    # path -> {method: score} where score honors higher=better.
+    method_scores: dict[str, dict[str, float]] = field(default_factory=dict)
+
+    # spec-040 Phase 3: canonical Pydantic representation for face state.
+    # Producer steps (insightface_detect_faces, align_faces, score_*,
+    # extract_face_embeddings, filter_faces) write/mutate this list
+    # directly. Replaces context.insightface_faces / face_embeddings dicts.
+    # During the strangler-fig window the dict-shaped fields below are
+    # dual-written; Phase 7 removes them.
+    face_records: list = field(default_factory=list)
 
     # Face-specific (keyed by image path string)
+    # NOTE (spec-040): this dict-of-dicts representation is being retired.
+    # See specs/040-unified-pipeline-framework/spec.md "Locked architectural
+    # constraints" — every face-bearing step migrates to writing/reading
+    # `context.face_records: List[FaceRecord]` directly (Pydantic, no
+    # translator step). Both `faces` and `insightface_faces` become dead
+    # state in Phase 3 and are deleted in Phase 7.
     faces: dict[str, list] = field(default_factory=dict)
     face_pose_scores: dict[str, list[float]] = field(default_factory=dict)
     face_eyes_scores: dict[str, list[float]] = field(default_factory=dict)
@@ -65,6 +127,15 @@ class PipelineContext:
     # Scene clustering
     scene_clusters: dict[int, list[str]] = field(default_factory=dict)
     scene_cluster_labels: dict[str, int] = field(default_factory=dict)
+
+    # spec-103: optional fused scene distance produced by the build_scene_distance step (Path A:
+    # visual + short-range capture-time boost). When present, cluster_scenes clusters this precomputed
+    # NxN distance (metric="precomputed") instead of the raw embeddings; when absent (default), scene
+    # clustering is byte-identical to before. scene_distance is a SceneDistanceResult (holds the matrix
+    # and its image_ids order); scene_distance_signal maps image_id -> priors actually used ('visual',
+    # 'time') for stratified reporting.
+    scene_distance: Optional[Any] = None
+    scene_distance_signal: dict = field(default_factory=dict)
 
     # Face clustering (within scenes)
     face_clusters: dict[int, dict[int, list[str]]] = field(default_factory=dict)
@@ -91,6 +162,14 @@ class PipelineContext:
 
     # Composite scores (keyed by image path string, computed during select_best)
     composite_scores: dict[str, float] = field(default_factory=dict)
+    # spec-084: the two halves of composite_score = quality_score + person_penalty.
+    # Stored so the Results table can explain *why* the composite is what it is.
+    quality_scores: dict[str, float] = field(default_factory=dict)
+    person_penalties: dict[str, float] = field(default_factory=dict)
+    # spec-097: third composite component (0 unless P(occluded) >= gate).
+    occlusion_penalties: dict[str, float] = field(default_factory=dict)
+    # spec-099: fourth composite component (0 unless confident tilt > gate_deg).
+    tilt_penalties: dict[str, float] = field(default_factory=dict)
 
     # Siamese comparison log (list of comparison results for debugging/display)
     # Each entry: {cluster_id, img1, img2, winner, confidence, comparison_type}

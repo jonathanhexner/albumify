@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec-066 — Overview tab design</title>
+<style>
+  :root{--bg:#0f1116;--panel:#171a21;--panel2:#1d2129;--ink:#e6e9ef;--mut:#9aa3b2;
+    --line:#2a2f3a;--acc:#3b82f6;--svc:#a855f7;--comp:#22c55e;--repo:#f59e0b;--new:#0ea5e9;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);padding:28px;
+    font:14px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  h1{font-size:22px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 20px}
+  h2{font-size:16px;margin:30px 0 12px;color:#cdd5e2;border-left:3px solid var(--svc);padding-left:9px}
+  .wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:22px}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
+  .screen{background:#fbfcfe;border-radius:12px;border:1px solid #d7dee8;overflow:hidden;
+    color:#1f2733;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+  .chrome{background:#eef2f7;border-bottom:1px solid #d7dee8;padding:7px 12px;font-size:12px;color:#64748b}
+  .tabs{display:flex;gap:2px;background:#e7edf4;padding:0 10px;border-bottom:1px solid #d7dee8;font-size:12px}
+  .tabs span{padding:8px 11px;color:#64748b}
+  .tabs span.on{color:#1f2733;border-bottom:2px solid var(--svc);font-weight:700}
+  .body{padding:16px 18px}
+  .h{font-size:19px;font-weight:800;margin:0 0 12px}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .m{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:9px;padding:11px 12px}
+  .m .lbl{font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:.4px}
+  .m .val{font-size:22px;font-weight:800;color:#0f172a;margin-top:3px}
+  .m .sub{font-size:10.5px;color:#94a3b8;margin-top:1px}
+  .chart{background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:12px;margin-bottom:12px}
+  .chart .ct{font-size:12.5px;font-weight:700;color:#334155;margin-bottom:9px}
+  .bars{display:flex;align-items:flex-end;gap:10px;height:96px}
+  .bar{flex:1;background:linear-gradient(180deg,#60a5fa,#3b82f6);border-radius:5px 5px 0 0;position:relative}
+  .bar span{position:absolute;bottom:-17px;left:0;right:0;text-align:center;font-size:9.5px;color:#64748b}
+  .line{height:100px;position:relative;border-left:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1}
+  .line svg{width:100%;height:100%}
+  .tag{display:inline-flex;width:19px;height:19px;border-radius:50%;background:var(--new);color:#fff;
+    font-size:11px;font-weight:800;align-items:center;justify-content:center;margin-right:6px;vertical-align:middle}
+  .own{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .own h3{margin:0 0 10px;font-size:14px}
+  .row{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}
+  .n{flex:0 0 19px;height:19px;border-radius:50%;background:var(--new);color:#fff;font-size:11px;
+    font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .row .meta .el{font-weight:700;font-size:12.5px}
+  .row .meta .mod{font-size:11.5px;color:var(--mut);margin-top:2px}
+  .row .meta code{background:#0c0e13;color:#7dd3fc;padding:1px 5px;border-radius:4px;font-size:11px}
+  .lyr{font-size:10px;font-weight:800;padding:1px 6px;border-radius:9px;margin-left:6px;vertical-align:middle}
+  .l-tab{background:var(--acc);color:#fff}.l-comp{background:var(--comp);color:#062710}
+  .l-svc{background:var(--svc);color:#fff}.l-repo{background:var(--repo);color:#241a02}
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px}
+  th,td{border:1px solid var(--line);padding:8px 9px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd5e2;font-size:11.5px}
+  td code{color:#7dd3fc;font-size:11px}
+  .tg{display:inline-flex;width:17px;height:17px;border-radius:50%;background:var(--new);color:#fff;
+    font-size:10px;font-weight:800;align-items:center;justify-content:center}
+  .pill{font-size:10px;font-weight:800;padding:1px 6px;border-radius:9px}
+  .p-new{background:var(--new);color:#fff}.p-reuse{background:#475569;color:#fff}
+  .legend{font-size:11.5px;color:var(--mut);margin:4px 0 16px}.legend b{color:#cdd5e2}
+  .dc{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px}
+  .dc pre{margin:0;font:12px/1.6 ui-monospace,Consolas,monospace;color:#cbd5e1;white-space:pre-wrap}
+  .k{color:#c4b5fd}.t{color:#7dd3fc}
+  footer{color:var(--mut);font-size:11.5px;margin-top:26px;border-top:1px solid var(--line);padding-top:12px}
+</style>
+</head>
+<body>
+  <h1>📊 Overview tab — design</h1>
+  <p class="sub">Run-level dashboard across all v2 runs. The only tab that aggregates the global action_log. Read-only. spec-066.</p>
+  <p class="legend">Layer tags:
+    <span class="lyr l-tab">TAB</span> orchestration ·
+    <span class="lyr l-comp">COMP</span> render ·
+    <span class="lyr l-svc">SVC</span> typed service (backend endpoint) ·
+    <span class="lyr l-repo">REPO</span> SQL/FS &nbsp;|&nbsp;
+    <span class="pill p-new">NEW</span> built here · <span class="pill p-reuse">REUSE</span> exists</p>
+
+  <div class="wrap">
+    <!-- ================= MOCKUP ================= -->
+    <div>
+      <h2 style="margin-top:0">Page mockup (wireframe)</h2>
+      <div class="screen">
+        <div class="chrome">▸ streamlit run app/face_clustering_v2/main.py — Face Clustering v2</div>
+        <div class="tabs"><span>Run</span><span>Cluster Analysis</span><span>Face Analysis</span>
+          <span>Merged</span><span>Quality</span><span>Recluster</span><span>History</span>
+          <span>Gallery</span><span class="on">Overview</span></div>
+        <div class="body">
+          <div class="h"><span class="tag">1</span>Overview</div>
+
+          <div class="metrics">
+            <span class="tag" style="position:absolute;margin-top:-2px">2</span>
+            <div class="m"><div class="lbl">Total runs</div><div class="val">42</div><div class="sub">producer=fc_app_v2</div></div>
+            <div class="m"><div class="lbl">Total faces ever</div><div class="val">9 380</div><div class="sub">sum of n_faces</div></div>
+            <div class="m"><div class="lbl">Avg n_clusters</div><div class="val">14.6</div><div class="sub">median 15</div></div>
+            <div class="m"><div class="lbl">Last run</div><div class="val">3h ago</div><div class="sub">computed in tab</div></div>
+          </div>
+
+          <div class="chart">
+            <div class="ct"><span class="tag">3</span>Runs per album</div>
+            <div class="bars">
+              <div class="bar" style="height:90%"><span>Budapest…_5</span></div>
+              <div class="bar" style="height:55%"><span>Rome24</span></div>
+              <div class="bar" style="height:40%"><span>Wedding</span></div>
+              <div class="bar" style="height:25%"><span>Hike</span></div>
+              <div class="bar" style="height:15%"><span>Misc</span></div>
+            </div>
+          </div>
+
+          <div class="chart">
+            <div class="ct"><span class="tag">4</span>Runs per profile</div>
+            <div class="bars">
+              <div class="bar" style="height:80%"><span>profile_4</span></div>
+              <div class="bar" style="height:45%"><span>profile_2</span></div>
+              <div class="bar" style="height:20%"><span>(none)</span></div>
+            </div>
+          </div>
+
+          <div class="chart">
+            <div class="ct"><span class="tag">5</span>n_clusters over recent runs</div>
+            <div class="line">
+              <svg viewBox="0 0 300 100" preserveAspectRatio="none">
+                <polyline points="0,70 50,55 100,60 150,40 200,45 250,30 300,35"
+                  fill="none" stroke="#a855f7" stroke-width="2"/>
+                <circle cx="300" cy="35" r="3" fill="#a855f7"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="legend" style="margin-top:10px">No run needs to be loaded — Overview reads global history, not a single run.
+        Scenario-H asserts the 4-metric strip + a bar labelled <code>Budapest2025_Google_5</code>.</p>
+    </div>
+
+    <!-- ================= OWNERSHIP ================= -->
+    <div class="own">
+      <h3>Who renders what</h3>
+      <div class="row"><div class="n">1</div><div class="meta">
+        <div class="el">Tab header “Overview” <span class="lyr l-tab">TAB</span></div>
+        <div class="mod"><code>overview_tab.render_overview_tab()</code> → <code>st.header</code>;
+        builds service (cached on session), calls <code>compute_dashboard()</code></div></div></div>
+
+      <div class="row"><div class="n">2</div><div class="meta">
+        <div class="el">4-metric strip <span class="lyr l-tab">TAB</span></div>
+        <div class="mod">inline: <code>st.columns(4)</code> + <code>st.metric</code> from <code>DashboardMetrics</code>.
+        <b>“3h ago” is computed HERE</b> from <code>last_run_at</code> — keeps the service clock-free</div></div></div>
+
+      <div class="row"><div class="n">3</div><div class="meta">
+        <div class="el">Runs-per-album bar <span class="lyr l-comp">COMP</span></div>
+        <div class="mod"><code>components/dashboard_charts.render_bar(metrics.per_album)</code> → Plotly</div></div></div>
+
+      <div class="row"><div class="n">4</div><div class="meta">
+        <div class="el">Runs-per-profile bar <span class="lyr l-comp">COMP</span></div>
+        <div class="mod"><code>render_bar(metrics.per_profile)</code> — same helper, different stat list</div></div></div>
+
+      <div class="row"><div class="n">5</div><div class="meta">
+        <div class="el">n_clusters time-series <span class="lyr l-comp">COMP</span></div>
+        <div class="mod"><code>render_timeseries(metrics.timeseries)</code> → Plotly line</div></div></div>
+
+      <div class="row"><div class="n">⚙</div><div class="meta">
+        <div class="el">All numbers <span class="lyr l-svc">SVC</span></div>
+        <div class="mod"><code>OverviewService.compute_dashboard()</code> — the single backend endpoint;
+        Streamlit-free, deterministic, unit-tested</div></div></div>
+    </div>
+  </div>
+
+  <!-- ================= CONTRACT TABLE ================= -->
+  <h2>Frontend ⇄ backend contract</h2>
+  <table>
+    <tr><th>#</th><th>Frontend element</th><th>Backend endpoint</th><th>Interface (call)</th><th>Contract (type in / out)</th></tr>
+    <tr>
+      <td><span class="tg">2</span><span class="tg">3</span><span class="tg">4</span><span class="tg">5</span></td>
+      <td>Every metric + chart <span class="pill p-new">NEW</span></td>
+      <td><code>OverviewService.compute_dashboard()</code></td>
+      <td><code>(limit:int=50) -&gt; DashboardMetrics</code></td>
+      <td><b>out</b> <code>DashboardMetrics</code> (see schema below). Pure given DB state; no clock, no session_state</td>
+    </tr>
+    <tr>
+      <td>—</td>
+      <td>Data source <span class="pill p-reuse">REUSE</span></td>
+      <td><code>RunHistoryRepository.find()</code></td>
+      <td><code>find(RunHistoryCriteria(producer="fc_app_v2", limit=50)) -&gt; List[RunRow]</code></td>
+      <td><b>out</b> <code>RunRow{n_faces, n_clusters, display_album, status, config, started_at}</code> — already carries the counts (Decision D2: no per-run DB opens)</td>
+    </tr>
+    <tr>
+      <td><span class="tg">2</span></td>
+      <td>“Last run = 3h ago” <span class="pill p-new">NEW</span></td>
+      <td>none — tab-side formatting</td>
+      <td><code>now - parse(metrics.last_run_at)</code> in <code>overview_tab</code></td>
+      <td>service returns raw <code>last_run_at: str</code>; UI owns the wall-clock so the service stays testable</td>
+    </tr>
+    <tr>
+      <td><span class="tg">3</span><span class="tg">4</span></td>
+      <td>Bar charts <span class="pill p-new">NEW</span></td>
+      <td><code>dashboard_charts.render_bar()</code></td>
+      <td><code>(stats: List[AlbumStat|ProfileStat], *, title) -&gt; None</code></td>
+      <td><b>in</b> <code>[{name, n_runs}]</code> → <code>st.plotly_chart</code></td>
+    </tr>
+    <tr>
+      <td><span class="tg">5</span></td>
+      <td>Time-series <span class="pill p-new">NEW</span></td>
+      <td><code>dashboard_charts.render_timeseries()</code></td>
+      <td><code>(points: List[RunPoint]) -&gt; None</code></td>
+      <td><b>in</b> <code>RunPoint{run_id, started_at, n_clusters, album}</code> (oldest→newest)</td>
+    </tr>
+    <tr>
+      <td>obs</td>
+      <td>Telemetry <span class="pill p-reuse">REUSE</span></td>
+      <td><code>_telemetry.tab_done</code></td>
+      <td><code>tab_done("overview", total_runs=42, albums=6, profiles=3)</code></td>
+      <td>logger <code>fc_app_v2.tabs</code>; disable via <code>FC_V2_TAB_TELEMETRY=0</code></td>
+    </tr>
+  </table>
+
+  <h2>The contract type — <code>DashboardMetrics</code></h2>
+  <div class="dc"><pre><span class="k">@dataclass(frozen=True, slots=True)</span>
+class <span class="t">DashboardMetrics</span>:
+    total_runs:        <span class="t">int</span>
+    total_faces_ever:  <span class="t">int</span>
+    avg_n_clusters:    <span class="t">Optional[float]</span>
+    median_n_clusters: <span class="t">Optional[float]</span>
+    last_run_at:       <span class="t">Optional[str]</span>      <span style="color:#64748b"># raw iso — tab computes "age"</span>
+    gate_pass_rate:    <span class="t">Optional[float]</span>    <span style="color:#64748b"># fraction status=="complete"</span>
+    per_album:         <span class="t">List[AlbumStat]</span>    <span style="color:#64748b"># {album, n_runs}  desc</span>
+    per_profile:       <span class="t">List[ProfileStat]</span>  <span style="color:#64748b"># {profile, n_runs} desc</span>
+    timeseries:        <span class="t">List[RunPoint]</span>     <span style="color:#64748b"># {run_id, started_at, n_clusters, album}</span></pre></div>
+
+  <footer>spec-066 · Overview · 2026-06-05 · file ≤80 LOC · no SQL/FS/cfg.get in tab (arch test
+    <code>test_overview_tab.py</code>) · service unit-tested with a fake repo (5 synthetic + 1 real) ·
+    companion: GALLERY_TAB_DESIGN.html, ARCHITECTURE_PLAN.md</footer>
+</body>
+</html>

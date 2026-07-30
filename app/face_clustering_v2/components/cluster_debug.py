@@ -1,0 +1,44 @@
+"""spec-045 Phase 6 — graph-debug section for one cluster.
+
+Renders 4-metric strip + (optional) chain/sparse warnings + bridge faces
++ heatmap + edges expander. Takes a concrete :class:`ClusterDebugView`
+(SIGHTING-079 sync rewrite).
+"""
+from __future__ import annotations
+
+import streamlit as st
+
+from app.face_clustering_v2.components.metric_strip import render_metric_strip
+from face_cluster.views.cluster_debug_view import ClusterDebugView
+from face_cluster.views.metric_specs import CLUSTER_DEBUG_STRIP
+
+
+def render_cluster_debug(dbg: ClusterDebugView) -> None:
+    """Render graph diagnostics for the given cluster debug view."""
+    with st.expander("Graph debug", expanded=False):
+        render_metric_strip(dbg, CLUSTER_DEBUG_STRIP, n_cols=4)
+
+        if dbg.chain_score > 1.5:
+            st.warning(
+                f"**Chain structure** (score {dbg.chain_score:.2f}). "
+                f"Diameter {dbg.diameter:.3f} ≫ median {dbg.median_dist:.3f}."
+            )
+        elif dbg.edge_density < 0.15 and dbg.n_faces > 4:
+            st.warning(f"**Sparse graph** ({dbg.edge_density:.1%} density).")
+
+        if dbg.bridge_face_ids:
+            st.markdown(
+                f"**Bridge faces**: `{', '.join(f'face_{fid:04d}' for fid in dbg.bridge_face_ids)}`"
+            )
+
+        if dbg.distance_matrix is not None and len(dbg.distance_matrix) > 1:
+            import plotly.express as px
+            labels = [f"f{fid}" for fid in dbg.face_ids_order]
+            fig = px.imshow(
+                dbg.distance_matrix, x=labels, y=labels,
+                color_continuous_scale="RdYlGn_r",
+                zmin=0.0, zmax=min(0.6, float(dbg.distance_matrix.max()) + 0.05),
+                labels=dict(color="cosine dist"), aspect="equal",
+            )
+            fig.update_layout(height=max(300, 18 * dbg.n_faces + 100))
+            st.plotly_chart(fig, use_container_width=True)

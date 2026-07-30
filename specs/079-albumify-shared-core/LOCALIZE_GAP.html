@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Stage 0b — Localize the 10-vs-20 gap</title>
+<style>
+:root{--bg:#0f1220;--card:#171a2b;--bd:#2c3150;--ink:#e8eaf2;--mut:#9aa0bd;--blue:#6ea8fe;--red:#ff6b6b;--grn:#5bd99a;--amb:#f4c95d}
+body{background:var(--bg);color:var(--ink);font-family:Segoe UI,Arial;max-width:980px;margin:0 auto;padding:36px 24px;line-height:1.55}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:20px;border-top:1px solid var(--bd);padding-top:16px;margin-top:30px}
+.sub{color:var(--mut)}code{font-family:Consolas,monospace;font-size:12.5px;background:#10131f;border:1px solid var(--bd);border-radius:4px;padding:1px 5px;color:#cfe0ff}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px 20px;margin:16px 0}
+.win{border-left:4px solid var(--grn)}.warn{border-left:4px solid var(--amb)}.bad{border-left:4px solid var(--red)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}td,th{border:1px solid var(--bd);padding:6px 9px;text-align:left}th{background:#1e2238}
+.ok{color:var(--grn);font-weight:700}.x{color:var(--red);font-weight:700}.big{font-size:15px;font-weight:700;color:var(--amb)}
+.f{color:var(--mut);font-size:11px;font-family:Consolas,monospace}
+ul{margin:6px 0;padding-left:20px}li{margin:5px 0}
+</style></head><body>
+<h1>Stage 0b — where does the 10-vs-20 gap actually live?</h1>
+<p class="sub">Method: run BOTH clustering recipes (bridge vs 8 unified steps) on the SAME face_records + SAME config, dump per-sub-stage counts, diff. 2026-06-06</p>
+
+<div class="card win">
+<b>Result: the clustering code is NOT the divergence.</b> Bridge ≡ unified steps, sub-stage for sub-stage,
+on identical input. The gap is entirely the <b>producer chain</b> — it feeds clustering a different face
+population. <span class="big">core set: 133 (FC v2) vs 186 (Albumify)</span> from near-identical face counts.
+</div>
+
+<h2>Same recipe, two face sets</h2>
+<table>
+<tr><th>sub-stage</th><th colspan="2">FC v2 faces (340)</th><th colspan="2">Albumify faces (337)</th></tr>
+<tr><th></th><th>unified</th><th>bridge</th><th>unified</th><th>bridge</th></tr>
+<tr><td>faces in</td><td>340</td><td>340</td><td>337</td><td>337</td></tr>
+<tr><td><b>core set</b></td><td class="ok">133</td><td class="ok">133</td><td class="x">186</td><td class="x">186</td></tr>
+<tr><td>base clusters (pre-merge)</td><td>10</td><td>10</td><td>20</td><td>20</td></tr>
+<tr><td>post-merge</td><td>10</td><td>10</td><td>20</td><td>20</td></tr>
+<tr><td>assigned</td><td>86</td><td>86</td><td>100</td><td>100</td></tr>
+</table>
+<p class="sub">Within each face set the two recipes match exactly (the bridge and the unified 8-step chain are
+behaviorally equivalent). Across face sets the outcome differs because the <b>inputs</b> differ.</p>
+
+<h2>Why the face sets differ — the producer chains aren't the same</h2>
+<table>
+<tr><th>FC v2 producer (5 steps)</th><th>Albumify producer (≈16 steps before clustering)</th></tr>
+<tr><td><code>detect_persons</code><br><code>insightface_detect_faces</code><br><code>detect_face_orientation</code><br><code>align_faces</code><br><code>extract_face_embeddings</code></td>
+<td>discover_images · score_iqa · score_ava · detect_persons · insightface_detect_faces ·
+<b class="x">filter_faces</b> · score_face_frontal · detect_face_orientation · align_faces ·
+insightface_score_expression/eyes/pose · <b class="x">filter_quality</b> · extract_scene_embedding ·
+cluster_scenes · extract_face_embeddings</td></tr>
+</table>
+<p class="sub">Albumify runs <code>filter_faces</code> and <code>filter_quality</code> (and scene steps) that FC v2
+never runs. Different faces survive, with potentially different alignment/embeddings → a different core set
+(133 vs 186) → different clusters (10 vs 20).</p>
+
+<h2>What this changes in the plan</h2>
+<div class="card bad"><b>Re-scope.</b> "Route Albumify's clustering onto the unified steps" does <u>not</u> fix the divergence —
+the two clustering paths already agree. The real work is unifying the <b>producer chain</b> so both apps feed
+clustering the same faces.</div>
+<ul>
+<li><b>Layer A (config gates)</b> — still real: 3 gates, 8→10. Fixed by the typed FCParams contract.</li>
+<li><b>Layer B (was "code path") → actually the PRODUCER CHAIN</b> — different face set (core 133 vs 186), 10→20.
+Fixed by running the same detect/filter/align/embed sub-chain in both apps.</li>
+<li>Deleting the bridge / consolidating clustering steps stays worthwhile as <i>cleanup</i> (DRY, one path), but it is no longer the behavioral fix.</li>
+</ul>
+
+<h2>Stage 0c — the exact producer delta: POSE (resolved)</h2>
+<div class="card win"><b>Named cause: the pose gate.</b> Same images, same faces (340 vs 337), same gate. Rejection
+reasons diverge: FC v2 <code>{pose_yaw: 46, pose_pitch: 7, top_k: 154}</code> vs Albumify
+<code>{top_k: 151}</code>. FC v2 rejects <b>53 off-angle faces</b> for pose; Albumify rejects <b>zero</b> —
+and <b>53 = 186 − 133</b>, the entire core-set gap.</div>
+<p class="sub">Root: FC v2's faces carry <code>pose</code> (yaw/pitch/roll, from <code>insightface_detect_faces</code>);
+Albumify's <code>FaceRecord.pose</code> is <code>None</code> (the "Pose gate: NOT WIRED" warning). With
+profile_5's limits (yaw≤30°, pitch≤25°) and <code>require_pose=false</code>, FC v2 drops the off-angle faces
+while Albumify's None-pose faces vacuously pass. The 53 survivors inflate the core set → 20 identities vs 8.</p>
+<table>
+<tr><th></th><th>pose populated?</th><th>pose-rejected</th><th>core</th><th>identities</th></tr>
+<tr><td>FC v2</td><td class="ok">yes</td><td>53</td><td>133</td><td>8</td></tr>
+<tr><td>Albumify</td><td class="x">no (None)</td><td>0</td><td>186</td><td>20</td></tr>
+</table>
+<p class="small"><b>Stage 3 fix (precise &amp; small):</b> plumb pose into Albumify's <code>FaceRecord.pose</code>
+(Albumify runs <code>insightface_score_pose</code> but its value never reaches the record). Once populated, the
+pose gate rejects the same 53 → core 133 → 8 clusters → output-equivalence. NB it's a missing face
+<i>attribute</i>, not a different face <i>set</i>.</p>
+<p class="f">Tools: scripts/localize_gap.py (recipe equivalence), scripts/diff_face_sets.py (per-image core + rejection reasons).</p>
+</body></html>

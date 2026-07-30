@@ -1,0 +1,24 @@
+{
+  "n_photos": 122,
+  "source": "D:\\Budapest2025_Google",
+  "note": "EXIF stripped by re-encoding; content-based detection only. 4-way chance = 25%.",
+  "ours_overall": {
+    "argmax_acc_4way": 0.22131147540983606,
+    "auc_upright_vs_rotated": 0.4999776045865807,
+    "mean_upright": 0.8105625330257327,
+    "mean_rotated": 0.8105663384486813
+  },
+  "classical_sky": {
+    "argmax_acc_4way": 0.47540983606557374,
+    "auc_upright_vs_rotated": 0.7219385469855774,
+    "mean_upright": 21.954469484509424,
+    "mean_rotated": -7.318156494836474
+  },
+  "sota_clip": {
+    "argmax_acc_4way": 0.819672131147541,
+    "auc_upright_vs_rotated": 0.8215309504613455,
+    "mean_upright": 0.015883325431190552,
+    "mean_rotated": -0.0020871361503835583
+  },
+  "sample_photo": "20250822_193945"
+}

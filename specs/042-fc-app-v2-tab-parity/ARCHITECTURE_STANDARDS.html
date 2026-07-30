@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Architecture Standards — From History Tab Lessons to Repo-Wide Patterns</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 1180px; margin: 2em auto; padding: 0 1.5em; color: #222; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; }
+  h2 { margin-top: 2.5em; border-bottom: 1px solid #ddd; padding-bottom: .3em; }
+  h3 { margin-top: 1.5em; color: #2a3a4d; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 1em 0; }
+  th, td { border: 1px solid #ccc; padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  tr:nth-child(even) td { background: #fafafa; }
+  code { background:#f3f3f3;padding:1px 5px;border-radius:3px; font-size: 12.5px; }
+  pre  { background:#f6f8fa;padding:12px;border-radius:6px; font-size: 12px; overflow-x: auto; border-left: 3px solid #ccc; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+  .ok    { background:#c7f0c7;color:#14501e; }
+  .partial { background:#fff2c2;color:#6a4f00; }
+  .new   { background:#d4ecff;color:#14365e; }
+  .bad   { background:#ffd6d6;color:#6a0d0d; }
+  .callout { background: #fff8e1; border-left: 4px solid #f5b400; padding: 10px 14px; margin: 1em 0; }
+  .diagram { margin: 1.5em 0; padding: 1em; background: #fafbfc; border: 1px solid #e1e4e8; border-radius: 6px; overflow-x: auto; }
+  .caption { font-size: 12.5px; color: #666; margin-top: .4em; }
+  .nav { background: #f8f9fa; padding: 10px 14px; border-radius: 6px; font-size: 13px; margin: 1em 0; }
+  .nav a { margin-right: 10px; text-decoration: none; color: #1f6feb; }
+</style>
+</head>
+<body>
+
+<h1>Architecture Standards — From History Tab Lessons to Repo-Wide Patterns</h1>
+<p><em>2026-05-25 · sub-spec of <a href="spec.md">spec-042</a> · scope: codify the patterns spec-040/041/042 H1 established + the gaps they surfaced + new patterns for breadth</em></p>
+
+<div class="callout">
+<strong>Purpose:</strong> not a patch to the History tab. The History tab pilot is done and shipped (commit <code>807053c</code>). This document captures the <em>repeatable patterns</em> behind it — what to do for every new tab, service, or module from this point forward — so the next ten features build on the same foundations instead of each inventing their own.
+</div>
+
+<div class="nav">
+<strong>Jump to:</strong>
+<a href="#summary">Executive Summary</a>
+<a href="#A1">Layered Arch</a>
+<a href="#A2">Declarative Specs</a>
+<a href="#A3">Testing</a>
+<a href="#A4">Arch Tests</a>
+<a href="#A5">Doc Contract</a>
+<a href="#A6">Tab Migration</a>
+<a href="#B0">Repository</a>
+<a href="#B1">DI</a>
+<a href="#B2">Errors</a>
+<a href="#B3">Service Vocab</a>
+<a href="#B4">Type Locations</a>
+<a href="#C1">Pipeline Reuse</a>
+<a href="#C2">Migrations</a>
+<a href="#C3">Service Telemetry</a>
+<a href="#C4">Mockups</a>
+</div>
+
+<h2 id="summary">Executive Summary</h2>
+
+<p>Three buckets:</p>
+<ul>
+  <li><span class="pill ok">CODIFY</span> — patterns spec-040/041/042 H1 established that work. Make them binding for new code.</li>
+  <li><span class="pill partial">FIX</span> — defects we tripped over that should become forbidden patterns enforced by tests.</li>
+  <li><span class="pill new">ADOPT</span> — new patterns to introduce; each generalizes something proven on one domain to all.</li>
+</ul>
+
+<table>
+<thead>
+<tr><th>#</th><th>Pattern</th><th>Status</th><th>Current problem</th><th>Impacted modules</th><th>Effort</th></tr>
+</thead>
+<tbody>
+<tr>
+  <td>A1</td>
+  <td><a href="#A1">Four-layer architecture</a></td>
+  <td><span class="pill ok">CODIFY</span></td>
+  <td>Established in v2 but not documented as a standard; legacy app still mixes layers.</td>
+  <td><code>docs/architecture/overview.md</code>; <code>tests/architecture/test_v2_layering.py</code> (already exists)</td>
+  <td>1h (doc only)</td>
+</tr>
+<tr>
+  <td>A2</td>
+  <td><a href="#A2">Declarative specs over repetitive code</a></td>
+  <td><span class="pill ok">CODIFY</span></td>
+  <td>UI_SPEC + ColumnSpec are the working examples; the principle isn't named anywhere durable.</td>
+  <td><code>docs/architecture/overview.md</code>; <code>CLAUDE.md</code></td>
+  <td>1h (doc only)</td>
+</tr>
+<tr>
+  <td>A3</td>
+  <td><a href="#A3">Three-layer testing pyramid</a></td>
+  <td><span class="pill ok">CODIFY</span></td>
+  <td>History tab follows it; spec-042 says all future tabs do; no repo-wide statement.</td>
+  <td><code>docs/guides/TESTING_RULES.md</code></td>
+  <td>30 min</td>
+</tr>
+<tr>
+  <td>A4</td>
+  <td><a href="#A4">Arch tests are part of every spec</a></td>
+  <td><span class="pill ok">CODIFY</span></td>
+  <td>Five arch tests now exist; no rule says new specs need one.</td>
+  <td><code>WORKFLOW.md</code>; <code>docs/guides/CODE_REVIEW_CHECKLIST.md</code></td>
+  <td>30 min</td>
+</tr>
+<tr>
+  <td>A5</td>
+  <td><a href="#A5">Documentation contract</a></td>
+  <td><span class="pill ok">CODIFY</span></td>
+  <td>Enforced for new v2 code; legacy code on an allowlist. No rule to retire allowlist entries.</td>
+  <td><code>tests/architecture/test_v2_module_docstrings.py</code>; CLAUDE.md</td>
+  <td>30 min</td>
+</tr>
+<tr>
+  <td>A6</td>
+  <td><a href="#A6">Per-tab migration discipline (3 architectural-layer tests + working code throughout)</a></td>
+  <td><span class="pill ok">CODIFY</span></td>
+  <td>spec-042 H1 followed this for the History tab implicitly. The rule isn't named: every migrated tab must ship with tests at the DB, Backend, and Frontend layers — and the migration is tab-by-tab while legacy AND v2 stay runnable at every commit.</td>
+  <td><code>WORKFLOW.md</code>; <code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>; per-tab spec sections</td>
+  <td>30 min (doc) + binding-rule going forward</td>
+</tr>
+<tr>
+  <td>B0</td>
+  <td><a href="#B0">Repository pattern (persistence as classes, not free functions)</a></td>
+  <td><span class="pill partial">FIX</span></td>
+  <td><code>face_cluster.run_history</code> + <code>run_history_db</code> are 600 LOC of module-level free functions each taking <code>db_path=None</code>. <code>HistoryService</code> wraps them to add a constructor-held <code>db_path</code> — papering over what should be the lower layer's responsibility. Inconsistent with the <code>*Service</code> standard we just established.</td>
+  <td><code>face_cluster/run_history.py</code>; <code>face_cluster/run_history_db.py</code>; <code>face_cluster/views/history.py</code>; ~6 legacy app call sites; new arch test</td>
+  <td>4-6h (own spec)</td>
+</tr>
+<tr>
+  <td>B1</td>
+  <td><a href="#B1">Constructor injection; no shadowed module imports</a></td>
+  <td><span class="pill partial">FIX</span></td>
+  <td>Subsumed by B0 (Repository) for the persistence layer; remains a general rule for any module that participates in test doubles.</td>
+  <td><code>face_cluster/run_history.py</code>; new arch test</td>
+  <td>1h (after B0)</td>
+</tr>
+<tr>
+  <td>B2</td>
+  <td><a href="#B2">Error model standardization</a></td>
+  <td><span class="pill partial">FIX</span></td>
+  <td>Services raise plain <code>ValueError</code> for not-found, validation, and conflict alike. UI can't distinguish.</td>
+  <td>NEW <code>face_cluster/views/_errors.py</code>; every <code>*Service</code> class</td>
+  <td>2h</td>
+</tr>
+<tr>
+  <td>B3</td>
+  <td><a href="#B3">Service vocabulary (CRUD-like naming)</a></td>
+  <td><span class="pill partial">FIX</span></td>
+  <td>HistoryService is fine; no rule says future services will name methods consistently.</td>
+  <td>spec.md template; <code>docs/guides/CODE_REVIEW_CHECKLIST.md</code></td>
+  <td>30 min</td>
+</tr>
+<tr>
+  <td>B4</td>
+  <td><a href="#B4">Shared type definitions live in <code>face_cluster/types.py</code></a></td>
+  <td><span class="pill partial">FIX</span></td>
+  <td><code>LoadedRun.pipeline_result: Any</code> exists only because the real type would be a back-edge import.</td>
+  <td><code>face_cluster/types.py</code>; <code>face_cluster/pipeline.py</code>; <code>face_cluster/views/history.py</code></td>
+  <td>30 min</td>
+</tr>
+<tr>
+  <td>C1</td>
+  <td><a href="#C1">Pipeline-of-operations as a reusable building block</a></td>
+  <td><span class="pill new">ADOPT</span></td>
+  <td>spec-040 nailed it for clustering. Not generalized for other domains (e.g., view loading, batch ingest).</td>
+  <td><code>sim_bench/pipeline/</code> (already domain-agnostic); ergonomic helpers + docs</td>
+  <td>2h</td>
+</tr>
+<tr>
+  <td>C2</td>
+  <td><a href="#C2">Forward-only idempotent migrations</a></td>
+  <td><span class="pill new">ADOPT</span></td>
+  <td>DB schema migrations are idempotent ALTERs (works fine). Profile-format migrations are ad-hoc. No standard pattern named.</td>
+  <td><code>face_cluster/run_history_db.py</code> (already does this); document the pattern; apply to profile + config</td>
+  <td>1h</td>
+</tr>
+<tr>
+  <td>C3</td>
+  <td><a href="#C3">Service-level telemetry mirroring step in/out</a></td>
+  <td><span class="pill new">ADOPT</span></td>
+  <td>Step executor logs in/out for every step. Services don't. Post-mortems for service calls require code reading.</td>
+  <td>NEW decorator <code>@logged_service_method</code>; every <code>*Service</code></td>
+  <td>2h</td>
+</tr>
+<tr>
+  <td>C4</td>
+  <td><a href="#C4">Visual mockup before code (per UI spec)</a></td>
+  <td><span class="pill new">ADOPT</span></td>
+  <td>HISTORY_TAB_PRD has an ASCII layout in §3. No rule says future UI specs do.</td>
+  <td>WORKFLOW.md; spec.md template</td>
+  <td>30 min</td>
+</tr>
+</tbody>
+</table>
+
+<p><strong>Total effort:</strong> ~13 hours, spread over 13 items. Each is independently shippable. Suggested ordering: A items first (zero-risk doc consolidation), then B items (real defects + tests), then C items (new patterns adopted in the next feature).</p>
+
+<hr/>
+
+<h2 id="A1">A1. Four-layer architecture <span class="pill ok">CODIFY</span></h2>
+
+<h3>What we have today</h3>
+<p>spec-042 H1 split History into four layers — DB access, App contracts (typed vocabulary), Backend service, Streamlit UI — with an arch test (<code>test_v2_layering.py</code>) enforcing that <code>views/*</code> doesn't import streamlit and <code>tabs/*</code> doesn't bypass services. It works.</p>
+
+<div class="diagram">
+<svg viewBox="0 0 1100 360" width="100%" style="max-width:1100px;">
+  <rect x="60" y="20" width="980" height="60" rx="8" fill="#fdd" stroke="#a94442" stroke-width="2"/>
+  <text x="550" y="50" font-weight="700" font-size="15" text-anchor="middle">4. Streamlit (UI)</text>
+  <text x="550" y="68" font-size="12" text-anchor="middle" fill="#666">app/face_clustering_v2/{tabs, components}/*.py — ONLY layer that imports streamlit</text>
+
+  <rect x="60" y="100" width="980" height="60" rx="8" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="550" y="130" font-weight="700" font-size="15" text-anchor="middle">3. Backend (services)</text>
+  <text x="550" y="148" font-size="12" text-anchor="middle" fill="#666">face_cluster/views/*.py — *Service classes. Typed in, typed out. No UI awareness.</text>
+
+  <rect x="60" y="180" width="980" height="60" rx="8" fill="#eaf3ff" stroke="#1f6feb" stroke-width="2"/>
+  <text x="550" y="210" font-weight="700" font-size="15" text-anchor="middle">2. App contracts (shared vocabulary)</text>
+  <text x="550" y="228" font-size="12" text-anchor="middle" fill="#666">dataclasses (HistoryQuery, RunRow, ...), ColumnSpec, ActionTypeFormat, FCParams, Pandera schemas</text>
+
+  <rect x="60" y="260" width="980" height="60" rx="8" fill="#fff3cd" stroke="#856404" stroke-width="2"/>
+  <text x="550" y="290" font-weight="700" font-size="15" text-anchor="middle">1. DB access (storage)</text>
+  <text x="550" y="308" font-size="12" text-anchor="middle" fill="#666">SQLite (run_history_db), file system (face_clustering.db, embeddings.npy), DataFrames via Pandera</text>
+
+  <line x1="550" y1="80" x2="550" y2="100" stroke="#444" stroke-width="2" stroke-dasharray="3,3"/>
+  <line x1="550" y1="160" x2="550" y2="180" stroke="#444" stroke-width="2" stroke-dasharray="3,3"/>
+  <line x1="550" y1="240" x2="550" y2="260" stroke="#444" stroke-width="2" stroke-dasharray="3,3"/>
+</svg>
+<div class="caption">The four-layer split established for v2. Layer 2 (contracts) is a shared vocabulary both layer 3 and layer 4 import; everything flows top-down except contract definitions.</div>
+</div>
+
+<h3>Why it matters going forward</h3>
+<p>This is the structural decision that everything else assumes. Without it: the FastAPI handlers, the headless CLI, the future React/Qt frontend, and the tests all end up duplicating service logic. With it: any new surface plugs in at layer 3 (call the service) without re-implementing the data access. The arch test catches drift at PR time.</p>
+
+<h3>What to codify</h3>
+<p>Move the four-layer description from spec-042 §4.1 into <code>docs/architecture/overview.md</code> as a top-level "Repo Layering" section. Every new feature spec references it and identifies which layers it touches.</p>
+
+<hr/>
+
+<h2 id="A2">A2. Declarative specs over repetitive code <span class="pill ok">CODIFY</span></h2>
+
+<h3>What we have today</h3>
+<p>Two examples working well today:</p>
+<ul>
+  <li><strong><code>UI_SPEC</code></strong> (spec-041): per-FCParams-field widget metadata (label, group, order, step). The widget factory iterates over it. Zero hand-written widgets for parameter inputs.</li>
+  <li><strong><code>ColumnSpec</code></strong> (spec-042): per-column metadata (field, label, fallback, formatter). The table renderer iterates over it. Zero hand-written column extraction code.</li>
+</ul>
+<p>The legacy History tab had 16 lines like <code>st.text(f"K: {cfg.get('K', '?')}")</code>. v2 replaces those with one iteration over <code>UI_SPEC</code>.</p>
+
+<h3>Why it matters going forward</h3>
+<p>Every new piece of UI metadata follows this pattern. Examples already on the horizon:</p>
+<ul>
+  <li><strong>Cluster Analysis tab</strong>: <code>ClusterCardSpec</code> (which face thumbnails, what stats line, what action buttons).</li>
+  <li><strong>Face Analysis tab</strong>: <code>FaceFieldSpec</code> (which scores to display, in what order).</li>
+  <li><strong>Filter chips</strong>: <code>FilterChipSpec</code> (the chip text + the predicate it applies).</li>
+</ul>
+<p>The principle generalizes: <strong>when you see a list of "field name + how to display it" appearing as code, replace with a list of typed spec objects + one renderer.</strong></p>
+
+<h3>Before / after pattern</h3>
+<pre>// before
+def render_summary(row):
+    st.text(f"K: {row.K}")
+    st.text(f"distance_threshold: {row.distance_threshold}")
+    st.text(f"min_cluster_size: {row.min_cluster_size}")
+    # ... 13 more lines, each duplicating a field name
+
+// after
+SUMMARY_FIELDS = [ColumnSpec("K", "K"), ColumnSpec("distance_threshold", "Threshold"), ...]
+def render_summary(row):
+    for spec in SUMMARY_FIELDS:
+        st.text(f"{spec.label}: {spec.display(row)}")</pre>
+
+<h3>What to codify</h3>
+<p>Add to <code>CLAUDE.md</code> §Coding: <em>"When you write three lines that all look like <code>do_something(field_X)</code> with only the field name varying, stop. Define a typed spec; have one function iterate over it. See <code>UI_SPEC</code> / <code>ColumnSpec</code> for prior art."</em></p>
+
+<hr/>
+
+<h2 id="A3">A3. Three-layer testing pyramid <span class="pill ok">CODIFY</span></h2>
+
+<h3>What we have today</h3>
+<p>spec-042 H1 ships with:</p>
+<ul>
+  <li><strong>31 service unit tests against synthetic data</strong> — in-memory SQLite seeded by <code>_seed.py</code> factories. Runs in ~1.7s. The load-bearing layer.</li>
+  <li><strong>4 real-fixture smoke tests</strong> — against the actual <code>~/.sim_bench/sim_bench.db</code>. Skips cleanly when the file is absent (CI). Catches schema-drift surprises.</li>
+  <li><strong>1 Playwright UI smoke test</strong> — opt-in, manual, screenshot-captured. Catches widget-binding regressions that pass unit tests but break visual rendering.</li>
+</ul>
+
+<h3>Why it matters going forward</h3>
+<p>The three layers protect against three different failure modes. Without all three:</p>
+<ul>
+  <li>Skip synthetic → tests are slow, depend on the dev machine, and edge cases are hard to construct.</li>
+  <li>Skip real-fixture → schema-drift surprises ship to prod.</li>
+  <li>Skip UI smoke → widget-binding regressions (like spec-041's <code>yaw_max=999</code> crash) slip through despite green unit tests.</li>
+</ul>
+<p>The pyramid is well-understood for backend code; this codifies it for UI-bound code too.</p>
+
+<h3>What to codify</h3>
+<p>Add to <code>docs/guides/TESTING_RULES.md</code> the three-layer pattern as a binding standard for any new feature that touches a UI tab or a backend service. Reference <code>HISTORY_TAB_PRD.md §8</code> as the canonical example.</p>
+
+<hr/>
+
+<h2 id="A4">A4. Architecture tests are part of every spec <span class="pill ok">CODIFY</span></h2>
+
+<h3>What we have today</h3>
+<p>Five arch tests exist now, each guarding a different drift class:</p>
+<ul>
+  <li><code>test_fcparams_fcconfig_parity.py</code> — FCParams and FCConfig field sets stay in lockstep</li>
+  <li><code>test_ui_spec_references_fcparams.py</code> — UI_SPEC entries reference real FCParams fields</li>
+  <li><code>test_logging_aligned.py</code> — every entry point calls <code>setup_logging</code> with the right surface name</li>
+  <li><code>test_v2_layering.py</code> — face_cluster/views/* doesn't import streamlit; tabs/* doesn't bypass services</li>
+  <li><code>test_v2_module_docstrings.py</code> — every public class/function has a docstring</li>
+</ul>
+<p>Each was added during the spec that introduced the constraint. The pattern: <em>codify the architectural invariant as a test at the moment you create the invariant</em>.</p>
+
+<h3>Why it matters going forward</h3>
+<p>An invariant without a test is documentation, not architecture. Six months from now nobody remembers the rule; the test does. The investment cost is low (typically &lt;50 LOC per test) and the cost of NOT having it is real (every drift we've fixed in spec-040/041/042 surfaced as a CI failure exactly because some prior author wrote the test).</p>
+
+<h3>What to codify</h3>
+<p>Add to <code>WORKFLOW.md</code> as a phase-0-of-every-spec checkpoint: <em>"List the architectural invariants this spec introduces. For each, write the arch test before the implementation. The test goes in <code>tests/architecture/test_&lt;spec_concern&gt;.py</code>."</em> Add to the Code Review checklist §5 the explicit question: <em>"For every constraint described in this spec, name the test that would fail if it were violated."</em></p>
+
+<hr/>
+
+<h2 id="A5">A5. Documentation contract <span class="pill ok">CODIFY</span></h2>
+
+<h3>What we have today</h3>
+<p>spec-042 introduced binding rules for new v2 code: every public class/function has a docstring; functions over 30 LOC must be split; no <code>fc1, fc2, fc3</code> placeholder variable names; no ASCII section dividers; <code>render_*</code> functions document what they read and write. Enforced by <code>test_v2_module_docstrings.py</code>; legacy files on an allowlist.</p>
+
+<h3>Why it matters going forward</h3>
+<p>The arch test only checks presence, not quality. That's deliberate: reviewers handle prose; the test handles "did you remember to do it at all". Going forward we need a story for the allowlist — pre-existing files that didn't ship docstrings get retired from the allowlist as they're touched.</p>
+
+<h3>What to codify</h3>
+<p>Two rules:</p>
+<ol>
+  <li><strong>Allowlist shrinks monotonically.</strong> When a legacy file gets modified (not just trivial edits — meaningful refactors), the modifier is responsible for either documenting its public surface or removing it from the allowlist with a justification.</li>
+  <li><strong>New code is never added to the allowlist.</strong> If a new module needs a docstring exemption, the spec must justify it.</li>
+</ol>
+<p>Add both rules to <code>CLAUDE.md</code> §General + the Code Review checklist §7 (documentation).</p>
+
+<hr/>
+
+<h2 id="A6">A6. Per-tab migration discipline — three architectural-layer tests + working code throughout <span class="pill ok">CODIFY</span></h2>
+
+<h3>What we have today</h3>
+<p>spec-042 H1 (History tab) followed this discipline implicitly:</p>
+<ul>
+  <li>Migration is one tab at a time. v2 grew from 2 tabs → 3 tabs in a single commit (<code>807053c</code>).</li>
+  <li>Legacy <code>app/face_clustering/main.py</code> (~11 tabs) stayed runnable throughout. Untouched.</li>
+  <li>v2 <code>app/face_clustering_v2/main.py</code> stayed runnable at every intermediate state — H1, H2, H3 each ended green.</li>
+  <li>Tests landed at three architectural layers: service unit + real-fixture + Playwright UI smoke.</li>
+</ul>
+<p>The "tab-by-tab while never breaking either app" is the strangler-fig pattern made operational. The "three architectural-layer tests" is what proved each tab actually works against its own data, not just compiles.</p>
+
+<h3>Why it matters going forward</h3>
+<p>Seven tabs remain to migrate in spec-042. Without this discipline made explicit:</p>
+<ul>
+  <li>Someone batches multiple tabs in one PR, gets stuck on one, and now nothing ships.</li>
+  <li>Tests get written at the layer the author thinks is "enough" — usually UI smoke or service alone. The other layer's bugs ship.</li>
+  <li>A migration breaks the legacy app silently (someone accidentally edits a shared module) and is only noticed days later.</li>
+</ul>
+<p>With it: every tab migration is a small, complete, independently-shippable unit. Each PR is a checkpoint where both apps run, all tests pass, and the new tab is fully covered at every layer it touches.</p>
+
+<h3>The standard</h3>
+
+<h4>The three-layer test gate</h4>
+<p>Every tab migration ships with tests at <strong>three architectural layers</strong>:</p>
+
+<table>
+<thead><tr><th>Layer</th><th>What it tests</th><th>Lives in</th><th>Required?</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>DB / Repository</strong></td>
+  <td>SQL queries return the right rows on synthetic DBs. Schema-shape assumptions. Mutation idempotence.</td>
+  <td><code>tests/face_clustering/repositories/test_&lt;repo&gt;_synthetic.py</code></td>
+  <td>YES — at least 5 cases per Repository (find / find_one / count / one mutation / one edge case)</td>
+</tr>
+<tr>
+  <td><strong>Backend / Service</strong></td>
+  <td>Business logic, composition of Repositories, error handling, typed return shapes.</td>
+  <td><code>tests/face_clustering/views/test_&lt;service&gt;_synthetic.py</code><br/><code>tests/face_clustering/views/test_&lt;service&gt;_real.py</code></td>
+  <td>YES — at least 10 synthetic cases + 2 real-fixture smoke cases per Service</td>
+</tr>
+<tr>
+  <td><strong>Frontend / UI</strong></td>
+  <td>The tab renders against real data. Filter widgets visible. No Streamlit exception markdown on the page.</td>
+  <td><code>tests/manual/_v2_&lt;tab&gt;_smoke.py</code></td>
+  <td>YES — 1 Playwright smoke per tab, opt-in, screenshot captured</td>
+</tr>
+</tbody>
+</table>
+
+<p>This is layer-orthogonal to A3 (test fidelity pyramid):</p>
+
+<table>
+<thead><tr><th>Layer ↓ / Fidelity →</th><th>Synthetic (fast)</th><th>Real fixture (smoke)</th><th>Playwright UI</th></tr></thead>
+<tbody>
+<tr><td><strong>Repository</strong></td><td>✅ required</td><td>optional</td><td>—</td></tr>
+<tr><td><strong>Service</strong></td><td>✅ required</td><td>✅ required</td><td>—</td></tr>
+<tr><td><strong>Frontend</strong></td><td>—</td><td>—</td><td>✅ required</td></tr>
+</tbody>
+</table>
+
+<p>Cells marked "—" don't make sense (a Repository has no UI; a Playwright test is by definition not against synthetic data). Cells marked "optional" are valuable but not gate-blocking.</p>
+
+<h4>The incremental-migration rule</h4>
+<p>Three sub-rules, all binding:</p>
+<ol>
+  <li><strong>One tab per commit (or PR).</strong> Never batch unrelated tabs. Each tab migration is its own atomic unit.</li>
+  <li><strong>Legacy app stays runnable at every commit.</strong> <code>.venv/Scripts/streamlit run app/face_clustering/main.py</code> must work after the merge. The legacy app is the safety net — it's how a user gets unblocked if v2 has a regression.</li>
+  <li><strong>v2 app stays runnable at every commit.</strong> Whatever tabs have been migrated, the v2 app loads cleanly and shows them. No commit may break a previously-shipped v2 tab.</li>
+</ol>
+
+<h3>Audit: History tab against the standard</h3>
+<p>How spec-042 H1 already maps:</p>
+
+<table>
+<thead><tr><th>Gate</th><th>History tab status</th></tr></thead>
+<tbody>
+<tr><td>Repository synthetic tests</td><td>✅ 33 tests in <code>test_run_history_repo_synthetic.py</code> (spec-043 H1)</td></tr>
+<tr><td>Service synthetic tests</td><td>✅ 31 tests in <code>test_history_service_synthetic.py</code></td></tr>
+<tr><td>Service real-fixture tests</td><td>✅ 4 tests in <code>test_history_service_real.py</code></td></tr>
+<tr><td>Frontend Playwright smoke</td><td>✅ <code>tests/manual/_v2_history_smoke.py</code> + screenshot</td></tr>
+<tr><td>One-tab-per-commit</td><td>✅ <code>807053c</code> only adds History; doesn't touch other tabs</td></tr>
+<tr><td>Legacy app stays runnable</td><td>✅ Legacy untouched</td></tr>
+<tr><td>v2 app stays runnable</td><td>✅ Existing Run + Clusters tabs unaffected</td></tr>
+</tbody>
+</table>
+
+<p>So History tab is "mostly" compliant; the only missing gate is the Repository layer, which materializes when spec-043 lands.</p>
+
+<h3>What to codify</h3>
+<ul>
+  <li>Add the three-layer test gate + incremental migration rule to <code>WORKFLOW.md</code> as a phase-0 checkpoint for every tab/feature spec.</li>
+  <li>Add to the Code Review checklist §5 explicit gate: <em>"Does this PR ship tests at all three architectural layers (DB / Backend / Frontend) that the feature touches?"</em></li>
+  <li>Add to spec-042's per-tab plan: each remaining tab's task list explicitly enumerates the Repository / Service / Frontend tests it owes.</li>
+  <li>Document that the migration order is: <strong>(1)</strong> Repository (if new persistence access needed); <strong>(2)</strong> Service + its tests; <strong>(3)</strong> Components + tab orchestrator; <strong>(4)</strong> Playwright smoke; <strong>(5)</strong> wire into <code>main.py</code>. Wiring last keeps the v2 app runnable throughout.</li>
+</ul>
+
+<hr/>
+
+<h2 id="B0">B0. Repository pattern — persistence as classes, not free functions <span class="pill partial">FIX</span></h2>
+
+<h3>What we have today</h3>
+<p>Two modules underneath every view service:</p>
+<pre>face_cluster/run_history.py       — 154 LOC, 3 public free functions
+face_cluster/run_history_db.py    — 457 LOC, ~12 public free functions
+</pre>
+<p>Both follow the same shape: every public function takes an optional <code>db_path: Optional[Path] = None</code>, opens a connection, queries, closes. The "which DB" is conceptually shared state pretending to be a per-call argument. Then <code>HistoryService</code> wraps them like this:</p>
+<pre>class HistoryService:
+    def __init__(self, db_path=None):
+        self._db_path = db_path
+
+    def list_runs(self, query):
+        return run_history.search(filters, <strong>db_path=self._db_path</strong>)
+
+    def update_comment(self, run_id, comment):
+        return run_history_db.update_comment(run_id, comment, <strong>db_path=self._db_path</strong>)
+    # ...threads self._db_path to every call</pre>
+<p>That's 6 module-level functions taking the same argument from one instance variable. The Service is papering over what should be the lower layer's responsibility.</p>
+
+<h3>The deeper issue this surfaces</h3>
+<p>spec-042 §4.2 declares "every backend service is a class with typed methods" as the standard. But the layers <em>underneath</em> the standard — <code>run_history</code> + <code>run_history_db</code> — don't follow it. The inconsistency causes three observable problems:</p>
+<ol>
+  <li><strong>The <code>from X import get_db_path</code> trap.</strong> <code>run_history.py</code> binds <code>get_db_path</code> at import time. Monkeypatching the source module misses this binding. We tripped on this in spec-042 H1 — half the integration tests passed for the wrong reason. A class with <code>self._db_path</code> has no such trap.</li>
+  <li><strong>Test fixtures need workarounds.</strong> The session fixture in <code>tests/face_clustering/conftest.py</code> monkeypatches one of two <code>get_db_path</code> bindings. Real-fixture tests have to bypass it with explicit <code>db_path=</code> kwargs. The workaround is invisible — future tests won't know to do this.</li>
+  <li><strong>Composability is awkward.</strong> A future <code>ClusterAnalysisService</code> will need to query both the global action_log AND a per-run face_clustering.db. With free functions, that's two parallel sets of free-function modules. With Repository classes, it's two injected dependencies — straightforward.</li>
+</ol>
+
+<h3>The standard</h3>
+<p>Three rules:</p>
+<ol>
+  <li><strong>Persistence layer is a class</strong>, not module-level free functions.</li>
+  <li><strong>Constructor takes a typed Config dataclass</strong>, not individual kwargs. Adding a new option = adding a field to the Config; existing callers unchanged.</li>
+  <li><strong>Query methods take composable criteria</strong> (typed dataclass with optional fields). Adding a new filter axis = adding a field to the criteria; no new method needed.</li>
+</ol>
+
+<pre># face_cluster/repositories/run_history_repo.py
+
+@dataclass(frozen=True, slots=True)
+class RunHistoryRepoConfig:
+    """Repository constructor configuration. Every field has a default,
+    so adding a new field is non-breaking for existing callers."""
+    db_path: Optional[Path] = None
+    auto_migrate: bool = True
+    read_only: bool = False
+    log_queries: bool = False
+    connection_timeout_s: float = 5.0
+
+
+@dataclass(frozen=True, slots=True)
+class RunHistoryCriteria:
+    """Composable filter for run history queries. AND across fields."""
+    ids: Optional[list[int]] = None
+    parent_run_id: Optional[int] = None
+    album: Optional[str] = None
+    status: Optional[str] = None
+    producer: Optional[str] = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+    text: Optional[str] = None
+    text_fields: tuple[str, ...] = ("album", "run_name", "comment")
+    limit: int = 500
+    offset: int = 0
+    order_by: Literal["started_at_desc", "started_at_asc"] = "started_at_desc"
+
+
+class RunHistoryRepository:
+    """Read + write access to the action_log table. Thin SQL wrapper.
+    Knows the schema; knows nothing about views, Streamlit, or services."""
+
+    def __init__(self, config: Optional[RunHistoryRepoConfig] = None):
+        self._config = config or RunHistoryRepoConfig()
+
+    # Composable query API
+    def find(self, criteria: RunHistoryCriteria) -> list[RunRow]: ...
+    def find_one(self, criteria: RunHistoryCriteria) -> Optional[RunRow]: ...
+    def count(self, criteria: RunHistoryCriteria) -> int: ...
+    def distinct_albums(self) -> list[str]: ...
+
+    # Convenience for the common single-id case
+    def get_by_id(self, run_id: int) -> Optional[RunRow]:
+        return self.find_one(RunHistoryCriteria(ids=[run_id]))
+
+    # Mutations — named verbs per B3
+    def start_action(self, action_type: str, payload: dict) -> int: ...
+    def complete_action(self, action_id: int, result: dict) -> None: ...
+    def fail_action(self, action_id: int, error: str) -> None: ...
+    def update_comment(self, action_id: int, comment: str) -> None: ...</pre>
+
+<p>Then the Service composes the Repository:</p>
+<pre># face_cluster/views/history.py
+class HistoryService:
+    def __init__(self, repo: Optional[RunHistoryRepository] = None):
+        self._repo = repo or RunHistoryRepository()
+
+    def list_runs(self, query: HistoryQuery) -> list[RunRow]:
+        criteria = RunHistoryCriteria(
+            album=query.album, date_from=query.date_from,
+            date_to=query.date_to, text=query.text,
+        )
+        return self._repo.find(criteria)</pre>
+
+<h4>Why typed Config + criteria, not kwargs or dicts</h4>
+<p>Same principle as A2 (declarative specs) and B4 (typed boundaries): when an interface might grow, the typed object IS the interface; the consuming methods stay stable. Imagine adding <code>cache_strategy</code>, <code>retry_policy</code>, <code>read_only</code>, <code>connection_pool_size</code> to the Repository constructor over time. With explicit kwargs, every consumer (services, CLI, tests) gets touched each time. With a Config dataclass, none change unless they care about the new field.</p>
+<p>Two arch tests for spec-043:</p>
+<pre>def test_repositories_take_typed_config():
+    """*Repository classes either take no args or one positional/keyword
+    arg that's a frozen dataclass. Forbids growing kwarg lists."""
+
+def test_repositories_have_no_module_level_free_functions():
+    """face_cluster/repositories/*.py exposes only classes, dataclasses,
+    and module-level constants. Forbids the legacy free-function shape."""</pre>
+
+<h3>Why "Repository" is the right name</h3>
+<p>The pattern is well-established in layered architectures (DDD, .NET, Spring). A Repository:</p>
+<ul>
+  <li>Owns persistence I/O (SQL, file system, network)</li>
+  <li>Returns typed domain objects (not raw rows or dicts)</li>
+  <li>Knows the schema, nothing else</li>
+  <li>Has no awareness of views, services, or business rules</li>
+  <li>Is the only layer that imports <code>sqlite3</code> / <code>requests</code> / etc.</li>
+</ul>
+<p>Service composes one or more Repositories. UI composes Service(s). Tests inject test-double Repositories.</p>
+
+<h3>The transformation</h3>
+<table>
+<tr><th>Aspect</th><th>Before</th><th>After</th></tr>
+<tr><td>Persistence shape</td><td>~600 LOC module-level functions</td><td><code>RunHistoryRepository</code> class, same LOC</td></tr>
+<tr><td>Test setup</td><td><code>HistoryService(db_path=tmp)</code> + autouse session monkeypatch</td><td><code>HistoryService(repo=RunHistoryRepository(db_path=tmp))</code></td></tr>
+<tr><td>Test isolation</td><td>Real-fixture tests bypass with explicit kwargs</td><td>Test repo and real repo are different instances; no monkeypatch needed</td></tr>
+<tr><td>New Repository (next tab)</td><td>Another set of free functions + threading</td><td>Inject a second Repository alongside the first</td></tr>
+<tr><td>Layer ownership of <code>db_path</code></td><td>Shared between Service and module functions</td><td>Repository owns it; Service composes</td></tr>
+</table>
+
+<h3>Why it earns its keep going forward</h3>
+<p>Every future tab will have one or more services that need persistence. Without Repository:</p>
+<ul>
+  <li>Each Service threads <code>db_path</code> to every underlying call (boilerplate).</li>
+  <li>Each Service repeats the "translate query dataclass → filters → call free function" pattern (boilerplate × 3).</li>
+  <li>Each new persistence module repeats the "shadowed import" trap.</li>
+</ul>
+<p>With Repository:</p>
+<ul>
+  <li>Service holds one or more <code>self._repo</code> instances.</li>
+  <li>The "which DB" question is answered once at construction.</li>
+  <li>Tests inject a test-double or temp-DB-backed repo.</li>
+  <li>Future surfaces (FastAPI, CLI) compose the same Repositories without touching the Services.</li>
+</ul>
+
+<h3>What this looks like as a spec</h3>
+<p>This is the right scope for <strong>spec-043 "Repository pattern for face_cluster persistence"</strong>. Scope:</p>
+<ol>
+  <li>Create <code>face_cluster/repositories/run_history_repo.py</code> (or similar location) consolidating <code>run_history.py</code> read functions + <code>run_history_db.py</code> CRUD functions into one <code>RunHistoryRepository</code> class.</li>
+  <li>Migrate <code>HistoryService</code> to inject a repository via constructor.</li>
+  <li>Migrate the ~6 legacy app call sites in <code>app/face_clustering/</code> that still call the free functions directly.</li>
+  <li>Update the session fixture in <code>tests/face_clustering/conftest.py</code> — likely simpler or removable.</li>
+  <li>Add arch test: <em>"persistence-layer modules must expose Repository classes; module-level free functions returning DB rows are forbidden."</em></li>
+  <li>Document the pattern in the architecture standards and reference it from CLAUDE.md.</li>
+</ol>
+<p>Effort: ~4-6h. Should be done before the next tab port (Cluster Analysis) so the second Service builds on the right foundation, not a workaround.</p>
+
+<hr/>
+
+<h2 id="B1">B1. Constructor injection; no shadowed module imports <span class="pill partial">FIX</span></h2>
+
+<h3>What we tripped over</h3>
+<p>During spec-042 H1 testing, the session fixture in <code>tests/face_clustering/conftest.py</code> monkeypatches <code>run_history_db.get_db_path</code> to redirect to a temp DB. Worked for one code path; failed for another.</p>
+
+<p>Root cause: <code>face_cluster/run_history.py</code> binds <code>get_db_path</code> at import time:</p>
+<pre>from face_cluster.run_history_db import get_db_path  # ← capture original function</pre>
+<p>After the monkeypatch, <code>run_history_db.get_db_path</code> points at the temp DB, but <code>run_history.get_db_path</code> (the local binding) still points at the original. Result: <code>search()</code> hit real data while <code>list_actions()</code> hit temp data. Half the integration tests passed by accident.</p>
+
+<h3>Why it matters going forward</h3>
+<p>This is a class of bug, not a one-off. Any module that imports a function by name from another module captures the binding at import time. The pattern is unsafe for anything we want to test-double or environment-swap.</p>
+
+<h3>The standard</h3>
+<p>Two rules:</p>
+<ol>
+  <li><strong>Functions used as injection points are called via module-attribute access</strong>: <code>run_history_db.get_db_path()</code> not <code>get_db_path()</code> after a top-level import. The module attribute always reflects the current binding.</li>
+  <li><strong>For services / classes that need configurable dependencies, use constructor injection</strong>. Pass <code>db_path</code>, <code>now()</code>, <code>logger</code>, etc. as <code>__init__</code> parameters with sensible defaults. <code>HistoryService(db_path=...)</code> is the pattern; every new service does the same.</li>
+</ol>
+
+<h3>What to do</h3>
+<ul>
+  <li>Patch <code>face_cluster/run_history.py</code> to use <code>run_history_db.get_db_path()</code> instead of the bound name. ~3 line change.</li>
+  <li>Add an arch test <code>test_no_shadowed_injection_points.py</code>: scan for <code>from X import get_db_path</code>-style imports in modules whose tests monkeypatch the original module. Catches future occurrences.</li>
+  <li>Document the pattern in <code>CLAUDE.md</code> §Coding.</li>
+</ul>
+
+<hr/>
+
+<h2 id="B2">B2. Error model standardization <span class="pill partial">FIX</span></h2>
+
+<h3>What we have today</h3>
+<p><code>HistoryService</code> raises plain <code>ValueError</code> for three distinct conditions:</p>
+<ul>
+  <li><strong>Not found</strong>: <code>get_run_detail(999999)</code> → "No run with id=999999"</li>
+  <li><strong>Validation</strong>: <code>update_comment(id, "x" * 2049)</code> → "Comment exceeds 2048 characters"</li>
+  <li><strong>State conflict</strong>: <code>load_run(id)</code> when status != "complete" → "Run X is not complete"</li>
+</ul>
+<p>The caller can't distinguish these without string-matching the message. The UI shows them all as the same generic error. In FastAPI handlers (if we add some), they all become HTTP 500 instead of the right 404 / 400 / 409.</p>
+
+<h3>Why it matters going forward</h3>
+<p>Every service we add has the same three categories. Without a standard, each service either invents its own exception hierarchy (inconsistent) or piles everything onto <code>ValueError</code> (lossy). The UI then has to interpret strings to render appropriate UX (e.g., 404 should show "this run was deleted" while a conflict should show "this run isn't ready yet").</p>
+
+<h3>The standard</h3>
+<p>One small hierarchy in <code>face_cluster/views/_errors.py</code>:</p>
+<pre>class ServiceError(Exception):
+    """Base for all view-service errors. Carries an optional public message
+    safe to display to end users."""
+    def __init__(self, message: str, *, user_message: Optional[str] = None):
+        super().__init__(message)
+        self.user_message = user_message or message
+
+class NotFoundError(ServiceError):
+    """Requested entity does not exist."""
+
+class ValidationError(ServiceError):
+    """Inputs don't satisfy the contract (length, type, range, ...)."""
+
+class ConflictError(ServiceError):
+    """State precondition not met (e.g., trying to load an incomplete run)."""
+
+class PermissionError(ServiceError):
+    """Reserved for future ACLs."""</pre>
+
+<h3>What changes per service</h3>
+<p>Concrete migration for <code>HistoryService</code>:</p>
+<pre>// before
+raise ValueError(f"No run with id={run_id}")
+raise ValueError(f"Run {run_id} is not complete ...")
+
+// after
+raise NotFoundError(f"No run with id={run_id}")
+raise ConflictError(f"Run {run_id} is not complete ...")</pre>
+<p>The UI layer gets one <code>try / except ServiceError</code> in each tab and renders <code>user_message</code> appropriately. A future FastAPI surface maps <code>NotFoundError → 404</code>, <code>ValidationError → 400</code>, <code>ConflictError → 409</code> with no logic per endpoint.</p>
+
+<h3>What to codify</h3>
+<p>Document the hierarchy in <code>face_cluster/views/_errors.py</code> docstring + reference in CLAUDE.md. Add to the service contract in <code>spec-042 §4.2</code>: <em>"Services raise from <code>ServiceError</code> subclasses, never plain <code>ValueError</code> / <code>RuntimeError</code>."</em></p>
+
+<hr/>
+
+<h2 id="B3">B3. Service vocabulary (CRUD-like naming) <span class="pill partial">FIX</span></h2>
+
+<h3>What we have today</h3>
+<p><code>HistoryService</code> happens to follow good naming: <code>list_*</code> for queries, <code>get_*</code> for single-entity reads, <code>update_*</code> for mutations, <code>load_*</code> for composite reads with side effects on disk. Nothing forces future services to do the same.</p>
+
+<h3>Why it matters going forward</h3>
+<p>When eight tabs all have services and someone needs to find "give me a list of X filtered by Y", they should be able to predict the method name. Today they'd grep; with a standard they read it off the contract.</p>
+
+<h3>The standard</h3>
+<p>Five verb prefixes, each with explicit semantics:</p>
+<table>
+<tr><th>Prefix</th><th>Semantics</th><th>Side effects?</th><th>Example</th></tr>
+<tr><td><code>list_*</code></td><td>Return zero+ entities matching a query</td><td>No</td><td><code>list_runs(query) → list[RunRow]</code></td></tr>
+<tr><td><code>get_*</code></td><td>Return exactly one entity by id; raise <code>NotFoundError</code> if absent</td><td>No</td><td><code>get_run_detail(id) → RunDetail</code></td></tr>
+<tr><td><code>create_*</code></td><td>Insert a new entity; return its typed representation</td><td>Yes (DB write)</td><td><code>create_profile(spec) → Profile</code></td></tr>
+<tr><td><code>update_*</code></td><td>Mutate an existing entity; raise <code>NotFoundError</code> / <code>ConflictError</code></td><td>Yes (DB write)</td><td><code>update_comment(id, text)</code></td></tr>
+<tr><td><code>delete_*</code></td><td>Remove an entity; idempotent</td><td>Yes (DB write)</td><td><code>delete_run(id)</code></td></tr>
+</table>
+<p>Composite operations that don't fit (e.g., <code>load_run</code> = read + filesystem) get named with a meaningful verb but documented as composite: <em>"Reads from DB + filesystem; does not mutate persistent state but constructs a new in-memory object."</em></p>
+
+<h3>What to codify</h3>
+<p>Add to <code>spec-042 §4.2</code> + <code>WORKFLOW.md</code>'s spec template. Code review checklist §3: <em>"Service methods named per the five-verb taxonomy. Composite operations explicitly documented as such."</em></p>
+
+<hr/>
+
+<h2 id="B4">B4. Shared type definitions live in <code>face_cluster/types.py</code> <span class="pill partial">FIX</span></h2>
+
+<h3>What we tripped over</h3>
+<p><code>LoadedRun.pipeline_result: Any</code>. The <em>real</em> type is <code>face_cluster.pipeline.PipelineResult</code>. <code>face_cluster/views/history.py</code> can't import it without creating a back-edge from a lower layer (views) to a higher-level module (pipeline). So we punted to <code>Any</code> and documented it in the PRD as an open question.</p>
+
+<h3>Why it matters going forward</h3>
+<p>This will happen again every time a view service needs to expose a return value whose canonical type lives in a higher layer. <code>Any</code> loses IDE autocomplete, mypy checks, and structural clarity. It's a future bug magnet.</p>
+
+<h3>The standard</h3>
+<p>One rule: <strong>any type used at a layer boundary lives in <code>face_cluster/types.py</code> (or a sibling shared module)</strong>, not in the module that produces it. Today <code>face_cluster/types.py</code> already holds <code>FaceRecord</code>, <code>ClusterResult</code>, <code>GraphResult</code> — the pattern is established; we just need to extend it to <code>PipelineResult</code>.</p>
+
+<h3>What to do</h3>
+<ul>
+  <li>Move <code>PipelineResult</code> from <code>face_cluster/pipeline.py</code> to <code>face_cluster/types.py</code>. ~10 lines moved, no behavior change.</li>
+  <li>Update <code>LoadedRun.pipeline_result</code> to the real type.</li>
+  <li>Document the rule in <code>face_cluster/types.py</code>'s module docstring.</li>
+</ul>
+
+<hr/>
+
+<h2 id="C1">C1. Pipeline-of-operations as a reusable building block <span class="pill new">ADOPT</span></h2>
+
+<h3>What we have today</h3>
+<p>spec-040 built <code>sim_bench/pipeline/</code> — a domain-agnostic step framework: each step has typed <code>requires</code>/<code>produces</code> metadata, the executor logs per-step in/out (spec-041 follow-up), the registry resolves dependencies. It's currently used only by face clustering, but architecturally it's <strong>general</strong>.</p>
+
+<div class="diagram">
+<svg viewBox="0 0 1100 220" width="100%" style="max-width:1100px;">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+  </defs>
+  <rect x="20" y="30" width="160" height="60" rx="6" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="100" y="55" font-weight="700" font-size="13" text-anchor="middle">step 1</text>
+  <text x="100" y="75" font-size="11" text-anchor="middle">in[image_paths]</text>
+
+  <rect x="220" y="30" width="160" height="60" rx="6" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="300" y="55" font-weight="700" font-size="13" text-anchor="middle">step 2</text>
+  <text x="300" y="75" font-size="11" text-anchor="middle">in[image_paths] → out[face_records]</text>
+
+  <rect x="420" y="30" width="160" height="60" rx="6" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="500" y="55" font-weight="700" font-size="13" text-anchor="middle">step 3</text>
+  <text x="500" y="75" font-size="11" text-anchor="middle">in[face_records] → out[clusters]</text>
+
+  <rect x="620" y="30" width="160" height="60" rx="6" fill="#dff0d8" stroke="#3c763d" stroke-width="2"/>
+  <text x="700" y="55" font-weight="700" font-size="13" text-anchor="middle">...</text>
+  <text x="700" y="75" font-size="11" text-anchor="middle">declared deps; auto-ordered</text>
+
+  <rect x="820" y="30" width="220" height="60" rx="6" fill="#fff3cd" stroke="#856404" stroke-width="2"/>
+  <text x="930" y="55" font-weight="700" font-size="13" text-anchor="middle">Executor</text>
+  <text x="930" y="75" font-size="11" text-anchor="middle">logs in/out shape + timing per step</text>
+
+  <line x1="180" y1="60" x2="220" y2="60" stroke="#444" stroke-width="2" marker-end="url(#ar1)"/>
+  <line x1="380" y1="60" x2="420" y2="60" stroke="#444" stroke-width="2" marker-end="url(#ar1)"/>
+  <line x1="580" y1="60" x2="620" y2="60" stroke="#444" stroke-width="2" marker-end="url(#ar1)"/>
+
+  <rect x="20" y="130" width="1020" height="70" rx="6" fill="#fafbfc" stroke="#444" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="530" y="155" font-weight="700" font-size="13" text-anchor="middle">Reusable beyond clustering</text>
+  <text x="530" y="178" font-size="12" text-anchor="middle" fill="#666">data ingest (discover → validate → ingest → index), photo export (collect → resize → upload), batch jobs, etc.</text>
+</svg>
+<div class="caption">The step framework is currently used only by face clustering, but its design is domain-agnostic. Each step is "give me these context keys, I'll write these context keys" — applies to any pipeline.</div>
+</div>
+
+<h3>Why it matters going forward</h3>
+<p>Several future features map naturally onto a pipeline of operations but don't get to use the framework today because nothing's documented:</p>
+<ul>
+  <li><strong>Run loading</strong>: <code>load_pipeline_result</code> is a 5-stage operation (validate dir → read DB → read embeddings → reconstruct → return). Could be a tiny pipeline.</li>
+  <li><strong>Bulk export</strong>: a future "export all clusters as ZIP" operation.</li>
+  <li><strong>Migration tooling</strong>: a multi-step "migrate legacy → current" operation.</li>
+  <li><strong>Test data builders</strong>: the <code>_seed.py</code> factories could compose as pipeline ops.</li>
+</ul>
+<p>For each of these, hand-rolling a sequence costs ~40 LOC; using the pipeline framework costs ~10 LOC + you get telemetry, dependency resolution, and error reporting for free.</p>
+
+<h3>What to codify</h3>
+<ul>
+  <li>Document the pipeline framework as a <strong>reusable pattern</strong>, not just a face-clustering thing, in <code>docs/architecture/pipeline_framework.md</code>.</li>
+  <li>Add a "When to reach for the pipeline framework" decision matrix: "if your operation has 3+ sequential stages with named inputs/outputs, use it."</li>
+  <li>Refactor <code>load_pipeline_result</code> as a small example. This is the proof-of-concept that the framework works beyond clustering.</li>
+</ul>
+
+<hr/>
+
+<h2 id="C2">C2. Forward-only idempotent migrations <span class="pill new">ADOPT</span></h2>
+
+<h3>What we have today</h3>
+<p>Two examples of migration logic:</p>
+<ul>
+  <li><strong>DB schema migrations</strong> (<code>face_cluster/run_history_db.py</code>): idempotent ALTER TABLE pattern — check if a column exists; add it if not. Forward-only. Survives multiple invocations. Works.</li>
+  <li><strong>Profile-format migration</strong> (<code>scripts/migrate_fc_profiles.py</code>): one-shot loader that backs up <code>.v1.json</code> + rewrites in the new shape. Idempotent (backup-presence detection). Works.</li>
+</ul>
+<p>Two different shapes; two different conventions. No standard.</p>
+
+<h3>Why it matters going forward</h3>
+<p>Several things in this repo evolve their on-disk format over time: face_clustering.db schema, run profiles, action_log columns, output dir contents. Today every migration is bespoke. With a standard pattern, the next migration is a fill-in-the-blanks template.</p>
+
+<h3>The standard</h3>
+<p>One pattern, three rules:</p>
+<ol>
+  <li><strong>Forward-only</strong>: no rollback. Migrations move data from format N to N+1; reverse goes through restore-from-backup.</li>
+  <li><strong>Idempotent</strong>: running the migration twice produces the same end state as running it once. Either via "is current shape?" detection or via the "have I migrated this already?" marker (backup file presence, schema version column, etc.).</li>
+  <li><strong>Backup before mutate</strong>: every destructive migration writes a backup of the prior state alongside the new one. Backup is the rollback story.</li>
+</ol>
+<p>Pattern template:</p>
+<pre>def migrate_one(thing) -> Literal["migrated", "already_current", "invalid"]:
+    if not parseable(thing): return "invalid"
+    if is_already_current(thing): return "already_current"
+    backup(thing)
+    convert_in_place(thing)
+    return "migrated"</pre>
+
+<h3>What to codify</h3>
+<p>Document in <code>docs/architecture/migrations.md</code> with the two existing examples (DB schema, profile JSON) as canonical references. Add to CLAUDE.md §General: <em>"When changing the shape of persisted data, the migration follows the forward-only / idempotent / backup pattern."</em></p>
+
+<hr/>
+
+<h2 id="C3">C3. Service-level telemetry mirroring step in/out <span class="pill new">ADOPT</span></h2>
+
+<h3>What we have today</h3>
+<p>Pipeline steps log a uniform <code>in[...] -> out[...] (Xms)</code> line per step (spec-041 follow-up). Diagnosing a pipeline failure is one grep. Service methods don't have an equivalent.</p>
+
+<h3>Why it matters going forward</h3>
+<p>When a Streamlit tab does something unexpected, the post-mortem question is: "what did the service return / raise?" Today: read the source, infer. With service-level telemetry: read the log.</p>
+
+<h3>The standard</h3>
+<p>A simple decorator added to every service method:</p>
+<pre>@logged_service_method
+def list_runs(self, query: HistoryQuery) -> list[RunRow]:
+    ...
+
+// emits (at INFO):
+// HistoryService.list_runs(query=HistoryQuery(album='Budapest')) -> 8 results (4ms)
+// HistoryService.update_comment(run_id=42, comment='[34 chars]') -> None (2ms)
+// HistoryService.get_run_detail(run_id=99) -> NotFoundError: No run with id=99</pre>
+
+<p>The decorator inspects:</p>
+<ul>
+  <li>Method name + class</li>
+  <li>Arguments (with long string redaction)</li>
+  <li>Return: shape (list length, dataclass name, or None)</li>
+  <li>Or the exception type and user_message (if a <code>ServiceError</code>)</li>
+  <li>Elapsed wall-clock</li>
+</ul>
+
+<h3>Why it earns its keep</h3>
+<p>For free, every service call appears in <code>logs/&lt;ts&gt;/&lt;surface&gt;.log</code> (the aligned logging from spec-041). When the user reports "the Load button didn't do anything," we look at the log and see exactly what arguments the click triggered, what the service returned, and whether session_state got written. No instrumentation per tab.</p>
+
+<h3>What to codify</h3>
+<p>Add the decorator to <code>face_cluster/views/_telemetry.py</code>; wrap every <code>*Service</code> method going forward. Document in <code>spec-042 §4.2</code>'s service contract as binding.</p>
+
+<hr/>
+
+<h2 id="C4">C4. Visual mockup before code <span class="pill new">ADOPT</span></h2>
+
+<h3>What we have today</h3>
+<p>HISTORY_TAB_PRD §3 has an ASCII mockup of the full History tab layout. It anchored the implementation: every section in the mockup corresponded to a component in the rebuild. No "what should this look like" debates during coding.</p>
+
+<h3>Why it matters going forward</h3>
+<p>Spec drift is the #1 cause of "I built it but it doesn't look like the user wanted." A mockup in the spec resolves the visual contract <em>before</em> the implementer touches Streamlit. Reviewers can react to the mockup; the implementer treats the mockup as the spec.</p>
+
+<h3>The standard</h3>
+<p>Every UI-touching spec includes an ASCII mockup of every tab/page/region it adds. The mockup shows:</p>
+<ul>
+  <li>Section headers + dividers</li>
+  <li>Widget placements (column layout, expander state, button positions)</li>
+  <li>Sample data shape (not full content, but enough to convey what fields populate which slot)</li>
+  <li>Interaction notes ("clicking row → opens detail below")</li>
+</ul>
+<p>ASCII is preferred over screenshots/PNGs because (1) it's diffable, (2) it's editable in markdown, (3) it forces clarity at the conceptual level (which sections exist, which order) rather than pixel-level.</p>
+
+<h3>What to codify</h3>
+<p>Add to <code>WORKFLOW.md</code>'s spec.md template: <em>"If the spec touches UI: include a §3 Visual Specification with an ASCII mockup per region."</em> Add to Code Review §7 the explicit question: <em>"For each UI region in the spec, can you point at the mockup that anchored it? If not, that's spec drift."</em></p>
+
+<hr/>
+
+<h2>Closing thoughts</h2>
+
+<div class="callout">
+<strong>None of these are revolutions.</strong> Each item is a small refinement to a pattern that already works on one example (FCParams, ColumnSpec, step telemetry, idempotent ALTER) and generalizes it to "this is how we do this kind of thing." The win is compounding: every future tab / service / migration / arch test follows a documented pattern instead of inventing one.
+</div>
+
+<p><strong>Suggested implementation slot:</strong> spec-043 — "Architecture Standards Codification." A documentation-heavy spec with small enabling code changes:</p>
+<ul>
+  <li>A1–A5: documentation updates (CLAUDE.md, WORKFLOW.md, docs/architecture/overview.md, docs/guides/CODE_REVIEW_CHECKLIST.md). ~3 hours.</li>
+  <li>B1–B4: code defect fixes + arch tests. ~4 hours.</li>
+  <li>C1–C4: new patterns documented + at least one concrete example per pattern. ~6 hours.</li>
+</ul>
+<p>Net: ~13 hours over 1-2 days. Pays back on the next eight tabs in spec-042 plus everything after.</p>
+
+<p><strong>If we don't do this:</strong> every future spec re-invents the same decisions. The History tab pilot was deliberate about its patterns — the next tab could be sloppy without anything catching it. Codification keeps the architectural decisions enforced at PR time.</p>
+
+</body>
+</html>

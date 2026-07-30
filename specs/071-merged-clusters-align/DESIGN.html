@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec-071 — Merged Clusters alignment · Design</title>
+<style>
+  :root{--bg:#0f1115;--panel:#171a21;--panel2:#1e222b;--ink:#e6e9ef;--mut:#9aa3b2;
+    --line:#2a2f3a;--accent:#5b9dff;--ok:#5fd29b;--bad:#ef6f6f;--warn:#e0a458;
+    --mono:Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:24px 30px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#141821,#0f1115)}
+  h1{margin:0 0 4px;font-size:21px} .sub{color:var(--mut);font-size:13px}
+  main{max-width:1060px;margin:0 auto;padding:8px 24px 80px}
+  section{margin:30px 0;border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}
+  section>h2{margin:0;padding:13px 20px;font-size:15px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  section>h2 .n{color:var(--accent);margin-right:8px}
+  .body{padding:20px} p{color:var(--mut);margin:0 0 14px}
+  pre{background:#0c0e13;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow:auto;font:12.5px/1.5 var(--mono);color:#cdd6e4}
+  .flow{white-space:pre;font:12.5px/1.5 var(--mono);color:#cdd6e4;background:#0c0e13;border:1px solid var(--line);border-radius:8px;padding:16px;overflow:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2)} td{color:var(--mut)}
+  /* mock */
+  .mock{background:#fff;color:#1b1f27;border-radius:10px;padding:18px 20px;font:14px/1.5 "Segoe UI",Roboto,sans-serif}
+  .mock .mtabs{display:flex;gap:16px;border-bottom:1px solid #e7e9ee;padding-bottom:8px;font-size:12.5px;color:#5a6473;flex-wrap:wrap}
+  .mock .mtabs .active{color:#e5484d;border-bottom:2px solid #e5484d;padding-bottom:8px;font-weight:600}
+  .mock h3{margin:14px 0 6px;font-size:19px}
+  .strip{display:flex;gap:22px;margin:8px 0 14px;font-size:13px}
+  .strip b{font-size:18px;display:block}
+  .row2{display:grid;grid-template-columns:1fr 1.2fr;gap:16px}
+  .tbl{border:1px solid #e7e9ee;border-radius:8px;font-size:12px}
+  .tbl .r{display:grid;grid-template-columns:34px 34px 60px 70px;gap:6px;padding:6px 8px;border-bottom:1px solid #eef0f4}
+  .tbl .r.h{font-weight:700;color:#5a6473;background:#fafbfc}
+  .tbl .r.sel{background:#eef4ff}
+  .panel{border:1px solid #e7e9ee;border-radius:8px;padding:12px}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+  .b{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px}
+  .b.ok{background:#e3f6ec;color:#1f9d63} .b.no{background:#fbe3e3;color:#c0392b}
+  .nums{font:11.5px/1.5 var(--mono);color:#5a6473;margin-bottom:10px}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .clbox{border:1px solid #e7e9ee;border-radius:8px;padding:8px}
+  .clbox .t{font-size:11px;color:#7b8493;margin-bottom:6px;font-weight:600}
+  .thumbs{display:flex;gap:5px;flex-wrap:wrap}
+  .th{width:42px;height:42px;border-radius:5px;background:linear-gradient(135deg,#dfe4ec,#eef1f6);
+    display:flex;align-items:center;justify-content:center;color:#aab2c0;font-size:9px}
+  .note{border-left:3px solid var(--accent);padding:8px 14px;background:#121723;color:#bcc6d8;border-radius:0 8px 8px 0;font-size:13px;margin:12px 0}
+  .tag{font:11px var(--mono);padding:2px 7px;border-radius:5px;border:1px solid var(--line)}
+  .out{color:var(--bad)} .in{color:var(--ok)}
+</style>
+</head>
+<body>
+<header>
+  <h1>spec-071 — Align Merged Clusters with V1 Merge Analysis</h1>
+  <div class="sub">Scope: A (gate/threshold review) + B (visual pair crops). Approval / ML / remerge out.</div>
+</header>
+<main>
+
+<!-- 1 MOCK -->
+<section><h2><span class="n">1.</span>Mock</h2><div class="body">
+  <p>Same tab, enriched: summary strip on top, the merge table on the left, and
+     on select a structured panel (gate badges + numbers + the two clusters' faces).</p>
+  <div class="mock">
+    <div class="mtabs"><span>Cluster Analysis</span><span>Face Analysis</span>
+      <span>Face Metrics</span><span class="active">Merged Clusters</span><span>Quality</span><span>Recluster</span></div>
+    <h3>Merged Clusters</h3>
+    <div class="strip">
+      <span>merges <b style="color:#1f9d63">12</b></span>
+      <span>rejected <b style="color:#c0392b">7</b></span>
+      <span>top reject gate <b style="font-size:15px">margin</b></span>
+      <span style="margin-left:auto"><span class="tag">filter: all ▾</span></span>
+    </div>
+    <div class="row2">
+      <div class="tbl">
+        <div class="r h"><span>a</span><span>b</span><span>merged?</span><span>reason</span></div>
+        <div class="r sel"><span>3</span><span>7</span><span style="color:#c0392b">no</span><span>margin</span></div>
+        <div class="r"><span>1</span><span>4</span><span style="color:#1f9d63">yes</span><span>—</span></div>
+        <div class="r"><span>2</span><span>9</span><span style="color:#1f9d63">yes</span><span>—</span></div>
+        <div class="r"><span>5</span><span>8</span><span style="color:#c0392b">no</span><span>diameter</span></div>
+      </div>
+      <div class="panel">
+        <div style="font-weight:600;margin-bottom:4px">Pair (cluster_a=3, cluster_b=7) — rejected</div>
+        <div class="badges">
+          <span class="b ok">cross ✓</span><span class="b ok">exemplar ✓</span>
+          <span class="b ok">support ✓</span><span class="b no">margin ✗</span>
+          <span class="b ok">diameter ✓</span>
+        </div>
+        <div class="nums">exemplar_dist=0.34 &nbsp; T_global=0.38 &nbsp; support=5/4<br>
+          margin_gap=0.01 (need ≥0.05) &nbsp; competitor=cluster 9<br>
+          post_diameter=0.61 &nbsp; max_allowed=0.70</div>
+        <div class="pair">
+          <div class="clbox"><div class="t">cluster_a · 5 faces</div><div class="thumbs">
+            <span class="th">a0</span><span class="th">a1</span><span class="th">a2</span><span class="th">a3</span><span class="th">a4</span></div></div>
+          <div class="clbox"><div class="t">cluster_b · 4 faces</div><div class="thumbs">
+            <span class="th">b0</span><span class="th">b1</span><span class="th">b2</span><span class="th">b3</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">The badge strip answers "which gate killed this merge?" at a glance;
+    the face pair answers "were these actually the same person?" — the two questions
+    V1's Merge Analysis existed to answer.</div>
+</div></section>
+
+<!-- 2 DESIGN -->
+<section><h2><span class="n">2.</span>Design — Frontend / Backend</h2><div class="body">
+  <div class="flow">FRONTEND  app/face_clustering_v2/tabs/merged_clusters_tab.py  (enrich; stays a thin orchestrator)
+  summary strip (st.columns metrics)            <- service.summary()
+  filter + table (existing)                      <- service.list_merge_decisions(criteria)
+  on row select -> detail panel:
+    components/merge_gate_badges.py  (✓/✗ per gate + value vs threshold)   <- MergeDecisionRow
+    components/cluster_pair_crops.py (two clusters' faces side by side)    <- service.pair_faces(row)
+        v
+BACKEND   face_cluster/views/merged_clusters.py  (extend MergedClustersService)
+  .list_merge_decisions(criteria)  [exists] -> MergeDecisionRow (already carries gate flags)
+  .summary()                       [new]    -> MergeReviewSummary (n_merged / n_rejected / top gate)
+  .pair_faces(row)                 [new]    -> PairFaces (cluster_a/b face_ids + crop paths)
+        |  reads only:
+        |   repo.get_merge_log()                          (rows)
+        |   repo.find_assignments(iteration=row.iteration) (faces of cluster_a / cluster_b pre-merge)
+        |   face_cluster.run_layout.crop_path             (thumbnails)
+        v
+REPO  ClusterAnalysisRepository / RunStore  — EXISTING, no new methods, no DB change.</div>
+  <p style="margin-top:14px">Gate badges read fields already on <code>MergeDecisionRow</code>.
+     The only genuinely new read is resolving each cluster's faces at the pair's
+     <em>iteration</em> (pre-merge ids) — <code>find_assignments</code> already takes an iteration.</p>
+</div></section>
+
+<!-- 3 CONTRACTS -->
+<section><h2><span class="n">3.</span>Data Contracts</h2><div class="body">
+  <p><code>MergeDecisionRow</code> exists (spec-032/065) — listing the fields this tab reads.
+     Two small new dataclasses.</p>
+  <pre># EXISTING — fields consumed (no change):
+MergeDecisionRow:
+  iteration, cluster_a, cluster_b, cluster_a_size, cluster_b_size,
+  exemplar_dist, threshold_used, T_a, T_b, T_global,
+  support, unique_support, required_support,
+  post_diameter, max_allowed_diameter, margin_gap, margin_competitor_id,
+  passes_cross, passes_exemplar, passes_support, passes_margin, passes_diameter,
+  action, actually_merged, rejection_reason
+
+# NEW
+@dataclass(frozen=True, slots=True)
+class GateBadge:
+    name: str            # "cross" | "exemplar" | "support" | "margin" | "diameter"
+    passed: bool
+    detail: str          # e.g. "0.34 <= 0.38" / "gap 0.01 < 0.05"
+
+@dataclass(frozen=True, slots=True)
+class PairFaces:
+    cluster_a: int; cluster_b: int
+    a_face_ids: list[int]; b_face_ids: list[int]
+    a_crops: list[str]; b_crops: list[str]     # absolute crop paths
+
+@dataclass(frozen=True, slots=True)
+class MergeReviewSummary:
+    n_merged: int; n_rejected: int; top_rejection_gate: Optional[str]</pre>
+</div></section>
+
+<!-- 4 INTERFACES -->
+<section><h2><span class="n">4.</span>Interfaces</h2><div class="body">
+  <table>
+    <tr><th>Layer</th><th>Signature</th><th>Notes</th></tr>
+    <tr><td>Service</td><td><code>MergedClustersService.summary() -&gt; MergeReviewSummary</code></td><td>new; one pass over rows</td></tr>
+    <tr><td>Service</td><td><code>.gate_badges(row) -&gt; list[GateBadge]</code></td><td>new; pure mapping of row fields</td></tr>
+    <tr><td>Service</td><td><code>.pair_faces(row) -&gt; PairFaces</code></td><td>new; find_assignments(iteration) + crop_path</td></tr>
+    <tr><td>Service</td><td><code>.list_merge_decisions(criteria)</code></td><td>EXISTS — unchanged</td></tr>
+    <tr><td>Component</td><td><code>render_merge_gate_badges(badges)</code></td><td>new; ✓/✗ chips</td></tr>
+    <tr><td>Component</td><td><code>render_cluster_pair_crops(pair)</code></td><td>new; two thumbnail strips</td></tr>
+    <tr><td>Repo</td><td><code>get_merge_log()</code>, <code>find_assignments(iteration)</code>, <code>crop_path</code></td><td>all EXIST</td></tr>
+  </table>
+</div></section>
+
+<!-- 5 TEST -->
+<section><h2><span class="n">5.</span>Test — golden baseline (matches spec-069/070)</h2><div class="body">
+  <table>
+    <tr><th>Layer</th><th>Check</th></tr>
+    <tr><td>Service (synthetic)</td><td>gate_badges maps each passes_* flag + builds the value/threshold detail; summary counts; pair_faces returns the right face_ids for cluster_a/b at the row's iteration</td></tr>
+    <tr><td>AppTest (real run)</td><td>select a pair → badge strip + both crop strips render; filter preserved; telemetry tab.done; 0 exceptions on a run with merges (v2_budapest_*)</td></tr>
+    <tr><td><b>User sign-off</b></td><td>open the tab, pick a rejected pair, confirm the badges + faces tell the right story</td></tr>
+  </table>
+  <div class="note">No guessed thresholds — gate logic is read from the persisted decision,
+    not recomputed. Correctness = "the tab faithfully shows what the pipeline decided",
+    validated by synthetic unit tests + your eyeball.</div>
+</div></section>
+
+</main>
+</body>
+</html>

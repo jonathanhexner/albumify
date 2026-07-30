@@ -1,5 +1,7 @@
 # Tasks: Unified Pipeline Framework (040)
 
+> **⚠️ This checklist is the original 2026-05-16 plan; checkboxes were never updated as work shipped. For current phase status see `spec.md`'s Status table and `REVIEW.md`'s findings ledger. Both are authoritative; this file is kept for the original `T0xx` task ids and design notes.**
+
 ## Design Notes
 
 - **D1**: Sequential phases. Each phase ends with a green test suite + a checkpoint diff. No phase merges until the prior is stable.

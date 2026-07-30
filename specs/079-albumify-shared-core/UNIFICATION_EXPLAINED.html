@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Unification — Explained (spec-079)</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#171d26; --ink:#e6edf3; --mut:#8b98a9; --line:#2a3340;
+    --accent:#4f9dff; --good:#2ea043; --warn:#d29922; --bad:#f85149;
+    --mono:"Cascadia Code",Consolas,ui-monospace,monospace;
+    --sans:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;font-size:15px}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 28px 90px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.3px}
+  .sub{color:var(--mut);font-size:14px;margin-bottom:8px}
+  h2{font-size:20px;margin:46px 0 6px;padding-top:14px;border-top:1px solid var(--line)}
+  .q{color:var(--accent);font-weight:600;font-size:15px;margin:2px 0 14px}
+  p{margin:10px 0}
+  code{font-family:var(--mono);background:#0b0f14;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin:18px 0}
+  .fig .cap{color:var(--mut);font-size:12.5px;margin-top:10px;text-align:center}
+  .mermaid{display:flex;justify-content:center}
+  .key{background:#0b0f14;border-left:4px solid var(--accent);border-radius:6px;padding:12px 16px;margin:14px 0}
+  .key.bad{border-left-color:var(--bad)} .key.good{border-left-color:var(--good)}
+  b.g{color:var(--good)} b.w{color:var(--warn)} b.r{color:var(--bad)}
+  footer{margin-top:50px;border-top:1px solid var(--line);padding-top:16px;color:var(--mut);font-size:12px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Pipeline Unification — Explained Simply</h1>
+<div class="sub">spec-079 · branch <code>unification/spec-040</code> · 2026-06-19 · companion to <a href="UNIFICATION_STATUS.html">UNIFICATION_STATUS.html</a></div>
+
+<!-- ===================== THE GOAL ===================== -->
+<h2>1 · What we are trying to achieve</h2>
+<p class="q">Two apps, one brain. The same config should give the same people — no matter which app you run.</p>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart LR
+    CFG["Same config<br/>(profile_5)"]
+    CFG --> FC["Face-Clustering v2"]
+    CFG --> AB["Albumify"]
+    FC --> R1["8 identities<br/>ANCHOR = correct"]
+    AB --> R2["20 identities<br/>WRONG"]
+    style R1 fill:#16331c,stroke:#2ea043,color:#b7f0c6
+    style R2 fill:#3a1518,stroke:#f85149,color:#ffc2c2
+    style CFG fill:#1d2530,stroke:#4f9dff,color:#e6edf3
+</pre>
+<div class="cap">Figure 1 — The acceptance property. Today it fails: identical config, different answers.</div>
+</div>
+
+<!-- ===================== THREE LAYERS ===================== -->
+<h2>2 · The work splits into 3 layers — and they're at 3 different maturities</h2>
+<p class="q">Conflating these is exactly why it felt "almost done" when it wasn't.</p>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart TB
+    L1["LAYER 1 — EXECUTION&nbsp;&nbsp;·&nbsp;&nbsp;how a pipeline runs<br/>One shared execute_spec(). Both apps route through it."]
+    L2["LAYER 2 — CONFIG&nbsp;&nbsp;·&nbsp;&nbsp;how the frontend talks to the pipeline<br/>FC v2 sends typed FCParams. Albumify still sends untyped dicts."]
+    L3["LAYER 3 — STEP CHAIN&nbsp;&nbsp;·&nbsp;&nbsp;what steps actually run<br/>Different step lists. THE BEHAVIORAL GAP LIVES HERE."]
+    L1 --> L2 --> L3
+    style L1 fill:#16331c,stroke:#2ea043,color:#b7f0c6
+    style L2 fill:#3a2e10,stroke:#d29922,color:#ffe2a3
+    style L3 fill:#3a1518,stroke:#f85149,color:#ffc2c2
+</pre>
+<div class="cap">Figure 2 — Green = done · Amber = partial · Red = open. The gap is in Layer 3.</div>
+</div>
+
+<p><b class="g">Layer 1 is genuinely shipped.</b> There is one runner. Both apps build a <code>PipelineSpec</code>, hand it to <code>execute_spec()</code>, and only differ in where they save results (FC v2 → run dir, Albumify → people DB). That seam is correct.</p>
+
+<!-- ===================== ROOT CAUSE ===================== -->
+<h2>3 · The root cause — in one picture</h2>
+<p class="q">The clustering code is identical. The two apps just feed it a different set of faces. The extra faces sneak in because pose data went missing.</p>
+
+<div class="fig">
+<pre class="mermaid">
+sequenceDiagram
+    participant Det as insightface detector
+    participant Br as face_cluster_bridge<br/>(Albumify only)
+    participant FR as FaceRecord
+    participant Gate as pose gate (yaw≤30, pitch≤25)
+
+    Det->>Br: pose = [yaw,pitch,roll] LIST<br/>key = forward/slash/path
+    Note over Br: bug 1 · looks up by back\slash path → MISS
+    Note over Br: bug 2 · reads 'pose_scores' dict → MISS
+    Br->>FR: pose = None  (for EVERY face)
+    FR->>Gate: face with no pose
+    Note over Gate: permissive when pose absent →<br/>passes 53 off-angle faces it should reject
+    Gate-->>FR: core set 133 → 186
+</pre>
+<div class="cap">Figure 3 — Albumify's pose data never reached the gate. Two plumbing bugs: wrong path key + wrong field shape.</div>
+</div>
+
+<div class="key bad">
+<b>The 53 faces ARE the whole gap.</b> FC v2's gate rejects 53 off-angle faces (46 yaw + 7 pitch). Albumify rejected <b>zero</b> — not because the knob was missing (it was set), but because <code>FaceRecord.pose</code> was <code>None</code>, so the gate had nothing to act on. Same images, same gate config, no input data.
+</div>
+
+<!-- ===================== NUMBERS ===================== -->
+<h2>4 · Where the numbers stand</h2>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart LR
+    A["FC v2 anchor<br/><b>8 identities</b>"]:::good
+    B["Albumify + WIP fix<br/><b>13 identities</b>"]:::warn
+    C["Albumify committed<br/><b>20 identities</b>"]:::bad
+    C -->|"bridge fix:<br/>plumb pose + fix path key"| B
+    B -->|"still blocked by<br/>blur_min pinned to 0.0"| A
+    classDef good fill:#16331c,stroke:#2ea043,color:#b7f0c6
+    classDef warn fill:#3a2e10,stroke:#d29922,color:#ffe2a3
+    classDef bad fill:#3a1518,stroke:#f85149,color:#ffc2c2
+</pre>
+<div class="cap">Figure 4 — The uncommitted fix closes most of the gap (20→13). It can't reach 8 yet: Albumify has no blur-scoring step, so the blur gate is pinned off.</div>
+</div>
+
+<!-- ===================== ROADMAP ===================== -->
+<h2>5 · What's left to do</h2>
+<p class="q">Lock the target first (a test that fails today), then close the two producer gaps, then delete the old code.</p>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart TB
+    S1["STAGE 1 · Commit a RED equivalence test<br/>same profile through BOTH apps → assert equal. The executable 'done'."]
+    S2["STAGE 2 · Add blur-scoring to the shared producer chain<br/>un-pin blur_min=0.0"]
+    S3["STAGE 3 · Produce pose into FaceRecord at the DETECTOR<br/>(not the soon-deleted bridge) → both apps benefit"]
+    S4["STAGE 4 · Make FCParams the single typed contract<br/>retire Albumify's subset config"]
+    S5["STAGE 5 · Delete face_cluster_bridge + monolithic cluster_people"]
+    S1 --> S2 --> S3 --> S4 --> S5
+    style S1 stroke:#4f9dff,color:#e6edf3,fill:#1d2530
+    style S2 stroke:#d29922,color:#ffe2a3,fill:#1d2530
+    style S3 stroke:#d29922,color:#ffe2a3,fill:#1d2530
+    style S4 stroke:#8b98a9,color:#c8d3e0,fill:#1d2530
+    style S5 stroke:#8b98a9,color:#c8d3e0,fill:#1d2530
+</pre>
+<div class="cap">Figure 5 — Sequence matters: the RED test defines the target before any fix re-baselines the goldens.</div>
+</div>
+
+<!-- ===================== MODULE MAP ===================== -->
+<h2>6 · Module map — which file belongs to which layer, and which are healthy</h2>
+<p class="q">Green = shared &amp; correct (keep). Amber = app-specific, must converge. Red = the bug / delete-me code.</p>
+
+<div class="fig">
+<pre class="mermaid">
+flowchart TB
+    subgraph FE["FRONTEND ADAPTERS — thin, one per app"]
+        F1["FC v2<br/>app/face_clustering_v2/pipeline.py<br/>run_v2_pipeline()"]:::good
+        F2["Albumify<br/>api/services/pipeline_service.py:167<br/>execute_pipeline()"]:::good
+    end
+    subgraph L2["LAYER 2 · CONFIG LANGUAGE"]
+        C1["face_cluster/fc_params.py<br/>FCParams — the intended single contract"]:::warn
+        C2["steps/configs/cluster_people.py<br/>ClusterPeopleConfig — SUBSET, to retire"]:::bad
+    end
+    subgraph L1["LAYER 1 · CONFIG-AS-DATA + ENGINE  (shared, shipped)"]
+        S1["pipeline/spec.py<br/>PipelineSpec + validate_spec"]:::good
+        S2["pipeline/run.py<br/>execute_spec()  ← the one engine"]:::good
+        S3["executor.py · registry.py · context.py<br/>run loop · step lookup · shared state"]:::good
+    end
+    subgraph L3["LAYER 3 · STEP CHAIN"]
+        P1["PRODUCERS (shared)<br/>detect_persons · insightface_detect_faces<br/>detect_face_orientation · align_faces · extract_face_embeddings"]:::good
+        K1["FC v2 clustering (reference)<br/>fc_app_runner.py · UNIFIED_CLUSTERING_STEPS (8)"]:::good
+        K2["Albumify clustering (divergent)<br/>configs/pipeline.yaml → cluster_people<br/>→ face_cluster_bridge.py  ← POSE-DROP BUG"]:::bad
+    end
+    subgraph PER["LAYER 4 · PERSISTENCE  (per-app by design — correct)"]
+        D1["FC v2<br/>run_db/exporter.py · RunExporter"]:::good
+        D2["Albumify<br/>api/services/people_service.py"]:::good
+    end
+    F1 --> C1
+    F2 --> C2
+    C1 --> S1
+    C2 --> S1
+    S1 --> S2 --> S3 --> P1
+    P1 --> K1
+    P1 --> K2
+    K1 --> D1
+    K2 --> D2
+    classDef good fill:#16331c,stroke:#2ea043,color:#b7f0c6
+    classDef warn fill:#3a2e10,stroke:#d29922,color:#ffe2a3
+    classDef bad fill:#3a1518,stroke:#f85149,color:#ffc2c2
+</pre>
+<div class="cap">Figure 6 — Notice both apps already merge at <code>spec.py</code>. The only forks left are the amber config and the red Albumify clustering branch.</div>
+</div>
+
+<table style="width:100%;border-collapse:collapse;font-size:13px;margin:14px 0">
+  <tr style="color:var(--mut);text-align:left"><th style="padding:8px;border-bottom:1px solid var(--line)">Layer</th><th style="padding:8px;border-bottom:1px solid var(--line)">Module</th><th style="padding:8px;border-bottom:1px solid var(--line)">Verdict</th></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">Frontend</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>app/face_clustering_v2/pipeline.py</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="g">GOOD — thin adapter</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">Frontend</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>api/services/pipeline_service.py</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="g">GOOD — thin adapter</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">2 · Config</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>face_cluster/fc_params.py</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="w">PARTIAL — FC v2 only; make it the one contract</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">2 · Config</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>steps/configs/cluster_people.py</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="r">BAD — subset config, retire it</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">1 · Spec</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>pipeline/spec.py</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="g">GOOD — shared, shipped</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">1 · Engine</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>pipeline/run.py</code> · <code>executor.py</code> · <code>registry.py</code> · <code>context.py</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="g">GOOD — the one engine</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">3 · Producers</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>steps/detect_persons.py</code> … <code>extract_face_embeddings.py</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="g">GOOD — shared</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">3 · Clustering</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>face_cluster/fc_app_runner.py</code> (8 unified steps)</td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="g">GOOD — reference chain</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">3 · Clustering</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>steps/face_cluster_bridge.py</code> + monolithic <code>cluster_people</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="r">BAD — pose-drop bug lives here; delete in Stage 5</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">3 · Producer (durable fix)</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>steps/insightface_detect_faces.py</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="w">TARGET — land pose here so both apps get it</b></td></tr>
+  <tr><td style="padding:7px;border-bottom:1px solid var(--line)">4 · Persistence</td><td style="padding:7px;border-bottom:1px solid var(--line)"><code>run_db/exporter.py</code> · <code>api/services/people_service.py</code></td><td style="padding:7px;border-bottom:1px solid var(--line)"><b class="g">GOOD — per-app by design</b></td></tr>
+</table>
+
+<div class="key">
+<b>How to read health:</b> a module is <b class="g">good</b> when both apps share it (engine, spec, producers, the 8-step chain) or it's correctly app-specific (persistence). It's <b class="w">amber</b> when it's the right destination but only one app uses it yet (<code>FCParams</code>). It's <b class="r">bad</b> when it's a duplicate/divergent path that must be removed (<code>ClusterPeopleConfig</code>, <code>face_cluster_bridge.py</code>).
+</div>
+
+<div class="key good">
+<b>Headline:</b> Execution is unified and shipped (real progress). The product-visible goal — <i>same config → same people</i> — is <b>not</b> met yet (verified: 8 vs 20). The durable fix belongs in the detector, not the bridge. <b class="r">Do not commit the edited golden fixtures</b> — they re-baseline "correct" to 13 and would bless a wrong state.
+</div>
+
+<footer>
+Verified against HEAD <code>051f4df</code> + uncommitted WIP on <code>unification/spec-040</code>. Numbers (8 / 13 / 20 / 53 / 133 / 186) from CHANGES_LOG Stage 0–0c, SIGHTING-096, and the WIP summary diff. The full real-album E2E was not re-run here.
+</footer>
+
+<script>mermaid.initialize({startOnLoad:true,theme:"dark",themeVariables:{fontFamily:"Segoe UI, sans-serif",fontSize:"14px"}});</script>
+</div>
+</body>
+</html>

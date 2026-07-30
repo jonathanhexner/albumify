@@ -1,6 +1,7 @@
 """Quality gating for face clustering - blur and pose filtering."""
 
 import logging
+from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
 import numpy as np
 import cv2
@@ -8,8 +9,33 @@ from PIL import Image
 
 from face_cluster.types import FaceRecord, GateResult, QualityVerdict
 from face_cluster.config import PipelineConfig
+from sim_bench.quality_assessment.noise_robust import noise_robust_laplacian_var
 
 logger = logging.getLogger(__name__)
+
+
+# spec-053: typed boundary for QualityGater.calc(). Inputs/Result are
+# deliberately small — NOT a PipelineContext. The pipeline step is the
+# only place that knows both worlds.
+
+@dataclass(frozen=True, slots=True)
+class QualityGateInputs:
+    """Per-call data for QualityGater.calc()."""
+    faces: List[FaceRecord]
+
+
+@dataclass(frozen=True, slots=True)
+class QualityGateResult:
+    """Output of QualityGater.calc().
+
+    ``faces`` is the SAME list passed in, mutated in place with computed
+    blur scores (and optionally pose) before gating. Callers should
+    treat this as authoritative for the post-gating face state.
+    """
+    core_indices: List[int]
+    holdout_indices: List[int]
+    verdicts: List[QualityVerdict]
+    faces: List[FaceRecord]
 
 
 class PoseEstimator:
@@ -94,11 +120,41 @@ class QualityGater:
         self.config = config
         self.use_pose_estimation = use_pose_estimation
         self.pose_estimator = PoseEstimator(device) if use_pose_estimation else None
+        # spec-041 follow-up — symmetric to the pose gate's vacuous-pass.
+        # When the producer chain doesn't populate blur_score (it's 0.0 for
+        # every face), select_core_set will bypass blur_min for the run
+        # and emit a WARNING. ``None`` means "use self.config.blur_min".
+        self._effective_blur_min: Optional[float] = None
+
+    def calc(self, inputs: QualityGateInputs) -> QualityGateResult:
+        """Single pipeline entry point (spec-053).
+
+        Composes ``compute_blur_scores → [compute_pose_scores] →
+        select_core_set`` in the correct order. Pipeline steps MUST
+        use this method rather than calling the individual methods —
+        that's how the spec-053 ``filter_quality_gate`` /
+        ``quality_gate_faces`` divergence (one forgot to compute blur)
+        becomes impossible by construction.
+
+        The individual methods stay public for notebook callers that
+        need finer control.
+        """
+        faces = self.compute_blur_scores(inputs.faces)
+        if self.use_pose_estimation:
+            faces = self.compute_pose_scores(faces)
+        core, holdout, verdicts = self.select_core_set(faces)
+        return QualityGateResult(
+            core_indices=list(core),
+            holdout_indices=list(holdout),
+            verdicts=verdicts,
+            faces=faces,
+        )
 
     def compute_blur_scores(self, faces: List[FaceRecord]) -> List[FaceRecord]:
         """Compute blur scores for all faces.
 
-        Uses variance of Laplacian on aligned face crop.
+        Uses noise-robust variance of Laplacian on aligned face crop (spec-098:
+        3x3 median blur first, so sensor grain no longer reads as sharpness).
 
         Args:
             faces: List of FaceRecord objects
@@ -123,10 +179,8 @@ class QualityGater:
             else:
                 gray = img
 
-            # Compute Laplacian variance
-            laplacian = cv2.Laplacian(gray, cv2.CV_64F)
-            variance = laplacian.var()
-            face.blur_score = variance
+            # Compute noise-robust Laplacian variance (spec-098)
+            face.blur_score = noise_robust_laplacian_var(gray)
 
         logger.info(f"Computed blur scores for {len(faces)} faces")
         return faces
@@ -181,15 +235,61 @@ class QualityGater:
             f"Selected {len(candidate_set)} candidates from "
             f"{len(faces)} faces (top {self.config.max_faces_per_image_core} per image)"
         )
-        logger.info(
-            f"Pose angle filter: ACTIVE (InsightFace 1k3d68), "
-            f"yaw<={self.config.yaw_max}, pitch<={self.config.pitch_max}, "
-            f"roll<={self.config.roll_max}, require_pose={self.config.require_pose}"
-        )
+        # spec-041 follow-up #3: tell the truth about the pose gate's
+        # current state. The InsightFace producer chain does NOT populate
+        # FaceRecord.pose today — no `extract_face_pose` step exists yet.
+        # With pose universally None, this gate can only REJECT (when
+        # require_pose=True) or pass vacuously (when False). The thresholds
+        # are inert until a producer step lands. Tracked as a sighting.
+        n_with_pose = sum(1 for f in faces if f.pose is not None)
+        if n_with_pose == 0:
+            logger.warning(
+                "Pose gate: NOT WIRED — face.pose is None for all %d faces "
+                "(no producer step extracts yaw/pitch/roll today). With "
+                "require_pose=%s, the gate will %s every face. "
+                "Thresholds yaw<=%s pitch<=%s roll<=%s are inert until an "
+                "extract_face_pose step exists.",
+                len(faces), self.config.require_pose,
+                "REJECT" if self.config.require_pose else "vacuously pass",
+                self.config.yaw_max, self.config.pitch_max, self.config.roll_max,
+            )
+        else:
+            logger.info(
+                "Pose gate: ACTIVE on %d/%d faces (yaw<=%s, pitch<=%s, "
+                "roll<=%s, require_pose=%s)",
+                n_with_pose, len(faces),
+                self.config.yaw_max, self.config.pitch_max,
+                self.config.roll_max, self.config.require_pose,
+            )
+
+        # spec-041 follow-up — same diagnosis as pose, but for blur. The
+        # InsightFace producer chain has no blur scorer, so every face's
+        # ``blur_score`` is the default 0.0. With ``blur_min=50.0`` (the
+        # FCConfig default) the gate then rejects every face. Detect the
+        # condition, log loudly, and override ``blur_min`` to 0 for this
+        # run so the threshold is inert when there's no data — matching
+        # the pose gate's vacuous-pass behavior. Tracked as SIGHTING-068.
+        n_with_blur = sum(1 for f in faces if f.blur_score > 0.0)
+        if n_with_blur == 0 and self.config.blur_min > 0:
+            logger.warning(
+                "Blur gate: NOT WIRED — face.blur_score is 0.0 for all %d "
+                "faces (no producer step computes blur today). Threshold "
+                "blur_min=%s would reject every face; bypassing it for "
+                "this run. Add an insightface_score_blur step to enable.",
+                len(faces), self.config.blur_min,
+            )
+            self._effective_blur_min = 0.0
+        else:
+            self._effective_blur_min = self.config.blur_min
 
         core_indices: List[int] = []
         holdout_indices: List[int] = []
         verdicts: List[QualityVerdict] = []
+        # spec-041 follow-up — per-gate rejection counters. When 0 candidates
+        # survive, emit a WARNING with the breakdown so the user sees which
+        # gate caused the failure without grepping per-face debug logs.
+        # Tracked as SIGHTING-069.
+        gate_rejections: Dict[str, int] = {}
 
         for i, face in enumerate(faces):
             if i not in candidate_set:
@@ -208,11 +308,30 @@ class QualityGater:
             else:
                 holdout_indices.append(i)
                 logger.debug(f"Face {face.face_id}: holdout ({verdict.rejection_reason})")
+                for gate_name, gate_result in verdict.gates.items():
+                    if not gate_result.passed:
+                        gate_rejections[gate_name] = gate_rejections.get(gate_name, 0) + 1
 
         logger.info(
             f"Quality gating: {len(core_indices)} core, "
             f"{len(holdout_indices)} holdout faces"
         )
+
+        # If everything got rejected, dump the per-gate breakdown so the
+        # post-mortem is one log line, not a code archaeology session.
+        if len(core_indices) == 0 and len(candidate_set) > 0:
+            n_candidates = len(candidate_set)
+            breakdown = ", ".join(
+                f"{name}={count}/{n_candidates}"
+                for name, count in sorted(gate_rejections.items(), key=lambda kv: -kv[1])
+                if count > 0
+            ) or "(none — top-K-per-image dropped them before gate evaluation)"
+            logger.warning(
+                "Quality gate rejected ALL %d candidates. Per-gate rejection "
+                "(faces failing each gate; a face may fail multiple): %s",
+                n_candidates, breakdown,
+            )
+
         return core_indices, holdout_indices, verdicts
 
     # ------------------------------------------------------------------
@@ -238,6 +357,7 @@ class QualityGater:
         self._add_blur_gate(face, gates)
         self._add_pose_gates(face, gates)
         self._add_area_gate(face, gates)
+        self._add_area_pct_gate(face, gates)
         verdict = QualityVerdict(gates=gates, rejection_reason="top_k_per_image")
         face.quality_verdict = verdict
         face.rejection_reason = "top_k_per_image"
@@ -250,9 +370,10 @@ class QualityGater:
         self._add_blur_gate(face, gates)
         self._add_pose_gates(face, gates)
         self._add_area_gate(face, gates)
+        self._add_area_pct_gate(face, gates)
 
         # Priority order for rejection_reason (det_score first — most fundamental)
-        _priority = ("det_score", "blur", "pose_yaw", "pose_pitch", "area")
+        _priority = ("det_score", "blur", "pose_yaw", "pose_pitch", "area", "area_pct")
         rejection_reason = next(
             (name for name in _priority if name in gates and not gates[name].passed),
             None,
@@ -276,10 +397,19 @@ class QualityGater:
             )
 
     def _add_blur_gate(self, face: FaceRecord, gates: Dict[str, GateResult]) -> None:
+        # spec-041 follow-up — use the effective (run-time) blur threshold.
+        # When the producer chain doesn't populate blur_score for any face,
+        # select_core_set sets _effective_blur_min=0.0 so the gate passes
+        # vacuously instead of rejecting everything. See SIGHTING-068.
+        threshold = (
+            self._effective_blur_min
+            if self._effective_blur_min is not None
+            else self.config.blur_min
+        )
         gates["blur"] = GateResult(
             value=face.blur_score,
-            threshold=self.config.blur_min,
-            passed=face.blur_score >= self.config.blur_min,
+            threshold=threshold,
+            passed=face.blur_score >= threshold,
         )
 
     def _add_pose_gates(self, face: FaceRecord, gates: Dict[str, GateResult]) -> None:
@@ -303,3 +433,20 @@ class QualityGater:
             threshold=threshold,
             passed=face.area >= threshold,
         )
+
+    def _add_area_pct_gate(self, face: FaceRecord, gates: Dict[str, GateResult]) -> None:
+        """Gate on face bbox area as a % of the image (spec-073).
+
+        Resolution-independent complement to the pixel ``area`` gate. Skipped
+        when ``min_face_area_pct`` is None (disabled). Permissive (passes) when
+        the face has no ``area_ratio`` — don't penalise legacy runs that
+        predate the detection-time ratio."""
+        thr = getattr(self.config, "min_face_area_pct", None)
+        if thr is None:
+            return
+        ratio = getattr(face, "area_ratio", None)
+        if ratio is None:
+            gates["area_pct"] = GateResult(value=-1.0, threshold=thr, passed=True)
+        else:
+            pct = float(ratio) * 100.0
+            gates["area_pct"] = GateResult(value=pct, threshold=thr, passed=pct >= thr)

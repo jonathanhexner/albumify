@@ -25,7 +25,11 @@ class SelectBestPerPersonStep(BaseStep):
             category="selection",
             requires={"people_clusters"},
             produces={"people_thumbnails", "people_best_images"},
-            depends_on=["cluster_people"],
+            # spec-079 / SIGHTING-100: also depend on assign_people_clusters (the
+            # unified cluster producer) so this is ordered AFTER clustering;
+            # cluster_people kept for legacy pipelines. The dangling cluster_people
+            # dep alone let it run before people_clusters existed.
+            depends_on=["cluster_people", "assign_people_clusters"],
             config_schema={
                 "type": "object",
                 "properties": {
@@ -159,15 +163,18 @@ class SelectBestPerPersonStep(BaseStep):
             if scored_faces:
                 best_face, best_score = scored_faces[0]
                 thumbnails[cluster_id] = best_face
+                # spec-079 / SIGHTING-100: FaceRecord uses image_path; legacy
+                # faces used original_path. Support both.
+                best_path = getattr(best_face, 'original_path', None) or best_face.image_path
                 best_images[cluster_id] = {
-                    'image_path': str(best_face.original_path),
+                    'image_path': str(best_path),
                     'face_index': best_face.face_index,
                     'score': best_score,
                     'bbox': list(best_face.bbox) if best_face.bbox is not None else None
                 }
 
                 logger.debug(
-                    f"Person {cluster_id}: best face from {best_face.original_path} "
+                    f"Person {cluster_id}: best face from {best_path} "
                     f"(score={best_score:.3f})"
                 )
 

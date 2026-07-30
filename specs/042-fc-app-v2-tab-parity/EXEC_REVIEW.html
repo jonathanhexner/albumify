@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FC App v2 Rebuild — Executive Review (2026-05-28)</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1180px; margin: 1.5em auto; padding: 0 1.5em;
+         color: #222; line-height: 1.55; background:#fafbfc; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; margin-bottom: .1em; }
+  h1 + .subtitle { color:#666; font-style:italic; margin-top: 0; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .25em; margin-top: 2em; }
+  h3 { color: #1f5fc7; margin-top: 1.4em; }
+  table { border-collapse: collapse; margin: .7em 0; width: 100%;
+          font-size: 13px; background: #fff; }
+  th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left;
+           vertical-align: top; }
+  th { background: #f4f4f6; font-weight: 600; }
+  code { background:#eef0f4; padding: 1px 5px; border-radius: 3px;
+         font-size: 12px; font-family: Consolas, monospace; }
+  a { color: #1f5fc7; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .pill { display:inline-block; padding:1px 8px; border-radius:9px;
+          font-size:11px; font-weight:700; vertical-align: middle;
+          letter-spacing: .3px; }
+  .pill-done   { background:#cde9c8; color:#1d5e1d; }
+  .pill-prog   { background:#fff3cd; color:#856404; }
+  .pill-plan   { background:#dfe7f8; color:#1f5fc7; }
+  .pill-defer  { background:#eee;    color:#555; }
+
+  .sev-hi   { background:#ffe1e1; color:#7a1717; padding:1px 7px;
+              border-radius:9px; font-size:11px; font-weight:700; }
+  .sev-med  { background:#fff0d6; color:#7a4500; padding:1px 7px;
+              border-radius:9px; font-size:11px; font-weight:700; }
+  .sev-lo   { background:#e4eef5; color:#1f4a73; padding:1px 7px;
+              border-radius:9px; font-size:11px; font-weight:700; }
+
+  .tldr { background: #fffbe6; border:1px solid #e6d27a;
+          padding: 1em 1.2em; border-radius: 4px; margin: 1.2em 0;
+          font-size: 14.5px; }
+  .tldr ul { margin: .4em 0 0; padding-left: 1.4em; }
+
+  .callout { background: #f6f7fa; border-left: 4px solid #4a72c4;
+             padding: .7em 1em; margin: 1em 0; border-radius: 0 4px 4px 0;
+             font-size: 13.5px; }
+
+  .diagram { background: #fff; border: 1px solid #ddd; border-radius: 6px;
+             padding: 14px 16px; margin: 1em 0;
+             font-family: Consolas, monospace; font-size: 12.5px;
+             white-space: pre; overflow-x: auto; line-height: 1.45; }
+
+  .timeline {
+    display: grid; grid-template-columns: 110px 1fr; gap: 6px 16px;
+    align-items: baseline; margin: 1em 0;
+    font-size: 13.5px;
+  }
+  .timeline .date { color:#888; font-family: Consolas, monospace; font-size: 12px;
+                    padding-top: 3px; }
+  .timeline .event { background:#fff; border:1px solid #ddd;
+                     border-radius:4px; padding: 6px 10px; }
+
+  .metric-grid { display:grid; grid-template-columns: repeat(4, 1fr);
+                 gap: 10px; margin: 1em 0; }
+  .metric { background:#fff; border:1px solid #ddd; border-radius:6px;
+            padding: 10px 12px; text-align:center; }
+  .metric .num { font-size: 28px; font-weight: 700; color:#1f5fc7;
+                 display:block; }
+  .metric .label { font-size: 12px; color:#666; }
+
+  .toc { background:#fff; border:1px solid #ddd; padding: 8px 14px;
+         border-radius: 4px; margin: 1em 0; font-size: 14px; }
+  .toc a { margin-right: 14px; }
+</style>
+</head>
+<body>
+
+<h1>FC App v2 Rebuild — Executive Review</h1>
+<p class="subtitle">Architecture refactor of the face-clustering app · Status as of 2026-05-28</p>
+
+<div class="toc">
+<b>Sections:</b>
+<a href="#tldr">TL;DR</a>
+<a href="#what">What we set out to do</a>
+<a href="#done">What's shipped</a>
+<a href="#progress">In progress</a>
+<a href="#roadmap">Roadmap</a>
+<a href="#frameworks">Patterns codified</a>
+<a href="#questions">Open questions</a>
+<a href="#risks">Risks &amp; learnings</a>
+</div>
+
+<h2 id="tldr">TL;DR</h2>
+
+<div class="tldr">
+<b>We're rebuilding the face-clustering app's UI layer (11 tabs, ~3,160 LOC) against a layered, tested architecture. 1 of 8 in-scope tabs has shipped (History, the pilot); the 2nd is fully designed and ready to implement. Two new architectural standards (Repository pattern + Column Registry) shipped alongside and are now binding for every future tab. No regressions in the existing app.</b>
+<ul>
+  <li><b>Direct impact</b>: adding a new field to a run-history record went from <i>9 places to edit</i> to <i>2</i>, enforced by automated tests. Same shape will apply to every future Repository.</li>
+  <li><b>Test surface grew</b> from ~0 unit tests in the legacy tab layer to <b>75 tests</b> covering the History pilot's Repository + Service + arch invariants — all green, all sub-4 seconds.</li>
+  <li><b>Velocity unblocked</b>: the next 7 tabs follow a documented template. Cluster Analysis (next up) is estimated at 6.5h of focused work.</li>
+</ul>
+</div>
+
+<div class="metric-grid">
+  <div class="metric"><span class="num">4</span><span class="label">specs shipped (042–044) +<br>1 in design (045)</span></div>
+  <div class="metric"><span class="num">75</span><span class="label">tests added &amp; passing<br>(History pilot)</span></div>
+  <div class="metric"><span class="num">9 → 2</span><span class="label">touch-points to add<br>a DB column</span></div>
+  <div class="metric"><span class="num">1 / 8</span><span class="label">in-scope tabs<br>rebuilt</span></div>
+</div>
+
+<h2 id="what">What we set out to do</h2>
+
+<p>The legacy <code>app/face_clustering/</code> app (3,160 LOC across 11 tabs) accumulated drift over a year of feature work:</p>
+<ul>
+  <li>35+ hand-rolled <code>cfg.get('field', '?')</code> literals duplicating config field names across tabs.</li>
+  <li>Tabs averaging ~290 LOC, several mixing 5+ responsibilities (UI + SQL + JSON parsing + business logic).</li>
+  <li><b>Zero unit tests</b> across the entire tab layer.</li>
+  <li>Files like <code>history_tab.py</code> (365 LOC), <code>cluster_analysis_tab.py</code> (383 LOC), <code>label_tab.py</code> (604 LOC).</li>
+</ul>
+
+<p>The rebuild target (<a href="spec.md">spec-042</a>) is an FC App v2 with the same user-facing workflow but:</p>
+<ul>
+  <li>A layered architecture: <b>Tab → Service → Repository → DB</b>, each layer testable in isolation.</li>
+  <li>Typed boundaries everywhere (dataclasses, Pydantic, Pandera).</li>
+  <li>Tests at three layers per tab: synthetic unit / real-fixture smoke / Playwright UI.</li>
+  <li>Zero <code>cfg.get()</code> literals; config flows through a single typed container (<code>FCParams</code>, shipped in <a href="../041-fc-params-container/spec.md">spec-041</a>).</li>
+</ul>
+
+<h2 id="done">What's shipped</h2>
+
+<div class="timeline">
+  <div class="date">2026-05-25</div>
+  <div class="event">
+    <span class="pill pill-done">DONE</span>
+    <b><a href="../042-fc-app-v2-tab-parity/spec.md">spec-042</a></b> — v2 tab parity umbrella + architecture standards (B0, A6, etc.). History pilot (H1–H5) shipped: <code>HistoryService</code>, 35 service tests, the first tab on the new pattern.
+  </div>
+  <div class="date">2026-05-25</div>
+  <div class="event">
+    <span class="pill pill-done">DONE</span>
+    <b><a href="../043-repository-pattern/spec.md">spec-043</a></b> — Repository pattern (B0). <code>RunHistoryRepository</code> replaces ~600 LOC of module-level functions. Typed Config, composable Criteria, typed errors. 33 synthetic + 3 real-fixture tests.
+  </div>
+  <div class="date">2026-05-25</div>
+  <div class="event">
+    <span class="pill pill-done">DONE</span>
+    <b><a href="../044-column-registry/spec.md">spec-044</a></b> — Column Registry (B0.1). One <code>_COLUMNS</code> table is the single source of truth for the <code>action_log</code> schema; CREATE / ALTER / hot fields / filters all derived. <b>9 → 2 touch-points</b> to add a column. 4 drift-guard arch tests.
+  </div>
+  <div class="date">2026-05-25</div>
+  <div class="event">
+    <span class="pill pill-done">DONE</span>
+    <b><a href="../044-column-registry/REVIEW.md">spec-044 code review</a></b> + F-1/F-2 doc fixes. Architecture HTMLs (<code>classes.html</code>, <code>db_global.html</code>) now reflect the Repository + Column Registry.
+  </div>
+</div>
+
+<h3>Layered shape — what we now have for the History tab</h3>
+
+<div class="diagram">+--------------------------------------------------------------------+
+|  TAB (Streamlit; orchestration only)                               |
+|     app/face_clustering_v2/tabs/history_tab.py        ~60 LOC      |
++--------------------------------------------------------------------+
+|  COMPONENTS (typed inputs; no SQL/JSON literals)                   |
+|     components/run_filter_bar | run_table | run_detail |           |
+|     load_button | actions_table                       ~190 LOC     |
++--------------------------------------------------------------------+
+|  SERVICE (Streamlit-free; domain logic)                            |
+|     face_cluster/views/history.py :: HistoryService                |
+|     list_runs / get_run_detail / update_comment / load_run         |
++--------------------------------------------------------------------+
+|  REPOSITORY (typed Config + Criteria; spec-043 B0)                 |
+|     face_cluster/repositories/run_history_repo.py                  |
+|     ::RunHistoryRepository                                         |
+|       + _COLUMNS registry (spec-044 B0.1) -> CREATE/ALTER/hot/     |
+|         filterable all derived. Add column = 2 edits.              |
++--------------------------------------------------------------------+
+|  DB:  ~/.sim_bench/sim_bench.db  ::  action_log table              |
++--------------------------------------------------------------------+</div>
+
+<h3>Concrete benefits delivered</h3>
+
+<table>
+<thead><tr><th>Benefit</th><th>Before</th><th>After</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>Cost of adding an <code>action_log</code> column</b></td>
+  <td>9 hand-maintained places to edit. Forgetting one = silent runtime bug.</td>
+  <td>2 places (<code>_COLUMNS</code> + <code>RunRow</code>). Arch tests fail loudly if either is forgotten.</td>
+</tr>
+<tr>
+  <td><b>History tab test coverage</b></td>
+  <td>0 unit tests across the legacy tab.</td>
+  <td>75 tests: 33 Repository synthetic + 3 real-fixture + 31 Service synthetic + 4 real-fixture + 4 arch.</td>
+</tr>
+<tr>
+  <td><b>DB access from UI code</b></td>
+  <td>Tabs ran SQL directly. Refactors broke silently.</td>
+  <td>Arch test forbids DB imports in <code>tabs/</code> &amp; <code>components/</code>. Enforced at PR time.</td>
+</tr>
+<tr>
+  <td><b>Test isolation</b></td>
+  <td>Shadowed-import trap: <code>from X import Y</code> captured at import time, defeated monkeypatches (caused real test escape in spec-042 H1).</td>
+  <td>Each Repository owns its DB path via typed Config — no global state, no shadowed imports.</td>
+</tr>
+<tr>
+  <td><b>Error contract</b></td>
+  <td>Mixed <code>ValueError</code> / <code>RuntimeError</code> / silent returns.</td>
+  <td>Typed <code>ServiceError</code> hierarchy (<code>NotFoundError</code>, <code>ValidationError</code>) with user-safe <code>user_message</code>. Future FastAPI maps these to HTTP codes with no per-endpoint logic.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="progress">In progress</h2>
+
+<table>
+<thead><tr><th>Item</th><th>Status</th><th>Severity</th><th>What it unblocks</th></tr></thead>
+<tbody>
+<tr>
+  <td>
+    <b><a href="../045-cluster-analysis-tab/spec.md">spec-045</a> — Cluster Analysis tab</b><br>
+    <a href="../045-cluster-analysis-tab/spec.md">spec.md</a> · <a href="../045-cluster-analysis-tab/tasks.md">tasks.md</a> · <a href="../045-cluster-analysis-tab/TAB_DESIGN_COMPARISON.html">design comparison</a>
+  </td>
+  <td><span class="pill pill-prog">DESIGNED</span><br>ready to implement</td>
+  <td><span class="sev-med">MED</span></td>
+  <td>The daily-driver analysis workbench. Second tab on the new pattern; introduces <code>ClusterAnalysisRepository</code> (query-shape variant) and <code>AsyncHandle[T]</code> (heavy-compute scaffolding reused by future tabs). 8 phases, ~6.5h estimated.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="roadmap">Roadmap — 7 tabs still to ship</h2>
+
+<p>From spec-042 §3 scope, in priority order:</p>
+
+<table>
+<thead><tr><th>Tab</th><th>Priority</th><th>Status</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><b>History</b></td><td>P1</td><td><span class="pill pill-done">SHIPPED</span></td><td>Pilot — established the pattern.</td></tr>
+<tr><td><b>Cluster Analysis</b></td><td>P1</td><td><span class="pill pill-prog">DESIGNED</span></td><td>spec-045; ready to implement.</td></tr>
+<tr><td><b>Recluster</b></td><td>P1</td><td><span class="pill pill-plan">PLANNED</span></td><td>Needs a new pipeline-runner mode. Larger scope than analysis tabs.</td></tr>
+<tr><td><b>Face Analysis</b></td><td>P2</td><td><span class="pill pill-plan">PLANNED</span></td><td>Read-only; reuses <code>AsyncHandle</code> from spec-045.</td></tr>
+<tr><td><b>Merged Clusters</b></td><td>P2</td><td><span class="pill pill-plan">PLANNED</span></td><td>Read-only; merge-decisions table viewer.</td></tr>
+<tr><td><b>Quality</b></td><td>P2</td><td><span class="pill pill-plan">PLANNED</span></td><td>Per-gate verdict visualizer.</td></tr>
+<tr><td><b>Gallery</b></td><td>P3</td><td><span class="pill pill-plan">PLANNED</span></td><td>Cluster-by-cluster browse; reuses Cluster Analysis's <code>face_grid</code> component.</td></tr>
+<tr><td><b>Overview</b></td><td>P3</td><td><span class="pill pill-plan">PLANNED</span></td><td>Run-summary read view.</td></tr>
+<tr><td><i>Merge ML</i></td><td>—</td><td><span class="pill pill-defer">OUT OF SCOPE</span></td><td>Research-only tab; no production users.</td></tr>
+<tr><td><i>Labeling Review</i></td><td>—</td><td><span class="pill pill-defer">OUT OF SCOPE</span></td><td>Research-only tab.</td></tr>
+</tbody>
+</table>
+
+<div class="callout">
+<b>Velocity expectation</b>: read-only P2/P3 tabs are estimated at ~3–5h each on the now-established pattern (most pieces are template applications). Recluster (P1, with new runner mode) is the only remaining unknown — likely 1–2 days.
+<br><br>
+<b>Rough total to complete v2</b>: ~30–50h of focused work across 7 tabs. Pace permitting, deliverable in ~2 weeks.
+</div>
+
+<h2 id="frameworks">Patterns codified (binding for all future work)</h2>
+
+<p>Lives in <a href="../../docs/architecture/architecture_standards.md">docs/architecture/architecture_standards.md</a>. Each is enforced by an arch test, not just prose.</p>
+
+<table>
+<thead><tr><th>Standard</th><th>Plain English</th><th>Why it matters</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>A6</b> Per-tab migration discipline</td>
+  <td>Each migrated tab ships with DB + Backend + Frontend tests. Both apps run at every commit.</td>
+  <td>No "big bang" cutover. Reversible at any step.</td>
+</tr>
+<tr>
+  <td><b>B0</b> Repository pattern</td>
+  <td>Persistence is a class with typed Config + composable typed Criteria. Not module-level free functions.</td>
+  <td>No global state, no shadowed-import traps, adding a config option is non-breaking.</td>
+</tr>
+<tr>
+  <td><b>B0.1</b> Column Registry</td>
+  <td>For schema-owning Repositories: one <code>_COLUMNS</code> table drives everything. Adding a column = 2 edits.</td>
+  <td>Eliminates an entire class of "forgot to update X" bugs.</td>
+</tr>
+<tr>
+  <td><b>B2</b> Typed error hierarchy</td>
+  <td>Services raise <code>ServiceError</code> subclasses with a <code>user_message</code>. Never plain <code>ValueError</code>.</td>
+  <td>UI catches once and displays. Future FastAPI maps to HTTP codes mechanically.</td>
+</tr>
+<tr>
+  <td><b>B3</b> Service vocabulary</td>
+  <td>Five-verb taxonomy: <code>list_*</code> / <code>get_*</code> / <code>create_*</code> / <code>update_*</code> / <code>delete_*</code>.</td>
+  <td>Predictable surface; no naming-by-author bikeshedding.</td>
+</tr>
+</tbody>
+</table>
+
+<h3>Two newer refinements (just emerged from spec-045 design)</h3>
+
+<table>
+<thead><tr><th>Refinement</th><th>What it is</th><th>Status</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>B0a vs B0b</b><br>(Repository flavors)</td>
+  <td>Two flavors of Repository: <b>schema-owning</b> (owns CREATE TABLE; B0.1 applies) vs <b>query-shape</b> (composes a schema owner; B0.1 doesn't apply). Both honor B0's external contract.</td>
+  <td><span class="pill pill-prog">DRAFT</span> — proposed in <a href="../045-cluster-analysis-tab/TAB_DESIGN_COMPARISON.html">spec-045 design comparison</a>. To be codified in architecture_standards.md as part of spec-045.</td>
+</tr>
+<tr>
+  <td><b>AsyncHandle&lt;T&gt;</b></td>
+  <td>Typed wrapper around the legacy background-thread polling pattern. Shared library code for any heavy-compute tab.</td>
+  <td><span class="pill pill-plan">PLANNED</span> — spec-045 Phase 4 extracts it.</td>
+</tr>
+<tr>
+  <td><b>Snapshot mutations</b><br>(third mutation flavor)</td>
+  <td>Some mutations create a <i>new run dir</i> (Force Merge, Recluster, Remerge) rather than modify in-place. Worth naming explicitly.</td>
+  <td><span class="pill pill-plan">PLANNED</span> — extension to B3 vocabulary, scheduled as part of spec-045 Phase 8 (T074).</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="questions">Open questions</h2>
+
+<table>
+<thead><tr><th>#</th><th>Question</th><th>Severity</th><th>When it needs an answer</th></tr></thead>
+<tbody>
+<tr>
+  <td>Q1</td>
+  <td><b>Force-merge <code>merge_candidate_threshold</code> source</b> — read from <code>FCParams</code> or from <code>result.summary["config"]</code>? Choosing the wrong one means the preview's pass/fail can drift from the merger's actual behavior.</td>
+  <td><span class="sev-med">MED</span></td>
+  <td>Before spec-045 Phase 5 (force-merge service methods).</td>
+</tr>
+<tr>
+  <td>Q2</td>
+  <td><b><code>ClusterView.compute</code> still takes <code>PipelineResult</code></b> — legacy compute classmethods need a <code>PipelineResult</code>. Service has to assemble a minimal one from Repository reads. Cleaner long-term: refactor compute to take typed inputs directly. Out of scope for spec-045; tracked as a follow-up.</td>
+  <td><span class="sev-lo">LOW</span></td>
+  <td>Eventually. Not blocking.</td>
+</tr>
+<tr>
+  <td>Q3</td>
+  <td><b>F-3 (extract <code>ColumnDef</code> to shared module)</b> — pending until the next <i>schema-owning</i> Repository (B0a flavor) appears. Cluster Analysis is B0b so doesn't trigger it. Could be triggered by a future <code>FaceLabelsRepository</code> (manual-label store) — speculative.</td>
+  <td><span class="sev-lo">LOW</span></td>
+  <td>Whenever a 2nd B0a Repository materializes. None on the immediate roadmap.</td>
+</tr>
+<tr>
+  <td>Q4</td>
+  <td><b>Streamlit module-cache trap</b> (discovered 2026-05-27): adding a field/method to a class on disk requires restarting the Streamlit server — hot-reload alone doesn't pick it up. Same shape as the spec-042 H1 shadowed-import trap, different mechanism.</td>
+  <td><span class="sev-lo">LOW</span></td>
+  <td>Worth a one-line addition to <code>LEARNINGS.md</code>. No code fix possible.</td>
+</tr>
+<tr>
+  <td>Q5</td>
+  <td><b>Legacy app removal timeline</b> — <code>app/face_clustering/</code> stays runnable through the rebuild (deliberate; per A6). When does it get deleted? After all 8 tabs ship + a burn-in window, or sooner once functional parity is reached?</td>
+  <td><span class="sev-med">MED</span></td>
+  <td>Decision point: after the 5th tab ships (~halfway through v2).</td>
+</tr>
+<tr>
+  <td>Q6</td>
+  <td><b>Deprecation deletion of <code>face_cluster/run_history.py</code> &amp; <code>run_history_db.py</code></b> — currently emit <code>DeprecationWarning</code> but still functional. Originally gated on a 2-week burn-in (set on 2026-05-25). Earliest deletion: 2026-06-08.</td>
+  <td><span class="sev-lo">LOW</span></td>
+  <td>Calendar-driven. Schedule a small cleanup spec after 2026-06-08.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="risks">Risks &amp; learnings</h2>
+
+<h3>Risks tracked</h3>
+
+<table>
+<thead><tr><th>Risk</th><th>Severity</th><th>Mitigation in place</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>Two Repository flavors confuse contributors</b> — without explicit B0a/B0b in standards, someone might apply Column Registry where it doesn't fit (or skip it where it does).</td>
+  <td><span class="sev-med">MED</span></td>
+  <td>spec-045 Phase 8 (T074) adds the prose. Until then, the <a href="../045-cluster-analysis-tab/TAB_DESIGN_COMPARISON.html">design comparison HTML</a> is the reference.</td>
+</tr>
+<tr>
+  <td><b>Async pattern is awkward</b> (background thread + 400ms <code>time.sleep</code> polling + <code>st.rerun()</code>). Wrapped behind <code>AsyncHandle[T]</code>, but the underlying mechanism still re-runs the whole script every 400ms during compute.</td>
+  <td><span class="sev-lo">LOW</span></td>
+  <td>Streamlit limitation, not architectural. <code>AsyncHandle</code> isolates the wart so a future swap (e.g., <code>@st.cache_data</code>) only touches one file.</td>
+</tr>
+<tr>
+  <td><b>Velocity assumption</b> for remaining 7 tabs (~30–50h) is based on the pattern being template-applicable. Recluster is the genuine unknown (new runner mode).</td>
+  <td><span class="sev-med">MED</span></td>
+  <td>Cluster Analysis (spec-045) is the load test of the assumption. After it ships we'll have a real per-tab data point.</td>
+</tr>
+<tr>
+  <td><b>Architecture HTMLs lag code</b> (the F-1/F-2 findings) — <code>classes.html</code> and <code>db_global.html</code> drifted before being caught at code review. Fixed for spec-043/044, but the drift mechanism still exists.</td>
+  <td><span class="sev-lo">LOW</span></td>
+  <td>Documentation-update mandate codified in <a href="../../docs/guides/CODE_REVIEW_CHECKLIST.md">CODE_REVIEW_CHECKLIST §7</a>. <code>/code-review</code> command flags doc drift as a finding.</td>
+</tr>
+</tbody>
+</table>
+
+<h3>Learnings logged</h3>
+
+<ul>
+  <li><b>Shadowed-import trap</b> (spec-042 H1): <code>from X import Y</code> captures the binding at import time; monkeypatches that re-bind <code>X.Y</code> are silently defeated. Fix: <i>always</i> use module-attribute access (<code>X.Y()</code>) when the function is an injection point. Codified as Standard B1.</li>
+  <li><b>Per-row 9-place duplication smell</b> (spec-044 motivation): if you have 9 hand-maintained constants describing the same thing, declare it once and derive the rest. Codified as Standard A2 (already existed) and B0.1 (new).</li>
+  <li><b>Streamlit hot-reload doesn't re-import</b> (2026-05-27): script changes reload but module objects (cached classes) don't. Restart the server after adding fields/methods to classes used by long-lived imports.</li>
+</ul>
+
+<h2>Bottom line</h2>
+
+<div class="tldr">
+<b>We've completed the foundational work for the v2 rebuild and shipped 1 of 8 tabs. The pattern is documented, tested, and binding. The next tab is fully designed.</b>
+<br><br>
+The remaining work is well-bounded — most tabs are template applications of the established Repository → Service → Tab shape. The biggest unknowns are concentrated in 1 of 7 tabs (Recluster, P1, new runner mode). At the current cadence we are on track to retire the legacy 3,160-LOC tab layer in ~2 weeks of focused work.
+</div>
+
+<p style="text-align:right; color:#888; font-size:12px; margin-top: 2em;">
+Generated 2026-05-28 ·
+Primary references:
+<a href="../042-fc-app-v2-tab-parity/spec.md">spec-042</a>,
+<a href="../043-repository-pattern/spec.md">spec-043</a>,
+<a href="../044-column-registry/spec.md">spec-044</a>,
+<a href="../045-cluster-analysis-tab/spec.md">spec-045</a>
+</p>
+
+</body>
+</html>
+</content>
+</invoke>

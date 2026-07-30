@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>spec-040 — Unified Pipeline Framework: PRD Summary</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 1100px; margin: 2em auto; padding: 0 1em; color: #222; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; }
+  h2 { margin-top: 1.5em; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 1em 0; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; cursor: pointer; user-select: none; }
+  th.sort-asc::after  { content: " \25B2"; }
+  th.sort-desc::after { content: " \25BC"; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .pill { display: inline-block; padding: 1px 6px; border-radius: 9px; font-size: 11px; font-weight: 600; }
+  .q-A  { background: #c7f0c7; color: #14501e; }
+  .q-B  { background: #d4ecff; color: #14365e; }
+  .q-C  { background: #fff2c2; color: #6a4f00; }
+  .q-D  { background: #ffd6d6; color: #6a0d0d; }
+  .t-high { background:#c7f0c7;color:#14501e; }
+  .t-med  { background:#fff2c2;color:#6a4f00; }
+  .t-low  { background:#ffd6d6;color:#6a0d0d; }
+  code { background:#f3f3f3;padding:1px 4px;border-radius:3px; font-size: 12px; }
+  small { color: #666; }
+</style>
+</head>
+<body>
+
+<h1>spec-040 — Unified Pipeline Framework</h1>
+<p><small>PRD summary &middot; branch <code>unification/spec-040</code> &middot; 2026-05-21</small></p>
+
+<h2>Objective</h2>
+<p>
+Collapse three parallel face-clustering code paths (Albumify's
+<code>cluster_people</code> bridge, the legacy standalone <code>FaceClusteringPipeline</code>,
+and the partially-built unified steps) into <strong>one</strong> pipeline framework using a
+<em>strangler-fig</em> migration. Concretely:
+</p>
+<ul>
+  <li><strong>One producer surface</strong> — <code>context.face_records: List[FaceRecord]</code> populated by the InsightFace producer chain, replacing the dict-of-dicts adapter.</li>
+  <li><strong>One runner</strong> — <code>FCAppRunner</code> driving an 8-step registered chain (<code>UNIFIED_CLUSTERING_STEPS</code>) on <code>PipelineExecutor</code>.</li>
+  <li><strong>One exporter</strong> — <code>RunExporter</code> writing schema v5 (adds <code>images</code>, <code>scene_clusters</code>, <code>scene_cluster_assignments</code> tables + ratio columns).</li>
+  <li><strong>One new FC App</strong> at <code>app/face_clustering_v2/</code> alongside the original during burn-in; legacy bridge + module emit <code>DeprecationWarning</code>, deleted in Phase 7.</li>
+  <li><strong>Equivalence gate</strong> — pairwise cluster-assignment agreement &ge; 95% between legacy and v2 across a 4-config sweep on a 50-image fixture.</li>
+</ul>
+
+<h2>New / Changed Modules</h2>
+<p><small>Click any column header to sort. "Responsibilities (declared)" = what the docstring + name promise; "Responsibilities (actual)" = what the body actually does (an SRP audit).</small></p>
+
+<table id="mods">
+  <thead>
+    <tr>
+      <th data-k="module">Module</th>
+      <th data-k="status">Status</th>
+      <th data-k="loc"  data-t="num">LOC</th>
+      <th data-k="classes" data-t="num">Classes</th>
+      <th data-k="methods" data-t="num">Methods/<br>Funcs</th>
+      <th data-k="ifs" data-t="num">If<br>stmts</th>
+      <th data-k="rdec" data-t="num">Resp.<br>(decl)</th>
+      <th data-k="ract" data-t="num">Resp.<br>(actual)</th>
+      <th data-k="resp">Primary responsibility</th>
+      <th data-k="test">Testability</th>
+      <th data-k="quality">Quality</th>
+      <th data-k="notes">Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>face_cluster/fc_app_runner.py</code></td>
+      <td>NEW</td>
+      <td>123</td><td>2</td><td>2</td><td>1</td>
+      <td>1</td><td>1</td>
+      <td>Thin runner over <code>PipelineExecutor</code>; canonical entry for FC App v2.</td>
+      <td><span class="pill t-high">High</span></td>
+      <td><span class="pill q-A">A</span></td>
+      <td>Stateless aside from registry init. One real branch (empty-input short-circuit). Single source of truth for chain order via <code>UNIFIED_CLUSTERING_STEPS</code>.</td>
+    </tr>
+    <tr>
+      <td><code>sim_bench/pipeline/steps/face_clustering_steps.py</code></td>
+      <td>NEW</td>
+      <td>389</td><td>8</td><td>17</td><td>13</td>
+      <td>8</td><td>9</td>
+      <td>The 8 registered unified clustering steps (quality, kNN, components, exemplars, merge, attach, cap, assign).</td>
+      <td><span class="pill t-high">High</span></td>
+      <td><span class="pill q-A">A</span></td>
+      <td>Clear 1-class-per-step. <code>_build_fc_config</code> is the single allowed dict→FCConfig translator (documented locked decision). Each <code>process()</code> is short and idempotent.</td>
+    </tr>
+    <tr>
+      <td><code>sim_bench/pipeline/steps/face_cluster_export.py</code></td>
+      <td>CHANGED</td>
+      <td>237</td><td>0</td><td>4</td><td>11</td>
+      <td>1</td><td>4</td>
+      <td>Albumify-side export: crops, CSVs, merge log, results DB, pipeline_run.json, v4 dual-write.</td>
+      <td><span class="pill t-med">Medium</span></td>
+      <td><span class="pill q-C">C</span></td>
+      <td>Procedural &mdash; one 130-line function. Bare <code>except Exception</code> in 3 spots. Should be split (crop gen, legacy export, v4 dual-write, run-info JSON) into named units. Tolerable because it's a pre-spec-040 module being demoted, not extended.</td>
+    </tr>
+    <tr>
+      <td><code>sim_bench/pipeline/steps/face_cluster_bridge.py</code></td>
+      <td>DEPRECATED</td>
+      <td>252</td><td>0</td><td>4</td><td>12</td>
+      <td>1</td><td>3</td>
+      <td>Legacy adapter: FaceForClustering &rarr; FaceRecord + run bridge clustering chain.</td>
+      <td><span class="pill t-med">Medium</span></td>
+      <td><span class="pill q-C">C</span></td>
+      <td>Emits <code>DeprecationWarning</code> on import. Scheduled for Phase 7 deletion. Hardcoded <code>blur_min=0.0</code> exception is a documented spec-033 workaround. Don't extend.</td>
+    </tr>
+    <tr>
+      <td><code>app/face_clustering_v2/main.py</code></td>
+      <td>NEW</td>
+      <td>46</td><td>0</td><td>0</td><td>1</td>
+      <td>1</td><td>1</td>
+      <td>Streamlit entry point; mounts Run + Clusters tabs.</td>
+      <td><span class="pill t-low">Low</span></td>
+      <td><span class="pill q-B">B</span></td>
+      <td>Pure composition. Untestable by unit test (Streamlit module-level side effects). Covered by Playwright smoke + e2e on the underlying pipeline.</td>
+    </tr>
+    <tr>
+      <td><code>app/face_clustering_v2/pipeline.py</code></td>
+      <td>NEW</td>
+      <td>249</td><td>1</td><td>4</td><td>10</td>
+      <td>1</td><td>3</td>
+      <td>Extractable v2 runner used by the Run tab and e2e tests: discover &rarr; producer &rarr; FCAppRunner &rarr; RunExporter + action_log.</td>
+      <td><span class="pill t-high">High</span></td>
+      <td><span class="pill q-B">B</span></td>
+      <td>Tested directly by <code>test_fc_app_v2_e2e.py</code>. Returns a <code>V2RunResult</code> dataclass &mdash; no Streamlit imports. Three error paths each build their own <code>V2RunResult</code>; a small <code>_failure_result()</code> helper would tighten it.</td>
+    </tr>
+    <tr>
+      <td><code>app/face_clustering_v2/tabs/run_tab.py</code></td>
+      <td>NEW</td>
+      <td>104</td><td>0</td><td>2</td><td>3</td>
+      <td>1</td><td>1</td>
+      <td>Streamlit form &rarr; <code>run_v2_pipeline</code> &rarr; render result.</td>
+      <td><span class="pill t-low">Low</span></td>
+      <td><span class="pill q-B">B</span></td>
+      <td>Thin wrapper; logic lives in <code>pipeline.py</code>. Visual-only test path.</td>
+    </tr>
+    <tr>
+      <td><code>app/face_clustering_v2/tabs/clusters_tab.py</code></td>
+      <td>NEW</td>
+      <td>71</td><td>0</td><td>1</td><td>4</td>
+      <td>1</td><td>1</td>
+      <td>Read-only RunStore viewer: one expander per cluster, 4-thumb grid.</td>
+      <td><span class="pill t-low">Low</span></td>
+      <td><span class="pill q-B">B</span></td>
+      <td>No mutation, no producer calls. Could grow filters/sort &mdash; keep that in a follow-up tab to preserve simplicity.</td>
+    </tr>
+    <tr>
+      <td><code>scripts/migrate_fc_profiles.py</code></td>
+      <td>NEW</td>
+      <td>115</td><td>0</td><td>4</td><td>8</td>
+      <td>1</td><td>1</td>
+      <td>One-shot legacy profile reshaper (flat &rarr; <code>step_configs</code>); idempotent, with <code>.v1.json</code> backup.</td>
+      <td><span class="pill t-high">High</span></td>
+      <td><span class="pill q-A">A</span></td>
+      <td>6 dedicated tests (<code>test_profile_migration.py</code>). Pure functions for reshape + detect, I/O isolated in <code>migrate_one</code>.</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr>
+      <td><strong>Total</strong></td>
+      <td></td>
+      <td><strong>1586</strong></td>
+      <td><strong>11</strong></td>
+      <td><strong>38</strong></td>
+      <td><strong>63</strong></td>
+      <td></td><td></td>
+      <td colspan="4"></td>
+    </tr>
+  </tfoot>
+</table>
+
+<h2>Quality rubric</h2>
+<ul>
+  <li><span class="pill q-A">A</span> &mdash; SRP-clean, fully testable, no hidden state, well-named. Safe to extend.</li>
+  <li><span class="pill q-B">B</span> &mdash; Solid; minor papercuts (duplicated error construction, Streamlit-only). Fine as-is.</li>
+  <li><span class="pill q-C">C</span> &mdash; Procedural / multi-responsibility / bare excepts. Tolerable here because the module is scheduled for demotion or deletion.</li>
+  <li><span class="pill q-D">D</span> &mdash; Would block merge. (None in this PRD.)</li>
+</ul>
+
+<h2>Test coverage of the new surface</h2>
+<table>
+  <thead>
+    <tr><th>Test file</th><th>Tests</th><th>Covers</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>tests/face_clustering/test_legacy_vs_v2_equivalence.py</code></td><td>4 (param)</td><td>Legacy bridge vs FCAppRunner cluster-assignment agreement &ge; 95% across 4 configs.</td></tr>
+    <tr><td><code>tests/face_clustering/test_fc_app_v2_e2e.py</code></td><td>4</td><td>End-to-end v2 pipeline run + v5 DB shape + <code>producer='fc_app_v2'</code> on action_log.</td></tr>
+    <tr><td><code>tests/face_clustering/test_unified_clustering_steps.py</code></td><td>+3 (cap)</td><td>Per-step contract incl. spec-031 diameter-cap enabled/disabled/no-merge paths.</td></tr>
+    <tr><td><code>tests/face_clustering/test_schema_v5_writes.py</code></td><td>4</td><td>Images table + ratio columns + Pandera invocation on empty exports.</td></tr>
+    <tr><td><code>tests/face_clustering/test_profile_migration.py</code></td><td>6</td><td>Legacy &rarr; v2 reshape, backup, idempotence, dry-run, invalid-JSON handling.</td></tr>
+    <tr><td><code>tests/architecture/test_unified_clustering_chain_order.py</code></td><td>2</td><td>Asserts <code>UNIFIED_CLUSTERING_STEPS</code> literal matches the topological sort of <code>depends_on</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2>REVIEW.md findings closed by this PRD</h2>
+<ul>
+  <li><strong>Critical:</strong> A1 (producer dual-write), A2 (real-fixture equivalence sweep)</li>
+  <li><strong>Major:</strong> B1 bridge deprecation, B2 legacy package deprecation, B3 schema v5 ratios, B4 FC App v2 MVP, B5 spec-text fix, B6 Pandera invocation, B7 chain-order single source of truth</li>
+  <li><strong>Minor:</strong> C3 diameter cap wired, C5 (subsumed by A2)</li>
+</ul>
+
+<h2>Deferred (tracked, not scope)</h2>
+<ul>
+  <li>5 remaining FC App v2 tabs (Recluster, Merge Analysis, Merge ML, Quality, Gallery) &mdash; parity ports.</li>
+  <li>Scene-side producer populating <code>scene_clusters</code> table (table + writer ship empty).</li>
+  <li>Phase 7 deletion of bridge / legacy package &mdash; gated on 2-week burn-in.</li>
+  <li>Phase 8 documentation collapse &mdash; gated on Phase 7.</li>
+</ul>
+
+<script>
+(function () {
+  const table = document.getElementById('mods');
+  const tbody = table.tBodies[0];
+  const ths = table.tHead.rows[0].cells;
+  let state = { col: -1, dir: 1 };
+  for (let i = 0; i < ths.length; i++) {
+    const th = ths[i];
+    th.addEventListener('click', () => sortBy(i, th.dataset.t === 'num'));
+  }
+  function sortBy(col, isNum) {
+    state.dir = (state.col === col) ? -state.dir : 1;
+    state.col = col;
+    const rows = Array.from(tbody.rows);
+    rows.sort((a, b) => {
+      const av = a.cells[col].innerText.trim();
+      const bv = b.cells[col].innerText.trim();
+      if (isNum) return state.dir * (parseFloat(av) - parseFloat(bv));
+      return state.dir * av.localeCompare(bv);
+    });
+    for (const r of rows) tbody.appendChild(r);
+    for (const th of ths) th.classList.remove('sort-asc', 'sort-desc');
+    ths[col].classList.add(state.dir > 0 ? 'sort-asc' : 'sort-desc');
+  }
+})();
+</script>
+
+</body>
+</html>

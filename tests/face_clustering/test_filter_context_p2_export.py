@@ -14,8 +14,8 @@ import pytest
 
 from face_cluster.config import PipelineConfig
 from face_cluster.filter_context import FilterContext
-from face_cluster.run_exporter import RunExporter
-from face_cluster.run_store import RunStore, FilterDecisionRow
+from sim_bench.run_db.exporter import RunExporter
+from sim_bench.run_db.store import RunStore, FilterDecisionRow
 from face_cluster.types import ClusterResult, FaceRecord
 
 
@@ -143,7 +143,7 @@ class ut_FilterDecisionsSchemaContract:
     def test_v4_layout_listdir_unchanged_by_filters_addition(self, tmp_path):
         """Adding filters MUST NOT change the v4 5-artifact layout — the
         decisions live in the DB, not as a sidecar file."""
-        from face_cluster.run_exporter import EXPECTED_ARTIFACTS
+        from sim_bench.run_db._schema import EXPECTED_ARTIFACTS
         out = _run_export(tmp_path, filters=FilterContext())
         actual = sorted(p.name for p in out.iterdir())
         expected = sorted(EXPECTED_ARTIFACTS)

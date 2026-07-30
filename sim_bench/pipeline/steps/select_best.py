@@ -6,6 +6,7 @@ from typing import Optional, List, Tuple
 import numpy as np
 
 from sim_bench.pipeline.base import BaseStep, StepMetadata
+from sim_bench.pipeline.clustering_labels import is_noise
 from sim_bench.pipeline.context import PipelineContext, StepDecision
 from sim_bench.pipeline.registry import register_step
 from sim_bench.pipeline.scoring.quality_strategy import (
@@ -15,6 +16,14 @@ from sim_bench.pipeline.scoring.quality_strategy import (
 from sim_bench.pipeline.scoring.person_penalty import (
     PersonPenaltyFactory,
     PersonPenaltyComputer,
+)
+from sim_bench.pipeline.scoring.occlusion_penalty import (
+    OcclusionPenaltyFactory,
+    OcclusionPenaltyComputer,
+)
+from sim_bench.pipeline.scoring.tilt_penalty import (
+    TiltPenaltyFactory,
+    TiltPenaltyComputer,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,12 +35,15 @@ class SelectBestStep(BaseStep):
     Select best images from each cluster using composite scoring.
 
     Scoring Model:
-        composite_score = image_quality_score + person_penalty
+        composite_score = image_quality_score + person_penalty + occlusion_penalty
 
         image_quality_score: Technical/aesthetic quality (IQA + AVA + optional Siamese)
         person_penalty: Portrait-specific penalties (0 to -0.7)
             - No person: 0 penalty
             - Person with issues: penalties for face occlusion, eyes closed, etc.
+        occlusion_penalty (spec-097): 0 unless P(occluded) >= gate (0.8);
+            then weight * P * area_factor, floored at -0.5. Requires the
+            score_occlusion step upstream; absent scores mean 0 penalty.
 
     Selection Rules:
         1. Compute composite scores for all images
@@ -101,6 +113,35 @@ class SelectBestStep(BaseStep):
                         },
                         "description": "Penalty values for portrait issues"
                     },
+                    "occlusion_penalty": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {"type": "boolean", "default": True},
+                            "gate": {"type": "number", "default": 0.8},
+                            "weight": {"type": "number", "default": -0.35},
+                            "tile_threshold": {"type": "number", "default": 0.5},
+                            "max_penalty": {"type": "number", "default": -0.5}
+                        },
+                        "description": "spec-097: lens-occlusion penalty; 0 unless "
+                                       "P(occluded) >= gate (needs score_occlusion upstream)"
+                    },
+                    "tilt_penalty": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {"type": "boolean", "default": True},
+                            "conf_gate": {"type": "number", "default": 0.5},
+                            "gate_deg": {"type": "number", "default": 3.0},
+                            "slope": {"type": "number", "default": 0.02},
+                            "cap": {"type": "number", "default": 0.15},
+                            "fov_weight": {"type": "number", "default": 0.4},
+                            "min_retained_area": {"type": "number", "default": 0.70},
+                            "prominent_person_frac": {"type": "number", "default": 0.15}
+                        },
+                        "description": "spec-099/101: crooked-photo penalty scaled by fixability — "
+                                       "small FOV cost if cleanly straightenable, full angle penalty "
+                                       "if the crop would clip a prominent person (needs score_tilt + "
+                                       "detect_persons upstream)"
+                    },
                     "siamese": {
                         "type": "object",
                         "properties": {
@@ -127,6 +168,8 @@ class SelectBestStep(BaseStep):
         self._config = None
         self._quality_strategy: Optional[ImageQualityStrategy] = None
         self._penalty_computer: Optional[PersonPenaltyComputer] = None
+        self._occlusion_penalty: Optional[OcclusionPenaltyComputer] = None
+        self._tilt_penalty: Optional[TiltPenaltyComputer] = None
 
     def _get_siamese_model(self, checkpoint_path: str):
         """Lazy load Siamese model."""
@@ -145,6 +188,10 @@ class SelectBestStep(BaseStep):
             self._siamese_checkpoint = checkpoint_path
 
         return self._siamese_model
+
+    def release(self) -> None:
+        """SIGHTING-117: free the optional Siamese quality model after selection."""
+        self._release_models("_siamese_model")
 
     def _build_quality_config(self, config: dict, strategy_name: str) -> dict:
         """Build quality strategy config from select_best config."""
@@ -188,6 +235,14 @@ class SelectBestStep(BaseStep):
         penalty_config = config.get("person_penalties", {})
         self._penalty_computer = PersonPenaltyFactory.create(penalty_config)
 
+        # spec-097: occlusion penalty (0 for every image unless score_occlusion ran)
+        self._occlusion_penalty = OcclusionPenaltyFactory.create(
+            config.get("occlusion_penalty", {}))
+
+        # spec-099: tilt penalty (0 for every image unless score_tilt ran)
+        self._tilt_penalty = TiltPenaltyFactory.create(
+            config.get("tilt_penalty", {}))
+
         # Load Siamese model if needed
         siamese_config = config.get("siamese", {})
         siamese_enabled = siamese_config.get("enabled", False)
@@ -208,7 +263,7 @@ class SelectBestStep(BaseStep):
         if use_face_subclusters and context.face_clusters:
             # Process subclusters within each scene
             for scene_id, subclusters in context.face_clusters.items():
-                if scene_id == -1 and not include_noise:
+                if is_noise(scene_id) and not include_noise:
                     continue
 
                 for subcluster_id, subcluster in subclusters.items():
@@ -234,7 +289,7 @@ class SelectBestStep(BaseStep):
         else:
             # Fall back to scene clusters
             for cluster_id, image_paths in context.scene_clusters.items():
-                if cluster_id == -1 and not include_noise:
+                if is_noise(cluster_id) and not include_noise:
                     continue
 
                 total_clusters += 1
@@ -340,7 +395,8 @@ class SelectBestStep(BaseStep):
         """
         Compute composite scores for all images.
 
-        composite_score = image_quality_score + person_penalty
+        composite_score = image_quality_score + person_penalty + occlusion_penalty
+                        + tilt_penalty
         """
         scored = []
 
@@ -349,7 +405,16 @@ class SelectBestStep(BaseStep):
                 image_path, context, siamese_model, image_paths
             )
             penalty = self._penalty_computer.compute_penalty(image_path, context)
-            composite_score = quality_score + penalty
+            occ_penalty = self._occlusion_penalty.compute_penalty(image_path, context)
+            tilt_penalty = self._tilt_penalty.compute_penalty(image_path, context)
+            composite_score = quality_score + penalty + occ_penalty + tilt_penalty
+
+            # spec-084: persist the breakdown so Results can show why the composite
+            # is what it is (quality + person + occlusion + tilt penalties).
+            context.quality_scores[image_path] = quality_score
+            context.person_penalties[image_path] = penalty
+            context.occlusion_penalties[image_path] = occ_penalty
+            context.tilt_penalties[image_path] = tilt_penalty
 
             scored.append((image_path, composite_score))
 

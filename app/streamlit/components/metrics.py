@@ -12,8 +12,13 @@ if TYPE_CHECKING:
     from app.streamlit.models import ImageInfo
 
 
+@st.cache_data(show_spinner=False)
 def _image_to_base64_thumbnail(image_path: Path, size: int = 60) -> Optional[str]:
-    """Load an image, resize to square thumbnail, and return a base64 data URI."""
+    """Load an image, resize to square thumbnail, and return a base64 data URI.
+
+    Cached: Streamlit reruns the whole script on every interaction, so without
+    this the table re-encodes every thumbnail from disk on each rerun (SIGHTING-103).
+    """
     try:
         with Image.open(image_path) as img:
             img = ImageOps.exif_transpose(img)
@@ -160,10 +165,97 @@ def render_metric_card(label: str, value: Any, delta: Optional[float] = None, de
     st.metric(label=label, value=value, delta=delta, delta_color=delta_color)
 
 
+# spec-084: single source of truth for column tooltips (meaning; range). Every
+# column rendered in the metrics table MUST have an entry here -- the column
+# config is generated from this dict so no column ships without a tooltip.
+METRIC_HELP = {
+    "Thumbnail": "Center-cropped preview of the image.",
+    "Image": "Source image filename.",
+    "Status": "Selected = kept for the album; Filtered = not selected.",
+    "Reason": "Why the image was selected or filtered (from the select_best step).",
+    "Final": "Composite score = Quality + Penalty; higher is better (typically 0-1).",
+    "Quality": "Quality half of the composite (IQA/AVA blend); 0-1, higher is better.",
+    "Penalty": "Person penalty subtracted from Quality (occlusion, eyes closed, ...); <= 0.",
+    "AVA": "Aesthetic score (AVA model); 0-1, higher = more aesthetically pleasing.",
+    "IQA": "Technical image-quality score; 0-1, higher = sharper/cleaner.",
+    "Sharp": "Sharpness; 0-1, higher = less blur.",
+    "Body": "Y if a person body was detected (YOLO pose).",
+    "Faces": "Faces passed / total after quality filtering.",
+    "Frontal": "Best face frontal score; 0-1, 1 = facing camera, low = profile.",
+    "Central": "Best face centrality; 0-1, 1 = centered in frame.",
+    "Roll": "Head roll (tilt) angle of the best face, in degrees; 0 = level.",
+    "Cluster": "Number of faces eligible for identity clustering.",
+    "BodyPose": "Body-facing-camera score; 0-1, higher = facing camera.",
+    "FacePose": "Face pose frontal score; 0-1, higher = more frontal.",
+    "Eyes": "Eyes-open score; 0-1, 1 = wide open, low = closed/blinking.",
+    "Smile": "Smile score; 0-1, higher = bigger smile.",
+    "SceneCluster": "Scene cluster ID this image was grouped into.",
+}
+
+
+def _build_metric_row(img: "ImageInfo", is_sel: bool) -> dict:
+    """Build one metrics-table row dict for an image. spec-084.
+
+    Every key here MUST have a matching entry in ``METRIC_HELP`` (enforced by
+    ``tests/api/test_results_metrics.py``) so no column ships without a tooltip.
+    """
+    status = "Selected" if is_sel else "Filtered"
+
+    best_pose = img.face_pose_scores[0] if img.face_pose_scores else None
+    best_eyes = img.face_eyes_scores[0] if img.face_eyes_scores else None
+    best_smile = img.face_smile_scores[0] if img.face_smile_scores else None
+
+    thumb = _image_to_base64_thumbnail(Path(img.path))
+
+    has_body = img.person_detected if img.person_detected is not None else False
+    has_face = (img.face_count or 0) > 0
+
+    filter_stats = getattr(img, 'filter_stats', None) or {}
+    faces_passed = filter_stats.get('passed', img.face_count or 0)
+    faces_filtered = filter_stats.get('filtered', 0)
+
+    best_frontal = getattr(img, 'best_frontal_score', None)
+    best_centrality = getattr(img, 'best_centrality', None)
+    roll_angles = getattr(img, 'roll_angles', None) or []
+    best_roll = roll_angles[0] if roll_angles else None
+
+    frontal_stats = getattr(img, 'frontal_stats', None) or {}
+    clusterable_count = frontal_stats.get('clusterable', faces_passed)
+
+    # spec-084: composite breakdown + decision reason.
+    quality = getattr(img, "quality_score", None)
+    penalty = getattr(img, "person_penalty", None)
+    reason = getattr(img, "filter_reason", None) or ""
+
+    return {
+        "Thumbnail": thumb,
+        "Image": Path(img.path).name,
+        "Status": status,
+        "Reason": reason,
+        "Final": f"{img.composite_score:.2f}" if img.composite_score is not None else "N/A",
+        "Quality": f"{quality:.2f}" if quality is not None else "N/A",
+        "Penalty": f"{penalty:+.2f}" if penalty is not None else "N/A",
+        "AVA": f"{img.ava_score:.2f}" if img.ava_score is not None else "N/A",
+        "IQA": f"{img.iqa_score:.2f}" if img.iqa_score is not None else "N/A",
+        "Sharp": f"{img.sharpness:.2f}" if img.sharpness is not None else "N/A",
+        # Body/Face detection columns
+        "Body": "Y" if has_body else "",
+        "Faces": f"{faces_passed}/{img.face_count}" if faces_filtered > 0 else (f"{img.face_count}" if has_face else ""),
+        "Frontal": f"{best_frontal:.2f}" if best_frontal is not None else "",
+        "Central": f"{best_centrality:.2f}" if best_centrality is not None else "",
+        "Roll": f"{best_roll:.1f}" if best_roll is not None else "",
+        "Cluster": f"{clusterable_count}" if clusterable_count else "",
+        "BodyPose": f"{img.body_facing_score:.2f}" if img.body_facing_score is not None else "",
+        "FacePose": f"{best_pose:.2f}" if best_pose is not None else "",
+        "Eyes": f"{best_eyes:.2f}" if best_eyes is not None else "",
+        "Smile": f"{best_smile:.2f}" if best_smile is not None else "",
+        "SceneCluster": str(img.cluster_id) if img.cluster_id is not None else "-",
+    }
+
+
 def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = None) -> None:
     """Render a detailed per-image metrics table with thumbnails and CSV download."""
     import pandas as pd
-    from app.streamlit.models import ImageInfo
 
     if not images:
         st.info("No image metrics available")
@@ -174,80 +266,29 @@ def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = 
     if selected_paths is None:
         selected_paths = set()
 
-    rows = []
-    for img in images:
-        is_sel = img.is_selected or img.path in selected_paths
-        status = "Selected" if is_sel else "Filtered"
-
-        best_pose = img.face_pose_scores[0] if img.face_pose_scores else None
-        best_eyes = img.face_eyes_scores[0] if img.face_eyes_scores else None
-        best_smile = img.face_smile_scores[0] if img.face_smile_scores else None
-
-        # Generate thumbnail
-        thumb = _image_to_base64_thumbnail(Path(img.path))
-
-        # Determine body/face detection status
-        has_body = img.person_detected if img.person_detected is not None else False
-        has_face = (img.face_count or 0) > 0
-
-        # Face filtering stats
-        filter_stats = getattr(img, 'filter_stats', None) or {}
-        faces_passed = filter_stats.get('passed', img.face_count or 0)
-        faces_filtered = filter_stats.get('filtered', 0)
-
-        # Frontal scoring
-        best_frontal = getattr(img, 'best_frontal_score', None)
-        best_centrality = getattr(img, 'best_centrality', None)
-        roll_angles = getattr(img, 'roll_angles', None) or []
-        best_roll = roll_angles[0] if roll_angles else None
-
-        # Clusterable count from frontal stats
-        frontal_stats = getattr(img, 'frontal_stats', None) or {}
-        clusterable_count = frontal_stats.get('clusterable', faces_passed)
-
-        row = {
-            "Thumbnail": thumb,
-            "Image": Path(img.path).name,
-            "Status": status,
-            "Final": f"{img.composite_score:.2f}" if img.composite_score is not None else "N/A",
-            "AVA": f"{img.ava_score:.2f}" if img.ava_score is not None else "N/A",
-            "IQA": f"{img.iqa_score:.2f}" if img.iqa_score is not None else "N/A",
-            "Sharp": f"{img.sharpness:.2f}" if img.sharpness is not None else "N/A",
-            # Body/Face detection columns
-            "Body": "Y" if has_body else "",
-            "Faces": f"{faces_passed}/{img.face_count}" if faces_filtered > 0 else (f"{img.face_count}" if has_face else ""),
-            "Frontal": f"{best_frontal:.2f}" if best_frontal is not None else "",
-            "Central": f"{best_centrality:.2f}" if best_centrality is not None else "",
-            "Roll": f"{best_roll:.1f}" if best_roll is not None else "",
-            "Cluster": f"{clusterable_count}" if clusterable_count else "",
-            "BodyPose": f"{img.body_facing_score:.2f}" if img.body_facing_score is not None else "",
-            "FacePose": f"{best_pose:.2f}" if best_pose is not None else "",
-            "Eyes": f"{best_eyes:.2f}" if best_eyes is not None else "",
-            "Smile": f"{best_smile:.2f}" if best_smile is not None else "",
-            "SceneCluster": str(img.cluster_id) if img.cluster_id is not None else "-",
-        }
-
-        rows.append(row)
+    rows = [
+        _build_metric_row(img, img.is_selected or img.path in selected_paths)
+        for img in images
+    ]
 
     df = pd.DataFrame(rows)
 
-    # Configure column with image display
+    # spec-084: generate column config from METRIC_HELP so EVERY column carries a
+    # tooltip (meaning; range). Wide columns for free text, small for scores.
+    _wide = {"Image", "Reason"}
+    column_config = {}
+    for col in df.columns:
+        help_text = METRIC_HELP.get(col)
+        if col == "Thumbnail":
+            column_config[col] = st.column_config.ImageColumn("Thumb", width="small", help=help_text)
+        else:
+            width = "large" if col == "Reason" else ("medium" if col in _wide else "small")
+            label = "Scene" if col == "SceneCluster" else col
+            column_config[col] = st.column_config.TextColumn(label, width=width, help=help_text)
+
     st.dataframe(
         df,
-        column_config={
-            "Thumbnail": st.column_config.ImageColumn("Thumb", width="small"),
-            "Image": st.column_config.TextColumn("Image", width="medium"),
-            "Status": st.column_config.TextColumn("Status", width="small"),
-            "Body": st.column_config.TextColumn("Body", width="small", help="Body detected"),
-            "Faces": st.column_config.TextColumn("Faces", width="small", help="Passed/Total faces"),
-            "Frontal": st.column_config.TextColumn("Frontal", width="small", help="Best frontal score (0-1)"),
-            "Central": st.column_config.TextColumn("Central", width="small", help="Best centrality score (0-1)"),
-            "Roll": st.column_config.TextColumn("Roll", width="small", help="Roll angle in degrees"),
-            "Cluster": st.column_config.TextColumn("Cluster", width="small", help="Clusterable face count"),
-            "BodyPose": st.column_config.TextColumn("BodyPose", width="small", help="Body facing camera score"),
-            "FacePose": st.column_config.TextColumn("FacePose", width="small", help="Face pose score"),
-            "SceneCluster": st.column_config.TextColumn("Scene", width="small", help="Scene cluster ID"),
-        },
+        column_config=column_config,
         use_container_width=True,
         height=500,
         hide_index=True,
@@ -257,6 +298,19 @@ def render_image_metrics_table(images: List["ImageInfo"], selected_paths: set = 
     csv_df = df.drop(columns=["Thumbnail"])
     csv = csv_df.to_csv(index=False)
     st.download_button("Download CSV", csv, "image_metrics.csv", "text/csv")
+
+    # spec-084: the dataframe thumbnail isn't openable, so offer a full-image
+    # viewer. st.image renders a built-in fullscreen-expand button on hover.
+    # Index-prefixed labels keep duplicate filenames distinct.
+    options = {f"{i+1}. {Path(img.path).name}": img.path for i, img in enumerate(images)}
+    choice = st.selectbox("View full image", ["(none)"] + list(options.keys()),
+                          key="metrics_full_image")
+    if choice and choice != "(none)":
+        full_path = options[choice]
+        if Path(full_path).exists():
+            st.image(full_path, caption=Path(full_path).name, use_container_width=True)
+        else:
+            st.warning(f"Image not found on disk: {full_path}")
 
 
 def render_results_table(results: List[Dict[str, Any]], title: str = "Pipeline Runs") -> None:

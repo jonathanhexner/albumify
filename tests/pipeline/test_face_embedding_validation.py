@@ -27,10 +27,16 @@ from sim_bench.pipeline.steps.discover_images import DiscoverImagesStep
 from sim_bench.pipeline.steps.insightface_detect_faces import InsightFaceDetectFacesStep
 from sim_bench.pipeline.steps.align_faces import AlignFacesStep
 from sim_bench.pipeline.steps.extract_face_embeddings import ExtractFaceEmbeddingsStep
-from sim_bench.pipeline.steps.filter_quality_gate import FilterQualityGateStep
+# spec-053: filter_quality_gate was consolidated into quality_gate (QualityGateStep). Alias keeps
+# the rest of this file unchanged.
+from sim_bench.pipeline.steps.quality_gate import QualityGateStep as FilterQualityGateStep
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+# SIGHTING-118: needs InsightFace models + test_data/face_clustering. Not runnable in a clean CI
+# runner; excluded from the default (fast) suite. Run explicitly with `pytest -m slow`.
+pytestmark = pytest.mark.slow
 
 # Test data directory
 TEST_DATA_DIR = Path("test_data/face_clustering")

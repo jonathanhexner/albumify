@@ -27,12 +27,16 @@ def render_people_page() -> None:
         st.info("Select an album to browse people.")
         return
 
+    # spec-090: pick which run of the album to browse (defaults to latest).
+    from app.streamlit.components.run_selector import render_run_selector
+    run_id = render_run_selector(album.album_id)
+
     st.divider()
 
     selected_person_id = st.session_state.get("selected_person_id")
 
     client = get_client()
-    people = client.get_people(album.album_id)
+    people = client.get_people(album.album_id, run_id=run_id)
 
     if not people:
         _render_no_people_state()

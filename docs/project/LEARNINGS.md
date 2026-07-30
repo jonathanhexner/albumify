@@ -6,6 +6,76 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-07-22: spec-103 — additive metadata fusion over-merges; a ONE-SIDED short-range boost is the safe shape
+**What happened**: fusing capture-time into scene clustering as an ADDITIVE distance
+(`w_v·visual + w_t·time`) over-merged: its symmetric time term *pushed apart* visually-similar shots a
+few minutes apart AND *pulled together* visually-different ones. Eyeballing three trips showed a 4-min-apart
+pair wrongly glued. The fix (Path A, validated) is a MULTIPLICATIVE one-sided boost
+`d = visual · (1 - boost·exp(-dt/τ))`, τ≈60s: time only ever SHRINKS distance for near-simultaneous
+photos, never grows it, so past ~2-3 min looks decide. Also: a hand-rolled single-linkage
+connected-components clusterer *chained* (49-photo, 112-min, diameter-1.01 "scene"); feeding the same
+one-sided distance to the EXISTING production HDBSCAN (density-based) killed the chaining without a new
+clusterer.
+**Lesson**: (1) a metadata prior should modulate the primary signal one-sidedly (pull-only), not enter as
+a symmetric additive term that can override it in both directions. (2) Prefer improving the *distance* fed
+to the existing clusterer over building a parallel clusterer — single-linkage chaining is a real failure
+mode HDBSCAN already resists. (3) "Perfect" auto-grouping is unattainable (a scene is subjective) → ship a
+good default + a user tightness knob.
+**Prevention**: `SceneDistanceBuilder` ships the one-sided form; `ut_SceneDistance_never_pushes_apart` fails
+if anyone reintroduces a term that increases distance. The additive `SceneDistanceFuser` is retained only
+for the experiment sweep, explicitly labeled superseded.
+
+### 2026-07-13: spec-100 — the learned model works where classical failed, but a dry-run saved the env, and coverage is content-bound
+**What happened**: GeoCalib recovered injected tilt at 0.25–0.45° MAE (vs classical's 5% coverage) AND stopped flagging the slanted-scenery false positives — the confidence signal (`roll_uncertainty`) abstains honestly on kaleidoscope/mirror shots (10–30° unc). BUT on the family-vacation album it's only confident on ~28% of photos (few architectural verticals), so the ≥70% coverage gate missed. Also: a naive `pip install geocalib` would have silently upgraded numpy 1.26→2.4 and swapped opencv-contrib→opencv-python — a `--dry-run` caught it; safe recipe = `kornia kornia_rs "numpy<2"` then `geocalib --no-deps`.
+**Lesson**: (1) coverage of a learned-prior detector is bound by scene content, not just model quality — validate on the album type you'll ship to. (2) Always `pip install --dry-run` a torch-ecosystem package before committing; greedy resolvers upgrade pinned foundational deps. (3) Low coverage ≠ unsafe for a tie-breaker penalty if the confidence gate abstains honestly.
+**Prevention**: spec-100 T0 codified the dry-run-first dependency gate; any new pyiqa-adjacent install repeats it.
+
+### 2026-07-12: spec-099 — benchmark the detector BEFORE wiring the penalty (tilt negative result)
+**What happened**: a classical tilt estimator hit 0.32° MAE on injected rotations — looked shippable — but its confident real-album flags were upright photos with slanted *scenery* (tunnel perspective, illusion art). Camera-tilt vs world-tilt is unresolvable from pixels alone.
+**Lesson**: angular precision on synthetic degradations ≠ semantic correctness on real photos; always eyeball the detector's confident REAL positives before letting it move any score. Phase-0 gates that can kill a spec cheaply (one day, no pipeline wiring) are worth their cost — this one prevented a penalty that would punish upright photos.
+**Prevention**: any future penalty spec keeps the "Phase 0 = standalone benchmark with real-positive inspection" structure; tilt revisit requires a gravity reference or learned horizon model.
+
+### 2026-07-12: spec-098 — a plausible fix that isn't measured is a guess (median blur was not enough)
+**What happened**: the "obvious" noise fix (median-blur before Laplacian) only cut noise-inflation 39×→11× on real SIDD noise — the first validation re-run FAILED its own acceptance gates (62% vs ≥95%). The passing formula needed a second, measured idea (subtract the noise's own σ² contribution), found via two quick parameter sweeps against real data.
+**Second lesson**: changing a metric's formula silently invalidates every absolute threshold tuned against it — the face blur gate (blur_min=150) over-rejected 4× until re-calibrated (→73.3) from paired old/new scores in the run DBs.
+**Prevention**: (1) define acceptance gates BEFORE the fix and re-run the same real-data benchmark after; (2) grep for absolute thresholds on any score whose formula changes; (3) when a baseline check fails, stash-and-rerun on baseline code before attributing — 3 E2E failures + the unreproducible 15-cluster anchor all predated the change.
+
+### 2026-07-09: spec-096 verdict — real positives are the entire game for rare-defect detection
+**Root cause of every plateau**: data, not modeling. Prompt engineering (3 ensembles), hand-crafted features (3 rounds), synthetic training (2 attempts) all failed or stalled; meanwhile 5 new REAL positives moved the CLIP probe +0.10 scene PR-AUC (0.76→0.86) and lifted the worst fold 0.61→0.79.
+**Lessons**: (1) learned boundary in embedding space ≫ zero-shot text, confirmed at whole-image AND crop level; (2) validate synthetic data by EYEBALLING what the model actually trains on (the "whole-photo positive crops" bug survived until the report's example images exposed it); (3) an LLM validator (Haiku, 0.17 as detector) is still worth its cost as a label-miner — it found the dark-occluder class and the one hidden positive.
+**Prevention**: for the next rare-defect detector (subject motion blur, lens flare…), start with a capture session + adjudication loop, not with features or prompts.
+
+### 2026-07-08: HEIC is a recurring blind spot — register pillow_heif at APP ENTRY, not per-module (SIGHTING-114)
+**Root cause**: PIL (and thus Streamlit's `st.image`) cannot decode HEIC without `pillow_heif.register_heif_opener()`. Registration was added ad hoc to individual modules (`explain.py`, `saliency.py`, Track D) as each broke — so every NEW image code path (this time the adjudicate page's display) crashed on the 124 `.heic` files, blocking the user mid-adjudication at image 12.
+**Lesson**: Second HEIC failure of this class (Track D silently skipped .heic; now the review UI crashed on it). Any path that opens dataset images must assume HEIC.
+**Prevention**: register the opener once at app/process entry (done in `app/occlusion_review/main.py`); wrap per-image UI renders in try/except so one unreadable file degrades to a warning instead of blocking a whole worklist.
+
+### 2026-07-05: Finger-occlusion detection needs a trained model — 5 whole-image/heuristic approaches all fail
+**Root cause**: A finger over the lens is a LOCALIZED corner defect on an otherwise good photo. Whole-image scorers see the (good) main subject and ignore the corner; hand-crafted rules can't separate a blurry warm finger blob from a warm smooth WALL.
+**What was tried (all on the 2 `examples/finger_occlusion/` images vs the 122 Budapest album)**:
+1. No-reference IQA (BRISQUE/MANIQA/MUSIQ/HyperIQA/CLIP-IQA/NIQE) — rate the finger photos MIDDLE-to-GOOD (HyperIQA put them in the top 6%). Don't flag it.
+2. CLIP-prompt "clear vs finger-over-lens" (`clip_occlusion`, whole-image) — finger P(clear) 0.37/0.32 >= some clean images. Tiling (worst 3x3 tile) only marginal.
+3. Classical 4-cue (relative-blur outlier + low-texture + warm/skin + large border-connected blob) — FLAGS the fingers, and correctly rejects cool lakes/sky (warmth cue), but WARM SMOOTH WALLS (beige/white museum walls) score higher than the fingers.
+4. + per-cell edge-free cue — measured no help: a flat wall INTERIOR is as edge-free (~0.001-0.003) as a finger.
+5. + ring-around-blob sharpness cue (reject blobs surrounded by sharp in-focus frames) — removed the worst wall (27->20 flagged) but 4 warm-wall/night-shot false positives still outrank the fingers (rank 6th/10th of 124).
+**Lesson**: Each hand-crafted cue nudges but none cleanly separates finger-over-lens from warm smooth surfaces — the boundary is too subtle for rules. Stop adding cues (diminishing returns).
+**Prevention / next step**: Use a LEARNED boundary — cheapest is CLIP image embeddings + a logistic-regression linear probe on ~40-80 labeled finger/clean images (zero-shot CLIP prompts fail, but the embedding still encodes it). `clip_occlusion` is kept in the studio (spec-094) labeled "experimental (does not reliably flag occlusion)".
+
+### 2026-06-29: Multiple OpenCV PyPI variants silently corrupt the cv2 install
+**Root cause**: `opencv-python`, `opencv-contrib-python`, `opencv-python-headless` are separate PyPI names but all unpack into the SAME `site-packages/cv2/` dir — last installer wins. Different deps pull different variants (mediapipe→contrib, ultralytics/facexlib→plain, pyiqa/albumentations→headless), so three accumulated. The live build was headless (GUI:NONE) even though pip listed the GUI package as installed — pip metadata != disk truth. Also caused a `WinError 5: cv2.pyd Access denied` when swapping while an app held it loaded.
+**Lesson**: No single opencv package satisfies all dependents' declared *names*, so `pip check` will always warn — but functionally they all just `import cv2`, which any one variant provides. Install exactly ONE (the superset `opencv-contrib-python`); treat the residual name-mismatch warnings as cosmetic after verifying the real importers load.
+**Prevention**: One opencv pinned in `setup.cfg` (`opencv-contrib-python>=4.8,<4.12`); SIGHTING-111 documents the diagnosis + the "name vs import" rule. When a heavy ML dep is added, `pip check` for opencv duplication.
+
+### 2026-06-25: bbox unit mismatch (pixels vs [0,1]) silently degrades to a placeholder
+**Root cause**: spec-079's `FaceRecord.bbox` is in PIXELS; `people_service._bbox_to_xywh` only reshaped it (its docstring lied — said "normalize") while every Streamlit consumer multiplies by image dims, assuming [0,1]. Pixel×dims goes off-canvas → PIL crop collapses → `_load_face_thumbnail` returns None → gray avatar for ALL people. No exception, no log — just a silently wrong image.
+**Lesson**: A geometry value crossing a module boundary needs its UNIT in the contract, not just its shape. "xywh" is ambiguous; "xywh normalized [0,1]" is not. Helpers named "normalize" must actually normalize.
+**Prevention**: `_normalized_bbox` is now the single normalizer (uses spec-040 `bbox_*_ratio`/`image_*_px`); consumers guard `max(bbox) > 1.5`; `tests/api/test_people_service_bbox.py` asserts [0,1] output. SIGHTING-104.
+
+### 2026-06-06: `st.dataframe` row-select is NOT "click the thumbnail" (3× user frustration)
+**Root cause**: v2 used `st.dataframe(on_select="rerun", selection_mode="single-row")` + `ImageColumn` for "clickable thumbnails." Glide-data-grid renders on a canvas and only the ~20px row-select **checkbox column** fires the selection event — clicking the thumbnail or any data cell does nothing. Users reported "I can't click on faces/images" three separate times because the only working target was invisible.
+**Lesson**: For click-to-open in this Streamlit app, use a real `st.button("Open")` under each thumbnail (the `face_grid.py` pattern), not dataframe row-select. Bonus: real buttons are Playwright-addressable, so the click path gets actual e2e coverage (scenarios J/K) — the canvas never could.
+**Prevention**: spec-083 added `face_pick_grid` / `image_pick_grid`; auto-memory `feedback_clickable_buttons.md`.
+
 ### 2026-05-15: Long pointless explanations are unacceptable
 **Root cause**: Repeated user feedback ("I didn't understand anything", "this isn't simple", "you're again opting for long unclear explanations") on responses that buried the answer under recap, framing, and symmetric "what was supposed / what actually" templates.
 **Lesson**: Direct answer first. One short paragraph or tight bullets. No restating the question. No "let me explain". Caveats only if asked.

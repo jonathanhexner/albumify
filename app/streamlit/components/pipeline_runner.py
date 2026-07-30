@@ -107,6 +107,72 @@ def _save_user_settings(selected_pipeline: str, config_overrides: Dict[str, Any]
         add_notification(f"Failed to save settings: {e}", "error")
 
 
+def _build_profile_payload(ss) -> dict:
+    """spec-087: a profile stores BOTH the flat ``rc_*`` clustering keys (for cross-app
+    interop with the face_clustering Recluster tab) AND the full nested ``config`` blob
+    (stashed by the config builder as ``_last_built_config``), so non-clustering params
+    (sharpness, IQA, selection, ...) round-trip — SIGHTING-106.
+    """
+    flat = {k: ss[k] for k in _RC_PARAM_KEYS if k in ss}
+    return {**flat, "config": dict(ss.get("_last_built_config", {}))}
+
+
+# SIGHTING-109: map each config_* widget's session key to where its value lives in
+# the saved profile's nested ``config``. Load sets the keys DIRECTLY from this map
+# (a keyed Streamlit widget always honours its session value) — the spec-087
+# "delete + re-init from value=" trick did not reliably override existing sliders.
+_WIDGET_FROM_CONFIG: dict = {
+    "config_det_conf": ("detect_persons", "confidence_threshold"),
+    "config_min_face_size": ("insightface_detect_faces", "min_face_size"),
+    "config_min_bbox_ratio": ("filter_faces", "min_bbox_ratio"),
+    "config_min_iqa": ("filter_quality", "min_iqa_score"),
+    "config_min_sharpness": ("filter_quality", "min_sharpness"),
+    "config_embedding_backend": ("extract_face_embeddings", "backend"),
+    "config_people_method": ("cluster_people", "method"),
+    "config_fc_export": ("cluster_people", "export_for_analysis"),
+    "config_people_min_cluster": ("cluster_people", "min_cluster_size"),
+    "config_people_min_cluster_pca": ("cluster_people", "min_cluster_size"),
+    "config_cluster_epsilon": ("cluster_people", "cluster_selection_epsilon"),
+    "config_cluster_epsilon_pca": ("cluster_people", "cluster_selection_epsilon"),
+    "config_pca_components": ("cluster_people", "pca_components"),
+    "config_knn_k": ("cluster_people", "k"),
+    "config_knn_sim_threshold": ("cluster_people", "similarity_threshold"),
+    "config_people_dist": ("cluster_people", "distance_threshold"),
+    "config_max_per_cluster": ("select_best", "max_images_per_cluster"),
+    "config_min_score": ("select_best", "min_score_threshold"),
+    "config_dup_thresh": ("select_best", "dissimilarity_threshold"),
+    "config_siamese": ("select_best", "siamese", "enabled"),
+}
+
+
+def _nested_get(d: dict, path: tuple):
+    """Walk a tuple path into nested dicts; return None if any hop is missing."""
+    cur = d
+    for p in path:
+        if not isinstance(cur, dict) or p not in cur:
+            return None
+        cur = cur[p]
+    return cur
+
+
+def _apply_profile_to_session(profile: dict, ss) -> None:
+    """spec-087 / SIGHTING-109: restore a profile into session_state.
+
+    Flat ``rc_*`` clustering keys are set directly (the FC clustering widgets read
+    them). The nested ``config`` blob's values are written DIRECTLY into their
+    ``config_*`` widget session keys via ``_WIDGET_FROM_CONFIG`` — this reliably
+    overrides the sliders (the old delete-and-reinit approach did not).
+    """
+    for k, v in profile.items():
+        if k in _RC_PARAM_KEYS:
+            ss[k] = v
+    nested = profile.get("config") or {}
+    for widget_key, path in _WIDGET_FROM_CONFIG.items():
+        val = _nested_get(nested, path)
+        if val is not None:
+            ss[widget_key] = val
+
+
 def _render_profile_bar() -> None:
     """Profile load/save bar — shared with Face Clustering App (~/.sim_bench/profiles/)."""
     store = ProfileStore()
@@ -120,10 +186,7 @@ def _render_profile_bar() -> None:
         if st.button("Load", key="prf_load"):
             selected = st.session_state.get("prf_select", "(none)")
             if selected != "(none)":
-                params = store.load(selected)
-                for k, v in params.items():
-                    if k in _RC_PARAM_KEYS:
-                        st.session_state[k] = v
+                _apply_profile_to_session(store.load(selected), st.session_state)
                 add_notification(f"Loaded profile '{selected}'", "info")
                 st.rerun(scope="app")
     with col_name:
@@ -132,13 +195,11 @@ def _render_profile_bar() -> None:
         if st.button("Save", key="prf_save"):
             name = st.session_state.get("prf_name", "").strip()
             if name:
-                params = {k: st.session_state[k] for k in _RC_PARAM_KEYS if k in st.session_state}
-                store.save(name, params)
+                store.save(name, _build_profile_payload(st.session_state))
                 add_notification(f"Saved profile '{name}'", "success")
     with col_default:
         if st.button("Default", key="prf_default", help="Save current params as default profile"):
-            params = {k: st.session_state[k] for k in _RC_PARAM_KEYS if k in st.session_state}
-            store.save("default", params)
+            store.save("default", _build_profile_payload(st.session_state))
             add_notification("Saved as default profile", "success")
 
 
@@ -158,6 +219,9 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
     # Load user's saved settings (cached)
     user_settings = _load_user_settings(_get_user_id())
     saved_pipeline = user_settings.get("selected_pipeline", "default_pipeline")
+    # SIGHTING-109: a loaded profile writes its values straight into the widget
+    # session keys (see _apply_profile_to_session), so saved_config is just the
+    # API defaults for the first render / unset widgets.
     saved_config = user_settings.get("config", {})
 
     # Pipeline selection
@@ -172,6 +236,10 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
     )
 
     steps = pipelines.get(selected_pipeline, [])
+
+    # spec-090 follow-up: one-time tutorial explaining every profile parameter.
+    from app.streamlit.components.param_guide import render_param_guide_link
+    render_param_guide_link(key="cfg_param_guide")
 
     # Get saved config values
     saved_filter = saved_config.get("filter_quality", {})
@@ -382,10 +450,12 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
             "detection_threshold": detection_confidence,
             "min_face_size": min_face_size,
         },
-        # InsightFace scoring configs (use same min_face_size)
+        # InsightFace scoring configs (use same min_face_size). The pose scorer
+        # works from the 5-point landmarks detection already produced (no crop,
+        # no size gate), so it has no min_face_size knob — InsightFaceScorePoseConfig
+        # is extra="forbid" and rejects it. See SIGHTING-102.
         "insightface_score_expression": {"min_face_size": min_face_size},
         "insightface_score_eyes": {"min_face_size": min_face_size},
-        "insightface_score_pose": {"min_face_size": min_face_size},
         # Person detection config
         "detect_persons": {
             "confidence_threshold": detection_confidence,
@@ -434,6 +504,10 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
             "siamese": {"enabled": siamese_enabled},
         },
     }
+
+    # spec-087: stash the live config so the profile bar (rendered earlier this run) can
+    # save the FULL settings, not just the rc_* clustering subset (SIGHTING-106).
+    st.session_state["_last_built_config"] = config
 
     is_running = state.pipeline_status == PipelineStatus.RUNNING
 

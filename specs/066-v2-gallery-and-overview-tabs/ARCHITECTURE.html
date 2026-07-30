@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec-066 — Gallery + Overview Architecture</title>
+<style>
+  :root{
+    --bg:#0f1116; --panel:#171a21; --panel2:#1d2129; --ink:#e6e9ef; --mut:#9aa3b2;
+    --tab:#3b82f6; --comp:#22c55e; --svc:#a855f7; --repo:#f59e0b; --reuse:#64748b;
+    --line:#2a2f3a; --warn:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:28px}
+  h1{font-size:22px;margin:0 0 2px} h2{font-size:16px;margin:30px 0 10px;color:#cdd5e2}
+  .sub{color:var(--mut);margin:0 0 18px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 22px;font-size:12px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:920px){.grid{grid-template-columns:1fr}}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .col h3{margin:0 0 12px;font-size:15px}
+  .layer{border-radius:9px;padding:10px 12px;margin:0;border:1px solid transparent}
+  .tab{background:rgba(59,130,246,.12);border-color:var(--tab)}
+  .comp{background:rgba(34,197,94,.10);border-color:var(--comp)}
+  .svc{background:rgba(168,85,247,.12);border-color:var(--svc)}
+  .repo{background:rgba(245,158,11,.10);border-color:var(--repo)}
+  .layer .t{font-weight:700;font-size:13px} .layer .d{color:var(--mut);font-size:12px;margin-top:3px}
+  .layer code{background:#0c0e13;padding:1px 5px;border-radius:4px;font-size:11.5px;color:#cbd5e1}
+  .arrow{height:22px;display:flex;align-items:center;justify-content:center;color:var(--mut)}
+  .arrow::before{content:"▼";font-size:12px}
+  .reuse{outline:2px dashed var(--reuse);outline-offset:2px;position:relative}
+  .badge{position:absolute;top:-9px;right:8px;background:var(--reuse);color:#fff;
+    font-size:10px;padding:1px 7px;border-radius:10px;letter-spacing:.3px}
+  .badge.new{background:#0ea5e9}
+  table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd5e2}
+  td code{color:#7dd3fc}
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:8px}
+  .flow pre{margin:0;font:12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;color:#cbd5e1;white-space:pre-wrap}
+  .pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700}
+  .p-tab{background:var(--tab);color:#fff}.p-comp{background:var(--comp);color:#06210f}
+  .p-svc{background:var(--svc);color:#fff}.p-repo{background:var(--repo);color:#241a02}
+  .note{border-left:3px solid var(--warn);background:rgba(239,68,68,.08);
+    padding:8px 12px;border-radius:0 8px 8px 0;margin:8px 0;font-size:12.5px}
+  .obs{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .kbd{font:11.5px ui-monospace,Consolas,monospace;background:#0c0e13;color:#86efac;
+    padding:2px 6px;border-radius:5px}
+  footer{color:var(--mut);font-size:11.5px;margin-top:26px;border-top:1px solid var(--line);padding-top:12px}
+</style>
+</head>
+<body>
+  <h1>spec-066 — Gallery + Overview tabs</h1>
+  <p class="sub">The last v2 pair. 4-layer framework split. Green e2e (G+H) → spec-042 parity = <b>Implemented</b>.</p>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--tab)"></i>Tab — orchestration, ≤80 LOC</span>
+    <span><i class="dot" style="background:var(--comp)"></i>Component — Streamlit render only</span>
+    <span><i class="dot" style="background:var(--svc)"></i>Service — typed, Streamlit-free (the testable endpoint)</span>
+    <span><i class="dot" style="background:var(--repo)"></i>Repository — SQL / FS</span>
+    <span><i class="dot" style="background:var(--reuse)"></i>dashed = REUSED existing code</span>
+  </div>
+
+  <div class="grid">
+    <!-- GALLERY -->
+    <div class="col">
+      <h3>🖼️ Gallery tab — browse clusters as thumbnail strips</h3>
+      <div class="layer tab"><span class="badge new">NEW</span>
+        <div class="t">gallery_tab.py</div>
+        <div class="d">resolve <code>current_run_dir</code> → build service → paginate 10 clusters/page →
+        per cluster dispatch to strip → emit <code>tab.done</code></div>
+      </div>
+      <div class="arrow"></div>
+      <div class="layer comp"><span class="badge new">NEW</span>
+        <div class="t">components/cluster_strip.py</div>
+        <div class="d">one cluster row: 8 exemplar crops + id + size +
+        <b>“Open in Cluster Analysis”</b> → writes <code>selected_cluster</code> + <code>st.rerun()</code></div>
+      </div>
+      <div class="arrow"></div>
+      <div class="layer svc reuse"><span class="badge">REUSE</span>
+        <div class="t">ClusterAnalysisService</div>
+        <div class="d"><code>list_clusters() → List[ClusterRow]</code><br>
+        <span style="color:var(--warn)">+ NEW passthrough</span>
+        <code>exemplar_face_ids(cid, n)</code> (Decision D1 — ClusterRow carries no crop paths)</div>
+      </div>
+      <div class="arrow"></div>
+      <div class="layer repo reuse"><span class="badge">REUSE</span>
+        <div class="t">ClusterAnalysisRepository</div>
+        <div class="d">per-run <code>face_clustering.db</code> + <code>crops/face_{id:04d}_aligned.jpg</code></div>
+      </div>
+      <div class="note"><b>Cross-tab nav works today:</b> <code>cluster_picker</code> already defaults its
+      selectbox to <code>session_state['selected_cluster']</code>. Strip just sets that key.</div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="col">
+      <h3>📊 Overview tab — run-level dashboard</h3>
+      <div class="layer tab"><span class="badge new">NEW</span>
+        <div class="t">overview_tab.py</div>
+        <div class="d">build service → <code>compute_dashboard()</code> → 4-metric strip
+        (computes “age” from <code>last_run_at</code> here, not in service) → 3 charts</div>
+      </div>
+      <div class="arrow"></div>
+      <div class="layer comp"><span class="badge new">NEW</span>
+        <div class="t">components/dashboard_charts.py</div>
+        <div class="d"><code>render_bar(stats)</code> · <code>render_timeseries(points)</code> — Plotly (already a dep)</div>
+      </div>
+      <div class="arrow"></div>
+      <div class="layer svc"><span class="badge new">NEW</span>
+        <div class="t">OverviewService → DashboardMetrics</div>
+        <div class="d"><code>compute_dashboard(limit=50) → DashboardMetrics</code><br>
+        totals · avg/median n_clusters · gate-pass-rate · per-album · per-profile · time-series.
+        <b>No wall-clock, no session_state</b> → deterministic, unit-testable.</div>
+      </div>
+      <div class="arrow"></div>
+      <div class="layer repo reuse"><span class="badge">REUSE</span>
+        <div class="t">RunHistoryRepository</div>
+        <div class="d"><code>find(RunHistoryCriteria(producer="fc_app_v2", limit=50))</code> →
+        global <code>action_log</code> (<code>~/.sim_bench/sim_bench.db</code>). RunRow already carries
+        n_faces / n_clusters / album / status / config.</div>
+      </div>
+      <div class="note"><b>Decision D2:</b> aggregate from action_log only — skip opening 50 per-run DBs
+      (the counts already live on RunRow).</div>
+    </div>
+  </div>
+
+  <h2>Data contracts — <span class="pill p-svc">Service</span> returns typed dataclasses (no dicts)</h2>
+  <table>
+    <tr><th>Type</th><th>Fields</th><th>Consumed by</th></tr>
+    <tr><td><code>DashboardMetrics</code></td>
+        <td>total_runs · total_faces_ever · avg/median_n_clusters · last_run_at · gate_pass_rate ·
+        per_album[] · per_profile[] · timeseries[]</td>
+        <td>overview_tab → strip + charts</td></tr>
+    <tr><td><code>AlbumStat</code> / <code>ProfileStat</code></td><td>name · n_runs</td><td>render_bar</td></tr>
+    <tr><td><code>RunPoint</code></td><td>run_id · started_at · n_clusters · album</td><td>render_timeseries</td></tr>
+    <tr><td><code>ClusterRow</code> <span class="pill" style="background:var(--reuse);color:#fff">reuse</span></td>
+        <td>cluster_id · size · diameter · n_exemplars · nearest_*</td><td>gallery_tab pagination</td></tr>
+    <tr><td><code>FaceRow</code> <span class="pill" style="background:var(--reuse);color:#fff">reuse</span></td>
+        <td>face_id · image_path · dist_to_exemplar … (sorted exemplars-first)</td><td>cluster_strip thumbs</td></tr>
+  </table>
+
+  <h2>Observability — frontend logging, one switch</h2>
+  <div class="obs">
+    <p style="margin:0 0 8px">Extends the existing <code>_telemetry.py</code> (<code>fc_app_v2.tabs</code> logger,
+    ASCII k=v, → <code>logs/&lt;ts&gt;/fc_app_v2.log</code>). Answers “what did the user see?” without screenshots.</p>
+    <pre style="margin:0;font:12.5px/1.6 ui-monospace,Consolas,monospace;color:#cbd5e1">tab.start     name=gallery  run_dir=...\run_6437d335
+component.render tab=gallery name=cluster_strip cluster_id=1 n_thumbs=8
+tab.done      name=gallery  n_clusters=15 page=1 thumbs_rendered=120
+tab.done      name=overview total_runs=42 albums=6 profiles=3</pre>
+    <p style="margin:8px 0 0"><b>Disable two ways:</b>
+      <span class="kbd">FC_V2_TAB_TELEMETRY=0</span> (env) or
+      <span class="kbd">getLogger("fc_app_v2.tabs").setLevel(WARNING)</span>. Default ON.</p>
+  </div>
+
+  <h2>End-to-end flow</h2>
+  <div class="flow"><pre>
+<span class="pill p-tab">GALLERY</span>
+  History "Load into analysis tabs"  ──▶  session.current_run_dir
+  gallery_tab  ──▶  ClusterAnalysisService.list_clusters()        ┐ sync, sub-second
+              ──▶  [per cluster] exemplar_face_ids(cid, 8)        │ (SIGHTING-079: no async)
+              ──▶  cluster_strip(crops, run_dir)  ──▶  st.image ×8 │
+  user clicks "Open"  ──▶  session.selected_cluster = 1  ──▶  st.rerun()
+  user clicks Cluster Analysis tab  ──▶  cluster_picker defaults to cluster 1  ✓
+
+<span class="pill p-svc">OVERVIEW</span>
+  overview_tab  ──▶  OverviewService(RunHistoryRepository).compute_dashboard(limit=50)
+               ──▶  DashboardMetrics
+               ──▶  4-metric strip  +  render_bar(per_album)  +  render_bar(per_profile)
+                                    +  render_timeseries(n_clusters over time)   [Plotly]
+  </pre></div>
+
+  <h2>Testable endpoints</h2>
+  <table>
+    <tr><th>Layer</th><th>Test</th><th>How it stays deterministic</th></tr>
+    <tr><td><span class="pill p-svc">Service</span></td>
+        <td><code>test_overview_service_synthetic.py</code> (5) + 1 real <code>slow</code></td>
+        <td>inject a fake RunHistoryRepository → synthetic RunRows; no DB, no clock</td></tr>
+    <tr><td><span class="pill p-tab">Tab</span></td>
+        <td><code>test_gallery_tab.py</code>, <code>test_overview_tab.py</code> (arch)</td>
+        <td>source scan: ≤80 LOC, no sql/fs/cfg.get (mirrors test_face_analysis_tab.py)</td></tr>
+    <tr><td>e2e</td>
+        <td>Scenario <b>G</b> (gallery), <b>H</b> (overview)</td>
+        <td><code>page_with_reference_run_loaded</code> fixture (spec-067 query-param seed); test clicks the tab (D4)</td></tr>
+  </table>
+
+  <div class="note" style="border-left-color:#0ea5e9;background:rgba(14,165,233,.08)">
+    <b>4 decisions need a ✓ before coding</b> — D1 Gallery exemplar source (recommend thin passthrough),
+    D2 Overview = action_log only, D3 extract a shared <code>crop_path()</code> helper,
+    D4 reword Scenario-G assertion (Streamlit can’t switch tabs programmatically). See
+    <code>ARCHITECTURE_PLAN.md §7</code>.
+  </div>
+
+  <footer>spec-066 · 2026-06-05 · companion to ARCHITECTURE_PLAN.md · framework: spec-042/045 4-layer split,
+  SIGHTING-079 sync-compute, spec-067 e2e seeding.</footer>
+</body>
+</html>

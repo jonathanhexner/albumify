@@ -1,7 +1,7 @@
 """Architecture invariant: UI code does not read run-directory artifacts directly.
 
 spec-030 / FR-008 / FR-012 — every consumer of run data must go through
-`face_cluster.run_store.RunStore` (or `face_cluster.loader.load_pipeline_result`
+`sim_bench.run_db.store.RunStore` (or `face_cluster.loader.load_pipeline_result`
 which delegates to it).  Direct `pd.read_csv("faces.csv")`, `np.load("...npy")`,
 `json.load(...)` of a run-internal artifact, or `sqlite3.connect` of a run DB
 are forbidden in `app/face_clustering/`.
@@ -86,7 +86,7 @@ def test_no_new_direct_run_artifact_reads_in_app():
 
     assert not violations, (
         "Forbidden direct file reads found in app/face_clustering/. Route through "
-        "face_cluster.run_store.RunStore or face_cluster.loader.load_pipeline_result, "
+        "sim_bench.run_db.store.RunStore or face_cluster.loader.load_pipeline_result, "
         "or add to _DELIBERATE_DIRECT_READS with a justification.\n\n"
         + "\n".join(violations)
     )

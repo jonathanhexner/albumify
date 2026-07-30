@@ -1,0 +1,98 @@
+{
+  "budapest": [
+    {
+      "method": "visual-only (flat)",
+      "clusters": 15,
+      "noise": 27
+    },
+    {
+      "method": "flat fused, scale=5min",
+      "clusters": 19,
+      "noise": 15
+    },
+    {
+      "method": "flat fused, scale=10min",
+      "clusters": 17,
+      "noise": 14
+    },
+    {
+      "method": "flat fused, scale=15min",
+      "clusters": 17,
+      "noise": 14
+    },
+    {
+      "method": "flat fused, scale=30min",
+      "clusters": 17,
+      "noise": 15
+    },
+    {
+      "method": "two-stage (gap=60m,tau=0.55)",
+      "clusters": 17,
+      "noise": 8
+    }
+  ],
+  "austria": [
+    {
+      "method": "visual-only (flat)",
+      "clusters": 74,
+      "noise": 104
+    },
+    {
+      "method": "flat fused, scale=5min",
+      "clusters": 84,
+      "noise": 76
+    },
+    {
+      "method": "flat fused, scale=10min",
+      "clusters": 82,
+      "noise": 77
+    },
+    {
+      "method": "flat fused, scale=15min",
+      "clusters": 81,
+      "noise": 80
+    },
+    {
+      "method": "flat fused, scale=30min",
+      "clusters": 78,
+      "noise": 69
+    },
+    {
+      "method": "two-stage (gap=60m,tau=0.55)",
+      "clusters": 68,
+      "noise": 32
+    }
+  ],
+  "germany": [
+    {
+      "method": "visual-only (flat)",
+      "clusters": 111,
+      "noise": 191
+    },
+    {
+      "method": "flat fused, scale=5min",
+      "clusters": 136,
+      "noise": 108
+    },
+    {
+      "method": "flat fused, scale=10min",
+      "clusters": 134,
+      "noise": 115
+    },
+    {
+      "method": "flat fused, scale=15min",
+      "clusters": 133,
+      "noise": 105
+    },
+    {
+      "method": "flat fused, scale=30min",
+      "clusters": 130,
+      "noise": 94
+    },
+    {
+      "method": "two-stage (gap=60m,tau=0.55)",
+      "clusters": 119,
+      "noise": 78
+    }
+  ]
+}

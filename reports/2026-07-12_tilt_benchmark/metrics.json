@@ -1,0 +1,64 @@
+{
+  "n_photos": 122,
+  "source": "D:\\Budapest2025_Google",
+  "angles": [
+    -10.0,
+    -8.0,
+    -6.0,
+    -4.0,
+    -2.0,
+    2.0,
+    4.0,
+    6.0,
+    8.0,
+    10.0
+  ],
+  "perf_ms_per_estimate": 48.80519186864134,
+  "gates": {
+    "0.2": {
+      "n_confident_pairs": 45,
+      "coverage": 0.036885245901639344,
+      "base_images_confident": 0.14754098360655737,
+      "mae_deg": 2.8557697051854567,
+      "recall_ge4deg_within2": 0.75,
+      "originals_flagged_gt3deg": 0.10655737704918032,
+      "flagged_names": [
+        "20250822_123354",
+        "20250822_194159",
+        "20250822_194201",
+        "20250822_194451",
+        "20250822_195457",
+        "20250822_195716",
+        "20250822_195738",
+        "20250822_195740",
+        "20250822_195753",
+        "20250822_195758",
+        "20250822_195800",
+        "20250822_195832",
+        "20250824_170838"
+      ]
+    },
+    "0.3": {
+      "n_confident_pairs": 12,
+      "coverage": 0.009836065573770493,
+      "base_images_confident": 0.04918032786885246,
+      "mae_deg": 0.3213673717818881,
+      "recall_ge4deg_within2": 1.0,
+      "originals_flagged_gt3deg": 0.02459016393442623,
+      "flagged_names": [
+        "20250822_194451",
+        "20250822_195832",
+        "20250824_170838"
+      ]
+    },
+    "0.5": {
+      "n_confident_pairs": 0,
+      "coverage": 0.0,
+      "base_images_confident": 0.00819672131147541,
+      "mae_deg": null,
+      "recall_ge4deg_within2": null,
+      "originals_flagged_gt3deg": 0.0,
+      "flagged_names": []
+    }
+  }
+}

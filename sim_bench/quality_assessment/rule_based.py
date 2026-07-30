@@ -9,11 +9,16 @@ from pathlib import Path
 from typing import Dict, Any
 
 from sim_bench.quality_assessment.base import QualityAssessor
+from sim_bench.quality_assessment.noise_robust import (
+    estimate_noise_sigma,
+    noise_robust_laplacian_var,
+    noise_sigma_to_score,
+)
 
 
 class RuleBasedQuality(QualityAssessor):
     """Rule-based quality assessment using multiple hand-crafted metrics."""
-    
+
     def __init__(
         self,
         weights: Dict[str, float] = None,
@@ -21,20 +26,26 @@ class RuleBasedQuality(QualityAssessor):
     ):
         """
         Initialize rule-based quality assessor.
-        
+
         Args:
             weights: Dictionary of feature weights
-                    {'sharpness': 0.4, 'exposure': 0.3, 'colorfulness': 0.2, 'contrast': 0.1}
+                    {'sharpness': 0.30, 'exposure': 0.25, 'colorfulness': 0.05,
+                     'contrast': 0.10, 'noise': 0.30}
             device: Device (not used for rule-based, kept for API consistency)
         """
         super().__init__(device)
-        
-        # Default weights based on literature
+
+        # Default weights; noise component added in spec-098 (sensor noise used to
+        # INVERT scoring — see reports/2026-07-10_defect_noise/). Colorfulness is
+        # down-weighted .20 -> .05 because chroma noise inflates it; the .30 noise
+        # weight is what reaches 99.4% clean-vs-noisy pair accuracy on SIDD
+        # (weight sweep: scripts/experiment_spec098_sweep3.py).
         self.weights = weights or {
-            'sharpness': 0.40,
-            'exposure': 0.30,
-            'colorfulness': 0.20,
-            'contrast': 0.10
+            'sharpness': 0.30,
+            'exposure': 0.25,
+            'colorfulness': 0.05,
+            'contrast': 0.10,
+            'noise': 0.30
         }
         
         # Normalize weights
@@ -71,41 +82,59 @@ class RuleBasedQuality(QualityAssessor):
             raise ValueError(f"Could not load image: {image_path}")
             
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Compute individual metrics
-        sharpness = self._compute_sharpness(gray)
+
+        # Compute individual metrics (sigma first: sharpness correction needs it)
+        noise_sigma = self._compute_noise_sigma(img)
+        sharpness = self._compute_sharpness(gray, noise_sigma)
         exposure = self._compute_exposure_quality(gray)
         colorfulness = self._compute_colorfulness(img)
         contrast = self._compute_contrast(gray)
-        
+
         # Normalize metrics to [0, 1] range
         sharpness_norm = self._normalize_sharpness(sharpness)
         exposure_norm = exposure  # Already in [0, 1]
         color_norm = self._normalize_colorfulness(colorfulness)
         contrast_norm = contrast  # Already normalized
-        
+        noise_norm = noise_sigma_to_score(noise_sigma)
+
         # Weighted combination
         quality = (
             self.weights.get('sharpness', 0) * sharpness_norm +
             self.weights.get('exposure', 0) * exposure_norm +
             self.weights.get('colorfulness', 0) * color_norm +
-            self.weights.get('contrast', 0) * contrast_norm
+            self.weights.get('contrast', 0) * contrast_norm +
+            self.weights.get('noise', 0) * noise_norm
         )
-        
+
         return float(quality)
     
-    def _compute_sharpness(self, gray: np.ndarray) -> float:
+    def _compute_sharpness(self, gray: np.ndarray, noise_sigma: float = None) -> float:
         """
-        Compute sharpness using Laplacian variance.
-        
+        Compute sharpness using noise-robust Laplacian variance (spec-098).
+
+        3x3 median blur + K_SIGMA*sigma^2 subtraction, so grain no longer
+        masquerades as sharpness (raw Laplacian inflated 39x on SIDD).
+
         Args:
             gray: Grayscale image
-            
+            noise_sigma: pre-computed sigma (estimated from gray when None)
+
         Returns:
-            Laplacian variance (raw score)
+            Corrected Laplacian variance (raw score, >= 0)
         """
-        laplacian = cv2.Laplacian(gray, cv2.CV_64F)
-        return float(laplacian.var())
+        return noise_robust_laplacian_var(gray, noise_sigma)
+
+    def _compute_noise_sigma(self, img: np.ndarray) -> float:
+        """
+        Estimate sensor-noise sigma via wavelets (spec-098).
+
+        Args:
+            img: BGR image
+
+        Returns:
+            Noise sigma (raw; higher = noisier). Map with noise_sigma_to_score().
+        """
+        return estimate_noise_sigma(img)
     
     def _compute_sharpness_tenengrad(self, gray: np.ndarray) -> float:
         """
@@ -264,21 +293,32 @@ class RuleBasedQuality(QualityAssessor):
             raise ValueError(f"Could not load image: {image_path}")
             
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        sharpness = self._compute_sharpness(gray)
+
+        noise_sigma = self._compute_noise_sigma(img)
+        sharpness = self._compute_sharpness(gray, noise_sigma)
         exposure = self._compute_exposure_quality(gray)
         colorfulness = self._compute_colorfulness(img)
         contrast = self._compute_contrast(gray)
-        
-        return {
+
+        scores = {
             'sharpness_raw': sharpness,
             'sharpness_normalized': self._normalize_sharpness(sharpness),
             'exposure': exposure,
             'colorfulness_raw': colorfulness,
             'colorfulness_normalized': self._normalize_colorfulness(colorfulness),
             'contrast': contrast,
-            'overall': self.assess_image(image_path)
+            'noise_sigma': noise_sigma,
+            'noise_score': noise_sigma_to_score(noise_sigma),
         }
+        # Weighted overall computed inline (avoids re-loading/re-scoring the image)
+        scores['overall'] = float(
+            self.weights.get('sharpness', 0) * scores['sharpness_normalized'] +
+            self.weights.get('exposure', 0) * scores['exposure'] +
+            self.weights.get('colorfulness', 0) * scores['colorfulness_normalized'] +
+            self.weights.get('contrast', 0) * scores['contrast'] +
+            self.weights.get('noise', 0) * scores['noise_score']
+        )
+        return scores
 
 
 

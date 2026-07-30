@@ -3,10 +3,22 @@
 # Discovery
 from sim_bench.pipeline.steps.discover_images import DiscoverImagesStep
 
+# Geo-temporal (spec-022)
+from sim_bench.pipeline.steps.extract_geo_metadata import ExtractGeoMetadataStep
+from sim_bench.pipeline.steps.geo_temporal_segment import GeoTemporalSegmentStep
+from sim_bench.pipeline.steps.infer_geo_clip import InferGeoClipStep
+from sim_bench.pipeline.steps.infer_geo_coords import InferGeoCoordsStep
+from sim_bench.pipeline.steps.caption_images import CaptionImagesStep
+
 # Scoring
 from sim_bench.pipeline.steps.score_iqa import ScoreIQAStep
 from sim_bench.pipeline.steps.score_ava import ScoreAVAStep
 from sim_bench.pipeline.steps.score_face_quality import ScoreFaceQualityStep
+from sim_bench.pipeline.steps.score_quality import ScoreQualityStep  # spec-093
+from sim_bench.pipeline.steps.classify_scene import ClassifySceneStep  # spec-094 scene tags
+from sim_bench.pipeline.steps.score_occlusion import ScoreOcclusionStep  # spec-097 Stage 1
+from sim_bench.pipeline.steps.score_tilt import ScoreTiltStep  # spec-099/spec-100
+from sim_bench.pipeline.steps.straighten_images import StraightenImagesStep  # spec-101
 
 # Face Scoring (individual steps for flexible pipelines)
 from sim_bench.pipeline.steps.score_face_pose import ScoreFacePoseStep
@@ -42,6 +54,7 @@ from sim_bench.pipeline.steps.insightface_score_pose import InsightFaceScorePose
 
 # Scene Embedding & Clustering
 from sim_bench.pipeline.steps.extract_scene_embedding import ExtractSceneEmbeddingStep
+from sim_bench.pipeline.steps.build_scene_distance import BuildSceneDistanceStep  # spec-103 (gated off)
 from sim_bench.pipeline.steps.cluster_scenes import ClusterScenesStep
 
 # People Clustering
@@ -49,8 +62,20 @@ from sim_bench.pipeline.steps.cluster_people import ClusterPeopleStep
 from sim_bench.pipeline.steps.identity_refinement import IdentityRefinementStep
 from sim_bench.pipeline.steps.cluster_by_identity import ClusterByIdentityStep
 
+# spec-040 Phase 3: unified face-clustering steps (operate on context.face_records)
+from sim_bench.pipeline.steps.face_clustering_steps import (  # noqa: F401
+    BuildFaceKNNGraphStep,
+    ClusterFaceComponentsStep,
+    SelectFaceExemplarsStep,
+    MergeFaceClustersStep,
+    AttachHoldoutFacesStep,
+    ApplyDiameterCapStep,
+    AssignPeopleClustersStep,
+)
+
 # Face Clustering Experimentation Pipeline
-from sim_bench.pipeline.steps.filter_quality_gate import FilterQualityGateStep
+# spec-053: filter_quality_gate + quality_gate_faces consolidated into quality_gate.
+from sim_bench.pipeline.steps.quality_gate import QualityGateStep  # noqa: F401
 from sim_bench.pipeline.steps.build_knn_graph import BuildKNNGraphStep
 from sim_bench.pipeline.steps.cluster_connected_components import ClusterConnectedComponentsStep
 from sim_bench.pipeline.steps.select_exemplars import SelectExemplarsStep
@@ -62,10 +87,18 @@ from sim_bench.pipeline.steps.select_best_per_person import SelectBestPerPersonS
 
 # Export
 from sim_bench.pipeline.steps.export_for_labeling import ExportForLabelingStep
+# spec-088: FC-app analysis export for the unified clustering chain (SIGHTING-107)
+from sim_bench.pipeline.steps.face_cluster_analysis_export import FaceClusterAnalysisExportStep  # noqa: F401
 
 __all__ = [
     # Discovery
     "DiscoverImagesStep",
+    # Geo-temporal (spec-022)
+    "ExtractGeoMetadataStep",
+    "GeoTemporalSegmentStep",
+    "InferGeoClipStep",
+    "InferGeoCoordsStep",
+    "CaptionImagesStep",
     # Scoring
     "ScoreIQAStep",
     "ScoreAVAStep",
@@ -98,13 +131,14 @@ __all__ = [
     "InsightFaceScorePoseStep",
     # Scene Embedding & Clustering
     "ExtractSceneEmbeddingStep",
+    "BuildSceneDistanceStep",
     "ClusterScenesStep",
     # People Clustering
     "ClusterPeopleStep",
     "IdentityRefinementStep",
     "ClusterByIdentityStep",
-    # Face Clustering Experimentation
-    "FilterQualityGateStep",
+    # Face Clustering (consolidated quality_gate per spec-053)
+    "QualityGateStep",
     "BuildKNNGraphStep",
     "ClusterConnectedComponentsStep",
     "SelectExemplarsStep",
@@ -114,4 +148,5 @@ __all__ = [
     "SelectBestPerPersonStep",
     # Export
     "ExportForLabelingStep",
+    "FaceClusterAnalysisExportStep",
 ]

@@ -87,15 +87,59 @@ class BaseStep(ABC):
     def metadata(self) -> StepMetadata:
         return self._metadata
 
+    def release(self) -> None:
+        """Free heavy per-step resources (ML models) after the step completes.
+
+        SIGHTING-117: steps lazy-load their model and hold it as private state
+        (``self._scorer`` etc.) for the whole run, so peak RSS = the SUM of every
+        model in the pipeline — which OOM-kills the box when occlusion CLIP loads
+        atop YOLO+InsightFace+DINOv2+AVA. The executor calls ``release()`` after
+        every step (success OR failure); model-owning steps override it to drop
+        the handle + ``gc.collect()`` so only one model is resident at a time.
+
+        Default is a no-op: steps that hold no model need not override. Releasing
+        only frees the MODEL, never context data (already stored) — the model's
+        outputs live in context and downstream steps read those, not the model.
+        A subsequent run re-lazy-loads via the same ``if self._x is None`` guard,
+        so ``release()`` is simply the symmetric partner of the lazy load.
+
+        A model genuinely shared by >=2 steps in one run is NOT this method's job:
+        it belongs in the context as an explicit dependency, released at end-of-run.
+        """
+        pass
+
+    def _release_models(self, *attr_names: str) -> None:
+        """release() helper: null the named model handles and force a GC pass.
+
+        Nulling the handle drops the last reference so Python frees the weights;
+        ``gc.collect()`` reclaims them now rather than at some later cycle. The
+        next run re-lazy-loads via each step's ``if self._x is None`` guard, so
+        config-tracker fields (e.g. ``_checkpoint_path``) need not be cleared.
+        """
+        import gc
+        freed = False
+        for name in attr_names:
+            if getattr(self, name, None) is not None:
+                setattr(self, name, None)
+                freed = True
+        if freed:
+            gc.collect()
+
     def validate(self, context: "PipelineContext") -> list[str]:
-        """Default validation checks that required context keys exist."""
+        """Default validation: required context keys must exist (not None).
+
+        Empty collections are valid produced values (e.g. quality_gate_faces
+        legitimately writes holdout_indices=[] when every face passes). Steps
+        that need non-empty input must guard in their own process() body — or
+        override validate() — rather than relying on the framework. The "empty
+        == error" rule was removed because it conflated "producer never ran"
+        with "producer ran and had nothing to emit".
+        """
         errors = []
         for key in self._metadata.requires:
             value = getattr(context, key, None)
             if value is None:
                 errors.append(f"Missing required context key: {key}")
-            elif isinstance(value, (list, dict, set)) and len(value) == 0:
-                errors.append(f"Required context key is empty: {key}")
         return errors
     
     def process(self, context: "PipelineContext", config: dict) -> None:
@@ -164,6 +208,16 @@ class BaseStep(ABC):
         # Load from cache
         cached_data = cache_handler.load_from_cache(cache_keys)
         
+        # spec-079 / SIGHTING-099: invalidate rows produced by an OLDER output
+        # schema. A step opts into this by declaring a ``model_version`` in its
+        # cache metadata; bump that string whenever the serialized output shape
+        # changes (e.g. insightface_detect_faces adding pose in spec-070). A
+        # stored version that differs from the expected one — INCLUDING the
+        # legacy ``None`` written before versioning existed — is treated as a
+        # miss and recomputed. Steps that declare no version keep the old
+        # mtime-only behavior (back-compat).
+        expected_version = (cache_config.get("metadata") or {}).get("model_version")
+
         # Find uncached items
         uncached_items = []
         cached_results = {}
@@ -172,6 +226,9 @@ class BaseStep(ABC):
             if key_str in cached_data:
                 # Deserialize cached data
                 data_bytes, metadata = cached_data[key_str]
+                if expected_version is not None and metadata.get("model_version") != expected_version:
+                    uncached_items.append(item)  # stale-schema row → recompute
+                    continue
                 result = self._deserialize_from_cache(data_bytes, item)
                 cached_results[item] = result
             else:

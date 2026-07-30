@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Analysis Studio — UI Mock (spec-094)</title>
+<style>
+  :root{--bg:#0f131a;--panel:#161c26;--panel2:#1d2530;--line:#2b3543;--txt:#dce3ec;--muted:#8fa0b4;
+        --accent:#6ea8fe;--green:#3fb950;--orange:#e3903a;--red:#f0883e;--chip:#22304a;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:13.5px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
+  .note{max-width:1180px;margin:14px auto 0;padding:0 18px;color:var(--muted);font-size:12.5px}
+  .app{max-width:1180px;margin:10px auto;background:var(--panel);border:1px solid var(--line);
+       border-radius:12px;overflow:hidden}
+  /* navbar */
+  .nav{display:flex;align-items:center;gap:6px;padding:12px 18px;border-bottom:1px solid var(--line);background:#12171f}
+  .brand{font-weight:700;margin-right:16px}
+  .navbtn{padding:6px 14px;border-radius:8px;border:1px solid transparent;color:var(--muted);cursor:pointer;font-weight:600}
+  .navbtn.active{background:var(--panel2);border-color:var(--line);color:#fff}
+  .navbtn:hover{color:#fff}
+  .spacer{flex:1}
+  .body{display:flex;min-height:560px}
+  .side{flex:0 0 268px;border-right:1px solid var(--line);padding:16px;background:#131922}
+  .main{flex:1;padding:18px 20px}
+  label.f{display:block;color:var(--muted);font-size:12px;margin:12px 0 4px}
+  .inp{width:100%;background:#0b0e13;border:1px solid var(--line);border-radius:7px;padding:7px 9px;color:var(--txt)}
+  .grouphd{margin:16px 0 6px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+  .chk{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--txt)}
+  .chk .box{width:15px;height:15px;border-radius:4px;border:1px solid var(--line);background:#0b0e13;flex:0 0 auto}
+  .chk.on .box{background:var(--accent);border-color:var(--accent);position:relative}
+  .chk.on .box::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #06121f;
+      border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .chk.off{color:#5f6c7d}
+  .run{margin-top:18px;width:100%;background:var(--accent);color:#06121f;font-weight:700;border:none;
+       border-radius:8px;padding:10px;cursor:pointer}
+  .prog{margin-top:12px;height:7px;background:#0b0e13;border-radius:5px;overflow:hidden}
+  .prog>div{height:100%;width:64%;background:linear-gradient(90deg,var(--accent),#8fc0ff)}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 14px}
+  .muted{color:var(--muted)}
+  .tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;background:var(--chip);
+       border:1px solid #2c3d5c;color:#bcd3f5;margin:2px 4px 2px 0}
+  h2{font-size:17px;margin:0 0 10px}
+  h3{font-size:14px;margin:16px 0 8px;color:var(--accent)}
+  /* run list */
+  .runrow{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);
+     border-radius:9px;margin-bottom:8px;cursor:pointer;background:#0f141c}
+  .runrow.sel{border-color:var(--accent);background:#0d1826}
+  .runrow b{color:#fff}
+  /* tabs */
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:6px 0 14px}
+  .tab{padding:7px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;font-weight:600}
+  .tab.active{color:#fff;border-color:var(--accent)}
+  /* segmented Quality|Geo toggle (top-level browse axis) */
+  .seg{display:inline-flex;background:#0b0e13;border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg span{padding:7px 22px;border-radius:7px;cursor:pointer;color:var(--muted);font-weight:700}
+  .seg span.active{background:var(--accent);color:#06121f}
+  .segrow{display:flex;align-items:center;gap:12px;margin:2px 0 16px}
+  /* table */
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:middle}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  .thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;display:block}
+  .fname{color:var(--accent);cursor:pointer}
+  .bar{height:6px;width:80px;background:#0b0e13;border-radius:4px;overflow:hidden;margin-top:3px}
+  .bar>div{height:100%}
+  .sc{font-variant-numeric:tabular-nums}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+  .sel{background:#0b0e13;border:1px solid var(--line);border-radius:7px;padding:5px 9px;color:var(--txt)}
+  .btn{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 12px;color:var(--txt);cursor:pointer}
+  /* map */
+  .map{position:relative;height:230px;border-radius:10px;border:1px solid var(--line);overflow:hidden;
+     background:linear-gradient(135deg,#16202b,#101720)}
+  .grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff0a 1px,transparent 1px),
+     linear-gradient(90deg,#ffffff0a 1px,transparent 1px);background-size:34px 34px}
+  .pin{position:absolute;width:13px;height:13px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+     border:2px solid #0b0e13}
+  .pin.exif{background:var(--green)} .pin.geo{background:var(--orange)}
+  .legend{position:absolute;right:10px;bottom:10px;background:#0b0e13cc;border:1px solid var(--line);
+     border-radius:8px;padding:8px 10px;font-size:11.5px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .metric{display:inline-block;background:#0f141c;border:1px solid var(--line);border-radius:9px;
+     padding:8px 14px;margin:0 8px 8px 0}
+  .metric b{font-size:18px;color:#fff;display:block}
+  .hide{display:none}
+</style>
+</head>
+<body>
+
+<p class="note"><b>spec-094 UI mock</b> — click the navbar tabs (<b>Configure Run</b> / <b>Browse Run</b>) to
+switch pages. Static mock; numbers illustrative.</p>
+
+<div class="app">
+  <div class="nav">
+    <span class="brand">🖼 Image Analysis Studio</span>
+    <span class="navbtn active" id="nCfg" onclick="show('cfg')">Configure Run</span>
+    <span class="navbtn" id="nBrowse" onclick="show('browse')">Browse Run</span>
+    <span class="spacer"></span>
+    <span class="muted" style="font-size:12px">folder: D:/Budapest2025_Google</span>
+  </div>
+
+  <!-- ================= CONFIGURE RUN ================= -->
+  <div class="body" id="cfg">
+    <div class="side">
+      <label class="f">Folder</label>
+      <input class="inp" value="D:/Budapest2025_Google">
+      <label class="f">Image limit</label>
+      <input class="inp" value="122">
+
+      <div class="grouphd">image quality</div>
+      <div class="chk on"><span class="box"></span>Rule-based IQA</div>
+      <div class="chk off"><span class="box"></span>Sharpness</div>
+      <div class="chk off"><span class="box"></span>AVA aesthetic</div>
+      <div class="chk on"><span class="box"></span>MANIQA</div>
+      <div class="chk off"><span class="box"></span>MUSIQ</div>
+      <div class="chk off"><span class="box"></span>HyperIQA</div>
+      <div class="chk on"><span class="box"></span>BRISQUE</div>
+      <div class="chk on"><span class="box"></span>NIQE</div>
+      <div class="chk off"><span class="box"></span>CLIP-IQA</div>
+
+      <div class="grouphd">geo &amp; caption</div>
+      <div class="chk on"><span class="box"></span>EXIF (GPS + time)</div>
+      <div class="chk on"><span class="box"></span>StreetCLIP (city)</div>
+      <div class="chk on"><span class="box"></span>GeoCLIP (lat/lon)</div>
+      <div class="chk on"><span class="box"></span>BLIP (caption)</div>
+
+      <button class="run">▶ Run</button>
+      <div class="prog"><div></div></div>
+      <div class="muted" style="font-size:11.5px;margin-top:6px">Scoring MANIQA… 64% (78/122)</div>
+    </div>
+    <div class="main">
+      <h2>Configure a run</h2>
+      <p class="muted">Pick a folder + methods on the left, then <b>Run</b>. Each run is saved to
+        <code>.studio_runs/</code> and opens in <b>Browse Run</b>. Scores are cached, so re-running is incremental.</p>
+      <div class="card">
+        <b>Last run</b> · just now &nbsp; <span class="muted">→ saved as</span>
+        <span class="tag">2026-07-03_143000_iqa-maniqa-brisque-niqe-geo</span><br>
+        <span class="muted">122 images · 8 methods · </span>
+        <span class="fname" onclick="show('browse')">open in Browse Run →</span>
+      </div>
+      <div class="card">
+        <b>Tips</b>
+        <ul class="muted" style="margin:6px 0 0 16px">
+          <li>Heavy models (StreetCLIP / GeoCLIP / BLIP / AVA) download weights on first use.</li>
+          <li>Unavailable methods (missing dependency) show greyed and can't be checked.</li>
+          <li>A small <b>image limit</b> keeps a first exploratory run fast on CPU.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= BROWSE RUN ================= -->
+  <div class="body hide" id="browse">
+    <div class="side">
+      <label class="f">Runs in this folder</label>
+      <div class="runrow sel">
+        <div><b>maniqa-brisque-niqe-geo</b><br><span class="muted">122 imgs · 8 methods</span></div>
+        <div class="muted" style="text-align:right">Jul 3<br>14:30</div>
+      </div>
+      <div class="runrow">
+        <div><b>iqa-ava</b><br><span class="muted">40 imgs · 2 methods</span></div>
+        <div class="muted" style="text-align:right">Jul 2<br>19:05</div>
+      </div>
+      <div class="runrow">
+        <div><b>geo-only</b><br><span class="muted">122 imgs · 4 methods</span></div>
+        <div class="muted" style="text-align:right">Jul 1<br>10:12</div>
+      </div>
+    </div>
+    <div class="main">
+      <h2>Run · maniqa-brisque-niqe-geo <span class="muted" style="font-size:13px">· 122 images · 8 methods</span></h2>
+      <div class="segrow">
+        <div class="seg">
+          <span id="sQ" class="active" onclick="fam('q')">Quality</span>
+          <span id="sG" onclick="fam('g')">Geo</span>
+        </div>
+        <span class="muted" style="font-size:12px">top-level toggle — each family has its own view</span>
+        <span class="spacer"></span>
+        <span class="btn">⬇ CSV</span>
+      </div>
+
+      <!-- quality tab -->
+      <div id="tq">
+        <div class="toolbar"><span class="muted">Sort by</span>
+          <select class="sel"><option>BRISQUE ▼</option><option>MANIQA</option><option>NIQE</option><option>file name</option></select>
+          <span class="muted" style="font-size:11.5px">worst-quality first</span></div>
+        <table>
+          <tr><th>image</th><th>file</th><th>Rule IQA</th><th>MANIQA</th><th>BRISQUE</th><th>NIQE</th><th>rank</th></tr>
+          <tr><td><div class="thumb" style="background:#7a4a3a"></div></td><td class="fname">…125441.jpg</td>
+              <td class="sc">0.31<div class="bar"><div style="width:31%;background:#f0883e"></div></div></td>
+              <td class="sc">0.29<div class="bar"><div style="width:29%;background:#f0883e"></div></div></td>
+              <td class="sc">−54.6<div class="bar"><div style="width:10%;background:#f0883e"></div></div></td>
+              <td class="sc">−7.80</td><td>worst</td></tr>
+          <tr><td><div class="thumb" style="background:#6a5a4a"></div></td><td class="fname">…123916.jpg</td>
+              <td class="sc">0.44<div class="bar"><div style="width:44%;background:#e3903a"></div></div></td>
+              <td class="sc">0.33<div class="bar"><div style="width:33%;background:#e3903a"></div></div></td>
+              <td class="sc">−30.2<div class="bar"><div style="width:34%;background:#e3903a"></div></div></td>
+              <td class="sc">−3.17</td><td>2</td></tr>
+          <tr><td><div class="thumb" style="background:#3a5a4a"></div></td><td class="fname">…123303.jpg</td>
+              <td class="sc">0.71<div class="bar"><div style="width:71%;background:#3fb950"></div></div></td>
+              <td class="sc">0.52<div class="bar"><div style="width:52%;background:#3fb950"></div></div></td>
+              <td class="sc">+9.8<div class="bar"><div style="width:88%;background:#3fb950"></div></div></td>
+              <td class="sc">−2.88</td><td>best</td></tr>
+        </table>
+        <p class="muted" style="font-size:11.5px;margin-top:8px">Click a file name → large preview + every method's
+          value and top-k. BRISQUE/NIQE shown direction-normalized (higher = better); raw value on hover.</p>
+      </div>
+
+      <!-- geo tab (folds in spec-095) -->
+      <div id="tg" class="hide">
+        <div style="margin-bottom:12px">
+          <span class="metric"><b>122</b>images</span>
+          <span class="metric"><b>118</b>with EXIF GPS</span>
+          <span class="metric"><b>96/118</b>GeoCLIP within 25 km</span>
+        </div>
+        <div class="map">
+          <div class="grid"></div>
+          <div class="pin exif" style="left:48%;top:44%"></div><div class="pin geo" style="left:52%;top:40%"></div>
+          <div class="pin exif" style="left:40%;top:56%"></div><div class="pin geo" style="left:43%;top:52%"></div>
+          <div class="pin exif" style="left:60%;top:50%"></div><div class="pin geo" style="left:30%;top:30%"></div>
+          <div class="legend"><span class="dot" style="background:#3fb950"></span>EXIF (truth)<br>
+            <span class="dot" style="background:#e3903a"></span>GeoCLIP #1 (guess)</div>
+        </div>
+        <table style="margin-top:14px">
+          <tr><th>image</th><th>file</th><th>EXIF</th><th>StreetCLIP (top-1)</th><th>GeoCLIP</th><th>BLIP caption</th><th>✓/✗</th></tr>
+          <tr><td><div class="thumb" style="background:#3a5a4a"></div></td><td class="fname">…123303.jpg</td>
+              <td class="sc">47.51, 19.04</td>
+              <td>Budapest 0.87<div class="bar"><div style="width:87%;background:#6ea8fe"></div></div></td>
+              <td>Budapest, HU 0.41<div class="bar"><div style="width:41%;background:#6ea8fe"></div></div></td>
+              <td class="muted">a bridge over a river at dusk</td><td style="color:#3fb950">✓</td></tr>
+          <tr><td><div class="thumb" style="background:#4a4a6a"></div></td><td class="fname">…112331.jpg</td>
+              <td class="sc">47.50, 19.05</td>
+              <td>Vienna 0.52<div class="bar"><div style="width:52%;background:#6ea8fe"></div></div></td>
+              <td>Budapest, HU 0.33<div class="bar"><div style="width:33%;background:#6ea8fe"></div></div></td>
+              <td class="muted">a stone building with statues</td><td style="color:#f0883e">✗ street</td></tr>
+        </table>
+        <p class="muted" style="font-size:11.5px;margin-top:8px">Confidence bars = model confidence
+          (<b>relative ranking, not accuracy</b>). ✓/✗ compares top-1 vs EXIF GPS (haversine ≤ 25 km).</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<p class="note">Legend: green ✓ = model agrees with EXIF; orange = disagrees. This mock illustrates the
+consolidated app — spec-095's map + accuracy live in the <b>Geo &amp; Caption</b> tab.</p>
+
+<script>
+  function show(id){
+    document.getElementById('cfg').classList.toggle('hide', id!=='cfg');
+    document.getElementById('browse').classList.toggle('hide', id!=='browse');
+    document.getElementById('nCfg').classList.toggle('active', id==='cfg');
+    document.getElementById('nBrowse').classList.toggle('active', id==='browse');
+  }
+  function fam(id){
+    ['q','g'].forEach(x=>document.getElementById('t'+x).classList.toggle('hide', x!==id));
+    document.getElementById('sQ').classList.toggle('active', id==='q');
+    document.getElementById('sG').classList.toggle('active', id==='g');
+  }
+</script>
+</body>
+</html>

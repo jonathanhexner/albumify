@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>spec-098 validation: noise-aware quality scoring (2026-07-11/12)</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;max-width:960px;margin:24px auto;color:#222;line-height:1.5}
+h1{font-size:1.5em;border-bottom:2px solid #384;padding-bottom:6px}
+h2{font-size:1.15em;margin-top:28px;color:#253}
+table{border-collapse:collapse;margin:12px 0}
+th,td{border:1px solid #bbb;padding:5px 12px;text-align:right}
+th{background:#e6f0e8}td:first-child,th:first-child{text-align:left}
+.win{background:#d8f0d8;font-weight:bold}.fail{background:#f6d3d3;font-weight:bold}
+code{background:#f2f2f2;padding:1px 4px}
+.verdict{background:#eef7ee;border-left:4px solid #384;padding:10px 14px;margin:16px 0}
+.note{background:#fdf6e3;border-left:4px solid #b90;padding:10px 14px;margin:16px 0}
+</style>
+</head>
+<body>
+<h1>spec-098 validation: noise-aware quality scoring</h1>
+<p><b>Goal.</b> Verify the spec-098 fix (noise-robust sharpness + wavelet noise component) against its
+pre-registered acceptance gates, by re-running the 2026-07-10 defect-scoring benchmarks unchanged.
+Baseline reports: <code>reports/2026-07-10_defect_noise/</code>, <code>reports/2026-07-10_defect_blur/</code>.</p>
+
+<h2>The shipped formula (evolution matters)</h2>
+<p>The first attempt — median-blur-then-Laplacian only — <b>failed its own gates</b> (SIDD overall
+pair acc 62% vs ≥95%; inflation 11× vs &lt;2×). Two parameter sweeps
+(<code>scripts/experiment_spec098_sweep{,2,3}.py</code>) produced the shipped formula:</p>
+<p style="text-align:center"><code>sharpness = max( LaplacianVar( median3(img) ) − 5·σ², 0 )</code>,
+&nbsp; σ = wavelet noise estimate (green channel, 1024px central crop, 33 ms @ 16 MP)</p>
+<p>plus a <code>noise</code> component <code>1/(1+σ/2)</code> and rebalanced weights
+<code>sharpness .30 / exposure .25 / colorfulness .05 / contrast .10 / noise .30</code>
+(colorfulness cut .20→.05 — chroma noise inflates it).</p>
+
+<h2>Gate results</h2>
+<table>
+<tr><th>Gate</th><th>Metric</th><th>Before</th><th>After</th><th>Target</th><th>Verdict</th></tr>
+<tr><td>A1</td><td>SIDD overall pair acc (480 clean/noisy pairs)</td><td class="fail">0.0%</td><td class="win">99.4%</td><td>≥95%</td><td>PASS</td></tr>
+<tr><td>A1b</td><td>… ISO≥1600 subset (n=117)</td><td class="fail">0.0%</td><td class="win">98.3%</td><td>—</td><td>PASS</td></tr>
+<tr><td>A2</td><td>Sharpness noise-inflation (noisy/clean median)</td><td class="fail">39×</td><td class="win">0× (noisy → 0.0)</td><td>&lt;2×</td><td>PASS</td></tr>
+<tr><td>A3</td><td>RealBlur blur pair acc (702 pairs)</td><td>99.43% (raw)</td><td class="win">99.29% (robust)</td><td>≥99%</td><td>PASS</td></tr>
+<tr><td>A5</td><td>Unit tests (incl. cache-version guard)</td><td>—</td><td class="win">13/13</td><td>pass</td><td>PASS</td></tr>
+<tr><td>A6</td><td>σ estimate on 16 MP photo</td><td>—</td><td class="win">33 ms</td><td>&lt;150 ms</td><td>PASS</td></tr>
+<tr><td>A4</td><td>Budapest face-gate baseline</td><td colspan="3">re-calibrated, see below</td><td>PASS (user-approved)</td></tr>
+</table>
+<p>Raw data: <code>noise/data/</code> and <code>blur/data/</code> in this folder (scores.csv + metrics.json each).</p>
+
+<h2>A4 — face blur gate re-calibration (user-approved option 1)</h2>
+<p>The corrected formula scores 112×112 face crops at ~0.45× the old scale (rank corr 0.93 over the
+340 Budapest faces), so the absolute gate <code>blur_min=150</code> over-rejected 4×. Re-calibrated
+<b>150 → 73.3</b> (minimizes gate flips: 19/340 faces) in <code>profile_4.json</code> and
+<code>profile_5.json</code>; profiles 1–3/smoke have the gate off (0). Headless same-path comparison
+(<code>scripts/run_profile.py</code>, Budapest album):</p>
+<table>
+<tr><th>Run</th><th>Code</th><th>blur_min</th><th>Clusters</th><th>Sizes</th><th>Noise</th></tr>
+<tr><td>4b6d2fdb</td><td>baseline</td><td>150</td><td>7</td><td>[26,20,12,7,3,2,2]</td><td>268</td></tr>
+<tr><td>46551fdc</td><td>spec-098</td><td>150</td><td class="fail">7</td><td class="fail">[19,12,7,6,3,2,2]</td><td class="fail">289</td></tr>
+<tr><td>40f7364d</td><td>spec-098</td><td>73.3</td><td class="win">8</td><td class="win">[29,19,13,7,3,2,2,2]</td><td class="win">263</td></tr>
+</table>
+<p>The calibrated run sits within the project's documented tolerance bands
+(<code>tests/_budapest_baseline.py</code>: cluster count 6–10 ✓, rejected 255–285 → 263 ✓).</p>
+
+<div class="note"><b>Pre-existing finding surfaced by this validation</b> (SIGHTING-113 update):
+the e2e_budapest 15-cluster reference <code>[35,24,14,…]</code> is unreproducible headlessly
+<b>even with baseline code</b> — app-vs-pipeline divergence that predates spec-098 (stash-and-rerun
+verified). Likewise 3 e2e scenarios (A/C/F) fail identically on baseline code (UI-level). Scenario B
+(stored reference run) passes throughout. Re-anchoring belongs to the SIGHTING-113 item-3 fix, not
+this spec.</div>
+
+<h2>Migration note</h2>
+<p>Any profile in the wild with a nonzero <code>blur_min</code> tuned for the old Laplacian scale
+should be scaled by ~0.49 (the 150→73.3 mapping). The <code>score_iqa</code> universal-cache key was
+bumped (<code>rule_based → rule_based_v2</code>) so stale v1 whole-image scores are never served;
+a unit test pins the bump.</p>
+
+<div class="verdict"><b>Verdict: spec-098 ships.</b> The pipeline no longer prefers noisy images
+(0/480 → 477/480 correct), blur ranking is intact (99.3%), the face gate is noise-robust with a
+calibrated threshold, and the Studio gains a sortable Noise column. Fix proposals for the two other
+red defect findings (exposure compression, rotation blindness) remain open as separate specs.</div>
+
+<p style="color:#777;font-size:0.85em">Generated 2026-07-12. Scripts: <code>experiment_defectscore_{noise,blur}.py</code>
+(re-run via <code>DEFECTSCORE_OUT</code>), <code>experiment_spec098_sweep{,2,3}.py</code>, <code>run_profile.py</code>.</p>
+</body>
+</html>

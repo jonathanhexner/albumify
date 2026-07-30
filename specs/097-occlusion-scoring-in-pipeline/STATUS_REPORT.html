@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Occlusion Detection — Where We Stand (2026-07-07)</title>
+<style>
+  body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 20px; color: #1c2430; line-height: 1.55; background: #fafbfc; }
+  h1 { border-bottom: 3px solid #2563eb; padding-bottom: 8px; }
+  h2 { margin-top: 40px; color: #1e40af; border-bottom: 1px solid #dbe3ee; padding-bottom: 4px; }
+  h3 { color: #334155; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; background: #fff; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: #eef2f8; }
+  tr.win { background: #ecfdf5; }
+  tr.bad { background: #fef2f2; }
+  code, pre { background: #eef1f5; border-radius: 4px; font-size: 13px; }
+  code { padding: 1px 5px; }
+  pre { padding: 12px 14px; overflow-x: auto; border: 1px solid #dbe3ee; }
+  .qa { background: #fff; border-left: 4px solid #2563eb; padding: 10px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .qa .q { font-weight: 600; color: #1e40af; }
+  .warn { background: #fff7ed; border-left: 4px solid #ea580c; padding: 10px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .ok { background: #ecfdf5; border-left: 4px solid #059669; padding: 10px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  figure { margin: 18px 0; background: #fff; border: 1px solid #dbe3ee; border-radius: 8px; padding: 10px; }
+  figure img { width: 100%; height: auto; border-radius: 4px; }
+  figcaption { font-size: 13px; color: #475569; margin-top: 8px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; margin-right: 6px; }
+  .t-done { background: #d1fae5; color: #065f46; } .t-block { background: #fee2e2; color: #991b1b; }
+  .t-draft { background: #e0e7ff; color: #3730a3; } .t-res { background: #fef3c7; color: #92400e; }
+  .small { font-size: 12.5px; color: #64748b; }
+</style>
+</head>
+<body>
+
+<h1>Occlusion Detection &amp; Severity — Status Report</h1>
+<p class="small">2026-07-07 · branch <code>specs/093-095-analysis-studios</code> (local only, not pushed) ·
+specs 096 (benchmark) + 097 (pipeline integration) · fresh blur-box audit run today on 122 Budapest images</p>
+
+<h2>0 · The one-picture summary (it IS a lot — here is how it all fits)</h2>
+<pre>
+                         ┌─────────────────────────────────────────────────────────┐
+   photo ──► DETECTION   │ CLIP tile probe → P(occluded) per image     0.83 PR-AUC │  ✅ benchmarked (spec-096)
+             (the score) │ + 9 per-tile scores (which corner?)                     │  🔒 refit awaits your 82 adjudications
+                         └───────────────┬─────────────────────────────────────────┘
+                                         │ only if P is high (gate!)
+                         ┌───────────────▼─────────────────────────────────────────┐
+             LOCALIZATION│ WHERE is the blur?  LoG "flat-but-noisy" box            │  🟡 works (2/2 fingers) but noisy
+             (the box)   │ (+ later: per-patch head trained on free synth masks)   │     45 FP boxes / 122 imgs — see §3
+                         └───────────────┬─────────────────────────────────────────┘
+                                         │
+                         ┌───────────────▼─────────────────────────────────────────┐
+             SUBJECT     │ WHAT is the photo about?  ladder:                       │  ✅ design validated on panels
+             (the mask)  │  1. YOLO persons ∪ faces (already in pipeline, 111/122) │  📝 spec-097 Stage 2, not coded
+                         │  2. SLIC-superpixel × fused saliency (SR + CLIP-sem)    │
+                         │  3. U2-Net-lite / FastSAM (only if 1-2 fail)            │
+                         └───────────────┬─────────────────────────────────────────┘
+                                         │
+                         ┌───────────────▼─────────────────────────────────────────┐
+             SEVERITY    │ penalty = w_subj · P · overlap(blur, subject)   ← ruiner│  📝 spec-097 Stage 1+2, not coded
+             (the rank)  │         + w_bg   · P · area(blur − subject)   ← cosmetic│  penalize-don't-delete in select_best
+                         └─────────────────────────────────────────────────────────┘
+</pre>
+<p><b>Key mental model: the score, the box, and the mask are three different components with three
+different maturity levels.</b> Your questions below each land on a different one.</p>
+
+<h2>1 · Your questions, answered directly</h2>
+
+<div class="qa"><span class="q">Q: Do we produce a blurry score?</span><br>
+<b>Yes — two of them.</b>
+(1) A per-image <b>P(occluded)</b> from the CLIP tile probe — this is the benchmarked number
+(0.83 scene PR-AUC, out-of-fold, i.e. every image scored by a model that never trained on its scene).
+Stored in <code>model_scores.csv</code> (<code>B_clip_oof</code>), browsable per image in the review app.
+(2) Per-tile scores (3×3) saying <i>which region</i> drives it.
+The red <b>box</b> you saw in the panels is a third, separate thing — a localization heuristic, not a score.</div>
+
+<div class="qa"><span class="q">Q: Didn't we measure AUC? How can there be sky false alarms?</span><br>
+Because <b>the AUC was measured for the detector, not for the box.</b>
+The 0.83 PR-AUC belongs to the CLIP probe's per-image score. The red blur-box is a
+<i>physics heuristic</i> (LoG patch statistics) that we built for the <i>localization research</i> —
+it was validated only visually ("are the 2 real fingers boxed?"), never AUC-scored, and it runs
+<b>unconditionally</b> in the research panels — no detector gating. That's the gap. Details in §3.</div>
+
+<div class="qa"><span class="q">Q: So how exactly did the sky false alarms happen?</span><br>
+The box rule looks for patches that are <i>flat but noisy</i> (defocused occluders kill detail but sit
+on a sensor-noise floor; sky is flat AND silent). The physics <b>bands overlap</b>: a dark finger and a
+hazy/textured sky both land at median-LoG ≈ 0.09–0.13× the image norm. No threshold separates them —
+we proved this in the spec-096 feature study (hand-crafted ceiling ≈ 0.5 PR-AUC for the same reason).
+Today's audit: <b>47 boxes on 122 images — 2/2 real fingers ✅, 45 false alarms</b>, of which
+24 are top-of-frame (sky/haze) and most of the rest are dark evening foregrounds. §3 shows both cases.</div>
+
+<div class="qa"><span class="q">Q: And severity should depend on the main object — where does that stand?</span><br>
+Exactly — that is spec-097 <b>Stage 2</b>, and it is also <b>why the sky FPs are tolerable by design</b>:
+the penalty is overlap-driven, and sky never overlaps the subject. The subject-mask ladder
+(YOLO → SLIC-refined saliency fusion → heavy segmentation only if needed) is panel-validated as of
+today — §4 shows the masks. Nothing is implemented in the pipeline yet; it's specced and gated.</div>
+
+<h2>2 · What the numbers actually say (spec-096, round 1)</h2>
+<p>51 positives (only <b>19 scenes</b> after near-duplicate grouping) / 776 negatives; grouped + stratified
+5-fold CV; <b>scene-level PR-AUC</b>; random baseline ≈ 0.06. Labels are pre-adjudication (82 disputed images await you).</p>
+<table>
+<tr><th>#</th><th>Candidate (what it scores)</th><th>Scene PR-AUC</th><th>Notes</th></tr>
+<tr class="win"><td>1</td><td><b>B: CLIP tile probe</b> (global+tile-max, OOF)</td><td><b>0.83</b> <span class="small">[CI 0.42–1.0]</span></td><td>best-verified · free · ~0.5 s/img CPU · gives per-tile localization</td></tr>
+<tr><td>?</td><td>D2: synth-trained CNN</td><td>0.87*</td><td>*test = 3 scenes only — unproven, revisit after refit</td></tr>
+<tr><td>5</td><td>D1: frozen ResNet18 probe</td><td>0.64</td><td>ImageNet features &lt; CLIP features</td></tr>
+<tr><td>6</td><td>F: LoG-stats + LR (your feature set)</td><td>0.51</td><td>best hand-crafted; the box in §3 reuses its physics</td></tr>
+<tr><td>7</td><td>E: classical 4-cue</td><td>0.43</td><td></td></tr>
+<tr class="bad"><td>8</td><td>A: Haiku zero-shot</td><td>0.41</td><td>poor detector, great label-miner (found the dark-occluder class)</td></tr>
+</table>
+<p class="small">Wide CI on 19 scenes is expected — that's the real reason your adjudication matters: it both corrects labels and settles disputed scenes.</p>
+
+<h2>3 · Anatomy of the sky false alarm (blur-box localizer)</h2>
+<p>Fresh audit today (<code>scripts/experiment_blurbox_audit.py</code>), current tightened rule
+(<code>iqr &lt; 0.15·g_iqr AND med &gt; 0.08·g_med</code>, ≥3 border-touching cells):</p>
+<table>
+<tr><th></th><th>count</th><th>reading</th></tr>
+<tr class="win"><td>Real fingers boxed</td><td>2 / 2</td><td>recall intact after tightening (was 77 boxes, now 47)</td></tr>
+<tr class="bad"><td>False-alarm boxes</td><td>45 / 120 clean images</td><td>24 top-of-frame (sky/haze) + ~17 dark evening foregrounds</td></tr>
+</table>
+
+<figure>
+  <img src="file:///D:/occlusion_dataset/research_saliency/panel__budapest__20250822_122617.jpg" alt="finger correctly boxed">
+  <figcaption><b>✅ Hit.</b> Real finger occlusion (bottom-right pink blob) — red box lands on it in all three
+  saliency variants; green = salient-subject box. Both real Budapest fingers are caught like this.
+  Note the blur box barely overlaps the person → Stage-2 severity would be low-moderate (corner occlusion), which is correct.</figcaption>
+</figure>
+
+<figure>
+  <img src="file:///D:/occlusion_dataset/research_saliency/panel__budapest__20250822_123510.jpg" alt="sky false alarm">
+  <figcaption><b>❌ The sky false alarm you asked about.</b> The red box covers the hazy sky band: flat
+  (low LoG spread) yet sitting above the noise floor — statistically the same band as a dark defocused finger
+  (med/g ≈ 0.09–0.13 for both). <b>Why it's survivable:</b> the box has ~zero overlap with the subject (the girl),
+  so the Stage-2 penalty ≈ 0; and in production the box is only consulted when the CLIP probe already says
+  P(occluded) is high — this image scores low, so the box would never fire.</figcaption>
+</figure>
+
+<div class="warn"><b>Two mitigations, one already designed, one planned:</b>
+(1) <b>Detector gating</b> — the box is a <i>where</i> tool, consulted only when the learned <i>whether</i>
+(CLIP probe) fires. Un-gated panels overstate the problem: the 45 FPs mostly sit on images the probe scores clean.
+(2) <b>Learned localization</b> — the synthetic compositor produces pixel-exact occluder masks for free;
+a per-patch head trained on them replaces the physics thresholds entirely (spec-097 "durable localization" note).
+We deliberately did NOT tune thresholds further — the feature study showed physics cues plateau (~0.5 PR-AUC).</div>
+
+<h2>4 · Subject / severity: saliency &amp; segmentation options compared</h2>
+<table>
+<tr><th>Option</th><th>Verdict</th><th>Evidence</th></tr>
+<tr class="win"><td><b>YOLO persons ∪ faces</b> (already in pipeline)</td><td><b>Tier 1 — primary.</b></td><td>covered 111/122 Budapest images</td></tr>
+<tr><td>Spectral-residual (SR) saliency, raw box</td><td>unstable alone — scattered boxes ("wasn't terribly good", agreed)</td><td>panels index.html</td></tr>
+<tr><td>SR × center prior</td><td>most stable of the raw variants, still a fuzzy box</td><td>panels index.html</td></tr>
+<tr><td>CLIP-semantic (tile↔global similarity)</td><td>finds the <i>meaningful</i> subject; 4×4 grid too coarse alone</td><td>clip panels, e.g. below</td></tr>
+<tr class="win"><td><b>SLIC superpixels × fused (SR + CLIP-sem)</b> — your intersection idea</td><td><b>Tier 2 — fallback.</b> Object-shaped MASK, edge-snapped; masks make the overlap math exact</td><td>3 fresh panels below</td></tr>
+<tr><td>U2-Net / FastSAM / DeepLab</td><td>Tier 3 escape hatch only — new heavy deps; DeepLab's 20 classes ≈ what YOLO already gives us</td><td>—</td></tr>
+</table>
+
+<figure>
+  <img src="file:///D:/occlusion_dataset/research_saliency/slic_fusion/slic__person_finger.jpg" alt="SLIC fusion person">
+  <figcaption><b>SLIC fusion — person scene (with real finger).</b> Left: original. Middle: fused saliency heat.
+  Right: SLIC-refined mask hugs the person and <b>excludes the finger blob</b> — so
+  <code>overlap(blur_region, subject)</code> stays honest: the finger hides pavement, not the subject → moderate penalty, not a kill.</figcaption>
+</figure>
+
+<figure>
+  <img src="file:///D:/occlusion_dataset/research_saliency/slic_fusion/slic__architecture.jpg" alt="SLIC fusion basilica">
+  <figcaption><b>SLIC fusion — architecture (no people ⇒ YOLO tier empty, fallback must carry it).</b>
+  The mask traces the basilica's towers, dome and façade and excludes the sky. Raw CLIP-sem alone bled into sky here;
+  raw SR alone left holes — the fusion + superpixel snapping fixes both.</figcaption>
+</figure>
+
+<figure>
+  <img src="file:///D:/occlusion_dataset/research_saliency/clip__budapest__20250822_112331.jpg" alt="clip-semantic vs sr_center">
+  <figcaption><b>Why CLIP-semantic is in the fusion.</b> sr_center (left) vs clip_sem (right), blue = YOLO person boxes.
+  In a crowd, CLIP-semantic saliency (green) concentrates on the girl — the photo's <i>point</i> — where contrast-based
+  saliency treats all the passers-by equally. Semantics + edges is the whole fusion argument.</figcaption>
+</figure>
+
+<h3>The severity formula (spec-097 Stage 2, agreed design)</h3>
+<pre>
+penalty = w_subject · P(occluded) · overlap(blur_region, subject_mask)   ← photo-ruiner term
+        + w_bg      · P(occluded) · area(blur_region − subject_mask)    ← cosmetic term
+
+background-only blob → L1-ish   ·   subject partly covered → L2   ·   subject mostly covered → L3
+driver is always the LEARNED P — never raw blur — so bokeh/portrait backgrounds are safe.
+</pre>
+
+<h2>5 · Status ledger &amp; gates</h2>
+<table>
+<tr><th>Item</th><th>Status</th></tr>
+<tr><td>spec-096 benchmark (6 tracks, dataset, leaderboard, review app)</td><td><span class="tag t-done">DONE</span> round-1 complete</td></tr>
+<tr><td><b>Your 82 adjudications</b> (review app :8534 → Adjudicate; corrections.csv is still empty)</td><td><span class="tag t-block">BLOCKING GATE</span> everything below waits on this</td></tr>
+<tr><td>Refit B/D/F on corrected labels → final leaderboard → crown production detector</td><td><span class="tag t-block">GATED</span> seconds of compute once labels land</td></tr>
+<tr><td>spec-096 close-out (/code-review → REVIEW.md, LEARNINGS)</td><td><span class="tag t-block">GATED</span></td></tr>
+<tr><td>spec-097 Stage 1 (score_occlusion step + occlusion_penalty in select_best)</td><td><span class="tag t-draft">SPEC DRAFTED</span> no code — per workflow, implementation starts only on your go</td></tr>
+<tr><td>spec-097 Stage 2 (subject-aware severity)</td><td><span class="tag t-draft">SPEC DRAFTED</span> subject ladder panel-validated today</td></tr>
+<tr><td>Blur-box localizer</td><td><span class="tag t-res">RESEARCH-GRADE</span> recall 2/2, FP-prone un-gated; successor = per-patch head on synth masks</td></tr>
+<tr><td>Push / production</td><td><span class="tag t-block">NOT PUSHED</span> branch exists locally only; nothing merged to main</td></tr>
+</table>
+
+<p class="small">Artifacts: full saliency galleries <code>D:\occlusion_dataset\research_saliency\index.html</code> (dual-box, 122 imgs)
+and <code>index_clip.html</code> (CLIP-sem vs SR) · benchmark detail <code>specs/096-.../RESULTS.md</code> ·
+review app <code>http://localhost:8534</code> · audit &amp; panel scripts <code>scripts/experiment_blurbox_audit.py</code>,
+<code>scripts/experiment_slic_fusion_panels.py</code>.</p>
+
+</body>
+</html>

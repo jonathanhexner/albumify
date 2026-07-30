@@ -11,8 +11,11 @@ from sim_bench.image_quality_models.iqa_model_wrapper import (
     SharpnessOnlyIQAModel,
     ExposureOnlyIQAModel,
     ColorfulnessOnlyIQAModel,
-    ContrastOnlyIQAModel
+    ContrastOnlyIQAModel,
+    NoiseOnlyIQAModel
 )
+from sim_bench.image_quality_models.pyiqa_model_wrapper import PyIQAModel, PYIQA_METRICS
+from sim_bench.image_quality_models.clip_prompt_model import ClipPromptModel
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,16 @@ MODEL_REGISTRY = {
     'exposure_iqa': ExposureOnlyIQAModel,
     'colorfulness_iqa': ColorfulnessOnlyIQAModel,
     'contrast_iqa': ContrastOnlyIQAModel,
+    'noise_iqa': NoiseOnlyIQAModel,  # spec-098: wavelet noise score
 }
+
+# spec-093: pyiqa no-reference metrics (MANIQA/MUSIQ/HyperIQA/BRISQUE/NIQE/CLIP-IQA)
+# all front the single PyIQAModel class, keyed by metric name.
+for _metric in PYIQA_METRICS:
+    MODEL_REGISTRY[_metric] = PyIQAModel
+
+# spec-094 follow-up: CLIP prompt-based occlusion detector (finger over lens etc.)
+MODEL_REGISTRY['clip_occlusion'] = ClipPromptModel
 
 
 def create_model(model_config: Dict) -> BaseQualityModel:

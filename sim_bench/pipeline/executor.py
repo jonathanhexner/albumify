@@ -3,7 +3,7 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Generator
+from typing import Generator, Iterable
 
 from sim_bench.pipeline.base import PipelineStep
 
@@ -12,6 +12,32 @@ from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.config import PipelineConfig
 from sim_bench.pipeline.registry import StepRegistry
 from sim_bench.pipeline.builder import PipelineBuilder
+
+
+def _summarize_one(context: PipelineContext, key: str) -> str:
+    """Render a single context key as ``key=<shape>`` for log lines.
+
+    Best-effort: lists / dicts / numpy arrays show their length, scalars
+    show ``=<scalar>``, missing keys show ``=missing``, None shows
+    ``=None``. Used by the per-step in/out telemetry in ``_execute_step``.
+    """
+    if not hasattr(context, key):
+        return f"{key}=missing"
+    val = getattr(context, key)
+    if val is None:
+        return f"{key}=None"
+    try:
+        return f"{key}={len(val)}"
+    except TypeError:
+        return f"{key}=<scalar>"
+
+
+def _summarize_keys(context: PipelineContext, keys: Iterable[str]) -> str:
+    """Comma-join ``_summarize_one`` over a set of context keys."""
+    ordered = sorted(keys) if keys else []
+    if not ordered:
+        return "—"
+    return ", ".join(_summarize_one(context, k) for k in ordered)
 
 
 @dataclass
@@ -151,6 +177,15 @@ class PipelineExecutor:
 
         validation_errors = step.validate(context)
         if validation_errors:
+            # spec-041 follow-up #2: log the validation failure with the
+            # input shape so the diagnostic doesn't depend on someone
+            # scrolling back through prior step logs to figure out what
+            # context state caused the validator to fire.
+            in_summary = _summarize_keys(context, step.metadata.requires)
+            logger.error(
+                "%s: validation failed (in[%s]): %s",
+                step_name, in_summary, "; ".join(validation_errors),
+            )
             return StepResult(
                 step_name=step_name,
                 success=False,
@@ -169,8 +204,28 @@ class PipelineExecutor:
                 duration_ms=duration_ms,
                 error_message=f"{type(e).__name__}: {e}"
             )
+        finally:
+            # SIGHTING-117: free this step's model before the next step loads its
+            # own, so peak RSS is one model instead of the sum of all. Runs on
+            # success AND failure. Best-effort: a release() bug must never mask
+            # the step's real result.
+            try:
+                step.release()
+            except Exception:
+                logger.warning("%s: release() failed (non-fatal)", step_name, exc_info=True)
 
         duration_ms = int((time.time() - start_time) * 1000)
+
+        # spec-041 follow-up #2: one INFO line per successful step with
+        # input / output counts pulled from metadata. Standardized so any
+        # post-mortem reads "what was the shape going in / coming out"
+        # without each step having to log its own.
+        in_summary = _summarize_keys(context, step.metadata.requires)
+        out_summary = _summarize_keys(context, step.metadata.produces)
+        logger.info(
+            "%s: in[%s] -> out[%s] (%dms)",
+            step_name, in_summary, out_summary, duration_ms,
+        )
 
         return StepResult(
             step_name=step_name,

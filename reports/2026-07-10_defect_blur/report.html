@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Defect scoring #1: Blur — pipeline vs classical vs SOTA (2026-07-10)</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;max-width:960px;margin:24px auto;color:#222;line-height:1.5}
+h1{font-size:1.5em;border-bottom:2px solid #4a7;padding-bottom:6px}
+h2{font-size:1.15em;margin-top:28px;color:#265}
+table{border-collapse:collapse;margin:12px 0}
+th,td{border:1px solid #bbb;padding:5px 12px;text-align:right}
+th{background:#e8f2ec}td:first-child,th:first-child{text-align:left}
+.win{background:#d8f0d8;font-weight:bold}
+.pair{display:inline-block;margin:8px;text-align:center;font-size:0.85em}
+.pair img{max-width:300px;display:block;border:1px solid #999}
+code{background:#f2f2f2;padding:1px 4px}
+.verdict{background:#eef7ee;border-left:4px solid #4a7;padding:10px 14px;margin:16px 0}
+</style>
+</head>
+<body>
+<h1>Defect scoring #1: Blur</h1>
+<p><b>Goal.</b> Can the pipeline's sharpness score (Laplacian variance, <code>sim_bench/quality_assessment/rule_based.py</code>)
+detect real camera-shake blur, compared to a classical alternative and a state-of-the-art deep metric?</p>
+
+<h2>Method</h2>
+<ul>
+<li><b>Dataset</b>: RealBlur-J (Rim et al., ECCV 2020) — <b>702 paired</b> (blurred, tripod-sharp) photos of the same scene.
+Local copy: <code>D:\occlusion_dataset\realblur\j_sample\{blur,gt}</code>.</li>
+<li><b>Ours</b>: Laplacian variance (pipeline sharpness) + its production <code>/1000</code>-clip normalization.</li>
+<li><b>Classical</b>: Tenengrad (Sobel gradient energy above mean threshold, resolution-normalized).</li>
+<li><b>SOTA</b>: MUSIQ (multi-scale image quality transformer, pyiqa, CPU).</li>
+<li><b>Metrics</b>: pair accuracy = fraction of pairs where the sharp image outscores its blurred twin
+(scale-free, the album use-case: "pick the better shot"); ROC-AUC = separability of the two populations
+with a single global threshold (the "flag this image as blurry" use-case).</li>
+<li>Reproduce: <code>.venv/Scripts/python scripts/experiment_defectscore_blur.py</code>. Raw scores: <code>data/scores.csv</code>.</li>
+</ul>
+
+<h2>Results (702 pairs)</h2>
+<table>
+<tr><th>Method</th><th>Pair accuracy</th><th>ROC-AUC</th><th>Median sharp</th><th>Median blurred</th></tr>
+<tr><td>Ours — Laplacian variance</td><td class="win">99.4%</td><td>0.871</td><td>163.6</td><td>45.6</td></tr>
+<tr><td>Classical — Tenengrad</td><td>99.0%</td><td>0.765</td><td>18374</td><td>7692</td></tr>
+<tr><td>SOTA — MUSIQ</td><td>98.9%</td><td class="win">0.893</td><td>55.1</td><td>33.8</td></tr>
+</table>
+<p>Production normalization check: <code>clip(lap/1000)</code> produced <b>0 ties and 0 saturated pairs</b> on this
+dataset — but note RealBlur is dim indoor scenes with low variance; bright textured outdoor photos regularly
+exceed 1000 (see the noise report where patches hit 12,700), so saturation remains a latent risk.</p>
+
+<h2>Sample pairs (left = sharp GT, right = blurred)</h2>
+<p>Top row: typical wins. Bottom row: the failure mode — scene121 pairs where Laplacian ranked the <i>blurred</i>
+image higher (noise/texture in the dark blurred frame inflates local variance); MUSIQ ranked both correctly.</p>
+<div>
+<div class="pair"><img src="samples/scene131_scene131__3_gt.jpg"><br>scene131 GT — lap 1160 / musiq 71.8</div>
+<div class="pair"><img src="samples/scene131_scene131__3_blur.jpg"><br>blur — lap 56.7 / musiq 40.6 (both correct)</div>
+</div>
+<div>
+<div class="pair"><img src="samples/scene121_scene121__3_gt.jpg"><br>scene121 GT — lap 105.0 / musiq 43.7</div>
+<div class="pair"><img src="samples/scene121_scene121__3_blur.jpg"><br>blur — lap <b>141.7 (wrong)</b> / musiq 32.6 (correct)</div>
+</div>
+<div>
+<div class="pair"><img src="samples/scene121_scene121__20_gt.jpg"><br>scene121 GT — lap 76.7 / musiq 37.2</div>
+<div class="pair"><img src="samples/scene121_scene121__20_blur.jpg"><br>blur — lap <b>106.8 (wrong)</b> / musiq 31.6 (correct)</div>
+</div>
+<p>Full image set: <code>D:\occlusion_dataset\realblur\j_sample</code> (702 pairs; full archive <code>RealBlur.tar.gz</code> alongside).</p>
+
+<h2>Verdict</h2>
+<div class="verdict">
+<b>Our Laplacian sharpness is competitive with SOTA for blur.</b> It wins within-scene ranking (99.4%, the
+best-shot-selection use-case) and only trails MUSIQ on absolute thresholding (AUC 0.871 vs 0.893 — Laplacian
+variance is content-dependent, so one global "blurry" threshold misfires on low-texture scenes).
+The 4 failed pairs (0.6%) are dark, noisy frames where sensor noise masquerades as sharpness — the same
+mechanism that breaks this metric completely on the noise benchmark (see companion report
+<code>2026-07-10_defect_noise</code>). No change needed for blur ranking; for absolute flagging, MUSIQ or a
+content-normalized threshold would be better.
+</div>
+
+<p style="color:#777;font-size:0.85em">Generated 2026-07-10 by <code>scripts/experiment_defectscore_blur.py</code>;
+metrics in <code>data/metrics.json</code>.</p>
+</body>
+</html>

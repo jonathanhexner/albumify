@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The people Table — History, Intent &amp; Reality</title>
+<style>
+  :root{
+    --bg:#0f1220;--panel:#171a2b;--panel2:#1e2238;--ink:#e8eaf2;--muted:#9aa0bd;
+    --line:#2c3150;--accent:#6ea8fe;--good:#48c78e;--warn:#f6b73c;--bad:#f06a6a;--purple:#b388f0;
+    --mono:"SF Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.62 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 28px 110px}
+  .kicker{color:var(--accent);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:12px}
+  h1{font-size:33px;line-height:1.15;margin:10px 0 6px}
+  h2{font-size:23px;margin:50px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  h3{font-size:17px;margin:22px 0 8px;color:#cdd2ee}
+  p{color:#d4d8ec}.sub{color:var(--muted);font-size:15px;margin:0}
+  code{font-family:var(--mono);background:#0c0f1c;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px;color:#cfe0ff}
+  .mod{color:#8fd0ff}.new{color:var(--good)}.edit{color:var(--warn)}.gone{color:var(--bad)}
+  ul{padding-left:20px}li{margin:5px 0}
+  .lede{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:16px 20px;margin:24px 0}
+  .lede b{color:#fff}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd2ee;font-weight:600}
+  td.good{color:var(--good)}td.bad{color:var(--bad)}td.warn{color:var(--warn)}
+  .anchor{background:linear-gradient(180deg,#11271f,#0e1f1a);border:1px solid var(--good);border-radius:12px;padding:18px 22px;margin:20px 0}
+  .anchor h3{margin-top:0;color:var(--good)}
+  .verdict{background:linear-gradient(180deg,#241b22,#1a1426);border:1px solid var(--warn);border-radius:12px;padding:18px 22px;margin:22px 0}
+  .verdict h3{margin-top:0;color:var(--warn)}
+  .quote{background:#0c0f1c;border-left:3px solid var(--purple);border-radius:0 8px 8px 0;padding:12px 16px;margin:12px 0;font-size:14px;color:#dcc8ff}
+  .quote .cite{display:block;margin-top:6px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .pill{font-family:var(--mono);font-size:12px;background:#0c0f1c;border:1px solid var(--line);border-radius:6px;padding:2px 8px;color:#9fd0ff}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:20px;letter-spacing:.04em;vertical-align:middle}
+  .tag.be{background:rgba(108,160,254,.15);color:var(--accent);border:1px solid rgba(108,160,254,.4)}
+  .tag.fe{background:rgba(179,136,240,.15);color:#dcc8ff;border:1px solid rgba(179,136,240,.4)}
+  .tag.run{background:rgba(72,199,142,.15);color:var(--good);border:1px solid rgba(72,199,142,.4)}
+  .st{display:inline-block;font-size:11px;font-family:var(--mono);border-radius:5px;padding:1px 7px}
+  .st.done{background:rgba(72,199,142,.16);color:var(--good)}
+  .st.partial{background:rgba(246,183,60,.15);color:var(--warn)}
+  .st.never{background:rgba(240,106,106,.15);color:var(--bad)}
+  /* diagram */
+  .diagram{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin:18px 0}
+  .node{border-radius:10px;padding:10px 13px;font-size:13px;text-align:center;border:1px solid var(--line);background:var(--panel2);font-family:var(--mono)}
+  .node .t{font-family:-apple-system,Segoe UI,sans-serif;font-weight:700;font-size:12.5px;margin-bottom:3px}
+  .node.run{background:#1f3a30;border-color:var(--good)}
+  .node.api{background:#2d2440;border-color:var(--purple)}
+  .node.fe{background:#241f33;border-color:#7a6aa8}
+  .arrow{color:var(--muted);text-align:center;font-size:18px;margin:6px 0}
+  .arrow.bad{color:var(--bad);font-weight:700}
+  .arrow.good{color:var(--good);font-weight:700}
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:820px){.cols2{grid-template-columns:1fr}}
+  .col{display:flex;flex-direction:column;gap:0;align-items:center}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+  .card h3{margin-top:0}
+  .phaserow td:first-child{font-family:var(--mono);white-space:nowrap}
+  footer{margin-top:54px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:13px}
+  .keyq{background:var(--panel);border:1px solid var(--purple);border-radius:12px;padding:16px 20px;margin:18px 0}
+  .keyq h3{margin-top:0;color:#dcc8ff}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">spec-079 · People-Table History Report</div>
+<h1>The <code>people</code> table: what it is, what it was meant to be, and the gap</h1>
+<p class="sub">Commissioned to unblock <span class="pill">spec-079 Stage 4</span> (slim <code>people</code> to authored-only).
+The destructive migration is gated on this report. Date 2026-06-05. Evidence is cited to file paths and line ranges; no code was changed.</p>
+
+<div class="lede">
+  <b>One-line answer.</b> The <code>people</code> table is <b>not</b> a narrow-by-design snapshot — it is the surviving
+  data backbone of a much larger, deliberately-planned <b>"Face Management"</b> feature (2026-02-14) whose later phases
+  (batch re-clustering, the full Needs-Help wizard, transparency/debug views, mobile) were <b>never finished</b>. The
+  table itself is essentially complete; the <i>feature it was built to serve</i> is roughly half-built. There is
+  <b>no</b> evidence of an even-broader vision (cross-album / persistent-named / re-identification) — that scope was
+  never planned. So Stage 4's "slim to authored-only" is safe <i>as a data-model change</i>, but it should be made with
+  eyes open that it sits under an unfinished UX, not a finished one.
+</div>
+
+<!-- ============================ SECTION 1 ============================ -->
+<h2>1 · What the <code>people</code> table is today</h2>
+
+<p>A row in <code>people</code> is the API's <b>denormalized snapshot of one face cluster</b>, written into the central
+catalog DB (<code>~/.sim_bench/sim_bench.db</code>) after a pipeline run completes. The SQLAlchemy model is
+<code>Person</code> in <span class="mod">sim_bench/api/database/models.py:83–116</span>.</p>
+
+<table>
+  <tr><th>Column</th><th>Type</th><th>Meaning</th></tr>
+  <tr><td><code>id</code></td><td>String (UUID)</td><td>Synthetic primary key. <b>Not</b> stable across runs — a fresh UUID every run.</td></tr>
+  <tr><td><code>album_id</code> / <code>run_id</code></td><td>FK</td><td>Scopes the person to <b>one album and one pipeline run</b>. People are per-run, never global.</td></tr>
+  <tr><td><code>person_index</code></td><td>Integer</td><td>The cluster id (0,1,2…) copied straight from <code>people_clusters</code>. This is the only link back to the clustering result.</td></tr>
+  <tr><td><code>name</code></td><td>String, nullable</td><td><b>The one piece of genuinely authored state.</b> User-assigned name. Null until a human renames.</td></tr>
+  <tr><td><code>thumbnail_image_path</code> / <code>_face_index</code> / <code>_bbox</code></td><td>String / Int / JSON</td><td>The chosen representative face for the card (best face or a saved crop path).</td></tr>
+  <tr><td><code>face_count</code> / <code>image_count</code></td><td>Integer</td><td>Cached statistics, recomputed on merge/split.</td></tr>
+  <tr><td><code>face_instances</code></td><td>JSON blob</td><td><b>The duplicated membership.</b> A full copy of every face: <code>{image_path, face_index, bbox, score, assignment_method, assignment_confidence}</code>. This is what spec-079 calls "stale duplicate of cluster membership".</td></tr>
+  <tr><td><code>created_at</code></td><td>DateTime</td><td>Row creation time.</td></tr>
+</table>
+
+<h3>Who writes it</h3>
+<p><code>PeopleService.create_from_clusters()</code> — <span class="mod">sim_bench/api/services/people_service.py:279–376</span>.
+It is called once, from the pipeline completion path in
+<span class="mod">sim_bench/api/services/pipeline_service.py:230–242</span>, which prefers
+<code>context.refined_people_clusters</code> (from <code>identity_refinement</code>) over the raw
+<code>context.people_clusters</code>. For each cluster it flattens every <code>Face</code> into a JSON instance and
+snapshots it into the row. Mutations (<code>rename / merge / split / delete_for_run</code>) also live in this service.</p>
+
+<h3>Who reads it</h3>
+<ul>
+  <li><span class="tag be">BE</span> <code>routers/people.py</code> (list / get / images / rename / merge / split) and the
+      <code>face_management</code> read paths via <code>face_service.py</code>.</li>
+  <li><span class="tag fe">FE</span> Albumify: <code>pages/people.py</code>, <code>components/people_browser.py</code>,
+      <code>pages/people_faces.py</code>, and the People tab inside <code>pages/face_management.py</code> — all over HTTP via <code>api_client.py</code>.</li>
+</ul>
+
+<h3>How it relates to the run-directory clustering result</h3>
+<p>The run-dir DB (<span class="pill">runs/&lt;id&gt;/face_clustering.db</span>) that FC v2 reads has <b>no person or name
+concept at all</b>. It stores clusters and assignments only:</p>
+<ul>
+  <li><code>clusters</code> (<span class="mod">run_db/models/cluster.py</span>): <code>cluster_id, iteration, size, diameter, avg_intra_dist, origin, parent_ids</code>.</li>
+  <li><code>cluster_assignments</code> (<span class="mod">run_db/models/cluster_assignment.py</span>): <code>face_id → cluster_id, iteration, is_exemplar, d10_score</code>.</li>
+</ul>
+<div class="anchor">
+  <h3>The defining equation</h3>
+  <p style="margin-bottom:0"><b>people = clusters + human edits.</b> A cluster is an algorithmic fact in the run-dir DB.
+  A <code>Person</code> is that cluster plus a name, a chosen thumbnail, and any merge/split the user performed — copied
+  into the catalog DB. Everything in a <code>Person</code> row except <code>name</code> / <code>thumbnail_*</code> /
+  user-driven merge-split is <i>re-derivable</i> from the run-dir DB.</p>
+</div>
+
+<div class="diagram">
+  <div class="cols2">
+    <div class="col">
+      <div class="node run"><div class="t">run-dir face_clustering.db</div>clusters · cluster_assignments<br>(NO name, NO person)</div>
+      <div class="arrow good">▼ FC v2 reads via RunStore→views</div>
+      <div class="node fe"><div class="t">FC v2 tabs</div>clusters only — never "people"</div>
+    </div>
+    <div class="col">
+      <div class="node api"><div class="t">create_from_clusters()</div>flatten Face → JSON, + name/thumb</div>
+      <div class="arrow bad">▼ snapshot into catalog DB</div>
+      <div class="node api"><div class="t">people table (sim_bench.db)</div>person_index + face_instances blob</div>
+      <div class="arrow">▼ HTTP</div>
+      <div class="node fe"><div class="t">Albumify People / Face-Mgmt</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ SECTION 2 ============================ -->
+<h2>2 · Original intention — was it meant to be more general?</h2>
+
+<p>I scanned every <code>specs/*/spec.md</code>, the <code>specs/*/*.html</code> plans, <code>docs/PLAN_*.md</code>,
+<code>FEATURE_REQUESTS.md</code>, <code>LEARNINGS.md</code>, and the archive. Two findings, in opposite directions.</p>
+
+<h3 style="color:var(--good)">Finding A — YES, it was the backbone of a much larger planned feature</h3>
+<p>The <code>people</code> table was the data layer of a fully-specced <b>"Face Management"</b> feature, written
+<b>2026-02-14</b>, two documents totalling ~3,000 lines:</p>
+<ul>
+  <li><span class="mod">face_cluster/docs/archive/FACE_MANAGEMENT_UI_PLAN.md</span> (1,037 lines) — goals, 7 phases, task breakdown, tests, a11y.</li>
+  <li><span class="mod">face_cluster/docs/archive/FACE_MANAGEMENT_MODULES.md</span> (1,951 lines) — module-by-module specs for 14 components.</li>
+</ul>
+<p>These docs explicitly treat <code>Person</code> as the pivot the whole feature hangs on. The diagram in UI_PLAN
+marks <code>Person</code> as <i>"(exists)"</i> and builds <code>FaceOverride</code>, <code>FaceService</code>,
+<code>faces.py</code> around it. The planned scope:</p>
+<div class="quote">
+  "Allow users to correct face clustering mistakes … Enable batch corrections with deferred reclustering … Support
+  'Needs Your Help' recommender for borderline cases." Success criteria include: <i>assign / remove / reassign / create
+  new person / untag / mark not-a-face / undo any action / answer Needs-Your-Help prompts / queue changes in batch mode</i>.
+  <span class="cite">FACE_MANAGEMENT_UI_PLAN.md §1, lines 26–43</span>
+</div>
+<div class="quote">
+  Batch apply was meant to: "Re-run identity_refinement step … Return updated face list + newly auto-assigned" — i.e.
+  user corrections feed back into clustering and pull in more faces.
+  <span class="cite">FACE_MANAGEMENT_UI_PLAN.md §5.2 change-flow, lines 489–504</span>
+</div>
+<p>So the <code>people</code> table was never meant to be a passive read-only snapshot. It was meant to be a
+<b>living, user-editable identity store</b> with a rich correction UX and a feedback loop into the clustering algorithm.
+The 7 planned phases:</p>
+<table class="phaserow">
+  <tr><th>Phase (plan §6)</th><th>What it delivered</th><th>Built?</th></tr>
+  <tr><td>1 · Backend foundation</td><td><code>FaceOverride</code> model, <code>faces.py</code>, <code>FaceService</code>, schemas</td><td><span class="st done">DONE</span></td></tr>
+  <tr><td>2 · Basic UI structure</td><td>Face Management page, tabs, FaceCard/FaceGrid, api_client methods</td><td><span class="st done">DONE</span></td></tr>
+  <tr><td>3 · Core actions</td><td>assign / unassign / untag / not-a-face, toasts</td><td><span class="st partial">MOSTLY</span></td></tr>
+  <tr><td>4 · Batch mode</td><td>PendingChangesPanel, batch apply, <b>recluster trigger</b></td><td><span class="st partial">UI yes, recluster NO</span></td></tr>
+  <tr><td>5 · Needs-Help wizard</td><td>Tinder-style borderline review, keyboard nav, progress</td><td><span class="st partial">card UI yes, wizard NO</span></td></tr>
+  <tr><td>6 · Debug &amp; transparency</td><td>distances to all people, "why not assigned", exemplar display</td><td><span class="st never">NEVER</span></td></tr>
+  <tr><td>7 · Polish &amp; mobile</td><td>FaceDetailSheet, touch gestures, a11y audit, virtual scroll</td><td><span class="st never">NEVER</span></td></tr>
+</table>
+<p>The single hardest piece of evidence that the feature was abandoned mid-way: the re-cluster feedback loop —
+the centrepiece of Phases 4–5 — is a <b>stub that returns hardcoded zeros</b>:</p>
+<div class="quote">
+  <code># TODO: Implement full reclustering<br># For now, just return zeros</code><br>
+  <code>return {'auto_assigned': 0, 'still_unassigned': 0, …}</code>
+  <span class="cite">sim_bench/api/services/face_service.py:742–757 (<code>_trigger_recluster</code>)</span>
+</div>
+
+<h3 style="color:var(--bad)">Finding B — NO broader "cross-album / persistent identity" vision was ever planned</h3>
+<p>I searched the entire repo for <code>cross-album</code>, <code>persistent</code>, <code>across runs/albums</code>,
+<code>global identit*</code>, <code>known people</code>, <code>person gallery</code>, <code>re-identif*</code>. <b>Zero
+hits</b> in any spec, plan, or feature request. The terminology spec
+(<span class="mod">docs/design/app/2026-05-01_dataset_album_run_terminology_spec.md</span>) and every Face-Management doc
+keep identity strictly <b>per-(album, run)</b>. The Person model itself bakes this in: a UUID <code>id</code> minted per
+run and a hard <code>run_id</code> FK, with no natural identity key that could survive a re-run.</p>
+<p>Note one easy false lead: the ML-merging plan (<span class="mod">docs/PLAN_ML_CLUSTER_MERGING.md</span>) and FC v2's
+<code>detect_persons</code> pipeline step both use the word "person", but neither is about the people table.
+<code>detect_persons</code> is person/object <i>detection</i> (bounding boxes), and the ML plan uses
+"person_A / person_B" only as <i>training labels</i> for a cluster-merge classifier — not a stored identity.</p>
+
+<div class="keyq">
+  <h3>Direct answer to "was it meant to be more general?"</h3>
+  <p style="margin-bottom:0"><b>More general in <i>function</i>: yes</b> — it was meant to be an editable identity store
+  driving a full correction/recluster UX, not the read-mostly snapshot it is now. <b>More general in <i>scope</i>
+  (cross-album, persistent, ML-identity): no</b> — that was never on any roadmap. The under-delivery is in the
+  <i>depth of the per-run feature</i>, not in a missing breadth of vision.</p>
+</div>
+
+<!-- ============================ SECTION 3 ============================ -->
+<h2>3 · All modules that touch the people / person concept</h2>
+<p>LOC are real line counts (<code>wc -l</code>) at the time of writing. Layer tags:
+<span class="tag be">BE</span> backend · <span class="tag fe">FE</span> Albumify frontend · <span class="tag run">RUN</span> run-dir layer.</p>
+
+<table>
+  <tr><th>Module</th><th>LOC</th><th>Layer</th><th>Responsibility (one line)</th></tr>
+  <tr><td><code>sim_bench/api/database/models.py</code> (<code>Person</code>)</td><td>223 file / ~34 for <code>Person</code></td><td><span class="tag be">BE</span></td><td>The ORM model — columns above. Also <code>FaceOverride</code> (the correction store) lives here.</td></tr>
+  <tr><td><code>sim_bench/api/services/people_service.py</code></td><td>387</td><td><span class="tag be">BE</span></td><td>Writes (<code>create_from_clusters</code>) + reads + mutations (rename / merge / split / delete_for_run).</td></tr>
+  <tr><td><code>sim_bench/api/services/face_service.py</code></td><td>758</td><td><span class="tag be">BE</span></td><td>Per-face status, borderline detection, batch apply; holds the dead <code>_trigger_recluster</code> stub.</td></tr>
+  <tr><td><code>sim_bench/api/services/pipeline_service.py</code></td><td>420</td><td><span class="tag be">BE</span></td><td>The single caller of <code>create_from_clusters()</code> on run completion (lines 230–242).</td></tr>
+  <tr><td><code>sim_bench/api/routers/people.py</code></td><td>123</td><td><span class="tag be">BE</span></td><td>REST: list / get / images / rename / merge / split.</td></tr>
+  <tr><td><code>sim_bench/api/routers/faces.py</code></td><td>221</td><td><span class="tag be">BE</span></td><td>REST: per-face list, needs-help, face actions — the Face-Management surface.</td></tr>
+  <tr><td><code>sim_bench/api/schemas/people.py</code></td><td>68</td><td><span class="tag be">BE</span></td><td>Pydantic wire contract: <code>PersonResponse</code>, list, rename/merge/split requests, <code>FaceInstance</code>.</td></tr>
+  <tr><td><code>sim_bench/api/schemas/face.py</code></td><td>122</td><td><span class="tag be">BE</span></td><td><code>FaceInfo</code>, <code>BorderlineFace</code>, <code>PersonDistance</code>, batch action schemas.</td></tr>
+  <tr><td><code>sim_bench/pipeline/steps/cluster_people.py</code></td><td>296</td><td><span class="tag be">BE</span></td><td>The step that <i>produces</i> <code>context.people_clusters</code> (dispatch over 6 clustering methods).</td></tr>
+  <tr><td><code>sim_bench/pipeline/steps/identity_refinement.py</code></td><td>578</td><td><span class="tag be">BE</span></td><td>Post-cluster noise attachment + applies user overrides → <code>refined_people_clusters</code> (what gets persisted).</td></tr>
+  <tr><td><code>app/streamlit/pages/people.py</code></td><td>192</td><td><span class="tag fe">FE</span></td><td>Google-Photos-style people browser page (grid + detail + merge dialog).</td></tr>
+  <tr><td><code>app/streamlit/pages/people_faces.py</code></td><td>88</td><td><span class="tag fe">FE</span></td><td>All-faces-of-one-person view.</td></tr>
+  <tr><td><code>app/streamlit/pages/face_management.py</code></td><td>635</td><td><span class="tag fe">FE</span></td><td>The Face-Management page: Needs-Help / All-Faces / People / Pending tabs.</td></tr>
+  <tr><td><code>app/streamlit/components/people_browser.py</code></td><td>333</td><td><span class="tag fe">FE</span></td><td>People grid, person detail, merge dialog widgets.</td></tr>
+  <tr><td><code>app/streamlit/models.py</code></td><td>231</td><td><span class="tag fe">FE</span></td><td>Frontend dataclasses: <code>Person</code>, <code>FaceInfo</code>, <code>BorderlineFace</code>, <code>PersonSummary</code>, <code>FaceAction</code>.</td></tr>
+  <tr><td><code>app/streamlit/api_client.py</code></td><td>726</td><td><span class="tag fe">FE</span></td><td>People methods: <code>get_people / get_person / rename_person / merge_people / split_person / get_people_summary</code> (lines 377–492).</td></tr>
+  <tr><td><code>sim_bench/run_db/models/cluster.py</code></td><td>21</td><td><span class="tag run">RUN</span></td><td>Run-dir clusters table — the algorithmic truth (no name/person).</td></tr>
+  <tr><td><code>sim_bench/run_db/models/cluster_assignment.py</code></td><td>28</td><td><span class="tag run">RUN</span></td><td>Run-dir face→cluster assignments + exemplar flag.</td></tr>
+</table>
+
+<h3>FC v2 — does it have any people concept?</h3>
+<div class="card">
+  <p style="margin:0"><b>No.</b> A search of <code>app/face_clustering_v2/</code> and <code>face_cluster/views/</code> finds
+  <b>zero</b> "person/people/identity" matches in the views layer, and only 3 incidental hits in v2
+  (<code>cluster_metrics.py</code>, <code>cluster_pair_crops.py</code>, and the <code>detect_persons</code> step name in
+  <code>pipeline.py</code> — all unrelated to identity). <b>FC v2 deals exclusively in <i>clusters</i></b>; the "person"
+  abstraction exists only on the Albumify/API side. This is precisely the divergence spec-079 exists to close.</p>
+</div>
+
+<!-- ============================ SECTION 4 ============================ -->
+<h2>4 · Linkage to existing plans</h2>
+
+<table>
+  <tr><th>Plan / spec</th><th>Status</th><th>Relationship to the people table</th></tr>
+  <tr><td><span class="mod">FACE_MANAGEMENT_UI_PLAN.md</span> + <span class="mod">FACE_MANAGEMENT_MODULES.md</span> (2026-02-14, archived)</td><td><span class="st partial">Partially implemented, then archived</span></td><td><b>The originating plan.</b> Built the table's consumers (FaceOverride, FaceService, faces router, Face-Mgmt page). Phases 4–7 unfinished. Not a numbered <code>specs/NNN</code> spec — predates the spec workflow.</td></tr>
+  <tr><td><span class="mod">specs/027-cluster-people-refactor</span></td><td><span class="st done">Implemented</span></td><td>Refactored the <i>producer</i> (<code>cluster_people.py</code>) only. Did not touch the table.</td></tr>
+  <tr><td><span class="mod">specs/035-albumify-e2e-acceptance</span></td><td>—</td><td>Asserts <code>context.people_clusters</code> is non-empty E2E; treats people as a pipeline output, not a feature.</td></tr>
+  <tr><td><span class="mod">specs/079-albumify-shared-core</span></td><td><span class="st partial">In Progress</span></td><td><b>The current owner.</b> Stage 4 = "slim the <code>people</code> table to authored-only", explicitly <b>gated on this report</b> (spec.md line 50; Open-decision lines 70–74).</td></tr>
+</table>
+
+<h3>Unimplemented planned phases / TODOs grepped near people-face code</h3>
+<ul>
+  <li><span class="mod">face_service.py:742–757</span> — <code>_trigger_recluster</code> returns hardcoded zeros
+      (<code>// TODO: Implement full reclustering</code>). <b>Kills the entire batch-recluster feedback loop</b> of Phases 4–5.</li>
+  <li>UI_PLAN Phases 6 (debug/transparency: per-face distances, "why not assigned", exemplar gallery) and 7
+      (mobile sheet, gestures, a11y) — <b>no corresponding modules exist</b> (the planned <code>face_detail.py</code>,
+      <code>face_detail_sheet.py</code>, <code>person_detail.py</code> components were never created).</li>
+  <li>UI_PLAN §10 "Still Open" questions (merge-UI, split-UI, undo granularity, global vs album not-a-face scope,
+      1000-face pagination) were <b>never resolved</b> — the doc was archived with them open.</li>
+</ul>
+<p>So the people table <b>is</b> linked to plans: an <b>unfinished</b> originating plan (Face Management, ~50% done) and a
+<b>current in-progress</b> plan (spec-079) that intends to slim it. There is a real "Phase D-equivalent" TODO — the
+re-cluster stub — sitting dead in the codebase.</p>
+
+<!-- ============================ SECTION 5 ============================ -->
+<h2>5 · Assessment (blunt)</h2>
+<div class="verdict">
+  <h3>Today's <code>people</code> table is a finished data structure under a half-finished feature.</h3>
+  <p>The table and its CRUD (create/rename/merge/split) work and are exercised by the People page. But the table was
+  designed to be the spine of a rich "Face Management" correction system — <b>and that system was abandoned around
+  Phase 4 of 7</b>. The most valuable planned behavior, the one that justified the whole denormalized
+  <code>face_instances</code> design (user corrections feeding back into clustering to auto-pull more faces), is a stub
+  returning zeros. The Needs-Help "wizard" degraded to a flat list of cards; the transparency views (distances,
+  "why not assigned", exemplar galleries) and the entire mobile/a11y phase were never built.</p>
+  <p style="margin-bottom:0"><b>What was dropped or deferred:</b> (1) batch re-cluster feedback loop —
+  <span class="st never">never built</span>; (2) the Tinder-style borderline wizard with keyboard/swipe —
+  <span class="st never">degraded to cards</span>; (3) per-face distance/transparency &amp; exemplar debug views —
+  <span class="st never">never built</span>; (4) mobile detail sheet, gestures, a11y —
+  <span class="st never">never built</span>. <b>What was never even planned:</b> any cross-album, persistent, or
+  ML-assisted <i>identity</i> — so spec-079 should not feel it is abandoning a grand vision by slimming the table; it is
+  only retiring a denormalized cache that an unfinished UX no longer fully uses. The genuinely authored state worth
+  preserving is tiny: <code>name</code>, <code>thumbnail_*</code>, and the user's merge/split intent. Everything else in
+  the row is re-derivable from the run-dir DB — exactly the premise of Stage 4.</p>
+</div>
+
+<footer>
+  Research report only — no code was changed. Primary evidence:
+  <span class="pill">sim_bench/api/database/models.py</span> ·
+  <span class="pill">api/services/people_service.py</span> ·
+  <span class="pill">api/services/face_service.py:742</span> ·
+  <span class="pill">face_cluster/docs/archive/FACE_MANAGEMENT_UI_PLAN.md</span> ·
+  <span class="pill">…/FACE_MANAGEMENT_MODULES.md</span> ·
+  <span class="pill">specs/079-albumify-shared-core/spec.md</span>.
+  Recommendation for Stage 4: proceed with the slim, but treat the dead <code>_trigger_recluster</code> stub and the
+  half-built Face-Management UX as known context, not as features the migration must preserve.
+</footer>
+
+</div>
+</body>
+</html>

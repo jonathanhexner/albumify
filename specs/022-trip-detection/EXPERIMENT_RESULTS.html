@@ -1,0 +1,67 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Spec-022 · Segmentation experiment</title><style>
+body{margin:0;background:#0f1115;color:#e8ecf3;font:15px/1.6 system-ui,Segoe UI,sans-serif}
+.wrap{max-width:840px;margin:0 auto;padding:40px 22px 90px}
+h1{font-size:26px} .sub{color:#9aa4b2;max-width:70ch}
+.card{background:#171a21;border:1px solid #2a2f3a;border-radius:12px;padding:18px 22px;margin:16px 0}
+h2{font-size:18px;margin:0 0 4px} .meta{color:#9aa4b2;font-size:13px;margin-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #20242e}
+th{color:#9aa4b2;font-size:12px;text-transform:uppercase}
+.verdict{margin-top:12px;font-size:15px;font-weight:600}
+code{font-family:ui-monospace,Consolas,monospace;background:#11141b;padding:1px 6px;border-radius:5px}
+</style></head><body><div class="wrap">
+<h1>Multi-axis segmentation — experiment results</h1>
+<p class="sub">Each album runs through every enabled axis (<code>geo</code>, <code>time</code>, <code>identity</code>).
+The highest <b>overall</b> score wins, but only if it clears the <b>floor</b> — otherwise the album is shown
+<b>FLAT</b> with no story imposed. Identity reports "insufficient" here because these synthetic albums carry no
+face clusters; that's the graceful-plug-in behaviour.</p>
+
+        <div class="card">
+          <h2>traveler (a year + 2 trips)</h2>
+          <div class="meta">350 images · home 32.065, 34.772 · floor 0.45</div>
+          <table>
+            <tr><th>axis</th><th>overall (≥floor wins)</th><th>separ</th><th>cover</th><th>balan</th><th>stab</th><th>parsi</th></tr>
+            <tr><td style='color:#7fe0a0;font-weight:700'>geo</td><td><div style='background:#1a1d24;border-radius:5px;height:14px;width:160px;display:inline-block'><div style='background:#6ea8fe;height:14px;width:86%;border-radius:5px'></div></div><span style='color:#9aa4b2;font-size:12px;margin-left:6px'>0.86</span></td><td style='color:#9aa4b2'> 0.79</td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 0.51</td><td style='color:#9aa4b2'> 0.98</td><td style='color:#9aa4b2'> 0.98</td></tr><tr><td style=''>time</td><td><div style='background:#1a1d24;border-radius:5px;height:14px;width:160px;display:inline-block'><div style='background:#6ea8fe;height:14px;width:67%;border-radius:5px'></div></div><span style='color:#9aa4b2;font-size:12px;margin-left:6px'>0.67</span></td><td style='color:#9aa4b2'> 0.70</td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 0.16</td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 0.54</td></tr><tr><td>identity</td><td colspan='5' style='color:#7c8493'>insufficient signal</td></tr>
+          </table>
+          <div class="verdict"><span style='color:#7fe0a0'>WINNER: geo · 6 segments</span></div>
+        </div>
+        <div class="card">
+          <h2>kids at home (4 seasons)</h2>
+          <div class="meta">240 images · home 32.076, 34.783 · floor 0.45</div>
+          <table>
+            <tr><th>axis</th><th>overall (≥floor wins)</th><th>separ</th><th>cover</th><th>balan</th><th>stab</th><th>parsi</th></tr>
+            <tr><td style='color:#7fe0a0;font-weight:700'>time</td><td><div style='background:#1a1d24;border-radius:5px;height:14px;width:160px;display:inline-block'><div style='background:#6ea8fe;height:14px;width:99%;border-radius:5px'></div></div><span style='color:#9aa4b2;font-size:12px;margin-left:6px'>0.99</span></td><td style='color:#9aa4b2'> 0.99</td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 0.98</td></tr><tr><td style=''>geo</td><td><div style='background:#1a1d24;border-radius:5px;height:14px;width:160px;display:inline-block'><div style='background:#6ea8fe;height:14px;width:0%;border-radius:5px'></div></div><span style='color:#9aa4b2;font-size:12px;margin-left:6px'>0.00</span></td><td style='color:#9aa4b2'>  -  </td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 0.00</td><td style='color:#9aa4b2'>  -  </td><td style='color:#9aa4b2'> 0.00</td></tr><tr><td>identity</td><td colspan='5' style='color:#7c8493'>insufficient signal</td></tr>
+          </table>
+          <div class="verdict"><span style='color:#7fe0a0'>WINNER: time · 4 segments</span></div>
+        </div>
+        <div class="card">
+          <h2>wedding (one venue, one day)</h2>
+          <div class="meta">600 images · home 47.501, 19.040 · floor 0.45</div>
+          <table>
+            <tr><th>axis</th><th>overall (≥floor wins)</th><th>separ</th><th>cover</th><th>balan</th><th>stab</th><th>parsi</th></tr>
+            <tr><td style=''>geo</td><td><div style='background:#1a1d24;border-radius:5px;height:14px;width:160px;display:inline-block'><div style='background:#6ea8fe;height:14px;width:0%;border-radius:5px'></div></div><span style='color:#9aa4b2;font-size:12px;margin-left:6px'>0.00</span></td><td style='color:#9aa4b2'>  -  </td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 0.00</td><td style='color:#9aa4b2'>  -  </td><td style='color:#9aa4b2'> 0.00</td></tr><tr><td style=''>time</td><td><div style='background:#1a1d24;border-radius:5px;height:14px;width:160px;display:inline-block'><div style='background:#6ea8fe;height:14px;width:0%;border-radius:5px'></div></div><span style='color:#9aa4b2;font-size:12px;margin-left:6px'>0.00</span></td><td style='color:#9aa4b2'>  -  </td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 0.00</td><td style='color:#9aa4b2'>  -  </td><td style='color:#9aa4b2'> 0.00</td></tr><tr><td>identity</td><td colspan='5' style='color:#7c8493'>insufficient signal</td></tr>
+          </table>
+          <div class="verdict"><span style='color:#7c8493'>FLAT — no story imposed</span></div>
+        </div>
+        <div class="card">
+          <h2>no metadata</h2>
+          <div class="meta">50 images · home n/a · floor 0.45</div>
+          <table>
+            <tr><th>axis</th><th>overall (≥floor wins)</th><th>separ</th><th>cover</th><th>balan</th><th>stab</th><th>parsi</th></tr>
+            <tr><td>geo</td><td colspan='5' style='color:#7c8493'>insufficient signal</td></tr><tr><td>time</td><td colspan='5' style='color:#7c8493'>insufficient signal</td></tr><tr><td>identity</td><td colspan='5' style='color:#7c8493'>insufficient signal</td></tr>
+          </table>
+          <div class="verdict"><span style='color:#7c8493'>FLAT — no story imposed</span></div>
+        </div>
+        <div class="card">
+          <h2>REAL: D:/Budapest2025_Google</h2>
+          <div class="meta">122 images · home 47.507, 19.047 · floor 0.45</div>
+          <table>
+            <tr><th>axis</th><th>overall (≥floor wins)</th><th>separ</th><th>cover</th><th>balan</th><th>stab</th><th>parsi</th></tr>
+            <tr><td style='color:#7fe0a0;font-weight:700'>time</td><td><div style='background:#1a1d24;border-radius:5px;height:14px;width:160px;display:inline-block'><div style='background:#6ea8fe;height:14px;width:88%;border-radius:5px'></div></div><span style='color:#9aa4b2;font-size:12px;margin-left:6px'>0.88</span></td><td style='color:#9aa4b2'> 0.98</td><td style='color:#9aa4b2'> 0.69</td><td style='color:#9aa4b2'> 0.56</td><td style='color:#9aa4b2'> 1.00</td><td style='color:#9aa4b2'> 0.98</td></tr><tr><td style=''>geo</td><td><div style='background:#1a1d24;border-radius:5px;height:14px;width:160px;display:inline-block'><div style='background:#6ea8fe;height:14px;width:0%;border-radius:5px'></div></div><span style='color:#9aa4b2;font-size:12px;margin-left:6px'>0.00</span></td><td style='color:#9aa4b2'>  -  </td><td style='color:#9aa4b2'> 0.36</td><td style='color:#9aa4b2'> 0.00</td><td style='color:#9aa4b2'>  -  </td><td style='color:#9aa4b2'> 0.00</td></tr><tr><td>identity</td><td colspan='5' style='color:#7c8493'>insufficient signal</td></tr>
+          </table>
+          <div class="verdict"><span style='color:#7fe0a0'>WINNER: time · 2 segments</span></div>
+        </div>
+<p class="sub" style="margin-top:30px;border-top:1px solid #2a2f3a;padding-top:16px">
+Generated by <code>scripts/experiment_geo_segmentation.py</code> · spec-022 planning experiment.</p>
+</div></body></html>

@@ -10,6 +10,66 @@ from sqlalchemy.orm import Session
 from sim_bench.api.database.models import Person, Album, PipelineRun
 
 
+def _bbox_to_xywh(bbox) -> Optional[list]:
+    """Reshape a face bbox to ``[x, y, w, h]`` across face/bbox representations.
+
+    UNIT-PRESERVING: pixels in -> pixels out. This only reshapes
+    ``(x1, y1, x2, y2)`` -> ``(x, y, w, h)``; it does NOT normalize to ``[0, 1]``.
+    Normalization is the caller's job -- see :func:`_normalized_bbox`.
+
+    spec-079 / SIGHTING-100: the unified chain produces ``FaceRecord`` whose
+    ``bbox`` is a tuple ``(x1, y1, x2, y2)``; legacy faces used a dict or a
+    ``BoundingBox`` object with ``.x/.y/.w/.h``.
+    """
+    if bbox is None:
+        return None
+    if isinstance(bbox, dict):
+        return [bbox.get('x', 0), bbox.get('y', 0), bbox.get('w', 0), bbox.get('h', 0)]
+    if isinstance(bbox, (tuple, list)):
+        x1, y1, x2, y2 = bbox
+        return [x1, y1, x2 - x1, y2 - y1]
+    return [bbox.x, bbox.y, bbox.w, bbox.h]
+
+
+def _normalized_bbox(face) -> Optional[list]:
+    """Return a face bbox as ``[x, y, w, h]`` in normalized ``[0, 1]`` coords.
+
+    SIGHTING-104: the Streamlit consumers (``people_browser._crop_face`` and
+    ``draw_face_bboxes``) assume ``thumbnail_bbox`` is normalized, but the
+    spec-079 ``FaceRecord.bbox`` is in PIXELS, so they silently rendered the
+    gray placeholder instead of the cropped face.
+
+    Resolution order (most authoritative first):
+      1. spec-040 canonical ratio fields (``bbox_*_ratio``, already in [0, 1]);
+      2. normalize the pixel bbox via the raw image dims (``image_*_px``);
+      3. fall back to the raw reshape (the consumer's guard handles pixel-scale).
+    """
+    if face is None:
+        return None
+
+    # 1. spec-040 canonical normalized geometry -- the intended source of truth.
+    rx = getattr(face, 'bbox_x_ratio', None)
+    ry = getattr(face, 'bbox_y_ratio', None)
+    rw = getattr(face, 'bbox_w_ratio', None)
+    rh = getattr(face, 'bbox_h_ratio', None)
+    if None not in (rx, ry, rw, rh):
+        return [rx, ry, rw, rh]
+
+    xywh = _bbox_to_xywh(getattr(face, 'bbox', None))
+    if xywh is None:
+        return None
+
+    # 2. Normalize pixel coords using the raw image dimensions when available.
+    iw = getattr(face, 'image_width_px', None)
+    ih = getattr(face, 'image_height_px', None)
+    if iw and ih and max(xywh) > 1.5:  # >1.5 => pixel-scale, not already [0, 1]
+        x, y, w, h = xywh
+        return [x / iw, y / ih, w / iw, h / ih]
+
+    # 3. Last resort: return as-is (already normalized, or no dims to normalize).
+    return xywh
+
+
 class PeopleService:
     """Service for managing detected people (face clusters)."""
 
@@ -93,13 +153,35 @@ class PeopleService:
                 'bbox': person.thumbnail_bbox,
             }]
 
+        # spec-086: per-image metrics via the repository (SQL JOIN over the
+        # normalized tables) instead of the old 3-field stub. Keyed by normalized
+        # path so Windows backslash vs forward-slash differences still match.
+        from sim_bench.api.repositories.image_repository import ImageRepository
+
+        def _norm(p: str) -> str:
+            return str(p).replace("\\", "/")
+
+        metrics = {
+            _norm(m.path): m
+            for m in ImageRepository(self._session).get_images_for_person(
+                person.run_id, person_id
+            )
+        }
+
         result = []
         for image_path, faces in images_map.items():
-            result.append({
+            row = {
+                'path': image_path,  # ImageMetrics.path (required); overridden if metrics match
                 'image_path': image_path,
                 'face_count': len(faces),
-                'faces': faces
-            })
+                'faces': faces,
+            }
+            m = metrics.get(_norm(image_path))
+            if m:
+                # Repository supplies is_selected, scores, filter_scores (bboxes).
+                row.update(m.model_dump())
+                row['image_path'] = image_path  # keep the caller's path form
+            result.append(row)
 
         return result
 
@@ -265,16 +347,10 @@ class PeopleService:
         crop_path = getattr(face, 'crop_path', None)
         if crop_path:
             return str(crop_path), None
-        # Fall back to original image + bbox
-        bbox = None
-        if face.bbox is not None:
-            # Handle both dict and object-style bbox
-            if isinstance(face.bbox, dict):
-                bbox = [face.bbox.get('x', 0), face.bbox.get('y', 0),
-                        face.bbox.get('w', 0), face.bbox.get('h', 0)]
-            else:
-                bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]
-        return str(face.original_path), bbox
+        # Fall back to original image + bbox (normalized to [0,1] -- SIGHTING-104).
+        bbox = _normalized_bbox(face)
+        # spec-079 / SIGHTING-100: FaceRecord uses image_path; legacy used original_path.
+        return str(getattr(face, 'original_path', None) or getattr(face, 'image_path', '')), bbox
 
     def create_from_clusters(
         self,
@@ -308,23 +384,19 @@ class PeopleService:
             images = set()
 
             for face in faces:
-                # Get and validate image path
-                img_path = str(face.original_path) if face.original_path else None
+                # Get and validate image path. spec-079 / SIGHTING-100: the
+                # unified chain produces FaceRecord (image_path); legacy faces
+                # used original_path. Support both.
+                raw_path = getattr(face, 'original_path', None) or getattr(face, 'image_path', None)
+                img_path = str(raw_path) if raw_path else None
                 if not img_path or img_path in ('', '.', 'None'):
                     self._logger.warning(
-                        f"Skipping face with invalid path: {face.original_path} "
+                        f"Skipping face with invalid path: {raw_path} "
                         f"(cluster {cluster_id}, face_index {face.face_index})"
                     )
                     continue
 
-                bbox = None
-                if face.bbox is not None:
-                    # Handle both dict and object-style bbox
-                    if isinstance(face.bbox, dict):
-                        bbox = [face.bbox.get('x', 0), face.bbox.get('y', 0),
-                                face.bbox.get('w', 0), face.bbox.get('h', 0)]
-                    else:
-                        bbox = [face.bbox.x, face.bbox.y, face.bbox.w, face.bbox.h]
+                bbox = _normalized_bbox(face)  # [0,1] -- SIGHTING-104
 
                 # Look up assignment method from attachment_decisions
                 face_key = f"{img_path.replace(chr(92), '/')}:face_{face.face_index}"

@@ -65,11 +65,16 @@ class TestDiscoverImagesStep:
 class TestScoreIQAStep:
     """Tests for score_iqa step."""
 
-    def test_validate_fails_without_images(self, registry, context_empty):
-        """Validate should fail if image_paths is empty."""
+    def test_validate_passes_with_empty_image_paths(self, registry, context_empty):
+        """Empty image_paths is a valid produced value; validate() must not fail.
+
+        The framework no longer rejects empty collections (was conflating
+        "producer never ran" with "producer ran and emitted nothing").
+        Steps that need non-empty input guard inside process().
+        """
         step = registry.get("score_iqa")
         errors = step.validate(context_empty)
-        assert len(errors) > 0
+        assert errors == []
 
     def test_validate_passes_with_images(self, registry, context_with_source):
         """Validate should pass if image_paths is populated."""
@@ -111,11 +116,15 @@ class TestScoreIQAStep:
 class TestFilterQualityStep:
     """Tests for filter_quality step."""
 
-    def test_validate_fails_without_scores(self, registry, context_empty):
-        """Validate should fail if iqa_scores is empty."""
+    def test_validate_passes_with_empty_scores(self, registry, context_empty):
+        """Empty iqa_scores is a valid produced value; validate() must not fail.
+
+        Same rationale as test_validate_passes_with_empty_image_paths above:
+        empty collections are legal, the framework only rejects None.
+        """
         step = registry.get("filter_quality")
         errors = step.validate(context_empty)
-        assert len(errors) > 0
+        assert errors == []
 
     def test_filter_removes_low_quality(self, registry, context_with_source):
         """Filter should remove images below threshold."""

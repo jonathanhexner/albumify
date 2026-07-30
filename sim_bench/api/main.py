@@ -5,11 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from sim_bench.api.database.session import init_db, get_session
 from sim_bench.api.routers import albums, pipeline, steps, websocket, people, results, config, events, faces
-from sim_bench.api.logging import setup_logging, get_logger
+from sim_bench.logging_setup import setup_logging, get_logger
 from sim_bench.api.services.config_service import ConfigService
 
-# Setup logging (creates timestamped folder)
-log_dir = setup_logging()
+# Setup logging (creates timestamped folder). spec-041 follow-up:
+# surface name distinguishes this process's log file from the v2 FC
+# App's and the CLI's, so concurrent runs don't overwrite each other.
+log_dir = setup_logging("api")
 logger = get_logger(__name__)
 
 app = FastAPI(

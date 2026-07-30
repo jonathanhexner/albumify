@@ -55,6 +55,22 @@ ALLOW_LIST: dict[str, str] = {
         "scoring producer; filter_quality consumes the scores",
     "sim_bench/pipeline/steps/score_ava.py":
         "scoring producer",
+    "sim_bench/pipeline/steps/score_quality.py":
+        "scoring producer (spec-093 multi-method IQA over all images)",
+    "sim_bench/pipeline/steps/extract_geo_metadata.py":
+        "producer of geo_metadata (EXIF per image, spec-094)",
+    "sim_bench/pipeline/steps/infer_geo_clip.py":
+        "producer of geo_clip_predictions (StreetCLIP per image)",
+    "sim_bench/pipeline/steps/infer_geo_coords.py":
+        "producer of geo_coord_predictions (GeoCLIP per image)",
+    "sim_bench/pipeline/steps/caption_images.py":
+        "producer of image_captions (BLIP per image)",
+    "sim_bench/pipeline/steps/classify_scene.py":
+        "producer of scene_tags (CLIP zero-shot per image)",
+    "sim_bench/pipeline/steps/score_occlusion.py":
+        "producer of occlusion_scores/tiles (spec-097 CLIP probe per image)",
+    "sim_bench/pipeline/steps/score_tilt.py":
+        "producer of tilt_angles/confidences (spec-099/100 GeoCalib roll per image)",
     "sim_bench/pipeline/steps/score_face_quality.py":
         "scoring producer for per-face quality",
     "sim_bench/pipeline/steps/extract_scene_embedding.py":
@@ -113,8 +129,8 @@ ALLOW_LIST: dict[str, str] = {
         "TODO P5 migration: legacy filter, still writes face['filter_passed']",
     "sim_bench/pipeline/steps/filter_portraits.py":
         "TODO P5 migration: filter that should emit decisions",
-    "sim_bench/pipeline/steps/filter_quality_gate.py":
-        "experimental pipeline — separate path",
+    "sim_bench/pipeline/steps/quality_gate.py":
+        "spec-053: consolidated step (was filter_quality_gate + quality_gate_faces)",
     "sim_bench/pipeline/steps/select_best.py":
         "selection step (post-filter)",
     "sim_bench/pipeline/steps/select_best_per_person.py":
@@ -144,8 +160,8 @@ ALLOW_LIST: dict[str, str] = {
         "manual merge writer",
     "face_cluster/merge.py":
         "cluster-level operator (operates on cluster results)",
-    "face_cluster/run_exporter.py":
-        "exporter (spec-030, post-pipeline)",
+    "sim_bench/run_db/exporter.py":
+        "exporter (spec-030, post-pipeline; relocated by spec-056)",
     "face_cluster/exemplars.py":
         "exemplar selection (post-filter)",
     "face_cluster/cluster_diameter_cap.py":

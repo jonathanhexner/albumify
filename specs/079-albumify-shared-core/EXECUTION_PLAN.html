@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Albumify Shared-Core — Staged Execution Plan</title>
+<style>
+  :root{
+    --bg:#0f1220;--panel:#171a2b;--panel2:#1e2238;--ink:#e8eaf2;--muted:#9aa0bd;
+    --line:#2c3150;--accent:#6ea8fe;--good:#48c78e;--warn:#f6b73c;--bad:#f06a6a;--purple:#b388f0;
+    --mono:"SF Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.62 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 28px 110px}
+  .kicker{color:var(--accent);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:12px}
+  h1{font-size:33px;line-height:1.15;margin:10px 0 6px}
+  h2{font-size:23px;margin:50px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  h3{font-size:17px;margin:22px 0 8px;color:#cdd2ee}
+  p{color:#d4d8ec}.sub{color:var(--muted);font-size:15px;margin:0}
+  code{font-family:var(--mono);background:#0c0f1c;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px;color:#cfe0ff}
+  .mod{color:#8fd0ff}.new{color:var(--good)}.edit{color:var(--warn)}
+  ul{padding-left:20px}li{margin:5px 0}
+  .lede{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:16px 20px;margin:24px 0}
+  .lede b{color:#fff}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd2ee;font-weight:600}
+  .anchor{background:linear-gradient(180deg,#11271f,#0e1f1a);border:1px solid var(--good);border-radius:12px;padding:18px 22px;margin:20px 0}
+  .anchor h3{margin-top:0;color:var(--good)}
+  .anchor .nums{font-family:var(--mono);font-size:13px;color:#bdeccf;line-height:1.9}
+  /* stage cards */
+  .stage{border:1px solid var(--line);border-radius:14px;margin:22px 0;overflow:hidden;background:var(--panel)}
+  .stage>.head{display:flex;align-items:center;gap:14px;padding:14px 20px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .stage>.head .n{flex:0 0 38px;height:38px;border-radius:9px;background:#0c0f1c;border:1px solid var(--accent);
+       color:var(--accent);font-weight:800;display:flex;align-items:center;justify-content:center}
+  .stage>.head .ttl{font-size:18px;font-weight:700}
+  .stage>.head .goal{margin-left:auto;font-size:12.5px;color:var(--muted)}
+  .stage>.body{padding:16px 22px 20px}
+  .lab{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 4px}
+  .files{font-family:var(--mono);font-size:12.5px;line-height:1.85}
+  .files .tag{display:inline-block;width:54px;font-family:-apple-system,sans-serif;font-weight:700;font-size:10.5px;
+       text-align:center;border-radius:5px;padding:1px 0;margin-right:8px;vertical-align:middle}
+  .tag.tnew{background:rgba(72,199,142,.16);color:var(--good);border:1px solid rgba(72,199,142,.4)}
+  .tag.tedit{background:rgba(246,183,60,.15);color:var(--warn);border:1px solid rgba(246,183,60,.4)}
+  .gate{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .gate span{font-size:12px;font-family:var(--mono);background:#0c0f1c;border:1px solid var(--line);border-radius:20px;padding:3px 11px;color:#cfe0ff}
+  .gate .g-test{border-color:rgba(110,168,254,.5)}.gate .g-rev{border-color:rgba(179,136,240,.5)}
+  .gate .g-commit{border-color:rgba(72,199,142,.5)}
+  .pill{font-family:var(--mono);font-size:12px;background:#0c0f1c;border:1px solid var(--line);border-radius:6px;padding:2px 8px;color:#9fd0ff}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:820px){.two{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card h3{margin-top:0}
+  .loop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;margin:14px 0;font-size:13px}
+  .loop .b{background:#0c0f1c;border:1px solid var(--line);border-radius:8px;padding:8px 13px;font-family:var(--mono);color:#cfe0ff}
+  .loop .b.rev{border-color:var(--purple);color:#dcc8ff}.loop .b.test{border-color:var(--accent)}
+  .loop .b.commit{border-color:var(--good);color:#bdeccf}.loop .ar{color:var(--muted)}
+  footer{margin-top:54px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:13px}
+  .warnbox{border-left:3px solid var(--warn);padding-left:14px;margin:10px 0;color:#f3dca6}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="kicker">spec-079 · Execution Plan</div>
+<h1>Albumify → Shared Core: staged, verified, on Budapest</h1>
+<p class="sub">Every stage runs on <span class="pill">D:\Budapest2025_Google</span> with <code>profile_4.json</code> and is held to the
+Face-Clustering-v2 gold standard. Test → code-review → commit after each. Date 2026-06-05.</p>
+
+<div class="lede">
+  <b>The spine of this plan:</b> Albumify and FC v2 share the pipeline, so on the same album+profile they must produce the
+  <b>same clustering</b>. We capture that as a frozen baseline once, then assert it still holds after <em>every</em> refactor stage.
+  If a stage changes the cluster numbers, the stage is wrong — not the baseline.
+</div>
+
+<div class="anchor">
+  <h3>The equivalence anchor (one source of truth for all tests)</h3>
+  <p>Lives in a single module both test suites import: <code class="new">tests/_budapest_baseline.py</code>
+  (copies the verified constants from <code>tests/face_clustering/e2e_budapest/conftest.py</code>).</p>
+  <div class="nums">
+  SOURCE = D:\Budapest2025_Google &nbsp;·&nbsp; PROFILE = profile_4.json &nbsp;·&nbsp; ALBUM = Budapest2025_Google_5<br>
+  FC v2 reference run = 6437d335de914755bc3edb825c9591c0<br>
+  EXPECTED_N_CLUSTERS = 15 &nbsp;·&nbsp; N_FACES_TOTAL = 340 &nbsp;·&nbsp; N_FACES_ASSIGNED = 107<br>
+  CLUSTER_SIZES = [35, 24, 14, 7, 4, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2]
+  </div>
+  <p style="margin-bottom:0">Albumify mapping: <b>people ≈ clusters</b> → expect ~15 people, ~107 assigned faces.
+  Asserted with the same documented bands FC v2 uses (rejections 220–240), so minor gate-count drift never red-flags a good run.</p>
+</div>
+
+<h2>The per-stage loop (non-negotiable gate)</h2>
+<div class="loop">
+  <span class="b">implement stage</span><span class="ar">→</span>
+  <span class="b test">backend endpoint tests</span><span class="ar">+</span>
+  <span class="b test">slim Playwright</span><span class="ar">+</span>
+  <span class="b">equivalence anchor</span><span class="ar">→</span>
+  <span class="b rev">/code-review on changed modules</span><span class="ar">→</span>
+  <span class="b">resolve High findings</span><span class="ar">→</span>
+  <span class="b commit">commit</span><span class="ar">→</span>
+  <span class="b">next stage</span>
+</div>
+<p class="warnbox">A stage is not "done" until all three test layers are green <em>and</em> the code-review agent
+(<code>Agent(subagent_type="code-review")</code> against <code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>) reports no open
+High-severity finding on the modules that stage touched. Only then do we commit and continue.</p>
+
+<h2>The two test harnesses (built once, in Stage 0)</h2>
+<div class="two">
+  <div class="card">
+    <h3>① Backend / endpoint — comprehensive</h3>
+    <p>FastAPI <code>TestClient</code> (in-process, no live server) against a DB seeded to point at the Budapest run dir.
+    Fast, deterministic, hits every route we touch.</p>
+    <ul>
+      <li>GET people / results / faces → assert shapes + the anchor numbers (15 people, 107 assigned).</li>
+      <li>Mutations round-trip: rename → re-GET shows the name; merge two → count drops by one; split → restores.</li>
+      <li>Contract guards: bbox shape, identity field, no dropped quality fields.</li>
+    </ul>
+    <div class="files"><span class="tag tnew">NEW</span><span class="mod">tests/api/test_people_endpoints.py</span><br>
+    <span class="tag tnew">NEW</span><span class="mod">tests/api/test_results_endpoints.py</span><br>
+    <span class="tag tnew">NEW</span><span class="mod">tests/api/conftest.py</span> (TestClient + seeded session)</div>
+  </div>
+  <div class="card">
+    <h3>② Frontend / Playwright — slim</h3>
+    <p>Reuse the proven e2e harness pattern (subprocess Streamlit + Chromium, file-sink logs). Two scenarios only —
+    smoke + one mutation — because the backend suite carries the depth.</p>
+    <ul>
+      <li>Load the album → People page → assert ~15 person cards render with thumbnails.</li>
+      <li>Rename one person in the UI → reload → name persists. Screenshot on every run.</li>
+    </ul>
+    <div class="files"><span class="tag tnew">NEW</span><span class="mod">tests/streamlit/e2e_albumify/conftest.py</span> (fork of e2e_budapest harness, ports 8000+8501)<br>
+    <span class="tag tnew">NEW</span><span class="mod">tests/streamlit/e2e_albumify/test_people_smoke.py</span><br>
+    <span class="tag tnew">NEW</span><span class="mod">tests/streamlit/e2e_albumify/test_rename_persists.py</span></div>
+  </div>
+</div>
+
+<h2>The stages</h2>
+
+<!-- STAGE 0 -->
+<div class="stage">
+  <div class="head"><div class="n">0</div><div class="ttl">Baseline &amp; harness — freeze behavior before touching anything</div>
+    <div class="goal">no refactor · pure safety net</div></div>
+  <div class="body">
+    <p>Run today's Albumify end-to-end on Budapest, capture the result as a golden fixture, and prove the two harnesses go
+    green against <em>current</em> code. Nothing is refactored — this is the net everything else falls into.</p>
+    <div class="lab">What we do</div>
+    <ul>
+      <li>Start backend (<code>:8000</code>) + Albumify (<code>:8501</code>) via <span class="pill">scripts/start_apps.bat</span>;
+          create the album from <span class="pill">D:\Budapest2025_Google</span>, run profile_4, let it finish.</li>
+      <li>Snapshot the produced state to <code class="new">tests/_fixtures/budapest_golden/</code>: the API JSON for people/results/faces
+          + the <code>run_metadata</code>. This is "Albumify's current truth".</li>
+      <li>Assert that golden == the FC v2 anchor (15 people / 107 assigned / sizes). <b>If they already disagree, we stop and
+          file a sighting</b> — that's a pre-existing equivalence bug to fix before any refactor.</li>
+      <li>Write both harnesses; run them against unchanged code → green.</li>
+    </ul>
+    <div class="lab">Modules</div>
+    <div class="files">
+      <span class="tag tnew">NEW</span><span class="mod">tests/_budapest_baseline.py</span> · <span class="mod">tests/_fixtures/budapest_golden/</span><br>
+      <span class="tag tnew">NEW</span><span class="mod">scripts/capture_albumify_baseline.py</span> (drives album-create + run + snapshot)<br>
+      <span class="tag tnew">NEW</span> both test harnesses above
+    </div>
+    <div class="gate"><span class="g-test">✓ backend green (baseline)</span><span class="g-test">✓ playwright green</span>
+      <span class="g-test">✓ golden == FC v2 anchor</span><span class="g-rev">⊕ review new test infra</span><span class="g-commit">⏎ commit</span></div>
+  </div>
+</div>
+
+<!-- STAGE 1 -->
+<div class="stage">
+  <div class="head"><div class="n">1</div><div class="ttl">PeopleRepository — proper read repository (dormant)</div>
+    <div class="goal">add layer · zero behavior change</div></div>
+  <div class="body">
+    <p>Introduce the missing repository, modeled <em>exactly</em> on the working
+    <code>ClusterAnalysisRepository</code>. It reads identity membership from the run-dir DB through <code>RunStore</code>,
+    returns typed <code>PersonRow</code> dataclasses. Not wired into the API yet — pure, unit-tested, dormant.</p>
+    <div class="lab">What we do</div>
+    <ul>
+      <li>Define <code>PersonRow</code> (cluster_id, size, image_count, exemplar/thumbnail face_id, member face_ids) — typed, frozen.</li>
+      <li><code>PeopleRepository(PeopleRepoConfig(run_dir))</code> composing <code>RunStore</code> + the run-DB sessionmaker,
+          mirroring the cluster repo's construction + schema guard.</li>
+      <li>Methods: <code>list_people()</code>, <code>get_person(cluster_id)</code>, <code>get_person_faces(cluster_id)</code> — all returning typed rows.</li>
+      <li>Unit-test directly against the Budapest run dir: 15 people, sizes match the anchor.</li>
+    </ul>
+    <div class="lab">Modules</div>
+    <div class="files">
+      <span class="tag tnew">NEW</span><span class="mod">sim_bench/db/face_clustering/people_repo.py</span> (mirror of <span class="mod">cluster_analysis_repo.py</span>)<br>
+      <span class="tag tnew">NEW</span><span class="mod">face_cluster/views/_base.py</span> → add <span class="mod">PersonRow</span> dataclass (or a sibling in views)<br>
+      <span class="tag tnew">NEW</span><span class="mod">tests/face_clustering/repositories/test_people_repo.py</span><br>
+      reuses <span class="tag tedit">SAME</span><span class="mod">sim_bench/run_db/store.py</span>, <span class="mod">face_cluster/repositories/_base_repository.py</span> (unchanged)
+    </div>
+    <div class="gate"><span class="g-test">✓ repo unit tests</span><span class="g-test">✓ baseline harnesses still green</span>
+      <span class="g-rev">⊕ review people_repo.py + PersonRow</span><span class="g-commit">⏎ commit</span></div>
+  </div>
+</div>
+
+<!-- STAGE 2 -->
+<div class="stage">
+  <div class="head"><div class="n">2</div><div class="ttl">PeopleService / view — membership + name overlay</div>
+    <div class="goal">add layer · zero behavior change</div></div>
+  <div class="body">
+    <p>A Streamlit-free service that joins the repository's live membership with the authored overlay (names, thumbnail
+    overrides) so the API can serve a fully-formed person without copying face lists.</p>
+    <div class="lab">What we do</div>
+    <ul>
+      <li><code>PeopleService(repo, overlay_reader)</code> → returns <code>PersonView</code> = <code>PersonRow</code> + <code>name</code> + overrides applied in one place.</li>
+      <li>Define the overlay read interface now (names/merges keyed by <code>(run_id, cluster_id)</code>); back it by the
+          <em>existing</em> central <code>people.name</code> column for this stage (no schema change yet).</li>
+      <li><code>ColumnSpec</code> for the people table so Albumify can render it declaratively later.</li>
+      <li>Unit-test the join: rename overlay shows through; membership untouched.</li>
+    </ul>
+    <div class="lab">Modules</div>
+    <div class="files">
+      <span class="tag tnew">NEW</span><span class="mod">face_cluster/views/people.py</span> (PeopleService, PersonView, PEOPLE_COLUMNS)<br>
+      <span class="tag tnew">NEW</span><span class="mod">tests/face_clustering/views/test_people_view.py</span><br>
+      reads overlay via a thin adapter over <span class="mod">sim_bench/api/database/models.py::Person</span> (read-only here)
+    </div>
+    <div class="gate"><span class="g-test">✓ view unit tests</span><span class="g-test">✓ baseline harnesses green</span>
+      <span class="g-rev">⊕ review views/people.py</span><span class="g-commit">⏎ commit</span></div>
+  </div>
+</div>
+
+<!-- STAGE 3 -->
+<div class="stage">
+  <div class="head"><div class="n">3</div><div class="ttl">Rewire API reads through PeopleService</div>
+    <div class="goal">behavior preserved · serve from views</div></div>
+  <div class="body">
+    <p>The first stage that changes the running app. The people/results/faces <em>read</em> endpoints stop querying the
+    denormalized <code>people.face_instances</code> blob and delegate to <code>PeopleService</code>. Mutations still write the
+    central DB. The backend tests assert responses match the Stage-0 golden byte-for-byte (modulo intended contract fixes).</p>
+    <div class="lab">What we do</div>
+    <ul>
+      <li><code>api/services/people_service.py</code> <code>list_people()/get_person()</code> → delegate to the new view (resolve run-dir from the run record's <code>fc_export_dir</code>).</li>
+      <li>Keep <code>rename/merge/split/delete_for_run</code> writing the central DB for now.</li>
+      <li>Backend suite: every people endpoint == golden; Playwright People page still shows 15 cards.</li>
+    </ul>
+    <div class="lab">Modules</div>
+    <div class="files">
+      <span class="tag tedit">EDIT</span><span class="mod">sim_bench/api/services/people_service.py</span> (read methods delegate)<br>
+      <span class="tag tedit">EDIT</span><span class="mod">sim_bench/api/routers/people.py</span> · <span class="mod">routers/results.py</span> · <span class="mod">routers/faces.py</span> (read paths)<br>
+      <span class="tag tedit">EDIT</span><span class="mod">sim_bench/api/services/result_service.py</span>, <span class="mod">face_service.py</span> (read paths only)
+    </div>
+    <div class="gate"><span class="g-test">✓ backend == golden</span><span class="g-test">✓ playwright green</span>
+      <span class="g-test">✓ equivalence anchor</span><span class="g-rev">⊕ review changed services/routers</span><span class="g-commit">⏎ commit</span></div>
+  </div>
+</div>
+
+<!-- STAGE 4 -->
+<div class="stage">
+  <div class="head"><div class="n">4</div><div class="ttl">Slim the <code>people</code> table to authored-only</div>
+    <div class="goal">delete the stale duplicate</div></div>
+  <div class="body">
+    <p>Now that reads come from the view, retire the duplicated membership. The <code>people</code> table becomes a thin
+    <b>authored overlay</b> — name, thumbnail override, merge-group — keyed to <code>(run_id, cluster_id)</code>. This is the
+    "proper" end-state the user asked about: clustering truth in the run-dir, human edits in a small table.</p>
+    <div class="lab">What we do</div>
+    <ul>
+      <li>Alembic migration: keep <code>name</code>/<code>thumbnail_*</code>/add <code>merge_group</code>; <b>stop writing</b> <code>face_instances</code> (drop after a deprecation window).</li>
+      <li><code>create_from_clusters()</code> no longer snapshots membership — it writes only authored defaults (or nothing until first edit).</li>
+      <li>Mutations (rename/merge/split) rewritten to operate on the overlay; merge = group cluster_ids, not copy faces.</li>
+      <li>Backend mutation round-trips + Playwright rename-persist + equivalence all green.</li>
+    </ul>
+    <div class="lab">Modules</div>
+    <div class="files">
+      <span class="tag tedit">EDIT</span><span class="mod">sim_bench/api/database/models.py::Person</span> · <span class="tag tnew">NEW</span> alembic migration under <span class="mod">alembic/versions/</span><br>
+      <span class="tag tedit">EDIT</span><span class="mod">sim_bench/api/services/people_service.py</span> (create_from_clusters + mutations)<br>
+      <span class="tag tedit">EDIT</span><span class="mod">sim_bench/pipeline/steps/cluster_people.py</span> (stop emitting the snapshot payload it no longer needs)
+    </div>
+    <div class="gate"><span class="g-test">✓ mutation round-trips</span><span class="g-test">✓ playwright rename persists</span>
+      <span class="g-test">✓ equivalence anchor</span><span class="g-rev">⊕ review model + migration + service</span><span class="g-commit">⏎ commit</span></div>
+  </div>
+</div>
+
+<!-- STAGE 5 -->
+<div class="stage">
+  <div class="head"><div class="n">5</div><div class="ttl">Unify contracts + Albumify UI patterns</div>
+    <div class="goal">one contract · spec-driven UI</div></div>
+  <div class="body">
+    <p>Close the divergence the architecture plan flagged: bbox shape, identity naming, dropped quality fields. The API
+    Pydantic schemas become the serialization of the view dataclasses (one definition), and the Albumify People/Results
+    pages adopt <code>UI_SPEC</code> + <code>ColumnSpec</code> instead of hardcoded widgets.</p>
+    <div class="lab">What we do</div>
+    <ul>
+      <li>Generate <code>schemas/people.py</code>, <code>face.py</code>, <code>result.py</code> from the view dataclasses; align bbox → tuple, expose <code>cluster_id</code>.</li>
+      <li>Update <code>app/streamlit/models.py</code> + <code>api_client.py</code> parsers to the unified shape.</li>
+      <li>Port the People + Results pages to <code>ColumnSpec</code> tables and (config page) <code>widget_factory</code>.</li>
+      <li>Full backend + Playwright + equivalence; add an architecture test forbidding a second parallel read path in <code>sim_bench/api</code>.</li>
+    </ul>
+    <div class="lab">Modules</div>
+    <div class="files">
+      <span class="tag tedit">EDIT</span><span class="mod">sim_bench/api/schemas/{people,face,result}.py</span> (generated from views)<br>
+      <span class="tag tedit">EDIT</span><span class="mod">app/streamlit/models.py</span> · <span class="mod">api_client.py</span> · <span class="mod">pages/people.py</span> · <span class="mod">pages/results.py</span> · <span class="mod">components/people_browser.py</span><br>
+      reuse <span class="mod">app/face_clustering_v2/ui_spec.py</span>, <span class="mod">widget_factory.py</span>, <span class="mod">face_cluster/views/_specs.py</span><br>
+      <span class="tag tnew">NEW</span><span class="mod">tests/architecture/test_api_uses_view_layer.py</span>
+    </div>
+    <div class="gate"><span class="g-test">✓ backend + contract guards</span><span class="g-test">✓ playwright green</span>
+      <span class="g-test">✓ equivalence anchor</span><span class="g-rev">⊕ review schemas + frontend</span><span class="g-commit">⏎ commit + flip spec → Implemented</span></div>
+  </div>
+</div>
+
+<h2>Target layering after Stage 5</h2>
+<table>
+  <tr><th>Concern</th><th>Owner module</th><th>Source of truth</th></tr>
+  <tr><td>Clustering result (faces, clusters, membership)</td><td><span class="mod">RunStore → PeopleRepository → views/people.py</span></td><td>run-dir <code>face_clustering.db</code></td></tr>
+  <tr><td>Authored identity (name, merge-group, thumbnail)</td><td><span class="mod">api/.../Person (slim) + overlay adapter</span></td><td>central <code>sim_bench.db</code></td></tr>
+  <tr><td>Wire contract</td><td><span class="mod">schemas/*.py generated from view dataclasses</span></td><td>the view dataclasses</td></tr>
+  <tr><td>UI rendering</td><td><span class="mod">ColumnSpec / UI_SPEC</span></td><td>declarative specs</td></tr>
+</table>
+
+<h2>Risk controls baked into the order</h2>
+<ul>
+  <li><b>Net before nails:</b> Stage 0 freezes behavior; every later stage is measured against it, so a regression surfaces the moment it's introduced — not three stages later.</li>
+  <li><b>Dormant-then-wire:</b> Stages 1–2 add fully-tested layers without touching the running app; only Stage 3 flips the read path, with the golden as a tripwire.</li>
+  <li><b>Schema change last among the data stages:</b> the destructive <code>people</code>-table slim (Stage 4) happens only after reads already come from the view, so dropping <code>face_instances</code> can't break a read.</li>
+  <li><b>One commit per stage</b> → trivial revert granularity if the code-review agent flags something post-hoc.</li>
+</ul>
+
+<footer>
+  Plan only — no production code changes from this document. Next: I scaffold <span class="pill">specs/079-albumify-shared-core/spec.md</span> +
+  <span class="pill">tasks.md</span> (one task per stage) for approval, then begin Stage 0 on your go-ahead. The §7 <code>people</code>-table
+  decision is resolved here as "slim to authored-only" (Stage 4); say the word if you'd rather defer that and stop at Stage 3.
+</footer>
+
+</div>
+</body>
+</html>

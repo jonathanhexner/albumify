@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geo Segmentation Explorer · spec-022</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{--bg:#0f1115;--panel:#171a21;--line:#2a2f3a;--ink:#e8ecf3;--mut:#9aa4b2;--accent:#6ea8fe}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font:14px/1.5 system-ui,"Segoe UI",Roboto,sans-serif}
+  #app{display:grid;grid-template-columns:1fr 330px;grid-template-rows:54px 1fr 96px;height:100vh}
+  header{grid-column:1/3;display:flex;align-items:center;gap:18px;padding:0 18px;
+    border-bottom:1px solid var(--line);background:#12151c}
+  header h1{font-size:16px;margin:0;letter-spacing:-.01em}
+  header .stat{color:var(--mut);font-size:12.5px}
+  header .stat b{color:var(--ink)}
+  #map{grid-row:2;grid-column:1}
+  aside{grid-row:2;grid-column:2;border-left:1px solid var(--line);background:var(--panel);
+    padding:16px;overflow:auto}
+  footer{grid-column:1/3;border-top:1px solid var(--line);background:#12151c;padding:8px 14px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:18px 0 8px}
+  h2:first-child{margin-top:0}
+  .ctl{margin:12px 0}
+  .ctl label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+  .ctl label b{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .verdict{padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:#11141b;margin-bottom:6px}
+  .verdict .big{font-size:17px;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  th,td{padding:5px 6px;border-bottom:1px solid #20242e;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--mut);text-transform:uppercase;font-size:10.5px}
+  tr.win td{color:#7fe0a0;font-weight:700}
+  tr.bad td{color:#6b7280}
+  .bar{height:6px;border-radius:4px;background:#1a1d24;overflow:hidden}
+  .bar>i{display:block;height:6px;background:var(--accent)}
+  #timeline{position:relative;height:62px;width:100%;background:#0d1017;border-radius:8px;
+    border:1px solid var(--line);overflow:hidden}
+  #timeline .tick{position:absolute;top:8px;width:5px;height:38px;border-radius:2px;transform:translateX(-50%)}
+  #timeline .axis{position:absolute;bottom:4px;left:0;right:0;display:flex;justify-content:space-between;
+    padding:0 8px;color:var(--mut);font-size:11px}
+  .foot-title{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-bottom:4px}
+  .leaflet-popup-content{margin:8px;font:12px system-ui}
+  .legend{font-size:12px;color:var(--mut);margin-top:8px}
+  .home-badge{background:#13201a;color:#7fe0a0;border:1px solid #2f5b41;border-radius:6px;padding:2px 7px;font-size:11px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🗺️ Geo Segmentation Explorer</h1>
+    <span class="stat" id="src">…</span>
+    <span class="stat" id="counts">…</span>
+    <span class="home-badge" id="homebadge" style="display:none"></span>
+  </header>
+  <div id="map"></div>
+  <aside>
+    <h2>Strategy</h2>
+    <div class="ctl">
+      <label>GPS radius (km) <b id="rv">30</b></label>
+      <input id="radius" type="range" min="1" max="100" value="30" step="1">
+    </div>
+    <div class="ctl">
+      <label>Time gap (hours) <b id="gv">8</b></label>
+      <input id="gap" type="range" min="1" max="72" value="8" step="1">
+    </div>
+    <div class="ctl">
+      <label>Floor (decline below) <b id="fv">0.45</b></label>
+      <input id="floor" type="range" min="0" max="1" value="0.45" step="0.01">
+    </div>
+
+    <h2>Competition</h2>
+    <div class="verdict" id="verdict"><span class="big">…</span></div>
+    <table id="scores">
+      <thead><tr><th>axis</th><th>overall</th><th>sep</th><th>cov</th><th>bal</th><th>stab</th><th>par</th><th>segs</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="legend">Map pins are coloured by the <b>GPS clusters</b>; the timeline below by <b>time gaps</b>. Drag the sliders to re-segment live.</div>
+  </aside>
+  <footer>
+    <div class="foot-title">Timeline — photos by capture time, coloured by time segment</div>
+    <div id="timeline"><div class="axis"><span id="tmin"></span><span id="tmax"></span></div></div>
+  </footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const PALETTE = ["#5b9cff","#f0a843","#52c479","#b483f0","#39d3bb","#ff7b9c","#e0c341","#7fa6ff",
+                 "#ff9a5b","#62d0a8","#c98bff","#4fc3d9","#f2748a","#9bd05a"];
+const color = i => PALETTE[((i%PALETTE.length)+PALETTE.length)%PALETTE.length];
+let MAP, MARKERS={}, TICKS={}, DATA, TMIN, TMAX;
+
+function fmtDate(epoch){ if(epoch==null) return ""; return new Date(epoch*1000).toLocaleString(); }
+
+async function boot(){
+  DATA = await (await fetch('/api/photos')).json();
+  document.getElementById('src').innerHTML = "📁 "+DATA.source.split(/[\\/]/).pop();
+  document.getElementById('counts').innerHTML =
+    `<b>${DATA.n_total}</b> photos · <b>${DATA.n_geo}</b> GPS · <b>${DATA.n_time}</b> timed`;
+  TMIN=DATA.t_min; TMAX=DATA.t_max;
+  document.getElementById('tmin').textContent = fmtDate(TMIN);
+  document.getElementById('tmax').textContent = fmtDate(TMAX);
+
+  MAP = L.map('map',{zoomControl:true}).setView([47.5,19.05],12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    {attribution:'© OpenStreetMap © CARTO', maxZoom:19}).addTo(MAP);
+
+  const geoPts = DATA.photos.filter(p=>p.has_geo);
+  const bounds=[];
+  for(const p of geoPts){
+    const m=L.circleMarker([p.lat,p.lon],{radius:6,weight:1,color:'#0d1017',
+      fillColor:'#888',fillOpacity:.9}).addTo(MAP);
+    m.bindPopup(`<img src="/thumb/${p.id}" width="200"><br><small>${fmtDate(p.t)}</small>`);
+    MARKERS[p.id]=m; bounds.push([p.lat,p.lon]);
+  }
+  if(DATA.home){
+    L.marker([DATA.home[0],DATA.home[1]]).addTo(MAP).bindPopup("🏠 Home (auto-detected)");
+    document.getElementById('homebadge').style.display='inline-block';
+    document.getElementById('homebadge').textContent =
+      `🏠 home ${DATA.home[0].toFixed(3)}, ${DATA.home[1].toFixed(3)}`;
+  }
+  if(bounds.length) MAP.fitBounds(bounds,{padding:[40,40]});
+
+  // build timeline ticks
+  const tl=document.getElementById('timeline');
+  for(const p of DATA.photos.filter(p=>p.t!=null)){
+    const x=(p.t-TMIN)/((TMAX-TMIN)||1)*100;
+    const d=document.createElement('div'); d.className='tick';
+    d.style.left=x+'%'; d.style.background='#555'; d.title=fmtDate(p.t);
+    tl.appendChild(d); TICKS[p.id]=d;
+  }
+  wire(); refresh();
+}
+
+function wire(){
+  for(const [id,lab] of [['radius','rv'],['gap','gv'],['floor','fv']]){
+    const el=document.getElementById(id);
+    el.addEventListener('input',()=>{document.getElementById(lab).textContent=el.value; debounce();});
+  }
+}
+let _t; function debounce(){clearTimeout(_t); _t=setTimeout(refresh,160);}
+
+async function refresh(){
+  const r=document.getElementById('radius').value;
+  const g=document.getElementById('gap').value;
+  const f=document.getElementById('floor').value;
+  const res=await (await fetch(`/api/segment?radius_km=${r}&gap_hours=${g}&floor=${f}`)).json();
+
+  // recolour map by geo labels
+  const gl=(res.geo&&res.geo.labels)||{};
+  for(const id in MARKERS){
+    const seg=gl[id];
+    MARKERS[id].setStyle({fillColor: seg==null?'#888':color(seg)});
+  }
+  // recolour timeline by time labels
+  const tlb=(res.time&&res.time.labels)||{};
+  for(const id in TICKS){
+    const seg=tlb[id];
+    TICKS[id].style.background = seg==null?'#555':color(seg);
+  }
+  // verdict
+  const v=document.getElementById('verdict');
+  if(res.flat){
+    v.innerHTML=`<span class="big" style="color:#9aa4b2">FLAT — no segmentation</span>
+      <div style="color:#9aa4b2;font-size:12px;margin-top:3px">best axis below floor ${(+f).toFixed(2)}</div>`;
+  }else{
+    const wseg = res.scores.find(s=>s.axis===res.winner);
+    v.innerHTML=`<span class="big" style="color:#7fe0a0">WINNER: ${res.winner}</span>
+      <div style="color:#9aa4b2;font-size:12px;margin-top:3px">${wseg.n_segments} segments · floor ${(+f).toFixed(2)}</div>`;
+  }
+  // scores table
+  const tb=document.querySelector('#scores tbody'); tb.innerHTML='';
+  const cell=v=> v==null?'·':(+v).toFixed(2);
+  for(const s of [...res.scores].sort((a,b)=>(b.overall||0)-(a.overall||0))){
+    const tr=document.createElement('tr');
+    if(s.insufficient) tr.className='bad';
+    else if(!res.flat && s.axis===res.winner) tr.className='win';
+    if(s.insufficient){
+      tr.innerHTML=`<td>${s.axis}</td><td colspan="7" style="text-align:left;color:#6b7280">insufficient signal</td>`;
+    }else{
+      tr.innerHTML=`<td>${s.axis}</td>
+        <td><div class="bar"><i style="width:${Math.round((s.overall||0)*100)}%"></i></div>${cell(s.overall)}</td>
+        <td>${cell(s.separation)}</td><td>${cell(s.coverage)}</td><td>${cell(s.balance)}</td>
+        <td>${cell(s.stability)}</td><td>${cell(s.parsimony)}</td><td>${s.n_segments??'·'}</td>`;
+    }
+    tb.appendChild(tr);
+  }
+}
+boot();
+</script>
+</body>
+</html>

@@ -39,9 +39,15 @@ class ut_QualityGater:
         assert 0 not in holdout
 
     def test_blur_rejects_below_threshold(self):
+        # spec-041 follow-up — use a non-zero blur value. When ALL faces
+        # have blur_score==0.0 the gate now bypasses (SIGHTING-068) because
+        # that signal means the producer step didn't run, not that every
+        # face is genuinely the blurriest possible. A value of 25 keeps
+        # the test honest: a measured-low score is below the threshold of
+        # 50 and must be rejected.
         config = PipelineConfig(blur_min=50.0)
         gater = QualityGater(config)
-        face = make_face(blur_score=0.0)
+        face = make_face(blur_score=25.0)
         core, holdout, _ = gater.select_core_set([face])
         assert 0 in holdout
         assert 0 not in core

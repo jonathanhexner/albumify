@@ -14,9 +14,12 @@
 # ACTIVE: InsightFace pipeline (used by API by default)
 default_pipeline:
   - discover_images
+  - extract_geo_metadata        # spec-022: EXIF GPS + capture time per image
   - score_iqa
   - score_ava
-  - detect_persons              # YOLOv8-Pose for person detection
+  - score_occlusion             # spec-097: P(lens occlusion) per image (CLIP probe, cached)
+  - score_tilt                  # spec-099/spec-100: crooked-photo roll angle (GeoCalib, cached)
+  - detect_persons              # YOLOv8-Pose person detection (feeds tilt fixability + straighten gate)
   - insightface_detect_faces    # InsightFace SCRFD for face detection
   - filter_faces                # Filter small/low-confidence faces
   - score_face_frontal          # Compute frontal score, roll angle, centrality
@@ -29,10 +32,24 @@ default_pipeline:
   - extract_scene_embedding
   - cluster_scenes
   - extract_face_embeddings     # Uses pre-aligned faces from align_faces step
-  - cluster_people              # Global face clustering by identity
+  # spec-079: identity clustering now runs App A's shared 8-step unified chain
+  # (was the monolithic `cluster_people` -> deprecated face_cluster_bridge, which
+  # dropped pose/blur and over-split). Same output key (people_clusters), so the
+  # downstream steps below are unchanged. Config is fed via FCParams.to_step_configs()
+  # in PipelineService._broadcast_clustering_config (the single config interpreter).
+  - quality_gate                # turn/blur/area/det gating + core-set selection
+  - build_face_knn_graph
+  - cluster_face_components
+  - select_face_exemplars
+  - merge_face_clusters
+  - attach_holdout_faces
+  - apply_diameter_cap
+  - assign_people_clusters      # produces context.people_clusters (== old cluster_people output)
+  - face_cluster_analysis_export # spec-088: write FC-app export when "Export for analysis" is on (read-only)
   - identity_refinement         # Refine clusters with exemplar-based attachment
   - cluster_by_identity         # Sub-cluster scenes by identity
   - select_best                 # Smart selection with composite scoring (incl. frontal penalty)
+  - straighten_images           # spec-101: TERMINAL — straighten the selected winners (after selection)
 
 # MINIMAL: No face detection (fast, scene-only)
 minimal_pipeline:
@@ -88,12 +105,36 @@ score_face_eyes:
 score_face_smile:
   width_threshold: 0.15        # Mouth width ratio threshold for smile detection
 
+# Geo Metadata Extraction (extract_geo_metadata) - spec-022
+extract_geo_metadata:
+  min_year: 1990               # Reject EXIF capture dates before this year
+
 # IQA Scoring (score_iqa)
 score_iqa: {}
 
 # AVA Scoring (score_ava)
 score_ava:
   checkpoint_path: models/album_app/ava_resnet50.pt
+
+# Occlusion Scoring (score_occlusion, spec-097 Stage 1)
+# Model: spec-096 winner (CLIP ViT-B/32 global+tile-max probe, 0.86 scene PR-AUC).
+score_occlusion: {}             # artifact_path override optional; default models/occlusion/clip_b32_gmax_v1.npz
+
+# Tilt Scoring (score_tilt, spec-099 Phase 1 / spec-100)
+# Model: GeoCalib learned single-image roll (~1.9 s/img CPU, cached per image).
+score_tilt: {}
+
+# Auto-straighten (straighten_images, spec-101 option A) — TERMINAL, straightens the
+# selected winners after select_best. enabled:false = penalize-only (still docks tilt in
+# selection). Straightens only confident tilts that keep >= min_retained_area AND don't crop
+# a person filling >= prominent_person_frac of the frame.
+straighten_images:
+  enabled: true
+  conf_gate: 0.5
+  gate_deg: 3.0
+  min_retained_area: 0.70
+  prominent_person_frac: 0.15    # user-tunable: person bigger than this blocks the crop
+  preserve_aspect: true
 
 # Quality Filtering (filter_quality)
 filter_quality:
@@ -104,6 +145,17 @@ filter_quality:
 extract_scene_embedding:
   model: dinov2                # Options: dinov2, openclip, resnet50
   device: cpu                  # Options: cpu, cuda, mps
+
+# Scene Distance (build_scene_distance) - spec-103, OPT-IN (gated by presence).
+# NOT in default_pipeline: default scene clustering is byte-identical to before. To enable, insert
+# `build_scene_distance` between extract_scene_embedding and cluster_scenes in a pipeline's step list.
+# It fuses DINOv2 visual distance with a one-sided SHORT-RANGE capture-time boost (Path A):
+#   d(i,j) = visual_cos(i,j) * (1 - boost * exp(-dt_seconds / tau_sec))
+# Photos <=~tau_sec apart get pulled together; beyond a couple minutes time does nothing (looks decide).
+# cluster_scenes then clusters this precomputed distance (metric=precomputed) with its usual params.
+build_scene_distance:
+  boost: 0.6                   # Short-range time pull strength (0=off .. 1=collapse near-simultaneous)
+  tau_sec: 60.0                # Time constant (s); ~1 min gap gets the boost, >~3 min negligible
 
 # Scene Clustering (cluster_scenes)
 cluster_scenes:
@@ -194,7 +246,7 @@ cluster_by_identity:
   method: agglomerative        # Clustering method
 
 # Selection (select_best)
-# NEW DESIGN: composite_score = image_quality_score + person_penalty
+# composite_score = image_quality_score + person_penalty + occlusion_penalty (spec-097)
 select_best:
   max_images_per_cluster: 2    # Maximum images per cluster
   min_score_threshold: 0.4     # Minimum composite score to keep image
@@ -235,6 +287,28 @@ select_best:
     pose_threshold: 0.5        # Below this = face turned
     frontal_threshold: 0.6     # Below this = non-frontal penalty
     use_centrality_weighting: true # Weight frontal penalty by face centrality
+
+  # Occlusion penalty (spec-097 Stage 1; needs score_occlusion upstream)
+  occlusion_penalty:
+    enabled: true
+    gate: 0.75                 # v2 OOF sweep 2026-07-10: same FPs as gate 0.8, recall 60%->71%
+    weight: -0.35              # penalty = weight * P * area_factor
+    tile_threshold: 0.5        # tile counts as "hot" above this
+    max_penalty: -0.5          # floor — never disqualifies on its own
+
+  # Tilt penalty (spec-099 / spec-101 option A; needs score_tilt + detect_persons).
+  # Scaled by fixability: cleanly-straightenable tilts lose only the small FOV cost of
+  # the crop; tilts that can't be fixed without clipping a prominent person keep the
+  # full angle penalty. Small tie-breaker: blur > noise > exposure > tilt.
+  tilt_penalty:
+    enabled: true
+    conf_gate: 0.5             # spec-100 operating point (~roll uncertainty 1.4 deg)
+    gate_deg: 3.0              # below this |angle| is imperceptible / within noise
+    slope: 0.02               # per-degree penalty for UNFIXABLE tilts
+    cap: 0.15                  # floor -0.15; stays subordinate to sharpness/occlusion
+    fov_weight: 0.4           # penalty per unit lost area for FIXABLE tilts
+    min_retained_area: 0.70   # must match straighten_images (fixable threshold)
+    prominent_person_frac: 0.15 # must match straighten_images
 
   # Siamese model config
   siamese:

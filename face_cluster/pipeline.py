@@ -953,7 +953,7 @@ class FaceClusteringPipeline:
     def _export(self, ctx: _RunContext) -> dict:
         """Snapshot graph-local results, remap to face indices, write all output files."""
         from face_cluster.export import export_results, export_merged_results
-        from face_cluster.run_exporter import RunExporter
+        from sim_bench.run_db.exporter import RunExporter
 
         ctx.progress("export", 0.0, "Preparing export...")
 

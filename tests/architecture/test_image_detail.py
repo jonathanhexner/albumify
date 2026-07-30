@@ -23,7 +23,7 @@ import pytest
 from pydantic import ValidationError
 
 from face_cluster.image_detail import FaceDetail, FaceFilterDecision, ImageDetail
-from face_cluster.run_store import RunStore
+from sim_bench.run_db.store import RunStore
 
 
 def test_image_detail_forbids_extra_fields():
@@ -48,18 +48,23 @@ def test_run_store_exposes_image_detail():
 
 
 def test_image_detail_queries_load_bearing_tables():
-    """The method must touch faces, cluster_assignments, and filter_decisions."""
+    """The method must touch faces, cluster_assignments, and filter_decisions.
+
+    Updated for spec-059 ORM migration: the queries are now `select(Face)`,
+    `select(ClusterAssignment.*)`, `select(FilterDecision.*)` instead of raw
+    SQL strings. The check moves to the ORM model class names.
+    """
     src = inspect.getsource(RunStore.image_detail)
-    for table in ("faces", "cluster_assignments", "filter_decisions"):
-        assert re.search(rf"\bFROM {table}\b", src), (
-            f"RunStore.image_detail must query {table!r} — that's the spec-033 P-D "
-            "single-join contract. Found:\n" + src[:500]
+    for model in ("Face", "ClusterAssignment", "FilterDecision"):
+        assert re.search(rf"\b{model}\b", src), (
+            f"RunStore.image_detail must query the {model} model — that's the "
+            "spec-033 P-D single-join contract. Found:\n" + src[:500]
         )
 
 
 def _build_synthetic_run(run_dir: Path) -> None:
     """Construct a minimal v4 run dir with one image, two faces, decisions."""
-    from face_cluster.db import SCHEMA_DDL, SCHEMA_VERSION
+    from sim_bench.run_db._schema import SCHEMA_DDL, SCHEMA_VERSION
 
     run_dir.mkdir(parents=True, exist_ok=True)
     db_path = run_dir / "face_clustering.db"
@@ -72,7 +77,7 @@ def _build_synthetic_run(run_dir: Path) -> None:
         # 21 columns matching the schema order — see run_exporter._write_faces_and_scores.
         for fid in (0, 1):
             conn.execute(
-                "INSERT INTO faces VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO faces VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     fid, image_path, "img.jpg", fid,
                     0.0, 0.0, 100.0, 100.0,
@@ -80,6 +85,8 @@ def _build_synthetic_run(run_dir: Path) -> None:
                     0.95, 100.0, 10000.0, 5.0, 2.0, 1.0,
                     1, None,
                     0.8, 0.7, 0.6, 3,
+                    # spec-040 Phase 4 (v5) — ratio columns
+                    0.1, 0.0, 0.0, 0.3, 0.3,
                 ),
             )
             conn.execute(

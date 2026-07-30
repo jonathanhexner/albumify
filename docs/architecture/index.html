@@ -75,6 +75,11 @@ to <code>Implemented</code>.
     <div class="when">Read when: adding or removing a field on <code>PipelineContext</code> / <code>_RunContext</code>.</div>
     <p>The in-memory state contract. Every field on both context dataclasses with type, unit, producer step, consumer step(s), persistence, lifecycle. CI guard: <code>tests/architecture/test_pipeline_context_contract.py</code>.</p>
   </div>
+  <div class="card">
+    <h3><a href="../../specs/092-google-photos-integration/IMPLEMENTATION_GUIDE.html">Google Photos Integration (spec-092)</a> <span class="pill live">LIVE</span></h3>
+    <div class="when">Read when: touching the <code>gphotos/</code> package, the import button, or the Google Photos export.</div>
+    <p>The <code>gphotos/</code> edge boundary: OAuth (<code>auth</code>), Picker import (<code>picker</code>/<code>cache</code>/<code>ingest_source</code>), Library export (<code>uploader</code>/<code>export_album</code>), Streamlit widget. Import materializes a folder that feeds <code>discover_images</code> unchanged; export pushes <code>selected_images</code> to an app-owned album. Module reference + OAuth/session sequence diagrams.</p>
+  </div>
 </div>
 
 <h2>Reference / historical documents</h2>

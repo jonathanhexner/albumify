@@ -48,7 +48,7 @@
 
 <div class="source-of-truth">
 <b>⚠️ Source of truth.</b> This document is the canonical field-by-field reference.
-The DDL lives in <code>face_cluster/db/schema.py</code>; the Pandera validators in
+The DDL lives in <code>sim_bench/run_db/_schema.py</code>; the Pandera validators in
 <code>face_cluster/db/validators.py</code>. <b>Any change to either must update this
 document in the same PR</b> (CODE_REVIEW_CHECKLIST §7 / WORKFLOW.md gate).
 </div>
@@ -57,9 +57,25 @@ document in the same PR</b> (CODE_REVIEW_CHECKLIST §7 / WORKFLOW.md gate).
 <b>One DB per run.</b> Each run dir contains its own <code>_v4/face_clustering.db</code>.
 Both the FC App standalone path and the Albumify path produce this same layout
 (spec-030). Schema version is pinned at the application layer
-(<code>SCHEMA_VERSION = 4</code>); the SQLite <code>user_version</code> pragma carries
+(<code>SCHEMA_VERSION = 5</code>); the SQLite <code>user_version</code> pragma carries
 the same value. Additive nullable columns do NOT bump the version per the locked
 decision in <code>specs/033-data-integrity/MASTER_PLAN.md</code>.
+</div>
+
+<div class="callout" style="background:#f0f7ff; border-left-color:#1f5fc7;">
+<b>Implementation layer: SQLAlchemy ORM as schema source-of-truth, raw <code>sqlite3</code> for I/O (spec-058).</b>
+<ul style="margin: .3em 0;">
+  <li><b>No Alembic</b>: per-run DB is write-once-read-many. Each run produces a fresh DB; no in-run migrations needed. Bulk <code>conn.executemany(tuples)</code> outperforms ORM object construction.</li>
+  <li><b>Schema source of truth</b>: <code>sim_bench/run_db/models/</code> (SQLAlchemy <code>DeclarativeBase</code>, 10 models). The CREATE TABLE / CREATE INDEX strings in <code>sim_bench/run_db/_schema.py</code> are <em>derived</em> from <code>Base.metadata</code> at import time via the SQLite-dialect compiler — editing them by hand has no effect. Drift between models and emitted SQL is caught by <code>tests/face_clustering/db/test_orm_matches_schema.py</code> (substitutes for <code>alembic check</code>).</li>
+  <li><b>Validation</b>: not via SQLAlchemy. Two layers instead:
+    <ul>
+      <li><b>Object boundary</b> — Pydantic (<code>FaceRecord</code>, <code>MergeDecisionRow</code> dataclass, etc.) at construction.</li>
+      <li><b>DataFrame boundary</b> — Pandera (<code>FACES_SCHEMA</code>, <code>FACE_SCORES_SCHEMA</code>, <code>FILTER_DECISIONS_SCHEMA</code> in <code>face_cluster/db/validators.py</code>) just before INSERT.</li>
+    </ul>
+  </li>
+  <li><b>Single writer class</b>: <code>sim_bench.run_db.exporter.RunExporter</code> (spec-030 contract).</li>
+  <li>This is a deliberate choice — not legacy state. Spec-040 preserves it.</li>
+</ul>
 </div>
 
 <div class="callout">
@@ -77,6 +93,12 @@ action_log, training data, etc.) see <a href="db_global.html">db_global.html</a>
 <a href="#merge_decisions">merge_decisions</a>
 <a href="#filter_decisions">filter_decisions</a>
 <a href="#run_metadata">run_metadata</a>
+<br>
+<b>Target tables (spec-040 Phase 4):</b>
+<a href="#images-target">images</a>
+<a href="#scene_clusters-target">scene_clusters</a>
+<a href="#scene_cluster_assignments-target">scene_cluster_assignments</a>
+<a href="#scene_embeddings-target">scene_embeddings.npy</a>
 </div>
 
 <div class="legend">
@@ -88,94 +110,144 @@ action_log, training data, etc.) see <a href="db_global.html">db_global.html</a>
 </div>
 
 <div class="callout" style="background:#fefcf3; border-left-color:#b58900;">
-<b>Known schema gaps surfaced 2026-05-16:</b>
+<b>Known schema gaps:</b>
 <ul style="margin: .3em 0;">
-  <li><b>SIGHTING-064</b> — <code>area</code> is in mixed units (fraction² on Albumify, px² on FC App per SIGHTING-060). A canonical <code>area_ratio</code> column (always fraction of image area) would resolve the unit confusion.</li>
-  <li><b>SIGHTING-065</b> — image-level fields (<code>iqa_score</code>, <code>ava_score</code>, <code>sharpness_score</code>, <code>scene_cluster_id</code>) are denormalized onto every face row instead of living in a dedicated <code>images</code> table. P-D's single-JOIN read drove the choice; the denormalization conflates image-level state with face-level state.</li>
+  <li><b>SIGHTING-064</b> — <code>area</code> is in mixed units (fraction² on Albumify, px² on FC App per SIGHTING-060). A canonical <code>area_ratio</code> column would resolve the unit confusion.</li>
+  <li><b>SIGHTING-065</b> — image-level fields (<code>iqa_score</code>, <code>ava_score</code>, <code>sharpness_score</code>, <code>scene_cluster_id</code>) are denormalized onto every face row instead of living in a dedicated <code>images</code> table.</li>
+  <li><b>SIGHTING-066</b> — scene side has <b>no structured persistence at all</b>: no <code>images</code> table, no <code>scene_clusters</code> table, no <code>scene_cluster_assignments</code> table, no <code>scene_embeddings.npy</code>. Scene embeddings exist only as opaque blobs in <code>universal_cache</code>; cluster assignments survive only as a denormalized id on faces. Images with zero detected faces have no row anywhere. Asymmetric vs. the faces side (faces / face_scores / embeddings.npy / clusters / cluster_assignments). All three gaps land together in spec-040 Phase 4.</li>
 </ul>
 </div>
 
-<h2 id="faces">faces<span class="src">DDL: face_cluster/db/schema.py::FACES_DDL · Pandera: db/validators.py::FACES_SCHEMA</span></h2>
+<h2>Writer classes at a glance</h2>
+<p>Per-run DB is written by exactly <b>one class</b>: <code>sim_bench.run_db.exporter.RunExporter</code>. Each table is handled by one method on that class:</p>
+<table>
+  <thead><tr><th>Table</th><th>Writer method (class.method)</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><a href="#faces">faces</a></td><td><code>RunExporter._write_faces_and_scores</code></td><td>Pandera-validates against <code>FACES_SCHEMA</code> before INSERT (P-H).</td></tr>
+    <tr><td><a href="#face_scores">face_scores</a></td><td><code>RunExporter._write_faces_and_scores</code></td><td>Same method, same transaction as <code>faces</code>. Pandera against <code>FACE_SCORES_SCHEMA</code>.</td></tr>
+    <tr><td><a href="#clusters">clusters</a></td><td><code>RunExporter._write_clusters_and_assignments</code></td><td>Writes base (iteration=0) + merge snapshots.</td></tr>
+    <tr><td><a href="#cluster_assignments">cluster_assignments</a></td><td><code>RunExporter._write_clusters_and_assignments</code></td><td>Same method, same transaction as <code>clusters</code>.</td></tr>
+    <tr><td><a href="#merge_decisions">merge_decisions</a></td><td><code>RunExporter._write_merges</code></td><td>Strict-validated against <code>MergeDecisionRow.field_names()</code> (28 keys exactly).</td></tr>
+    <tr><td><a href="#filter_decisions">filter_decisions</a></td><td><code>RunExporter._write_filter_decisions</code></td><td>Reads a <code>FilterContext</code>; pandera against <code>FILTER_DECISIONS_SCHEMA</code>.</td></tr>
+    <tr><td><a href="#run_metadata">run_metadata</a></td><td><code>RunExporter._write_run_metadata</code></td><td>Last writer in the export transaction.</td></tr>
+    <tr style="background:#eef2ff;"><td><a href="#images-target">images</a></td><td><code>RunExporter._write_images</code></td><td>One row per image (n_faces=0 included); closes SIGHTING-065. Writer landed 2026-05-20.</td></tr>
+    <tr style="background:#eef2ff;"><td><a href="#scene_clusters-target">scene_clusters</a> + <a href="#scene_cluster_assignments-target">scene_cluster_assignments</a></td><td><code>RunExporter._write_scene_clusters</code> + <code>_write_scene_cluster_assignments</code></td><td>Writers landed 2026-05-20; populated when a scene-clustering producer ships (follow-up).</td></tr>
+    <tr style="background:#eef2ff;"><td><a href="#scene_embeddings-target">scene_embeddings.npy</a> <span class="pill" style="background:#1d3a8a;color:white;">FUTURE</span></td><td><code>RunExporter._write_scene_embeddings_npy</code> (new in Phase 4)</td><td>Bulk numeric, parallel to embeddings.npy.</td></tr>
+  </tbody>
+</table>
+<p><b>Upstream producers</b> (the classes that compute values that <code>RunExporter</code> persists) vary per column — see each table for details. The single-writer contract is part of spec-030; spec-040 preserves it.</p>
+
+<h2 id="faces">faces<span class="src">DDL: sim_bench/run_db/_schema.py::FACES_DDL · Pandera: db/validators.py::FACES_SCHEMA</span></h2>
 <p>One row per detected face in the run. <b>21 columns</b>.</p>
 
 <div class="callout" style="background:#f0f7ff; border-left-color:#1f5fc7;">
-<b>Source columns explained.</b> The two "Origin" columns answer "where does this value come from?" on each pipeline. <b>Albumify origin</b> is usually a context dict path (<code>PipelineContext.foo[key]</code>); <b>FC App origin</b> is usually an attribute on an object (<code>FaceRecord.attr</code> or a face_cluster class method). When the two origins are different, you're looking at the duplication that spec-040 (unification) will resolve.
+<b>How to read this table.</b> Three traceability columns per field:
+<ul style="margin: .3em 0;">
+  <li><b>Producer (Albumify)</b> — the class / step / module that computes the value on the Albumify path. Bold = class name; italic = step name.</li>
+  <li><b>Producer (FC App)</b> — same, for FC App standalone.</li>
+  <li><b>Writer to DB</b> — the class method that puts the value into the SQLite row tuple just before INSERT. Always <code>RunExporter._write_faces_and_scores</code> for this table, but cited explicitly so the chain is unambiguous.</li>
+</ul>
+When Producer (Albumify) ≠ Producer (FC App), you're looking at the duplication spec-040 collapses.
 </div>
 
 <table>
   <thead><tr>
-    <th>Column</th><th>SQL type</th><th>Pandera</th>
-    <th>Albumify origin (context dict)</th>
-    <th>FC App origin (object / class)</th>
+    <th>Column<br>SQL · Pandera</th>
+    <th>Producer (Albumify)</th>
+    <th>Producer (FC App)</th>
+    <th>Writer to DB</th>
     <th>Status</th>
   </tr></thead>
   <tbody>
-    <tr><td><code>face_id</code> <span class="pill pk">PK</span><br><span class="nullable">Stable id within run</span></td><td>INTEGER</td><td>int · unique · not null</td>
-        <td><code>face_cluster_bridge.faces_to_face_records</code> assigns sequential index</td>
-        <td><code>FaceRecord.face_id</code> (set by <code>face_cluster.embedding</code> when reading crops)</td>
+    <tr><td><code>face_id</code> <span class="pill pk">PK</span><br>INTEGER · int unique</td>
+        <td>Step <i>cluster_people</i> → <b>face_cluster_bridge.faces_to_face_records</b> (assigns sequential idx)</td>
+        <td><b>face_cluster.embedding</b> module assigns idx when constructing <code>FaceRecord</code> from crop manifest</td>
+        <td><b>RunExporter._write_faces_and_scores</b> emits <code>face.face_id</code></td>
         <td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>image_path</code><br><span class="nullable">Absolute path, forward slashes</span></td><td>TEXT</td><td>str · nullable</td>
-        <td><code>PipelineContext.image_paths</code> (set by <code>discover_images</code> step)</td>
-        <td><code>FaceRecord.image_path</code> (set by <code>face_cluster.embedding</code>)</td>
+    <tr><td><code>image_path</code><br>TEXT · str nullable</td>
+        <td>Step <i>discover_images</i> writes to <code>PipelineContext.image_paths</code>; bridge propagates onto <code>FaceRecord.image_path</code></td>
+        <td><b>face_cluster.embedding</b> sets <code>FaceRecord.image_path</code> when reading source images</td>
+        <td><b>RunExporter._write_faces_and_scores</b> emits <code>face.image_path or face.image_id</code></td>
         <td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>image_id</code><br><span class="nullable">Basename or short id</span></td><td>TEXT</td><td>str · nullable</td>
+    <tr><td><code>image_id</code><br>TEXT · str nullable</td>
         <td>Derived in bridge from <code>image_path</code></td>
-        <td><code>FaceRecord.image_id</code></td>
+        <td><b>face_cluster.embedding</b> sets <code>FaceRecord.image_id</code> (basename)</td>
+        <td><b>RunExporter._write_faces_and_scores</b> emits <code>face.image_id</code></td>
         <td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>face_index</code><br><span class="nullable">0-based per-image</span></td><td>INTEGER</td><td>Int64 (nullable)</td>
-        <td><code>PipelineContext.insightface_faces[path]["faces"][i]["face_index"]</code></td>
-        <td><code>FaceRecord.face_index</code></td>
+    <tr><td><code>face_index</code><br>INTEGER · Int64 nullable</td>
+        <td>Step <i>insightface_detect_faces</i> writes <code>insightface_faces[path]["faces"][i]["face_index"]</code></td>
+        <td><b>face_cluster.embedding</b> sets <code>FaceRecord.face_index</code></td>
+        <td><b>RunExporter._write_faces_and_scores</b> emits <code>face.face_index</code></td>
         <td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>bbox_x / y / w / h</code><br><span class="nullable">⚠ unit mixed (SIGHTING-060/064)</span></td><td>REAL × 4</td><td>float · nullable</td>
-        <td><code>PipelineContext.insightface_faces[path]["faces"][i]["bbox"]</code> dict — written by <code>insightface_detect_faces</code> step. <b>Unit: fraction</b>.</td>
-        <td><code>FaceRecord.bbox</code> tuple — set by <code>face_cluster.embedding</code> when reading detected faces. <b>Unit: pixels</b>.</td>
+    <tr><td><code>bbox_x / y / w / h</code><br>REAL × 4 · float nullable<br>⚠ unit mixed (SIGHTING-060/064)</td>
+        <td>Step <i>insightface_detect_faces</i> writes bbox dict on <code>insightface_faces[path]["faces"][i]["bbox"]</code>. <b>Unit: fraction.</b></td>
+        <td><b>face_cluster.embedding</b> sets <code>FaceRecord.bbox</code> tuple from raw detection. <b>Unit: pixels.</b></td>
+        <td><b>RunExporter._write_faces_and_scores</b> unpacks <code>face.bbox</code> tuple into 4 columns</td>
         <td><span class="pill ok">BOTH</span> (mixed units)</td></tr>
-    <tr><td><code>crop_path</code><br><span class="nullable">Relative to run_dir/crops/</span></td><td>TEXT</td><td>str · nullable</td>
-        <td><code>RunExporter._write_crops</code> derives from face_id during export</td>
-        <td>Same</td>
+    <tr><td><code>crop_path</code><br>TEXT · str nullable</td>
+        <td colspan="2"><b>RunExporter._write_crops</b> derives path from <code>face_id</code> during export (same code path both pipelines)</td>
+        <td><b>RunExporter._write_faces_and_scores</b> reads <code>crop_manifest.get(face_id, "")</code></td>
         <td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>det_score</code><br><span class="nullable">SCRFD confidence 0–1</span></td><td>REAL</td><td>float · nullable</td>
-        <td><code>PipelineContext.insightface_faces[path]["faces"][i]["confidence"]</code> — read by bridge into <code>FaceRecord.det_score</code></td>
-        <td><code>FaceRecord.det_score</code> — set by <code>face_cluster.embedding</code></td>
+    <tr><td><code>det_score</code><br>REAL · float nullable</td>
+        <td>Step <i>insightface_detect_faces</i> writes <code>insightface_faces[path]["faces"][i]["confidence"]</code>; bridge sets <code>FaceRecord.det_score</code></td>
+        <td><b>face_cluster.embedding</b> sets <code>FaceRecord.det_score</code> from detection output</td>
+        <td><b>RunExporter._write_faces_and_scores</b> emits <code>face.det_score</code></td>
         <td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>blur_score</code><br><span class="nullable">⚠ Laplacian variance</span></td><td>REAL</td><td>float · ≥ 0 · <b>NOT NULL</b></td>
-        <td><b>No producer today.</b> Bridge attempts <code>insightface_faces[path]["scores"]["blur_score"]</code> — always None — so column = 0.0. <span class="pill gap">TARGET</span> <span class="pill tgt">specs/037</span> adds the producer.</td>
-        <td><code>FaceRecord.blur_score</code> — set by <code>face_cluster.quality._compute_blur(face_crop)</code> (a function in face_cluster)</td>
-        <td><span class="pill gap">TARGET on Albumify</span> / <span class="pill ok">BOTH</span> on FC App</td></tr>
-    <tr><td><code>area</code><br><span class="nullable">⚠ unit mixed</span></td><td>REAL</td><td>float · ≥ 0 · <b>NOT NULL</b></td>
+    <tr><td><code>blur_score</code><br>REAL · float ≥ 0 · NOT NULL<br>⚠ Laplacian variance</td>
+        <td><b>No producer today.</b> Bridge attempts <code>insightface_faces[path]["scores"]["blur_score"]</code> — never populated, so <code>FaceRecord.blur_score = 0.0</code>. Bridge pins <code>blur_min = 0</code> (SIGHTING-061 workaround). <span class="pill tgt">specs/037 / spec-040 Phase 4</span> adds an <code>insightface_score_blur</code> step.</td>
+        <td><b>face_cluster.quality._compute_blur(face_crop)</b> sets <code>FaceRecord.blur_score</code></td>
+        <td><b>RunExporter._write_faces_and_scores</b> emits <code>float(face.blur_score)</code> (cast forces 0.0 from None)</td>
+        <td><span class="pill gap">TARGET on Albumify</span> / <span class="pill ok">CURRENT</span> on FC App</td></tr>
+    <tr><td><code>area</code><br>REAL · float ≥ 0 · NOT NULL<br>⚠ unit mixed</td>
         <td>Bridge computes <code>bbox.w * bbox.h</code> from the context bbox dict — <b>unit: fraction²</b></td>
-        <td><code>FaceRecord.area</code> — set by <code>face_cluster.embedding</code> — <b>unit: px²</b></td>
+        <td><b>face_cluster.embedding</b> sets <code>FaceRecord.area</code> from px bbox — <b>unit: px²</b></td>
+        <td><b>RunExporter._write_faces_and_scores</b> emits <code>float(face.area)</code></td>
         <td><span class="pill ok">BOTH</span> (mixed units, SIGHTING-064)</td></tr>
-    <tr><td><code>yaw / pitch / roll</code><br><span class="nullable">Degrees</span></td><td>REAL × 3</td><td>float · nullable</td>
-        <td><b>No producer today.</b> Bridge attempts <code>insightface_faces[path]["scores"]["pose"]</code> — never populated. <code>insightface_score_pose</code> writes a SCALAR <code>pose_score</code>, not the 3-tuple. Column = NULL.</td>
-        <td><code>FaceRecord.pose</code> tuple — set by <code>face_cluster.quality.PoseEstimator.estimate_pose</code> (a class in face_cluster, optional SixDRepNet dependency)</td>
-        <td><span class="pill gap">TARGET on Albumify</span> / <span class="pill warn">FC App only when SixDRepNet installed</span></td></tr>
-    <tr><td><code>is_core</code><br><span class="nullable">Passed quality gating</span></td><td>INTEGER</td><td>int ∈ {0,1} · <b>NOT NULL</b></td>
-        <td>Set on <code>FaceRecord.is_core</code> by <code>face_cluster.quality.QualityGater.select_core_set</code> (called from the bridge)</td>
-        <td>Same — <code>QualityGater.select_core_set</code> on every FaceRecord</td>
+    <tr><td><code>yaw / pitch / roll</code><br>REAL × 3 · float nullable</td>
+        <td><b>No producer today.</b> Bridge attempts <code>insightface_faces[path]["scores"]["pose"]</code>, never populated. The <i>insightface_score_pose</i> step writes a SCALAR <code>pose_score</code>, not the 3-tuple. Column = NULL.</td>
+        <td><b>face_cluster.quality.PoseEstimator.estimate_pose</b> sets <code>FaceRecord.pose = (yaw, pitch, roll)</code>. Requires optional <code>sixdrepnet</code> dep.</td>
+        <td><b>RunExporter._write_faces_and_scores</b> unpacks <code>face.pose or (None, None, None)</code></td>
+        <td><span class="pill gap">TARGET on Albumify</span> / <span class="pill warn">FC App only with SixDRepNet</span></td></tr>
+    <tr><td><code>is_core</code><br>INTEGER · int ∈ {0,1} · NOT NULL</td>
+        <td colspan="2"><b>QualityGater.select_core_set</b> (in <code>face_cluster/quality.py</code>) sets <code>FaceRecord.is_core</code>. Same class both pipelines — bridge calls it.</td>
+        <td><b>RunExporter._write_faces_and_scores</b> emits <code>1 if face.is_core else 0</code></td>
         <td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>rejection_reason</code><br><span class="nullable">First failing gate</span></td><td>TEXT</td><td>str · nullable</td>
-        <td><code>FaceRecord.rejection_reason</code> — set by <code>QualityGater._first_failing_gate</code></td>
-        <td>Same</td>
+    <tr><td><code>rejection_reason</code><br>TEXT · str nullable</td>
+        <td colspan="2"><b>QualityGater._first_failing_gate</b> sets <code>FaceRecord.rejection_reason</code> to the first failing gate name (or None on pass)</td>
+        <td><b>RunExporter._write_faces_and_scores</b> emits <code>face.rejection_reason</code></td>
         <td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>iqa_score</code><br><span class="nullable">NIMA IQA 0–1</span></td><td>REAL</td><td>float · nullable</td>
-        <td><code>PipelineContext.iqa_scores[image_path]</code> — written by <code>score_iqa</code> step. <code>face_cluster_export.py</code> builds <code>image_scores</code> join dict and passes to RunExporter.</td>
+    <tr><td><code>iqa_score</code><br>REAL · float nullable</td>
+        <td>Step <i>score_iqa</i> writes <code>PipelineContext.iqa_scores[image_path]</code>. <code>sim_bench.pipeline.steps.face_cluster_export</code> builds <code>image_scores</code> join dict and passes to <code>RunExporter.export()</code>.</td>
         <td>—  (FC App doesn't compute image-level IQA)</td>
+        <td><b>RunExporter._write_faces_and_scores</b> looks up <code>image_scores.get(image_path, {}).get("iqa")</code></td>
         <td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
-    <tr><td><code>ava_score</code><br><span class="nullable">Aesthetics 0–1</span></td><td>REAL</td><td>float · nullable</td>
-        <td><code>PipelineContext.ava_scores[image_path]</code> — written by <code>score_ava</code> step. Joined by face_cluster_export.</td>
+    <tr><td><code>ava_score</code><br>REAL · float nullable</td>
+        <td>Step <i>score_ava</i> writes <code>PipelineContext.ava_scores[image_path]</code>; joined by <code>face_cluster_export</code>.</td>
         <td>—</td>
+        <td><b>RunExporter._write_faces_and_scores</b> looks up <code>image_scores.get(image_path, {}).get("ava")</code></td>
         <td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
-    <tr><td><code>sharpness_score</code><br><span class="nullable">Whole-image sharpness 0–1</span></td><td>REAL</td><td>float · nullable</td>
-        <td><code>PipelineContext.sharpness_scores[image_path]</code> — written only by legacy MediaPipe path. NULL on the active InsightFace pipeline.</td>
+    <tr><td><code>sharpness_score</code><br>REAL · float nullable</td>
+        <td>Step <i>(legacy MediaPipe path)</i> writes <code>PipelineContext.sharpness_scores[image_path]</code>. NULL on active InsightFace pipeline.</td>
         <td>—</td>
+        <td><b>RunExporter._write_faces_and_scores</b> looks up <code>image_scores.get(image_path, {}).get("sharpness")</code></td>
         <td><span class="pill gap">TARGET</span> (legacy producer only)</td></tr>
-    <tr><td><code>scene_cluster_id</code><br><span class="nullable">From cluster_scenes</span></td><td>INTEGER</td><td>Int64 · nullable</td>
-        <td><code>PipelineContext.scene_cluster_labels[image_path]</code> — written by <code>cluster_scenes</code> step. Joined by face_cluster_export.</td>
+    <tr><td><code>scene_cluster_id</code><br>INTEGER · Int64 nullable</td>
+        <td>Step <i>cluster_scenes</i> writes <code>PipelineContext.scene_cluster_labels[image_path]</code>; joined by <code>face_cluster_export</code>.</td>
         <td>—</td>
+        <td><b>RunExporter._write_faces_and_scores</b> looks up <code>image_scores.get(image_path, {}).get("scene_cluster_id")</code></td>
         <td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
   </tbody>
 </table>
+
+<div class="callout">
+<b>What this table makes visible.</b>
+<ul style="margin: .3em 0;">
+  <li><b>One writer to DB</b> for the entire <code>faces</code> table: <code>RunExporter._write_faces_and_scores</code> (good — single writer, spec-030 contract).</li>
+  <li><b>Two producer chains</b> upstream: bridge-from-context-dict on Albumify, vs. <code>face_cluster.embedding</code> on FC App. 6 of 17 columns have <i>different</i> producers across the two pipelines.</li>
+  <li><b>Quality-gate fields</b> (<code>is_core</code>, <code>rejection_reason</code>) are the exception — same class (<code>QualityGater</code>) on both pipelines, because both routes feed the same gater.</li>
+  <li>spec-040 collapses the two producer columns into one.</li>
+</ul>
+</div>
 
 <div class="callout">
 <b>What this table makes visible.</b> 6 of 17 columns have <i>different</i> origins on the two pipelines. 4 columns are sourced from a Pydantic/dataclass object (<code>FaceRecord.attr</code>) on FC App but from a context dict (<code>PipelineContext.x[key]</code>) on Albumify. This is the duplication that spec-040 (unification) collapses — see <code>specs/040-unified-pipeline-framework/spec.md</code>.
@@ -184,50 +256,54 @@ action_log, training data, etc.) see <a href="db_global.html">db_global.html</a>
 <h2 id="face_scores">face_scores<span class="src">DDL: FACE_SCORES_DDL · Pandera: FACE_SCORES_SCHEMA</span></h2>
 <p>Optional per-face scoring results. One row per face_id with foreign key to <code>faces</code>. <b>6 columns</b>.</p>
 
+<p class="callout"><b>Writer class for all rows</b>: <code>RunExporter._write_faces_and_scores</code> (same method that writes <code>faces</code> — both tables written together in one transaction).</p>
 <table>
-  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Pandera</th><th>Description</th><th>Producer</th><th>Status</th></tr></thead>
+  <thead><tr><th>Column</th><th>Type · Pandera</th><th>Description</th><th>Producer (upstream value)</th><th>Status</th></tr></thead>
   <tbody>
-    <tr><td><code>face_id</code> <span class="pill pk">PK</span> · FK→faces</td><td>INTEGER</td><td>no</td><td>int · unique</td><td>Links to <code>faces.face_id</code>.</td><td>—</td><td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>pose_score</code></td><td>REAL</td><td class="nullable">yes</td><td>float ∈ [0, 1]</td><td>Frontal-ness score (1 = looking at camera).</td><td>insightface_score_pose</td><td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
-    <tr><td><code>eyes_score</code></td><td>REAL</td><td class="nullable">yes</td><td>float ∈ [0, 1]</td><td>Eye-openness score (EAR-based).</td><td>insightface_score_eyes</td><td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
-    <tr><td><code>expression_score</code></td><td>REAL</td><td class="nullable">yes</td><td>float ∈ [0, 1]</td><td>Smile / neutral expression score.</td><td>insightface_score_expression</td><td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
-    <tr><td><code>frontal_score</code></td><td>REAL</td><td class="nullable">yes</td><td>float ∈ [0, 1]</td><td>Composite frontal-ness from frontal_score step.</td><td>score_face_frontal</td><td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
-    <tr><td><code>is_clusterable</code></td><td>INTEGER</td><td class="nullable">yes</td><td>Int64 ∈ {0, 1}</td><td>1 if face is a valid clustering candidate (mirrors <code>faces.is_core</code> on most paths).</td><td>face_cluster_bridge</td><td><span class="pill ok">BOTH</span></td></tr>
+    <tr><td><code>face_id</code> <span class="pill pk">PK</span> · FK→faces</td><td>INTEGER · int unique</td><td>Links to <code>faces.face_id</code>.</td><td>—</td><td><span class="pill ok">BOTH</span></td></tr>
+    <tr><td><code>pose_score</code></td><td>REAL · float ∈ [0,1] nullable</td><td>Frontal-ness score (1 = looking at camera).</td><td>Step <i>insightface_score_pose</i> writes <code>context.face_pose_scores</code>; copied onto row by exporter.</td><td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
+    <tr><td><code>eyes_score</code></td><td>REAL · float ∈ [0,1] nullable</td><td>Eye-openness score (EAR-based).</td><td>Step <i>insightface_score_eyes</i>.</td><td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
+    <tr><td><code>expression_score</code></td><td>REAL · float ∈ [0,1] nullable</td><td>Smile / neutral expression score.</td><td>Step <i>insightface_score_expression</i>.</td><td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
+    <tr><td><code>frontal_score</code></td><td>REAL · float ∈ [0,1] nullable</td><td>Composite frontal-ness.</td><td>Step <i>score_face_frontal</i>.</td><td><span class="pill warn">ALBUMIFY ONLY</span></td></tr>
+    <tr><td><code>is_clusterable</code></td><td>INTEGER · Int64 ∈ {0,1} nullable</td><td>1 if face is a valid clustering candidate.</td><td>Currently mirrors <code>faces.is_core</code> via the bridge.</td><td><span class="pill ok">BOTH</span></td></tr>
   </tbody>
 </table>
 
 <h2 id="clusters">clusters<span class="src">DDL: CLUSTERS_DDL</span></h2>
 <p>One row per (cluster_id, iteration) pair. Iteration 0 = base clustering; later iterations capture merge/split snapshots. <b>7 columns</b>.</p>
 
+<p class="callout"><b>Writer class for all rows</b>: <code>RunExporter._write_clusters_and_assignments</code> (writes both the <code>clusters</code> and <code>cluster_assignments</code> tables in one transaction).</p>
 <table>
-  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th><th>Producer</th></tr></thead>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
   <tbody>
-    <tr><td><code>cluster_id</code> <span class="pill pk">PK</span></td><td>INTEGER</td><td>no</td><td>Cluster identifier within this iteration.</td><td>face_cluster.clustering</td></tr>
-    <tr><td><code>iteration</code> <span class="pill pk">PK</span></td><td>INTEGER</td><td>no</td><td>0 for base; ≥1 for post-merge snapshots.</td><td>RunExporter</td></tr>
-    <tr><td><code>size</code></td><td>INTEGER</td><td>no</td><td>Number of faces in the cluster.</td><td>RunExporter</td></tr>
-    <tr><td><code>diameter</code></td><td>REAL</td><td class="nullable">yes</td><td>Max pairwise cosine distance across all faces. NULL on singletons.</td><td>RunExporter</td></tr>
-    <tr><td><code>avg_intra_dist</code></td><td>REAL</td><td class="nullable">yes</td><td>Mean intra-cluster cosine distance.</td><td>RunExporter</td></tr>
-    <tr><td><code>origin</code></td><td>TEXT</td><td>no</td><td>One of: <code>base</code>, <code>auto_merge</code>, <code>manual_merge</code>, <code>remerge</code>, <code>unknown</code>.</td><td>ClusterMetadata</td></tr>
-    <tr><td><code>parent_ids</code></td><td>TEXT (JSON)</td><td>no</td><td>JSON list of cluster_ids merged into this one (empty list for base origin).</td><td>ClusterMetadata</td></tr>
+    <tr><td><code>cluster_id</code> <span class="pill pk">PK</span></td><td>INTEGER not null</td><td>Cluster identifier within this iteration.</td><td><b>ConnectedComponentsClusterer</b> (in <code>face_cluster.clustering</code>) — emits via <code>ClusterResult.clusters</code>.</td></tr>
+    <tr><td><code>iteration</code> <span class="pill pk">PK</span></td><td>INTEGER not null</td><td>0 for base; ≥1 for post-merge snapshots.</td><td>Assigned by exporter: 0 for base, ascending for merge rounds.</td></tr>
+    <tr><td><code>size</code></td><td>INTEGER not null</td><td>Number of faces in the cluster.</td><td>Computed by exporter from <code>ClusterResult.clusters[cid]</code> length.</td></tr>
+    <tr><td><code>diameter</code></td><td>REAL nullable</td><td>Max pairwise cosine distance across all faces. NULL on singletons.</td><td>Computed by exporter from cluster's embedding-pair distances.</td></tr>
+    <tr><td><code>avg_intra_dist</code></td><td>REAL nullable</td><td>Mean intra-cluster cosine distance.</td><td>Computed by exporter.</td></tr>
+    <tr><td><code>origin</code></td><td>TEXT not null</td><td>One of: <code>base</code>, <code>auto_merge</code>, <code>manual_merge</code>, <code>remerge</code>, <code>unknown</code>.</td><td><b>ClusterMetadata</b> (in <code>face_cluster.types</code>) — produced by <b>ConservativeMerger</b> on merges, default <code>BASE</code> on base clusters.</td></tr>
+    <tr><td><code>parent_ids</code></td><td>TEXT (JSON) not null</td><td>JSON list of cluster_ids merged into this one (empty list for base).</td><td><b>ClusterMetadata.parent_cluster_ids</b> — produced by <b>ConservativeMerger</b>.</td></tr>
   </tbody>
 </table>
 
 <h2 id="cluster_assignments">cluster_assignments<span class="src">DDL: CLUSTER_ASSIGNMENTS_DDL</span></h2>
 <p>Membership: which face belongs to which cluster, per iteration. <b>5 columns</b>.</p>
 
+<p class="callout"><b>Writer class for all rows</b>: <code>RunExporter._write_clusters_and_assignments</code> (same method that writes <code>clusters</code>).</p>
 <table>
-  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr></thead>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
   <tbody>
-    <tr><td><code>face_id</code> <span class="pill pk">PK</span> · FK→faces</td><td>INTEGER</td><td>no</td><td>The face being assigned.</td></tr>
-    <tr><td><code>cluster_id</code></td><td>INTEGER</td><td>no</td><td>The cluster it's assigned to. -1 = noise.</td></tr>
-    <tr><td><code>iteration</code> <span class="pill pk">PK</span></td><td>INTEGER</td><td>no</td><td>0 for base; iteration index for merge snapshots.</td></tr>
-    <tr><td><code>is_exemplar</code></td><td>INTEGER</td><td>no (default 0)</td><td>1 if this face is an exemplar of the cluster at this iteration.</td></tr>
-    <tr><td><code>d10_score</code></td><td>REAL</td><td class="nullable">yes</td><td>d10 (distance to 10th-nearest neighbor) — used for exemplar selection.</td></tr>
+    <tr><td><code>face_id</code> <span class="pill pk">PK</span> · FK→faces</td><td>INTEGER not null</td><td>The face being assigned.</td><td>From <code>ClusterResult.clusters[cid]</code> (indices into <code>face_records</code>).</td></tr>
+    <tr><td><code>cluster_id</code></td><td>INTEGER not null</td><td>The cluster it's assigned to. -1 = noise.</td><td><b>ConnectedComponentsClusterer</b> initially; <b>ConservativeMerger</b> on merges; <b>HoldoutAttacher</b> on attach.</td></tr>
+    <tr><td><code>iteration</code> <span class="pill pk">PK</span></td><td>INTEGER not null</td><td>0 for base; iteration index for merge snapshots.</td><td>Assigned by exporter from the iteration loop in <code>_write_clusters_and_assignments</code>.</td></tr>
+    <tr><td><code>is_exemplar</code></td><td>INTEGER not null (default 0)</td><td>1 if this face is an exemplar of the cluster at this iteration.</td><td><b>D10ExemplarSelector</b> (in <code>face_cluster.exemplars</code>) writes <code>ClusterResult.exemplars[cid]</code>.</td></tr>
+    <tr><td><code>d10_score</code></td><td>REAL nullable</td><td>d10 (distance to 10th-nearest neighbor) — used for exemplar selection.</td><td><b>D10ExemplarSelector</b> sets <code>FaceRecord.d10_score</code>.</td></tr>
   </tbody>
 </table>
 
 <h2 id="merge_decisions">merge_decisions<span class="src">DDL: MERGE_DECISIONS_DDL · dataclass: face_cluster/types.py::MergeDecisionRow</span></h2>
 <p>One row per (iteration, cluster_a, cluster_b) merge candidate evaluated by <code>ConservativeMerger</code>. <b>28 columns</b>. Column order MUST match <code>MergeDecisionRow.field_names()</code> exactly — enforced by <code>test_merge_decisions_column_order_matches_dataclass</code>.</p>
+<p class="callout"><b>Producer for every column</b>: <code>ConservativeMerger._select_best_merge</code> (in <code>face_cluster.merge</code>) — produces each row as a dict with the full 28-key set. <b>Writer class</b>: <code>RunExporter._write_merges</code> — binds positionally against <code>MergeDecisionRow.field_names()</code>, validated by <code>_strict_validate_merge_log</code> (rejects rows with missing / extra keys).</p>
 
 <table>
   <thead><tr><th>Group</th><th>Columns</th><th>Description</th></tr></thead>
@@ -260,16 +336,17 @@ action_log, training data, etc.) see <a href="db_global.html">db_global.html</a>
 <h2 id="filter_decisions">filter_decisions<span class="src">DDL: FILTER_DECISIONS_DDL · Pandera: FILTER_DECISIONS_SCHEMA · spec-032</span></h2>
 <p>Typed filter-verdict log. One row per (item_id, filter_name). Adding a new filter step needs no schema change. <b>7 columns</b>.</p>
 
+<p class="callout"><b>Writer class for all rows</b>: <code>RunExporter._write_filter_decisions</code> — reads a <code>FilterContext</code> instance (<code>face_cluster.filter_context.FilterContext</code>) and iterates <code>filter_context.all_decisions()</code> into row tuples.<br><b>Producer for all rows</b>: filter steps in the pipeline call <code>FilterContext.record(item_id, filter_name=..., rejected=..., reason=..., measured=...)</code>. Today the producers are <code>filter_quality</code> (image-level decisions), <code>QualityGater._record_quality_filters</code> (face-level gates), and <code>face_cluster.pipeline._save_crops</code> (the <code>face_crop</code> filter).</p>
 <table>
-  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Pandera</th><th>Description</th><th>Status</th></tr></thead>
+  <thead><tr><th>Column</th><th>Type · Pandera</th><th>Description</th><th>Status</th></tr></thead>
   <tbody>
-    <tr><td><code>item_id</code> <span class="pill pk">PK</span></td><td>TEXT</td><td>no</td><td>str</td><td>image_path or face key (e.g. <code>&lt;image_path&gt;:&lt;face_index&gt;</code>).</td><td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>item_type</code></td><td>TEXT</td><td>no</td><td>∈ {image, face, cluster}</td><td>Category of the item.</td><td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>parent_id</code></td><td>TEXT</td><td class="nullable">yes</td><td>str</td><td>For faces: the parent image_path. For images: NULL.</td><td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>filter_name</code> <span class="pill pk">PK</span></td><td>TEXT</td><td>no</td><td>str</td><td>One of the names in <code>face_cluster.filter_context.KNOWN_FILTERS</code>.</td><td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>rejected</code></td><td>INTEGER</td><td>no</td><td>∈ {0, 1}</td><td>1 if this filter rejected the item.</td><td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>reason</code></td><td>TEXT</td><td>no</td><td>str</td><td>Human-readable verdict explanation.</td><td><span class="pill ok">BOTH</span></td></tr>
-    <tr><td><code>measured_json</code></td><td>TEXT (JSON)</td><td>no</td><td>str</td><td>JSON-encoded dict of measured values used to produce the verdict.</td><td><span class="pill ok">BOTH</span></td></tr>
+    <tr><td><code>item_id</code> <span class="pill pk">PK</span></td><td>TEXT not null · str</td><td>image_path or face key (e.g. <code>&lt;image_path&gt;:&lt;face_index&gt;</code>).</td><td><span class="pill ok">BOTH</span></td></tr>
+    <tr><td><code>item_type</code></td><td>TEXT not null · ∈ {image, face, cluster}</td><td>Category of the item.</td><td><span class="pill ok">BOTH</span></td></tr>
+    <tr><td><code>parent_id</code></td><td>TEXT nullable · str</td><td>For faces: the parent image_path. For images: NULL.</td><td><span class="pill ok">BOTH</span></td></tr>
+    <tr><td><code>filter_name</code> <span class="pill pk">PK</span></td><td>TEXT not null · str</td><td>One of the names in <code>face_cluster.filter_context.KNOWN_FILTERS</code>.</td><td><span class="pill ok">BOTH</span></td></tr>
+    <tr><td><code>rejected</code></td><td>INTEGER not null · ∈ {0,1}</td><td>1 if this filter rejected the item.</td><td><span class="pill ok">BOTH</span></td></tr>
+    <tr><td><code>reason</code></td><td>TEXT not null · str</td><td>Human-readable verdict explanation.</td><td><span class="pill ok">BOTH</span></td></tr>
+    <tr><td><code>measured_json</code></td><td>TEXT not null · str</td><td>JSON-encoded dict of measured values used to produce the verdict.</td><td><span class="pill ok">BOTH</span></td></tr>
   </tbody>
 </table>
 <p class="callout">
@@ -278,24 +355,95 @@ action_log, training data, etc.) see <a href="db_global.html">db_global.html</a>
 
 <h2 id="run_metadata">run_metadata<span class="src">DDL: RUN_METADATA_DDL</span></h2>
 <p>One row per run with high-level summary fields. <b>17 columns</b>.</p>
+<p class="callout"><b>Writer class for all rows</b>: <code>RunExporter._write_run_metadata</code> — assembled from <code>RunExporter.export()</code> kwargs at the end of the run.</p>
+
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
+  <tbody>
+    <tr><td><code>run_id</code> <span class="pill pk">PK</span></td><td>TEXT</td><td>Run identifier (timestamp or UUID).</td><td>Caller of <code>RunExporter.export()</code> — set by the FC App stage runner or the Albumify pipeline runner.</td></tr>
+    <tr><td><code>source_album</code></td><td>TEXT</td><td>Logical album name.</td><td>Caller (input arg).</td></tr>
+    <tr><td><code>producer</code></td><td>TEXT</td><td>One of: <code>albumify</code>, <code>fc_app</code>, <code>remerge</code>, <code>manual_merge</code>.</td><td>Caller (input arg).</td></tr>
+    <tr><td><code>parent_run_id</code></td><td>TEXT nullable</td><td>For remerge/manual_merge runs, points to the base run.</td><td>Caller (input arg).</td></tr>
+    <tr><td><code>config_json</code></td><td>TEXT</td><td>JSON-encoded effective config. Diff'd by <code>config_diff</code> CLI.</td><td>Serialized in <code>_write_run_metadata</code> from <code>config</code> arg (FCConfig or step_configs dict).</td></tr>
+    <tr><td><code>merge_thresholds_json</code></td><td>TEXT nullable</td><td>Adaptive threshold values per cluster (when adaptive merge is on).</td><td><b>ConservativeMerger</b> emits via <code>merge_metadata</code>.</td></tr>
+    <tr><td><code>merge_iter_summary_json</code></td><td>TEXT nullable</td><td>Per-iteration merge statistics summary.</td><td><b>ConservativeMerger</b> via <code>merge_metadata</code>.</td></tr>
+    <tr><td><code>n_images, n_faces, n_core</code></td><td>INTEGER</td><td>Cardinalities.</td><td>Computed by <code>_write_run_metadata</code> from <code>faces</code> + <code>core_indices</code>.</td></tr>
+    <tr><td><code>n_clusters_base, n_clusters_final</code></td><td>INTEGER</td><td>Cluster counts before/after merge.</td><td>Computed from <code>base_cluster_result.n_clusters</code> / <code>merged_cluster_result.n_clusters</code>.</td></tr>
+    <tr><td><code>n_merges, n_iterations</code></td><td>INTEGER</td><td>Merge stats.</td><td>Computed from <code>merge_log</code>.</td></tr>
+    <tr><td><code>started_at, finished_at</code></td><td>TEXT (ISO 8601)</td><td>Wall-clock bounds.</td><td>Caller (input args).</td></tr>
+    <tr><td><code>schema_version</code></td><td>INTEGER</td><td>Pinned to <code>SCHEMA_VERSION = 5</code>.</td><td>Constant from <code>sim_bench.run_db._schema.SCHEMA_VERSION</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 style="border-color:#1d3a8a;">Schema v5 tables — added in spec-040 Phase 4, writers shipped 2026-05-20 (T2)</h2>
+
+<div class="callout" style="background:#eef2ff; border-left-color:#1d3a8a;">
+DDL + Pandera schemas landed in spec-040 Phase 4 (commit <code>73eb484</code>); the matching write methods landed in T2 (REVIEW.md B3/B6, 2026-05-20). On every Albumify run the <code>images</code> table now has one row per discovered image (n_faces=0 included), the <code>faces.*_ratio</code> columns are populated by the InsightFace producer, and the scene tables are present but empty (scene-side producer is a follow-up). Storage layer: raw <code>sqlite3</code> + Pydantic + Pandera (same convention as the existing tables — no ORM).
+</div>
+
+<h3 id="images-target">images <span class="src">spec-040 Phase 4 + T2 · DDL: sim_bench/run_db/_schema.py::IMAGES_DDL · Writer: sim_bench/run_db/exporter.py::RunExporter._write_images</span></h3>
+<p>One row per image in the run. Replaces the 4 image-level columns denormalized onto <code>faces</code> today (SIGHTING-065). Images with zero detected faces still get a row (n_faces=0).</p>
+<p class="callout"><b>Writer</b>: <code>RunExporter._write_images</code>. Reads <code>image_paths</code> param (from <code>PipelineContext.image_paths</code>) for the canonical image set, joined with face counts derived from <code>faces</code> list, joined with <code>image_scores</code> param for iqa / ava / sharpness / scene. Pandera-validates via <code>IMAGES_SCHEMA</code> on every call (empty df included).</p>
+
+<table>
+  <thead><tr><th>Column</th><th>Type · Pandera</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
+  <tbody>
+    <tr><td><code>image_path</code> <span class="pill pk">PK</span></td><td>TEXT · str unique</td><td>Absolute path to the source image. Forward slashes.</td><td>Step <i>discover_images</i> writes <code>PipelineContext.image_paths</code></td></tr>
+    <tr><td><code>image_id</code></td><td>TEXT · str</td><td>Basename or short id.</td><td>Derived from <code>image_path</code>.</td></tr>
+    <tr><td><code>width_px / height_px</code></td><td>INTEGER × 2 · int ≥ 1</td><td>Image dimensions in pixels. Needed to convert bbox between fraction and px units.</td><td>Step <i>discover_images</i> (extends to read EXIF) or <i>insightface_detect_faces</i> as a side-effect.</td></tr>
+    <tr><td><code>n_faces</code></td><td>INTEGER · int ≥ 0</td><td>Number of detected faces on this image. Includes faces that failed quality gating.</td><td>Computed by <code>_write_images</code> from <code>context.insightface_faces[image_path]["faces"]</code>.</td></tr>
+    <tr><td><code>iqa_score</code></td><td>REAL · float ∈ [0,1] nullable</td><td>NIMA IQA technical-quality score.</td><td>Step <i>score_iqa</i> writes <code>PipelineContext.iqa_scores[image_path]</code>.</td></tr>
+    <tr><td><code>ava_score</code></td><td>REAL · float ∈ [0,1] nullable</td><td>Aesthetics score.</td><td>Step <i>score_ava</i> writes <code>PipelineContext.ava_scores[image_path]</code>.</td></tr>
+    <tr><td><code>sharpness_score</code></td><td>REAL · float ∈ [0,1] nullable</td><td>Whole-image sharpness.</td><td>Legacy MediaPipe path only; NULL on the InsightFace pipeline.</td></tr>
+    <tr><td><code>composite_score</code></td><td>REAL · float nullable</td><td>Final composite score from <i>select_best</i> step.</td><td>Step <i>select_best</i> writes <code>PipelineContext.composite_scores[image_path]</code>.</td></tr>
+    <tr><td><code>scene_cluster_id</code> <span class="pill pk">FK</span> → scene_clusters</td><td>INTEGER · Int64 nullable</td><td>Final scene cluster assignment (FK to <code>scene_clusters</code>).</td><td>Step <i>cluster_scenes</i> writes <code>PipelineContext.scene_cluster_labels[image_path]</code>.</td></tr>
+    <tr><td><code>filter_passed</code></td><td>INTEGER · int ∈ {0,1} not null</td><td>1 if image passed <i>filter_quality</i>.</td><td>Step <i>filter_quality</i>.</td></tr>
+    <tr><td><code>created_at</code></td><td>TEXT (ISO 8601) · str</td><td>Timestamp when row was written.</td><td>Set by <code>_write_images</code>.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="scene_clusters-target">scene_clusters <span class="src">spec-040 Phase 4 + T2 · DDL: SCENE_CLUSTERS_DDL · Writer: _write_scene_clusters (empty until scene producer ships)</span></h3>
+<p>One row per (scene_cluster_id, iteration) pair. Parallel to the face <code>clusters</code> table. Lets analysts query "show me all images in scene cluster 3" + cluster-level stats.</p>
+<p class="callout"><b>Writer</b>: <code>RunExporter._write_scene_clusters</code>. Accepts a <code>scene_clusters</code> param (list of dicts); Pandera-validates via <code>SCENE_CLUSTERS_SCHEMA</code> on every call. Empty until a scene-clustering producer step populates <code>PipelineContext.scene_clusters</code> in a follow-up.</p>
+
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
+  <tbody>
+    <tr><td><code>scene_cluster_id</code> <span class="pill pk">PK</span></td><td>INTEGER not null</td><td>Cluster identifier within this iteration. -1 = noise.</td><td>Step <i>cluster_scenes</i> (HDBSCAN or alternative).</td></tr>
+    <tr><td><code>iteration</code> <span class="pill pk">PK</span></td><td>INTEGER not null</td><td>0 for base; ≥1 for re-clusterings.</td><td>Set by writer.</td></tr>
+    <tr><td><code>size</code></td><td>INTEGER not null</td><td>Number of images in the cluster.</td><td>Computed.</td></tr>
+    <tr><td><code>method</code></td><td>TEXT not null</td><td>Algorithm: <code>hdbscan</code> / <code>kmeans</code> / <code>dbscan</code>.</td><td>From <i>cluster_scenes</i> config.</td></tr>
+    <tr><td><code>exemplar_image_path</code> <span class="pill pk">FK</span> → images</td><td>TEXT nullable</td><td>Representative image (closest to centroid). NULL for noise.</td><td>Computed by writer from scene_embeddings.</td></tr>
+    <tr><td><code>avg_intra_distance</code></td><td>REAL nullable</td><td>Mean pairwise distance within the cluster.</td><td>Computed.</td></tr>
+    <tr><td><code>created_at</code></td><td>TEXT (ISO 8601)</td><td>—</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<h3 id="scene_cluster_assignments-target">scene_cluster_assignments <span class="src">spec-040 Phase 4 + T2 · DDL: SCENE_CLUSTER_ASSIGNMENTS_DDL · Writer: _write_scene_cluster_assignments (empty until scene producer ships)</span></h3>
+<p>Per-image scene assignment per iteration. Parallel to <code>cluster_assignments</code> on the faces side.</p>
+<p class="callout"><b>Writer class</b>: <code>RunExporter._write_scene_clusters_and_assignments</code> (same method as the parent table).</p>
 
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
-    <tr><td><code>run_id</code> <span class="pill pk">PK</span></td><td>TEXT</td><td>Run identifier (timestamp or UUID).</td></tr>
-    <tr><td><code>source_album</code></td><td>TEXT</td><td>Logical album name (from input path or user-provided).</td></tr>
-    <tr><td><code>producer</code></td><td>TEXT</td><td>One of: <code>albumify</code>, <code>fc_app</code>, <code>remerge</code>, <code>manual_merge</code>.</td></tr>
-    <tr><td><code>parent_run_id</code></td><td>TEXT (nullable)</td><td>For remerge/manual_merge runs, points to the base run.</td></tr>
-    <tr><td><code>config_json</code></td><td>TEXT</td><td>JSON-encoded effective config (PipelineConfig + step_configs). Diff'd by <code>config_diff</code> CLI.</td></tr>
-    <tr><td><code>merge_thresholds_json</code></td><td>TEXT (nullable)</td><td>Adaptive threshold values per cluster (when adaptive merge is on).</td></tr>
-    <tr><td><code>merge_iter_summary_json</code></td><td>TEXT (nullable)</td><td>Per-iteration merge statistics summary.</td></tr>
-    <tr><td><code>n_images, n_faces, n_core</code></td><td>INTEGER</td><td>Cardinalities.</td></tr>
-    <tr><td><code>n_clusters_base, n_clusters_final</code></td><td>INTEGER</td><td>Cluster counts before/after merge.</td></tr>
-    <tr><td><code>n_merges, n_iterations</code></td><td>INTEGER</td><td>Merge stats.</td></tr>
-    <tr><td><code>started_at, finished_at</code></td><td>TEXT (ISO 8601)</td><td>Wall-clock bounds.</td></tr>
-    <tr><td><code>schema_version</code></td><td>INTEGER</td><td>Pinned to <code>SCHEMA_VERSION = 4</code>.</td></tr>
+    <tr><td><code>image_path</code> <span class="pill pk">PK</span> · FK → images</td><td>TEXT not null</td><td>Image being assigned.</td></tr>
+    <tr><td><code>scene_cluster_id</code></td><td>INTEGER not null</td><td>Scene cluster assignment. -1 = noise.</td></tr>
+    <tr><td><code>iteration</code> <span class="pill pk">PK</span></td><td>INTEGER not null</td><td>0 for base; iteration index for re-clusterings.</td></tr>
+    <tr><td><code>distance_to_centroid</code></td><td>REAL nullable</td><td>Distance from image's scene embedding to cluster centroid. Useful for exemplar ranking.</td></tr>
   </tbody>
 </table>
+
+<h3 id="scene_embeddings-target">scene_embeddings.npy + scene_embedding_image_paths.npy <span class="src">FUTURE · spec-040 Phase 4 · bulk numeric, not SQLite</span></h3>
+<p>Parallel to <code>embeddings.npy</code> on the faces side. Stored alongside <code>face_clustering.db</code> in the run dir.</p>
+<p class="callout"><b>Writer method</b>: <code>RunExporter._write_scene_embeddings_npy</code> (new). Reads <code>PipelineContext.scene_embeddings</code> dict; serializes the matrix + the aligned image_path array.</p>
+
+<ul>
+  <li><code>scene_embeddings.npy</code> — <code>(n_images, embedding_dim)</code> float32 matrix. Embedding model and dim depend on <code>extract_scene_embedding.model</code> (DINOv2 default = 768).</li>
+  <li><code>scene_embedding_image_paths.npy</code> — <code>(n_images,)</code> array of strings aligning row order to image_path. Read together; reading one without the other is a contract violation (same rule as the faces side).</li>
+</ul>
+
+<h3>What stays unchanged on the faces side after Phase 4</h3>
+<p><code>faces</code> drops 4 denormalized columns (<code>iqa_score</code>, <code>ava_score</code>, <code>sharpness_score</code>, <code>scene_cluster_id</code> — those move to <code>images</code>) and adds 5 (<code>area_ratio</code>, <code>bbox_x_ratio</code>, <code>bbox_y_ratio</code>, <code>bbox_w_ratio</code>, <code>bbox_h_ratio</code>; SIGHTING-064). The unit-mixed <code>area</code> / <code>bbox_*</code> columns stay deprecated for one release, then are removed.</p>
 
 <h2>Indexes</h2>
 <table>
@@ -328,7 +476,7 @@ action_log, training data, etc.) see <a href="db_global.html">db_global.html</a>
   <li><a href="classes.html">classes.html</a> — Pydantic / Pandera / dataclass inventory</li>
   <li><a href="data_flow.html">data_flow.html</a> — one face end-to-end</li>
   <li><a href="index.html">index.html</a> — architecture documentation index</li>
-  <li><code>face_cluster/db/schema.py</code> — DDL source of truth</li>
+  <li><code>sim_bench/run_db/_schema.py</code> — DDL source of truth</li>
   <li><code>face_cluster/db/validators.py</code> — Pandera source of truth</li>
   <li><code>specs/034-pipeline-context-contract/spec.md</code> — context-state contract (the in-memory side)</li>
 </ul>

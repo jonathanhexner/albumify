@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cluster Analysis tab — Legacy vs spec-045 v2</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+         max-width: 1200px; margin: 1.5em auto; padding: 0 1.5em;
+         color: #222; line-height: 1.55; background:#fafbfc; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .3em; margin-bottom: .2em; }
+  h1 + .subtitle { color: #666; margin-top: 0; font-style: italic; }
+  h2 { border-bottom: 1px solid #ccc; padding-bottom: .25em; margin-top: 2em; }
+  h3 { color: #1f5fc7; margin-top: 1.6em; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; font-size: 13px; background: #fff; }
+  th, td { border: 1px solid #ddd; padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f6; font-weight: 600; }
+  code { background:#eef0f4; padding: 1px 4px; border-radius: 3px; font-size: 12px; font-family: Consolas, monospace; }
+  pre { background:#fff; border:1px solid #ddd; border-radius:4px; padding:10px 12px; font-size:12px; overflow-x:auto; font-family: Consolas, monospace; }
+  .col-legacy { background:#fff6e8; }
+  .col-v2     { background:#eef7ee; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:9px; font-size:11px; font-weight:600; }
+  .pill-good { background:#e3f5e0; color:#236623; }
+  .pill-bad  { background:#fde2e2; color:#8a2e2e; }
+  .pill-warn { background:#fff3cd; color:#856404; }
+  .stack { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+  .stack > div { background:#fff; border:1px solid #ddd; border-radius:6px; padding:12px 14px; font-size:13px; }
+  .stack h4 { margin: 0 0 8px; font-size: 13px; font-family: Consolas, monospace; }
+  .legacy h4 { color:#8a4500; }
+  .v2 h4     { color:#236623; }
+  .key { background:#fffbe6; border:1px solid #e6d27a; padding:.8em 1.1em; border-radius:4px; margin:1em 0; font-size:14px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; margin:.6em 0 1em; }
+  .layer { background:#fff; border:1px solid #ddd; border-radius:6px; padding:14px; font-family:Consolas, monospace; font-size:12.5px; white-space:pre; overflow-x:auto; }
+</style>
+</head>
+<body>
+
+<h1>Cluster Analysis tab — Legacy vs spec-045 v2</h1>
+<p class="subtitle">Side-by-side: today's <code>app/face_clustering/tabs/cluster_analysis_tab.py</code> (383 LOC monolith) vs the spec-045 rebuild (Tab + Service + Repository, ~80 LOC tab).</p>
+
+<div class="legend">
+  <span><span class="pill pill-good">PRESERVED</span> same user-facing behavior</span>
+  <span><span class="pill pill-warn">SHAPED</span> same intent, new code shape</span>
+  <span><span class="pill pill-bad">REMOVED</span> anti-pattern dropped on purpose</span>
+</div>
+
+<div class="key">
+<b>Headline.</b> The user sees the same workbench &mdash; cluster picker, metrics, face grid, nearest clusters, force-merge, graph debug. The code shape underneath collapses from one 383-LOC file that mixes Streamlit + SQL + JSON + async + business logic into a four-layer stack where each layer is independently testable and Streamlit-free below the tab itself.
+</div>
+
+<h2>1. Code-shape diff (file-by-file)</h2>
+
+<table>
+  <thead><tr><th>Concern</th><th class="col-legacy">Legacy (today)</th><th class="col-v2">v2 (spec-045)</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Tab orchestration</td>
+      <td class="col-legacy"><code>cluster_analysis_tab.py</code> &mdash; <b>383 LOC</b></td>
+      <td class="col-v2"><code>cluster_analysis_tab.py</code> &mdash; <b>&le; 80 LOC</b> (orchestrator only)</td>
+    </tr>
+    <tr>
+      <td>UI components</td>
+      <td class="col-legacy">Inlined into the same file (<code>_render_cluster_debug</code>, <code>_render_force_merge_widget</code>, &hellip;)</td>
+      <td class="col-v2">6 stateless render functions under <code>app/face_clustering_v2/components/cluster_*.py</code>, ~200 LOC combined</td>
+    </tr>
+    <tr>
+      <td>Business logic</td>
+      <td class="col-legacy">Force-merge gates, distance-matrix math, threshold lookup all inline (e.g. <code>_compute_force_merge_preview</code>, <code>_get_distance_matrix</code>, <code>_get_merge_candidate_threshold</code>)</td>
+      <td class="col-v2"><code>ClusterAnalysisService.preview_force_merge / apply_force_merge / compute_*_async</code> &mdash; Streamlit-free; unit-tested with synthetic data</td>
+    </tr>
+    <tr>
+      <td>DB access</td>
+      <td class="col-legacy"><code>load_pipeline_result</code> + raw <code>PipelineResult.summary</code> dict reads</td>
+      <td class="col-v2"><code>ClusterAnalysisRepository</code> on top of <code>RunStore</code> via the spec-046 SQLAlchemy session pattern</td>
+    </tr>
+    <tr>
+      <td>Async compute</td>
+      <td class="col-legacy">Global <code>_AsyncState</code> + <code>_invalidate_run_caches</code> imported from <code>state.py</code></td>
+      <td class="col-v2">Typed <code>AsyncHandle[T]</code> (generic, cancellable) in <code>face_cluster/views/_async.py</code></td>
+    </tr>
+    <tr>
+      <td>Return types</td>
+      <td class="col-legacy">Untyped dicts &mdash; <code>{"feat": ..., "is_candidate": ..., "exemplar_dist": ..., ...}</code></td>
+      <td class="col-v2">Frozen dataclasses &mdash; <code>ForceMergePreview</code>, <code>ForceMergeResult</code>, <code>ClusterRow</code>, <code>AsyncHandle[T]</code></td>
+    </tr>
+    <tr>
+      <td>Noise sentinel</td>
+      <td class="col-legacy">Bare <code>-1</code> magic numbers scattered through cluster-id checks</td>
+      <td class="col-v2"><code>NOISE_LABEL</code> / <code>is_noise()</code> from <code>sim_bench.pipeline.clustering_labels</code> (commit <code>9824d84</code>)</td>
+    </tr>
+    <tr>
+      <td>Tests</td>
+      <td class="col-legacy">Zero unit tests on the tab layer</td>
+      <td class="col-v2"><b>~36 tests</b> &mdash; 12 Repo synthetic + 3 Repo real + 12 Service synthetic + 4 Service real + 5 arch (spec.&sect;8)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>2. Layering diagram</h2>
+
+<div class="stack">
+  <div class="legacy">
+    <h4>Legacy (one file, 383 LOC)</h4>
+    <div class="layer">+---------------------------------------+
+|  cluster_analysis_tab.py              |
+|                                       |
+|  imports streamlit ............ yes   |
+|  imports raw face_cluster ..... yes   |
+|  reads summary["config"] ...... yes   |
+|  inline distance-matrix math .. yes   |
+|  inline force-merge gates ..... yes   |
+|  global _AsyncState ........... yes   |
+|  cluster_id == -1 .............. yes  |
+|  return type: dict ............ yes   |
++---------------------------------------+
+            |
+            v
+  load_pipeline_result(run_dir)  (FS + DB I/O)
+            |
+            v
+       PipelineResult
+            |
+            v
+       Streamlit UI
+</div>
+    <p style="margin-top:8px;"><span class="pill pill-bad">REMOVED</span> All seven anti-patterns above are dropped, not ported.</p>
+  </div>
+
+  <div class="v2">
+    <h4>v2 (4-layer stack, spec-045)</h4>
+    <div class="layer">+-----------------------------------------+
+|  TAB  (Streamlit; orchestration only)   |
+|  cluster_analysis_tab.py ..... &lt;=80 LOC |
++-----------------------------------------+
+|  COMPONENTS  (stateless render fns)     |
+|  cluster_picker / cluster_metrics /     |
+|  face_grid / nearest_clusters /         |
+|  force_merge / cluster_debug            |
++-----------------------------------------+
+|  SERVICE  (no streamlit)                |
+|  ClusterAnalysisService                 |
+|    list_clusters / get_cluster_ids      |
+|    compute_detail_async                 |
+|    compute_debug_async                  |
+|    preview_force_merge                  |
+|    apply_force_merge                    |
++-----------------------------------------+
+|  REPOSITORY  (SQLAlchemy via RunStore)  |
+|  ClusterAnalysisRepository              |
+|    get_cluster_rows / find_assignments  |
+|    get_face_records / get_run_metadata  |
+|    save_manual_merge_snapshot           |
++-----------------------------------------+
+        |              |
+        v              v
+  face_clustering.db   embeddings.npy
+</div>
+    <p style="margin-top:8px;"><span class="pill pill-good">PRESERVED</span> Layout matches legacy region-for-region; <span class="pill pill-warn">SHAPED</span> internals re-cast against typed contracts.</p>
+  </div>
+</div>
+
+<h2>3. Concrete code diff &mdash; force-merge preview</h2>
+
+<div class="stack">
+  <div class="legacy">
+    <h4>Legacy &mdash; <code>_compute_force_merge_preview</code>, untyped dict</h4>
+<pre>def _compute_force_merge_preview(result, cid_a, cid_b):
+    dm = _get_distance_matrix(result)
+    if dm is None: return None
+    cr = result.cluster_result
+    ...
+    return {
+        "feat":           feat,
+        "exemplar_dist":  exemplar_dist,
+        "threshold":      threshold,
+        "is_candidate":   exemplar_dist &lt;= threshold,
+        "passes_exemplar": passes_exemplar,
+        "passes_support":  passes_support,
+        "passes_diameter": passes_diameter,
+        ...
+    }</pre>
+  </div>
+  <div class="v2">
+    <h4>v2 &mdash; <code>ClusterAnalysisService.preview_force_merge</code>, typed</h4>
+<pre>def preview_force_merge(
+    self, cluster_a: int, cluster_b: int
+) -&gt; ForceMergePreview:
+    """Pure compute. No FS, no session_state, no Streamlit."""
+    rows = self._repo.get_cluster_rows()
+    meta = self._repo.get_run_metadata()
+    ...
+    return ForceMergePreview(
+        cluster_a=cluster_a,
+        cluster_b=cluster_b,
+        exemplar_dist=exemplar_dist,
+        threshold=meta.config.merge_candidate_threshold,
+        is_candidate=is_candidate,
+        passes_exemplar=passes_exemplar,
+        passes_support=passes_support,
+        passes_diameter=passes_diameter,
+        ...
+    )</pre>
+  </div>
+</div>
+
+<h2>4. What the user gains, loses, and keeps</h2>
+
+<table>
+  <thead><tr><th>Aspect</th><th>Outcome</th></tr></thead>
+  <tbody>
+    <tr><td>Widgets &amp; layout</td><td><span class="pill pill-good">PRESERVED</span> Cluster picker, 5-metric strip, exemplars+all-faces grid, nearest clusters, force-merge expander, graph debug section &mdash; all present, in the same order.</td></tr>
+    <tr><td>Force-merge gates</td><td><span class="pill pill-good">PRESERVED</span> Same three gates (exemplar / support / post-diameter); same threshold lookup, now from typed metadata.</td></tr>
+    <tr><td>Async responsiveness</td><td><span class="pill pill-warn">SHAPED</span> Same "compute in background, poll for result" experience, behind <code>AsyncHandle[T]</code>. Cancellation on cluster switch is now contract-enforced (test #12 in spec &sect;8.3).</td></tr>
+    <tr><td>Noise handling</td><td><span class="pill pill-warn">SHAPED</span> Outlier cluster shown / hidden via <code>Criteria.include_noise</code> rather than implicit <code>== -1</code> checks scattered across the file.</td></tr>
+    <tr><td>Force-merge snapshot</td><td><span class="pill pill-good">PRESERVED</span> Writes <code>merge_snap_{round}/</code> as today; parent run dir never mutated (spec.AC6).</td></tr>
+    <tr><td>Crash surface</td><td><span class="pill pill-warn">SHAPED</span> Repository raises typed <code>ValidationError</code> on bad input; Service surfaces compute errors via <code>handle.error</code> rather than uncaught traceback in the tab.</td></tr>
+    <tr><td>Testability</td><td><span class="pill pill-good">GAINED</span> 36 new tests vs 0 today. Phase-gated: each phase ends with a concrete pytest command + expected pass count (see <code>tasks.md</code> &sect;Validation gate).</td></tr>
+  </tbody>
+</table>
+
+<h2>5. Migration risk &amp; mitigations</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>UX regressions vs the legacy tab</td><td>Manual widget-for-widget diff in Phase 6 (T054); Playwright 5-step smoke in Phase 7 (T061). Legacy app stays runnable during burn-in.</td></tr>
+    <tr><td><code>ClusterView.compute</code> still wants a <code>PipelineResult</code>-shaped input</td><td>Service assembles a minimal <code>PipelineResult</code> from Repository reads (per <code>tasks.md</code> D5). Refactoring those classmethods to take typed inputs deferred (Open Question 5).</td></tr>
+    <tr><td>Async pattern drift between tabs that adopt <code>AsyncHandle[T]</code></td><td><code>AsyncHandle[T]</code> ships with its own unit tests; spec-045's compute methods are the reference implementation for future Face Analysis / heavy-compute tabs.</td></tr>
+    <tr><td>Force-merge writes to wrong dir under concurrent edits</td><td>Repository writes go through <code>save_manual_merge_snapshot</code> &mdash; one method, one place, real-fixture integration test (spec &sect;8.4 #4) before the UI ships.</td></tr>
+  </tbody>
+</table>
+
+<p style="margin-top:2em; color:#888; font-size:12px;">Cross-references: <code>specs/045-cluster-analysis-tab/spec.md</code> (full contract), <code>specs/045-cluster-analysis-tab/tasks.md</code> (per-phase tasks + validation gates), <code>specs/045-cluster-analysis-tab/TAB_DESIGN_COMPARISON.html</code> (History vs Cluster Analysis &mdash; framework-level comparison).</p>
+
+</body>
+</html>

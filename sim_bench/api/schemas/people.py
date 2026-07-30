@@ -4,6 +4,8 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 
+from sim_bench.api.schemas.result import ImageMetrics
+
 
 class FaceInstance(BaseModel):
     """A single face instance belonging to a person."""
@@ -61,8 +63,14 @@ class PersonSplitRequest(BaseModel):
     face_indices: list[int]  # Indices of faces to split out
 
 
-class PersonImageResponse(BaseModel):
-    """Response for a person's image."""
+class PersonImageResponse(ImageMetrics):
+    """Response for a person's image.
+
+    spec-086: inherits the full ``ImageMetrics`` contract (is_selected,
+    composite_score, filter_scores with bboxes, pose/eyes scores, …) so those
+    fields reach the UI instead of being silently dropped by the response model.
+    ``path`` (from ImageMetrics) and ``image_path`` are both populated.
+    """
     image_path: str
     face_count: int  # Number of faces of this person in the image
-    faces: list[FaceInstance]
+    faces: list[FaceInstance] = []

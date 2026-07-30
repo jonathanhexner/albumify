@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from face_cluster import FaceClusteringPipeline, PipelineConfig
+from sim_bench.run_db._schema import SCHEMA_VERSION
 from face_cluster.export import export_merged_results
 from face_cluster.loader import load_pipeline_result
 from face_cluster.types import ClusterResult, FaceRecord
@@ -196,7 +197,7 @@ class ut_MergeStageE2E:
         v4 = merged_pipeline_result.output_dir / "_v4"
         assert v4.exists(), "spec-030 Phase 1 dual-write missing"
         names = sorted(p.name for p in v4.iterdir())
-        from face_cluster.run_exporter import EXPECTED_ARTIFACTS
+        from sim_bench.run_db._schema import EXPECTED_ARTIFACTS
         assert names == sorted(EXPECTED_ARTIFACTS), (
             f"v4 subdir listdir mismatch: got {names}, expected {sorted(EXPECTED_ARTIFACTS)}"
         )
@@ -212,7 +213,7 @@ class ut_MergeStageE2E:
         all other tests use synthetic FaceRecord fixtures.
         """
         import numpy as np
-        from face_cluster.run_store import RunStore
+        from sim_bench.run_db.store import RunStore
         from face_cluster.types import MergeDecisionRow
 
         result = merged_pipeline_result
@@ -227,7 +228,12 @@ class ut_MergeStageE2E:
             if result.merged_cluster_result else result.cluster_result.n_clusters
         )
         assert meta.n_merges == sum(1 for e in (result.merge_log or []) if e.get("actually_merged"))
-        assert meta.schema_version == 4
+        # spec-054: assert against the current SCHEMA_VERSION constant
+        # (was hardcoded `== 4` and silently rotted when spec-040 Phase 4
+        # bumped to 5). Future bumps re-validate without test edits;
+        # tests/architecture/test_schema_history.py forces SCHEMA_HISTORY
+        # to be updated on every bump so the version still has meaning.
+        assert meta.schema_version == SCHEMA_VERSION
 
         # ---- faces table: face_id set + bbox + blur match exactly ----------------
         read_faces = store.faces()

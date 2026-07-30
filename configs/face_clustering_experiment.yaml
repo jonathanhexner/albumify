@@ -10,7 +10,7 @@ pipeline:
     - insightface_detect_faces
     - align_faces
     - extract_face_embeddings
-    - filter_quality_gate
+    - quality_gate
     - build_knn_graph
     - cluster_connected_components
     - select_exemplars
@@ -47,7 +47,7 @@ step_configs:
     verify_norm: true
 
   # Quality Gate Filtering
-  filter_quality_gate:
+  quality_gate:
     yaw_max: 45.0           # Max absolute yaw angle (degrees)
     pitch_max: 30.0         # Max absolute pitch angle (degrees)
     roll_max: 30.0          # Max absolute roll angle (degrees)

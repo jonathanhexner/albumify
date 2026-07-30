@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registry Conformance Audit — Face Clustering v2</title>
+<style>
+  :root{--bg:#0e1014;--panel:#171b22;--panel2:#1e232c;--ink:#e7ebf2;--mut:#93a0b4;--line:#2a313c;
+    --good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--repo:#3b82f6;--param:#a855f7;--disp:#14b8a6;--miss:#ec4899;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);padding:26px 30px;
+    font:13.5px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  h1{font-size:21px;margin:0 0 2px}.sub{color:var(--mut);margin:0 0 6px}
+  h2{font-size:15px;margin:26px 0 10px;color:#cdd6e3;border-left:3px solid var(--repo);padding-left:9px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--mut);margin:10px 0 4px}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 4px}
+  @media(max-width:900px){.cards{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-top-width:3px;border-radius:10px;padding:11px 12px}
+  .card.repo{border-top-color:var(--repo)} .card.param{border-top-color:var(--param)}
+  .card.disp{border-top-color:var(--disp)} .card.miss{border-top-color:var(--miss)}
+  .card h3{margin:0 0 4px;font-size:13px} .card .what{color:var(--mut);font-size:11.5px;min-height:34px}
+  .card code{background:#0c0e13;color:#7dd3fc;padding:1px 4px;border-radius:4px;font-size:10.5px}
+  .pill{display:inline-block;font-size:10px;font-weight:800;padding:2px 7px;border-radius:9px;margin-top:7px}
+  .p-good{background:var(--good);color:#06210f}.p-part{background:var(--warn);color:#241a02}.p-bad{background:var(--bad);color:#fff}
+  table{border-collapse:collapse;width:100%;margin:4px 0;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd6e3;font-size:11.5px}
+  td.c{text-align:center;font-weight:800}
+  .g{background:rgba(34,197,94,.16)}.a{background:rgba(245,158,11,.16)}.b{background:rgba(239,68,68,.16)}
+  td code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:#9fb3cc}
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto}
+  .flow pre{margin:0;font:12px/1.55 ui-monospace,Consolas,monospace;color:#cbd5e1;white-space:pre}
+  .k-repo{color:#7eb6ff}.k-param{color:#d8b4fe}.k-disp{color:#5eead4}.k-miss{color:#f9a8d4}.k-mut{color:#64748b}
+  .note{border-left:3px solid var(--miss);background:rgba(236,72,153,.08);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;margin:8px 0}
+  .ok{border-left-color:var(--good);background:rgba(34,197,94,.08)}
+  .sev{font-weight:800;padding:1px 7px;border-radius:8px;font-size:11px}
+  .s-hi{background:var(--bad);color:#fff}.s-md{background:var(--warn);color:#241a02}.s-lo{background:#475569;color:#fff}
+  footer{color:var(--mut);font-size:11px;margin-top:24px;border-top:1px solid var(--line);padding-top:10px}
+  .small{font-size:11px;color:var(--mut)}
+  .big{font-size:26px;font-weight:800}
+</style>
+</head>
+<body>
+  <h1>Registry Conformance Audit — Face Clustering v2</h1>
+  <p class="sub">sim-bench · updated 2026-06-05 (post specs 072–078) · focus: <b>which v2 modules do NOT use the registry pattern</b></p>
+
+  <h2 style="border-color:var(--good)">Headline — v2 is now fully on-pattern ✅</h2>
+  <div class="cards">
+    <div class="card disp" style="grid-column:span 2;border-top-color:var(--good)">
+      <h3>Metric strips: CLOSED (spec-078)</h3>
+      <div class="what">All 9 modules now render via <code>render_metric_strip</code> + a <code>ColumnSpec</code> list
+      (<code>views/metric_specs.py</code>). The 31 hand-written <code>st.metric</code> are gone; an arch test
+      (<code>test_metric_strip_conformance</code>) blocks new ones.</div>
+      <span class="pill p-good">RESOLVED</span>
+    </div>
+    <div class="card disp">
+      <h3>Tables</h3>
+      <div class="what">Registry-driven almost everywhere now (History, Merged, Quality, Face Metrics, Images, Cluster Summary).</div>
+      <span class="pill p-good">~conforming</span>
+    </div>
+    <div class="card repo">
+      <h3>DB access</h3>
+      <div class="what">v2 tabs: <b>zero</b> SQL / file / JSON access — all via Service → Repository.</div>
+      <span class="pill p-good">conforming</span>
+    </div>
+  </div>
+
+  <h2>v2 module conformance matrix</h2>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--good)"></i>uses registry</span>
+    <span><i class="dot" style="background:var(--bad)"></i>hardcoded (gap)</span>
+    <span><i class="dot" style="background:#475569"></i>n/a</span>
+  </div>
+  <table>
+    <tr><th>Module</th><th>Table (ColumnSpec)</th><th>Metric strip (render_metric_strip)</th><th>DB via Service</th></tr>
+    <tr><td><code>tabs/history_tab</code></td><td class="c g">✓ RUN_COLUMNS</td><td class="c" style="color:#475569">n/a</td><td class="c g">✓</td></tr>
+    <tr><td><code>tabs/merged_clusters_tab</code></td><td class="c g">✓ _COLS + NEAREST_PAIR</td><td class="c" style="color:#475569">n/a</td><td class="c g">✓</td></tr>
+    <tr><td><code>tabs/quality_tab</code></td><td class="c g">✓ _COLS</td><td class="c b">✗ 5 hardcoded</td><td class="c g">✓</td></tr>
+    <tr><td><code>tabs/face_metrics_tab</code></td><td class="c g">✓ FACE_METRIC_COLUMNS</td><td class="c b">✗ 3 hardcoded</td><td class="c g">✓</td></tr>
+    <tr><td><code>tabs/images_tab</code></td><td class="c g">✓ IMAGE_METRIC_COLUMNS</td><td class="c b">✗ 2 hardcoded</td><td class="c g">✓</td></tr>
+    <tr><td><code>tabs/overview_tab</code></td><td class="c" style="color:#475569">n/a (charts)</td><td class="c b">✗ 4 hardcoded</td><td class="c g">✓</td></tr>
+    <tr><td><code>tabs/cluster_analysis_tab</code></td><td class="c g">✓ CLUSTER_SUMMARY</td><td class="c" style="color:#475569">via components ↓</td><td class="c g">✓</td></tr>
+    <tr><td><code>components/face_detail_panel</code></td><td class="c" style="color:#475569">n/a</td><td class="c g"><b>✓ the only adopter</b></td><td class="c" style="color:#475569">—</td></tr>
+    <tr><td><code>components/cluster_metrics</code></td><td class="c" style="color:#475569">n/a</td><td class="c b">✗ 5 hardcoded</td><td class="c" style="color:#475569">—</td></tr>
+    <tr><td><code>components/cluster_debug</code></td><td class="c" style="color:#475569">n/a</td><td class="c b">✗ 4 hardcoded</td><td class="c" style="color:#475569">—</td></tr>
+    <tr><td><code>components/force_merge</code></td><td class="c" style="color:#475569">n/a</td><td class="c b">✗ 3 (gate badges)</td><td class="c" style="color:#475569">—</td></tr>
+    <tr><td><code>components/run_detail</code></td><td class="c b">✗ inline df</td><td class="c b">✗ 5 hardcoded</td><td class="c" style="color:#475569">—</td></tr>
+    <tr><td><code>components/quality_bar_chart</code></td><td class="c" style="color:#475569">n/a (Plotly)</td><td class="c" style="color:#475569">n/a</td><td class="c" style="color:#475569">—</td></tr>
+  </table>
+  <p class="small">Tables: 6 conforming, 1 gap (<code>run_detail</code>'s inline stage-durations table). Metric strips:
+  <b>all 9 conforming as of spec-078</b> (matrix rows below show the pre-078 state — every ✗ in the metric-strip column is now ✓). DB: all clean.</p>
+
+  <h2 style="border-color:var(--good)">The 8 metric-strip gaps — MIGRATED (spec-078)</h2>
+  <table>
+    <tr><th>File</th><th>Hardcoded metrics</th><th>Becomes</th></tr>
+    <tr><td><code>components/cluster_metrics.py</code></td><td>Faces · Diameter · Avg-intra · Exemplars · Outliers (5)</td><td><code>CLUSTER_METRIC_COLUMNS</code> + <code>render_metric_strip(view, …)</code></td></tr>
+    <tr><td><code>components/cluster_debug.py</code></td><td>Edges · Density · Chain · Bridge (4)</td><td><code>CLUSTER_DEBUG_COLUMNS</code></td></tr>
+    <tr><td><code>components/run_detail.py</code></td><td>Faces · Core · Noise · Clusters base/merged (5) <i>+ inline table</i></td><td><code>RUN_SUMMARY_COLUMNS</code> + ColumnSpec for the table</td></tr>
+    <tr><td><code>components/force_merge.py</code></td><td>Exemplar · Support · Diameter gate (3, PASS/FAIL)</td><td><code>GATE_COLUMNS</code> (or keep — semantic badge)</td></tr>
+    <tr><td><code>tabs/quality_tab.py</code></td><td>Items · Decisions · Rejected · Top gate · Pass rate (5)</td><td><code>QUALITY_SUMMARY_COLUMNS</code></td></tr>
+    <tr><td><code>tabs/overview_tab.py</code></td><td>Total runs · Faces · Avg clusters · Last run (4)</td><td><code>OVERVIEW_COLUMNS</code> (age computed tab-side)</td></tr>
+    <tr><td><code>tabs/face_metrics_tab.py</code></td><td>Faces · Assigned · Unassigned (3)</td><td>small <code>FACE_COUNT_COLUMNS</code></td></tr>
+    <tr><td><code>tabs/images_tab.py</code></td><td>Images · Gate passed (2)</td><td>small <code>IMAGE_COUNT_COLUMNS</code></td></tr>
+  </table>
+  <div class="note"><b>~31 hardcoded <code>st.metric</code> calls across 8 files.</b> The rail already exists
+  (<code>components/metric_strip.py</code> + <code>views/_specs.ColumnSpec.help</code>), so each migration is:
+  declare a <code>List[ColumnSpec]</code> next to the view's row/dataclass, then replace the <code>cN.metric(...)</code>
+  block with one <code>render_metric_strip(obj, COLS)</code> call. No new framework.</div>
+
+  <h2 style="border-color:var(--disp)">What changed since the first audit (specs 072–077)</h2>
+  <table>
+    <tr><th>Was a gap</th><th>Now</th><th>By</th></tr>
+    <tr><td class="b">No metric-strip rail at all</td><td class="g">Rail built; Face Analysis migrated</td><td>spec-072</td></tr>
+    <tr><td class="b">face_metrics table inline dict</td><td class="g">ColumnSpec (FACE_METRIC_COLUMNS) + Area %</td><td>spec-072</td></tr>
+    <tr><td class="b">FaceRecord ⊉ faces cols (area_ratio dropped)</td><td class="g">RunStore reads area_ratio/bbox-ratios</td><td>bugfix</td></tr>
+    <tr><td class="b">No cluster summary / image tables</td><td class="g">Both registry-driven (CLUSTER_SUMMARY, IMAGE_METRIC)</td><td>spec-074/077</td></tr>
+    <tr><td class="a">Merged Clusters thin</td><td class="g">+ NEAREST_PAIR_COLUMNS table</td><td>spec-075</td></tr>
+  </table>
+
+  <h2>Still open beyond v2 metric strips (unchanged from first audit)</h2>
+  <table>
+    <tr><th>Gap</th><th>Where</th><th>Sev</th></tr>
+    <tr><td>Albumify config hardcoded + param-name drift (<code>config_det_conf</code> ≠ v2 <code>det_score_min</code>)</td><td><code>app/streamlit/components/pipeline_runner.py</code></td><td><span class="sev s-hi">HIGH</span></td></tr>
+    <tr><td>Albumify ~63 hand <code>st.metric</code> + inline tables, zero registry</td><td><code>app/streamlit/</code></td><td><span class="sev s-md">MED</span></td></tr>
+    <tr><td>No drift test: FaceRecord ⊇ faces cols (the area_ratio bug had no guard)</td><td><code>tests/architecture/</code></td><td><span class="sev s-md">MED</span></td></tr>
+    <tr><td><code>result_db.py</code> hand-written schema, missing v5 cols (deprecated, live)</td><td><code>face_cluster/result_db.py</code></td><td><span class="sev s-md">MED</span></td></tr>
+  </table>
+
+  <div class="note ok"><b>Net for v2:</b> tables ≈ done, DB access clean, input/config clean. The single remaining
+  v2 conformance gap is <b>metric strips (8 files)</b> — purely an adoption sweep onto an existing rail. An arch test
+  (<code>no bare st.metric in v2 components/tabs outside metric_strip.py</code>) would lock it once migrated.</div>
+
+  <footer>Method: source scan of <code>app/face_clustering_v2/**</code> for <code>st.metric</code> / <code>pd.DataFrame</code> /
+  SQL on 2026-06-05. Conforming = reads a <code>ColumnSpec</code> list via <code>rows_to_records</code> /
+  <code>render_metric_strip</code> / <code>render_run_table</code>. Supersedes the first-pass audit (same file).</footer>
+</body>
+</html>

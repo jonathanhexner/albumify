@@ -28,6 +28,13 @@ from sim_bench.pipeline.face_embedding.factory import FaceEmbeddingExtractorFact
 
 logger = logging.getLogger(__name__)
 
+# spec-079 / SIGHTING-099: output-schema version for the embedding cache. Bump
+# when the embedding representation changes (model, normalization, dtype). "v1"
+# tags the current normalized-arcface output; legacy rows (model_version=None)
+# are recomputed by base.py. Stale embeddings were the actual cause of the
+# Albumify 8-vs-12 over-split (cached rows differed from live computation).
+EMBEDDING_OUTPUT_VERSION = "emb-v1-arcface-norm"
+
 
 @register_step
 class ExtractFaceEmbeddingsStep(BaseStep):
@@ -42,8 +49,12 @@ class ExtractFaceEmbeddingsStep(BaseStep):
             display_name="Extract Face Embeddings",
             description="Extract face embeddings from aligned face crops.",
             category="people",
-            requires={"aligned_faces"},
-            produces={"face_embeddings"},
+            # spec-041 audit fix: also reads context.face_records (the A1
+            # dual-write loop) and mutates each FaceRecord's embedding /
+            # embedding_normalized fields. Declaring both sides so the
+            # telemetry and dependency resolution are honest.
+            requires={"aligned_faces", "face_records"},
+            produces={"face_embeddings", "face_records"},
             depends_on=["align_faces"],
             config_schema={
                 "type": "object",
@@ -82,6 +93,18 @@ class ExtractFaceEmbeddingsStep(BaseStep):
             self._extractor_config = config.copy()
             logger.info(f"Using face embedding backend: {self._extractor.model_name}")
         return self._extractor
+
+    def release(self) -> None:
+        """SIGHTING-117: free the ArcFace/InsightFace embedding model after
+        extraction. This step was MISSED in the original release-per-step pass
+        (it had no override), so its model stayed resident for the whole run —
+        measured ~360 MB of leaked RSS. Downstream reads context.face_embeddings /
+        face_records, not this extractor. Unlike the torch steps, this backend is
+        ONNX, which does drop on gc (verified: insightface_detect_faces frees
+        cleanly), so nulling the handle genuinely reclaims the memory.
+        _extractor_config is reset so a later run re-lazy-loads via _get_extractor."""
+        self._release_models("_extractor")
+        self._extractor_config = None
 
     def _get_all_faces(self, context: PipelineContext) -> List[CroppedFace]:
         """Get all aligned faces from context."""
@@ -167,7 +190,8 @@ class ExtractFaceEmbeddingsStep(BaseStep):
             "items": cache_keys,
             "feature_type": "face_embedding",
             "model_name": extractor.model_name,
-            "metadata": {}
+            # spec-079 / SIGHTING-099: schema version → stale rows recompute.
+            "metadata": {"model_version": EMBEDDING_OUTPUT_VERSION},
         }
 
     def _process_uncached(
@@ -234,5 +258,29 @@ class ExtractFaceEmbeddingsStep(BaseStep):
                 key_to_face[key].embedding = embedding
 
         context.face_embeddings = dict(results)
+
+        # spec-040 A1: mirror embeddings onto context.face_records so the v2
+        # clustering chain has the data it needs. Cache key format is
+        # ``{image_path}:face_{face_index}`` — see _generate_cache_key.
+        record_index = {
+            (r.image_path, r.face_index): r
+            for r in (context.face_records or [])
+            if r.image_path is not None and r.face_index is not None
+        }
+        for key, embedding in results.items():
+            path_part, _, idx_part = key.rpartition(":face_")
+            if not idx_part:
+                continue
+            try:
+                face_idx = int(idx_part)
+            except ValueError:
+                continue
+            record = record_index.get((path_part, face_idx))
+            if record is None:
+                continue
+            record.embedding = embedding
+            norm = float(np.linalg.norm(embedding)) if embedding is not None else 0.0
+            if norm > 0:
+                record.embedding_normalized = embedding / norm
 
         logger.info(f"Stored {len(results)} face embeddings")

@@ -4,6 +4,949 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-118: pre-existing test failures surfaced by the spec-103 full pipeline+architecture run
+**Status**: RESOLVED 2026-07-24 (fixed while standing up CI — see Resolution).
+**Status (history)**: OPEN 2026-07-22 (found during spec-103 build_scene_distance close-out; NOT caused by spec-103 — all in code paths untouched by the scene-distance change)
+
+**Resolution (2026-07-24)**:
+1. `test_person_penalty_strategy` — the CODE was correct (a person with no visible face is penalized as
+   occluded via `OccludedFacePenaltyStrategy`, default 0.2, spec-097); the TEST expectation was stale.
+   Updated expected `0.02` → `0.22` (body 0.02 + occluded-face 0.2) with an explanatory comment.
+2. `test_no_raw_collection_iteration` — added `score_tilt.py` to the ALLOW_LIST (scoring producer,
+   consistent with `score_iqa`/`score_occlusion`). Pre-existing spec-099/100 debt.
+3. `test_face_embedding_validation` collection error — import updated
+   `filter_quality_gate.FilterQualityGateStep` → `quality_gate.QualityGateStep` (spec-053 consolidation).
+4. Model/data integration tests (`test_face_embedding_validation`, `test_face_pipeline_e2e`,
+   `test_face_recognition_benchmark`) marked `pytestmark = pytest.mark.slow` — they need InsightFace
+   models + local `D:\` test data and can't run in a clean CI runner. Excluded from the default fast
+   suite; run explicitly with `pytest -m slow`.
+CI (`.github/workflows/tests.yml`) now runs the model-free fast suite on every push/PR.
+**Severity**: Low-Medium (unit/architecture debt; none block scene clustering or the default album run)
+**Reported**: 2026-07-22
+**Persona**: SW Engineer / Pipeline
+
+**Problem**: `pytest tests/pipeline tests/architecture` has 3 failures unrelated to scene clustering:
+1. `test_no_raw_collection_iteration_outside_allow_list` — `sim_bench/pipeline/steps/score_tilt.py:58`
+   does `paths = [str(p) for p in context.image_paths]` (raw collection iteration) without going
+   through `ctx.filters.active(...)` and is not in the guard's ALLOW_LIST. Pre-existing debt from
+   spec-099/100 (verified: the line predates this session; my only score_tilt edit was the SIGHTING-117
+   `release()` hook). Fix = migrate to `ctx.filters` OR allow-list the file with a reason.
+2. `test_scoring_strategy.py::test_person_penalty_strategy` — expects person_penalty `0.02`, code
+   produces `0.22` (10x). Test-vs-code drift, likely from a penalty-formula change (spec-084/098 area).
+3. `test_face_recognition_benchmark.py::test_intra_person_similarity` — InsightFace intra-person mean
+   similarity `0.407 < 0.5` threshold (person 00000). Data/model/threshold; environmental.
+   ALSO: `test_face_embedding_validation.py` fails COLLECTION — imports the deleted
+   `sim_bench.pipeline.steps.filter_quality_gate` (consolidated into `quality_gate` by spec-053). Stale test.
+**Repro**: `.venv/Scripts/python -m pytest tests/pipeline tests/architecture -q --ignore=tests/pipeline/test_face_embedding_validation.py`
+**Suspicion**: (1) allow-list omission, (2) expectation not updated after a penalty change, (3) model/threshold,
+(4) test references a module deleted by spec-053. None touch scene clustering.
+
+---
+
+### SIGHTING-117: full album pipeline OOM-kills at occlusion CLIP load (no models freed between steps)
+**Status**: PARTIAL — release-per-step landed 2026-07-19; cheap half (extract_face_embeddings) fixed 2026-07-30; durable half (torch creep → process isolation) re-diagnosed 2026-07-30 and specced. See Resolution + UPDATE 2026-07-30.
+
+**UPDATE 2026-07-30 — MEASURED root cause CORRECTS this sighting's text.** Three probes
+(scratchpad/sighting117_probe*.py, isolation_proto.py) on the real 768px working sets:
+1. The recorded cause ("InsightFace retains detections; grows with image count") is WRONG.
+   Detections are tiny; aligned crops are also small (Budapest 67 MB, Austria 149 MB).
+2. Real cause = **stacked model memory that release() never returns to the OS.** Full `faces`
+   pipeline peaks 1735 MB (122 imgs) / 2090 MB (474). Peak is ~model-count-bound; image count
+   adds only a few hundred MB. Default pipeline (+CLIP occlusion +GeoCalib tilt +Siamese) → 3 GB+.
+3. Per-step "freed": only InsightFace ONNX steps release cleanly (detect freed ~471 MB). The
+   torch steps (DINOv2 extract_scene_embedding +425, score_ava +187, detect_persons +164) each
+   null their handle + gc yet RSS drops 0. On Windows there is no in-process way to return torch
+   CPU memory (no CUDA empty_cache equiv, no malloc_trim). Process isolation PROVEN to recover
+   100% (child does DINOv2 work → parent RSS delta +0 MB; in-process → +1105 MB retained).
+- **FIXED (cheap half) 2026-07-30**: `extract_face_embeddings` had NO release() override (pure
+  omission from the 2026-07-19 pass) → added it, reclaims ~360 MB (ONNX, so it works). Verified.
+- **REMAINING (durable half)**: the ~776 MB torch creep needs per-stage process isolation. Now
+  specced as the level-based staged pipeline (image/face/scene stages, each a subprocess that
+  exits). Supersedes the "stream/batch InsightFace detections" framing (which would NOT have
+  fixed it — the grower is models, not detections).
+**Status (history)**: OPEN (found 2026-07-17 during spec-102 Albumify-vs-VLM pilot)
+**Severity**: Medium (blocks running the full 33-step `default_pipeline` on low-RAM machines; forces a reduced `faces` variant that drops occlusion/tilt penalties)
+**Reported**: 2026-07-17
+**Persona**: SW Engineer / Pipeline
+
+**Problem**: Running `default_pipeline` on 122 Budapest images (768px) via `execute_spec` dies
+**silently** (no Python traceback) immediately after `occlusion scorer loaded: clip_b32_gmax_v2`
+logs. All prior steps completed (faces, DINOv2 scene embedding, IQA, AVA). Signature of an OS OOM
+kill: every heavy model (YOLOv8s-pose, InsightFace buffalo_l, DINOv2-base, AVA resnet50, CLIP-b32)
+stays resident because steps never release their model after finishing, so peak RSS = the SUM of all
+models, and CLIP tips it over.
+**Repro**: `.venv/Scripts/python scripts/experiment_albumify_vs_vlm.py albumify --trip budapest --pipeline default`
+(watch it end at the occlusion-load line with no traceback).
+**Workaround in use**: spec-102 added a `faces` pipeline variant (default minus score_occlusion/
+score_tilt/straighten + the post-select_best face tail) which completes — but the album arm then has
+NO occlusion/tilt penalties.
+**UPDATE 2026-07-18 (spec-102 expansion)**: the `faces` variant ALSO OOMs at scale — hard
+`MemoryError` in `insightface_detect_faces` on Austria's 474 images (InsightFace retains detections
+for every image; memory grows with image count, not just model count). So `faces` only works for
+small trips (~120 imgs, Budapest). For Austria (474) / Germany (797) the album arm fell back to the
+`minimal` pipeline (DINOv2 scene-dedup + IQA/AVA, no InsightFace) — which scales (per-batch memory)
+but has NO person-penalty either. Net: on this machine the full people-aware album pipeline cannot
+run beyond ~120 images. The real fix (release-model-per-step + stream/batch InsightFace instead of
+holding all detections) is needed for any production album run on real-size trips.
+**Fix (proposed, not done)**: have each model-owning step release its model (del + gc/torch cache
+clear) once its outputs are in context, OR add a lightweight step-teardown hook so peak memory is
+one-model-at-a-time. Root cause = no model lifecycle management across the step sequence.
+
+**RESOLUTION 2026-07-19 (release-model-per-step)**: added a `release()` lifecycle hook to
+`BaseStep` (default no-op) + `_release_models(*attrs)` helper (nulls handles, `gc.collect()`).
+`PipelineExecutor._execute_step` now calls `step.release()` in a `finally` after every step —
+success OR failure — so peak RSS is ONE model, not the sum. All 12 model-owning steps override it:
+score_occlusion (CLIP), classify_scene (CLIP), score_ava, score_iqa, score_tilt (GeoCalib),
+insightface_detect_faces, insightface_score_eyes, insightface_score_expression, score_face_quality,
+select_best (Siamese), detect_persons (YOLO), extract_scene_embedding (DINOv2). Steps whose model is
+a method-local (caption_images/BLIP, infer_geo_clip/StreetCLIP, validate_alignment/InsightFace) never
+leaked and need no override. Design rule (owner, 2026-07-19): a model is kept resident ONLY if a later
+step needs it, and then it must live in `context` as an explicit shared dependency (executor releases
+those at end-of-run) — private step state that is neither shared nor released is a pure leak.
+Tests: `tests/pipeline/test_step_release.py` (6, incl. release-called-on-failure). Verified end-to-end:
+full 33-step `default_pipeline` on 122 Budapest imgs now completes with occlusion+tilt populated (was
+a silent OOM kill before).
+**DEFERRED (separate follow-up)**: the InsightFace-holds-all-detections memory growth on big trips
+(Austria 474 / Germany 797) is a DIFFERENT axis (data, not model count). Release-per-step lets the
+full pipeline run on small/medium trips; streaming/batching InsightFace detections is still needed for
+production-size trips. Tracked as the remaining half of this sighting.
+
+---
+
+### SIGHTING-115: test_face_embedding_validation.py fails to collect (stale import)
+**Status**: OPEN (found 2026-07-13 during spec-099 tilt wiring)
+**Severity**: Low (one test file; unrelated to tilt work — does not touch it)
+**Reported**: 2026-07-13
+**Persona**: SW Engineer
+
+**Problem**: `tests/pipeline/test_face_embedding_validation.py:30` imports
+`sim_bench.pipeline.steps.filter_quality_gate`, which does not exist (only
+`filter_quality.py` does). Collection errors out, interrupting any `pytest tests/pipeline/`
+run. The file is unchanged since commit 01d292c; the module was evidently renamed/removed
+without updating this test.
+**Suspicion**: `filter_quality_gate` → `filter_quality` rename (or the gate step folded in)
+left this import dangling. **Repro**: `.venv/Scripts/python -m pytest tests/pipeline/test_face_embedding_validation.py --co`.
+**Fix (proposed, not done)**: update the import to the current step, or delete the test if
+the gate step is gone. Left for the owner of that step to adjudicate (propose-don't-fix).
+
+### SIGHTING-116: test_person_penalty_strategy expects stale penalty value (0.02 vs 0.22)
+**Status**: OPEN (found 2026-07-13 during spec-099 review)
+**Severity**: Low (one test; unrelated to tilt — code path untouched by spec-099)
+**Reported**: 2026-07-13
+**Persona**: SW Engineer
+
+**Problem**: `tests/pipeline/test_scoring_strategy.py::test_person_penalty_strategy` asserts a
+body-orientation penalty of `0.1 * (1 - 0.8) = 0.02` but the current `PersonPenaltyComputer`
+returns `0.22`. `person_penalty.py` / `scoring_strategy.py` are unchanged by spec-099, so this is a
+stale test vs an evolved penalty formula/weights, not a regression.
+**Repro**: `.venv/Scripts/python -m pytest tests/pipeline/test_scoring_strategy.py::test_person_penalty_strategy`.
+**Fix (proposed, not done)**: re-derive the expected value from the current penalty config, or
+update the test to construct the computer with an explicit weight. Owner: person-penalty author.
+
+Note: `tests/pipeline/test_face_pipeline_e2e.py` also ERRORs (face-detection model / data
+fixtures) — pre-existing environment dependency, same triage bucket.
+
+### SIGHTING-114: Adjudicate page crashes on HEIC images (PIL.UnidentifiedImageError)
+**Status**: RESOLVED (2026-07-08)
+**Severity**: High (blocked the 82-adjudication gate at image 12)
+**Reported**: 2026-07-08 by user, mid-adjudication
+**Persona**: Senior SW Engineer
+
+**Problem**: `st.image(path)` in `app/occlusion_review/main.py` crashed with
+`PIL.UnidentifiedImageError` when the worklist reached a `.heic` file (124 of the 776
+negatives are HEIC, from the Austria/Germany albums). Streamlit decodes image bytes via
+PIL, which cannot read HEIC unless `pillow_heif` registers its opener. `explain.py` and
+`occlusion_bench/saliency.py` already registered it; the app's display path did not —
+the recurring HEIC blind spot (same class as the Track-D skip bug).
+
+**Root cause**: pillow_heif registration was done per-module ad hoc instead of once at
+app entry. **Prevention**: registration moved to app entry (`main.py` import time), and
+the adjudicate image render is wrapped so a single unreadable file can never block the
+queue (decision buttons render above the image and stay usable).
+
+---
+
+### SIGHTING-113: 3 pre-existing test failures on the unification/spec-040 base (not spec-093/094/095)
+**Status**: OPEN
+**Severity**: Medium (blocks a clean full-suite before merge)
+**Reported**: 2026-07-03 (found running the suite to verify the Image Analysis Studio)
+**Persona**: Senior SW Engineer
+
+**UPDATE 2026-07-09** (spec-097 Stage-1 suite run, `tests/pipeline` + `tests/architecture`,
+279 passed): two ADDITIONAL pre-existing items surfaced (these files previously weren't
+reached because full runs aborted at the item-1 collection error):
+4. **5 ERRORs** `tests/pipeline/test_face_pipeline_e2e.py` — class fixture passes
+   `det_size`/`det_thresh` to `InsightFaceDetectFacesConfig` (`extra="forbid"`): the test
+   was never updated when the config schema changed. Test drift, same class as item 1.
+5. **FAIL** `tests/pipeline/test_face_recognition_benchmark.py::test_intra_person_similarity`
+   — Person 00000 mean similarity 0.407 < 0.5 threshold (real-data drift; item-3 territory).
+Also: item 3 (`test_app_cluster_equivalence`) PASSED in this run — may be flaky or fixed
+en route; keep watching. None of the 5 touch spec-097 files (occlusion step/penalty/scorer);
+spec-097's own 14 tests are green.
+
+**UPDATE 2026-07-12** (spec-098 A4 verification — hard evidence for item 3):
+`scripts/run_profile.py --profile profile_4.json --src D:\Budapest2025_Google` on BASELINE code
+(spec-098 stashed) produced 7 clusters `[26,20,12,7,3,2,2]` (run `4b6d2fdb`), NOT the 15-cluster
+`[35,24,14,…]` shape of reference run `6437d335` that the e2e_budapest suite pins. The headless
+pipeline path cannot reproduce the v2 app's fresh-run baseline on this branch regardless of
+spec-098. Scenario B (loading the stored reference run) still passes. Also 3 e2e_budapest scenarios
+(A: "Load profile" locator timeout before any clustering; C: parent_run_id mismatch; F: quality-tab
+plotly chart never renders) fail identically on baseline code — UI-level pre-existing breakage,
+verified by stash-and-rerun. → the fresh-run E2E baseline needs re-anchoring once item 3 is fixed.
+
+**UPDATE 2026-07-11** (spec-098 review run, `tests/quality_assessment`):
+6. **ERROR (collection)** `tests/quality_assessment/test_learned_clip.py` —
+   `ModuleNotFoundError: sim_bench.quality_assessment.clip_aesthetic`. The module was
+   archived by commit `30e3791` (2026-01-19, "Archive legacy quality assessment system")
+   but the test's import was never updated; it aborts collection for the whole
+   `tests/quality_assessment` package (spec-098's `test_noise_robust.py` runs green when
+   selected directly). Same class as item 1. → update/remove the test (also check
+   `test_learned_prompts_only.py` and the 8 other clip_aesthetic references in
+   examples/scripts/agent).
+
+**Problem Description**: On branch `specs/093-095-analysis-studios` (off `unification/spec-040`),
+the proper test packages run **354 passed, 2 failed, 1 error** (7 min). All 3 trace to the
+spec-079 clustering-unification base work (commit `419185f`), NOT the analysis-studio commits —
+verified: no 093/094/095 commit touches these files or their targets.
+
+1. **ERROR** `tests/pipeline/test_face_embedding_validation.py` — `ModuleNotFoundError:
+   sim_bench.pipeline.steps.filter_quality_gate`. That module **exists on `main`** but was deleted
+   by the spec-079 unification; the test's top-level import was never updated. → update/remove the test.
+2. **FAIL** `tests/pipeline/test_scoring_strategy.py::test_person_penalty_strategy` —
+   `assert 0.22 == 0.02`; `PersonPenaltyStrategy` math drifted from the test's expectation
+   (scoring code untouched by studio work). → reconcile expected value or the penalty formula.
+3. **FAIL** `tests/architecture/test_app_cluster_equivalence.py::test_same_profile_yields_same_clusters`
+   — app-vs-pipeline clustering no longer produce identical clusters (spec-079 territory). → investigate
+   determinism / the two paths.
+
+**Also**: `pytest tests/` as a WHOLE cannot run — ~30 script-style files under `tests/` do
+module-level `sys.exit(1)` / hit live services (e.g. `test_full_e2e_flow.py` needs the backend on
+:8000). One `SystemExit` at collection aborts the entire run (INTERNALERROR). These should be moved
+to a `scripts/` or `tests/manual/` area or guarded so the suite is collectable headless.
+
+---
+
+### SIGHTING-112: universal_cache keys are path-string-sensitive (separator mismatch → no cache reuse)
+**Status**: FIXED (2026-07-03)
+**Severity**: Medium
+**Reported**: 2026-07-03 (found verifying the Image Analysis Studio end-to-end)
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`universal_cache` keys a feature by the raw `image_path` STRING. The same image scored via a
+folder typed as `D:\Budapest2025_Google` (batch script, backslash) vs `D:/Budapest2025_Google`
+(studio text input, forward slash) produces DIFFERENT keys — so no cache is shared and the
+studio recomputed everything (musiq at ~190 s/img over 6 images ≈ 19 min hang).
+
+Evidence: `SELECT DISTINCT image_path FROM universal_cache WHERE feature_type='quality_musiq'`
+returns both `D:\Budapest2025_Google\file.jpg` (122, from the batch) and
+`D:/Budapest2025_Google\file.jpg` (6, from the studio — note forward-slash folder + backslash
+filename from `os.path.join` on Windows). 122 backslash vs 6 forward-slash keys for the same images.
+
+**Root cause**: no path normalization before building the `CacheKey`. The key is whatever string
+the caller passed, which depends on how the folder was typed + `os.path.join`'s OS separator.
+
+**Impact**: cache is fragile — same album, different separator ⇒ full recompute. Affects EVERY
+cached step (score_quality, score_ava, geo steps), not just the studio.
+
+**Proposed fix**: normalize the path once at the cache boundary — e.g. `CacheKey.__post_init__`
+does `image_path = str(Path(image_path).resolve())` (or `.as_posix()`), OR `discover_images`
+returns normalized paths. One-line-ish at the seam; add a test asserting `D:\x\a.jpg` and
+`D:/x/a.jpg` map to the same key. Note: changing the key format invalidates existing rows
+(one-time recompute) — acceptable, or migrate.
+
+**Resolution (2026-07-03)**: `CacheKey.__post_init__` now applies `os.path.normpath` to
+`image_path` (separators only, CASE PRESERVED — so existing Windows rows still match; `normcase`
+would have lowercased and orphaned them). Chosen over `.resolve()` (which stats the filesystem
+per key). Bonus: the studio's forward-slash keys now normalize to the SAME backslash form the
+batch stored, so the studio immediately reuses the 122 already-cached Budapest scores — verified:
+musiq over 6 studio-path images went from ~19 min recompute → **0.1 s cache hit**. Tests:
+`tests/pipeline/test_cache_key_normalization.py` (4). 36 cache-using tests green, no regression.
+
+---
+
+### SIGHTING-111: Three conflicting OpenCV variants installed in .venv
+**Status**: FIXED (2026-06-29)
+**Severity**: Medium
+**Reported**: 2026-06-29 (found during spec-093 Task 0 pyiqa spike)
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`.venv` has THREE packages that all ship the same `cv2` module and overwrite each
+other's files:
+- `opencv-python` 4.11.0.86
+- `opencv-contrib-python` 4.9.0.80
+- `opencv-python-headless` 4.11.0.86 (re-pinned from 4.13 by the pyiqa install)
+
+Because they install into the same `cv2/` dir, the active build is whichever pip
+wrote last — non-deterministic across reinstalls, and pip metadata is inconsistent.
+This is what caused the `WinError 5: cv2.pyd Access is denied` mid-install when apps
+were running (the file was being swapped while loaded).
+
+**Suspicion / root cause**: incremental installs over time each pulled a different
+opencv flavor; nothing pinned a single one in `setup.cfg`.
+
+**Reproduction**: `.venv/Scripts/pip list | findstr opencv` -> 3 rows.
+
+**Proposed fix (separate task, has blast radius - every `cv2` import)**:
+1. `grep` for GUI calls (`cv2.imshow`, `cv2.namedWindow`, `cv2.waitKey`) to decide
+   headless-vs-GUI. This is a server/Streamlit app -> likely none -> headless is fine.
+2. Uninstall all three; reinstall exactly ONE (`opencv-contrib-python` if contrib
+   modules are used and GUI is needed; else `opencv-python-headless`).
+3. Pin it in `setup.cfg`. Run the test suite + a cv2-using pipeline step.
+
+**Resolution (2026-06-29)**:
+Collapsed to ONE variant: **`opencv-contrib-python==4.11.0.86`** (the superset).
+Steps: uninstalled all three, deleted the leftover `site-packages/cv2/` dir, fresh
+install, refreshed editable `sim-bench` metadata, widened `setup.cfg` pin to
+`>=4.8,<4.12`.
+
+Key learning — **no single opencv package satisfies every dependent's declared
+name**: `mediapipe` + our own pkg want `opencv-contrib-python`; `facexlib`,
+`sixdrepnet`, `ultralytics` want `opencv-python`; `pyiqa`, `albucore`,
+`albumentations` want `opencv-python-headless`. They all merely `import cv2`, which
+ANY variant provides, so the superset (contrib) is functionally correct for all.
+`pip check` still emits cosmetic name-mismatch lines for the headless/plain
+declarers — **expected and harmless**; verified by importing cv2, mediapipe,
+ultralytics, insightface, facexlib, pyiqa (all OK). Chose contrib over headless
+because `mediapipe` (core dep) declares contrib and contrib is a strict superset.
+
+---
+
+### SIGHTING-110: Configure & Run status poll ReadTimeout during heavy pipeline steps
+**Status**: FIXED (2026-06-26, spec-091 Phase 1)
+**Severity**: High
+**Reported**: 2026-06-26
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+The Configure & Run progress fragment (`_pipeline_progress_fragment`, polls every 2s)
+crashed with `ReadTimeout (read timeout=30)` / `ApiError` while a pipeline ran. The
+pipeline executes in the API process (FastAPI BackgroundTask → threadpool); a heavy
+CPU/IO step holds the GIL / blocks long enough that the status request can't complete
+within the 30s read timeout.
+
+Aggravated by spec-088: the re-enabled "Export for analysis" step
+(`face_cluster_export._generate_crops_from_bboxes`) re-opened each full source photo
+**per face** to write crops — the biggest avoidable blocking work, run on every pipeline
+because the toggle is on.
+
+**Fix (Phase 1)**:
+- Root reduction: the export now reuses the in-memory `face.aligned_face` crop produced
+  by `align_faces` (no per-face source decode) — see `_crop_from_aligned` /
+  `_crop_from_source`. tests/pipeline/test_export_crop_reuse.py.
+- Band-aid: `_pipeline_progress_fragment` catches `ApiError` and shows "still working,
+  retrying" instead of crashing; the fragment retries on its next tick.
+
+**Deferred (spec-091 Phase 1 remainder)**: caching aligned crops to disk so `align_faces`
+itself doesn't recompute across runs — touches the clustering input, needs the budapest
+e2e gate to verify embeddings/clustering are unchanged. Not shipped in this pass.
+
+### SIGHTING-109: loading a profile doesn't restore config_* sliders (e.g. min_sharpness)
+**Status**: FIXED (2026-06-26)
+**Severity**: High
+**Reported**: 2026-06-26
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Saving a profile writes the value correctly (verified: `default11.json` has
+`config.filter_quality.min_sharpness = 0.05`), but **loading** the profile leaves
+the Sharpness slider on the old value (0.2, the API setting) instead of 0.05.
+
+Root cause: spec-087's load (`_apply_profile_to_session`) used a "delete the
+`config_*` widget keys and stage the profile config in `_pending_profile_config`,
+then let the sliders re-initialise from `value=`" trick (`_resolve_saved_config`).
+That does NOT reliably override an existing keyed widget in Streamlit — the slider
+keeps its prior session value, so the loaded value never reaches the UI.
+
+**Symptoms**:
+- Load a profile → quality/detection/selection sliders show their previous values,
+  not the profile's. Only the `rc_*` clustering widgets (set directly) restored.
+
+**Fix (applied)**:
+Load now **directly sets each `config_*` widget's session_state key** from the
+profile's nested config via an explicit `widget_key -> (config path)` map
+(`_WIDGET_FROM_CONFIG`). A keyed Streamlit widget always honours its session value,
+so the loaded value reliably shows. Removed the fragile `_pending_profile_config` /
+`_resolve_saved_config` indirection. Save path (full-config stash) unchanged.
+Tests: `tests/streamlit/test_profile_save_load.py` updated to assert the widget
+keys are set on load.
+
+### SIGHTING-108: adaptive merge-threshold params are inert (merge always uses the fixed threshold)
+**Status**: OPEN
+**Severity**: Medium
+**Reported**: 2026-06-26
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Five profile parameters that imply adaptive per-cluster merge thresholds have NO
+effect — the conservative merge always uses the fixed `merge_exemplar_threshold`:
+`use_adaptive_merge_threshold`, `merge_exemplar_percentile`,
+`merge_global_percentile`, `merge_threshold_alpha`, `merge_threshold_beta`.
+
+Evidence (`face_cluster/merge.py`):
+- `_merge_clusters_internal` (~:288-290): comment "Fixed exemplar threshold (no
+  adaptive computation)"; `cluster_thresholds = {}`; `global_threshold =
+  self.config.merge_exemplar_threshold`.
+- `_evaluate_merge_evidence` (:576-583): `merge_threshold = self.config.merge_exemplar_threshold`;
+  `T_a = T_b = T_global_val = None`. The adaptive percentiles/alpha/beta are never read.
+
+This is a config-knob-without-a-producer (the SIGHTING-060/061 class): the UI/profile
+expose tunables that silently do nothing, so a user "tuning" them changes no behaviour.
+
+**Symptoms**:
+- Changing any of the 5 adaptive params has zero effect on clustering output.
+- The FCParams descriptions/UI imply adaptive thresholds are used.
+
+**Suspicion / Fix**:
+Either (a) implement the adaptive threshold (compute T_local from intra-cluster
+exemplar distances at `merge_exemplar_percentile`, T_global at
+`merge_global_percentile`, blend `alpha*T_local + beta*T_global`, gate on it when
+`use_adaptive_merge_threshold`), or (b) remove the 5 dead knobs from FCParams/UI.
+Until then the parameter guide labels them "currently inactive".
+
+### SIGHTING-107: Albumify "Export for analysis" toggle is dead (no FC export ever written)
+**Status**: FIXED (2026-06-25, spec-088) — code-review passed (no blockers); real-run verification is the user's check
+**Severity**: High
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+The Configure & Run "Export for analysis" checkbox does nothing in the current
+Albumify pipeline. No `face_clustering_*` export dir is written, so Albumify runs
+can never be opened in the Face Clustering app's analysis tabs.
+
+Root cause: the export only ever ran inside the monolithic `cluster_people` step
+(`export_for_analysis()` is called ONLY at `cluster_people.py:291`, and
+`context.fc_export_dir` is set ONLY inside it at `face_cluster_export.py:159`).
+spec-079 replaced `cluster_people` with the unified 8-step chain
+(`configs/pipeline.yaml:37-44`: quality_gate → … → assign_people_clusters), which
+has **no export**. So the flag is sent (`cluster_people.export_for_analysis=true`)
+but (a) no step reads it, and (b) `_broadcast_clustering_config` funnels the
+clustering block through `FCParams` (no `export_for_analysis` field) and drops it.
+
+**Evidence**: every run of album `Budapest2025_Google_run15` has
+`pipeline_results.fc_export_dir = NULL`; the run's stored `step_configs` contains
+`export_for_analysis: true` AND `assign_people_clusters` (unified) but no
+`cluster_people` step.
+
+**Symptoms**:
+- `results/` has no `face_clustering_*` dir for recent albums.
+- Cannot diagnose Albumify clustering in the FC app (no loadable export).
+
+**Suspicion / Fix (spec-088)**:
+Add a thin export step at the end of the unified chain that calls the existing
+`export_for_analysis()` with `context.face_records` / `core_indices` /
+`cluster_result` / `merged_cluster_result` / `merge_log` (all already populated),
+gated by the toggle. Route the flag to that step (add to `FCParams` or a dedicated
+step config) so it survives the broadcast.
+
+**Related**: separate observation (needs its own investigation once export works) —
+run15 produced 6 people / 93 faces with a 62-face mega-cluster, suggesting
+over-merging vs the FC app on the same profile.
+
+### SIGHTING-106: Configure & Run profile Save/Load drops all non-clustering params (e.g. sharpness)
+**Status**: FIXED (2026-06-25, spec-087) — code-review passed, no blockers
+**Severity**: High
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+In Albumify "Configure & Run", saving a profile (e.g. "default8") via the profile
+bar's **Save** button does NOT persist quality/detection/selection params. The user
+changed `min_sharpness` to 0.1 and saved; the value was silently dropped.
+
+Root cause (verified): the profile bar saves/loads only a fixed set of `rc_*`
+clustering keys.
+- `app/streamlit/components/pipeline_runner.py:24-31` — `_RC_PARAM_KEYS` is `rc_*` only
+  (copied from the face_clustering Recluster tab, which has no quality params).
+- `:135` (Save) — `params = {k: st.session_state[k] for k in _RC_PARAM_KEYS if ...}` —
+  the sharpness widget key `config_min_sharpness` (`:241`) is not in the set → dropped.
+- `:124-126` (Load) — only restores keys in `_RC_PARAM_KEYS`.
+
+Meanwhile the authoritative `config` dict (`:375-438`) holds the full settings
+(`filter_quality.min_sharpness`, etc.) and is used by **Run Pipeline** (`:453`) and the
+separate, working **Save Settings** button (`:464` → `_save_user_settings`). Two parallel
+config representations; the profile bar uses the thin one.
+
+**Symptoms**:
+- Edit a `config_*` field (sharpness, IQA, face size, det conf, max-per-cluster, dup
+  threshold, ...), Save a profile, reload it → the field reverts. Only `rc_*` clustering
+  params round-trip.
+
+**Suspicion / Fix — Option B (chosen): one config representation, not two.**
+Make profile Save/Load use the SAME full `config` blob that "Save Settings" already
+builds and persists (the `user_settings.config` shape), instead of the hand-listed
+`_RC_PARAM_KEYS` subset. End state: one config shape, one apply path, no key list to
+drift (same class as spec-085).
+
+Concrete steps:
+1. **Build `config` before the profile bar renders** (or extract a `build_config()` helper
+   called first). Today `config` is defined at `:375`, *after* the profile bar (`:118-141`),
+   so the Save handler can't see it — that's why it fell back to session_state keys.
+2. **Save** → `store.save(name, config)` (the full nested dict), not the `rc_*` subset.
+3. **Load** → apply the saved `config` through the SAME code path that applies
+   `user_settings.config` to the widgets at render (`:161` `saved_config = ...`), so there's
+   a single config→widget mapping, not a second one that can drift.
+4. Add a test: save a profile with `min_sharpness=0.1`, reload, assert it round-trips
+   (and at least one non-quality field too).
+
+**Design risks to decide during the fix (don't silently ignore):**
+- **Cross-app profile interop:** the comment at `:22-23` says profiles are shared with the
+  face_clustering Recluster tab, which reads top-level `rc_*` keys. If Albumify profiles
+  switch to the nested `config` shape, that app won't find the clustering params.
+  **DECISION (2026-06-25): option (b) — store BOTH** the flat `rc_*` keys (cross-app interop,
+  unchanged) AND the full nested `config` blob (new). Save writes both; Albumify Load reads
+  the nested `config`; the face_clustering app keeps reading `rc_*`. Neither app breaks.
+- This is bug-shaped but the fix is a small refactor; if it grows, promote to a spec.
+
+**Steps to Reproduce**:
+1. Configure & Run → load a profile → change Sharpness to 0.1 → name "default8" → Save.
+2. Reload "default8" → sharpness is not 0.1.
+
+### SIGHTING-105: tests/test_selection_export.py imports a deleted module
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+4 of 7 tests in `tests/test_selection_export.py` fail with
+`ModuleNotFoundError: No module named 'sim_bench.album.selection'`. The
+`BestImageSelector` class and the `sim_bench.album.selection` module no longer
+exist anywhere in the repo (selection logic moved to
+`sim_bench/album/services/selection_service.py` and the pipeline
+`select_best` step). The test was never updated after that refactor.
+
+Discovered while running regression for spec-084 (Results metrics) — NOT caused
+by it; the 3 non-importing tests in the file still pass.
+
+**Symptoms**:
+- `pytest tests/test_selection_export.py` → 4 failed (import error), 3 passed.
+
+**Suspicion / Fix**:
+Either repoint the tests at `selection_service` / `SelectBestStep`, or delete the
+dead tests if the coverage is now provided by `tests/api/test_results_metrics.py`
++ pipeline tests. Decide during a test-triage pass; out of scope for spec-084.
+
+---
+
+### SIGHTING-104: People & Faces shows gray avatars; person detail shows no bbox
+**Status**: FIXED (2026-06-25)
+**Severity**: High
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+The People & Faces grid renders the gray placeholder `👤` for every person
+instead of the cropped face (screenshot: D:\people_faces.PNG), and the person
+detail view never draws the face bounding box.
+
+Root cause is a single format mismatch. `people_service._bbox_to_xywh`
+(people_service.py:24-26) receives the spec-079 `FaceRecord.bbox` tuple, which is
+in **pixels** `(x1,y1,x2,y2)`, and stores `[x1, y1, x2-x1, y2-y1]` — still
+pixels (DB shows `[1719.0, 730.0, 511.0, 776.0]`). Every consumer assumes
+**normalized [0,1]**:
+- `people_browser.py:138` `_crop_face` multiplies bbox by image dims → pixel*dims
+  is off-canvas → degenerate crop → `_load_face_thumbnail` returns None → gray.
+- `people_browser.py:188` feeds `{"x":1719,...}` to `draw_face_bboxes` as
+  normalized → box drawn off-canvas → invisible.
+Legacy rows store ratios `[0.49, 0.15, ...]` and DO render, confirming the
+producer-side regression introduced by the spec-079 unified chain.
+
+**Symptoms**:
+- All person thumbnails gray in the grid.
+- No bounding box on the person detail's representative image.
+
+**Fix (applied)**:
+Source: added `_normalized_bbox(face)` in `people_service.py` (prefers spec-040
+`bbox_*_ratio`; else normalizes the pixel bbox via `image_*_px`; else raw
+reshape). Both write sites (`_get_thumbnail_info` + `create_from_clusters`) now
+use it, so new rows persist [0,1]. `_bbox_to_xywh` docstring corrected — it only
+reshapes, it never normalized. Consumer safety net: `people_browser._crop_face`
+and the detail-view overlay detect pixel-scale (`max(bbox) > 1.5`) and normalize,
+so existing pixel-format DB rows render WITHOUT a re-run/backfill. Verified by
+cropping the real Budapest image with the real DB bbox -> correct face crop.
+Tests: `tests/api/test_people_service_bbox.py` (6 tests, green).
+Prevention: bbox-format contract documented inline at both boundaries + unit
+test asserting normalized output.
+
+**Steps to Reproduce**:
+1. Run the Budapest pipeline (spec-079 chain), open People & Faces.
+2. Observe gray avatars; query `people.thumbnail_bbox` → values > 1.
+
+---
+
+### SIGHTING-103: Results page slow — thumbnails re-encoded from disk every rerun
+**Status**: FIXED (2026-06-25)
+**Severity**: Medium
+**Reported**: 2026-06-25
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+The Results page (and cluster score tables) felt very slow. Streamlit reruns the
+entire script on every widget interaction. `_image_to_base64_thumbnail` in
+`components/metrics.py:15` and `components/gallery.py:185` was **uncached**, so
+every rerun re-opened, EXIF-transposed, cropped, resized, JPEG-encoded and
+base64-encoded every image on the page from disk (N disk reads + N encodes per
+interaction). Compounding (not fixed here): base64 strings embedded in
+`st.dataframe`, no pagination, and API results refetched each rerun.
+
+**Symptoms**:
+- Multi-second lag on any click in Results, scaling with image count.
+
+**Suspicion / Fix**:
+FIXED: added `@st.cache_data(show_spinner=False)` to both thumbnail encoders.
+Follow-ups (deferred to the Results spec): pagination/lazy load, cache
+`get_images`/`get_clusters` by job_id, and dedupe the 3 copies of the encoder.
+
+**Steps to Reproduce**:
+1. Open Results with a large album; click any radio/toggle; observe lag.
+
+### SIGHTING-099: universal_cache never invalidates on schema/model_version change
+**Status**: FIXED (2026-06-20)
+**Severity**: High
+**Reported**: 2026-06-20
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`sim_bench/pipeline/cache_handler.py::load_from_cache` invalidates a cache row
+ONLY when the source image's mtime changes. It reads `model_version` into the
+returned metadata but NEVER compares it — so when a step's output schema changes,
+old rows are still served as valid hits forever.
+
+Concrete impact (the spec-079 "20-vs-8" mystery): spec-070 added head `pose`
+(yaw/pitch/roll) to `insightface_detect_faces` output. The Budapest
+`feature_type='insightface_detection'` rows are dated 2026-02-19 — BEFORE pose
+existed — so they carry no `pose` key. Both apps reload them → every
+`FaceRecord.pose` is `None` → the pose quality gate silently no-ops. The spec's
+Stage 0c diagnosis ("Albumify's producer never populates pose") is therefore
+WRONG: the producer code DOES populate pose; the cache serves pre-pose data.
+
+**Symptoms**:
+- Re-running detection after a schema change does not refresh cached features.
+- Quality gates that depend on a newly-added attribute silently disable.
+
+**Suspicion / Fix**:
+Make `load_from_cache` treat a `model_version` mismatch as a miss (steps pass a
+version/schema tag that bumps when output schema changes), or scope-clear
+`insightface_detection` on schema bumps. Prevention: any step that changes its
+serialized output schema MUST bump its cache `model_version`.
+
+**Steps to Reproduce**:
+1. Inspect a Budapest `insightface_detection` cache row's JSON — no `pose` key.
+2. Run any pose-gated pipeline on Budapest — 0 faces rejected by the pose gate.
+
+**Resolution (2026-06-20)**:
+`base.py::_process_with_cache` now reads an expected `model_version` from the
+step's cache metadata and treats any stored row whose `model_version` differs
+(including the legacy `None`) as a miss → recompute. `insightface_detect_faces`
+declares `DETECTION_OUTPUT_VERSION = "det-v2-pose"`. Stale rows auto-invalidate;
+future schema changes just need a version bump. The 122 pre-pose Budapest rows
+were also cleared once to force the immediate re-detect.
+
+---
+
+### SIGHTING-100: Albumify vs FC v2 identity-count divergence is multi-confound (not pose)
+**Status**: FIXED (2026-06-21)
+**Severity**: Medium
+**Reported**: 2026-06-20
+**Persona**: ML Engineer
+
+**Problem Description**:
+spec-079 framed the 8-vs-24 identity divergence as a single producer-pose bug.
+Empirically (2026-06-20, Budapest+profile_5) it is NOT pose (see SIGHTING-099 —
+both apps read pose-less cache). With the shared 8-step clustering chain wired
+into Albumify, `assign_people_clusters` produced 12 clusters / 110 faces while FC
+v2's reference is 8 / 72, and Albumify's post-clustering `identity_refinement`
+(which FC v2 does not run) then reported 24 / 204. `identity_refinement` only
+ATTACHES noise faces to existing clusters, so it cannot itself multiply cluster
+count — meaning the over-split originates in the shared chain under the stale
+cache, AND the final "identity" count is redefined by Albumify-only downstream
+steps. Confounds to isolate: (a) stale pose cache, (b) any residual gate/config
+delta, (c) image discovery (HEIC), (d) downstream identity_refinement /
+cluster_by_identity redefining the count.
+
+**Suspicion / Fix**:
+After SIGHTING-099 is fixed (fresh pose), re-run BOTH apps and compare the
+SHARED chain output (`assign_people_clusters`) only — that is the real
+equivalence target, not the post-refinement Person rows. Decide whether
+Albumify's reported identities should come from the shared chain or from
+identity_refinement. Tracked under spec-079.
+
+**Resolution (2026-06-20)** — ROOT CAUSE FOUND + shared chain now 8==8:
+`_diff_core_and_config.py` proved it was NOT pose, config, or the face set. With
+the **stale embedding cache** present, both apps gave 12; after clearing the 431
+stale `face_embedding` rows (model_version=None) BOTH apps' shared chain gives
+**identical 8 / 110 core / same core set / same per-step config**. Cause: cached
+embeddings (computed Feb-Apr) differed from live computation → different kNN graph
+→ over-split. Production asymmetry: FC v2 (`run_pipeline`) ran cacheless (fresh →
+8); Albumify (`PipelineService`) ran cached (stale → 12). Fixed permanently by
+versioning the embedding cache (`EMBEDDING_OUTPUT_VERSION`, SIGHTING-099 mechanism).
+RESIDUAL: Albumify's full pipeline still reports 6 identities / 318 faces because
+`identity_refinement` (an Albumify-only post-step FC v2 never runs) over-attaches —
+it produces a 238-face mega-cluster across ~80 images ([238,48,20,7,3,2]). The
+shared CLUSTERING is equivalent; identity_refinement is the only remaining
+(mis-tuned) difference. Standalone repro:
+`tests/pipeline/test_identity_refinement_overattach_budapest.py`.
+A runtime probe RULED OUT an embedding-keying bug: all 318 embedding lookups
+resolve correctly (the `original_path` attr exists on people_clusters faces;
+fixing it changes nothing). The cause is the attachment LOGIC: with correct
+embeddings it still attaches ~246 faces (> the 38 noise → it pulls in
+quality_gate-rejected faces) under loose thresholds (centroid 0.38 / reject 0.45),
+collapsing crowd/group-shot faces into one centroid. Tuning/logic task, not
+architecture.
+
+**TRUE ROOT CAUSE + FIX (2026-06-21)** — it was NOT thresholds, pose, or the
+cache. It was the spec-079 unification (replacing the monolithic `cluster_people`
+step with the 8-step chain ending in `assign_people_clusters`) leaving two
+classes of breakage in the Albumify-only post-clustering steps:
+
+1. **ORDERING**: `identity_refinement`, `cluster_by_identity`,
+   `select_best_per_person` all declared `depends_on=["cluster_people"]`. With
+   that step gone, the executor (orders by dependencies, not list order) had no
+   constraint to run them after clustering, so `identity_refinement` ran at
+   execution position 8 — BEFORE `assign_people_clusters` (position 25) — on a
+   raw pre-assignment cluster structure, producing the 238 mega-cluster. Fix:
+   add `assign_people_clusters` to each `depends_on` (keep `cluster_people` for
+   legacy pipelines; the builder ignores a dependency not present in a run).
+2. **FACE-TYPE**: those steps + `people_service.create_from_clusters` were
+   written for the legacy face type — `face.original_path`, a `BoundingBox`
+   object bbox, and a mutable `face.cluster_id`. The unified chain produces
+   `FaceRecord` (`image_path`, tuple `(x1,y1,x2,y2)` bbox, frozen/extra-forbid).
+   Fix: type-tolerant path access (`original_path or image_path`), a
+   `_bbox_to_xywh` normalizer (handles tuple/dict/object), and a guarded
+   `cluster_id` set.
+
+RESULT (Budapest+profile_5, end-to-end): Albumify now produces **7 identities /
+75 faces `[26,22,13,7,3,2,2]`** vs FC v2's `[26,20,12,7,3,2,2]` — anchor PASS.
+The 3-face delta is the legitimate leftover-rescue identity_refinement is meant
+to do. A permanent attach diagnostic (`context.refinement_attach_diagnostics`)
+was added to the step. Regression test:
+`tests/pipeline/test_identity_refinement_overattach_budapest.py`.
+
+---
+
+### SIGHTING-101: e2e_budapest Scenario A selectors are stale (app healthy, gate blocked)
+**Status**: OPEN
+**Severity**: Medium
+**Reported**: 2026-06-20
+**Persona**: QA / Test Engineer
+
+**Problem Description**:
+`tests/face_clustering/e2e_budapest/test_scenario_a_fresh_run.py` times out on
+`page.get_by_role("button", name="Profiles").click()` (30 s) even though the app
+renders correctly — the failure screenshot
+(`_failure_artifacts/1781979399.png`) shows the Run tab active, the "Profiles"
+expander visible, and Source/Album already filled. The selector no longer matches
+the `st.expander` header (Streamlit renders it as `<details><summary>`, not a
+`button` role in the current version). The test also still expects a button named
+**"Run pipeline"**, but the Run tab's button is now labelled **"Run"**
+(`run_tab.py:125`). Both are stale-UI drift, NOT a pipeline/runner regression.
+
+**Impact**: the binding V2 baseline gate cannot currently run Scenario A, so it
+can't certify the spec-079 FC v2 runner refactor end-to-end via the UI. The
+backend path IS verified headlessly: `run_v2_pipeline` reproduces the reference
+shape exactly (Budapest+profile_5 -> 8 clusters [26,20,12,7,3,2,2]).
+
+**Suspicion / Fix**:
+Refresh Scenario A selectors to the current UI. PARTIALLY DONE 2026-06-20:
+expander now opened via `get_by_text("Profiles", exact=True)` and the button
+renamed "Run pipeline" -> "Run" (both verified via failure screenshots:
+`1781979399.png` = pre-fix, `1781979600.png` = expander now open). STILL BROKEN:
+the `st.selectbox("Load profile")` option pick — `get_by_role("option",
+name="profile_4")` does not select (selectbox stays "(none)", "Load" stays
+disabled), another Streamlit-version DOM drift. Needs a robust selectbox-option
+interaction. Audit the other scenarios (B-K) for the same drift — this is harness
+rot from the spec-080 nav rework + a Streamlit upgrade, not a product regression.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest -m budapest tests/face_clustering/e2e_budapest/test_scenario_a_fresh_run.py`
+2. Times out clicking "Profiles" though the app is healthy.
+
+---
+
+### SIGHTING-102: Albumify pushes `min_face_size` to `insightface_score_pose`, which forbids it
+**Status**: FIXED (2026-06-22)
+**Severity**: High (Albumify pipeline cannot start)
+**Reported**: 2026-06-22
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Running any Albumify pipeline crashes at spec validation:
+```
+PipelineSpecError: Pipeline spec invalid:
+ - invalid config for 'insightface_score_pose': 1 validation error for
+   InsightFaceScorePoseConfig
+   min_face_size  Extra inputs are not permitted [type=extra_forbidden, input_value=50]
+```
+`app/streamlit/components/pipeline_runner.py` fans `min_face_size` out to four
+InsightFace steps, including `insightface_score_pose`. But the pose scorer works
+from the 5-point landmarks detection already produced — it has no crop and no
+size gate, so `InsightFaceScorePoseConfig` (spec-040, `extra="forbid"`) defines
+only `device` and rejects the extra key. `step_configs` hands each step ONLY its
+own sub-dict, validated against its own typed model (`spec.py:80`), so the stray
+key lands directly in the pose config and fails.
+
+**Root cause**: spec-079 unification regression. When Albumify moved onto the
+shared `execute_spec` primitive, the typed configs (spec-040) became strict, but
+`pipeline_runner.py` still fanned `min_face_size` to the pose step the way the
+old loose pipeline tolerated. `configs/pipeline.yaml`'s `insightface_score_pose`
+block was already correct (`device:` only).
+
+**Symptoms**:
+- "Run Pipeline" in Albumify immediately fails; pipeline never starts.
+- Only the pose step is named in the error (detect/expression/eyes legitimately
+  accept `min_face_size`).
+
+**Suspicion / Fix**:
+FIXED — removed the `"insightface_score_pose": {"min_face_size": ...}` entry from
+the config dict in `pipeline_runner.py`. Face size is still filtered upstream at
+`insightface_detect_faces.min_face_size` (skip at detection) and
+`filter_faces.min_bbox_ratio` (the actual rejector), so the pose step loses
+nothing. Prevention: when a step's typed config goes `extra="forbid"`, audit
+every frontend that builds its `step_configs` for stray keys the loose pipeline
+used to swallow.
+
+**Steps to Reproduce**:
+1. Start Albumify (`.venv/Scripts/streamlit run app/streamlit/main.py`) + API.
+2. Configure + click "Run Pipeline" → `PipelineSpecError` on `insightface_score_pose`.
+
+---
+
+### SIGHTING-098: `steps/configs/__init__.py` violates the empty-`__init__` convention
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-06-19
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+CLAUDE.md mandates "`__init__.py` kept empty except `face_cluster/__init__.py`".
+`sim_bench/pipeline/steps/configs/__init__.py` instead holds ~3.7 KB of real
+content: 16 re-export imports, the `STEP_CONFIG_MODELS` registry dict, and an
+`__all__`. The registry is genuine logic (step_name -> config model), not a
+convenience re-export, so it should live in a named module.
+
+**Symptoms**:
+- `__init__.py` is the canonical home for a lookup table that other code
+  (`tests/architecture/test_typed_step_configs.py`, introspection tooling)
+  imports — exactly what the convention exists to prevent.
+
+**Suspicion / Fix**:
+Isolated refactor (no behavior change): move `STEP_CONFIG_MODELS` + its imports
+to `sim_bench/pipeline/steps/configs/registry.py`; leave `__init__.py` empty;
+repoint callers to `...configs.registry`. Tracked as spec-079 **Refactor R**.
+
+**Steps to Reproduce**:
+1. Open `sim_bench/pipeline/steps/configs/__init__.py` — non-empty (~3.7 KB).
+
+---
+
+### SIGHTING-097: stale test imports removed `filter_quality_gate` module
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-06-07
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`tests/pipeline/test_face_embedding_validation.py` fails at collection with
+`ModuleNotFoundError: No module named 'sim_bench.pipeline.steps.filter_quality_gate'`.
+spec-053 consolidated `filter_quality_gate` + `quality_gate_faces` into a single
+`quality_gate` step; this test was never updated. Pre-existing (the import dates to
+commit 01d292c), independent of spec-079.
+
+**Symptoms**:
+- `pytest tests/pipeline/` aborts collection on this one module.
+
+**Suspicion**:
+Stale import. Fix: update the test to `quality_gate` (`QualityGateStep`) or retire it
+if its scenario is now covered by the consolidated step's tests.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest tests/pipeline/test_face_embedding_validation.py`
+
+---
+
+### SIGHTING-096: Albumify and FC v2 produce different clusters from an identical profile
+**Status**: OPEN
+**Severity**: High
+**Reported**: 2026-06-06
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Running the SAME profile (`profile_5.json`) on the SAME source (`D:\Budapest2025_Google`)
+through each app's backend gives different identity clusterings:
+- **FC v2** (`scripts/run_profile.py`, via `run_v2_pipeline` → 8 unified clustering
+  steps): **8 clusters**, sizes `[26,20,12,7,3,2,2]`, 72 faces assigned. Exactly
+  reproduces reference run `a588521b993540e78f40935ecdb21b58`.
+- **Albumify** (`scripts/capture_albumify_baseline.py`, via API services →
+  `cluster_people` step → `face_cluster_bridge.build_fc_config`): **20 identities**,
+  sizes `[29,13,11,7,6,4,3,3,2×12]`, 100 faces assigned.
+
+**Symptoms**:
+- `scripts/diff_fcconfig.py` (profile_5) shows the two FCConfigs differ in exactly
+  **3 fields**, all quality gates: `blur_min` 150→0.0, `min_face_area` 50→None,
+  `cluster_diameter_cap_enabled` True→False.
+- Neutralizing those 3 gates (`profile_5_nogates.json`) moves FC v2 only **8→10**
+  clusters, NOT to 20. Under nogates the two FCConfigs are behaviorally identical,
+  yet FC v2 = 10 and Albumify = 20. So the gap is TWO layers, not one.
+
+**Suspicion / Root cause (confirmed) — two independent layers**:
+- **Layer A — config mapping (8→10).** Albumify is untyped dicts all the way down.
+  The profile→step overlay copies a knob only if its name exists on
+  `ClusterPeopleConfig` → drops 15 FCParams knobs; then the hand-rolled, DEPRECATED
+  `face_cluster_bridge.build_fc_config` doesn't forward `min_face_area` /
+  `cluster_diameter_cap_enabled` and PINS `blur_min=0.0` (Albumify's InsightFace
+  chain has no blur-scoring step, so `FaceRecord.blur_score` is always 0 — honoring
+  150 would reject every face). The blur one is a PIPELINE gap, not a config fix.
+- **Layer B — producer chain (10→20), DOMINANT.** Stage 0b (`scripts/localize_gap.py`)
+  ran BOTH clustering recipes on identical face_records: bridge and the 8 unified steps
+  agree sub-stage for sub-stage (FC v2 faces → 10/86 both; Albumify faces → 20/100 both).
+  So the clustering CODE is equivalent — NOT the divergence. The gap is the **face set**:
+  FC v2's producer chain yields core set 133, Albumify's yields 186 (from 340 vs 337 raw
+  faces). Albumify runs `filter_faces` + `filter_quality` + scene steps FC v2 doesn't, so
+  a different face population (and likely different alignment/embeddings) reaches the
+  identical clusterer. FIX = unify the producer chain, NOT route clustering onto unified
+  steps (that changes nothing). Deleting the bridge stays worthwhile as cleanup only.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python scripts/run_profile.py --profile ~/.sim_bench/profiles_v2/profile_5.json --src "D:\Budapest2025_Google" --album B` → 8 clusters
+2. `.venv/Scripts/python scripts/capture_albumify_baseline.py` → 20 identities
+3. `.venv/Scripts/python scripts/diff_fcconfig.py` → 3 differing gate fields
+
+**Resolution**:
+(open — tracked by spec-079 unified-config plan; see specs/079-albumify-shared-core/CONFIG_DIVERGENCE.html)
+
+---
+
+### SIGHTING-095: run_db exporter golden hash diverged for `run_metadata`
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-06-06
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`tests/run_db/test_split_equivalence.py::test_exporter_output_matches_golden_hashes`
+fails on `db:run_metadata` (live `6aa8e84c…` != golden `2505867e…`). All other
+exported tables match. The divergence is **deterministic** (same live hash every
+run), and reproduces with `sim_bench/run_db/store.py` reverted — so it predates
+spec-083 and is not caused by it.
+
+**Symptoms**:
+- 1 failed / 6 passed in `tests/run_db/`.
+- Only `db:run_metadata` differs; `db:images`, crops, etc. all match.
+
+**Suspicion**:
+A field in the exported `run_metadata` changed since the golden was snapshotted
+(schema_version bump or a new/renamed column), so the golden needs regenerating —
+or the exporter stamps a non-fixed value. Confirm which field differs, then
+either fix the exporter to be deterministic or `_write_golden` a fresh snapshot.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest tests/run_db/test_split_equivalence.py::test_exporter_output_matches_golden_hashes`
+
+---
+
 <!-- Format:
 ### SIGHTING-XXX: Brief title
 **Status**: OPEN / IN PROGRESS / RESOLVED
@@ -30,6 +973,1100 @@ Possible root cause
 **Findings**:
 (what was learned - also add to LEARNINGS.md)
 -->
+
+### SIGHTING-094: Albumify `cluster_people` config surface omits FC v2 exemplar/attach/split knobs → over-fragments (20 identities vs FC v2 15 on Budapest)
+**Status**: OPEN
+**Severity**: Medium
+**Reported**: 2026-06-05
+**Persona**: ML Engineer
+**Related**: spec-079 Stage 0 (equivalence anchor), `specs/079-albumify-shared-core/CLUSTERING_EXPLAINED.html`
+
+**Problem Description**:
+Running Albumify's pipeline on `D:\Budapest2025_Google` with profile_4's
+clustering knobs overlaid onto `cluster_people` yields **20 identities / 100
+assigned faces**, vs the FC v2 reference run's **15 / 107**. Same algorithm
+(`face_cluster_knn`), same `distance_threshold`, but Albumify leaves ~12 size-2
+clusters that FC v2 merged into its large clusters (top sizes 29,13,11 vs
+35,24,14).
+
+**Symptoms**:
+- Identity count 20 (band is 12–18); over-fragmented tail of size-2 clusters.
+- `scripts/capture_albumify_baseline.py` reports `ANCHOR: MISS`.
+
+**Suspicion**:
+`ClusterPeopleConfig` (sim_bench/pipeline/steps/configs/cluster_people.py)
+exposes a SUBSET of `FCParams`. The 15 skipped knobs include the exemplar
+selectors `N_exemplars_max`, `exemplars_d10_threshold`,
+`exemplar_suppression_radius` (and `d10_k`, attach/split knobs). Merging is
+exemplar-driven; with exemplars chosen by defaults, the adaptive merge under-
+merges → more clusters. Merge *thresholds* were applied; exemplar *inputs* were
+not. Keeping `identity_refinement` may also contribute.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python scripts/capture_albumify_baseline.py`
+2. Observe IDENTITIES=20 vs FC v2=15; 15 knobs skipped (printed).
+
+**Resolution**:
+(open) Likely fix: widen `ClusterPeopleConfig` to surface the exemplar (and
+optionally attach/split) knobs so profile_4 fully binds; then re-baseline.
+Tracked as a follow-up to spec-079's repository work, not a blocker for it.
+
+**Findings**:
+- 2026-06-06 A/B (scripts/experiment_clustering_ab.py): within one run,
+  `people_clusters` (pre-refinement) = 20 clusters and `refined_people_clusters`
+  (post `identity_refinement`) = 20 clusters with IDENTICAL sizes. So
+  **identity_refinement is ruled OUT** as the cause; the count is set entirely by
+  `cluster_people`. This isolates the gap to the clustering config surface
+  (exemplar/merge knobs), strengthening the original suspicion. Albumify
+  under-merges: FC v2's top clusters (35/24/14) are merges of Albumify's pieces
+  (29/13/11 + several size-2). Next: expose exemplar knobs, re-run, confirm.
+
+### SIGHTING-093: v2 pipeline does not persist excluded-face dispositions (filter_decisions empty; unassigned faces unstored; pose toggle unreachable)
+**Status**: OPEN
+**Severity**: High
+**Reported**: 2026-06-05
+**Persona**: Senior SW Engineer / ML Engineer
+
+**Problem Description**:
+A fresh v2 run records the disposition of only 107 of 340 faces. The pipeline
+computes why each face was excluded but never persists it, so the
+Excluded-Faces / Quality features have no data source. Full trace in
+`specs/069-excluded-faces-tab/INVESTIGATION.md`.
+
+**Symptoms** (run `v2_budapest_20260605`, profile_4):
+- `filter_decisions` table = 0 rows on a fresh v2 run (Quality tab always empty).
+- `cluster_assignments` = 107 rows only; the 233 unassigned faces have no row.
+- All 340 faces have blur/area/det_score; pose is None for all (not computed).
+
+**Suspicion / root causes**:
+- **G1**: `QualityGateStep.process` drops `result.verdicts` — only writes
+  core/holdout indices. The Albumify export path persists verdicts
+  (`face_cluster_export.py:146`); the v2 path does not.
+- **G2**: noise / unattached faces get no `cluster_assignments` row.
+- **G3 (pose)**: `use_pose_estimation` is read by `quality_gate.py:82` and
+  SixDRepNet is installed, but `FCParams` exposes only `require_pose`, so no
+  profile/CLI flag can enable pose computation (defaults False).
+
+**Proposed Resolution (predecessor to spec-069 gate-breakdown)**:
+- G1: persist `verdicts` -> `filter_decisions` in the v2 quality_gate path. (open)
+- G2: write noise assignments (or have readers derive `all_faces − assigned`). (open)
+- **G3 (pose): RESOLVED 2026-06-05.** NOT via `use_pose_estimation` (that's the
+  abandoned SixDRepNet path — LEARNINGS.md:207). The correct source is
+  InsightFace buffalo_l `face.pose` ([pitch,yaw,roll]), computed at detection.
+  The detector wrapper (`InsightFaceDetection`) dropped it. Fix (4 edits):
+  `types.py` add `pose` field; `face_analyzer._create_face_detection` capture +
+  remap to (yaw,pitch,roll); `insightface_detect_faces._serialize_face` carry
+  it through cache; `_build_face_records` set `FaceRecord.pose` (faces_writer
+  already persists yaw/pitch/roll). Verified: `v2_budapest_20260605b`
+  with_pose=340/340, yaw range [-88,85] median ~0. spec-070 (overlays)
+  unblocked.
+
+**Follow-up observed (NEW, separate from pose)**: clearing the detection cache
++ re-running produced 10 clusters / 86 assigned vs the prior run's 15 / 107.
+Embeddings are structurally identical (340x512, 3 zero rows) in both, so it's
+not missing embeddings — re-detection yields slightly different crops ->
+different embedding values -> clustering shifts. Reproducibility concern worth
+its own look; tracked here, NOT caused by the pose change (pose is inert with
+require_pose=False).
+
+**Findings**: (see INVESTIGATION.md)
+
+### SIGHTING-092: Budapest e2e Scenario F (Quality) has no quality data in the reference run
+**Status**: OPEN (resolution in progress: spec-069 `specs/069-excluded-faces-tab/` — splits gate-rejected vs unassigned into a unified Excluded Faces funnel; F's test deferred to a human-validated golden baseline)
+**Severity**: Medium
+**Reported**: 2026-06-05
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Scenario F (`test_scenario_f_quality.py`) asserts the Quality tab shows
+220–240 rejected faces over the reference run `6437d335…`. But that run is a
+legacy `fc_app` producer run that predates per-gate `filter_decisions`
+(a v2 / spec-032 feature). `QualityService.summary()` therefore returns
+`n_items=0, n_decisions=0, n_rejected=0`, and the tab correctly renders the
+empty state. F's premise is unmeetable against this run — it is NOT a tab bug.
+
+**Symptoms**:
+- spec-068 telemetry: `tab.done name=quality n_items=0 n_decisions=0 n_rejected=0`.
+- Quality tab shows "No filter_decisions recorded for this run."
+- F times out waiting for the per-gate Plotly chart / rejected-count metric.
+
+**Suspicion**:
+Reference run lacks `filter_decisions` rows. Either the run was produced
+before the gate-logging feature, or the v2 `QualityService` cannot read the
+legacy run's gate data. (Telemetry + the AppTest empty-state info point at
+"data absent", not a read bug — confirm before fixing.)
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest -m budapest -k quality tests/face_clustering/e2e_budapest/`
+2. Observe timeout; check the newest `logs/*/fc_app_v2.log` for the
+   `tab.done name=quality n_items=0` line.
+
+**Proposed Resolution (needs decision)**:
+- (a) Add a v2-produced reference run that has `filter_decisions`, point F at
+  it (and add its expected reject band to conftest); OR
+- (b) Redefine F to assert the empty-state contract (info banner present, 0
+  rejected) — weaker, but valid for a no-quality-data run.
+Do NOT fudge the 220–240 band. Tracked as spec-067 T12.
+
+**Findings**:
+(open)
+
+### SIGHTING-091: Budapest e2e Scenarios B-F can't click a row in History's `st.dataframe`
+**Status**: OPEN (proposed resolution: spec-067 → `specs/067-history-tab-dom-native-row-pick/`)
+**Full analysis**: `specs/067-history-tab-dom-native-row-pick/ANALYSIS.html` — modules, class diagram, LOC, testability map, resolution options A/B/C with recommendation.
+**Severity**: Medium (blocks 4 of 6 e2e scenarios; not a product bug)
+**Reported**: 2026-05-30
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+Scenarios B/C/D/E/F all do:
+```python
+short = REFERENCE_RUN_ID[:8]
+page.get_by_role("gridcell", name=short).first.click(timeout=15_000)
+```
+This times out. The History tab table is rendered as `st.dataframe(on_select="rerun", selection_mode="single-row")` — Streamlit's modern dataframe widget is glide-data-grid based (canvas), and does NOT expose cells as standard ARIA `gridcell` role with the cell text as the accessible name. The cell content IS visually rendered (verified in `_failure_artifacts/*.png` screenshots) but is invisible to Playwright role-based selectors.
+
+**Symptoms**:
+- `playwright._impl._errors.TimeoutError: Locator.click: Timeout 15000ms exceeded. Call log: - waiting for get_by_role("gridcell", name="6437d335").first`
+- Screenshot shows the dataframe rendered correctly with the row visible.
+
+**Suspicion**: Streamlit dataframe row selection requires either (a) clicking the checkbox column's accessible label (e.g. "Select row N"), (b) targeting the row's bounding box by coordinate, or (c) using a Streamlit-specific Playwright fixture. Need empirical investigation against the running app.
+
+**Reproduction**:
+1. `.venv/Scripts/python -m pytest -m budapest tests/face_clustering/e2e_budapest/test_scenario_b_load_reference.py -v --tb=line`
+2. Times out at the gridcell click; screenshot in `_failure_artifacts/`.
+
+**Not a product bug**: the v2 app's History tab works correctly in a real browser. This is an e2e-test design gap.
+
+**Possible resolutions** (in order of preference):
+1. Replace `st.dataframe` row-select with `st.radio`/buttons per row in the History tab (also resolves the broader a11y issue) — small UI change, makes the tab e2e-testable by construction. Probably worth a 1-day spec.
+2. Find a Playwright selector pattern that works with glide-data-grid's row-select checkbox column.
+3. Use `at.dataframe(0).select_row(n)` via Streamlit's `AppTest` API instead of Playwright for the row-pick step — but loses browser-level coverage.
+
+---
+
+### SIGHTING-090: `test_executor_step_io_logging` fails only in full-suite run (test pollution)
+**Status**: OPEN
+**Severity**: Low
+**Reported**: 2026-05-30
+**Persona**: Senior SW Engineer
+
+**Problem Description**:
+`tests/pipeline/test_executor_step_io_logging.py::test_executor_logs_in_out_for_each_successful_step` and `::test_executor_logs_validation_failure_with_input_shape` fail in the full pytest run but pass when run in isolation OR when running just `tests/pipeline/` (after ignoring the known-broken-collection files).
+
+**Symptoms**:
+- Isolation: 8/8 pass.
+- `pytest tests/pipeline/ --ignore=tests/pipeline/test_face_embedding_validation.py --ignore=tests/pipeline/test_face_pipeline_e2e.py`: 119 passed (these 2 included).
+- Full suite (alphabetical order, with documented ignores): both fail.
+
+**Suspicion**:
+Logging state pollution from an upstream test. Both failing tests use `caplog.at_level(logging.INFO, logger="sim_bench.pipeline.executor")`. If an earlier test sets `propagate=False` on `sim_bench.pipeline.executor` or removes its handler, `caplog` won't see the records. The full suite first runs `tests/architecture/`, `tests/clustering/`, `tests/face_clustering/`, `tests/manual/`, `tests/quality_assessment/` before reaching `tests/pipeline/` — one of those modules is likely the culprit. Could also be SQLAlchemy's logger taking over the root.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest tests/ -q --tb=no --ignore=tests/test_full_e2e_flow.py --ignore=tests/test_quality_assessment.py --ignore=tests/test_clip_aesthetic.py --ignore=tests/quality_assessment/test_learned_clip.py --ignore=tests/test_quality_benchmark.py --ignore=tests/pipeline/test_face_pipeline_e2e.py --ignore=tests/pipeline/test_face_embedding_validation.py`
+2. Both tests listed in the FAILED section.
+3. Re-run just `tests/pipeline/test_executor_step_io_logging.py` → 8/8 pass.
+
+**Suggested investigation**:
+- Add `caplog.set_level(logging.NOTSET)` + reset propagate in a conftest autouse fixture under `tests/pipeline/`, see if it isolates.
+- Or bisect upstream: `pytest tests/face_clustering/ tests/pipeline/test_executor_step_io_logging.py -p no:randomly` → fails? Then narrow to a specific file.
+
+**Resolution**: (open)
+
+**Findings**: (open)
+
+---
+
+### SIGHTING-089: History tab run-detail panel is blank for every v2 run
+**Status**: RESOLVED 2026-05-30 — read summary from `run_metadata` table via RunStore; legacy JSON parser kept as fallback for older runs. Regression test: `test_summary_from_run_metadata_populates_fields_for_v5_run`. Verified against the user's real Budapest run: `n_faces=340, n_core=186, n_clusters_base=15`.
+**Severity**: Medium (UX degradation — not a crash; user sees blanks where the legacy panel showed numbers)
+**Reported**: 2026-05-30 by Claude (spec-061 audit Phase 1, finding F06)
+
+**What the user sees**
+
+Open the v2 app → **History** tab → click any row produced by `fc_app_v2` (every recent run). The detail panel below shows the run's basic info (album, status, dates) but every numeric / timing field is **empty or zero**:
+
+  - Face count: blank
+  - Core face count: blank
+  - Clusters (base): blank
+  - Clusters (merged): blank
+  - Noise count: blank
+  - Stage durations: empty (no per-step timings)
+  - Merges applied: blank
+  - Merge threshold: blank
+
+Click the same panel on an **older v4 run** (or any run from the legacy app): all fields populated.
+
+**Where the bug is — concrete**
+
+The History tab reads run summary stats out of `<run_dir>/pipeline_run.json`. Specifically:
+
+```python
+# face_cluster/views/history.py:524-559 — _summary_from_pipeline_run
+summary_block = prun.get("summary")              # ← v5 doesn't write "summary"
+stages_block = prun.get("stages")                # ← v5 doesn't write "stages"
+merge_meta = prun.get("merge_metadata")          # ← v5 doesn't write "merge_metadata"
+merge_log = prun.get("merge_log")                # ← v5 doesn't write "merge_log"
+
+return RunSummary(
+    n_faces=summary_block.get("n_faces"),        # → None
+    n_core=summary_block.get("n_core"),          # → None
+    n_clusters_base=...                          # → None (all of them)
+    ...
+)
+```
+
+The v5 writer at `sim_bench/run_db/artifact_writers/pipeline_run_writer.py:25-38` writes only 9 keys to `pipeline_run.json`: `run_id`, `source_album`, `producer`, `parent_run_id`, `started_at`, `finished_at`, `status`, `schema_version`, `db_path`. None of the four keys the History reader expects exist in v5 output.
+
+No crash because `.get()` returns `None`. The reader silently produces a `RunSummary` with every numeric field `None` / empty dict. The UI then renders blanks.
+
+**Where the data actually lives**
+
+All of it is in the per-run DB's `run_metadata` table — written by the v5 exporter, readable via `RunStore.metadata()`. That returns a `RunMetadata` dataclass with: `n_images`, `n_faces`, `n_core`, `n_clusters_base`, `n_clusters_final`, `n_merges`, `n_iterations`, `config`, `merge_thresholds`, `merge_iter_summary`, `started_at`, `finished_at`. **Every field the History panel needs is already there — the reader is just looking in the wrong file.**
+
+Stage durations are the one gap — v5 doesn't record per-stage timings anywhere (the legacy `pipeline_run.json["stages"]` block was per-step start/end). That part stays blank until a separate writer change adds them; everything else can be populated from `run_metadata`.
+
+**The fix (planned)**
+
+In `face_cluster/views/history.py`, replace the call site:
+
+```python
+# Today (broken for v5):
+prun = json.loads((out_dir / "pipeline_run.json").read_text())
+summary = _summary_from_pipeline_run(prun)
+
+# After fix:
+from sim_bench.run_db.store import RunStore
+try:
+    meta = RunStore(out_dir).metadata()
+    summary = _summary_from_run_metadata(meta)
+except Exception:
+    summary = _summary_from_pipeline_run(prun)   # legacy fallback for old runs
+```
+
+Add a new ~15-line helper:
+
+```python
+def _summary_from_run_metadata(meta: RunMetadata) -> RunSummary:
+    """v5: read summary stats from the run_metadata DB table.
+    Stage durations are still blank — v5 doesn't record them."""
+    return RunSummary(
+        n_faces=meta.n_faces,
+        n_core=meta.n_core,
+        n_clusters_base=meta.n_clusters_base,
+        n_clusters_merged=meta.n_clusters_final,
+        n_noise=None,                            # v5 doesn't expose this directly
+        stage_durations={},                      # not recorded in v5
+        merge_count=meta.n_merges,
+        merge_candidate_threshold=(meta.merge_thresholds or {}).get("merge_candidate_threshold"),
+    )
+```
+
+Try-RunStore-first means: v5 runs get full data from the DB; older v4-and-earlier runs fall through to the existing JSON parser. No writer change; no breaking change to legacy runs.
+
+**Estimated effort**: 1 hour. Touches 1 production file (history.py) + 1 unit test (existing `test_history_service_*` suite gets one new case asserting v5 runs populate the fields).
+
+**Why no unit test caught this**
+
+The History service's synthetic tests build a fixture run by writing a fake `pipeline_run.json` with all four legacy keys present (so `_summary_from_pipeline_run` finds what it wants). That's the wrong fixture shape for v2 — real v2 runs never produce those keys. The fix here also wants a regression test that builds a fixture with **only** v5 keys + a populated `run_metadata` table; the existing fixture's JSON-shape needs to follow what the v5 writer actually emits.
+
+**Findings (cross-ref)**
+
+- Surfaced by spec-061 read-path audit, finding F06.
+- Pattern matches SIGHTING-078 / -079 / -080: a v2 code path written against pre-spec-040 layout assumptions.
+
+---
+
+### SIGHTING-088: 3 smoke scripts under tests/ break pytest collection
+**Status**: OPEN
+**Severity**: Low (infra; blocks "run full pytest" without `--ignore`)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Anyone touching the test infra
+
+**Problem Description**:
+- `tests/test_full_e2e_flow.py` — `sys.exit(1)` at module import when backend isn't on `localhost:8000`. Kills pytest collection for the whole directory.
+- `tests/test_quality_assessment.py` — prints `✗` / `✓` at import; on a Hebrew Windows locale (cp1255) this raises `UnicodeEncodeError`.
+- `tests/pipeline/test_face_pipeline_e2e.py` — imports OK as a script, collection-fails under pytest (cause not yet investigated).
+
+**Suspicion**:
+These were authored as runnable scripts and accidentally placed under `tests/`. CLAUDE.md already mandates ASCII-only CLI output and Windows test compatibility — both apply here.
+
+**Resolution candidates**:
+- Move to `scripts/` directory, OR
+- Wrap import-time logic in `if __name__ == "__main__":`, OR
+- Add to `pytest.ini` / `pyproject.toml` `[tool.pytest.ini_options].addopts = "--ignore=tests/test_full_e2e_flow.py ..."`.
+
+---
+
+### SIGHTING-087: AVA training tests write a CSV referencing image files they don't create
+**Status**: OPEN
+**Severity**: Low (test infrastructure; nothing in prod broken)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: ML Engineer / whoever owns AVA training
+
+**Problem Description**:
+- `tests/test_ava_training.py::test_dataset` — `FileNotFoundError: 'C:\\...\\Temp\\.../images/1.jpg'`. The fixture writes `annotations.csv` listing image rows but never writes the JPEGs they point to.
+- `tests/test_ava_training.py::test_full_training_loop` — `ValueError: num_samples should be a positive integer value, but got num_samples=0`. Cascade from the above — empty dataset ⇒ `RandomSampler` rejects.
+
+**Resolution candidates**:
+- Generate placeholder JPEGs in the fixture (`PIL.Image.new('RGB', (224, 224)).save(...)`), OR
+- Mark with `@pytest.mark.requires_ava_data` and skip in CI.
+
+---
+
+### SIGHTING-086: photo_analysis prompts config grew 55 → 57; two test assertions out of date
+**Status**: OPEN
+**Severity**: Medium (false-fail; trivial fix once we confirm the 2 new prompts were intentional)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Whoever maintains the CLIP-tagging prompts config
+
+**Problem Description**:
+- `tests/test_photo_analysis.py::test_clip_tagger` — `assert summary['total_prompts'] == 55, got 57`.
+- `tests/test_photo_analysis.py::test_config_file_exists` — same `assert total == 55, got 57`.
+
+**Suspicion**:
+The prompts YAML grew by 2 entries; assertions never updated.
+
+**Resolution**:
+Audit the 2 new prompts; if intentional, bump the assertions to 57.
+
+---
+
+### SIGHTING-085: HDBSCAN-PCA factory + defaults drift breaks tests/clustering/test_mutual_knn
+**Status**: OPEN
+**Severity**: Medium (test/code disagreement; one of them is wrong)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Clustering / ML Engineer
+
+**Problem Description**:
+- `test_basic_clustering` — `assert stats['params']['pca_components'] == 64` → fails with `20 == 64`. PCA-components default changed.
+- `test_factory_loading` — `load_clustering_method({'algorithm': 'hdbscan_pca'})` raises `ValueError: Unknown clustering algorithm: hdbscan_pca`. Registered names: `dbscan, kmeans, hdbscan, hierarchical, hybrid_hdbscan_knn, hybrid_closest_face, mutual_knn, mutual_knn_two_stage, hybrid_hdbscan_knn_tcore2all, hybrid_hdbscan_knn_merge_twotier, hybrid_hdbscan_knn_attach_strong1`.
+
+**Suspicion**:
+The `hdbscan_pca` strategy was renamed or merged into one of the `hybrid_hdbscan_knn_*` variants; the test wasn't updated.
+
+**Resolution candidates**:
+- If the algorithm was intentionally removed: delete the two tests (or update them to the new name).
+- If the algorithm should still exist: re-register it in `sim_bench/clustering/base.py::_REGISTRY` (or wherever the dispatch lives) and document the PCA-components default.
+
+---
+
+### SIGHTING-084: 4 test files import from sim_bench modules that don't exist
+**Status**: OPEN
+**Severity**: Medium (8 tests across 4 files; collection or runtime failures)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Whoever owns each module's deletion (need git blame)
+
+**Problem Description**:
+- `tests/test_selection_export.py` (4 tests) → `sim_bench.album.selection` missing.
+- `tests/test_clip_aesthetic.py` (collection error) → `sim_bench.quality_assessment.clip_aesthetic` missing.
+- `tests/quality_assessment/test_learned_clip.py` (collection error) → same `sim_bench.quality_assessment.clip_aesthetic` missing.
+- `tests/test_quality_benchmark.py` (collection error) → `sim_bench.quality_assessment.benchmark` missing.
+- `tests/pipeline/test_face_embedding_validation.py` (collection error) → `sim_bench.pipeline.steps.filter_quality_gate` missing.
+
+**Resolution per file** (decision tree):
+1. If feature still exists at a different path → update test imports.
+2. If feature was deliberately retired → delete the test file (and confirm via git log that the deletion was intentional).
+3. If feature is planned but not yet built → mark tests `@pytest.mark.skip(reason="<spec-XXX> pending")`.
+
+---
+
+### SIGHTING-083: person_penalty scoring strategy returns 0.22 where test expects 0.02 (11× off)
+**Status**: OPEN
+**Severity**: High (probably a real scoring-strategy regression; affects album selection quality if shipped)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: ML / Album-selection owner
+
+**Problem Description**:
+`tests/pipeline/test_scoring_strategy.py::test_person_penalty_strategy`:
+```
+assert 0.22 == pytest.approx(0.02, rel=0.01)
+Obtained: 0.22  Expected: 0.019999999999999997 ± 2.0e-04
+```
+
+**Suspicion**:
+Person-penalty formula gained an extra factor of ~10, OR the test fixture changed (e.g., different cluster sizes) without the assertion being updated. Off by exactly one order of magnitude is suspicious — could be a missing division by 10, or units mixed (percent vs fraction).
+
+**Resolution**:
+Bisect `sim_bench/pipeline/scoring/` against the test's input fixture. One of `test_person_penalty_strategy`'s expected value, or the strategy implementation, is wrong.
+
+---
+
+### SIGHTING-082: `HybridHDBSCANKnn._validate_features` doesn't ndim-check before `np.linalg.norm`
+**Status**: OPEN
+**Severity**: High (silent bug — caller intended to get a useful error, gets a confusing numpy stack trace instead)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: Clustering owner
+
+**Problem Description**:
+`tests/clustering/test_hybrid_hdbscan_knn.py::TestInputValidation::test_1d_array_raises`:
+```
+Expected: ValueError matching "2D"
+Got:      numpy.exceptions.AxisError: axis 1 is out of bounds for array of dimension 1
+```
+
+In `sim_bench/clustering/hybrid_hdbscan_knn.py:_validate_features`, the function calls `np.linalg.norm(features, axis=1)` (line 355) before checking `features.ndim`. A 1-D array trips numpy before the function's own validation can raise.
+
+**Resolution**:
+Add as the very first check inside `_validate_features`:
+```python
+if features.ndim != 2:
+    raise ValueError(f"features must be 2D (n_samples, n_features), got {features.ndim}D")
+```
+
+---
+
+### SIGHTING-081: Face-recognition pipeline produces embeddings uncorrelated with ground truth
+**Status**: OPEN
+**Severity**: Critical (entire face-pipeline output appears unusable for similarity work — distance-matrix correlation with ground truth is 0.006 where ≥0.9 was expected)
+**Reported**: 2026-05-29 by Claude during post-spec-057 test triage
+**Persona**: ML Engineer / Face-pipeline owner
+
+**Problem Description**:
+Five tests across three files fail in the same direction — measured similarity / distance for known same-person face pairs is far below threshold:
+
+| Test | Symptom |
+|---|---|
+| `tests/test_face_pipeline_full.py::TestPipelineVsGroundTruth::test_distance_matrix_correlation` | Pearson correlation pipeline-vs-ground-truth = **0.006** (threshold 0.9) |
+| `tests/test_face_pipeline_full.py::TestFullPipeline::test_pipeline_embeddings_match_ground_truth` | 15 faces with same-face cosine sim ≈ 0 (some negative) |
+| `tests/test_face_pipeline_full.py::TestFullPipeline::test_pipeline_preserves_identity_structure` | 55 same-person pairs measure cosine-distance > 1.0 (impossible for unit vectors) |
+| `tests/test_ground_truth_fresh.py::TestGroundTruthFresh::test_same_person_distances` | 20 same-person pairs at distance ≥ 0.46 |
+| `tests/pipeline/test_face_recognition_benchmark.py::TestSimilarityMetrics::test_intra_person_similarity` | Person 00000 mean similarity 0.407 (threshold 0.5) |
+
+**Suspicion**:
+A single root cause likely explains all 5. Candidates:
+1. **Wrong model variant loaded.** The fresh insightface model load printed in the trace shows `buffalo_l/w600k_r50.onnx` for recognition. If the test fixtures were captured against a different model (e.g., `arcface_r100`), every assertion would fail.
+2. **Embeddings written un-normalized.** Cosine-distance > 1.0 is mathematically impossible for unit vectors, so embeddings either aren't L2-normalized at write time or are being read with the wrong dtype/shape.
+3. **Alignment / preprocessing drift.** A different crop size, BGR/RGB swap, or scale would produce embeddings in a different region of the 512-D sphere → ground-truth comparisons all miss.
+
+**Why this matters**:
+This is the substrate every downstream feature depends on. If face embeddings are broken at the pipeline level, clustering, similarity search, and selection-export results are all suspect — even if those features' own unit tests pass against synthetic data.
+
+**Steps to reproduce**:
+```
+.venv/Scripts/python -m pytest tests/test_face_pipeline_full.py -v
+```
+
+**Resolution candidates**:
+1. `git log` on `sim_bench/embedding/` and `sim_bench/pipeline/steps/face_*` since the last time these tests passed.
+2. Compare the current insightface model version + alignment params against the ground-truth fixture's captured version.
+3. Add an assertion that embedding L2-norm ≈ 1.0 right after extraction.
+
+---
+
+### SIGHTING-080: History tab "Load Run" rejects every v2 run as "missing required artifacts (faces.csv, ...)"
+**Status**: RESOLVED 2026-05-29
+**Severity**: High (every v2 run was un-loadable from History tab — blocked the whole History → Analysis flow)
+**Reported**: 2026-05-29 by user — *"Run is incomplete (status: complete). Cannot load — required artifacts (faces.csv, clusters.csv, embeddings.npy) are missing or status is not 'complete'."*
+
+**Problem Description**:
+`face_cluster/views/history.py:_REQUIRED_ARTIFACTS` was a hardcoded legacy-CSV
+list — `(faces.csv, clusters.csv, embeddings.npy)`. spec-040 Phase 4 (schema v5)
+replaced the CSV trio with a single sqlite `face_clustering.db` at the run dir's
+top level. v2 runs (producer = `fc_app_v2`) write the v5 layout exclusively.
+The History tab's load-check used the legacy list, so every v2 run failed the
+artifact check even though `load_pipeline_result` could open it via RunStore.
+
+The user's error message contained the contradiction in plain sight: "status:
+complete" + "Cannot load — required artifacts ... missing." Both were technically
+correct — the run was complete, AND the v4 CSVs were missing — but the artifact
+list being checked was wrong for the era.
+
+**Symptoms**:
+- Open v2 app → History tab → expand any v2 run → "Load Run" button disabled
+  with the contradictory warning.
+- The same run dir opens fine when handed to `ClusterAnalysisRepository` directly
+  (the v5 DB exists; RunStore validates it).
+
+**Suspicion**:
+Hardcoded artifact list never got updated when spec-040 v5 schema landed.
+Synthetic tests for HistoryService used CSV-style fixtures (matched
+`_REQUIRED_ARTIFACTS` by accident), so the test suite never noticed.
+
+**Steps to Reproduce**:
+1. Run any v2 pipeline (`fc_app_v2` producer).
+2. Open v2 app → History tab → expand the just-completed run.
+3. Observe: "Load Run" button disabled, error claims artifacts missing.
+
+**Resolution**:
+Replaced `_REQUIRED_ARTIFACTS` constant with
+`_run_dir_has_loadable_artifacts(out_dir)` function that matches the three
+layouts `load_pipeline_result` actually handles:
+  1. v5 (current): `face_clustering.db` at top level.
+  2. v4 transitional (spec-030): `_v4/face_clustering.db`.
+  3. Legacy CSV: `faces.csv` + `clusters.csv` + `embeddings.npy`.
+
+Updated error messages in both `history.py:load_run` and
+`load_button.py` to be honest about what's checked. New regression test
+suite `tests/face_clustering/views/test_history_service_v5_artifacts.py`
+pins all three layouts + partial / pathological cases.
+
+**Findings**:
+This is the second instance in a week of v2 code paths failing because
+they were ported assuming a layout that's no longer the default
+(SIGHTING-078 was the same shape — RunStore's "final" resolver expected
+merge_decisions semantics from before the no-op merge round became
+common). Pattern: every spec-040-touched component needs an explicit
+audit against the v5 reality. The new AppTest harness
+(`tests/face_clustering/test_v2_app_smoke.py`) catches the symptoms
+end-to-end; the layout-check test catches the unit-level cause.
+
+---
+
+### SIGHTING-079: v2 Cluster Analysis tab stuck on "Analysing cluster…" — AsyncHandle never reaches UI
+**Status**: RESOLVED 2026-05-29 (sync compute + st.spinner; AsyncHandle retained as library primitive)
+**Severity**: High (tab is functionally unusable — user sees only loading text)
+**Reported**: 2026-05-29 (immediately after SIGHTING-078 fix landed and revealed the next layer)
+**Persona**: Senior SW Engineer (spec-045 owner)
+
+**Problem Description**:
+After SIGHTING-078's RunStoreError fix, the Cluster Analysis tab renders but
+shows only "Analysing cluster…" and "Computing graph diagnostics…" indefinitely.
+Cluster metrics, face grid, and graph debug never appear. AppTest confirms:
+`metrics: 0` after multiple script reruns spaced 2 seconds apart.
+
+**Symptoms**:
+- User selects a cluster from the picker; UI never advances past the loading caption.
+- AppTest shows `at.metric` count stays 0 across reruns.
+- Background thread (AsyncHandle's daemon Thread) DOES complete — the
+  ClusterView is computed and stored in handle.result.
+
+**Suspicion**:
+`ClusterAnalysisService.compute_detail_async()` is called on every Streamlit
+script rerun. Each call cancels any prior in-flight handle and starts a NEW
+one in "running" state. The `render_cluster_metrics` component polls the
+handle once, sees "running", renders the caption, and returns. **Nothing in
+Streamlit triggers a subsequent rerun to check if the handle finished.** The
+legacy code (`app/face_clustering/state.py::_AsyncState`) had a
+`time.sleep + st.rerun()` polling loop in the tab body; spec-045's port
+introduced `AsyncHandle[T]` but didn't include the polling.
+
+**Steps to Reproduce**:
+1. Load any completed v2 run dir into session_state.
+2. Open the Cluster Analysis tab.
+3. Pick a cluster.
+4. Observe: "Analysing cluster…" sticks forever. Metrics never appear.
+
+**Resolution (shipped 2026-05-29)**:
+Added synchronous `ClusterAnalysisService.compute_detail(cluster_id) -> ClusterView`
+and `compute_debug(cluster_id) -> ClusterDebugView` (sibling methods alongside
+the async variants, which are kept as library primitives). 6 components
+(cluster_metrics / face_grid / nearest_clusters / cluster_debug + 2 untouched)
+now take concrete typed inputs instead of AsyncHandles. Tab body wraps each
+sync call in `st.spinner("Analysing cluster…")` + try/except logging.
+
+Verified end-to-end via AppTest against the user's actual failing run dir
+(`e51497605...`): `metrics=9, exceptions=0, errors=0`, face thumbnails with
+role tags + distances rendered. AppTest regression case
+`test_cluster_analysis_metrics_actually_render` asserts `metrics >= 5` — the
+exact signal that would have caught this before commit.
+
+**Findings**:
+- AppTest is the right test surface — `at.metric` count would have caught
+  this immediately. Spec-045's existing Service tests called `handle.wait()`
+  synchronously, which always shows `state == "done"`. They never tested
+  through Streamlit's request/response lifecycle. spec-060 Phase 2 closes
+  this gap permanently.
+- AsyncHandle pattern is a legitimate primitive but it requires explicit
+  polling in the caller. Streamlit's auto-rerun on widget interaction is
+  NOT a polling mechanism — it doesn't fire when a background thread
+  completes.
+
+---
+
+### SIGHTING-078: `RunStore.clusters("final")` crashes when merger ran but merged nothing
+**Status**: OPEN (worked around in spec-045 Repository; root fix belongs in RunStore)
+**Severity**: Medium
+**Reported**: 2026-05-29
+**Persona**: Senior SW Engineer (face_cluster owner)
+
+**Problem Description**:
+`RunStore._resolve_iteration("final")` computes the final iteration as
+`SELECT MAX(iteration) FROM merge_decisions`. When a merger ran one iteration
+but didn't actually merge anything (`actually_merged=0` for every candidate
+pair — common on well-clustered runs), the `clusters` and `cluster_assignments`
+tables stay at the previous iteration but `merge_decisions` gains rows at the
+new iteration. `RunStore.clusters("final")` then queries the `clusters` table
+at the merge_decisions max iteration, finds zero rows, and raises
+`RunStoreError: no clusters recorded for iteration N`.
+
+**Symptoms**:
+- User opens v2 Cluster Analysis tab against a completed run.
+- Tab crashes (or, post-spec-045-fix, shows a friendly error).
+- Direct DB inspection: `clusters` rows only at iteration=0; `merge_decisions`
+  rows at iteration=1 with all `actually_merged=0`; `run_metadata.n_iterations=1`.
+
+**Suspicion**:
+`iteration_count()` reads the wrong table. The notion of "final iteration"
+should be the latest one for which there are actual `clusters` rows, not the
+latest merge round considered. The current logic conflates "merger ran" with
+"merger produced output."
+
+**Steps to Reproduce**:
+1. Run a fresh v2 pipeline on a small Budapest subset.
+2. Observe `merge_decisions` table has rows at iteration=1, all `actually_merged=0`.
+3. `RunStore(run_dir).clusters("final")` raises `RunStoreError`.
+
+**Workaround (shipped in spec-045)**:
+`ClusterAnalysisRepository.get_cluster_result("final")` now resolves the
+iteration locally against the `clusters` table (via its own `_resolve_iteration`)
+and passes the integer to `RunStore.clusters(int)`, bypassing RunStore's broken
+"final" resolver. Regression test:
+`tests/face_clustering/repositories/test_cluster_analysis_repo_synthetic.py::test_get_cluster_result_final_when_merger_ran_but_merged_nothing`.
+
+**Resolution**:
+(pending) RunStore should be fixed at source. Options:
+- Change `iteration_count()` to read from `clusters` instead of `merge_decisions`
+  (or take MAX of both).
+- Make `RunStore.clusters("final")` fall back to the latest iteration that
+  actually has rows when the resolved one is empty.
+
+**Findings**:
+Spec-045's synthetic test fixture had zero `merge_decisions` rows, so this
+shape was untested. The 2026-05-29 user-reported crash on Budapest is what
+surfaced it. Lesson: synthetic fixtures must include the "merger ran but merged
+nothing" case for any test that touches the iteration-resolution code path.
+
+---
+
+### SIGHTING-077: v2 Run button silently greyed while typing in Album / Source fields
+**Status**: RESOLVED
+**Severity**: Low (UX confusion, no data loss)
+**Reported**: 2026-05-29
+**Persona**: Frontend / Streamlit
+
+**Problem Description**:
+User reported that in `face_clustering_app_v2`, the Run button only became clickable after they checked `cluster_diameter_cap_enabled`. Cap state has no code-level connection to the Run button; the real cause was a Streamlit text-input commit quirk.
+
+**Symptoms**:
+- Run button greyed out after typing source dir + album name.
+- Clicking any other widget (the cap checkbox happened to be the nearest) re-enabled the button.
+
+**Root cause**:
+`st.text_input` commits its value only on blur/Enter — not on every keystroke. `run_tab.py:120` computed `run_disabled = not (src and album.strip())` from the un-committed return values. Until focus left the field, `album` was still `""` and the button stayed disabled. Any other widget interaction forced a focus change → commit → rerun → button enabled. The cap checkbox was just the closest "kick."
+
+**Resolution**:
+`app/face_clustering_v2/tabs/run_tab.py` — removed the `disabled=` gate on the Run button. Validation now runs inside the click handler with an explicit `st.error("Source directory and album name are both required.")` when either is empty. Users see a clear error instead of a silently-greyed button.
+
+**Findings (for LEARNINGS.md)**:
+- Don't gate Streamlit buttons on un-committed text_input values — the commit-on-blur lag produces a "filled-in fields, dead button" UI bug. Either wrap in `st.form` (atomic commit), or always-enable + validate on click.
+
+---
+
+### SIGHTING-076: Test suite was writing to the production action_log DB
+**Status**: RESOLVED (spec-051)
+**Severity**: High (silent data pollution of user-owned DB)
+**Reported**: 2026-05-28
+**Persona**: Test infra / Data layer owner
+
+**Problem Description**:
+User opened the v2 app Clusters tab; picker auto-selected the most recent `fc_app_v2` row; clicking it produced `face_clustering.db not found at C:\...\pytest-of-Jonathan Hexner\pytest-413\test_params_path_does_not_emit0\out\...`. The path is unmistakably a pytest temp directory.
+
+Investigation found **18 orphan rows** in the user's real `~/.sim_bench/sim_bench.db`, all written by tests that constructed `RunHistoryRepository()` with no `db_path` (which defaults to the real DB via `_paths.default_db_path()`). Three test files contributed:
+- `tests/face_clustering/test_run_v2_pipeline_kwargs.py` — never had any isolation fixture; polluted since spec-041 landed.
+- `tests/face_clustering/test_fc_app_v2_e2e.py` — had a fixture targeting `run_history_db.get_db_path`, which became dead code in spec-048 Phase 7 when `_resolve_db_path` started importing from `_paths` directly. Silent ineffectiveness window: 2026-05-28 AM → PM.
+- `tests/face_clustering/test_run_v2_script.py` — same issue, same window.
+
+**Resolution (spec-051)**:
+1. Session-scoped autouse fixture `isolate_action_log_db` in `tests/conftest.py` redirects `_paths.default_db_path` to a per-session tmp file. No test can hit the production DB without explicit opt-out (and the only opt-out pattern is constructing the Repository with an explicit `db_path` argument).
+2. Arch test `test_action_log_db_isolation.py` ensures the fixture stays session-scoped and autouse.
+3. Picker (run_picker.py) now marks orphan entries with `[missing]` prefix + footnote count; Clusters tab blocks orphan selection with a warning instead of a traceback.
+4. One-shot cleanup script `scripts/cleanup_orphan_action_log.py` with `--dry-run` (default) and `--apply --yes-i-counted N` modes.
+
+**Findings (for LEARNINGS.md)**:
+- Any test that constructs a domain-layer object using its default constructor is implicitly trusting that the defaults are test-safe. They almost never are. Session-wide autouse fixtures that redirect risky defaults to tmp paths are cheaper than auditing every test.
+- Tests that monkeypatch an attribute that gets bypassed by a later refactor go silently ineffective. The arch-test guard against this class of bug is "snapshot a key counter before + after the test suite and assert delta = 0."
+
+---
+
+### SIGHTING-075: v2 app MVP-completeness gap — clusters tab crashes, no per-run dirs, no way to load a specific run
+**Status**: RESOLVED (spec-050)
+**Severity**: High (every v2 user session hit this)
+**Reported**: 2026-05-28
+**Persona**: ML / App owner
+
+**Problem Description**:
+First real session against the v2 app surfaced three issues at once:
+
+1. Clusters tab crashed with `'RunStore' object has no attribute 'list_clusters'`. The tab called `store.list_clusters()` and `store.list_assignments(...)` — neither method exists on the actual `RunStore` class. The tab was never exercised end-to-end against a real RunStore.
+2. Every Run wrote into a fixed `~/.sim_bench/runs/v2_latest/` directory. Each run silently clobbered the previous one. There was no per-run identity captured at the UI layer (no album, no run_id flowing through to the action_log).
+3. After a Run, there was no way to load a specific historical run other than pasting the directory path manually. No surface told the user which dirs corresponded to which run, what album, what counts.
+
+All three are MVP-completeness gaps — the v2 Streamlit chain (Run → Clusters → History) shipped without integrated UI coverage.
+
+**Resolution**: spec-050 ships:
+- New `face_cluster/run_layout.py::allocate_run_dir` — fresh `runs/<uuid4-hex>/` per run; `run_id == dir name`.
+- Run tab now requires an album name; allocates the dir; writes `v2_last_run_dir` to session state *before* the pipeline runs (so failures still leave a recoverable pointer).
+- New `app/face_clustering_v2/components/run_picker.py` — selectbox of the 20 most recent v2 runs from `action_log`, labelled `{started} — {album} — {n_faces}f/{n_clusters}c — {status} ({run_id_short})`. Default-selects the entry matching the latest run.
+- `clusters_tab.py` rewritten against the real `RunStore` API (`clusters("latest")`, `faces()`, `crop_path()`). Picker above an Advanced free-text override.
+- New AppTest `test_v2_run_picker_e2e.py` (3 cases) covering the Clusters tab end-to-end — this is the test that would have caught all three symptoms before they shipped.
+
+**Findings (for LEARNINGS.md)**:
+- "MVP shipped, fix the rest in a later spec" is fine **only** when the unfilled gaps are documented in the MVP's REVIEW or a sighting. spec-040 shipped without filing the integration-coverage gap explicitly, so it became invisible until a user hit it.
+- A Streamlit tab that calls a backend method should have at least one AppTest exercising that call — even a 5-line "import the tab, monkeypatch the backend, render once, assert no exception" is enough to catch API drift like `list_clusters`.
+
+---
+
+### SIGHTING-070: spec-040 legacy-vs-v2 clustering equivalence broken — v2 chain crashes in `attach_holdout_faces`
+**Status**: OPEN
+**Severity**: Critical (spec-040 unification's central acceptance test is red across all 4 config variants)
+**Reported**: 2026-05-28
+**Persona**: ML / Pipeline owner (spec-040 author)
+
+**Problem Description**:
+All 8 parametrized cases in `tests/face_clustering/test_legacy_vs_v2_equivalence.py` fail. The v2 chain raises during the `attach_holdout_faces` step with:
+```
+Step 'attach_holdout_faces' failed: Validation failed:
+Required context key is empty: holdout_indices
+```
+This means the v2 chain's upstream step (likely `filter_quality_gate` or `cluster_people`) is not producing the `holdout_indices` context key that `attach_holdout_faces` consumes. The legacy chain works; v2 does not.
+
+**Symptoms**:
+- `test_legacy_and_v2_agree_on_real_fixture[default|merge_on|tighter_threshold|larger_K]` — 4 failures
+- `test_legacy_and_v2_produce_same_cluster_count[default|merge_on|tighter_threshold|larger_K]` — 4 failures
+- All 8 fail with the same `holdout_indices` empty-key error inside the v2 runner.
+
+**Suspicion**:
+spec-040 phases 3/4 (unified clustering steps + schema v5) restructured the step chain. `filter_quality_gate` (or whichever step produces the holdout split) is either:
+- not emitting `holdout_indices` to context, OR
+- emitting an empty list and a downstream validator treats empty as "missing".
+
+The Pandera/context-validation gate at `attach_holdout_faces` is doing its job — surfacing a real producer/consumer mismatch.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest tests/face_clustering/test_legacy_vs_v2_equivalence.py::test_legacy_and_v2_agree_on_real_fixture -v`
+2. Observe: 4/4 FAIL with the same `holdout_indices` error.
+
+**Files involved**:
+- Failing test: `tests/face_clustering/test_legacy_vs_v2_equivalence.py:297`
+- Suspect step: `sim_bench/pipeline/steps/attach_holdout_faces.py` (consumer)
+- Suspect producer: `sim_bench/pipeline/steps/filter_quality_gate.py` or one of the chain steps in `sim_bench/pipeline/steps/all_steps.py`
+- v2 entry: `face_cluster/fc_app_runner.py::FCAppRunner.run()`
+
+---
+
+### SIGHTING-071: `ClusterPeopleStep` quality gate not enforced on blur (holdout test fails)
+**Status**: RESOLVED (2026-05-29) — re-diagnosed: production code was fine; the two failing tests were stale.
+**Severity**: High → Low after re-diagnosis (production was never broken at this site; the BLUR_MIN production bug at a different site was SIGHTING-068, resolved separately by spec-053)
+**Reported**: 2026-05-28
+
+**Resolution (2026-05-29)**:
+Both failing tests (`test_quality_gating_holdout`, `test_faces_to_face_records_bridge`) were calling code paths that spec-040's pipeline unification had already removed:
+- The blur gate moved out of `ClusterPeopleStep._run_face_cluster_knn` into the standalone `quality_gate` step. The real-production blur-gate bug (a separate site, in the v2 chain's `quality_gate_faces` step) was SIGHTING-068 and is now fixed by spec-053's consolidated step + `QualityGater.calc()` pattern. Coverage: `tests/face_clustering/test_quality_gate_step.py::test_blur_gate_actually_filters_when_min_is_high`.
+- `_faces_to_face_records` was deleted; face-to-record conversion happens in producer steps now.
+Both stale tests deleted; replacement coverage already exists in the spec-053 test surface.
+
+**Original description (kept for history):**
+**Persona**: ML / Pipeline owner
+
+**Problem Description**:
+`tests/face_clustering/test_cluster_faces_knn_method.py::ut_FaceClusterKNNMethod::test_quality_gating_holdout` expects that when faces have `blur_score=0` (default) and config sets `blur_min=50`, ALL faces should be held out (label `-1`). Instead the step returns full cluster labels `[0,0,0,0,0,1,1,1,1,1]` — quality gate not enforced.
+
+**Symptoms**:
+```
+AssertionError: Expected all holdout labels, got [0 0 0 0 0 1 1 1 1 1]
+```
+
+**Suspicion**:
+`ClusterPeopleStep._run_face_cluster_knn` either:
+- ignores the `blur_min` field of the passed config dict, OR
+- reads it from a different source (FCParams default?) and overrides the test's value, OR
+- the blur-gate check moved into a different step in spec-040 unification but the test is still hitting the legacy code path.
+
+Related: `test_faces_to_face_records_bridge` (in same file) also fails — likely a refactor of `ClusterPeopleStep._faces_to_face_records` static method shape.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest tests/face_clustering/test_cluster_faces_knn_method.py -v`
+2. Both `test_quality_gating_holdout` and `test_faces_to_face_records_bridge` FAIL.
+
+**Files involved**:
+- Failing tests: `tests/face_clustering/test_cluster_faces_knn_method.py:131` and `:154`
+- Suspect: `sim_bench/pipeline/steps/cluster_people.py::ClusterPeopleStep`
+
+---
+
+### SIGHTING-072: `PipelineConfig` adaptive-threshold fields not removed (contract violation)
+**Status**: RESOLVED (spec-054 — 2026-05-29) — test was stale.
+**Severity**: Medium (test claim drifts from code; either the test is stale or the cleanup wasn't completed)
+**Reported**: 2026-05-28
+
+**Resolution (spec-054)**: grep confirmed the 5 fields (`merge_threshold_alpha`, `_beta`, `use_adaptive_merge_threshold`, `merge_exemplar_percentile`, `merge_global_percentile`) are live in production code — `face_cluster/analysis.py:405,503` reads `cfg.merge_threshold_alpha`; `app/shared/merge_controls.py` exposes all 5 as UI controls. The test encoded an abandoned cleanup intent that the codebase chose not to pursue. Test deleted; replaced with an 8-line comment in `tests/face_clustering/test_merge.py` explaining the decision.
+
+**Original description (kept for history):**
+**Persona**: ML / Pipeline owner
+
+**Problem Description**:
+`tests/face_clustering/test_merge.py::ut_SimplifiedMerger::test_adaptive_threshold_fields_removed` asserts that `PipelineConfig` no longer has the adaptive-threshold fields `merge_use_adaptive_threshold`, `merge_threshold_alpha`, `merge_threshold_beta`, `merge_exemplar_percentile`, `merge_global_percentile`. Today `PipelineConfig` still has at least `merge_threshold_alpha`, `merge_threshold_beta`, `merge_exemplar_percentile`, `merge_global_percentile`, plus `use_adaptive_merge_threshold`.
+
+**Symptoms**:
+```
+AssertionError: assert not True
+  where True = hasattr(PipelineConfig(...), 'merge_threshold_alpha')
+```
+
+**Suspicion**:
+The simplification of `SimplifiedMerger` (per the test's name) was meant to remove these fields from `PipelineConfig` too. Either the field removal was dropped during a merge, or the test was written ahead of the cleanup and the cleanup never landed.
+
+**Decision needed**:
+- If adaptive threshold IS still in use → delete this test (it encodes a constraint we no longer want).
+- If adaptive threshold should be removed → drop the 5 fields from `PipelineConfig` and update any callers.
+
+**Files involved**:
+- Failing test: `tests/face_clustering/test_merge.py:122`
+- Suspect: `face_cluster/config.py::PipelineConfig` (or wherever PipelineConfig is defined)
+
+---
+
+### SIGHTING-073: v4 merge-stage E2E round-trip broken on real images
+**Status**: RESOLVED (spec-054 — 2026-05-29) — test was stale; data round-trip itself was fine.
+**Severity**: High → Low after re-diagnosis. The data round-trip itself worked correctly; only the hardcoded `schema_version == 4` assertion was stale.
+**Reported**: 2026-05-28
+
+**Resolution (spec-054)**: assertion `meta.schema_version == 4` updated to `meta.schema_version == SCHEMA_VERSION` (constant import). The production code correctly writes the current schema version (5 after spec-040 Phase 4 bumped it); the test was just asserting the old literal. To prevent future silent rot, spec-054 also added `SCHEMA_HISTORY: dict[int, str]` in `face_cluster/db/schema.py` documenting v3, v4, v5, with an arch test (`tests/architecture/test_schema_history.py`) that forces the next `SCHEMA_VERSION` bump to add a history entry.
+
+**Original description (kept for history):**
+**Persona**: ML / Pipeline owner
+
+**Problem Description**:
+`tests/face_clustering/test_merge_stage.py::ut_MergeStageE2E::test_v4_full_round_trip_real_images` runs the full chain: real JPEGs → face detect → embed → cluster → merge → `RunExporter` → disk → `RunStore` reader, asserting bit-identical (or float-close) round-trip. Docstring states "this is the test that proves Phases 1+2 work end-to-end on real data". Currently fails.
+
+**Symptoms**:
+Test setup runs (CUDA warning emitted: `Specified provider 'CUDAExecutionProvider' is not in available provider names`). Actual assertion failure not captured in this triage — needs to be re-run with `-v` for the specific delta.
+
+**Suspicion**:
+Either schema v5 changes broke the writer/reader round-trip, or the merger output shape changed and the test's expected shape is stale. Could also be CUDA-vs-CPU determinism — but the test claims "bit-identical or float-close" so CPU-only should still pass.
+
+**Steps to Reproduce**:
+1. `.venv/Scripts/python -m pytest tests/face_clustering/test_merge_stage.py::ut_MergeStageE2E::test_v4_full_round_trip_real_images -v`
+
+**Files involved**:
+- Failing test: `tests/face_clustering/test_merge_stage.py:204`
+- Suspect: `face_cluster/run_store.py::RunStore`, the schema v5 writes from spec-040 Phase 4
+
+---
+
+### SIGHTING-074: `test_no_null_image_paths_raises_warning` fails only inside the full suite (test ordering)
+**Status**: SKIPPED (test marked `@pytest.mark.skip`, 2026-05-29) — production behaviour fine; root cause still open.
+**Severity**: Low (only one test affected; passes in isolation on every branch state)
+**Reported**: 2026-05-28
+
+**Action taken (2026-05-29)**: Test marked `@pytest.mark.skip(reason="SIGHTING-074: ...")` so the full suite stops reporting it as a failure. Production code untouched (the warning is still emitted in real runs). Re-enable when someone identifies which fixture mutates `caplog` / root-logger state without restoring it.
+**Persona**: Test infra
+
+**Problem Description**:
+`tests/face_clustering/test_export.py::test_no_null_image_paths_raises_warning` PASSES when run in isolation but FAILS inside `pytest tests/face_clustering`. Some earlier test in the run mutates global logging/warnings state and the `caplog`-based assertion fails to see the expected warning. Reproduces on both `unification/spec-040` HEAD and the pre-spec-048 stash state.
+
+**Symptoms**:
+- Pass alone: `pytest tests/face_clustering/test_export.py::test_no_null_image_paths_raises_warning` → PASS.
+- Fail in suite: full `pytest tests/face_clustering` → FAIL.
+
+**Suspicion**:
+Module-level `logging.basicConfig`, `warnings.filterwarnings`, or a fixture that sets `caplog.set_level` and forgets to undo it. Could also be a streamlit `st.cache_*` or AppTest fixture interfering with logger config.
+
+**Steps to Reproduce**:
+1. In isolation: passes.
+2. Full suite: fails.
+
+**Files involved**:
+- Failing test: `tests/face_clustering/test_export.py:53`
+- Suspect: any fixture in `tests/face_clustering/conftest.py` or sibling tests that uses `caplog` / `logging.basicConfig`.
+
+---
+
+### SIGHTING-069: Quality gate has no per-gate rejection diagnostics
+**Status**: RESOLVED (initial fix)
+**Severity**: Medium (diagnostics — bad bugs surface but take 30 min to root-cause without this)
+**Reported**: 2026-05-25
+**Persona**: ML Engineer / Pipeline owner
+
+**Problem Description**:
+When `QualityGater.select_core_set` returns 0 core candidates, the log line is
+just `"Quality gating: 0 core, N holdout faces"` — no breakdown of which gate
+fired. The user (and the next person debugging this) has to grep per-face
+DEBUG logs or read source to figure out whether blur, pose, area, or det_score
+was the rejector. This session hit the same class of failure twice:
+- 2026-05-24 morning: pose gate rejecting all 340 faces (`require_pose=True`)
+- 2026-05-24 evening: blur gate rejecting all 340 faces (`blur_min=50`, no producer for blur)
+
+In both cases the WARNING came from the gate-specific code (pose has one,
+blur didn't), not from a generic "0 core" diagnostic.
+
+**Fix landed in spec-041 follow-up**:
+`face_cluster/quality.py::select_core_set` now tracks per-gate rejection
+counts during the loop and emits a single WARNING when `n_core == 0`:
+
+```
+Quality gate rejected ALL 285 candidates. Per-gate rejection
+(faces failing each gate; a face may fail multiple): blur=285/285, area=12/285
+```
+
+The sorted-by-count format puts the dominant rejector first.
+
+**Follow-up tracked separately**: structurally, gates that depend on producer
+outputs that don't exist (pose, blur) should be auto-disabled with a WARNING,
+not just produce 0 core. SIGHTING-067 (pose) and SIGHTING-068 (blur) cover
+the data-side fixes. This sighting covered the diagnostic gap, now closed.
+
+---
+
+### SIGHTING-068: Blur gate is inert — `face.blur_score` is always 0.0 (no producer step)
+**Status**: RESOLVED (spec-053 — 2026-05-29)
+**Severity**: Medium (symmetric to SIGHTING-067; `blur_min > 0` causes "0 core faces" on any real album under the InsightFace pipeline)
+
+**Resolution (spec-053)**: the consolidated `quality_gate` step calls `QualityGater.calc(...)`, which internally composes `compute_blur_scores → [compute_pose_scores] → select_core_set` in the correct order. The bug class — a step author forgetting `compute_blur_scores` — is now impossible by construction because the only public entry point on the helper is `calc()`. The two old steps that exposed the bug (`filter_quality_gate` and `quality_gate_faces`) are deleted; both Albumify and FC App v2 now use the single consolidated step. Verified by `tests/face_clustering/test_quality_gate_step.py::test_blur_gate_actually_filters_when_min_is_high`.
+
+**Original description (kept for history):**
+**Reported**: 2026-05-25
+**Persona**: ML Engineer / Pipeline owner
+
+**Problem Description**:
+`face_cluster.quality.QualityGater._add_blur_gate` reads `face.blur_score` and
+applies `blur_min`. But the v2 producer chain (and the Albumify chain through
+the bridge) has **no blur scorer**:
+
+- `insightface_detect_faces._serialize_face` writes `{face_index, bbox, confidence, landmarks, person_bbox, face_occluded}` — no blur.
+- `align_faces`, `detect_face_orientation`, `extract_face_embeddings` — none compute blur.
+- `FaceRecord.blur_score` defaults to `0.0`.
+
+Result: with `FCParams.blur_min = 50.0` (the default), the gate rejects every face. With `blur_min = 0.0`, the threshold is inert.
+
+The legacy bridge (`face_cluster_bridge.build_fc_config`) papers over this by hardcoding `blur_min=0.0` regardless of the caller's config, with an explicit comment pointing at the 100%-rejection regression that motivated the pin. v2 inherited the gate code but not the pin.
+
+**Symptoms**:
+- v2 Run with `blur_min > 0` (e.g., the FCParams default of 50.0) and `require_pose=False`:
+  ```
+  face_cluster.quality - INFO - Quality gating: 0 core, 340 holdout faces
+  ```
+- Without the diagnostic from SIGHTING-069, the gate identity is invisible — looks like the same crash as the pose case.
+
+**Immediate paper-over (landed)**:
+`select_core_set` detects when `n_with_blur == 0 AND blur_min > 0`, emits a
+WARNING, and overrides `blur_min` to 0 for this run via a new
+`self._effective_blur_min` attribute. Symmetric to the pose vacuous-pass:
+
+```
+WARNING — Blur gate: NOT WIRED — face.blur_score is 0.0 for all 340 faces
+(no producer step computes blur today). Threshold blur_min=50.0 would reject
+every face; bypassing it for this run. Add an insightface_score_blur step to
+enable.
+```
+
+Pipeline now runs end-to-end with default settings — no more silent
+"0 core faces" mystery.
+
+**Real fix (deferred)** — same three options as SIGHTING-067:
+- **A** (Laplacian variance on the aligned crop): the `QualityGater.compute_blur_scores` method already exists with a working Laplacian implementation. Wire it as a new `insightface_score_blur` step BEFORE quality gating. ~30 LOC.
+- **B**: extend `insightface_score_pose` to also compute blur from the same face crop (shares I/O). One step, two scores.
+- **C**: leave the paper-over in place and remove `blur_min` from the FCParams UI as a "not implemented" knob until A or B lands. Cheap but dishonest.
+
+Pick A unless someone has a reason to prefer B.
+
+**Workaround until fixed**: set `blur_min = 0.0` in the FCParams profile (this is what profile_1.json does).
+
+**Test that would catch a regression**: integration test on a real album asserting `n_core > 0` when `blur_min > 0` is configured AND there's at least one face. If a future change populates `blur_score` (so the threshold becomes effective) AND the threshold is too strict, the test fails — same regression-protection pattern as SIGHTING-067.
+
+---
+
+### SIGHTING-067: Pose gate is inert — `FaceRecord.pose` is never populated on either path
+**Status**: OPEN
+**Severity**: Medium (pose-based quality filtering is silently disabled on both Albumify AND v2 today; `require_pose=True` causes "0 core faces" on any real album)
+**Reported**: 2026-05-24
+**Updated**: 2026-05-24 — full audit across Albumify, v2, and the legacy MediaPipe path
+**Persona**: ML Engineer / Pipeline owner
+
+**Problem Description**:
+`face_cluster.quality.QualityGater._add_pose_gates` reads `face.pose` (a `Tuple[float, float, float]` of yaw/pitch/roll) to decide whether each face passes the angular thresholds. `FaceRecord.pose` is **`None` for every face**, on both the v2 pipeline AND the legacy Albumify-through-bridge path.
+
+Consequence — line 287 of `quality.py`:
+```python
+if face.pose is None:
+    passed = not self.config.require_pose
+```
+- `require_pose=True` → every face rejected by the pose gate → `core_indices = []` → `build_face_knn_graph` aborts with "Required context key is empty: core_indices".
+- `require_pose=False` → every face vacuously passes; thresholds inert.
+
+**Why both paths are broken** — full audit:
+
+There are at least three "pose" things in the codebase. None of them currently reach `FaceRecord.pose`:
+
+| Pose surface | Where it lives | Populated? | Reaches `FaceRecord.pose`? |
+|---|---|---|---|
+| `context.face_pose_scores` (scalar 0-1 frontal score keyed by face_key) | written by `insightface_score_pose` step (active in Albumify) | Yes | No — it's a scalar from 5-point landmark geometry, not yaw/pitch/roll |
+| `face.pose = PoseEstimate(yaw, pitch, roll, frontal_score)` | written by `score_face_pose` (MediaPipe) and `score_face_quality` | Yes, but only on `CroppedFace` / `FaceForClustering` objects | No — different type from `FaceRecord` |
+| `face_cluster_bridge.faces_to_face_records` pose plumbing (lines 111-118) | reads `if_face["pose_scores"]` or `if_face["scores"]["pose"]` as a `{yaw, pitch, roll}` dict | Code is correct but **the upstream key is never written** | No — dead code path |
+
+The bridge's pose-plumbing code looks for `pose_scores` (a `{yaw, pitch, roll}` dict) inside the per-face dicts of `context.insightface_faces`. But `insightface_detect_faces._serialize_face` only writes `{face_index, bbox, confidence, landmarks, person_bbox, face_occluded}` — no `pose_scores`, no `scores.pose`. The bridge's `getattr(face, "pose", None)` also returns None because `FaceForClustering` doesn't carry pose either. So the path through the bridge is **structurally dead**: the code is correct, the data never arrives.
+
+The `detect_face_orientation` step in the v2 producer chain is named confusingly — it computes the 0°/90°/180°/270° image rotation needed to make the face upright (for alignment), not the head-pose yaw/pitch/roll angles.
+
+The `face_cluster.quality.PoseEstimator` class instantiates SixDRepNet on-demand when `use_pose_estimation=True` is passed to `QualityGater`, but **no caller in the codebase passes that flag today** (the unified clustering chain instantiates `QualityGater(_build_fc_config(config))` only).
+
+**Symptoms**:
+- Loading any "strict pose" profile and hitting Run produces:
+  `Run failed: ... build_face_knn_graph failed: Validation failed: Required context key is empty: core_indices`
+- The previously-misleading log line `"Pose angle filter: ACTIVE (InsightFace 1k3d68)"` claimed pose was being filtered when in practice pose was never present.
+  (Fixed in spec-041 follow-up: now emits a `WARNING: Pose gate NOT WIRED …` line.)
+- Same behavior on Albumify and v2 — `require_pose=True` causes 0 core faces on both.
+
+**Steps to Reproduce**:
+1. In v2 Run tab, set `require_pose=True`, yaw_max=30, pitch_max=30, roll_max=30.
+2. Run on any album.
+3. Observe "Quality gating: 0 core, N holdout" in the log.
+4. Repeat on Albumify with `cluster_people.require_pose: true` in the config — same result.
+
+**Suggested Resolutions** — pick one:
+
+- **A** (cheapest, fixes both paths at once): extend `insightface_score_pose._store_results` to also write the *actual* yaw/pitch/roll dict back into `context.insightface_faces[path]["faces"][i]["pose_scores"]`. The bridge's existing plumbing code (`face_cluster_bridge.py:111-118`) will pick it up unmodified. Mirror the same write to v2's `_build_face_records` via a new `extract_face_pose` producer step that reads the same data. Requires InsightFace to expose yaw/pitch/roll on its `Face` object — confirm the buffalo_l pack's output structure.
+
+- **B** (independent of InsightFace internals): add a new `extract_face_pose` step using SixDRepNet on the aligned crop. The `face_cluster.quality.PoseEstimator` class already exists — wire it into the producer chain instead of the gate. ~50 LOC.
+
+- **C** (no new producer step): make the existing `insightface_score_pose` produce `(yaw, pitch, roll)` tuples from the landmarks geometry itself (today it only outputs a scalar derived from those landmarks). The math for `yaw` is already inline in `_compute_pose_score`; extend with pitch and roll, store as dict.
+
+Pick A or C if we want the cheapest fix that exercises Albumify too. Pick B if we don't trust the landmark-based math.
+
+**Workaround until fixed**: set `require_pose=False` in the FCParams profile (this is the default in `profile_1.json`). The pose threshold knobs (yaw_max/pitch_max/roll_max) are then inert — pose-based quality filtering is silently disabled.
+
+**Test that would catch a regression of this finding**: integration test on a real album that asserts `n_core > 0` when `require_pose=True` is configured. If the next person flips `require_pose=True` and re-runs without doing one of A/B/C, the test fails loud.
+
+---
+
+### SIGHTING-066: Scene side has no structured persistence — no `images`, no `scene_clusters`, no scene-embedding npy
+**Status**: OPEN
+**Severity**: Medium (structural symmetry violation; analyst can't query "show me all images in scene cluster 3")
+**Reported**: 2026-05-17 (during DB doc review)
+**Persona**: SW Architect
+
+**Problem Description**:
+The faces side of the per-run DB is structured (faces, face_scores, embeddings.npy, clusters, cluster_assignments, merge_decisions). The scenes side has nothing equivalent:
+
+| Faces side | Scenes side today |
+|---|---|
+| `faces` (per-face metadata) | — only `scene_cluster_id` denormalized onto `faces` |
+| `face_scores` (pose/eyes/expression/frontal) | — image scores (IQA/AVA/sharpness/composite) denormalized onto `faces` (SIGHTING-065) |
+| `embeddings.npy` + `embedding_face_ids.npy` | scene embeddings only as opaque <code>universal_cache.data_blob</code> rows — cross-run cache but not queryable per-run |
+| `clusters` (size, diameter, origin, parent_ids) | — `cluster_scenes` step writes <code>context.scene_clusters</code> (in-memory dict, dropped at run end) |
+| `cluster_assignments` (per-iteration membership) | — image→scene mapping implicit via the denormalized <code>scene_cluster_id</code> on each face row |
+
+**Symptoms**:
+- "Show me all images in scene cluster 3" requires deduplicating across `faces` rows (one row per face, not per image).
+- Images with zero detected faces (e.g. landscapes) have no row anywhere in the per-run DB.
+- Cluster-level scene info (size, exemplar image, average IQA) can't be answered without re-aggregating.
+- Re-running `cluster_scenes` with a different threshold loses provenance — the old assignment is gone.
+
+**Suspicion**:
+spec-030 prioritized the face side because the FC App is identity-centric. The scene side was treated as "image metadata" and dumped onto faces. Two years of features later, scene-cluster questions are common but the data model didn't follow.
+
+**Recommended Fix** (parallel to spec-040 Phase 4):
+- New `images` table — image_path PK, image_id, n_faces, iqa, ava, sharpness, composite_score, created_at. Already in spec-040 Phase 4 per SIGHTING-065; expand to cover scene-related fields.
+- New `scene_clusters` table — `scene_cluster_id PK, iteration, size, method (hdbscan/kmeans/...), exemplar_image_path, avg_intra_distance, created_at`.
+- New `scene_cluster_assignments` table — `image_path FK images, scene_cluster_id, iteration, distance_to_centroid`.
+- New `scene_embeddings.npy` + `scene_embedding_image_paths.npy` (parallel to faces side bulk storage).
+- Remove `scene_cluster_id` from `faces` (it now lives on `images`); `RunStore.image_detail()` JOINs through `images.scene_cluster_id`.
+
+**Folding into spec-040 Phase 4**:
+The schema v5 work already adds the `images` table. Extending it to also add `scene_clusters`, `scene_cluster_assignments`, and `scene_embeddings.npy` is the same migration commit. Pandera schemas added in lockstep. Closes this sighting + completes structural symmetry between faces and scenes.
+
+---
 
 ### SIGHTING-065: Image-level fields denormalized onto every `faces` row (no `images` table)
 **Status**: OPEN

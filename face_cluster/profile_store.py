@@ -10,15 +10,14 @@ from pathlib import Path
 from typing import Dict, List
 
 from face_cluster import run_history_db
+from face_cluster._paths import profiles_dir as _default_profiles_dir
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_DIR = Path.home() / ".sim_bench" / "profiles"
 
 
 @dataclass
 class ProfileStore:
-    profiles_dir: Path = field(default_factory=lambda: _DEFAULT_DIR)
+    profiles_dir: Path = field(default_factory=_default_profiles_dir)
 
     def _path(self, name: str) -> Path:
         return self.profiles_dir / f"{name}.json"
