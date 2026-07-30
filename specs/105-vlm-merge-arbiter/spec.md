@@ -1,4 +1,4 @@
-# spec-099 — VLM Merge Arbiter (adjudicate the `review` tier)
+# spec-105 — VLM Merge Arbiter (renumbered from 099 — collision with tilt spec) (adjudicate the `review` tier)
 
 **Created**: 2026-07-12 · **Status**: Draft — awaiting approval · **Priority**: P2
 **Depends on**: `face_cluster/merge.py` (`ConservativeMerger`, `group_merge_candidates`)
