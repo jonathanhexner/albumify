@@ -23,6 +23,25 @@ implement  -->  execute tasks phase-by-phase
 hand off   -->  CHANGES_LOG.md entry; high-severity findings resolved or waived   [Status: Implemented]
 ```
 
+## Branch & merge policy (locked)
+
+`main` is protected. Nothing lands on `main` except through a Pull Request whose checks are green.
+
+**One branch per effort, named for it:**
+
+| Effort | Branch name | Gate to create |
+|---|---|---|
+| Feature (has a spec/PRD) | `spec/<NNN>-<slug>` | `specs/<NNN>-<name>/spec.md` exists (Draft counts) |
+| Bug fix | `fix/<slug>` | a sighting filed in `docs/project/SIGHTINGS.md` |
+| Housekeeping / docs | `chore/<slug>` | — |
+
+**Rules:**
+- **No direct pushes to `main`.** Branch → PR → merge. (Enforced by GitHub branch protection.)
+- **Required check: `fast-tests` must be green** before a PR merges (the model-free CI suite).
+- **PR body links the spec dir** (`specs/<NNN>-*/`) and stays scoped to one effort — no catch-all branches (the `specs/093-095-analysis-studios` sprawl is the anti-pattern this rule exists to prevent).
+- **The Code Review gate still governs `Implemented`**: the PR that flips a spec to `Implemented` must include `REVIEW.md`; High-severity findings block the merge (see below).
+- **Delete the branch after merge.** One live branch per active effort.
+
 ## Spec lifecycle (locked)
 
 `Draft → In Progress → Code Review → Implemented`

@@ -122,7 +122,8 @@ per pipeline spec (album pipeline turns it on; FC-v2 anchor runs can stay inline
 - GPU/CUDA memory (CPU is the shipping target). CUDA `empty_cache` is out of scope.
 - Rewriting steps' internals. Isolation is an executor concern; steps are unchanged except the
   (existing) `release()` hook.
-- A distributed / multi-machine runner. Single host, multiple short-lived child processes.
+- A distributed / multi-machine runner. Single host, multiple short-lived child processes. The
+  cloud path is **anticipated but deferred** — kept a clean `NodeRunner` seam, not built (see §9).
 
 ## 6. Risks
 
@@ -148,3 +149,37 @@ per pipeline spec (album pipeline turns it on; FC-v2 anchor runs can stay inline
 2. Import/export declaration: explicit per-stage lists (safer, more boilerplate) vs auto-derived
    from steps' `requires`/`produces` (less boilerplate, risk of pickling something large)?
 3. Should staged mode auto-enable above an image-count threshold, or always be an explicit flag?
+
+> **Design note (2026-07-30):** the API has evolved from a flat `isolated_stages` list to a
+> **PipelineGraph** (nodes = named pipelines, `after:` edges, `exports` lists, `NodeRunner` transport
+> seam). `specs/104-staged-process-isolation/architecture.html` is the authoritative API + TDD design;
+> §3 above will be revised to match once the brief is approved. Q3 dissolves under the graph model
+> (a pipeline either declares a graph or it doesn't — no separate "mode").
+
+## 9. Scaling & cloud path (anticipated, deferred — own future spec)
+
+Two **independent** axes of parallelism; spec-104 builds only the first:
+
+- **Within one trip (this spec):** graph nodes run as local child processes (`multiprocessing`).
+  Bounds **memory**. `image → face ∥ scene → select`.
+- **Across many trips (future):** each trip is one independent `run_graph` job. Bounds **throughput**.
+  The unit of cloud parallelism is a **whole trip**, not a node; inside a cloud worker the graph
+  still uses local multiprocessing.
+
+**Where (cheapest first, no heavy orchestration):**
+- Rung 0 — one bigger VM (Hetzner/DO/spot), run the identical graph. Pennies/hr; **kills the OOM**.
+- Rung 1 — per-trip container on demand (Modal / Fly Machines / Cloud Run Jobs). Pay-per-second.
+- Rung 2 — queue (Postgres table or Upstash Redis) + N stateless workers, autoscale by depth.
+- Avoid Kubernetes / EMR / Celery+RabbitMQ — this is a batch CPU job.
+
+**Why the compute code doesn't change:** a node is `run(seed) -> exports`; a job is a picklable
+`(steps, step_configs, seed)`. Local multiprocessing is the same-machine transport; cloud is a
+different transport for the identical payload, behind `NodeRunner` (`LocalRunner` now,
+`RemoteRunner` later — same `Node`/`exports` contract).
+
+**The real cloud cost is STORAGE, not compute** (own future spec): `universal_cache` (SQLite),
+`image_cache` (local disk), `run_db` (SQLite) are all local-disk. Multi-machine needs them
+network-addressable — Postgres + an S3-compatible object store (Cloudflare R2 / Backblaze B2).
+
+**Cost kicker:** isolation is also a cloud cost lever — peak 1.2 GB vs 3 GB per trip → ~2.5× more
+concurrent trips per worker → ~2.5× cheaper. Spec-104 pays off in cloud economics as a local change.
