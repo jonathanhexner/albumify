@@ -13,8 +13,20 @@ import pytest
 _APP_DIR = Path(__file__).parents[2] / "app" / "face_clustering"
 sys.path.insert(0, str(_APP_DIR))
 
-# Stub out streamlit so the module can be imported without a live session
+# Stub out streamlit (and transitive app-only imports) so the module can be
+# imported without a live session.
+#
+# SIGHTING-119: these stubs go into the GLOBAL sys.modules, so if we don't undo
+# them they poison every test collected after this file — e.g. tests/streamlit/
+# imports real ``@st.cache_data`` and hits "module 'streamlit' has no attribute
+# 'cache_data'". We snapshot the originals here and restore them in
+# ``teardown_module`` so the stubs live only for this file's tests.
 import types, unittest.mock as mock
+
+_STUBBED = ["streamlit", "cache_helpers", "quality_panels",
+            "face_cluster", "face_cluster.analysis_views", "face_cluster.pipeline"]
+_saved_modules = {name: sys.modules.get(name) for name in _STUBBED}
+_saved_syspath = list(sys.path)
 
 _st_stub = types.ModuleType("streamlit")
 _st_stub.session_state = {}
@@ -42,6 +54,18 @@ _qp_stub._render_quality_report = mock.MagicMock()
 sys.modules["quality_panels"] = _qp_stub
 
 from face_popup import _load_comments, _save_comment, _COMMENT_MAX  # noqa: E402
+
+# The stubs were only needed to IMPORT face_popup (it binds its own reference to
+# them and keeps using it). Restore the real modules NOW — at import time, before
+# pytest collects any other file — so the stubs don't leak into global state.
+# (A teardown fixture would be too late: collection imports every test module up
+# front, so the leak must be undone here, not after this file's tests run.)
+for _name, _original in _saved_modules.items():
+    if _original is None:
+        sys.modules.pop(_name, None)
+    else:
+        sys.modules[_name] = _original
+sys.path[:] = _saved_syspath
 
 
 class ut_FacePopupComments:
