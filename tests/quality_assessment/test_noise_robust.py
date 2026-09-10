@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.needs_data  # needs the SIDD dataset (private, not in CI)
+
 from sim_bench.quality_assessment.noise_robust import (
     SIGMA_HALF,
     estimate_noise_sigma,

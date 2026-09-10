@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # SIGHTING-118: needs InsightFace models + local CASIA WebFace data (D:\...). Not runnable in a clean
 # CI runner; excluded from the default (fast) suite. Run explicitly with `pytest -m slow`.
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.needs_data]
 
 # Test data location
 TEST_DATA_DIR = Path(r"D:\sim-bench\test_data\casia_webface")

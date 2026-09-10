@@ -14,7 +14,7 @@ from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.scoring.tilt_penalty import TiltPenaltyFactory
 from sim_bench.pipeline.steps.straighten_images import StraightenImagesStep
 
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.needs_data]
 
 BUD = Path(r"D:/Budapest2025_Google")
 LANDSCAPE = "20250822_194201"   # roll -4.3, confident, 4:3 -> straightens

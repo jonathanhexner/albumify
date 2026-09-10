@@ -6,7 +6,10 @@ in PIXELS, so the unnormalized value rendered the gray placeholder instead of a
 cropped face. These tests lock the contract: the persisted bbox is always [0, 1].
 """
 
+import pytest
 from PIL import Image
+
+pytestmark = pytest.mark.needs_data  # needs the Budapest album (private, not in CI)
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

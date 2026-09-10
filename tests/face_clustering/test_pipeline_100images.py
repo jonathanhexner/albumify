@@ -8,6 +8,8 @@ Test bounds are set around these observed values with ±50% headroom to
 accommodate minor algorithm changes while still catching regressions.
 """
 import pytest
+
+pytestmark = pytest.mark.needs_data  # needs Google_Germany album (private, not in CI)
 import pandas as pd
 import json
 import numpy as np

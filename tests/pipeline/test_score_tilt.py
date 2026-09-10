@@ -8,6 +8,8 @@ straight Budapest photo to prove the integration, when the album is present.
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.needs_data  # needs the Budapest album (private, not in CI)
 from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

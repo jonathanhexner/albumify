@@ -9,6 +9,8 @@ import os
 
 import pytest
 
+pytestmark = pytest.mark.needs_data  # needs the Budapest album (private, not in CI)
+
 from sim_bench.pipeline.cache_handler import CacheKey
 
 _win = pytest.mark.skipif(os.name != "nt", reason="path-separator normalization is Windows-specific")

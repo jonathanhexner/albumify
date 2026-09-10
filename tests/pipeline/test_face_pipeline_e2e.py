@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # SIGHTING-118: needs InsightFace models + local Budapest test data (D:\...). Not runnable in a clean
 # CI runner; excluded from the default (fast) suite. Run explicitly with `pytest -m slow`.
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.needs_data]
 
 TEST_DATA_DIR = Path(r"D:\sim-bench\test_data\budapest_2025")
 OUTPUT_DIR = Path(r"D:\sim-bench\test_data\budapest_2025_output")

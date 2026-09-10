@@ -17,7 +17,7 @@ import pytest
 from sim_bench.quality_assessment.tilt import TiltResult
 from sim_bench.quality_assessment.tilt_geocalib import estimate_tilt, estimate_tilt_raw
 
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.needs_data]
 
 _BUDAPEST = Path(r"D:\Budapest2025_Google")
 
