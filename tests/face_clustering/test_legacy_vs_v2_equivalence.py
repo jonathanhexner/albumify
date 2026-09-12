@@ -36,6 +36,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.needs_data  # needs Google_Germany album + face_clustering_100 (private, not in CI)
+
 from face_cluster.fc_app_runner import FCAppRunner
 from face_cluster.fc_params import FCParams
 from sim_bench.pipeline.context import PipelineContext

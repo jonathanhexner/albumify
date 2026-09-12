@@ -4,6 +4,82 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-120: Albumify "hdbscan_pca" clustering option crashes — retired algorithm still offered in the UI
+**Status**: RESOLVED 2026-09-11 (Option A: consolidated onto `hdbscan` + `pca_dim`; branch `fix/test-suite-stabilization`). Step routes the `hdbscan_pca` preset to `hdbscan`+`pca_dim` (verified identical), duplicate `hdbscan_pca.py` deleted, tests repointed. UI preset still works.
+**Severity**: Medium (a user-selectable clustering method in the Albumify pipeline crashes the run; incomplete refactor left a live dropdown option pointing at a deleted engine)
+**Reported**: 2026-09-05 (surfaced by the `TestHDBSCANPCAClusterer` failures during test-suite stabilization)
+**Persona**: SW Engineer / Pipeline
+
+**Problem**: `sim_bench/clustering/base.py` was deliberately refactored — *"PCA is now a param
+(`pca_dim`) on hdbscan/hybrid methods, not a separate algorithm"* — so `hdbscan_pca` was dropped
+from the factory registry. But the refactor was incomplete: `cluster_people._run_hdbscan_pca` still
+calls `load_clustering_method({'algorithm': 'hdbscan_pca', ...})`, and the method is still offered in
+the step enum, the Pydantic config, `configs/pipeline.yaml`, and the **Albumify clustering dropdown**
+(`app/streamlit/.../pipeline_runner.py`). Selecting it raises
+`ValueError: Unknown clustering algorithm: hdbscan_pca`.
+
+**Verification the fix is safe (behaviour-preserving)**: the standalone `HDBSCANPCAClusterer` and the
+`HDBSCANClusterer` + `pca_dim` path are the same pipeline (PCA -> normalize -> cosine distance ->
+HDBSCAN(precomputed)). Ran both on identical embeddings with matched params: **exact-match labels,
+ARI=1.000** at pca in {64, 256, None}. So routing the preset to `hdbscan` + `pca_dim` changes nothing.
+
+**Resolution (Option A — one implementation)**:
+1. `cluster_people._run_hdbscan_pca` routes to `algorithm='hdbscan'` with `pca_dim = pca_components`
+   (metric/min_cluster_size/epsilon preserved) — the `hdbscan_pca` UI preset now works, identically.
+2. Delete the duplicate `sim_bench/clustering/hdbscan_pca.py`.
+3. Repoint `TestHDBSCANPCAClusterer` (`tests/clustering/test_mutual_knn.py`) to `HDBSCANClusterer` +
+   `pca_dim` (the old `test_basic_clustering` was itself buggy: expected `pca_components==64` but PCA
+   caps to n_samples=20).
+No UI/config/yaml changes needed — the `pca_components` plumbing is intact and the preset name stays
+(it's the only UI path to PCA+HDBSCAN; the step's plain `hdbscan` is euclidean/no-PCA).
+
+**Prevention**: a factory-vs-consumer parity check would catch a step offering an algorithm the
+registry doesn't provide. Tracked as a follow-up, not built here.
+
+---
+
+### SIGHTING-119: full test suite is uncollectable — old manual scripts run at import time and crash pytest
+**Status**: OPEN (found 2026-09-04 during pre-app test-suite triage)
+**Severity**: High (the entire `pytest tests/` run aborts with INTERNALERROR before any test executes; masks the true pass/fail state of the whole suite. The scoped `fast-tests` CI lane is unaffected, so this was invisible on CI.)
+**Reported**: 2026-09-04
+**Persona**: SW Engineer / Test Infra
+
+**Problem**: `pytest tests/ --collect-only` dies with `INTERNALERROR`. Several flat top-level
+`tests/test_*.py` files are **manual scripts, not pytest tests** (e.g. `test_full_e2e_flow.py`
+docstring says "Run: python tests/test_full_e2e_flow.py"). Their logic runs at **module top level**,
+so pytest executes it during *collection* (import), before markers are ever read:
+- `tests/test_full_e2e_flow.py:52` — `sys.exit(1)` when the backend isn't up → SystemExit aborts collection.
+- `tests/test_quality_assessment.py:14` — `from sim_bench.quality_assessment import NIMAQuality` (removed) → ImportError aborts collection.
+- ~8 more flat scripts do top-level `requests`/`sys.exit`/live imports (`test_album_workflow`, `test_clip_integration`,
+  `test_model_hub`, `test_photo_analysis`, `test_selection_export`, `test_phase15_smoke`, `test_face_clustering_isolated`,
+  `test_face_crop_integrity`). Collection crashes serially — fix one, the next aborts.
+
+**Root cause**: leftover early-project scripts named `test_*.py` sit in the collected tree but were
+never real pytest tests. Because a module is **imported during collection regardless of its markers**,
+marking them (`@pytest.mark.e2e`, etc.) does NOT prevent the crash — import-safety must come first.
+
+**Prevention**: (1) all test modules must be import-safe (no side effects at module scope; script bodies
+under `if __name__ == "__main__":`). (2) a CI step runs `pytest --collect-only` and fails on INTERNALERROR,
+so an import-unsafe script can never silently return.
+
+**Also surfaced (stale statuses to reconcile while here)**:
+- SIGHTING-116 (person_penalty 0.02 vs 0.22) — **already fixed** (its test passes in the current `fast-tests` lane).
+- SIGHTING-115 (filter_quality_gate stale import) — **appears already fixed** (alias/comment in place; verify on a clean collect).
+- SIGHTING-113 item: `tests/quality_assessment/test_learned_clip.py` still imports archived `clip_aesthetic` — repair or guard.
+
+**Plan (branch `fix/test-suite-stabilization`, approved 2026-09-04)**:
+1. Make the flat manual scripts import-safe (`if __name__=="__main__"` guards; repair/guard dead imports). Delete nothing.
+2. Add a `needs_data` marker + a conftest fixture that auto-skips when the dataset root (`SIM_BENCH_DATA_ROOT`, replacing
+   hardcoded `D:\` paths) is absent. 22 files reference private datasets and need this.
+3. Two-lane CI: keep `fast-tests` (model-free, gates merge); add `full-tests` (installs the ML stack, caches model
+   weights, runs everything **except** `needs_data`) on push-to-main / nightly.
+4. Later (separate effort): secure storage for the private datasets → point `SIM_BENCH_DATA_ROOT` at it so the 22
+   `needs_data` tests can also run in CI.
+
+**Decoupled decision**: the existing Streamlit apps are NOT being removed as part of this. Stabilize first.
+
+---
+
 ### SIGHTING-118: pre-existing test failures surfaced by the spec-103 full pipeline+architecture run
 **Status**: RESOLVED 2026-07-24 (fixed while standing up CI — see Resolution).
 **Status (history)**: OPEN 2026-07-22 (found during spec-103 build_scene_distance close-out; NOT caused by spec-103 — all in code paths untouched by the scene-distance change)
@@ -920,7 +996,14 @@ through each app's backend gives different identity clusterings:
 ---
 
 ### SIGHTING-095: run_db exporter golden hash diverged for `run_metadata`
-**Status**: OPEN
+**Status**: RESOLVED 2026-09-11 — stale golden, re-baselined (not a data regression).
+**Resolution**: Only the `run_metadata` fingerprint diverged; all 12 data artifacts
+(faces/clusters/embeddings/assignments/decisions/scenes) were byte-identical. Verified the
+divergence is confined to the metadata *envelope*: `run_metadata` stores `schema_version` +
+`config_json`, and `PipelineConfig` gained fields after the golden was written 2026-05-29 (commit
+7c48c2e "fc-app-v2 area-% gate"), growing the serialized config. Reverting only `schema_version`
+did NOT reproduce the golden, confirming `config_json` growth. No clustering behavior changed.
+Re-baselined per the test's documented procedure (delete `_golden_hashes.txt`, re-run once).
 **Severity**: Low
 **Reported**: 2026-06-06
 **Persona**: Senior SW Engineer

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from sim_bench.clustering.mutual_knn import MutualKNNClusterer
-from sim_bench.clustering.hdbscan_pca import HDBSCANPCAClusterer
+from sim_bench.clustering.hdbscan import HDBSCANClusterer
 from sim_bench.clustering.base import load_clustering_method
 
 
@@ -91,59 +91,60 @@ class TestMutualKNNClusterer:
 
 
 class TestHDBSCANPCAClusterer:
-    """Test HDBSCAN+PCA clustering implementation."""
+    """PCA+HDBSCAN is the ``hdbscan`` algorithm with a ``pca_dim`` param (SIGHTING-120:
+    the standalone ``hdbscan_pca`` algorithm was retired as a behaviour-identical duplicate)."""
 
     def test_basic_clustering(self):
-        """Test basic clustering with PCA."""
+        """PCA preprocessing runs and clusters."""
         np.random.seed(42)
-        embeddings = np.random.randn(20, 512)
+        embeddings = np.random.randn(100, 512)  # enough samples that pca_dim=64 isn't capped
 
         config = {
-            'algorithm': 'hdbscan_pca',
+            'algorithm': 'hdbscan',
             'params': {
-                'pca_components': 64,
+                'pca_dim': 64,
                 'min_cluster_size': 2,
             }
         }
 
-        clusterer = HDBSCANPCAClusterer(config)
+        clusterer = HDBSCANClusterer(config)
         labels, stats = clusterer.cluster(embeddings)
 
-        assert len(labels) == 20
-        assert stats['algorithm'] == 'hdbscan_pca'
-        assert stats['params']['pca_components'] == 64
-        assert 'pca_variance_explained' in stats['params']
+        assert len(labels) == 100
+        assert stats['algorithm'] == 'hdbscan'
+        assert stats['pca']['pca_dim'] == 64
+        assert 'variance_explained' in stats['pca']
 
     def test_pca_dimension_capping(self):
-        """Test that PCA dimensions are capped to min(samples, features)."""
+        """PCA dims are capped to min(pca_dim, samples, features)."""
         np.random.seed(42)
         embeddings = np.random.randn(10, 512)  # Only 10 samples
 
         config = {
-            'algorithm': 'hdbscan_pca',
+            'algorithm': 'hdbscan',
             'params': {
-                'pca_components': 256,  # Request more than samples
+                'pca_dim': 256,  # Request more than samples
                 'min_cluster_size': 2,
             }
         }
 
-        clusterer = HDBSCANPCAClusterer(config)
+        clusterer = HDBSCANClusterer(config)
         labels, stats = clusterer.cluster(embeddings)
 
-        # PCA components should be capped to 10 (n_samples)
-        assert stats['params']['pca_components'] == 10
+        # PCA dims capped to 10 (n_samples)
+        assert stats['pca']['pca_dim'] == 10
 
     def test_factory_loading(self):
         """Test loading via factory function."""
         config = {
-            'algorithm': 'hdbscan_pca',
+            'algorithm': 'hdbscan',
             'params': {
-                'pca_components': 128,
+                'pca_dim': 128,
             }
         }
 
         clusterer = load_clustering_method(config)
-        assert isinstance(clusterer, HDBSCANPCAClusterer)
+        assert isinstance(clusterer, HDBSCANClusterer)
 
 
 if __name__ == '__main__':

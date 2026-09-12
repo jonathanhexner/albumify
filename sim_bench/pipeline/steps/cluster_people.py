@@ -218,19 +218,22 @@ class ClusterPeopleStep(BaseStep):
 
     @staticmethod
     def _run_hdbscan_pca(config, embeddings):
+        # SIGHTING-120: PCA+HDBSCAN is the `hdbscan` factory algorithm with a `pca_dim`
+        # param — the standalone `hdbscan_pca` algorithm was retired as a duplicate.
+        # The two are behaviour-identical (verified: exact-match labels, ARI=1.000);
+        # we just map pca_components -> pca_dim.
         from sim_bench.clustering.base import load_clustering_method
         clustering_config = {
-            'algorithm': 'hdbscan_pca',
+            'algorithm': 'hdbscan',
             'params': {
-                'pca_components': config.get('pca_components', 128),
+                'pca_dim': config.get('pca_components', 128),
                 'metric': 'cosine',
                 'min_cluster_size': config.get('min_cluster_size', 2),
                 'min_samples': config.get('min_samples', 2),
                 'cluster_selection_epsilon': config.get('cluster_selection_epsilon', 0.3),
             }
         }
-        _, stats = load_clustering_method(clustering_config).cluster(embeddings)
-        labels = _
+        labels, stats = load_clustering_method(clustering_config).cluster(embeddings)
         logger.info(f"HDBSCAN+PCA: {stats['n_clusters']} clusters")
         return labels
 

@@ -6,6 +6,22 @@ from pathlib import Path
 import pytest
 
 
+# ---------------------------------------------------------------------------
+# SIGHTING-119 — keep the suite collectable
+# ---------------------------------------------------------------------------
+# These flat top-level files are MANUAL SCRIPTS, not pytest tests: they run
+# their logic at module top level (backend health-checks, sys.exit, imports of
+# removed APIs), so pytest crashes with INTERNALERROR while merely *importing*
+# them during collection — before markers are ever read. They define zero
+# ``test_*`` functions. We exclude them from collection (deleting nothing; each
+# stays runnable via ``python tests/<name>.py``) so one dead script can't take
+# the whole suite down. Any file added here must NOT contain real pytest tests.
+collect_ignore = [
+    "test_full_e2e_flow.py",      # manual full-stack E2E: needs uvicorn+streamlit+FC servers + local album
+    "test_quality_assessment.py",  # obsolete smoke script: imports removed NIMAQuality/ViTQuality classes
+]
+
+
 def get_test_data_dir() -> Path:
     """Return the absolute path to the test_data/ directory at the project root."""
     return Path(__file__).parent.parent / "test_data"

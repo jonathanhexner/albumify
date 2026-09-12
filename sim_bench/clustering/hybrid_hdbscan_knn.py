@@ -334,8 +334,17 @@ edges below split_threshold, it gets split into separate clusters.
             Validated features (may have some rows removed)
 
         Raises:
-            ValueError: If features contain NaN/Inf or all zero vectors
+            ValueError: If features is not a 2D array, or contains NaN/Inf or all zero vectors
         """
+        # Shape guard: everything below assumes a 2D [n_samples, n_features] matrix
+        # (e.g. the NaN check scans axis=1). Reject a 1D array here with a clear
+        # message instead of letting numpy raise a cryptic AxisError downstream.
+        if features.ndim != 2:
+            raise ValueError(
+                f"Features must be a 2D array [n_samples, n_features], "
+                f"got {features.ndim}D with shape {features.shape}."
+            )
+
         # Check for NaN/Inf
         if np.any(np.isnan(features)):
             nan_count = np.sum(np.isnan(features).any(axis=1))

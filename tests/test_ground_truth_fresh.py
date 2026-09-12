@@ -13,6 +13,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
+
+pytestmark = pytest.mark.needs_data  # needs Google_Germany album (private, not in CI)
 import pandas as pd
 import numpy as np
 from PIL import Image, ImageOps
