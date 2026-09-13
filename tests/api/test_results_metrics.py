@@ -93,9 +93,19 @@ class ut_CompositeBreakdownPersisted:
             def compute_penalty(self, image_path, context):
                 return -0.15
 
+        class _FakeZeroPenalty:
+            # occlusion + tilt penalties were added to the composite by
+            # spec-097/099; process() initializes them. This test bypasses
+            # process() and drives _compute_composite_scores directly, so it
+            # must supply them too (0.0 = no penalty, keeps the sum == 0.65).
+            def compute_penalty(self, image_path, context):
+                return 0.0
+
         step = SelectBestStep()
         step._quality_strategy = _FakeQuality()
         step._penalty_computer = _FakePenalty()
+        step._occlusion_penalty = _FakeZeroPenalty()
+        step._tilt_penalty = _FakeZeroPenalty()
         ctx = PipelineContext()
         path = "D:/x/img.jpg"
 

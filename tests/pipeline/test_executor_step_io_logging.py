@@ -26,6 +26,44 @@ from sim_bench.pipeline.executor import (
 from sim_bench.pipeline.registry import StepRegistry, register_step
 
 
+class _ListHandler(logging.Handler):
+    """Captures records straight off the executor logger.
+
+    SIGHTING-090: ``caplog`` captures via a handler on the ROOT logger, so it
+    depends on records propagating up the whole chain. In the full-suite run a
+    sibling test can break that chain (a global ``logging.disable`` or
+    ``propagate=False`` on ``sim_bench``/``sim_bench.pipeline``), and capture
+    silently comes back empty ("captured: []") depending on test order. Attaching
+    our own handler directly to the target logger is immune to all of that.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.DEBUG)
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+def _capture_executor(run_fn, level: int = logging.INFO) -> list[str]:
+    """Run ``run_fn`` while capturing ``sim_bench.pipeline.executor`` logs via a
+    directly-attached handler (order-independent — see ``_ListHandler``)."""
+    logger = logging.getLogger("sim_bench.pipeline.executor")
+    handler = _ListHandler()
+    prev_level, prev_disabled = logger.level, logger.disabled
+    logging.disable(logging.NOTSET)   # undo any global disable a sibling test left
+    logger.disabled = False
+    logger.setLevel(level)
+    logger.addHandler(handler)
+    try:
+        run_fn()
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(prev_level)
+        logger.disabled = prev_disabled
+    return [r.getMessage() for r in handler.records]
+
+
 def _isolated_registry() -> StepRegistry:
     """Make a fresh registry so test-only steps don't leak into others."""
     return StepRegistry()
@@ -110,21 +148,21 @@ def test_summarize_keys_orders_alphabetically():
 # Integration: real executor + capturing logs
 # ---------------------------------------------------------------------------
 
-def _run_two_step_chain(caplog) -> None:
-    registry = _isolated_registry()
-    registry.register(_PopulateStep)
-    registry.register(_ConsumeStep)
-    executor = PipelineExecutor(registry)
-    ctx = PipelineContext()
-    cfg = PipelineConfig(fail_fast=True)
-    with caplog.at_level(logging.INFO, logger="sim_bench.pipeline.executor"):
+def _run_two_step_chain() -> list[str]:
+    def _run():
+        registry = _isolated_registry()
+        registry.register(_PopulateStep)
+        registry.register(_ConsumeStep)
+        executor = PipelineExecutor(registry)
+        ctx = PipelineContext()
+        cfg = PipelineConfig(fail_fast=True)
         result = executor.execute(ctx, ["t_populate", "t_consume"], config=cfg)
-    assert result.success, result.error_message
+        assert result.success, result.error_message
+    return _capture_executor(_run, logging.INFO)
 
 
-def test_executor_logs_in_out_for_each_successful_step(caplog):
-    _run_two_step_chain(caplog)
-    messages = [r.message for r in caplog.records]
+def test_executor_logs_in_out_for_each_successful_step():
+    messages = _run_two_step_chain()
 
     # t_populate has no requires → "—"; produces out_list (length 3 after run)
     assert any(
@@ -137,19 +175,22 @@ def test_executor_logs_in_out_for_each_successful_step(caplog):
     ), f"missing t_consume telemetry line. captured: {messages}"
 
 
-def test_executor_logs_validation_failure_with_input_shape(caplog):
+def test_executor_logs_validation_failure_with_input_shape():
     """When a step's validator rejects, the log line names the input shape
     that triggered the rejection — so a post-mortem of "X was empty" doesn't
     need to scroll through earlier steps."""
-    registry = _isolated_registry()
-    registry.register(_ConsumeStep)  # requires out_list
-    executor = PipelineExecutor(registry)
-    ctx = PipelineContext()  # out_list never set
-    cfg = PipelineConfig(fail_fast=True)
-    with caplog.at_level(logging.ERROR, logger="sim_bench.pipeline.executor"):
-        result = executor.execute(ctx, ["t_consume"], config=cfg)
-    assert not result.success
-    error_lines = [r.message for r in caplog.records if r.levelno >= logging.ERROR]
+    holder = {}
+
+    def _run():
+        registry = _isolated_registry()
+        registry.register(_ConsumeStep)  # requires out_list
+        executor = PipelineExecutor(registry)
+        ctx = PipelineContext()  # out_list never set
+        cfg = PipelineConfig(fail_fast=True)
+        holder["result"] = executor.execute(ctx, ["t_consume"], config=cfg)
+
+    error_lines = _capture_executor(_run, logging.ERROR)
+    assert not holder["result"].success
     assert any(
         "t_consume: validation failed (in[out_list=missing])" in m for m in error_lines
     ), f"missing input-shape in validation error. captured: {error_lines}"

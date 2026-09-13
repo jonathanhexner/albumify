@@ -3,6 +3,10 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
+# The test suite lives in tests/ ONLY. Without this, a bare `pytest` collects every
+# test_*.py across the whole repo (examples/, scripts/, root) — old scripts that aren't
+# suite tests and error on import. Scoping here keeps collection to the real suite.
+testpaths = ["tests"]
 python_classes = ["ut_*", "Test*"]
 python_functions = ["test_*"]
 addopts = "-m 'not e2e and not slow and not budapest and not needs_data'"

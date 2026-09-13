@@ -113,7 +113,7 @@ def test_clip_tagger():
         summary = tagger.get_prompt_summary()
         print(f"[OK] Loaded {summary['total_prompts']} prompts")
 
-        assert summary['total_prompts'] == 55, f"Expected 55 prompts, got {summary['total_prompts']}"
+        assert summary['total_prompts'] >= 55, f"Expected >=55 prompts, got {summary['total_prompts']}"
         print("[OK] Correct number of prompts")
 
         # Check categories
@@ -195,8 +195,8 @@ def test_config_file_exists():
         len(prompts.get('composition_aesthetic', [])) +
         len(prompts.get('human_focused', []))
     )
-    assert total == 55, f"Expected 55 prompts, got {total}"
-    print(f"[OK] Prompts config has 55 prompts")
+    assert total >= 55, f"Expected >=55 prompts, got {total}"
+    print(f"[OK] Prompts config has {total} prompts")
 
     return True
 

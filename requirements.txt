@@ -17,6 +17,8 @@ torch>=2.0; platform_system != "Darwin" or platform_machine != "arm64"
 torch>=2.0; platform_system == "Darwin" and platform_machine == "arm64"
 torchvision>=0.15
 open-clip-torch>=2.20  # For OpenCLIP method
+clip-anytorch>=2.5.0  # OpenAI CLIP API (provides `import clip`) — used by classify_scene + occlusion_bench
+pyiqa>=0.1.10  # IQA metrics (MUSIQ/BRISQUE/NIQE) for score_iqa; needs numpy<2 (pinned above)
 
 # Optional: Visualization and analysis
 matplotlib>=3.8

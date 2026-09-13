@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+
+pytestmark = pytest.mark.needs_data  # Streamlit AppTest — needs a seeded Budapest run, not in clean CI
 from pathlib import Path
 
 try:

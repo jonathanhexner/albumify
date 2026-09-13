@@ -17,8 +17,7 @@ import pytest
 # stays runnable via ``python tests/<name>.py``) so one dead script can't take
 # the whole suite down. Any file added here must NOT contain real pytest tests.
 collect_ignore = [
-    "test_full_e2e_flow.py",      # manual full-stack E2E: needs uvicorn+streamlit+FC servers + local album
-    "test_quality_assessment.py",  # obsolete smoke script: imports removed NIMAQuality/ViTQuality classes
+    "test_full_e2e_flow.py",   # manual full-stack E2E: needs uvicorn+streamlit+FC servers + local album
 ]
 
 

@@ -4,6 +4,26 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-121: two current modules have zero suite-test coverage (surfaced by the full-lane cleanup)
+**Status**: OPEN (non-blocking; noted 2026-09-13 while removing dead smoke scripts)
+**Severity**: Low (no known bug; a coverage gap, not a failure)
+**Reported**: 2026-09-13
+**Persona**: SW Engineer / Test Infra
+
+**Problem**: removing the abandoned `test_*` smoke scripts (see `fix/full-lane-tuning`) revealed that
+the only things ever exercising two *current* modules were those broken print-scripts — so with them
+gone, these have **no assertion-based test in `tests/`**:
+1. `sim_bench/datasets/siamese_dataloaders.py` — `EndToEndPairDataset`, `get_dataset_from_loader`
+   (the removed script `examples/test_refactored_dataloaders.py` also referenced a since-deleted
+   `ExternalDatasetAdapter`).
+2. `sim_bench/image_processing/degradation.py` — `create_degradation_processor` (the removed
+   `examples/test_degradations*.py` used it, but via the retired Gen-1 `create_quality_assessor`).
+
+**Suggested follow-up**: if either module is on a path we still care about, add a small synthetic-fixture
+unit test in `tests/` (no private data). Not doing it here — this branch is scoped to CI stabilization.
+
+---
+
 ### SIGHTING-120: Albumify "hdbscan_pca" clustering option crashes — retired algorithm still offered in the UI
 **Status**: RESOLVED 2026-09-11 (Option A: consolidated onto `hdbscan` + `pca_dim`; branch `fix/test-suite-stabilization`). Step routes the `hdbscan_pca` preset to `hdbscan`+`pca_dim` (verified identical), duplicate `hdbscan_pca.py` deleted, tests repointed. UI preset still works.
 **Severity**: Medium (a user-selectable clustering method in the Albumify pipeline crashes the run; incomplete refactor left a live dropdown option pointing at a deleted engine)

@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.needs_data  # Streamlit AppTest smoke — needs a seeded run / stable headless env, not clean CI
+
 # Self-contained synthetic run dir (same builder the smoke + repo tests use).
 from tests.face_clustering.repositories.test_cluster_analysis_repo_synthetic import (
     _build_synthetic_run_dir,

@@ -201,10 +201,17 @@ def _sha256_db_canonical(db_path: Path) -> Dict[str, str]:
 
 def _compute_all_hashes(output_dir: Path) -> Dict[str, str]:
     hashes: Dict[str, str] = {}
-    # Per-file (deterministic only)
-    for name in ("embeddings.npy", "embedding_face_ids.npy"):
-        p = output_dir / name
-        hashes[name] = _sha256_file(p)
+    # embedding_face_ids.npy is int → raw bytes are portable.
+    hashes["embedding_face_ids.npy"] = _sha256_file(output_dir / "embedding_face_ids.npy")
+    # embeddings.npy is float32 — its raw bytes vary by numpy version / BLAS / platform,
+    # so a byte-hash is not portable local<->CI (it diverges even when nothing changed).
+    # Snapshot the STRUCTURE (shape + dtype) instead; embedding *values* are covered by
+    # tests/pipeline/test_face_embedding_validation.py. Same reasoning as crops below,
+    # whose raw bytes are PIL-version-dependent.
+    _emb = np.load(output_dir / "embeddings.npy")
+    hashes["embeddings.npy"] = hashlib.sha256(
+        f"embeddings:{_emb.shape}:{_emb.dtype}".encode("utf-8")
+    ).hexdigest()
     # DB: per-table canonical hash
     hashes.update(_sha256_db_canonical(output_dir / "face_clustering.db"))
     # Crops dir: sorted listing + sizes (binary contents are PIL-version-dependent)

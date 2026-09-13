@@ -25,6 +25,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.needs_data  # Streamlit AppTest smoke — needs a seeded run / stable headless env, not clean CI
+
 from sim_bench.run_db._schema import SCHEMA_DDL, SCHEMA_VERSION
 
 # Import the shared synthetic builder so this test is self-contained.

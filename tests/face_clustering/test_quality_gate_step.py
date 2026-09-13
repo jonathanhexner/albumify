@@ -42,10 +42,18 @@ def _aligned_low_blur() -> np.ndarray:
 
 
 def _aligned_high_blur() -> np.ndarray:
-    """An aligned face crop with high Laplacian variance (random noise =
-    high blur_score)."""
-    rng = np.random.RandomState(0)
-    return rng.randint(0, 256, (112, 112, 3), dtype=np.uint8)
+    """An aligned face crop with genuinely high sharpness — a structured
+    high-frequency checkerboard.
+
+    NOTE (spec-098): blur scoring median-blurs first, so RANDOM noise is
+    correctly rejected as non-sharp (scores ~0, same as flat gray). A
+    *structured* edge pattern survives the median filter and yields a high
+    Laplacian variance — that's what an in-focus face looks like to the
+    metric. (Using random noise here was the pre-098 mistake that made this
+    guard self-defeating: both trios scored 0.0 and the gate saw all-zero.)"""
+    idx = np.indices((112, 112)).sum(axis=0)
+    checker = ((idx % 16) // 8 * 255).astype(np.uint8)
+    return np.stack([checker] * 3, axis=-1)
 
 
 def _face(face_id: int, aligned: np.ndarray):
@@ -98,12 +106,12 @@ def test_blur_gate_actually_filters_when_min_is_high() -> None:
         f"core={ctx.core_indices}. The blur gate did not fire — spec-053 "
         f"regression."
     )
-    # Proof that compute_blur_scores ran: the high-blur (random noise)
+    # Proof that compute_blur_scores ran: the sharp (structured checkerboard)
     # faces must have a meaningful non-zero variance. Uniform-gray faces
     # legitimately have variance == 0.0.
     high_blur_scores = [f.blur_score for f in ctx.face_records[3:]]
     assert all(s > 0.0 for s in high_blur_scores), (
-        f"random-noise faces did not get a blur score — calc() didn't "
+        f"sharp checkerboard faces did not get a blur score — calc() didn't "
         f"call compute_blur_scores. scores={high_blur_scores}"
     )
 
