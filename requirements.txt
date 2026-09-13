@@ -17,6 +17,7 @@ torch>=2.0; platform_system != "Darwin" or platform_machine != "arm64"
 torch>=2.0; platform_system == "Darwin" and platform_machine == "arm64"
 torchvision>=0.15
 open-clip-torch>=2.20  # For OpenCLIP method
+clip-anytorch>=2.5.0  # OpenAI CLIP API (provides `import clip`) — used by classify_scene + occlusion_bench
 
 # Optional: Visualization and analysis
 matplotlib>=3.8
