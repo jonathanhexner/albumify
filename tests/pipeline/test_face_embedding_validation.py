@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # SIGHTING-118: needs InsightFace models + test_data/face_clustering. Not runnable in a clean CI
 # runner; excluded from the default (fast) suite. Run explicitly with `pytest -m slow`.
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.needs_data]  # InsightFace E2E — passes locally, model runtime not reliable in clean CI
 
 # Test data directory
 TEST_DATA_DIR = Path("test_data/face_clustering")
@@ -122,8 +122,7 @@ class TestFaceEmbeddingValidation:
         detect_step = InsightFaceDetectFacesStep()
         detect_config = {
             "model_name": "buffalo_l",
-            "det_size": 640,
-            "det_thresh": 0.5,
+            "detection_threshold": 0.5,
         }
         detect_step.process(context, detect_config)
         logger.info(f"  Detected faces in {len(context.insightface_faces)} images")
@@ -204,8 +203,7 @@ class TestFaceEmbeddingValidation:
         detect_step = InsightFaceDetectFacesStep()
         detect_config = {
             "model_name": "buffalo_l",
-            "det_size": 640,
-            "det_thresh": 0.5,
+            "detection_threshold": 0.5,
         }
         detect_step.process(context, detect_config)
 
@@ -521,7 +519,7 @@ class TestFaceEmbeddingValidation:
 
         # Run all steps
         detect_step = InsightFaceDetectFacesStep()
-        detect_step.process(context, {"model_name": "buffalo_l", "det_size": 640, "det_thresh": 0.5})
+        detect_step.process(context, {"model_name": "buffalo_l", "detection_threshold": 0.5})
 
         align_step = AlignFacesStep()
         align_step.process(context, {"target_size": 112, "use_insightface_alignment": True})

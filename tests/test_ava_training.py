@@ -41,8 +41,10 @@ def create_synthetic_ava_data(temp_dir: Path, num_images: int = 50):
         votes = votes.astype(int)
         votes = np.clip(votes, 1, 100)  # Ensure at least 1 vote per bin
 
-        # AVA.txt format: image_id, challenge_id, votes_1-10, tag1, tag2, challenge_ref
-        row = [image_id, 1] + list(votes) + [0, 0, 1]
+        # Real AVA.txt format: index, image_id, votes_1-10, tag1, tag2, challenge_id
+        # (load_ava_labels reads image_id from column 1 — the synthetic data must
+        # include the leading index column or column 1 is misread.)
+        row = [i + 1, image_id] + list(votes) + [0, 0, 1]
         rows.append(row)
 
         # Create a simple colored image (color varies with mean score)

@@ -26,6 +26,23 @@ from sim_bench.pipeline.executor import (
 from sim_bench.pipeline.registry import StepRegistry, register_step
 
 
+@pytest.fixture(autouse=True)
+def _unpollute_logging():
+    """SIGHTING-090: in the full-suite run a sibling test can leave logging
+    globally disabled (``logging.disable``) or set ``propagate=False`` on the
+    executor logger. ``caplog.at_level`` sets the logger's level but undoes
+    NEITHER, so capture silently comes back empty ("captured: []") depending on
+    test order. Reset both so these telemetry assertions are order-independent."""
+    logging.disable(logging.NOTSET)  # undo any global logging.disable()
+    lg = logging.getLogger("sim_bench.pipeline.executor")
+    prev = lg.propagate
+    lg.propagate = True
+    try:
+        yield
+    finally:
+        lg.propagate = prev
+
+
 def _isolated_registry() -> StepRegistry:
     """Make a fresh registry so test-only steps don't leak into others."""
     return StepRegistry()
