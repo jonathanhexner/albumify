@@ -1,0 +1,380 @@
+<title>Albumify — Product Direction Decision</title>
+<style>
+  :root {
+    --ground:#0E0D0C; --surface:#17130F; --surface2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C;
+    --sales:#E8B04B; --sales-ink:#1A1206;      /* amber = the Sales lens / product */
+    --eng:#6FB3C9;   --eng-ink:#06171C;         /* cyan  = the Engineering lens */
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --maxw:1140px; --shadow:0 24px 60px -34px rgba(0,0,0,.8);
+  }
+  @media (prefers-color-scheme: light){
+    :root{--ground:#F5F0E7;--surface:#FFF;--surface2:#FBF6EC;--line:#E4DACB;
+      --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--sales:#A96E12;--sales-ink:#FFF6E4;
+      --eng:#2A7288;--eng-ink:#EAF6FA;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;
+      --shadow:0 24px 50px -34px rgba(60,45,20,.35);}
+  }
+  :root[data-theme="dark"]{--ground:#0E0D0C;--surface:#17130F;--surface2:#1E1913;--line:#2C2620;
+    --ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;--sales:#E8B04B;--sales-ink:#1A1206;
+    --eng:#6FB3C9;--eng-ink:#06171C;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;--shadow:0 24px 60px -34px rgba(0,0,0,.8);}
+  :root[data-theme="light"]{--ground:#F5F0E7;--surface:#FFF;--surface2:#FBF6EC;--line:#E4DACB;
+    --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--sales:#A96E12;--sales-ink:#FFF6E4;
+    --eng:#2A7288;--eng-ink:#EAF6FA;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;--shadow:0 24px 50px -34px rgba(60,45,20,.35);}
+
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+  h1,h2,h3,h4{margin:0;letter-spacing:-0.02em;text-wrap:balance;font-weight:800;}
+  p{margin:0;}
+  a{color:inherit;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+
+  /* header */
+  header{border-bottom:1px solid var(--line);background:var(--surface);}
+  .head{padding:46px 0 40px;}
+  .flag{display:inline-block;width:13px;height:17px;background:var(--sales);vertical-align:-2px;margin-right:9px;
+    clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);}
+  h1{font-size:clamp(30px,5vw,50px);line-height:1.0;margin:14px 0 0;}
+  .sub{margin-top:16px;font-size:clamp(16px,2vw,19px);color:var(--ink-dim);max-width:60ch;}
+  .stakeholders{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap;}
+  .who{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);}
+  .who b{color:var(--ink);}
+  .ask{margin-top:24px;padding:16px 18px;border-left:3px solid var(--sales);background:var(--surface2);border-radius:0 10px 10px 0;max-width:70ch;}
+  .ask .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sales);}
+
+  section{padding:56px 0;border-bottom:1px solid var(--line);}
+  .sec-eyebrow{margin-bottom:8px;}
+  .sec-title{font-size:clamp(23px,3vw,32px);}
+  .sec-lead{margin-top:12px;color:var(--ink-dim);max-width:64ch;}
+
+  /* decision matrix */
+  .matrix-scroll{overflow-x:auto;margin-top:28px;border:1px solid var(--line);border-radius:14px;}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:620px;}
+  th,td{text-align:left;padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top;}
+  thead th{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface2);}
+  tbody tr:last-child td{border-bottom:0;}
+  td.dir{font-weight:800;letter-spacing:-0.01em;}
+  td.dir small{display:block;font-weight:400;color:var(--muted);font-family:var(--mono);font-size:11px;margin-top:3px;letter-spacing:.04em;}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:999px;font-weight:700;}
+  .p-low{color:var(--good);border:1px solid color-mix(in srgb,var(--good) 45%,transparent);}
+  .p-med{color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);}
+  .p-high{color:var(--crit);border:1px solid color-mix(in srgb,var(--crit) 45%,transparent);}
+
+  /* context proof strip */
+  .proof{display:grid;grid-template-columns:repeat(4,1fr);gap:26px;margin-top:8px;}
+  @media (max-width:760px){.proof{grid-template-columns:repeat(2,1fr);}}
+  .metric .v{font-size:clamp(26px,3.6vw,38px);font-weight:800;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;}
+  .metric .v.eng{color:var(--eng);}
+  .metric .l{margin-top:5px;color:var(--muted);font-size:13px;max-width:24ch;}
+
+  /* direction blocks */
+  .dir-block{padding:56px 0;border-bottom:1px solid var(--line);}
+  .dir-head{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;}
+  .dir-num{font-family:var(--mono);font-size:13px;color:var(--sales);letter-spacing:.1em;}
+  .dir-name{font-size:clamp(24px,3.2vw,34px);}
+  .dir-thesis{font-family:var(--serif);font-style:italic;font-size:clamp(17px,2.2vw,22px);color:var(--ink-dim);margin-top:14px;max-width:60ch;line-height:1.35;}
+  .dir-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:34px;margin-top:30px;align-items:start;}
+  @media (max-width:900px){.dir-grid{grid-template-columns:1fr;gap:26px;}}
+
+  /* browser-framed mock */
+  .mock{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
+  .chrome{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface2);}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--line);}
+  .dot:nth-child(1){background:#d98a6a;}.dot:nth-child(2){background:#e0b24a;}.dot:nth-child(3){background:#7fb682;}
+  .url{margin-left:10px;flex:1;font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--ground);border:1px solid var(--line);border-radius:6px;padding:4px 10px;overflow:hidden;white-space:nowrap;}
+  .screen{padding:16px;}
+  .mock-cap{font-family:var(--mono);font-size:11px;color:var(--muted);padding:0 4px 12px;}
+
+  /* photo tiles */
+  .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}
+  .tile{aspect-ratio:1;border-radius:4px;position:relative;filter:saturate(.55) brightness(.66);}
+  .tile.pick{filter:none;box-shadow:0 0 0 2px var(--sales);z-index:2;}
+  .tile.pick::after{content:"";position:absolute;top:3px;right:3px;width:8px;height:11px;background:var(--sales);clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);}
+
+  .lenses{display:flex;flex-direction:column;gap:16px;}
+  .lens{border:1px solid var(--line);border-radius:12px;padding:18px 18px;background:var(--surface);}
+  .lens.eng{border-top:3px solid var(--eng);}
+  .lens.sales{border-top:3px solid var(--sales);}
+  .lens h4{font-size:13px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+  .lens.eng h4{color:var(--eng);}
+  .lens.sales h4{color:var(--sales);}
+  .lens ul{margin:12px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:9px;}
+  .lens li{font-size:14px;color:var(--ink-dim);padding-left:20px;position:relative;}
+  .lens li::before{content:"";position:absolute;left:2px;top:8px;width:7px;height:7px;border-radius:2px;background:currentColor;opacity:.5;}
+  .lens.eng li{color:var(--ink-dim);}
+  .lens .verdict{margin-top:14px;font-size:13px;font-family:var(--mono);padding-top:12px;border-top:1px dashed var(--line);}
+  .best{margin-top:22px;padding:14px 16px;background:var(--surface2);border-radius:10px;font-size:14px;color:var(--ink-dim);}
+  .best b{color:var(--ink);}
+
+  /* recommendation */
+  .rec{padding:60px 0;}
+  .rec-card{border:1px solid var(--sales);border-radius:16px;padding:30px;background:linear-gradient(180deg,color-mix(in srgb,var(--sales) 8%,var(--surface)),var(--surface));}
+  .rec-card h3{font-size:22px;}
+  .rec-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:22px;}
+  @media (max-width:760px){.rec-row{grid-template-columns:1fr;}}
+  .rec-step{border:1px solid var(--line);border-radius:12px;padding:16px;background:var(--surface);}
+  .rec-step .n{font-family:var(--mono);font-size:11px;color:var(--sales);letter-spacing:.1em;}
+  .rec-step h4{font-size:16px;margin:8px 0 6px;}
+  .rec-step p{font-size:13px;color:var(--muted);}
+  .decision{margin-top:26px;font-size:15px;color:var(--ink-dim);}
+  .decision b{color:var(--ink);}
+  footer{padding:30px 0;}
+  .foot{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+
+  /* upload mock bits */
+  .drop{border:1.5px dashed color-mix(in srgb,var(--eng) 55%,var(--line));border-radius:12px;padding:26px;text-align:center;color:var(--ink-dim);background:color-mix(in srgb,var(--eng) 6%,transparent);}
+  .drop .big{font-size:15px;color:var(--ink);font-weight:700;}
+  .drop .sm{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;}
+  .steps{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;}
+  .step{font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);}
+  .step.done{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,transparent);}
+  .step.run{color:var(--eng);border-color:color-mix(in srgb,var(--eng) 55%,transparent);}
+  .bar{height:6px;border-radius:999px;background:var(--line);margin-top:12px;overflow:hidden;}
+  .bar>i{display:block;height:100%;width:64%;background:var(--eng);}
+  .tryit{margin-top:12px;border:1px solid color-mix(in srgb,var(--eng) 45%,transparent);border-radius:10px;padding:14px;background:color-mix(in srgb,var(--eng) 7%,var(--surface));}
+  .tryit .t{font-size:13px;font-weight:700;color:var(--ink);}
+  .tryit .b{font-family:var(--mono);font-size:10px;color:var(--eng);margin-top:4px;}
+  .whypanel{margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;}
+  .whypanel span{border:1px solid var(--line);border-radius:6px;padding:3px 7px;}
+  .whypanel b{color:var(--sales);}
+</style>
+
+<header>
+  <div class="wrap head">
+    <p class="eyebrow"><span class="flag"></span>Albumify · Product Direction Decision · spec-106</p>
+    <h1>Three directions for shipping Albumify — pick one.</h1>
+    <p class="sub">The curation engine is built, benchmarked, and green in CI. The open question is <em>what we ship on top of it</em>. Each direction below trades engineering cost against sales value differently. This doc frames that trade for a joint call.</p>
+    <div class="stakeholders">
+      <span class="who">Decision owners: <b>Head of Engineering</b> · <b>Head of Sales</b></span>
+      <span class="who">Decision: <b>direction for the first public build</b></span>
+    </div>
+    <div class="ask">
+      <span class="k">The ask</span>
+      <p style="margin-top:6px;">Choose one direction (or A→C as a sequence). Each includes a UI mock, an engineering read (effort · risk · cost), and a sales read (positioning · audience · differentiator). A recommendation is at the end — but the call is yours.</p>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- proof strip -->
+  <section>
+    <div class="wrap">
+      <p class="eyebrow sec-eyebrow">What's already true (de-risks every option)</p>
+      <h2 class="sec-title">The engine is real and proven — this is a packaging decision, not an R&amp;D bet.</h2>
+      <div class="proof" style="margin-top:34px;">
+        <div class="metric"><div class="v">122→20</div><div class="l">real trip curated end-to-end (data ready for 3 trips)</div></div>
+        <div class="metric"><div class="v eng">0.958</div><div class="l">DINOv2 retrieval mAP (UKBench) behind the engine</div></div>
+        <div class="metric"><div class="v eng">vs&nbsp;VLM</div><div class="l">benchmarked head-to-head against a frontier VLM</div></div>
+        <div class="metric"><div class="v">CI&nbsp;green</div><div class="l">two-lane test suite, 1351 tests, nightly full-stack lane</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- decision matrix -->
+  <section>
+    <div class="wrap">
+      <p class="eyebrow sec-eyebrow">The decision at a glance</p>
+      <h2 class="sec-title">Same engine, three ways to package it.</h2>
+      <div class="matrix-scroll">
+        <table>
+          <thead><tr>
+            <th>Direction</th><th>What a visitor does</th><th>Eng effort / risk</th><th>Sales value</th><th>Time to ship</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td class="dir">A · The Showcase<small>curated case study</small></td>
+              <td>Explores 3 real trips: the album, why each pick won, vs-VLM</td>
+              <td><span class="pill p-low">LOW</span> static data, no models live, can't break</td>
+              <td>Credibility &amp; proof — recruiters, technical buyers</td>
+              <td><span class="pill p-low">~days</span></td>
+            </tr>
+            <tr>
+              <td class="dir">B · The Live Curator<small>real SaaS product</small></td>
+              <td>Uploads their own trip → gets a curated album back</td>
+              <td><span class="pill p-high">HIGH</span> host heavy ML, OOM, cost, reliability</td>
+              <td>A sellable service — an actual market</td>
+              <td><span class="pill p-high">weeks</span></td>
+            </tr>
+            <tr>
+              <td class="dir">C · The Hybrid Funnel<small>showcase + bounded try-it</small></td>
+              <td>Explores trips, then tries it on a few of their own photos</td>
+              <td><span class="pill p-med">MEDIUM</span> bounded/capped pipeline, contained risk</td>
+              <td>Best conversion — proof that also converts</td>
+              <td><span class="pill p-med">~1–2 wks</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIRECTION A -->
+  <div class="dir-block"><div class="wrap">
+    <div class="dir-head"><span class="dir-num">DIRECTION A</span><h3 class="dir-name">The Showcase</h3></div>
+    <p class="dir-thesis">"Don't sell the tool — prove it. Let people walk through three real trips the engine already curated, and show we out-reasoned a frontier VLM."</p>
+    <div class="dir-grid">
+      <div>
+        <div class="mock">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">albumify.app/trip/budapest</span></div>
+          <div class="screen">
+            <div class="mock-cap">// budapest · 122 frames → 20 keepers · tap a pick to see why</div>
+            <div class="grid" id="gridA"></div>
+            <div class="whypanel">
+              <span>why this frame: <b>composite 0.55</b></span><span>beat 4 near-dupes in its scene</span><span>vs-VLM overlap 6/20</span>
+            </div>
+          </div>
+        </div>
+        <p class="mock-cap" style="margin-top:10px;padding:0;">Mock: album gallery — picks ringed &amp; flagged, dimmed frames are what got culled; a "why picked" strip + the vs-VLM hook.</p>
+      </div>
+      <div class="lenses">
+        <div class="lens eng">
+          <h4>🛠 Engineering</h4>
+          <ul>
+            <li>Next.js static export on Vercel — <b>no backend, no model hosting</b></li>
+            <li>Precomputed JSON + 768px images (Phase 0 confirmed 100% ready)</li>
+            <li>Zero OOM / cost / reliability surface — literally cannot break live</li>
+          </ul>
+          <div class="verdict" style="color:var(--good)">Risk: minimal · Ship: days</div>
+        </div>
+        <div class="lens sales">
+          <h4>📈 Sales</h4>
+          <ul>
+            <li>Positioning: <b>credibility &amp; rigor</b> — "we benchmarked vs GPT/Claude"</li>
+            <li>Audience: recruiters, technical evaluators, early design partners</li>
+            <li>Differentiator most demos lack: an honest head-to-head result</li>
+          </ul>
+          <div class="verdict" style="color:var(--sales)">Converts belief, not signups</div>
+        </div>
+        <div class="best">Best when the goal is <b>proof and credibility fast</b>, with zero chance of an embarrassing live failure.</div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- DIRECTION B -->
+  <div class="dir-block"><div class="wrap">
+    <div class="dir-head"><span class="dir-num">DIRECTION B</span><h3 class="dir-name">The Live Curator</h3></div>
+    <p class="dir-thesis">"Ship the actual product. Drop in your trip, get a curated album back. A real service someone can use — and we can sell."</p>
+    <div class="dir-grid">
+      <div>
+        <div class="mock">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">albumify.app/new</span></div>
+          <div class="screen">
+            <div class="mock-cap">// upload → the real pipeline runs → your curated album</div>
+            <div class="drop"><div class="big">Drop your trip's photos</div><div class="sm">JPEG / HEIC · up to your whole roll</div></div>
+            <div class="steps">
+              <span class="step done">score</span><span class="step done">dedupe scenes</span><span class="step run">cluster faces ⟳</span><span class="step">order story</span>
+            </div>
+            <div class="bar"><i></i></div>
+            <div class="grid" id="gridB" style="margin-top:12px;grid-template-columns:repeat(8,1fr);"></div>
+          </div>
+        </div>
+        <p class="mock-cap" style="margin-top:10px;padding:0;">Mock: the live flow — dropzone → real pipeline progress (score → dedupe → faces → order) → the finished album.</p>
+      </div>
+      <div class="lenses">
+        <div class="lens eng">
+          <h4>🛠 Engineering</h4>
+          <ul>
+            <li>Must host the full ML stack (torch · InsightFace · YOLO · CLIP · DINOv2)</li>
+            <li><b>Real risk:</b> memory (SIGHTING-117 OOM), cost, cold starts, queueing</li>
+            <li>Needs a GPU/CPU worker, job queue, storage, reliability hardening</li>
+          </ul>
+          <div class="verdict" style="color:var(--crit)">Risk: high · Ship: weeks</div>
+        </div>
+        <div class="lens sales">
+          <h4>📈 Sales</h4>
+          <ul>
+            <li>Positioning: <b>a launched service</b> — the real "0→100" story</li>
+            <li>Audience: end users / a market you can charge</li>
+            <li>Caveat: a slow or failed first run <b>destroys</b> trust instantly</li>
+          </ul>
+          <div class="verdict" style="color:var(--sales)">Highest ceiling, highest stakes</div>
+        </div>
+        <div class="best">Best when we're committing to <b>launch a product</b> and can fund the reliability work to keep it un-embarrassing.</div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- DIRECTION C -->
+  <div class="dir-block"><div class="wrap">
+    <div class="dir-head"><span class="dir-num">DIRECTION C</span><h3 class="dir-name">The Hybrid Funnel</h3></div>
+    <p class="dir-thesis">"Lead with the bulletproof showcase to earn belief — then let them try it on a few of their own photos. Looks live, stays safe, and converts."</p>
+    <div class="dir-grid">
+      <div>
+        <div class="mock">
+          <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">albumify.app</span></div>
+          <div class="screen">
+            <div class="mock-cap">// the showcase album… + a bounded "try it on your photos"</div>
+            <div class="grid" id="gridC"></div>
+            <div class="tryit">
+              <div class="t">Try it on up to 15 of your photos →</div>
+              <div class="b">bounded · light pipeline · ~30s · no account</div>
+            </div>
+          </div>
+        </div>
+        <p class="mock-cap" style="margin-top:10px;padding:0;">Mock: the showcase gallery with a capped "try-it" module — real enough to convince, bounded so it can't blow up.</p>
+      </div>
+      <div class="lenses">
+        <div class="lens eng">
+          <h4>🛠 Engineering</h4>
+          <ul>
+            <li>Static showcase + one small bounded function (cap N, light pipeline variant)</li>
+            <li>Capping input side-steps the OOM/cost/latency risks of B</li>
+            <li>One contained live path to harden — not the whole product</li>
+          </ul>
+          <div class="verdict" style="color:var(--warn)">Risk: medium · Ship: 1–2 weeks</div>
+        </div>
+        <div class="lens sales">
+          <h4>📈 Sales</h4>
+          <ul>
+            <li>Positioning: <b>proof that converts</b> — credibility + a live "aha"</li>
+            <li>Audience: both — evaluators AND prospects, in one funnel</li>
+            <li>Showcase builds trust; the try-it captures intent</li>
+          </ul>
+          <div class="verdict" style="color:var(--sales)">Best belief-to-signup path</div>
+        </div>
+        <div class="best">Best when we want <b>a real live moment without betting the launch</b> on hosting the full pipeline.</div>
+      </div>
+    </div>
+  </div></div>
+
+  <!-- recommendation -->
+  <div class="rec"><div class="wrap">
+    <div class="rec-card">
+      <p class="eyebrow" style="color:var(--sales);">Recommendation (for discussion — not the decision)</p>
+      <h3 style="margin-top:10px;">Sequence, don't choose: A now, C next, B only on a real launch commitment.</h3>
+      <div class="rec-row">
+        <div class="rec-step"><span class="n">STEP 1 · THIS WEEK</span><h4>Ship A</h4><p>Bulletproof, data-ready, un-embarrassing. Earns credibility immediately and costs almost nothing.</p></div>
+        <div class="rec-step"><span class="n">STEP 2 · IF TRACTION</span><h4>Add C's try-it</h4><p>One bounded live path bolted onto the showcase. Turns belief into signups without the full hosting risk.</p></div>
+        <div class="rec-step"><span class="n">STEP 3 · IF FUNDED</span><h4>Grow into B</h4><p>Only when we commit to a launch and the reliability budget the live pipeline demands.</p></div>
+      </div>
+      <p class="decision">Each step stands alone and de-risks the next — so <b>no step is wasted</b> if we stop. <b>The decision needed today:</b> do we start at A (recommended), commit straight to B, or scope C as the first build?</p>
+    </div>
+  </div></div>
+</main>
+
+<footer><div class="wrap foot">
+  <span>Albumify · spec-106 · direction decision</span><span>engine proven · packaging TBD · your call</span>
+</div></footer>
+
+<script>
+  // paint the three mock galleries with varied "photo" tiles + designated picks
+  (function(){
+    var hues=[28,34,20,200,190,44,12,165,210,38,52,120];
+    function paint(id,n,picks){
+      var g=document.getElementById(id); if(!g) return;
+      for(var i=0;i<n;i++){
+        var d=document.createElement('div');
+        d.className='tile'+(picks.indexOf(i)>=0?' pick':'');
+        var h=hues[i%hues.length], h2=(h+26)%360;
+        d.style.background='linear-gradient(140deg,hsl('+h+' 44% 48%),hsl('+h2+' 40% 30%))';
+        g.appendChild(d);
+      }
+    }
+    paint('gridA',18,[2,5,9,13,16]);
+    paint('gridB',24,[4,11,19]);
+    paint('gridC',18,[1,6,10,15]);
+  })();
+</script>
