@@ -42,9 +42,15 @@
 - Single-writer respected: the two execution paths are mutually exclusive (flag branch); the isolated path replaces context state wholesale from the child's copy.
 
 **§5 Testability** — `pass-with-followup` **← the one item for your decision**
-- Test inventory: **6 integration tests** (real subprocesses, not mocks) + **1 probe**. No mocks used.
-- ✅ Failure-mode walk-through: the OOM-kill class (the exact SIGHTING-117 scenario) is covered by `test_isolated_crash_parent_survives`; the memory-retention class by the probe; behavior parity by `test_default_off_is_identical_to_in_process`.
-- ⚠ **No E2E on the *real* album pipeline with `isolate_steps=True`** (heavy models + data). The mechanism is exercised end-to-end on synthetic steps, but not with the real model-loading steps. Mitigations: flag is **default-OFF** (production path byte-identical); a real-pipeline E2E needs models + `needs_data`. → follow-up ticket: a `slow`/`needs_data` E2E running a small real pipeline isolated, asserting output equivalence + a bounded-RSS assertion.
+- Test inventory: **9 integration tests** (real subprocesses, not mocks) + **1 probe**. No mocks used.
+- ✅ Failure-mode walk-through — every known adverse case is exercised:
+  - OOM-kill / segfault (the SIGHTING-117 scenario) → `test_isolated_crash_parent_survives`
+  - **hung / infinite step** → `test_isolated_hung_step_times_out` (per-step timeout terminates the child)
+  - **non-picklable produced value** → `test_isolated_nonpicklable_produce_is_clean_error` (clean error, no hang)
+  - large payload round-trip → `test_isolated_large_payload_marshals_back` (no feeder-thread deadlock)
+  - in-child exception → `test_isolated_exception_becomes_failed_result`; parity → `test_default_off_is_identical_to_in_process`
+  - memory reclamation → the probe
+- ⚠ **No E2E on the *real* album pipeline with `isolate_steps=True`** (heavy models + data). The mechanism + all failure modes are exercised on synthetic steps, but not with the real model-loading steps. Mitigations: flag is **default-OFF** (production path byte-identical); a real-pipeline E2E needs models + `needs_data`. → follow-up ticket: a `slow`/`needs_data` E2E running a small real pipeline isolated, asserting output equivalence + a bounded-RSS assertion.
 
 **§6 Boundary contracts** — `pass`
 - No new Pydantic/Pandera models, no DB schema change. The serialization boundary is self-enforcing (a non-picklable field fails loudly); the only non-picklable member (`on_progress`) is excluded + relayed. Config knob → producer: `isolate_steps` → the executor branch exists.

@@ -88,7 +88,7 @@
     <span class="badge on">v1 implemented</span>
     <span class="badge flag">flag: PipelineConfig.isolate_steps = False (default)</span>
     <span class="badge">branch: spec/104-staged-process-isolation</span>
-    <span class="badge">6 tests · probe green</span>
+    <span class="badge">9 tests (incl. timeout/crash/non-picklable) · probe green</span>
   </div>
   <div class="result">
     <div class="r-top">// PROVEN — parent RSS after a step that leaks ~480 MB (scripts/spec104_isolation_probe.py)</div>
@@ -177,7 +177,8 @@ queue.put(("ok", ctx.__dict__ - on_progress))      <span class="c"># ship mutate
       <tbody>
         <tr><td>Spawn + re-import torch cost per step (~seconds × N steps)</td><td><span class="tag t-med">PERF</span></td><td>Acceptable for bounded/demo loads; v2 groups steps into stages to pay it once per stage. Flag is opt-in.</td></tr>
         <tr><td>Big intermediates (149 MB crops) pickled across per step</td><td><span class="tag t-med">PERF</span></td><td>v2 stage-grouping keeps them inside one child; v1 eats the copy for correctness.</td></tr>
-        <tr><td>A context value isn't picklable</td><td><span class="tag t-low">LOW</span></td><td>Audited: only <code>on_progress</code>, which is excluded + relayed. New non-picklable fields would fail loudly in tests.</td></tr>
+        <tr><td><b>Hung / stalled step</b> (deadlock, infinite loop, stalled download)</td><td><span class="tag t-hi">WAS HIGH</span></td><td><b>Fixed:</b> per-step wall-clock deadline (<code>isolate_step_timeout_s</code>, default 600s) → child <code>terminate()</code>d/<code>kill()</code>ed, failed <code>StepResult("timed out")</code>. Test: <code>hung_step_times_out</code>.</td></tr>
+        <tr><td>Non-picklable produced value</td><td><span class="tag t-low">LOW</span></td><td>Worker <code>pickle.dumps</code> the result inside its try → clean <code>("error")</code>, never an uncatchable feeder-thread hang. Test: <code>nonpicklable_produce_is_clean_error</code>.</td></tr>
         <tr><td>Windows 'spawn' bootstrap (re-imports __main__)</td><td><span class="tag t-low">LOW</span></td><td>Worker is module-level; step rebuilt by import path. Verified on Windows; entry scripts need the usual <code>__main__</code> guard.</td></tr>
         <tr><td>Queue feeder-thread deadlock on large results</td><td><span class="tag t-low">LOW</span></td><td>Result drained before <code>join()</code> (see §4).</td></tr>
         <tr><td>Behavior drift vs in-process</td><td><span class="tag t-low">LOW</span></td><td>Flag default OFF → in-process path byte-identical; a test asserts observable parity.</td></tr>
@@ -198,6 +199,9 @@ queue.put(("ok", ctx.__dict__ - on_progress))      <span class="c"># ship mutate
         <tr><td>default_off_is_identical_to_in_process</td><td>same observable result both ways</td></tr>
         <tr><td>isolated_exception_becomes_failed_result</td><td>a raise → clean failed StepResult</td></tr>
         <tr><td>isolated_crash_parent_survives</td><td>hard child crash → parent survives + reports</td></tr>
+        <tr><td>hung_step_times_out</td><td>a step that never returns → terminated at the deadline, not a parent hang</td></tr>
+        <tr><td>nonpicklable_produce_is_clean_error</td><td>non-picklable produced value → clean error, no hang</td></tr>
+        <tr><td>large_payload_marshals_back</td><td>~80 MB result round-trips without a feeder-thread deadlock</td></tr>
       </tbody>
     </table></div>
     <p style="margin-top:16px;color:var(--ink-dim);">Plus <code>scripts/spec104_isolation_probe.py</code> — the headline in the banner above: <b>+480 MB → +1 MB</b> parent RSS, ~100% reclaimed, isolated step succeeds.</p>

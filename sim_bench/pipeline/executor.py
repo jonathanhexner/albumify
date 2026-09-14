@@ -25,6 +25,7 @@ from sim_bench.pipeline.builder import PipelineBuilder
 # memory on Windows (SIGHTING-117). Must be a module-level function so the 'spawn'
 # start method can import it in the child.
 def _isolated_step_worker(step_module, step_qualname, context_state, step_config, queue):
+    import pickle
     try:
         import importlib
         from sim_bench.pipeline.context import PipelineContext
@@ -41,7 +42,16 @@ def _isolated_step_worker(step_module, step_qualname, context_state, step_config
 
         out = dict(ctx.__dict__)
         out.pop("on_progress", None)          # callback is not picklable; parent keeps its own
-        queue.put(("ok", out))
+        # Pickle the result HERE (inside the try) rather than letting the Queue's
+        # background feeder thread do it — a non-picklable produced value then
+        # surfaces as a clean ("error", ...) instead of an uncatchable feeder-thread
+        # failure that would hang the parent. Bytes traverse the queue trivially.
+        try:
+            payload = pickle.dumps(out)
+        except Exception as e:  # noqa: BLE001
+            queue.put(("error", f"produced value is not picklable: {type(e).__name__}: {e}", ""))
+            return
+        queue.put(("ok", payload))
     except Exception as e:  # noqa: BLE001 — ship the failure back, don't crash silently
         import traceback
         queue.put(("error", f"{type(e).__name__}: {e}", traceback.format_exc()))
@@ -311,13 +321,29 @@ class PipelineExecutor:
             args=(step_cls.__module__, step_cls.__qualname__, state, step_config, queue),
             name=f"isolated:{step_name}",
         )
-        proc.start()
+        try:
+            proc.start()
+        except Exception as e:  # e.g. a context value isn't picklable → fails at spawn
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.error("%s: could not start isolated child: %s", step_name, e, exc_info=True)
+            return StepResult(
+                step_name=step_name, success=False, duration_ms=duration_ms,
+                error_message=f"isolated start failed: {type(e).__name__}: {e}",
+            )
 
         # Drain the queue until the terminal message, firing relayed progress.
         # We MUST read the (possibly large) result off the queue before join(),
-        # or the child can block on its feeder thread and never exit.
+        # or the child can block on its feeder thread and never exit. A wall-clock
+        # deadline guarantees a hung/stalled child (deadlock, infinite loop, stalled
+        # download) can never hang the parent forever.
+        timeout_s = getattr(config, "isolate_step_timeout_s", None)
+        deadline = (start_time + timeout_s) if timeout_s else None
         result = None
+        timed_out = False
         while True:
+            if deadline is not None and time.time() > deadline:
+                timed_out = True
+                break
             try:
                 msg = queue.get(timeout=0.2)
             except Empty:
@@ -333,6 +359,19 @@ class PipelineExecutor:
             else:
                 result = msg
                 break
+
+        if timed_out:
+            proc.terminate()               # SIGTERM the hung child
+            proc.join(timeout=5)
+            if proc.is_alive():
+                proc.kill()                # SIGKILL if it ignored terminate
+                proc.join(timeout=5)
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.error("%s: isolated step timed out after %.0fs — child terminated", step_name, timeout_s)
+            return StepResult(
+                step_name=step_name, success=False, duration_ms=duration_ms,
+                error_message=f"isolated step timed out after {timeout_s:.0f}s",
+            )
 
         proc.join(timeout=30)
         duration_ms = int((time.time() - start_time) * 1000)
@@ -356,10 +395,13 @@ class PipelineExecutor:
                 error_message=result[1],
             )
 
-        # success — apply the child's mutated context back onto the parent's,
-        # preserving the parent-only on_progress callback.
+        # success — the payload is pickled bytes (worker pickled it explicitly so a
+        # non-picklable produce fails cleanly there). Apply the child's mutated context
+        # back onto the parent's, preserving the parent-only on_progress callback.
+        import pickle
+        new_state = pickle.loads(result[1])
         saved_cb = context.on_progress
-        context.__dict__.update(result[1])
+        context.__dict__.update(new_state)
         context.on_progress = saved_cb
 
         in_summary = _summarize_keys(context, step.metadata.requires)

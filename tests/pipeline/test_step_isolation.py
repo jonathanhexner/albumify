@@ -61,3 +61,40 @@ def test_isolated_crash_parent_survives():
     ctx, result = _run(fx.HardCrashStep, isolate=True)
     assert not result.success                       # parent SURVIVED and reported it
     assert "crash" in result.error_message.lower()
+
+
+# --- stress / adverse cases -------------------------------------------------
+
+def test_isolated_hung_step_times_out():
+    """A step that never returns must be terminated at the deadline, not hang the
+    parent forever."""
+    import time
+    registry = StepRegistry()
+    registry.register(fx.HangStep)
+    executor = PipelineExecutor(registry)
+    ctx = PipelineContext()
+    cfg = PipelineConfig(isolate_steps=True, isolate_step_timeout_s=2.0)
+    t0 = time.time()
+    result = executor.execute(ctx, ["iso_hang"], config=cfg)
+    elapsed = time.time() - t0
+    assert not result.success
+    assert "timed out" in result.error_message
+    assert elapsed < 30, f"parent should have killed the hung child promptly, took {elapsed:.0f}s"
+
+
+def test_isolated_nonpicklable_produce_is_clean_error():
+    """A non-picklable produced value comes back as a clean error, not a hang."""
+    ctx, result = _run(fx.NonPicklableProduceStep, isolate=True)
+    assert not result.success
+    assert "picklable" in result.error_message.lower()
+
+
+def test_isolated_large_payload_marshals_back():
+    """A ~80 MB produced array survives the round-trip without deadlock."""
+    registry = StepRegistry()
+    registry.register(fx.BigPayloadStep)
+    executor = PipelineExecutor(registry)
+    ctx = PipelineContext()
+    result = executor.execute(ctx, ["iso_big"], config=PipelineConfig(isolate_steps=True))
+    assert result.success, result.error_message
+    assert ctx.scene_embeddings["blob"].shape == (10_000_000,)

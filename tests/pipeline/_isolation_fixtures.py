@@ -72,6 +72,50 @@ class RaiseStep(BaseStep):
         raise ValueError("boom in child")
 
 
+class HangStep(BaseStep):
+    """Sleeps far longer than any test timeout — the isolated executor must
+    terminate it and return a timeout failure instead of hanging forever."""
+
+    def __init__(self) -> None:
+        self._metadata = StepMetadata(
+            name="iso_hang", display_name="Hang", description="",
+            category="test", requires=set(), produces=set(), depends_on=[],
+        )
+
+    def process(self, context, config) -> None:
+        import time
+        time.sleep(3600)
+
+
+class NonPicklableProduceStep(BaseStep):
+    """Puts a non-picklable value (a lambda) into the context — must come back as
+    a clean 'not picklable' error, not an uncatchable feeder-thread hang."""
+
+    def __init__(self) -> None:
+        self._metadata = StepMetadata(
+            name="iso_unpicklable", display_name="Unpicklable", description="",
+            category="test", requires=set(), produces={"metrics"}, depends_on=[],
+        )
+
+    def process(self, context, config) -> None:
+        context.metrics = {"fn": lambda x: x}  # lambdas cannot be pickled
+
+
+class BigPayloadStep(BaseStep):
+    """Produces a ~80 MB array so we exercise marshalling a large result back
+    across the process boundary without a feeder-thread deadlock."""
+
+    def __init__(self) -> None:
+        self._metadata = StepMetadata(
+            name="iso_big", display_name="Big", description="",
+            category="test", requires=set(), produces={"scene_embeddings"}, depends_on=[],
+        )
+
+    def process(self, context, config) -> None:
+        import numpy as np
+        context.scene_embeddings = {"blob": np.ones((10_000_000,), dtype=np.float64)}  # ~80 MB
+
+
 class HardCrashStep(BaseStep):
     """Simulates an OOM-kill / segfault: the child dies WITHOUT shipping a result.
     The parent must survive and report a failed StepResult (today an OOM kills the
