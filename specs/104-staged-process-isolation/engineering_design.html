@@ -1,0 +1,218 @@
+<title>spec-104 — Per-Step Process Isolation · Engineering Design</title>
+<style>
+  :root{
+    --ground:#0C0F11; --surface:#12171A; --surface2:#171E22; --line:#243036;
+    --ink:#EAF1F3; --ink-dim:#B7C4C9; --muted:#7E8E95;
+    --eng:#6FB3C9; --eng-ink:#04141A;         /* primary = engineering cyan */
+    --warm:#E8B04B;                             /* secondary/caution amber */
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --maxw:1080px; --shadow:0 22px 55px -34px rgba(0,0,0,.85);
+  }
+  @media (prefers-color-scheme:light){:root{
+    --ground:#F2F5F6;--surface:#FFF;--surface2:#F5F9FA;--line:#DCE6E9;
+    --ink:#132025;--ink-dim:#3C4A50;--muted:#69787E;--eng:#1F6E86;--eng-ink:#EAF6FA;
+    --warm:#A96E12;--good:#3E7A46;--warn:#9C6A16;--crit:#B25B3C;--shadow:0 22px 50px -34px rgba(30,60,70,.3);}}
+  :root[data-theme="dark"]{--ground:#0C0F11;--surface:#12171A;--surface2:#171E22;--line:#243036;
+    --ink:#EAF1F3;--ink-dim:#B7C4C9;--muted:#7E8E95;--eng:#6FB3C9;--eng-ink:#04141A;--warm:#E8B04B;
+    --good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;--shadow:0 22px 55px -34px rgba(0,0,0,.85);}
+  :root[data-theme="light"]{--ground:#F2F5F6;--surface:#FFF;--surface2:#F5F9FA;--line:#DCE6E9;
+    --ink:#132025;--ink-dim:#3C4A50;--muted:#69787E;--eng:#1F6E86;--eng-ink:#EAF6FA;--warm:#A96E12;
+    --good:#3E7A46;--warn:#9C6A16;--crit:#B25B3C;--shadow:0 22px 50px -34px rgba(30,60,70,.3);}
+
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+  h1,h2,h3,h4{margin:0;letter-spacing:-0.02em;text-wrap:balance;font-weight:800;}
+  p{margin:0;} code,pre{font-family:var(--mono);}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--eng);}
+
+  header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--surface),var(--ground));}
+  .head{padding:46px 0 38px;}
+  h1{font-size:clamp(28px,4.6vw,44px);line-height:1.02;margin:12px 0 0;}
+  .sub{margin-top:16px;color:var(--ink-dim);font-size:clamp(15px,1.9vw,18px);max-width:66ch;}
+  .badges{margin-top:20px;display:flex;gap:8px;flex-wrap:wrap;}
+  .badge{font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);}
+  .badge.on{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,transparent);}
+  .badge.flag{color:var(--eng);border-color:color-mix(in srgb,var(--eng) 45%,transparent);}
+
+  /* headline result */
+  .result{margin-top:26px;border:1px solid color-mix(in srgb,var(--eng) 40%,var(--line));border-radius:14px;background:var(--surface);overflow:hidden;}
+  .result .r-top{padding:16px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--eng);letter-spacing:.06em;}
+  .rgrid{display:grid;grid-template-columns:1fr 1fr 1fr;}
+  @media (max-width:640px){.rgrid{grid-template-columns:1fr;}}
+  .rcell{padding:20px;border-right:1px solid var(--line);}
+  .rcell:last-child{border-right:0;}
+  .rcell .v{font-size:clamp(26px,4vw,38px);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.03em;}
+  .rcell.bad .v{color:var(--crit);} .rcell.good .v{color:var(--good);}
+  .rcell .l{margin-top:5px;color:var(--muted);font-size:13px;}
+
+  section{padding:48px 0;border-bottom:1px solid var(--line);}
+  .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+  h2{font-size:clamp(21px,2.8vw,29px);margin-top:8px;}
+  .lead{margin-top:12px;color:var(--ink-dim);max-width:68ch;}
+  p+p{margin-top:12px;}
+
+  .callout{margin-top:18px;padding:15px 18px;border-left:3px solid var(--warm);background:var(--surface2);border-radius:0 10px 10px 0;color:var(--ink-dim);}
+  .callout b{color:var(--ink);}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:18px;}
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:18px;}
+  .scroll table{margin:0;min-width:560px;}
+  th,td{text-align:left;padding:12px 15px;border-bottom:1px solid var(--line);vertical-align:top;}
+  thead th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface2);}
+  tbody tr:last-child td{border-bottom:0;}
+  td.mono,.tnum{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 8px;border-radius:999px;font-weight:700;}
+  .t-low{color:var(--good);border:1px solid color-mix(in srgb,var(--good) 45%,transparent);}
+  .t-med{color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);}
+  .t-hi{color:var(--crit);border:1px solid color-mix(in srgb,var(--crit) 45%,transparent);}
+
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto;font-size:12.5px;line-height:1.6;color:var(--ink-dim);margin-top:18px;}
+  pre .c{color:var(--eng);} pre .w{color:var(--warm);} pre .m{color:var(--muted);}
+  .li{padding-left:22px;position:relative;margin-top:10px;color:var(--ink-dim);}
+  .li::before{content:"";position:absolute;left:3px;top:9px;width:7px;height:7px;border-radius:2px;background:var(--eng);}
+  .li b{color:var(--ink);}
+
+  footer{padding:28px 0;}
+  .foot{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+</style>
+
+<header><div class="wrap head">
+  <p class="eyebrow">spec-104 · SIGHTING-117 durable fix · Engineering Design</p>
+  <h1>Per-step process isolation for the pipeline</h1>
+  <p class="sub">Bound the pipeline's peak memory to <em>one model at a time</em> instead of the sum of every model it loads — an executor-only change that leaves steps and pipeline construction untouched, gated behind a default-off flag.</p>
+  <div class="badges">
+    <span class="badge on">v1 implemented</span>
+    <span class="badge flag">flag: PipelineConfig.isolate_steps = False (default)</span>
+    <span class="badge">branch: spec/104-staged-process-isolation</span>
+    <span class="badge">6 tests · probe green</span>
+  </div>
+  <div class="result">
+    <div class="r-top">// PROVEN — parent RSS after a step that leaks ~480 MB (scripts/spec104_isolation_probe.py)</div>
+    <div class="rgrid">
+      <div class="rcell bad"><div class="v">+480 MB</div><div class="l">in-process (flag off) — retained</div></div>
+      <div class="rcell good"><div class="v">+1 MB</div><div class="l">isolated (flag on) — child exits, OS reclaims</div></div>
+      <div class="rcell good"><div class="v">~100%</div><div class="l">reclaimed · isolated step still succeeds</div></div>
+    </div>
+  </div>
+</div></header>
+
+<main>
+  <!-- problem -->
+  <section><div class="wrap">
+    <p class="k">1 · The problem (measured, not assumed)</p>
+    <h2>The OOM is model-stacking — not image resolution.</h2>
+    <p class="lead">Images are already downscaled to 768px; per-image working memory (crops, detections) is small (~67 MB for a whole trip). The cost is the <b>models</b>: the pipeline loads 5–7 separate neural nets, each a few hundred MB <em>regardless of image size</em>, and they never get freed.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Heavy step</th><th>Backend</th><th>RSS added</th><th>Freed by release()?</th></tr></thead>
+      <tbody>
+        <tr><td>extract_scene_embedding (DINOv2)</td><td>torch</td><td class="tnum">+425 MB</td><td>nulls handle · <b>RSS 0</b></td></tr>
+        <tr><td>extract_face_embeddings</td><td>ONNX</td><td class="tnum">+363 MB</td><td>✔ (fixed Phase 0)</td></tr>
+        <tr><td>score_ava (resnet50)</td><td>torch</td><td class="tnum">+187 MB</td><td>nulls handle · <b>RSS 0</b></td></tr>
+        <tr><td>detect_persons (YOLO)</td><td>torch</td><td class="tnum">+164 MB</td><td>nulls handle · <b>RSS 0</b></td></tr>
+        <tr><td>insightface_detect_faces</td><td>ONNX</td><td class="tnum">+33 MB</td><td>✔ freed 471 MB</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout"><b>Root fact:</b> ONNX sessions drop on GC, but <b>torch CPU memory is not returned to the OS on Windows</b> even after <code>del + gc.collect()</code> — no <code>empty_cache</code> for CPU, no <code>malloc_trim</code>. Peak RSS = the <b>sum</b> of every model that ran (`faces` pipeline ~1.7 GB; full `default` 3 GB+) → OOM. <b>Process death is the only reliable free().</b></p></div>
+  </div></section>
+
+  <!-- approach + architecture -->
+  <section><div class="wrap">
+    <p class="k">2 · Approach — executor-only, steps unchanged</p>
+    <h2>Run each step in a subprocess that exits.</h2>
+    <p class="lead">The pipeline's steps already <b>declare what they read and write</b> (<code>requires</code> / <code>produces</code>) and the executor has a single run loop. That declaration is the marshaling spec, and the loop is the one place to wrap — so isolation is added <b>entirely in the executor</b>. No step changes, no change to how pipelines are constructed.</p>
+    <pre><span class="m"># PipelineExecutor._execute_step — one branch on a default-off flag</span>
+if config.isolate_steps:
+    return self._execute_step_isolated(step, context, config)   <span class="c"># NEW path</span>
+<span class="m"># ...else the existing in-process path, byte-identical.</span>
+
+<span class="m"># the child (multiprocessing 'spawn'):</span>
+cls = import(step.__module__, step.__qualname__)   <span class="c"># rebuild the step by its own class</span>
+ctx = PipelineContext(**marshalled_state)          <span class="c"># rebuild context from parent</span>
+ctx.on_progress = lambda *a: queue.put(("progress", *a))   <span class="w"># relay progress back</span>
+step.process(ctx, cfg)                             <span class="c"># mutate context in place</span>
+queue.put(("ok", ctx.__dict__ - on_progress))      <span class="c"># ship mutated state back</span>
+<span class="w"># child EXITS → OS reclaims 100% of the model it loaded</span></pre>
+    <div class="scroll" style="border:0;"><pre style="margin-top:22px;border:1px solid var(--line);">        PARENT (executor)                         CHILD (spawn, one per step)
+   ┌───────────────────────────┐            ┌──────────────────────────────┐
+   │ validate(context)         │            │  import step class (module    │
+   │ marshal requires/produces ├──state────▶│    + qualname)                │
+   │   (all picklable)         │            │  rebuild context              │
+   │                           │◀─progress──┤  step.process(ctx, cfg)       │
+   │ apply mutated state back  │◀─"ok"/err──┤  ship mutated context back    │
+   │ on_progress fired here    │            │  EXIT → memory returned to OS │
+   │ crash? survive + report   │            └──────────────────────────────┘
+   └───────────────────────────┘   peak RSS = ONE step's model, not the sum</pre></div>
+  </div></section>
+
+  <!-- marshaling boundary -->
+  <section><div class="wrap">
+    <p class="k">3 · The boundary — what crosses, what doesn't</p>
+    <h2>Serializing the context is a non-issue.</h2>
+    <p class="lead">We audited every <code>PipelineContext</code> field. Everything that crosses is plain data; exactly one member isn't picklable, and it doesn't need to cross.</p>
+    <div class="li"><b>Crosses (picklable):</b> score dicts, numpy arrays (embeddings, scene distance), <code>FaceRecord</code> dataclasses, sets, <code>Path</code>s, cluster dicts — the full <code>requires</code>/<code>produces</code> surface.</div>
+    <div class="li"><b>Stays in the parent:</b> <code>on_progress</code> (a <code>Callable</code>, not picklable). The child relays progress messages over the queue; the parent fires the real callback. This is the only bespoke plumbing.</div>
+    <div class="li"><b>Never in the context:</b> model handles live inside steps, not the shared context — so nothing heavy accidentally serializes.</div>
+    <div class="callout">v1 marshals the <b>whole picklable context</b> both ways for correctness (a step may touch undeclared keys). That's the source of v1's overhead — and the thing the deferred stage-grouping optimizes.</div>
+  </div></section>
+
+  <!-- failure handling -->
+  <section><div class="wrap">
+    <p class="k">4 · Failure handling</p>
+    <h2>A crashing step no longer kills the run.</h2>
+    <div class="li"><b>Step raises</b> → caught in the child, shipped back as an error → clean failed <code>StepResult</code> (same contract as in-process).</div>
+    <div class="li"><b>Child crash / OOM / segfault</b> (no terminal message) → the parent detects the dead process, <b>survives</b>, and returns a failed <code>StepResult</code> with the exit code. Today an OOM kills the whole run with no traceback — this is a strict reliability upgrade.</div>
+    <div class="li"><b>Queue-drain ordering</b> — the parent reads the (large) result off the queue <em>before</em> <code>join()</code>, avoiding the classic feeder-thread deadlock.</div>
+  </div></section>
+
+  <!-- risks -->
+  <section><div class="wrap">
+    <p class="k">5 · Risk map</p>
+    <h2>Risks &amp; mitigations.</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Risk</th><th>Sev</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>Spawn + re-import torch cost per step (~seconds × N steps)</td><td><span class="tag t-med">PERF</span></td><td>Acceptable for bounded/demo loads; v2 groups steps into stages to pay it once per stage. Flag is opt-in.</td></tr>
+        <tr><td>Big intermediates (149 MB crops) pickled across per step</td><td><span class="tag t-med">PERF</span></td><td>v2 stage-grouping keeps them inside one child; v1 eats the copy for correctness.</td></tr>
+        <tr><td>A context value isn't picklable</td><td><span class="tag t-low">LOW</span></td><td>Audited: only <code>on_progress</code>, which is excluded + relayed. New non-picklable fields would fail loudly in tests.</td></tr>
+        <tr><td>Windows 'spawn' bootstrap (re-imports __main__)</td><td><span class="tag t-low">LOW</span></td><td>Worker is module-level; step rebuilt by import path. Verified on Windows; entry scripts need the usual <code>__main__</code> guard.</td></tr>
+        <tr><td>Queue feeder-thread deadlock on large results</td><td><span class="tag t-low">LOW</span></td><td>Result drained before <code>join()</code> (see §4).</td></tr>
+        <tr><td>Behavior drift vs in-process</td><td><span class="tag t-low">LOW</span></td><td>Flag default OFF → in-process path byte-identical; a test asserts observable parity.</td></tr>
+      </tbody>
+    </table></div>
+  </div></section>
+
+  <!-- tests -->
+  <section><div class="wrap">
+    <p class="k">6 · Verification</p>
+    <h2>Tests &amp; the memory probe.</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Test (tests/pipeline/test_step_isolation.py)</th><th>Proves</th></tr></thead>
+      <tbody>
+        <tr><td>applies_produces_back_to_parent</td><td>child mutations land on the parent context</td></tr>
+        <tr><td>runs_in_a_child_process</td><td>step executes under a different PID</td></tr>
+        <tr><td>in_process_runs_in_same_process</td><td>flag OFF stays in-process (no regression)</td></tr>
+        <tr><td>default_off_is_identical_to_in_process</td><td>same observable result both ways</td></tr>
+        <tr><td>isolated_exception_becomes_failed_result</td><td>a raise → clean failed StepResult</td></tr>
+        <tr><td>isolated_crash_parent_survives</td><td>hard child crash → parent survives + reports</td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin-top:16px;color:var(--ink-dim);">Plus <code>scripts/spec104_isolation_probe.py</code> — the headline in the banner above: <b>+480 MB → +1 MB</b> parent RSS, ~100% reclaimed, isolated step succeeds.</p>
+  </div></section>
+
+  <!-- rollout -->
+  <section style="border-bottom:0;"><div class="wrap">
+    <p class="k">7 · Rollout &amp; what's next</p>
+    <h2>Ship dark, enable deliberately.</h2>
+    <div class="li"><b>Now:</b> merged behind <code>isolate_steps=False</code> — zero effect on existing runs. Enable per-run for memory-constrained / hosted paths.</div>
+    <div class="li"><b>v2 (optimization, not correctness):</b> group contiguous steps into image / face / scene <b>stages</b> so big intermediates stay inside a child and spawn cost is paid once per stage. The spec already defines the groupings.</div>
+    <div class="li"><b>Then:</b> this is the memory foundation the live curator (Albumify Direction B) sits on — a pipeline that provably fits in bounded RSS instead of one that OOMs.</div>
+  </div></section>
+</main>
+
+<footer><div class="wrap foot">
+  <span>spec-104 · engineering design · v1 implemented</span><span>executor-only · default-off · parent-survives-crash</span>
+</div></footer>
