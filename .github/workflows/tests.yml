@@ -54,6 +54,7 @@ jobs:
             tests/scene_cluster \
             tests/pipeline/test_build_scene_distance.py \
             tests/pipeline/test_scoring_strategy.py \
+            tests/pipeline/test_step_isolation.py \
             tests/albumify_vs_vlm/test_scene_distance_insertion.py \
             --ignore=tests/architecture/test_unified_clustering_chain_order.py \
             -q -p no:cacheprovider
