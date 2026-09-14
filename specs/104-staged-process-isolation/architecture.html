@@ -1,0 +1,186 @@
+<title>spec-104 — PipelineGraph: API, Parallelism, TDD</title>
+<style>
+  :root {
+    --paper: #FAFBFC; --card: #FFFFFF; --ink: #1F2732; --muted: #5B6774;
+    --line: #DDE3E9; --teal: #0E7268; --teal-soft: #E3F0EE; --amber: #B4650A;
+    --amber-soft: #F7EDDE; --red: #B42318; --code-bg: #F1F4F6;
+    --mono: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+    --sans: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #14181D; --card: #1B2129; --ink: #E4E9EF; --muted: #97A3B0;
+      --line: #2C3540; --teal: #3DAA9D; --teal-soft: #16302D; --amber: #D9924A;
+      --amber-soft: #33270F; --red: #E06B5E; --code-bg: #10151A; }
+  }
+  :root[data-theme="dark"] { --paper: #14181D; --card: #1B2129; --ink: #E4E9EF; --muted: #97A3B0;
+      --line: #2C3540; --teal: #3DAA9D; --teal-soft: #16302D; --amber: #D9924A;
+      --amber-soft: #33270F; --red: #E06B5E; --code-bg: #10151A; }
+  :root[data-theme="light"] { --paper: #FAFBFC; --card: #FFFFFF; --ink: #1F2732; --muted: #5B6774;
+      --line: #DDE3E9; --teal: #0E7268; --teal-soft: #E3F0EE; --amber: #B4650A;
+      --amber-soft: #F7EDDE; --red: #B42318; --code-bg: #F1F4F6; }
+  * { box-sizing: border-box; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--sans);
+    margin: 0; padding: 44px 24px 90px; line-height: 1.55; font-size: 15.5px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--teal); font-weight: 650; margin-bottom: 10px; }
+  h1 { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 6px; text-wrap: balance; }
+  .sub { color: var(--muted); margin: 0 0 30px; max-width: 64ch; }
+  h2 { font-size: 18px; font-weight: 650; margin: 40px 0 4px; display: flex; gap: 10px; align-items: baseline; }
+  h2 .n { color: var(--teal); font-family: var(--mono); font-size: 14px; }
+  .lede { color: var(--muted); margin: 0 0 12px; max-width: 68ch; }
+  pre { font-family: var(--mono); font-size: 13px; line-height: 1.52;
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px 18px; overflow-x: auto; margin: 12px 0; }
+  pre b { font-weight: 600; }
+  .p { color: var(--teal); font-weight: 600; }
+  .c { color: var(--amber); font-weight: 600; }
+  .x { color: var(--red); font-weight: 600; }
+  .dim { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th { text-align: left; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+       color: var(--muted); font-weight: 650; padding: 7px 12px; border-bottom: 2px solid var(--line); }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.mono { font-family: var(--mono); font-size: 12.5px; }
+  .tag { font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .tag.done { background: var(--teal-soft); color: var(--teal); }
+  .tag.next { background: var(--amber-soft); color: var(--amber); }
+  .callout { border-left: 3px solid var(--teal); background: var(--card);
+    border: 1px solid var(--line); border-left-width: 3px; border-left-color: var(--teal);
+    border-radius: 0 8px 8px 0; padding: 11px 15px; margin: 14px 0; font-size: 14px; }
+  .callout.warn { border-left-color: var(--amber); }
+  code { font-family: var(--mono); font-size: 0.92em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  .num { font-variant-numeric: tabular-nums; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 12px; }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">sim-bench · spec-104 · focused brief</div>
+  <h1>PipelineGraph — API, parallelism, and the TDD path</h1>
+  <p class="sub">Four questions answered: what the API is, whether graphs compose, how parallel jobs run without any cloud, and how we prove it works before building it out.</p>
+
+  <h2><span class="n">01</span> The API — pipeline vs graph, side by side</h2>
+  <pre>
+<span class="dim"># TODAY — a pipeline mutates one shared context in-process</span>
+result: PipelineResult = execute_spec(spec, context)          <span class="dim"># unchanged forever</span>
+        <span class="dim"># spec    = PipelineSpec(steps=[...], step_configs={...})</span>
+        <span class="dim"># context = mutated in place; results read off it afterwards</span>
+
+<span class="dim"># NEW — a graph is a function: seed in, exports out. No shared mutation across nodes.</span>
+result: GraphResult = run_graph(graph, seed)
+        <span class="dim"># graph = GraphSpec(nodes={name: Node(...)})   loaded from pipeline.yaml</span>
+        <span class="dim"># seed  = {"source_directory": ..., "image_paths": [...]}   plain dict</span>
+
+class Node:
+    pipeline:  str            <span class="dim"># a named pipeline in pipeline.yaml — the payload</span>
+    after:     list[str]      <span class="dim"># dependency edges</span>
+    isolate:   bool = True    <span class="dim"># False = run inline in the parent (cheap nodes)</span>
+    exports:   list[str]      <span class="dim"># the ONLY context keys returned to the parent</span>
+
+class GraphResult:
+    exports:      dict[str, Any]          <span class="dim"># merged exports of all nodes</span>
+    node_results: dict[str, PipelineResult]  <span class="dim"># per-node step timings/failures</span>
+    failed_node:  str | None
+</pre>
+  <table>
+    <tr><th></th><th>Pipeline (existing)</th><th>Graph (new)</th></tr>
+    <tr><td><b>State model</b></td><td>one shared mutable context, steps free-for-all</td><td>explicit <span class="num">seed → exports</span> per node; no hidden sharing between nodes</td></tr>
+    <tr><td><b>Unit of work</b></td><td>step (function)</td><td>node = a whole pipeline (possibly in a child process)</td></tr>
+    <tr><td><b>Ordering</b></td><td>list + <code>depends_on</code> resolution</td><td><code>after:</code> edges; independent nodes run concurrently</td></tr>
+    <tr><td><b>Failure blast radius</b></td><td>whole process (an OOM kills everything)</td><td>one node; parent survives, reports, skips dependents</td></tr>
+  </table>
+  <div class="callout">The graph never reaches inside a pipeline. It treats <code>execute_spec</code> as a black box — which is why the executor and all 30+ steps stay untouched.</div>
+
+  <h2><span class="n">02</span> Can a graph run a graph? Yes — same contract</h2>
+  <p class="lede">Anything satisfying <code>run(seed) → exports</code> can be a node. A pipeline satisfies it; a graph satisfies it too. Composition falls out for free:</p>
+  <pre>
+class Runnable(Protocol):                 <span class="dim"># the one interface</span>
+    def run(self, seed: dict) -> dict: ...
+
+PipelineNode.run(seed)  → exports        <span class="dim"># wraps execute_spec in a child</span>
+PipelineGraph.run(seed) → exports        <span class="dim"># a graph IS a Runnable → nestable</span>
+
+album_graph:
+  people: {graph: face_processing_graph, after: [prep], exports: [people_clusters]}
+          <span class="dim">↑ a sub-graph as a node — valid by construction</span>
+</pre>
+  <div class="callout warn"><b>Policy: allowed by design, capped at depth 1 for now.</b> Nested graphs mean children spawning children — legal on Windows, but process count and debugging complexity grow fast. The validator rejects depth &gt; 1 until a real use case shows up. The point is the API doesn't have to change when one does.</div>
+
+  <h2><span class="n">03</span> Parallel execution — plain OS processes, zero cloud</h2>
+  <p class="lede">"Send the job somewhere" = <b>spawn a child process on the same machine</b> with Python's built-in <code>multiprocessing</code>. No Azure/AWS, no Redis/Celery, no daemon, no new dependency — the stdlib and the OS scheduler are the infrastructure.</p>
+  <pre>
+<span class="p">parent</span>                                   <span class="dim">what actually moves</span>
+──────                                   ───────────────────
+ready = nodes whose after-deps are done
+for node in ready:                        job = (node.steps, step_configs, seed)
+    p = mp.Process(target=_run_node,  ──►      <span class="dim">pickled over an OS pipe, ~few MB</span>
+                   args=(job, queue))
+    p.start()                             <span class="c">child</span>: imports sim_bench, opens cache DB,
+                                                 runs executor, puts exports on queue,
+queue.get() per finished node  ◄──────────       <b>exits → OS reclaims ALL its memory</b>
+merge exports; mark node done; loop
+</pre>
+  <table>
+    <tr><th>Concern</th><th>Answer</th></tr>
+    <tr><td>Why not a process <i>pool</i>?</td><td>Pools reuse workers — a reused worker re-accumulates torch memory, recreating the bug. We need the <b>exit</b>. One fresh process per node.</td></tr>
+    <tr><td>Cost of a spawn</td><td>~2–4 s (Python + torch imports) per node. 4–5 nodes ≈ 15 s overhead on runs measured in minutes. Cache DB is disk-backed → concurrent children don't fight (SQLite WAL, already how two apps share it).</td></tr>
+    <tr><td>How much parallelism?</td><td>Only nodes with satisfied deps: in practice <b>face ∥ scene</b> (both model-light, clustering on embeddings). The heavy image node is serial by dependency. Cap = <code>max_concurrent_nodes</code> (default 2).</td></tr>
+    <tr><td>Another machine later?</td><td>The job is already a picklable tuple; pointing it at SSH/a second box is a future transport swap, not a redesign. Explicitly out of scope now.</td></tr>
+  </table>
+
+  <h2><span class="n">04</span> TDD — tests first, cheapest proof first</h2>
+  <p class="lede">Every mechanism claim gets a failing test before its implementation. Ordered so the riskiest claims are proven in the first session — with <b>synthetic steps</b> (sleep / allocate-500MB / raise / os._exit), no models, so the suite runs in seconds.</p>
+  <table>
+    <tr><th>#</th><th>Test (written first)</th><th>Proves</th><th>When</th></tr>
+    <tr><td class="mono">M0</td><td class="mono">isolation_proto.py</td><td>child-exit frees 100% where release()+gc frees 0 — the core bet</td><td><span class="tag done">ALREADY PASSED</span> <span class="dim">2026-07-30, real DINOv2</span></td></tr>
+    <tr><td class="mono">T1</td><td>2-node toy graph, exports flow A→B, result correct</td><td>marshaling: seed in, exports out, merge</td><td rowspan="4"><span class="tag next">session 1</span><br><span class="dim">all synthetic,<br>&lt;30 s suite</span></td></tr>
+    <tr><td class="mono">T2</td><td>two independent sleep(2) nodes finish in ~2 s, not ~4 s</td><td>parallelism is real (wall-clock assert)</td></tr>
+    <tr><td class="mono">T3</td><td>node allocates 500 MB → after node, parent RSS ≈ flat</td><td>memory reclaim via exit (psutil assert)</td></tr>
+    <tr><td class="mono">T4</td><td>node raises / node <code>os._exit(1)</code> → failed result, parent alive, dependents skipped</td><td>failure containment, both kinds</td></tr>
+    <tr><td class="mono">T5</td><td>no graph declared → StepResults byte-identical to inline run</td><td>off-switch safety (permanent regression guard)</td><td><span class="tag next">session 1</span></td></tr>
+    <tr><td class="mono">T6</td><td>real album graph on Budapest → 15 clusters / 340 faces / same picks as inline</td><td>equivalence on real data — the binding gate</td><td rowspan="2"><span class="tag next">session 2</span></td></tr>
+    <tr><td class="mono">T7</td><td>staged <code>faces</code> on Austria: peak RSS &lt; 1.2 GB (probe harness)</td><td>the actual OOM fix, measured</td></tr>
+  </table>
+  <div class="callout"><b>Early-proof milestone:</b> end of session 1 = T1–T5 green on synthetic pipelines. That demonstrates every mechanism (marshal, parallel, reclaim, contain, off-switch) before any real pipeline is wired — if any of it is wrong, we find out in the first hours, not after integration.</div>
+
+  <h2><span class="n">05</span> Scaling &amp; cloud path — same graph, swappable transport</h2>
+  <p class="lede">Two axes of parallelism. Spec-104 builds the first; the second is a future plug-in behind one seam. Cloud almost always means "many trips at once", not "one trip faster".</p>
+  <pre>
+  <b>WITHIN one trip</b> — spec-104, one machine        <b>ACROSS many trips</b> — cloud, later
+  image ─┬─► face  ─┐                            trip A ─► <span class="c">[worker]</span> ─┐
+         └─► scene ─┴─► select                   trip B ─► <span class="c">[worker]</span> ─┼─► shared storage
+  nodes · multiprocessing · bounds <b>MEMORY</b>       trip C ─► <span class="c">[worker]</span> ─┘
+                                                queue + N machines · bounds <b>THROUGHPUT</b>
+</pre>
+  <p class="lede">The unit of cloud parallelism is <b>one whole graph run (one trip)</b> — each trip is independent. Inside a cloud worker the graph still uses local multiprocessing exactly as designed.</p>
+
+  <table>
+    <tr><th>Rung</th><th>What</th><th>Cost posture</th><th>When</th></tr>
+    <tr><td class="mono">0</td><td>Bigger box — one rented VM (Hetzner/DO/spot), run the identical graph</td><td>pennies/hr; <b>kills the OOM outright</b></td><td>first real need</td></tr>
+    <tr><td class="mono">1</td><td>Per-job container — one container runs one trip on demand (Modal, Fly Machines, Cloud Run Jobs)</td><td>pay-per-second, no idle infra</td><td>bursty / few users</td></tr>
+    <tr><td class="mono">2</td><td>Queue + worker fleet — enqueue trips, N stateless workers pull &amp; run, autoscale by depth</td><td>linear, controllable</td><td>real throughput</td></tr>
+  </table>
+  <div class="callout">Avoid Kubernetes / EMR / Celery+RabbitMQ. Queue = a Postgres table or Upstash Redis. This is a batch CPU job, not a streaming platform.</div>
+
+  <p class="lede"><b>Why the compute code doesn't change:</b> a node is <code>run(seed) → exports</code> and a job is a picklable tuple. Local multiprocessing is just the same-machine transport; cloud is a different transport for the identical payload. We keep the seam clean now, build the remote runner later.</p>
+  <pre>
+class NodeRunner(Protocol):
+    def submit(self, job) -> Future[exports]: ...
+
+<span class="p">LocalRunner</span>  → mp.Process        <span class="dim"># spec-104 builds this</span>
+<span class="c">RemoteRunner</span> → enqueue + poll     <span class="dim"># future plug-in — SAME job, SAME Node/exports contract</span>
+</pre>
+
+  <div class="callout warn"><b>The honest catch — storage, not compute, is the real cloud cost.</b> The graph is transport-ready; persistence is not. Multi-machine requires making these network-addressable — orthogonal to spec-104, its own future spec:
+    <table style="margin-top:8px">
+      <tr><th>Layer</th><th>Today</th><th>Multi-machine needs</th></tr>
+      <tr><td class="mono">universal_cache</td><td>local SQLite</td><td>Postgres or object store</td></tr>
+      <tr><td class="mono">image_cache</td><td>local disk</td><td>S3-compatible (R2 / B2 — cheap)</td></tr>
+      <tr><td class="mono">run_db</td><td>local SQLite</td><td>Postgres</td></tr>
+    </table>
+  </div>
+
+  <div class="callout"><b>Cost kicker:</b> isolation isn't only an OOM fix. Peak <b>1.2 GB instead of 3 GB</b> per trip → ~2.5× more concurrent trips packed per worker → ~2.5× cheaper cloud bill. Spec-104 pays off in cloud economics even as a purely local change.</div>
+
+  <footer>spec-104 · sim-bench · basis: probes 2026-07-30 (Budapest 122 / Austria 474) · full context in spec.md</footer>
+</div>
