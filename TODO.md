@@ -11,8 +11,11 @@
 ## spec-104 staged process isolation — SIGHTING-117 durable fix (2026-07-30)
 
 - [x] Phase 0: add missing `extract_face_embeddings.release()` (~360 MB reclaimed, verified by probe); re-diagnose SIGHTING-117 (real cause = stacked torch model memory, not detections/crops). | 2026-07-30 | Claude
-- [ ] Phase 1: executor subprocess-stage primitive (marshal imports/exports, progress relay, error + crash handling), default OFF. Awaiting user calls on 3 open Qs (stage granularity / import-export declaration / auto-enable threshold). | 2026-07-30 | Claude
-- [ ] Phases 2-4: declare image/face/scene stages, equivalence + memory gates, wire Albumify/API, docs+REVIEW. See `specs/104-staged-process-isolation/tasks.md`. | 2026-07-30 | Claude
+- [x] Phase 1 (v1): executor per-step process isolation behind `isolate_steps` flag (default OFF); spawn child marshals context in/out, relays progress, survives child crash. 6 tests + probe (+480MB→+1MB, ~100% reclaimed). REVIEW.md ACCEPT-with-followups. | 2026-09-15 | Claude
+- [ ] spec-104 review follow-up (§5): `slow`/`needs_data` E2E running a small REAL pipeline with `isolate_steps=True` — assert output equivalence vs in-process + bounded peak RSS. | 2026-09-15 | Claude
+- [ ] spec-104 review follow-up (§1/§4): extract isolation machinery into `sim_bench/pipeline/isolation.py`; share validation/logging helpers with `_execute_step`. | 2026-09-15 | Claude
+- [ ] spec-104 review follow-up (§7): update `tasks.md` (v1 done); add LEARNINGS entry (torch CPU RSS not freed in-process on Windows → process death is the only free); verify `classes.html`. | 2026-09-15 | Claude
+- [ ] Phase 2-4 (v2 optimization): stage-grouping (contiguous steps in one child, disjoint model set per stage), equivalence + memory gates, wire Albumify/API. See `specs/104-staged-process-isolation/tasks.md`. | 2026-09-15 | Claude
 
 ## spec-102 Albumify vs VLM experiment (2026-07-17)
 
