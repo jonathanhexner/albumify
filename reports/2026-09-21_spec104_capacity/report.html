@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec-104 capacity measurement — peak RSS vs album size</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb; --page: #f9f9f7;
+    --ink-1: #0b0b0b; --ink-2: #52514e; --ink-muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6;  /* isolated */
+    --series-2: #1baf7a;  /* in-process */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #1a1a19; --page: #0d0d0d;
+      --ink-1: #ffffff; --ink-2: #c3c2b7; --ink-muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5; --series-2: #199e70;
+    }
+  }
+  body { margin: 0; background: var(--page); color: var(--ink-1);
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.55; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; margin-top: 2.2em; }
+  .meta { color: var(--ink-2); font-size: 0.9rem; }
+  .card { background: var(--surface-1); border: 1px solid var(--border);
+          border-radius: 10px; padding: 20px; margin: 20px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--grid);
+           font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+  th { color: var(--ink-2); font-weight: 600; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+            margin-right: 6px; vertical-align: baseline; }
+  .samples { display: flex; gap: 12px; flex-wrap: wrap; }
+  .samples figure { margin: 0; flex: 1 1 220px; }
+  .samples img { width: 100%; border-radius: 6px; border: 1px solid var(--border); }
+  .samples figcaption { font-size: 0.8rem; color: var(--ink-muted); margin-top: 4px; }
+  code { background: var(--surface-1); border: 1px solid var(--border);
+         border-radius: 4px; padding: 1px 5px; font-size: 0.88em; }
+  .finding { border-left: 3px solid var(--series-1); padding-left: 14px; margin: 14px 0; }
+  svg text { font-family: inherit; }
+  .chartwrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>spec-104 capacity measurement</h1>
+  <p class="meta">2026-09-21 · <code>scripts/spec104_capacity_measure.py</code> · branch <code>spec/104-staged-process-isolation</code></p>
+
+  <h2>Goal</h2>
+  <p>Answer two questions for the spec-104 per-step process isolation work (SIGHTING-117 durable fix):
+  <strong>how does peak memory scale with album size N</strong>, and <strong>what does isolation cost</strong>
+  versus the in-process path now that per-step <code>release()</code> is in place? This is the real-pipeline
+  measurement behind the REVIEW.md §5 follow-up.</p>
+
+  <h2>Method</h2>
+  <p>The representative-heavy <code>faces</code> pipeline (YOLO, InsightFace, MediaPipe, DINOv2, AVA, pyiqa —
+  real models, no feature cache) runs on N = 100 / 300 / 500 images from the Germany trip set, downsampled to
+  768&nbsp;px longest edge. Each configuration runs in a fresh spawn child; a monitor samples the
+  <strong>peak process-tree RSS</strong> (resident memory of the pipeline parent plus any isolated step
+  children) at ~150&nbsp;ms intervals. Isolated runs use <code>isolate_steps=True</code> (each step in its own
+  spawn child, 300&nbsp;s per-step timeout); in-process runs are the default path. Environment: Windows 10 dev
+  box, 32&nbsp;GB RAM, CPU-only inference.</p>
+
+  <h2>Results</h2>
+  <div class="card chartwrap">
+    <svg viewBox="0 0 680 330" width="680" role="img"
+         aria-label="Line chart: peak process-tree RSS versus album size for isolated and in-process modes. Both lines are nearly flat around 2.4 to 2.9 gigabytes.">
+      <text x="16" y="24" fill="var(--ink-1)" font-size="14" font-weight="600">Peak process-tree RSS vs album size</text>
+      <text x="16" y="42" fill="var(--ink-2)" font-size="12">faces pipeline · Germany 768px · CPU · cold cache</text>
+      <!-- plot area: x 70..560, y 60..280; y-scale 0..3200 MB; x-scale 100..500 -->
+      <g font-size="11" fill="var(--ink-muted)">
+        <line x1="70" y1="280" x2="560" y2="280" stroke="var(--axis)"/>
+        <g stroke="var(--grid)">
+          <line x1="70" y1="211.25" x2="560" y2="211.25"/>
+          <line x1="70" y1="142.5"  x2="560" y2="142.5"/>
+          <line x1="70" y1="73.75"  x2="560" y2="73.75"/>
+        </g>
+        <text x="62" y="284" text-anchor="end">0</text>
+        <text x="62" y="215" text-anchor="end">1,000</text>
+        <text x="62" y="146" text-anchor="end">2,000</text>
+        <text x="62" y="78"  text-anchor="end">3,000</text>
+        <text x="30" y="170" text-anchor="middle" transform="rotate(-90 30 170)">peak MB</text>
+        <text x="131.25" y="298" text-anchor="middle">100</text>
+        <text x="315"    y="298" text-anchor="middle">300</text>
+        <text x="498.75" y="298" text-anchor="middle">500</text>
+        <text x="315" y="316" text-anchor="middle">N (images)</text>
+      </g>
+      <!-- isolated: 2578,2696,2845 -> y = 280 - v*0.06875 -->
+      <g>
+        <polyline points="131.25,102.76 315,94.65 498.75,84.41" fill="none" stroke="var(--series-1)" stroke-width="2"/>
+        <circle cx="131.25" cy="102.76" r="4.5" fill="var(--series-1)"><title>isolated · N=100 · 2,578 MB · 381 s</title></circle>
+        <circle cx="315"    cy="94.65"  r="4.5" fill="var(--series-1)"><title>isolated · N=300 · 2,696 MB · 532 s</title></circle>
+        <circle cx="498.75" cy="84.41"  r="4.5" fill="var(--series-1)"><title>isolated · N=500 · 2,845 MB · 817 s</title></circle>
+        <text x="510" y="80" font-size="11.5" fill="var(--ink-1)">isolated</text>
+        <text x="510" y="94" font-size="11" fill="var(--ink-2)">2,845 MB</text>
+      </g>
+      <!-- in-process: 2379,2449,2532 -->
+      <g>
+        <polyline points="131.25,116.44 315,111.63 498.75,105.93" fill="none" stroke="var(--series-2)" stroke-width="2"/>
+        <circle cx="131.25" cy="116.44" r="4.5" fill="var(--series-2)"><title>in-process · N=100 · 2,379 MB · 240 s</title></circle>
+        <circle cx="315"    cy="111.63" r="4.5" fill="var(--series-2)"><title>in-process · N=300 · 2,449 MB · 473 s</title></circle>
+        <circle cx="498.75" cy="105.93" r="4.5" fill="var(--series-2)"><title>in-process · N=500 · 2,532 MB · 743 s</title></circle>
+        <text x="510" y="116" font-size="11.5" fill="var(--ink-1)">in-process</text>
+        <text x="510" y="130" font-size="11" fill="var(--ink-2)">2,532 MB</text>
+      </g>
+      <!-- legend -->
+      <g font-size="11.5" fill="var(--ink-1)">
+        <rect x="70" y="52" width="10" height="10" rx="2" fill="var(--series-1)"/>
+        <text x="86" y="61">isolated (isolate_steps=True)</text>
+        <rect x="260" y="52" width="10" height="10" rx="2" fill="var(--series-2)"/>
+        <text x="276" y="61">in-process (default)</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>N</th><th>mode</th><th>peak MB</th><th>duration s</th><th>s / image</th><th>faces</th><th>ok</th></tr></thead>
+      <tbody>
+        <tr><td>100</td><td><span class="swatch" style="background:var(--series-1)"></span>isolated</td><td>2,578</td><td>381</td><td>3.8</td><td>170</td><td>yes</td></tr>
+        <tr><td>300</td><td><span class="swatch" style="background:var(--series-1)"></span>isolated</td><td>2,696</td><td>532</td><td>1.8</td><td>455</td><td>yes</td></tr>
+        <tr><td>500</td><td><span class="swatch" style="background:var(--series-1)"></span>isolated</td><td>2,845</td><td>817</td><td>1.6</td><td>794</td><td>yes</td></tr>
+        <tr><td>100</td><td><span class="swatch" style="background:var(--series-2)"></span>in-process</td><td>2,379</td><td>240</td><td>2.4</td><td>170</td><td>yes</td></tr>
+        <tr><td>300</td><td><span class="swatch" style="background:var(--series-2)"></span>in-process</td><td>2,449</td><td>473</td><td>1.6</td><td>454</td><td>yes</td></tr>
+        <tr><td>500</td><td><span class="swatch" style="background:var(--series-2)"></span>in-process</td><td>2,532</td><td>743</td><td>1.5</td><td>796</td><td>yes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Findings</h2>
+  <div class="finding"><strong>Memory scaling is flat.</strong> Peak ≈ a fixed model floor plus a small linear
+  term: <strong>isolated ≈ 2,511 MB + 0.67 MB/image</strong>; <strong>in-process ≈ 2,341 MB + 0.38 MB/image</strong>.
+  Model weights dominate (~93% of peak at N=100); per-image context (embeddings, face records, scores) is
+  KB-scale. No N² term is active in this pipeline (the only N×N producer, spec-103
+  <code>build_scene_distance</code>, is gated off by default).</div>
+
+  <div class="finding"><strong>Capacity is not memory-bound.</strong> Extrapolating the isolated line:
+  a 16 GB box fits ≈ <strong>20,000 images per run</strong>; the 32 GB dev box ≈ 44,000. Runtime binds first:
+  ~1.6 s/image on CPU means 20k images ≈ 9 h. A 4 GB per-worker budget is safe with headroom, so production
+  concurrency is <em>k ≈ RAM / 4 GB</em>, capped by cores.</div>
+
+  <div class="finding"><strong>Isolation cost is modest: +~300 MB peak, +10% wall time at N=500</strong> —
+  despite each step child reloading its models. The peak overhead is mostly the pipeline parent's own baseline
+  RSS sitting alongside the step child in the tree; the doubled slope (0.67 vs 0.38 MB/image) is the context
+  marshaling (pickling in/out of each child) — measurable, harmless at this scale.</div>
+
+  <div class="finding"><strong>In-process no longer loses on peak.</strong> After the SIGHTING-117 per-step
+  <code>release()</code> fixes, the default path stacks no models, so v1 isolation buys <em>robustness</em>
+  (a child crash or OOM cannot kill the run; memory return is guaranteed by process exit), not a peak-RSS win
+  on this pipeline. Both modes completed all runs.</div>
+
+  <div class="finding"><strong>Anomaly — small face-count divergence between modes</strong> (455 vs 454 at
+  N=300; 794 vs 796 at N=500; identical at N=100). Filed as SIGHTING-122; the REVIEW.md §5 output-equivalence
+  test must either root-cause this or carry an explicit tolerance.</div>
+
+  <h2>Sample inputs</h2>
+  <p>Full input set: <code>D:\albumify_vs_vlm\germany\imgs768</code> (788 images, 768 px longest edge;
+  runs used the first N by discovery order). Three samples:</p>
+  <div class="samples">
+    <figure><img src="imgs/20240819_162625.jpg" alt="sample Germany trip photo"><figcaption>20240819_162625.jpg</figcaption></figure>
+    <figure><img src="imgs/20240822_122037.jpg" alt="sample Germany trip photo"><figcaption>20240822_122037.jpg</figcaption></figure>
+    <figure><img src="imgs/20240826_171200.jpg" alt="sample Germany trip photo"><figcaption>20240826_171200.jpg</figcaption></figure>
+  </div>
+
+  <h2>Reproduce</h2>
+  <p><code>.venv/Scripts/python scripts/spec104_capacity_measure.py</code> — ~45 min total on the dev box.
+  Raw result rows are printed as JSON per run and summarized in a final table.</p>
+</main>
+</body>
+</html>

@@ -4,6 +4,9 @@ One entry per experiment, 2 lines each: (1) name + goal, (2) outcome + link.
 Convention: `reports/<YYYY-MM-DD>_<slug>/report.html` + `summary.md` (see CLAUDE.md §Experiment reports).
 Entries below predate the convention; their reports live at the linked legacy locations.
 
+- **2026-09-21 spec-104 capacity measurement (Germany, 100/300/500 imgs)** — how does peak RSS scale with album size, and what does per-step process isolation cost vs in-process, on the real `faces` pipeline (CPU, cold cache)?
+  **Flat scaling: peak ≈ 2.5 GB model floor + 0.4–0.7 MB/img** (isolated 2,845 MB @ N=500; in-process 2,532 MB) → 16 GB fits ~20k imgs/run, runtime (~1.6 s/img) binds first; isolation costs +~300 MB / +10% time; post-release() in-process no longer stacks models. Anomaly: ±1–2 face-count divergence between modes → SIGHTING-122. [report](2026-09-21_spec104_capacity/report.html) · [summary](2026-09-21_spec104_capacity/summary.md)
+
 - **2026-07-21 spec-103 Scene clustering: time+geo fusion vs visual-only (Budapest, Austria, Germany)** — does fusing capture-time (backbone) + GPS (opportunistic) into one per-pair distance improve DINOv2/HDBSCAN scene clustering, and does it degrade gracefully where GPS is sparse? No labels yet — eyeball the change direction/magnitude.
   **Noise bucket (unplaceable orphans) shrank on all 3 trips: 27→15 (−44%), 104→69 (−34%), 191→94 (−51%); 12/52/129 orphans rescued into real scenes.** Time alone does most of the reduction; geo refines. Germany (34% GPS) improves MOST because time carries it — graceful degradation shown empirically. Correctness (vs hand labels) still open. [report](2026-07-21_scene_clustering_fusion/report.html) · [summary](2026-07-21_scene_clustering_fusion/summary.md)
 
