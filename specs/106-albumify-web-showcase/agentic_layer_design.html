@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albumify — Agentic &amp; Semantic Layer · Design</title>
+<style>
+:root{
+  --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+  --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C;
+  --accent:#E8B04B; --accent-ink:#1A1206; --eng:#6FB3C9; --eng-ink:#06171C;
+  --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --maxw:1180px; --shadow:0 24px 60px -34px rgba(0,0,0,.8);
+}
+@media (prefers-color-scheme:light){
+  :root{--ground:#F5F0E7;--surface:#FFFFFF;--surface-2:#FBF6EC;--line:#E4DACB;
+    --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--accent-ink:#FFF6E4;
+    --eng:#2A7288;--eng-ink:#EAF6FA;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;
+    --shadow:0 24px 50px -34px rgba(60,45,20,.35);}
+}
+:root[data-theme="dark"]{--ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;
+  --ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--accent-ink:#1A1206;
+  --eng:#6FB3C9;--eng-ink:#06171C;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;--shadow:0 24px 60px -34px rgba(0,0,0,.8);}
+:root[data-theme="light"]{--ground:#F5F0E7;--surface:#FFFFFF;--surface-2:#FBF6EC;--line:#E4DACB;
+  --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--accent-ink:#FFF6E4;
+  --eng:#2A7288;--eng-ink:#EAF6FA;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;--shadow:0 24px 50px -34px rgba(60,45,20,.35);}
+
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.58;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+h1,h2,h3,h4{margin:0;letter-spacing:-0.02em;text-wrap:balance;font-weight:800;}
+p{margin:0;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;}
+code,.mono{font-family:var(--mono);font-size:.9em;}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+
+header{border-bottom:1px solid var(--line);background:var(--surface);}
+.head{padding:52px 0 44px;}
+.flag{display:inline-block;width:14px;height:18px;background:var(--accent);vertical-align:-3px;margin-right:10px;
+  clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);}
+h1{font-size:clamp(29px,5vw,50px);line-height:1.03;margin:16px 0 0;}
+.sub{margin-top:18px;font-size:clamp(16px,2vw,20px);color:var(--ink-dim);max-width:64ch;}
+.thesis{font-family:var(--serif);font-style:italic;font-size:clamp(18px,2.4vw,23px);color:var(--ink);margin-top:22px;max-width:58ch;line-height:1.35;}
+.meta-row{margin-top:26px;display:flex;gap:9px;flex-wrap:wrap;}
+.tag{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);background:var(--surface-2);}
+.tag b{color:var(--ink);}
+.tag.dec{border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent);}
+
+.toc{border-bottom:1px solid var(--line);background:var(--ground);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);}
+.toc .wrap{display:flex;gap:6px;overflow-x:auto;padding:11px 24px;scrollbar-width:none;}
+.toc .wrap::-webkit-scrollbar{display:none;}
+.toc a{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;padding:5px 10px;border-radius:7px;}
+.toc a:hover{color:var(--ink);background:var(--surface-2);text-decoration:none;}
+
+section{padding:60px 0;border-bottom:1px solid var(--line);}
+.sec-eyebrow{margin-bottom:10px;}
+.sec-title{font-size:clamp(23px,3vw,33px);}
+.sec-lead{margin-top:12px;color:var(--ink-dim);max-width:72ch;}
+.sec-lead code{color:var(--accent);}
+h3.blk{font-size:17px;margin:32px 0 10px;color:var(--ink);}
+
+.cards{display:grid;gap:16px;margin-top:24px;}
+.g2{grid-template-columns:repeat(2,1fr);}
+.g3{grid-template-columns:repeat(3,1fr);}
+@media (max-width:860px){.g2,.g3{grid-template-columns:1fr;}}
+.card{border:1px solid var(--line);border-radius:13px;padding:18px;background:var(--surface);}
+.card h4{font-size:14px;font-family:var(--mono);letter-spacing:.03em;color:var(--accent);text-transform:uppercase;}
+.card p{margin-top:9px;font-size:14px;color:var(--ink-dim);}
+.card.eng h4{color:var(--eng);}
+.card.good h4{color:var(--good);}
+.card.crit h4{color:var(--crit);}
+
+.tscroll{overflow-x:auto;margin-top:24px;border:1px solid var(--line);border-radius:13px;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:660px;}
+th,td{text-align:left;padding:13px 15px;border-bottom:1px solid var(--line);vertical-align:top;}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface-2);}
+tbody tr:last-child td{border-bottom:0;}
+tbody td:first-child{font-weight:700;color:var(--ink);}
+td.rec{background:color-mix(in srgb,var(--accent) 9%,transparent);}
+.chip{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:3px 9px;border-radius:999px;font-weight:700;white-space:nowrap;}
+.c-cheap{color:var(--good);border:1px solid color-mix(in srgb,var(--good) 45%,transparent);}
+.c-mid{color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);}
+.c-new{color:var(--eng);border:1px solid color-mix(in srgb,var(--eng) 45%,transparent);}
+.c-have{color:var(--muted);border:1px solid var(--line);}
+
+/* layer diagram */
+.diagram{margin-top:26px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--surface-2),var(--surface));padding:18px;overflow-x:auto;}
+.arch{min-width:700px;display:flex;flex-direction:column;gap:0;}
+.tier{display:grid;grid-template-columns:120px 1fr;gap:16px;}
+.tier .rail{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;justify-content:center;border-right:2px solid var(--line);padding:8px 0;}
+.tier .rail b{display:block;color:var(--ink);font-size:12px;margin-bottom:3px;}
+.tier .boxes{display:flex;gap:11px;flex-wrap:wrap;padding:11px 0;}
+.node{flex:1;min-width:150px;border:1px solid var(--line);border-radius:11px;padding:12px 14px;background:var(--surface);}
+.node .t{font-weight:700;font-size:13.5px;}
+.node .d{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.45;}
+.node .k{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);}
+.node.have{opacity:.92;}
+.node.have .t{color:var(--ink);}
+.node.sem{border-color:color-mix(in srgb,var(--eng) 55%,transparent);}
+.node.sem .t{color:var(--eng);}
+.node.ai{border-style:dashed;border-color:color-mix(in srgb,var(--accent) 60%,transparent);}
+.node.ai .t{color:var(--accent);}
+.badge{display:inline-block;margin-left:7px;font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:5px;vertical-align:2px;}
+.badge.have{background:var(--surface-2);color:var(--muted);}
+.badge.new{background:color-mix(in srgb,var(--eng) 18%,transparent);color:var(--eng);}
+.badge.ai{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);}
+.flowdown{grid-column:1/-1;text-align:center;color:var(--muted);font-size:14px;height:22px;line-height:22px;letter-spacing:.3em;}
+
+/* split compare */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;}
+@media (max-width:760px){.split{grid-template-columns:1fr;}}
+.pane{border:1px solid var(--line);border-radius:13px;padding:20px;background:var(--surface);}
+.pane .hd{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.05em;}
+.pane.visual{border-top:3px solid var(--eng);} .pane.visual .hd{color:var(--eng);}
+.pane.text{border-top:3px solid var(--accent);} .pane.text .hd{color:var(--accent);}
+.pane h3{font-size:18px;margin:8px 0 4px;}
+.pane .job{font-family:var(--serif);font-style:italic;color:var(--ink-dim);font-size:15px;}
+.pane ul{margin:14px 0 0;padding-left:18px;color:var(--ink-dim);font-size:13.5px;display:flex;flex-direction:column;gap:6px;}
+.pane .verdict{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);font-family:var(--mono);font-size:12px;}
+.pane.visual .verdict{color:var(--good);}
+.pane.text .verdict{color:var(--accent);}
+
+/* caption economics */
+.econ{margin-top:24px;display:flex;flex-direction:column;gap:14px;}
+.tier2{border:1px solid var(--line);border-radius:13px;padding:16px 18px;background:var(--surface);display:grid;grid-template-columns:130px 1fr auto;gap:16px;align-items:center;}
+@media (max-width:760px){.tier2{grid-template-columns:1fr;}}
+.tier2 .scope{font-family:var(--mono);font-size:12px;font-weight:700;}
+.tier2.all .scope{color:var(--eng);} .tier2.few .scope{color:var(--accent);}
+.tier2 .what{font-size:13.5px;color:var(--ink-dim);}
+.tier2 .what b{color:var(--ink);}
+.bar{height:12px;border-radius:6px;margin-top:8px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line);}
+.bar span{display:block;height:100%;}
+
+.callout{margin-top:24px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 12px 12px 0;padding:16px 20px;}
+.callout .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);}
+.callout p{margin-top:8px;font-size:14px;color:var(--ink-dim);}
+.callout.warn{border-left-color:var(--warn);} .callout.warn .k{color:var(--warn);}
+.callout.crit{border-left-color:var(--crit);} .callout.crit .k{color:var(--crit);}
+
+/* do/dont */
+.dd{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;}
+@media (max-width:760px){.dd{grid-template-columns:1fr;}}
+.dd .col{border:1px solid var(--line);border-radius:13px;padding:18px;background:var(--surface);}
+.dd .col.yes{border-top:3px solid var(--good);}
+.dd .col.no{border-top:3px solid var(--crit);}
+.dd h4{font-size:15px;display:flex;gap:8px;align-items:center;}
+.dd .yes h4{color:var(--good);} .dd .no h4{color:var(--crit);}
+.dd ul{margin:12px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:10px;}
+.dd li{font-size:13.5px;color:var(--ink-dim);padding-left:22px;position:relative;line-height:1.45;}
+.dd .yes li::before{content:"+";position:absolute;left:4px;color:var(--good);font-weight:800;}
+.dd .no li::before{content:"\00d7";position:absolute;left:4px;color:var(--crit);font-weight:800;}
+
+.note{margin-top:16px;font-size:13px;color:var(--muted);line-height:1.5;}
+footer{padding:34px 0 60px;}
+.foot{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.srcs{margin-top:14px;font-size:12px;color:var(--muted);}
+.srcs a{color:var(--eng);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap head">
+    <div class="eyebrow"><span class="flag"></span>Albumify · design note · feeds spec-105 + future specs</div>
+    <h1>The Agentic &amp; Semantic Layer</h1>
+    <p class="sub">Where AI reasoning and language actually belong on top of the curation engine — and, just as important, where they don't. The visual pipeline stays deterministic and cheap; a thin semantic layer and a few targeted AI decision points sit above it.</p>
+    <p class="thesis">"Cheap deterministic engine does the heavy lifting; a VLM is called only where the choice is genuinely hard or genuinely linguistic — never per pixel."</p>
+    <div class="meta-row">
+      <span class="tag dec">Pattern <b>escalation, not orchestration</b></span>
+      <span class="tag">Status <b>Design note — pre-spec</b></span>
+      <span class="tag">First piece <b>spec-105 (VLM merge arbiter)</b></span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#shape">01 · The shape</a>
+    <a href="#clusters">02 · Two clustering jobs</a>
+    <a href="#captions">03 · Two-tier captions</a>
+    <a href="#points">04 · Decision points</a>
+    <a href="#reference">05 · AI as reference</a>
+    <a href="#configs">06 · New configs</a>
+    <a href="#data">07 · Test datasets</a>
+    <a href="#next">08 · Next steps</a>
+  </div>
+</nav>
+
+<!-- 01 SHAPE -->
+<section id="shape">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">01 · The shape</div>
+    <h2 class="sec-title">Three layers, one pipeline</h2>
+    <p class="sec-lead">The existing 28-step engine is a fixed dependency graph — the step order is forced and correct, so there is nothing for an LLM "orchestrator" to improve there (and re-deciding it each run would reintroduce the exact reorder bug spec-053 engineered out). Instead: leave the visual layer alone, add a cheap semantic layer, and escalate only the hard calls to a VLM.</p>
+
+    <div class="diagram">
+      <div class="arch">
+        <div class="tier">
+          <div class="rail"><b>Visual</b>deterministic</div>
+          <div class="boxes">
+            <div class="node have"><div class="t">Score <span class="badge have">HAVE</span></div><div class="d">IQA · AVA · occlusion · tilt — per image, no LLM.</div></div>
+            <div class="node have"><div class="t">Scene dedup <span class="badge have">HAVE</span></div><div class="d">DINOv2 + time/GPS. Collapses near-identical moments.</div><div class="k">visual similarity — keep as-is</div></div>
+            <div class="node have"><div class="t">Faces <span class="badge have">HAVE</span></div><div class="d">InsightFace detect/embed/cluster/merge.</div></div>
+            <div class="node have"><div class="t">Select + order <span class="badge have">HAVE</span></div><div class="d">per-cluster picks, coverage-first, straighten.</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; cheap tags on the whole roll &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Semantic</b>cheap / local</div>
+          <div class="boxes">
+            <div class="node sem"><div class="t">CLIP tags <span class="badge new">NEW</span></div><div class="d">Zero-shot labels (food / portrait / landscape…) on every image. CLIP is <em>already loaded</em> for occlusion — near-free.</div><div class="k">whole roll · thematic grouping · album-type</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; escalate only the hard / linguistic calls &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>AI</b>VLM · rare</div>
+          <div class="boxes">
+            <div class="node ai"><div class="t">Merge arbiter <span class="badge ai">spec-105</span></div><div class="d">Adjudicates only ambiguous "same person / same moment?" pairs.</div></div>
+            <div class="node ai"><div class="t">Album-type tuner <span class="badge ai">NEW</span></div><div class="d">One call on tags+stats sets thresholds (city trip vs safari).</div></div>
+            <div class="node ai"><div class="t">Story + captions <span class="badge ai">NEW</span></div><div class="d">Free-text captions + narrative order on the ~20 keepers only.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>Token discipline:</b> the AI layer never sees all 800 images. It sees album-level summaries, a handful of escalated pairs, or the ~20 survivors. That is what keeps it pennies-per-run instead of a per-image bill.</p>
+  </div>
+</section>
+
+<!-- 02 CLUSTERS -->
+<section id="clusters">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">02 · Two clustering jobs</div>
+    <h2 class="sec-title">"Multi-modal clustering" is really two different problems</h2>
+    <p class="sec-lead">The instinct to add text to clustering is right — but only for one of the two jobs. Fusing captions into the <em>dedup</em> clustering would make it worse. DINOv2 not "describing" the image isn't a flaw here: dedup needs "same pixels," not "same words."</p>
+
+    <div class="split">
+      <div class="pane visual">
+        <div class="hd">Job A — have it</div>
+        <h3>Scene dedup</h3>
+        <p class="job">"Are these the same moment? Collapse the near-identical."</p>
+        <ul>
+          <li>Right modality: <b>visual embeddings</b> (DINOv2) + time/GPS.</li>
+          <li>Needs fine pixel-level distinctions — different faces, lighting, framing.</li>
+          <li>Adding captions here <b>over-merges</b> (see below).</li>
+        </ul>
+        <div class="verdict">→ keep single-modality, deterministic</div>
+      </div>
+      <div class="pane text">
+        <div class="hd">Job B — new</div>
+        <h3>Thematic grouping</h3>
+        <p class="job">"Show me all the food / all the architecture across the trip."</p>
+        <ul>
+          <li>Right modality: <b>text / semantic</b> (CLIP tags, captions).</li>
+          <li>Cross-moment, cross-day — DINOv2 won't do this cleanly.</li>
+          <li>Powers browsing, narrative sections, album-type.</li>
+        </ul>
+        <div class="verdict">→ new semantic layer, cheap tags</div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <div class="k">Why text hurts dedup — the over-merge trap</div>
+      <p>Two <em>genuinely different</em> photos both caption to <em>"a group of people at a dinner table"</em> → text says "identical" → wrongly merged. DINOv2 sees different people/lighting/composition → correctly keeps them apart. And a sunset from Day 1 and a different sunset from Day 6 both read <em>"a sunset over the water"</em> — text would merge across days; visual + time keeps them separate. Text is coarser than pixels for "same moment."</p>
+    </div>
+  </div>
+</section>
+
+<!-- 03 CAPTIONS -->
+<section id="captions">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">03 · Two-tier captions</div>
+    <h2 class="sec-title">Caption the survivors richly, tag the roll cheaply</h2>
+    <p class="sec-lead">You're right that captions are useful <em>regardless</em>. The trick that keeps it affordable is <b>when</b> and <b>with what</b> you caption. Two tiers, matched to cost.</p>
+
+    <div class="econ">
+      <div class="tier2 all">
+        <div class="scope">TIER 1 · ALL ~800</div>
+        <div class="what"><b>CLIP zero-shot tags</b> against a fixed label set (food, portrait, landscape, architecture, night…). CLIP is already resident for occlusion scoring — no new model on the memory floor, no tokens.
+          <div class="bar"><span style="width:100%;background:color-mix(in srgb,var(--eng) 45%,var(--surface))"></span></div>
+        </div>
+        <div><span class="chip c-cheap">near-free</span></div>
+      </div>
+      <div class="tier2 few">
+        <div class="scope">TIER 2 · ~20 keepers</div>
+        <div class="what"><b>VLM free-text captions</b> only on the selected album. Rich descriptions → story ordering, "why this photo" text, scene labels ("Day 3 — Buda Castle"), searchable text.
+          <div class="bar"><span style="width:3%;background:color-mix(in srgb,var(--accent) 60%,var(--surface))"></span></div>
+        </div>
+        <div><span class="chip c-mid">~20 calls · pennies</span></div>
+      </div>
+    </div>
+    <p class="note">Captioning all 800 with a VLM is the "burning tokens" failure you were wary of. Captioning the <b>survivors</b> is 40× cheaper and is where free-text actually earns its keep. Tier 1 gives whole-roll semantics for the price of a matrix multiply you're already paying.</p>
+  </div>
+</section>
+
+<!-- 04 POINTS -->
+<section id="points">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">04 · Decision points</div>
+    <h2 class="sec-title">The three places a VLM earns its call</h2>
+    <p class="sec-lead">Not scene dedup (deterministic + visual wins). These three are where reasoning or language genuinely beats a threshold — and each is bounded so it can't run away on cost.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Decision point</th><th>What it decides</th><th>Escalation trigger (bounds the cost)</th><th>Cost</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr class="rec"><td>Merge arbiter</td><td>Are two borderline face/scene clusters the same?</td><td>Only pairs in the ambiguous confidence band; deterministic handles the confident 95%.</td><td><span class="chip c-mid">few pairs / run</span></td><td><span class="chip c-new">spec-105 draft</span></td></tr>
+          <tr><td>Album-type tuner</td><td>Sets thresholds/weights: city trip vs wildlife vs event.</td><td>One call per album on CLIP tags + summary stats (no images).</td><td><span class="chip c-cheap">1 call / run</span></td><td><span class="chip c-new">new</span></td></tr>
+          <tr><td>Story + captions</td><td>Narrative order + free-text captions + scene labels.</td><td>Runs on the ~20 keepers only, after selection.</td><td><span class="chip c-mid">~20 calls / run</span></td><td><span class="chip c-new">new</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">All three sit <em>inside</em> the same pipeline the live service runs (spec-106) — they're steps and escalations, not a separate agent process. They don't compete with the serving work; they enrich the result it returns.</p>
+  </div>
+</section>
+
+<!-- 05 REFERENCE -->
+<section id="reference">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">05 · AI as reference</div>
+    <h2 class="sec-title">A VLM as a yardstick — but not a teacher to copy</h2>
+    <p class="sec-lead">"Use AI as a reference our pipeline thrives toward" is a good idea with one sharp edge. Using a frontier VLM to <em>measure</em> and <em>find our blind spots</em> is high-value. Tuning our thresholds to <em>maximize agreement</em> with it is a trap.</p>
+
+    <div class="dd">
+      <div class="col yes">
+        <h4>Use it as</h4>
+        <ul>
+          <li><b>A reference peer.</b> "Are our picks in the same ballpark as a frontier model?" — the honest head-to-head (spec-102).</li>
+          <li><b>A scalable judge.</b> LLM-as-judge scores our picks when human raters aren't available — cheap iteration signal between human checkpoints.</li>
+          <li><b>A divergence finder.</b> The most valuable output: the set where we and the VLM disagree. A human decides who's right — that set is where the pipeline actually improves.</li>
+        </ul>
+      </div>
+      <div class="col no">
+        <h4>Don't use it as</h4>
+        <ul>
+          <li><b>Ground truth.</b> A human's blind pick is truth (spec-102 says so). VLMs have their own photo-selection quirks.</li>
+          <li><b>A distillation target.</b> Tune to match the VLM and you just become a cheaper, worse VLM proxy — capped at its quality, inheriting its blind spots.</li>
+          <li><b>A circular benchmark.</b> If a VLM is <em>also</em> inside the pipeline (arbiter), scoring against the same model measures agreement with yourself.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout">
+      <div class="k">The hierarchy that keeps it honest</div>
+      <p><b>Human blind pick = north star (truth).</b> &nbsp;·&nbsp; <b>VLM = strong reference peer + cheap judge for fast iteration.</b> &nbsp;·&nbsp; <b>Our own objective metrics = the defensible numbers</b> (Kendall tau vs human ranking, duplicate-survival rate, per-person coverage). Steer toward the human; use the VLM to move fast and surface disagreements between checkpoints.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 06 CONFIGS -->
+<section id="configs">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">06 · New configs</div>
+    <h2 class="sec-title">Knobs the pipeline is missing</h2>
+    <p class="sec-lead">You're right that some real curation controls don't exist yet. Today selection is per-cluster (<code>max_images_per_cluster: 2</code>, <code>min_score_threshold: 0.4</code>) with <b>no global album size</b>. These are the knobs worth adding — and the album-type tuner (§4) can set them per album instead of hard-coding.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Config</th><th>What it controls</th><th>Today</th><th>Priority</th></tr></thead>
+        <tbody>
+          <tr class="rec"><td>album_max_picks (global K)</td><td>Total photos in the final album (hard ceiling over per-cluster picks).</td><td>none — sum of per-cluster</td><td><span class="chip c-new">P0 / high</span></td></tr>
+          <tr><td>album_target_scale</td><td>K scales with trip size (e.g. ~1 pick / N shots) instead of fixed.</td><td>none</td><td><span class="chip c-mid">med</span></td></tr>
+          <tr><td>min_picks_per_person</td><td>Guarantee everyone in the trip appears at least once.</td><td>coverage-first, not guaranteed</td><td><span class="chip c-mid">med</span></td></tr>
+          <tr><td>dedup_aggressiveness</td><td>How hard scene dedup collapses near-dupes (tight vs generous).</td><td>fixed thresholds</td><td><span class="chip c-mid">med</span></td></tr>
+          <tr><td>quality_vs_chronology</td><td>Trade "best shots" against "reads like the trip in order."</td><td>coverage-first fixed</td><td><span class="chip c-have">low</span></td></tr>
+          <tr><td>caption_tier</td><td>off / tags-only / tags+VLM captions on keepers.</td><td>none</td><td><span class="chip c-new">new w/ §3</span></td></tr>
+          <tr><td>arbiter_confidence_band</td><td>Which merge cases escalate to the VLM (§4).</td><td>none</td><td><span class="chip c-new">w/ spec-105</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Wiring: these belong in the typed config (<code>FCParams</code> / <code>select_best</code> step config in <code>configs/pipeline.yaml</code>), so both the app and the album-type tuner set them through one interpreter — no divergence between UI defaults and served defaults.</p>
+  </div>
+</section>
+
+<!-- 07 DATA -->
+<section id="data">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">07 · Test datasets</div>
+    <h2 class="sec-title">Where to get photo collections to test curation</h2>
+    <p class="sec-lead">The quality benchmarks you already have on disk (RealBlur, SIDD, PIQA23, AVA) measure single-image quality — not "did we pick the right photos from an album." For curation you need collections with a <b>human-chosen subset or best-of</b>. Two public datasets are built for exactly this.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Dataset</th><th>What it is</th><th>Validates</th><th>Fit</th></tr></thead>
+        <tbody>
+          <tr class="rec"><td>PhotoTriage (Princeton/Adobe)</td><td>15,545 photos in 5,953 <b>series</b> of near-duplicates; human "best" pick + pairwise preferences per series.</td><td>Pass 01–02: dedup + "did we keep the best of the burst?"</td><td><span class="chip c-cheap">ideal for dedup/pick</span></td></tr>
+          <tr class="rec"><td>CUFED / ML-CUFED</td><td>1,883 albums, 23 event types; per-image "event importance" from 5 human votes.</td><td>Whole-album curation: does our importance ranking match humans'?</td><td><span class="chip c-cheap">ideal for album curation</span></td></tr>
+          <tr><td>Your 3 real trips</td><td>Budapest / Austria / Germany at <code>D:\albumify_vs_vlm\</code> — with the VLM A/B arm.</td><td>End-to-end on realistic personal rolls (self-judged ground truth).</td><td><span class="chip c-have">primary, on hand</span></td></tr>
+          <tr><td>Own Google Photos exports</td><td>Takeout of real trips from you / friends (with consent).</td><td>Fresh, un-tuned rolls — the true "stranger's upload" test.</td><td><span class="chip c-mid">free, un-tuned</span></td></tr>
+          <tr><td>UKBench / INRIA Holidays</td><td>Retrieval benchmarks (already used for the mAP numbers).</td><td>Embedding retrieval only — <em>not</em> curation.</td><td><span class="chip c-have">already covered</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <div class="k">Recommended split</div>
+      <p><b>PhotoTriage</b> to tune/validate dedup + best-of-burst (its human "best" is a clean per-series label). <b>CUFED</b> to validate whole-album importance ranking against 5-vote human importance (report Kendall tau). <b>Your trips + fresh Google Photos exports</b> for the realistic end-to-end and the VLM A/B. Note: academic dataset links rot — verify the PhotoTriage download page and CUFED mirror are live before planning around them.</p>
+    </div>
+    <p class="srcs">Sources:
+      <a href="http://phototriage.cs.princeton.edu/dataset.html">PhotoTriage dataset (Princeton)</a> ·
+      <a href="https://arxiv.org/abs/1707.05911">CUFED / event-specific image importance (arXiv 1707.05911)</a> ·
+      <a href="https://cseweb.ucsd.edu/~gary/pubs/Wang_Event-Specific_Image_Importance_CVPR_2016_paper.pdf">Wang et al., CVPR 2016</a>
+    </p>
+  </div>
+</section>
+
+<!-- 08 NEXT -->
+<section id="next">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">08 · Next steps</div>
+    <h2 class="sec-title">How this graduates to specs</h2>
+    <div class="cards g3">
+      <div class="card good"><h4>Now</h4><p>Add <code>album_max_picks</code> (global K) — it's already spec-106 task T0.1 and unblocks predictable albums.</p></div>
+      <div class="card eng"><h4>Cheap semantic layer</h4><p>CLIP zero-shot tags step (Tier 1) — reuses the resident CLIP model. Small, self-contained spec.</p></div>
+      <div class="card"><h4>Validate first</h4><p>Run PhotoTriage + CUFED + spec-102 before committing to the VLM decision points, so we tune on evidence.</p></div>
+    </div>
+    <div class="callout warn">
+      <div class="k">Workflow gate</div>
+      <p>This is a design note, not a spec. Per the repo workflow, each piece (global-K, CLIP tags, album-type tuner, story/captions) needs its own <code>spec.md</code> + <code>tasks.md</code> before implementation. spec-105 (VLM merge arbiter) already exists as the first. Recommend sequencing: <b>global-K → CLIP tags → validate on datasets → then the VLM decision points</b>.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <span>Albumify · agentic &amp; semantic layer · design note</span>
+    <span>deterministic engine · semantic layer · rare VLM calls</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var links={};document.querySelectorAll('.toc a').forEach(function(a){links[a.getAttribute('href').slice(1)]=a;});
+  if(!('IntersectionObserver' in window))return;
+  var obs=new IntersectionObserver(function(es){es.forEach(function(e){var a=links[e.target.id];if(!a)return;
+    if(e.isIntersecting){a.style.color='var(--accent)';a.style.background='var(--surface-2)';}else{a.style.color='';a.style.background='';}});},
+    {rootMargin:'-45% 0px -50% 0px'});
+  document.querySelectorAll('section[id]').forEach(function(s){obs.observe(s);});
+})();
+</script>
+</body>
+</html>

@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-09-28 [DOCS] Agentic & semantic layer design note
+**Files**: `specs/106-albumify-web-showcase/agentic_layer_design.html` (new).
+**Change**: design note (pre-spec) for adding AI reasoning + language on top of the curation engine via the "escalation, not orchestration" pattern. Covers: two distinct clustering jobs (visual dedup keeps DINOv2; thematic grouping is a new text-modality job — captions would over-merge dedup); two-tier caption strategy (CLIP zero-shot tags on all ~800 near-free since CLIP is already resident, VLM free-text only on ~20 keepers); three committed VLM decision points (merge arbiter=spec-105, album-type tuner, story+captions); "AI as reference" guidance (VLM as reference peer + judge + divergence finder, NOT ground truth / distillation target); new config knobs (album_max_picks global-K, min_picks_per_person, dedup_aggressiveness, caption_tier, etc.); and curation test datasets (PhotoTriage, CUFED/ML-CUFED, own trips). Recommends sequence: global-K -> CLIP tags -> validate on datasets -> VLM decision points. Each piece needs its own spec before implementation.
+**Reason**: user design discussion on agentic AI usage, multi-modal clustering, captions, using AI as a quality reference, missing configs, and where to get test image collections.
+
 ### 2026-09-28 [DOCS] spec-106 rewritten to Direction B (Live Curator)
 **Files**: `specs/106-albumify-web-showcase/plan.html` (new, comprehensive plan w/ diagrams), `spec.md` + `tasks.md` (rewritten Direction A -> B).
 **Change**: pivoted spec-106 from the precomputed static showcase to the live-curator SaaS product (upload -> real 28-step pipeline via `execute_spec(isolate_steps=True)` on a scale-to-zero worker behind a durable queue -> curated album). `plan.html` covers architecture, job lifecycle FSM, measured memory/capacity model, bounded-input contract, hosting matrix (Modal recommended), cost, 7-phase roadmap (P0-P6), AC1-AC10, risk matrix, and open decisions. spec.md/tasks.md are the summary + task gate; plan.html is the source of truth. Enabled by spec-104 isolation (merged). Precomputed trips become showcase seed, not the product.
