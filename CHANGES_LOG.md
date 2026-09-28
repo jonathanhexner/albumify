@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-09-28 [DOCS] spec-106 rewritten to Direction B (Live Curator)
+**Files**: `specs/106-albumify-web-showcase/plan.html` (new, comprehensive plan w/ diagrams), `spec.md` + `tasks.md` (rewritten Direction A -> B).
+**Change**: pivoted spec-106 from the precomputed static showcase to the live-curator SaaS product (upload -> real 28-step pipeline via `execute_spec(isolate_steps=True)` on a scale-to-zero worker behind a durable queue -> curated album). `plan.html` covers architecture, job lifecycle FSM, measured memory/capacity model, bounded-input contract, hosting matrix (Modal recommended), cost, 7-phase roadmap (P0-P6), AC1-AC10, risk matrix, and open decisions. spec.md/tasks.md are the summary + task gate; plan.html is the source of truth. Enabled by spec-104 isolation (merged). Precomputed trips become showcase seed, not the product.
+**Reason**: user confirmed the app direction is the live curator ("discussed many times"); the prior spec.md still described the retired precomputed-only plan.
+
 ### 2026-09-28 [FEATURE] spec-104 v1 merged to main (per-step process isolation)
 **Files**: merge of `spec/104-staged-process-isolation` into `main` (`--no-ff`); `specs/104-staged-process-isolation/spec.md` status → Implemented (v1).
 **Change**: merged v1 per-step process isolation (default-off `isolate_steps` flag, in-process path byte-identical). 9 isolation tests green on merged main (30s). v2 stage-grouping deferred; review follow-ups + SIGHTING-122 remain open in TODO.md.

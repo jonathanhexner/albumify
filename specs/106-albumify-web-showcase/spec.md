@@ -1,80 +1,80 @@
-# spec-106 — Albumify Web Showcase (the launchable front door)
+# spec-106 — Albumify Live Curator (the launchable product)
 
-**Status:** Draft
+**Status:** Draft — awaiting approval
 **Owner:** Jonathan / Claude
-**Branch (when started):** `spec/106-albumify-web-showcase`
-
-> **Two decisions assumed here — override before we start if you disagree:**
-> 1. **Frontend = Next.js/React on Vercel** (product-grade polish + full-stack signal). Alternative: polished Streamlit (faster, weaker signal).
-> 2. **Phase 1 = explore precomputed real trips** (bulletproof, no live models). Live upload is Phase 2, optional, and never a dependency of Phase 1.
+**Branch:** `spec/106-albumify-web-showcase`
+**Direction:** **B — Live Curator** (settled; see `direction_decision.html`). Supersedes the earlier
+Direction-A "precomputed showcase" draft of this spec.
+**Full plan (rich diagrams):** [`plan.html`](plan.html) — architecture, job lifecycle, memory model,
+hosting, cost, phased roadmap, risks. This spec.md is the summary; `plan.html` is the source of truth.
 
 ---
 
 ## 1. Problem
 
-The technical work behind Albumify is strong (real CV pipeline, benchmarked against a frontier VLM, 16 completed experiments) but **invisible and unshippable as a portfolio piece**: three separate Streamlit apps, a 640-line internal README, a two-terminal launch, and a pipeline that OOMs above ~120 images. A hiring manager sees a research monorepo, not a product.
+Albumify's engine is real, benchmarked, and green in CI, but it ships as a research monorepo, not a
+product. The landing page already promises the live product — *"Bring a trip. Leave with an album."*
+We need to actually deliver it: a stranger uploads their own trip and gets a curated, face-tagged,
+story-ordered album back, from the real 28-step pipeline running live — **without ever OOM-ing,
+hanging, or showing a stack trace.**
 
-We need **one running, publicly deployed app** that presents Albumify as a real product — and that **cannot look half-baked**: every state designed, every interaction working, nothing that errors or OOMs in front of a stranger.
+The old draft dodged this by shipping *precomputed* trips (Direction A). That's a case study, not the
+"0→100, launched a service" signal the portfolio needs. This rewrite commits to the live service.
 
 ## 2. Goal / non-goals
 
-**Goal:** A deployed, product-grade web app at a public URL that lets anyone explore Albumify curating three real trips — the culled album, the people it found, and *why* each photo was chosen — with a clear "how it works / the engineering behind it" narrative.
+**Goal:** A deployed, product-grade web app at a public URL where anyone can upload a bounded trip and
+receive a live-curated album (picks + why + people), plus the three precomputed trips as instant
+showcase seed and an honest "how it works / vs a frontier VLM" narrative.
 
-**Non-goals (Phase 1):**
-- No live model inference, no photo upload, no accounts, no database.
-- No dependency on the FastAPI backend or the heavy pipeline at runtime.
-- Not a rewrite of the existing apps — they stay as internal tools.
+**Non-goals (v1):** no accounts / login / persistence beyond a TTL'd anonymous session; no billing; no
+GPU requirement (CPU ships v1); no change to the existing Streamlit apps; not a rewrite of the engine.
 
-## 3. Users & the single job
+## 3. What makes this buildable now
 
-| User | Their job on the page | Success = |
-|---|---|---|
-| Recruiter / hiring manager (2–5 min) | "Is this person's work real and finished?" | Leaves convinced it's a shipped product with real depth behind it |
-| Engineer / interviewer (deeper) | "How does it actually work, and are the claims sound?" | Can drill into the pipeline decisions + honest benchmark framing |
+**spec-104 process isolation (merged to main).** Each pipeline step runs in a spawned child that exits
+and returns 100% of its model memory to the OS, with a per-step wall-clock timeout. Measured capacity
+(spec-104 report): peak RSS is model-floor bound (~2.5 GB + ~0.67 MB/img), runtime-bound at ~1.6 s/img
+CPU, ~4 GB/worker. That turns "a live pipeline is reckless" into "a live pipeline is bounded."
 
-## 4. What ships (Phase 1)
+## 4. Architecture (summary — see `plan.html` §3)
 
-A Next.js app, deployed to Vercel, driven entirely by **precomputed JSON + 768px images** already on disk (`D:\albumify_vs_vlm\{budapest,austria,germany}\`):
+```
+Next.js (Vercel, static/edge)  →  FastAPI control plane (bounds guard, /jobs)
+   →  durable queue + job store  →  scale-to-zero worker pool
+        [execute_spec(spec, ctx, isolate_steps=True)]  →  object storage  →  viewer
+```
 
-- `albumify_picks.json` — the curated K=20 with composite scores + per-photo reason
-- `scene_clusters.json` — moment groupings (dedup evidence)
-- `vlm_picks.json` + `vlm_annotation.json` — the VLM arm: narrative roles, captions, album_type
-- `manifest.json` — per-image metadata
-- `imgs768/` — web-ready images
+Reused: the 28-step engine, executor + isolation, `execute_spec`/`run_pipeline`, `RunExporter`, result
+schemas. New: durable queue (replaces the in-process `_jobs` dict + `BackgroundTasks`), bounds guard,
+worker packaging, storage, and the Next.js front end.
 
-**Screens:**
-1. **Landing / hero** — the drafted contact-sheet culling animation (`design_drafts/albumify_landing.html`), ported to React. States the thesis + routes to the trips.
-2. **Trip album view** — the curated album as a designed gallery: ordered K=20, each photo openable to show *why it was picked* (composite score breakdown: sharpness / aesthetic / occlusion / tilt / face coverage) and *what it beat* (the near-duplicates from its scene cluster that got dropped).
-3. **People view** — the face clusters for the trip (e.g. Budapest 340 faces → 15 people) as a browsable set.
-4. **"How it works"** — the 4-pass pipeline explainer (already drafted) + a link out to the benchmark/case-study posts.
-5. **Honest "vs a frontier VLM" panel** — the head-to-head, framed explicitly as a *preliminary pilot* (verdict pending, N=1) — never as a settled win.
+## 5. Acceptance criteria (AC1–AC10)
 
-## 5. Acceptance criteria (the anti-half-baked gate)
+Full text in `plan.html` §11. In brief: loads first try (AC1); a real ≤150-photo upload returns a live
+album (AC2); every job state designed — queued/rejected/timeout/failed/expired (AC3); bounds enforced
+server-side with clean rejections (AC4); never OOMs under adversarial N (AC5); truthful progress (AC6);
+data honesty incl. N=1 VLM caveat + no determinism over-claim (AC7); TTL privacy (AC8); responsive +
+themed + fast (AC9); idle-cheap + spend-capped (AC10). All verified on the public URL from a device
+that is not Jonathan's.
 
-Phase 1 is **not done** until every one of these holds on the deployed URL, on a machine that is not Jonathan's:
+## 6. Bounded-input contract (proposed defaults — see `plan.html` §6)
 
-- **AC1 — It loads and works first try.** Public URL, cold, no console errors, all three trips render.
-- **AC2 — No dead ends.** Every link/button does what it says; no route 404s; no "TODO" / placeholder text visible.
-- **AC3 — Every state is designed.** Loading, image-not-found fallback, and the "no faces / small cluster" cases all have intentional UI — never a blank or a stack trace.
-- **AC4 — Data honesty.** Numbers shown match the source JSON (scores, pick counts, cluster sizes); the VLM comparison carries its "preliminary pilot, N=1" caveat inline.
-- **AC5 — Responsive + themed.** Works on a phone-width viewport and in both light/dark; body never scrolls sideways.
-- **AC6 — Fast.** Album view interactive < 2s on a mid-tier connection (images sized/lazy-loaded).
-- **AC7 — Reproducible build.** `npm run build` clean; deploy is one command / one Vercel push; a short README says how.
-- **AC8 — Nothing live to break.** No runtime model call, no unbounded input path anywhere in Phase 1.
+Max 150 photos / 25 MB per file / 1.5 GB total; JPEG·HEIC·PNG (decode-probed); per-step timeout 600 s;
+rate limit per IP/hour; upload TTL 1 h, result TTL 24 h. Server-enforced before any compute.
 
-## 6. Phase 2 (optional, later, gated separately)
+## 7. Phased roadmap (see `plan.html` §10)
 
-A bounded "try your own photos" path: small N (≤~40 imgs), the light pipeline variant (no OOM), hosted FastAPI on a model-capable host (Modal / Render / Fly / HF Spaces). **Only merged once it clears the same AC bar on its own.** Its own spec. Phase 1 must stand complete without it.
+P0 contract & harness (incl. new global top-K selection cap) · P1 containerized worker + durable queue ·
+P2 control-plane API · P3 Next.js front end · P4 showcase seed · P5 harden & load-test · P6 review & ship.
+Each phase ends green and standalone.
 
-## 7. Risks & mitigations
+## 8. Open decisions (blocking P0 — see `plan.html` §13)
 
-| Risk | Mitigation |
-|---|---|
-| Precomputed JSON is missing a field the UI wants (e.g. per-photo reason text) | Task 0 audits the 3 JSON sets against the UI's data needs; any gap is filled by a one-off offline script, never at runtime |
-| Images total ~13 MB+/trip → slow | Generate web thumbnails (e.g. 400px) at build time; lazy-load full 768px on open |
-| VLM comparison over-claims | AC4 pins the "preliminary pilot" caveat as a hard requirement |
-| Scope creep back into "live app now" | Phase 1/2 split is binding; live path cannot block the deploy |
+Host (Modal recommended) · input cap · content-safety stance · GPU now/later · accounts (assume none) ·
+album size K. Proposed defaults let me proceed on everything except host + safety stance.
 
-## 8. Definition of "shipped"
+## 9. Definition of "shipped"
 
-Deployed public URL meeting AC1–AC8, `REVIEW.md` produced via `/code-review` with no unresolved High findings, CHANGES_LOG entry, and the URL linkable from a resume.
+Deployed public URL meeting AC1–AC10, `REVIEW.md` via `/code-review` with no unresolved High findings,
+CHANGES_LOG + README (run + deploy in one command each), URL linkable from a resume.

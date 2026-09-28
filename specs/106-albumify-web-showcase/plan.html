@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec-106 — Albumify Live Curator · Build Plan</title>
+<style>
+:root{
+  --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+  --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C;
+  --accent:#E8B04B; --accent-ink:#1A1206; --eng:#6FB3C9; --eng-ink:#06171C;
+  --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --maxw:1180px; --shadow:0 24px 60px -34px rgba(0,0,0,.8);
+}
+@media (prefers-color-scheme:light){
+  :root{--ground:#F5F0E7;--surface:#FFFFFF;--surface-2:#FBF6EC;--line:#E4DACB;
+    --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--accent-ink:#FFF6E4;
+    --eng:#2A7288;--eng-ink:#EAF6FA;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;
+    --shadow:0 24px 50px -34px rgba(60,45,20,.35);}
+}
+:root[data-theme="dark"]{--ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;
+  --ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--accent-ink:#1A1206;
+  --eng:#6FB3C9;--eng-ink:#06171C;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;--shadow:0 24px 60px -34px rgba(0,0,0,.8);}
+:root[data-theme="light"]{--ground:#F5F0E7;--surface:#FFFFFF;--surface-2:#FBF6EC;--line:#E4DACB;
+  --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--accent-ink:#FFF6E4;
+  --eng:#2A7288;--eng-ink:#EAF6FA;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;--shadow:0 24px 50px -34px rgba(60,45,20,.35);}
+
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.58;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+h1,h2,h3,h4{margin:0;letter-spacing:-0.02em;text-wrap:balance;font-weight:800;}
+p{margin:0;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;}
+code,.mono{font-family:var(--mono);font-size:.9em;}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+
+/* header */
+header{border-bottom:1px solid var(--line);background:var(--surface);}
+.head{padding:52px 0 44px;}
+.flag{display:inline-block;width:14px;height:18px;background:var(--accent);vertical-align:-3px;margin-right:10px;
+  clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);}
+h1{font-size:clamp(30px,5.2vw,52px);line-height:1.02;margin:16px 0 0;}
+.sub{margin-top:18px;font-size:clamp(16px,2vw,20px);color:var(--ink-dim);max-width:62ch;}
+.thesis{font-family:var(--serif);font-style:italic;font-size:clamp(18px,2.4vw,24px);color:var(--ink);margin-top:22px;max-width:56ch;line-height:1.35;}
+.meta-row{margin-top:26px;display:flex;gap:9px;flex-wrap:wrap;}
+.tag{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);background:var(--surface-2);}
+.tag b{color:var(--ink);}
+.tag.on{border-color:color-mix(in srgb,var(--good) 50%,transparent);color:var(--good);}
+.tag.dec{border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent);}
+
+/* toc */
+.toc{border-bottom:1px solid var(--line);background:var(--ground);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);}
+.toc .wrap{display:flex;gap:6px;overflow-x:auto;padding:11px 24px;scrollbar-width:none;}
+.toc .wrap::-webkit-scrollbar{display:none;}
+.toc a{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:var(--muted);white-space:nowrap;padding:5px 10px;border-radius:7px;}
+.toc a:hover{color:var(--ink);background:var(--surface-2);text-decoration:none;}
+
+section{padding:60px 0;border-bottom:1px solid var(--line);}
+.sec-eyebrow{margin-bottom:10px;}
+.sec-title{font-size:clamp(23px,3vw,33px);}
+.sec-lead{margin-top:12px;color:var(--ink-dim);max-width:70ch;}
+.sec-lead code{color:var(--accent);}
+h3.blk{font-size:17px;margin:34px 0 12px;color:var(--ink);}
+
+/* generic cards */
+.cards{display:grid;gap:16px;margin-top:26px;}
+.g2{grid-template-columns:repeat(2,1fr);}
+.g3{grid-template-columns:repeat(3,1fr);}
+.g4{grid-template-columns:repeat(4,1fr);}
+@media (max-width:860px){.g2,.g3,.g4{grid-template-columns:1fr;}}
+.card{border:1px solid var(--line);border-radius:13px;padding:18px 18px;background:var(--surface);}
+.card h4{font-size:14px;font-family:var(--mono);letter-spacing:.03em;color:var(--accent);text-transform:uppercase;}
+.card p{margin-top:9px;font-size:14px;color:var(--ink-dim);}
+.card.eng h4{color:var(--eng);}
+
+/* metrics strip */
+.proof{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:8px;}
+@media (max-width:760px){.proof{grid-template-columns:repeat(2,1fr);}}
+.metric .v{font-size:clamp(26px,3.6vw,38px);font-weight:800;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;}
+.metric .v.eng{color:var(--eng);}
+.metric .v.acc{color:var(--accent);}
+.metric .l{margin-top:5px;color:var(--muted);font-size:13px;max-width:26ch;}
+
+/* tables */
+.tscroll{overflow-x:auto;margin-top:24px;border:1px solid var(--line);border-radius:13px;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px;}
+th,td{text-align:left;padding:13px 15px;border-bottom:1px solid var(--line);vertical-align:top;}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface-2);}
+tbody tr:last-child td{border-bottom:0;}
+tbody td:first-child{font-weight:700;color:var(--ink);}
+td.rec{background:color-mix(in srgb,var(--accent) 9%,transparent);}
+.num{font-variant-numeric:tabular-nums;text-align:right;}
+.chip{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:3px 9px;border-radius:999px;font-weight:700;letter-spacing:.03em;white-space:nowrap;}
+.c-low{color:var(--good);border:1px solid color-mix(in srgb,var(--good) 45%,transparent);}
+.c-med{color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);}
+.c-high{color:var(--crit);border:1px solid color-mix(in srgb,var(--crit) 45%,transparent);}
+.c-new{color:var(--eng);border:1px solid color-mix(in srgb,var(--eng) 45%,transparent);}
+.c-done{color:var(--good);border:1px solid color-mix(in srgb,var(--good) 45%,transparent);background:color-mix(in srgb,var(--good) 12%,transparent);}
+
+/* ===== architecture diagram ===== */
+.diagram{margin-top:28px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--surface-2),var(--surface));padding:8px;overflow-x:auto;}
+.arch{min-width:720px;display:flex;flex-direction:column;gap:0;padding:14px;}
+.tier{display:grid;grid-template-columns:118px 1fr;gap:16px;align-items:stretch;}
+.tier .rail{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;justify-content:center;padding:6px 0;border-right:2px solid var(--line);}
+.tier .rail b{display:block;color:var(--ink);font-size:12px;margin-bottom:3px;letter-spacing:.02em;}
+.tier .boxes{display:flex;gap:12px;flex-wrap:wrap;padding:10px 0;}
+.node{flex:1;min-width:150px;border:1px solid var(--line);border-radius:11px;padding:13px 14px;background:var(--surface);}
+.node .t{font-weight:700;font-size:14px;}
+.node .d{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.45;}
+.node .k{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);}
+.node.accent{border-color:color-mix(in srgb,var(--accent) 55%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent);}
+.node.accent .t{color:var(--accent);}
+.node.eng{border-color:color-mix(in srgb,var(--eng) 50%,transparent);}
+.node.eng .t{color:var(--eng);}
+.node.new{border-style:dashed;border-color:color-mix(in srgb,var(--eng) 60%,transparent);}
+.node .badge{display:inline-block;margin-left:7px;font-family:var(--mono);font-size:9px;letter-spacing:.05em;padding:2px 6px;border-radius:5px;vertical-align:2px;background:color-mix(in srgb,var(--eng) 18%,transparent);color:var(--eng);}
+.flowdown{grid-column:1/-1;text-align:center;color:var(--muted);font-size:15px;height:22px;line-height:22px;letter-spacing:.3em;}
+
+/* ===== state machine ===== */
+.fsm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:26px;}
+.state{border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-family:var(--mono);font-size:12px;background:var(--surface);white-space:nowrap;}
+.state.start{border-color:color-mix(in srgb,var(--eng) 55%,transparent);color:var(--eng);}
+.state.run{border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent);}
+.state.ok{border-color:color-mix(in srgb,var(--good) 55%,transparent);color:var(--good);}
+.state.bad{border-color:color-mix(in srgb,var(--crit) 55%,transparent);color:var(--crit);}
+.arrow{color:var(--muted);font-size:16px;}
+.substeps{margin-top:14px;display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:14px;border:1px dashed var(--line);border-radius:11px;background:var(--surface-2);}
+.pass{font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:7px;background:var(--surface);border:1px solid var(--line);color:var(--ink-dim);}
+.pass b{color:var(--accent);}
+
+/* ===== memory model ===== */
+.memwrap{margin-top:26px;display:grid;grid-template-columns:1.3fr 1fr;gap:22px;align-items:start;}
+@media (max-width:860px){.memwrap{grid-template-columns:1fr;}}
+.membar{border:1px solid var(--line);border-radius:13px;padding:20px;background:var(--surface);}
+.membar .lbl{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+.stack{margin-top:16px;height:26px;border-radius:7px;overflow:hidden;display:flex;border:1px solid var(--line);}
+.stack .floor{background:color-mix(in srgb,var(--accent) 55%,var(--surface));}
+.stack .per{background:color-mix(in srgb,var(--eng) 45%,var(--surface));}
+.stack .head{background:var(--surface-2);}
+.legend{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-dim);}
+.legend span{display:flex;align-items:center;gap:7px;}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block;}
+.note{margin-top:16px;font-size:13px;color:var(--muted);line-height:1.5;}
+
+/* ===== roadmap ===== */
+.road{margin-top:28px;display:flex;flex-direction:column;gap:0;}
+.phase{display:grid;grid-template-columns:96px 1fr;gap:18px;}
+.phase .when{font-family:var(--mono);font-size:12px;color:var(--accent);padding-top:20px;text-align:right;}
+.phase .body{border-left:2px solid var(--line);padding:16px 0 22px 22px;position:relative;}
+.phase .body::before{content:"";position:absolute;left:-7px;top:20px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--ground);}
+.phase:last-child .body{border-left-color:transparent;}
+.phase h4{font-size:16px;}
+.phase .goal{margin-top:6px;font-size:14px;color:var(--ink-dim);}
+.phase ul{margin:11px 0 0;padding-left:18px;color:var(--muted);font-size:13px;display:flex;flex-direction:column;gap:5px;}
+.phase .gate{margin-top:12px;font-family:var(--mono);font-size:11.5px;padding:8px 12px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-dim);}
+.phase .gate b{color:var(--good);}
+
+/* acceptance / lists */
+.ac{margin-top:24px;display:grid;gap:12px;}
+.ac .row{display:grid;grid-template-columns:70px 1fr;gap:14px;border:1px solid var(--line);border-radius:11px;padding:14px 16px;background:var(--surface);}
+.ac .id{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700;}
+.ac .txt{font-size:14px;color:var(--ink-dim);}
+.ac .txt b{color:var(--ink);}
+
+/* code block */
+pre{margin-top:20px;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:18px 20px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink-dim);}
+pre .kw{color:var(--accent);}
+pre .cm{color:var(--muted);font-style:italic;}
+pre .ty{color:var(--eng);}
+
+/* callout */
+.callout{margin-top:24px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 12px 12px 0;padding:16px 20px;}
+.callout .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);}
+.callout p{margin-top:8px;font-size:14px;color:var(--ink-dim);}
+.callout.warn{border-left-color:var(--warn);} .callout.warn .k{color:var(--warn);}
+
+footer{padding:34px 0 60px;}
+.foot{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap head">
+    <div class="eyebrow"><span class="flag"></span>Albumify · spec-106 · build plan</div>
+    <h1>The Live Curator</h1>
+    <p class="sub">Rewrites spec-106 from the precomputed showcase (Direction A) to the shippable product (Direction&nbsp;B): a stranger drops in their trip and gets a curated, face-tagged, story-ordered album back — from the real pipeline, running live.</p>
+    <p class="thesis">"Bring a trip. Leave with an album." — the landing page already makes the promise. This plan is how we keep it without the run ever OOM-ing, hanging, or embarrassing us in front of a recruiter.</p>
+    <div class="meta-row">
+      <span class="tag dec">Direction <b>B — Live Curator</b></span>
+      <span class="tag">Status <b>Draft — awaiting approval</b></span>
+      <span class="tag on">Enabler <b>spec-104 isolation merged</b></span>
+      <span class="tag">Stack <b>Next.js/Vercel · FastAPI · worker pool</b></span>
+      <span class="tag">Owner <b>Jonathan / Claude</b></span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#pivot">01 · The pivot</a>
+    <a href="#product">02 · The product</a>
+    <a href="#arch">03 · Architecture</a>
+    <a href="#fsm">04 · Job lifecycle</a>
+    <a href="#memory">05 · Why it's safe now</a>
+    <a href="#bounds">06 · Bounded input</a>
+    <a href="#data">07 · Data contract</a>
+    <a href="#host">08 · Hosting</a>
+    <a href="#cost">09 · Cost</a>
+    <a href="#roadmap">10 · Roadmap</a>
+    <a href="#ac">11 · Acceptance</a>
+    <a href="#risk">12 · Risks</a>
+    <a href="#decisions">13 · Open decisions</a>
+  </div>
+</nav>
+
+<!-- 01 PIVOT -->
+<section id="pivot">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">01 · What changes</div>
+    <h2 class="sec-title">From a case study to a service</h2>
+    <p class="sec-lead">The old spec.md shipped <em>precomputed</em> trips as static JSON — bulletproof, but a demo. Direction B runs the real 28-step <code>default_pipeline</code> on a visitor's own upload. Same engine; a completely different risk surface. The precomputed trips don't disappear — they become the instant-load <em>showcase seed</em> that fills the gallery before anyone uploads.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Dimension</th><th>Direction A (old draft)</th><th>Direction B (this plan)</th></tr></thead>
+        <tbody>
+          <tr><td>What a visitor does</td><td>Browses 3 trips we curated</td><td>Uploads their own trip → gets an album back</td></tr>
+          <tr><td>Runtime models</td><td>None — static JSON + images</td><td>Full stack live: InsightFace · YOLO · DINOv2 · AVA · CLIP · GeoCalib</td></tr>
+          <tr><td>Backend</td><td>None (static export)</td><td>FastAPI control plane + durable queue + worker pool</td></tr>
+          <tr><td>Failure surface</td><td>Effectively zero</td><td>OOM · cold start · cost · queue backlog · bad uploads</td></tr>
+          <tr><td>Portfolio signal</td><td>"Rigor &amp; credibility"</td><td>"I launched a real service — 0→100"</td></tr>
+          <tr><td>The precomputed trips</td><td>The whole product</td><td>Seed content: the gallery is never empty</td></tr>
+          <tr><td>Time to ship</td><td>Days</td><td>~4–6 focused weeks (phased)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <div class="k">The one thing that makes B buildable</div>
+      <p>The pipeline used to OOM above ~120 images (SIGHTING-117: stacked model memory torch won't free in-process). <b>spec-104 process isolation</b> (merged to main) runs each step in a spawned child that exits and returns 100% of its model memory to the OS — plus a per-step wall-clock timeout that kills a hung step instead of hanging the request. That's the difference between "a live pipeline is reckless" and "a live pipeline is bounded."</p>
+    </div>
+  </div>
+</section>
+
+<!-- 02 PRODUCT -->
+<section id="product">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">02 · The product</div>
+    <h2 class="sec-title">One job: drop a roll, leave with an edit</h2>
+    <p class="sec-lead">The whole experience is a single funnel. No accounts in v1 — a job is an anonymous, expiring session keyed by an opaque id. The gallery is pre-populated with the three showcase trips so the page is alive on first paint.</p>
+
+    <div class="diagram">
+      <div class="arch" style="min-width:660px">
+        <div class="tier" style="grid-template-columns:1fr">
+          <div class="boxes">
+            <div class="node accent"><div class="t">1 · Land</div><div class="d">Hero + showcase trips play instantly (precomputed). "Try it on your own trip."</div></div>
+            <div class="node"><div class="t">2 · Drop photos</div><div class="d">Dropzone. Client validates count/size/format before a byte uploads.</div><div class="k">JPEG · HEIC · ≤ N imgs · ≤ M MB</div></div>
+            <div class="node accent"><div class="t">3 · Watch it think</div><div class="d">Live progress: the four passes light up as the worker relays step events.</div><div class="k">score → dedupe → faces → order</div></div>
+            <div class="node"><div class="t">4 · Your album</div><div class="d">Ordered keepers as a designed gallery; open a pick to see why it won.</div></div>
+            <div class="node"><div class="t">5 · Who's here</div><div class="d">Face clusters → distinct people, browsable.</div></div>
+            <div class="node eng"><div class="t">6 · How &amp; vs-VLM</div><div class="d">"How it works" + honest head-to-head, framed <em>preliminary pilot, N=1</em>.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">Every screen carries the same anti-half-baked bar as the old spec: designed loading/empty/failure states, data honesty, responsive + themed, no dead ends. The difference is those states now include <em>live</em> ones — "still in the queue," "this run timed out, here's why," "we couldn't read 3 HEIC files."</p>
+  </div>
+</section>
+
+<!-- 03 ARCHITECTURE -->
+<section id="arch">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">03 · System architecture</div>
+    <h2 class="sec-title">Static edge, durable queue, disposable workers</h2>
+    <p class="sec-lead">The UI is static on Vercel and never talks to a model. A thin FastAPI control plane accepts a bounded job and enqueues it. A separate, scale-to-zero worker pool pulls jobs and calls <code>execute_spec(...)</code> with <code>isolate_steps=True</code>. Uploads and results live in object storage; job state in a small durable store. Nothing about the request path holds a 2.5&nbsp;GB model.</p>
+
+    <div class="diagram">
+      <div class="arch">
+        <div class="tier">
+          <div class="rail"><b>Client</b>Vercel edge</div>
+          <div class="boxes">
+            <div class="node accent"><div class="t">Next.js app</div><div class="d">Upload UI · progress · album / people / why-picked viewers · showcase gallery. Static export + a few route handlers.</div><div class="k">App Router · TS · design tokens from albumify_landing.html</div></div>
+            <div class="node"><div class="t">Showcase seed</div><div class="d">3 precomputed trips as static JSON+thumbs (the old Direction-A asset). Instant, un-OOM-able.</div><div class="k">public/trips/&lt;slug&gt;/trip.json</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; presigned upload &nbsp;·&nbsp; POST /jobs &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Control plane</b>FastAPI</div>
+          <div class="boxes">
+            <div class="node eng"><div class="t">Job API <span class="badge">EXTEND</span></div><div class="d">POST /jobs (validate bounds → presign upload → enqueue) · GET /jobs/{id} (status+progress) · GET /jobs/{id}/result.</div><div class="k">reuses schemas/pipeline.py shapes</div></div>
+            <div class="node eng new"><div class="t">Bounds guard <span class="badge">NEW</span></div><div class="d">Count / size / MIME / decode check + rate limit. Rejects before compute is spent.</div><div class="k">HTTP 413 / 415 / 429 → designed UI states</div></div>
+            <div class="node new"><div class="t">Progress relay <span class="badge">NEW</span></div><div class="d">SSE or poll of the job's step events (from the worker), replacing the in-process WebSocket.</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; enqueue(job_id) &nbsp;—&nbsp; replaces the in-process _jobs dict + BackgroundTasks &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Queue + state</b>durable</div>
+          <div class="boxes">
+            <div class="node new"><div class="t">Job queue <span class="badge">NEW</span></div><div class="d">Durable, at-least-once. Survives control-plane restarts. Backlog is visible ("position N").</div><div class="k">host-native (Modal) or Redis/RQ</div></div>
+            <div class="node new"><div class="t">Job store <span class="badge">NEW</span></div><div class="d">Small table: id, state, bounds, step progress, result pointer, TTL/expiry.</div><div class="k">Postgres / SQLite → managed</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; worker pulls &nbsp;·&nbsp; scale-to-zero &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Data plane</b>workers</div>
+          <div class="boxes">
+            <div class="node accent"><div class="t">Curation worker</div><div class="d">Calls <b>execute_spec(spec, ctx, isolate_steps=True)</b> on the bounded upload. Emits step-complete events → progress relay. Owns persistence.</div><div class="k">sim_bench/pipeline/run.py</div></div>
+            <div class="node eng"><div class="t">Per-step isolation</div><div class="d">Each step = a spawned child that loads one model, runs, exits → OS reclaims all its RSS. Timeout kills a hung step.</div><div class="k">spec-104 · isolate_step_timeout_s</div></div>
+            <div class="node"><div class="t">RunExporter</div><div class="d">Writes the v5 run dir (picks, crops, thumbs) → object storage for the viewer.</div><div class="k">selected_images · crops/ · trip.json</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; artifacts + result JSON &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Storage</b>objects</div>
+          <div class="boxes">
+            <div class="node"><div class="t">Object store</div><div class="d">Uploads (short TTL) + result thumbs/crops/album JSON (longer TTL). Served to the viewer via signed URLs / CDN.</div><div class="k">S3 / R2 / host volume</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>What we reuse:</b> the entire 28-step engine, the executor + isolation, <code>execute_spec</code>/<code>run_pipeline</code>, <code>RunExporter</code>, the result schemas. <b>What's genuinely new:</b> the durable queue, the bounds guard, the worker packaging, storage plumbing, and the Next.js front end. The current API's <code>_jobs</code> dict + <code>BackgroundTasks</code> is explicitly the thing being retired.</p>
+  </div>
+</section>
+
+<!-- 04 FSM -->
+<section id="fsm">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">04 · Job lifecycle</div>
+    <h2 class="sec-title">Every state is designed, including the ugly ones</h2>
+    <p class="sec-lead">A job is a small state machine. The UI has an intentional screen for each terminal state — a rejected upload, a timeout, and a crash all look considered, never like a stack trace.</p>
+    <div class="fsm">
+      <span class="state start">CREATED</span><span class="arrow">→</span>
+      <span class="state bad">REJECTED</span>
+      <span class="arrow" style="margin-left:auto">bounds fail ↑ · valid ↓</span>
+    </div>
+    <div class="fsm">
+      <span class="state start">CREATED</span><span class="arrow">→</span>
+      <span class="state">QUEUED</span><span class="arrow">→</span>
+      <span class="state run">RUNNING</span><span class="arrow">→</span>
+      <span class="state ok">SUCCEEDED</span>
+      <span class="arrow">·</span>
+      <span class="state bad">FAILED</span>
+      <span class="arrow">·</span>
+      <span class="state bad">TIMED_OUT</span>
+      <span class="arrow">·</span>
+      <span class="state bad">EXPIRED</span>
+    </div>
+    <div class="substeps">
+      <span class="eyebrow" style="width:100%">RUNNING relays the four passes as steps complete</span>
+      <span class="pass"><b>01</b> Score — IQA · AVA · occlusion · tilt</span><span class="arrow">→</span>
+      <span class="pass"><b>02</b> Dedupe — DINOv2 scene · time/GPS</span><span class="arrow">→</span>
+      <span class="pass"><b>03</b> People — InsightFace · kNN · merge</span><span class="arrow">→</span>
+      <span class="pass"><b>04</b> Order — coverage-first · straighten</span>
+    </div>
+    <div class="cards g4">
+      <div class="card"><h4>REJECTED</h4><p>Too many photos / too big / unreadable format. Says exactly what to change. No compute spent.</p></div>
+      <div class="card"><h4>TIMED_OUT</h4><p><code>isolate_step_timeout_s</code> tripped on a stuck step. Offer retry with fewer photos.</p></div>
+      <div class="card"><h4>FAILED</h4><p>A step crashed / child OOM. Parent survives (spec-104), job marked failed with the step name.</p></div>
+      <div class="card"><h4>EXPIRED</h4><p>TTL elapsed; uploads + results purged. Viewer shows a graceful "this run has expired."</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 MEMORY -->
+<section id="memory">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">05 · Why it's safe now</div>
+    <h2 class="sec-title">The memory math, measured not assumed</h2>
+    <p class="sec-lead">The spec-104 capacity experiment (Germany, 768&nbsp;px, CPU) measured peak process-tree RSS across album sizes. The result is what makes a live service sizable: peak is <em>model-floor bound</em>, not image-count bound.</p>
+
+    <div class="proof">
+      <div class="metric"><div class="v acc">2.5 GB</div><div class="l">model floor — ~93% of peak RSS</div></div>
+      <div class="metric"><div class="v eng">0.67 MB</div><div class="l">added peak per image (isolated)</div></div>
+      <div class="metric"><div class="v">~1.6 s</div><div class="l">per image, CPU — the real ceiling</div></div>
+      <div class="metric"><div class="v">~4 GB</div><div class="l">per worker → k = RAM/4 GB, capped by cores</div></div>
+    </div>
+
+    <div class="memwrap">
+      <div class="membar">
+        <div class="lbl">Peak RSS for a 500-image run (isolated)</div>
+        <div class="stack" role="img" aria-label="2.5 GB model floor plus roughly 0.3 GB per-image and headroom">
+          <div class="floor" style="width:78%"></div>
+          <div class="per" style="width:10%"></div>
+          <div class="head" style="width:12%"></div>
+        </div>
+        <div class="legend">
+          <span><i class="sw" style="background:color-mix(in srgb,var(--accent) 55%,var(--surface))"></i>model floor ~2.5 GB</span>
+          <span><i class="sw" style="background:color-mix(in srgb,var(--eng) 45%,var(--surface))"></i>per-image ~0.3 GB @500</span>
+          <span><i class="sw" style="background:var(--surface-2);border:1px solid var(--line)"></i>headroom</span>
+        </div>
+        <p class="note">Flat scaling: isolated ≈ <b>2,511 MB + 0.67 MB/img</b>; in-process ≈ 2,341 MB + 0.38 MB/img. No N² term (the only N×N producer, <code>build_scene_distance</code>, is gated off). 16 GB ≈ 20k images by memory — but runtime bites first.</p>
+      </div>
+      <div>
+        <h3 class="blk" style="margin-top:0">What isolation buys the service</h3>
+        <div class="cards" style="margin-top:12px">
+          <div class="card eng"><h4>Survives OOM</h4><p>A step that blows memory kills only its child; the worker returns a failed job instead of dying silently.</p></div>
+          <div class="card eng"><h4>Survives a hang</h4><p>Per-step wall-clock timeout (default 600&nbsp;s) → SIGTERM→SIGKILL. A stuck download or deadlock can't wedge a worker forever.</p></div>
+          <div class="card eng"><h4>Bounded RSS</h4><p>Costs +~300 MB peak / +10% time vs in-process — cheap insurance for a public endpoint.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout warn">
+      <div class="k">Known caveat — SIGHTING-122</div>
+      <p>Isolated vs in-process runs diverge by ±1–2 faces at N=300/500 (borderline detections flipping — suspected detector nondeterminism). Irrelevant to a curated album a human looks at, but it means we must <b>not</b> advertise bit-exact determinism, and the spec-104 §5 equivalence test carries a tolerance. Root-cause is tracked, not blocking.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 06 BOUNDS -->
+<section id="bounds">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">06 · Bounded input</div>
+    <h2 class="sec-title">The contract that keeps a stranger from breaking us</h2>
+    <p class="sec-lead">Every public compute path is bounded twice: the client blocks obviously-bad uploads, and the control plane enforces the real limit server-side before a byte reaches a worker. Numbers below are proposed defaults for the user to set.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Guard</th><th>Proposed default</th><th>Enforced where</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Max photos / job</td><td class="num">150</td><td>client + API</td><td>~4 min CPU at 1.6 s/img; keeps a run interactive and cost bounded</td></tr>
+          <tr><td>Max file size</td><td class="num">25 MB</td><td>client + API</td><td>reject raw/uncompressed dumps</td></tr>
+          <tr><td>Max total upload</td><td class="num">1.5 GB</td><td>API</td><td>storage + decode ceiling</td></tr>
+          <tr><td>Formats</td><td>JPEG · HEIC · PNG</td><td>API (MIME + decode probe)</td><td>HEIC needs a decode step; unreadable → rejected up front</td></tr>
+          <tr><td>Per-step timeout</td><td class="num">600 s</td><td>worker</td><td>spec-104 <code>isolate_step_timeout_s</code></td></tr>
+          <tr><td>Rate limit</td><td>N jobs / IP / hour</td><td>API</td><td>abuse + cost control on an anon endpoint</td></tr>
+          <tr><td>Result / upload TTL</td><td>24 h / 1 h</td><td>storage</td><td>privacy + storage cost; anon runs expire</td></tr>
+          <tr><td>Content safety</td><td>see decisions</td><td>API</td><td>public upload of a stranger's photos — needs a stance (§13)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 07 DATA -->
+<section id="data">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">07 · Data contract</div>
+    <h2 class="sec-title">One normalized shape the UI reads</h2>
+    <p class="sec-lead">The worker's <code>execute_spec</code> output (<code>context.selected_images</code>, <code>people_clusters</code>, <code>scene_clusters</code>, metrics) + the <code>RunExporter</code> dir get normalized into a single <code>album.json</code> the viewer consumes — identical in shape to the showcase seed, so live results and precomputed trips render through the same components.</p>
+    <pre><span class="cm">// the normalized result the viewer reads — same for live jobs and showcase seed</span>
+<span class="kw">type</span> Album = {
+  jobId: <span class="ty">string</span>; source: <span class="ty">"live" | "showcase"</span>; createdAt: <span class="ty">string</span>;
+  counts: { uploaded: <span class="ty">number</span>; kept: <span class="ty">number</span>; people: <span class="ty">number</span>; scenes: <span class="ty">number</span> };
+  picks: <span class="ty">Pick[]</span>;            <span class="cm">// ordered keepers (the album)</span>
+  people: <span class="ty">Person[]</span>;         <span class="cm">// face clusters → distinct people</span>
+  vlm?: <span class="ty">VlmView</span>;            <span class="cm">// showcase trips only; required "N=1 pilot" caveat</span>
+};
+<span class="kw">type</span> Pick = {
+  id: <span class="ty">string</span>; thumb: <span class="ty">string</span>; full: <span class="ty">string</span>; order: <span class="ty">number</span>;
+  score: { composite: <span class="ty">number</span>; sharpness: <span class="ty">number</span>; aesthetic: <span class="ty">number</span>;
+           occlusion: <span class="ty">number</span>; tilt: <span class="ty">number</span>; faceCoverage: <span class="ty">number</span> };
+  beat: <span class="ty">string[]</span>;            <span class="cm">// dropped near-dupes from its scene cluster</span>
+  people: <span class="ty">string[]</span>;          <span class="cm">// person ids present</span>
+};
+<span class="kw">type</span> Person = { id: <span class="ty">string</span>; faceCount: <span class="ty">number</span>; sampleCrops: <span class="ty">string[]</span> };</pre>
+    <p class="note"><b>New selection knob required.</b> Today there is no global "K=20" — <code>select_best</code> picks per-cluster (<code>max_images_per_cluster: 2</code>, <code>min_score_threshold: 0.4</code>). A live album wants a predictable total, so Phase 1 adds a global top-K cap over the per-cluster picks. This is a real (small) engine change, specced separately if it grows.</p>
+  </div>
+</section>
+
+<!-- 08 HOST -->
+<section id="host">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">08 · Hosting</div>
+    <h2 class="sec-title">Where the heavy worker lives</h2>
+    <p class="sec-lead">Vercel hosts only the static/edge front end — it can't run torch. The worker needs a model-capable host with scale-to-zero (portfolio traffic is bursty and mostly idle; we should pay ~nothing at rest). The engine is CPU-viable at 1.6 s/img, so GPU is an optimization, not a requirement for v1.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Host</th><th>Scale-to-zero</th><th>Fit for a bursty ML worker</th><th>Cold start</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr class="rec"><td>Modal</td><td>yes</td><td>Serverless containers, native queue, GPU optional, snapshot cold-starts, generous free tier. Python-native.</td><td>seconds</td><td class="rec"><span class="chip c-done">recommended v1</span></td></tr>
+          <tr><td>Fly.io Machines</td><td>yes (scale-to-0)</td><td>Fast-booting VMs, volumes, own queue. More infra to wire.</td><td>seconds</td><td><span class="chip c-med">strong alt</span></td></tr>
+          <tr><td>Render / Railway</td><td>partial</td><td>Simple worker + Redis, but idle cost or slow spin-down.</td><td>slow</td><td><span class="chip c-med">ok</span></td></tr>
+          <tr><td>HF Spaces</td><td>sleeps</td><td>Easy demo, but sleep/wake + Gradio-shaped; weak product signal.</td><td>slow</td><td><span class="chip c-med">demo only</span></td></tr>
+          <tr><td>AWS Fargate + SQS</td><td>yes</td><td>Most control, most yak-shaving; overkill for one worker.</td><td>seconds</td><td><span class="chip c-high">too heavy</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout"><div class="k">Recommendation</div><p><b>Vercel (front end) + Modal (worker + queue + storage)</b>. It collapses the "durable queue," "worker packaging," and "scale-to-zero" boxes into one Python-native platform, keeps idle cost near zero, and reads as a modern serverless-ML deploy. Fly.io is the fallback if we want plain containers.</p></div>
+  </div>
+</section>
+
+<!-- 09 COST -->
+<section id="cost">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">09 · Cost model</div>
+    <h2 class="sec-title">Idle-cheap, per-run predictable</h2>
+    <div class="cards g3">
+      <div class="card"><h4>At rest</h4><p>Vercel static: free/near-free. Worker scaled to zero: ~$0. Storage: pennies for a few expiring runs.</p></div>
+      <div class="card"><h4>Per run (150 imgs, CPU)</h4><p>~4 min × ~4 GB CPU worker ≈ single-digit cents on Modal-class pricing. Bounded by the input cap.</p></div>
+      <div class="card"><h4>Blowup guardrails</h4><p>Rate limit + input cap + job TTL bound worst-case monthly spend even under a traffic spike. Set a hard budget alarm.</p></div>
+    </div>
+    <p class="note">Portfolio reality: this will serve tens of runs, not thousands. The design goal is "costs ~nothing when nobody's looking, never surprises me with a bill" — met by scale-to-zero + hard input/rate bounds.</p>
+  </div>
+</section>
+
+<!-- 10 ROADMAP -->
+<section id="roadmap">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">10 · Roadmap</div>
+    <h2 class="sec-title">Seven phases, each with a hard gate</h2>
+    <p class="sec-lead">Back-to-front: prove the engine runs headless in a container before building any UI. Every phase ends green and standalone, so we can stop at any gate without a half-baked artifact.</p>
+    <div class="road">
+      <div class="phase"><div class="when">P0</div><div class="body">
+        <h4>Contract &amp; harness</h4>
+        <p class="goal">De-risk before infra. Pin the bounded-run contract and the normalized <code>album.json</code>.</p>
+        <ul>
+          <li>Add the global top-K selection cap over <code>select_best</code> picks (+ test).</li>
+          <li>Define <code>Album/Pick/Person</code> types; write the normalizer from <code>context</code> + <code>RunExporter</code> dir.</li>
+          <li>Headless script: folder → <code>execute_spec(isolate_steps=True)</code> → <code>album.json</code> on the 3 real trips.</li>
+        </ul>
+        <div class="gate"><b>Gate:</b> one command turns a folder into a valid <code>album.json</code> matching showcase shape.</div>
+      </div></div>
+      <div class="phase"><div class="when">P1</div><div class="body">
+        <h4>Containerized worker + queue</h4>
+        <p class="goal">The engine runs as a scale-to-zero worker pulling durable jobs.</p>
+        <ul>
+          <li>Package the pipeline + models into the worker image (Modal).</li>
+          <li>Durable queue + job store; worker calls <code>execute_spec</code>, emits step events, owns persistence.</li>
+          <li>Adversarial memory test: max-N upload under <code>isolate_steps</code> → bounded peak RSS, no OOM.</li>
+        </ul>
+        <div class="gate"><b>Gate:</b> enqueue a 150-img job by hand → album artifacts land in storage; peak RSS bounded; a killed step fails the job cleanly.</div>
+      </div></div>
+      <div class="phase"><div class="when">P2</div><div class="body">
+        <h4>Control-plane API</h4>
+        <p class="goal">Public, bounded HTTP surface replacing <code>_jobs</code> + BackgroundTasks.</p>
+        <ul>
+          <li>POST /jobs (bounds guard → presign → enqueue) · GET status · GET result.</li>
+          <li>Progress relay (SSE/poll) from worker step events.</li>
+          <li>Rate limit, TTL/expiry, rejection responses (413/415/429).</li>
+        </ul>
+        <div class="gate"><b>Gate:</b> curl an upload end-to-end; every bound returns a clean typed rejection, not a 500.</div>
+      </div></div>
+      <div class="phase"><div class="when">P3</div><div class="body">
+        <h4>Next.js front end</h4>
+        <p class="goal">The funnel: land → drop → watch → album → people.</p>
+        <ul>
+          <li>Port design tokens from <code>albumify_landing.html</code>; both themes.</li>
+          <li>Dropzone with client-side bounds; live progress (four passes); album + people + why-picked viewers.</li>
+          <li>Every job state has a designed screen (queued/rejected/timeout/failed/expired).</li>
+        </ul>
+        <div class="gate"><b>Gate:</b> a real upload from a browser produces a rendered album; all states designed.</div>
+      </div></div>
+      <div class="phase"><div class="when">P4</div><div class="body">
+        <h4>Showcase seed</h4>
+        <p class="goal">Gallery is alive before anyone uploads — the old Direction-A asset, reused.</p>
+        <ul>
+          <li>Ingest the 3 precomputed trips into the same <code>album.json</code> shape as static seed.</li>
+          <li>"How it works" (four-pass explainer) + honest vs-VLM panel (required N=1 caveat).</li>
+        </ul>
+        <div class="gate"><b>Gate:</b> first paint shows curated trips instantly; live + showcase share one component set.</div>
+      </div></div>
+      <div class="phase"><div class="when">P5</div><div class="body">
+        <h4>Harden &amp; load-test</h4>
+        <p class="goal">Make the first-run-never-embarrasses promise true.</p>
+        <ul>
+          <li>Cold-start budget; concurrency test (queue backlog UX); adversarial uploads (HEIC, huge, zero faces).</li>
+          <li>Cost/budget alarm; privacy pass (TTL purge verified).</li>
+          <li>Responsive + perf pass; no horizontal scroll; album interactive fast.</li>
+        </ul>
+        <div class="gate"><b>Gate:</b> AC1–AC10 hold on the public URL, from a device that isn't Jonathan's.</div>
+      </div></div>
+      <div class="phase"><div class="when">P6</div><div class="body">
+        <h4>Review &amp; ship</h4>
+        <p class="goal">Close the mandatory gate.</p>
+        <ul>
+          <li><code>/code-review</code> → REVIEW.md; resolve High findings.</li>
+          <li>CHANGES_LOG + README (run + deploy in one command each); flip spec to Implemented.</li>
+        </ul>
+        <div class="gate"><b>Gate:</b> public URL linkable from a resume; REVIEW.md clean.</div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 ACCEPTANCE -->
+<section id="ac">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">11 · Acceptance criteria</div>
+    <h2 class="sec-title">The anti-half-baked gate, for a live service</h2>
+    <p class="sec-lead">Phase-1 "shipped" means every one of these holds on the deployed URL, cold, on a machine that is not Jonathan's.</p>
+    <div class="ac">
+      <div class="row"><div class="id">AC1</div><div class="txt"><b>Loads &amp; works first try.</b> Public URL, cold; showcase trips render with no console errors.</div></div>
+      <div class="row"><div class="id">AC2</div><div class="txt"><b>A real upload succeeds end-to-end.</b> A stranger's ≤150-photo trip returns a curated album, people, and why-picked — from the live pipeline.</div></div>
+      <div class="row"><div class="id">AC3</div><div class="txt"><b>Every job state is designed.</b> Queued, rejected, timeout, failed, expired all have intentional UI — never a blank or a stack trace.</div></div>
+      <div class="row"><div class="id">AC4</div><div class="txt"><b>Bounds are enforced server-side.</b> Over-count / oversized / unreadable / rate-limited uploads return clean typed rejections; no 500s, no runaway compute.</div></div>
+      <div class="row"><div class="id">AC5</div><div class="txt"><b>Never OOMs.</b> An adversarial max-N upload completes or fails cleanly with bounded peak RSS (<code>isolate_steps</code> proven under load).</div></div>
+      <div class="row"><div class="id">AC6</div><div class="txt"><b>Progress is truthful.</b> The four passes reflect real worker step events, not a fake timer.</div></div>
+      <div class="row"><div class="id">AC7</div><div class="txt"><b>Data honesty.</b> Shown numbers match the run; vs-VLM carries its "preliminary pilot, N=1" caveat; no determinism over-claim (SIGHTING-122).</div></div>
+      <div class="row"><div class="id">AC8</div><div class="txt"><b>Privacy.</b> Uploads + results expire on TTL and are purged; the anon session holds nothing forever.</div></div>
+      <div class="row"><div class="id">AC9</div><div class="txt"><b>Responsive + themed + fast.</b> Phone-width, both themes, no sideways scroll; album interactive quickly.</div></div>
+      <div class="row"><div class="id">AC10</div><div class="txt"><b>Idle-cheap &amp; capped.</b> Worker scales to zero; a budget alarm + rate/input caps bound worst-case spend.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 RISK -->
+<section id="risk">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">12 · Risks</div>
+    <h2 class="sec-title">What can go wrong, and the mitigation</h2>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Risk</th><th>Sev</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>Slow first run destroys trust</td><td><span class="chip c-high">high</span></td><td>Showcase seed is instant; live run shows honest queue position + live progress; cold-start budget in P5; snapshot cold-starts on Modal.</td></tr>
+          <tr><td>OOM on a large/adversarial upload</td><td><span class="chip c-high">high</span></td><td><code>isolate_steps=True</code> + input cap + per-step timeout; adversarial memory test is a P1/P5 gate.</td></tr>
+          <tr><td>Cost blowup under a spike</td><td><span class="chip c-med">med</span></td><td>Scale-to-zero + rate limit + input cap + TTL + hard budget alarm.</td></tr>
+          <tr><td>Determinism over-claim (SIGHTING-122)</td><td><span class="chip c-med">med</span></td><td>Never advertise bit-exactness; equivalence test carries tolerance; framed as a curated edit, not a proof.</td></tr>
+          <tr><td>HEIC / odd formats fail to decode</td><td><span class="chip c-med">med</span></td><td>Decode probe in the bounds guard → reject up front with a clear message; supported formats stated in UI.</td></tr>
+          <tr><td>Uploaded content liability (public endpoint)</td><td><span class="chip c-high">high</span></td><td>Needs a stance (§13): ToS + short TTL at minimum; optional safety pre-check. Decision required before public launch.</td></tr>
+          <tr><td>Queue backlog / worker starvation</td><td><span class="chip c-low">low</span></td><td>Durable queue with visible position; concurrency test in P5; workers scale up within host limits.</td></tr>
+          <tr><td>Scope creep back toward "full SaaS"</td><td><span class="chip c-med">med</span></td><td>v1 is anon, bounded, TTL'd, no accounts. Accounts/persistence/billing are explicitly out of scope.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 13 DECISIONS -->
+<section id="decisions">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">13 · Open decisions</div>
+    <h2 class="sec-title">Calls needed before P0 starts</h2>
+    <p class="sec-lead">These change the build; the rest I can proceed on with the proposed defaults.</p>
+    <div class="cards g2">
+      <div class="card"><h4>1 · Host</h4><p>Modal (recommended) vs Fly.io vs something you already pay for. Drives the queue/storage wiring in P1.</p></div>
+      <div class="card"><h4>2 · Input cap</h4><p>150 photos is the proposed ceiling (~4 min CPU). Higher = better demo, worse cost/latency. Your number.</p></div>
+      <div class="card"><h4>3 · Content-safety stance</h4><p>Public anon upload of strangers' photos. Minimum ToS + short TTL, or add a safety pre-check? Blocks public launch, not build.</p></div>
+      <div class="card"><h4>4 · GPU now or later?</h4><p>CPU ships v1 fine (1.6 s/img). GPU cuts latency but adds cost/complexity — defer to a P5 optimization unless you want the speed for the demo.</p></div>
+      <div class="card"><h4>5 · Accounts?</h4><p>v1 assumes anonymous + expiring. Confirm no login/persistence in scope for the first public build.</p></div>
+      <div class="card"><h4>6 · Album size (K)</h4><p>The new global top-K cap — fixed (e.g. 20) or scaled to trip size? Affects the P0 selection change.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <span>Albumify · spec-106 · Direction B — Live Curator · build plan</span>
+    <span>engine proven &amp; isolated · service TBD · your call</span>
+  </div>
+</footer>
+
+<script>
+// active-section highlight in the TOC (progressive enhancement; page is fully usable without it)
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var map = {};
+  links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  if(!('IntersectionObserver' in window)) return;
+  var obs = new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      var a = map[e.target.id]; if(!a) return;
+      if(e.isIntersecting){ a.style.color='var(--accent)'; a.style.background='var(--surface-2)'; }
+      else { a.style.color=''; a.style.background=''; }
+    });
+  }, {rootMargin:'-45% 0px -50% 0px'});
+  document.querySelectorAll('section[id]').forEach(function(s){ obs.observe(s); });
+})();
+</script>
+</body>
+</html>
