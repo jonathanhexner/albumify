@@ -4,6 +4,32 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-122: face counts diverge slightly between isolated and in-process pipeline runs
+**Status**: OPEN
+**Severity**: Medium (identical inputs + config should give identical outputs; a ±1–2 face divergence means either nondeterminism in detection or a real behavior difference at the isolation boundary — blocks a strict equality assertion in the spec-104 §5 equivalence E2E)
+**Reported**: 2026-09-26 (surfaced by the spec-104 capacity experiment, `reports/2026-09-21_spec104_capacity/`)
+**Persona**: SW Engineer / Pipeline
+
+**Problem**: running the real `faces` pipeline on the same Germany image sets (768 px, cold cache,
+production config) with `isolate_steps=True` vs the in-process path produced slightly different
+total face counts: N=100 → 170/170 (equal), N=300 → 455 isolated vs 454 in-process,
+N=500 → 794 isolated vs 796 in-process.
+
+**Suspicion** (unverified): borderline-confidence detections flipping across runs — plausibly
+run-to-run nondeterminism in the detector stack (thread scheduling / ONNX or torch op ordering on
+CPU) rather than anything the isolation boundary changes. Not yet established whether two
+*in-process* runs are even self-consistent; that's the first discriminating test.
+
+**Reproduction**: `scripts/spec104_capacity_measure.py` at N=300 or N=500 against
+`D:\albumify_vs_vlm\germany\imgs768`, compare face counts across modes (slow: ~10–15 min/config, CPU).
+
+**Suggested follow-up**: (1) run the same mode twice — if counts already differ, this is detector
+nondeterminism and the spec-104 §5 equivalence test should assert with a small tolerance;
+(2) if same-mode runs are stable, diff the per-image detections between modes to find which images
+flip and root-cause the boundary difference (e.g. env/thread config the child doesn't inherit).
+
+---
+
 ### SIGHTING-121: two current modules have zero suite-test coverage (surfaced by the full-lane cleanup)
 **Status**: OPEN (non-blocking; noted 2026-09-13 while removing dead smoke scripts)
 **Severity**: Low (no known bug; a coverage gap, not a failure)

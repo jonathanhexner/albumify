@@ -1,6 +1,36 @@
 # spec-104 — Staged process isolation for the pipeline (SIGHTING-117 durable fix)
 
-**Status**: Draft — awaiting approval. Phase 0 (cheap release fix) already landed 2026-07-30.
+**Status**: In Progress — **v1 (per-step isolation) implemented 2026-09-14** on branch
+`spec/104-staged-process-isolation`, behind a default-off `PipelineConfig.isolate_steps` flag.
+Phase 0 (cheap release fix) landed 2026-07-30.
+
+## v1 — implemented (per-step isolation; stage-grouping deferred)
+
+The simplest correct form of §3: isolate **one step at a time** (the "stage of one" the design
+calls the degenerate case). **Executor-only change — no step or pipeline-construction changes.**
+
+- `PipelineConfig.isolate_steps: bool = False` — default OFF; the in-process path is byte-identical.
+- `PipelineExecutor._execute_step` branches to `_execute_step_isolated` when the flag is on.
+- The child (`multiprocessing` **spawn**) re-imports the step's own class (module + qualname),
+  rebuilds the context from the marshalled state, runs `step.process()` (mutates context in place),
+  and ships the mutated state back. Child **exits** → OS reclaims 100% of the models it loaded.
+- Only the picklable context data crosses; `on_progress` (a Callable) stays in the parent and is
+  fired from relayed messages over the same queue.
+- A child crash/OOM (no terminal message) → parent **survives** and returns a failed `StepResult`
+  (today an OOM kills the whole run silently).
+
+**Proven** (`scripts/spec104_isolation_probe.py`): a step leaking ~480 MB → parent RSS in-process
+**+480 MB** vs isolated **+1 MB** (100% reclaimed), isolated step succeeds. 6 tests in
+`tests/pipeline/test_step_isolation.py` (marshal-back, runs-in-child, default-off parity, exception,
+hard-crash survival).
+
+**Deferred to v2 (pure optimization, not correctness):** grouping contiguous steps into a **stage**
+so big intermediates (e.g. 149 MB face crops) stay inside one child instead of being pickled across
+per step, and each stage loads a disjoint model set. Wire into Albumify/API once v1 burns in.
+
+---
+
+**Status (original)**: Draft — awaiting approval. Phase 0 (cheap release fix) already landed 2026-07-30.
 **Owner**: Claude / user
 **Supersedes**: the "stream/batch InsightFace detections" framing of SIGHTING-117 (measured wrong).
 **Related**: SIGHTING-117, spec-040 (unified pipeline framework), `feedback_pipeline_is_config`.
