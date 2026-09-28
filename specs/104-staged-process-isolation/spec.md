@@ -1,8 +1,9 @@
 # spec-104 — Staged process isolation for the pipeline (SIGHTING-117 durable fix)
 
-**Status**: In Progress — **v1 (per-step isolation) implemented 2026-09-14** on branch
-`spec/104-staged-process-isolation`, behind a default-off `PipelineConfig.isolate_steps` flag.
-Phase 0 (cheap release fix) landed 2026-07-30.
+**Status**: Implemented (v1) — merged to `main` 2026-09-28 (`--no-ff`). Per-step isolation
+behind a default-off `PipelineConfig.isolate_steps` flag; REVIEW.md ACCEPT (no High findings).
+Phase 0 (cheap release fix) landed 2026-07-30. **v2 stage-grouping deferred** (pure optimization;
+see `tasks.md` Phases 2–4). Open review follow-ups + SIGHTING-122 tracked in `TODO.md`.
 
 ## v1 — implemented (per-step isolation; stage-grouping deferred)
 

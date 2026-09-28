@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-09-28 [FEATURE] spec-104 v1 merged to main (per-step process isolation)
+**Files**: merge of `spec/104-staged-process-isolation` into `main` (`--no-ff`); `specs/104-staged-process-isolation/spec.md` status → Implemented (v1).
+**Change**: merged v1 per-step process isolation (default-off `isolate_steps` flag, in-process path byte-identical). 9 isolation tests green on merged main (30s). v2 stage-grouping deferred; review follow-ups + SIGHTING-122 remain open in TODO.md.
+**Reason**: user approved merge — isolation is the memory foundation for the live-curator app direction (spec-106, Direction B).
+
 ### 2026-09-26 [TEST] spec-104 capacity measurement — peak RSS vs album size, isolated vs in-process
 **Files**: `scripts/spec104_capacity_measure.py` (new), `reports/2026-09-21_spec104_capacity/` (report.html + summary.md + imgs, new), `reports/EXPERIMENTS.md` (index entry), `docs/project/SIGHTINGS.md` (SIGHTING-122).
 **Change**: measured peak process-tree RSS on the real `faces` pipeline (Germany 768 px, cold cache, CPU) at N=100/300/500 in both modes. Result: flat scaling — ~2.5 GB model floor + 0.4–0.7 MB/img; isolation costs +~300 MB peak / +10% time at N=500; capacity is runtime-bound (~1.6 s/img), not memory-bound (16 GB ≈ 20k imgs/run). Post-release() the in-process path no longer loses on peak — v1 isolation buys crash/OOM survival, not RSS. Filed SIGHTING-122: face counts diverge ±1–2 between modes at N=300/500 (blocks strict-equality assertion in the spec-104 §5 equivalence E2E).
