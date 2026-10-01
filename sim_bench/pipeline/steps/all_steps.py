@@ -7,6 +7,9 @@ from sim_bench.pipeline.steps.discover_images import DiscoverImagesStep
 from sim_bench.pipeline.steps.triage_metadata import TriageMetadataStep
 from sim_bench.pipeline.steps.triage_content import TriageContentStep
 
+# Semantic layer (spec-108) — cleaned content tags derived from cached RAM++ tags
+from sim_bench.pipeline.steps.derive_semantic_tags import DeriveSemanticTagsStep
+
 # Geo-temporal (spec-022)
 from sim_bench.pipeline.steps.extract_geo_metadata import ExtractGeoMetadataStep
 from sim_bench.pipeline.steps.geo_temporal_segment import GeoTemporalSegmentStep

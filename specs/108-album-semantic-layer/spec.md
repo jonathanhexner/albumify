@@ -1,6 +1,9 @@
 # spec-108 — Album Semantic Layer (theme · captions · semantic scene clustering)
 
-**Status:** Draft — awaiting approval
+**Status:** In Progress — started 2026-10-01. **P0 (semantic tags) building**: reuses the `ram_tags`
+already cached by spec-107 `triage_content` (no second RAM++ pass); a pure cleaner drops verb/fragment
+noise → `context.semantic_tags`. VLM tiers (P1–P3) await the model decision (local Qwen3-VL/MiniCPM-V
+vs API — see §4), surfaced before that code is written.
 **Owner:** Jonathan / Claude
 **Priority:** P2 (quality depth + the agentic-AI capability; v1.5 of the product)
 **Relation:** produces the interestingness signal consumed by [[spec-107]]; shares VLM infra with

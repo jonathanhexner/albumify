@@ -64,6 +64,9 @@ class PipelineContext:
     triage_review: list[dict] = field(default_factory=list)
     # spec-107 P1 / spec-108: RAM++ content tags per image (cached), reused for semantic layer.
     ram_tags: dict[str, list] = field(default_factory=dict)
+    # spec-108 P0: cleaned semantic tags + coarse facets per image, derived from ram_tags.
+    # semantic_tags[path] = {"tags": [...], "facets": {facet: [...]}, "primary_facet": "nature"}
+    semantic_tags: dict[str, dict] = field(default_factory=dict)
 
     # Analysis scores (keyed by image path string)
     iqa_scores: dict[str, float] = field(default_factory=dict)

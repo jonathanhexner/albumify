@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [FEATURE] spec-108 P0 — semantic content tags (reuses cached RAM++ tags)
+**Files**: `sim_bench/semantic/__init__.py` + `tags.py` (new), `sim_bench/pipeline/steps/derive_semantic_tags.py` (new), `sim_bench/pipeline/steps/all_steps.py` (register), `sim_bench/pipeline/context.py` (+`semantic_tags`), `configs/pipeline.yaml` (default_pipeline after triage_content), `specs/034-pipeline-context-contract/spec.md` (+semantic_tags row), `tests/semantic/` (2 files, 10 tests). Also spec-107 F1: `__all__` added to triage modules.
+**Change**: spec-108 P0 (semantic layer foundation) — `derive_semantic_tags` step reuses `context.ram_tags` already cached by spec-107 `triage_content` (NO second RAM++ pass; zero added model cost) and runs a pure cleaner: `clean()` drops verb/fragment + vague/color noise observed in the 2026-10-01 RAM++ bake-off; `categorize()` buckets survivors into coarse facets (people/nature/urban/food/animal/activity) with token-matching for compound tags ("mallard duck"->animal). Writes `context.semantic_tags = {tags, facets, primary_facet}`. 10 tests green; validated on the real Slovakia subset (sensible family-trip facet mix). Foundation for thematic grouping / album-type / search. VLM tiers (P1-P3 theme/captions/relevance) await the model decision.
+**Reason**: user: do F1 then start spec-108. P0 is the no-new-model foundation that reuses the RAM++ investment.
+
 ### 2026-10-01 [DOCS] spec-107 F2 — architecture HTMLs + LEARNINGS
 **Files**: `docs/architecture/data_flow.html`, `docs/architecture/classes.html`, `docs/project/LEARNINGS.md`.
 **Change**: closed the spec-107 documentation follow-up. data_flow.html: added the triage stage (runs first, sets aside junk before the face stack, set_aside/triage_review/ram_tags, 0-junk result) + a builder step-ordering note; updated the PipelineContext state line. classes.html: extended the PipelineContext row with the spec-107 fields and added a TriageInputs/TriageResult + RamTagger dataclass row. LEARNINGS: entry on the builder alphabetical-tie-break bug (topological-sort tie-break is load-bearing; unit-green != correct; the real-data E2E caught it). HTMLs tag-balance verified.
