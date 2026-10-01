@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [FEATURE] spec-107 P1 — RAM++ content-tier triage
+**Files**: `sim_bench/triage/content.py` (new), `tests/triage/test_content_triage.py` (new, 8 tests), `specs/107-input-triage-discard-review/{spec.md,tasks.md}`.
+**Change**: content tier catches junk metadata can't see (photographed docs/posters/re-shared screenshots). Pure `calc(tags)->TriageResult` with a strong/soft junk-tag taxonomy + a moment-override (a printed item inside a real scene -> review/kept, not set_aside); `RamTagger` is the lazy live RAM++ tag source (transformers shim, 2.8GB ckpt touched only on construction). 8 tests green. Validated on the 75 real-tag Slovakia subset: caught the 8 screenshots + 3 junk items metadata missed (incl. the poster that leaked into the album), downgraded signs/posters-in-scene to review, no false positives. Live RamTagger path smoke-tested. Next: P2 pipeline step + set_aside contract + Slovakia re-run proving 0 junk in album.
+**Reason**: user confirmed the RAM++ content filter is needed ("not everything is recognizable by metadata").
+
 ### 2026-10-01 [FEATURE] spec-107 P0 — metadata-tier triage (screenshots/downloads)
 **Files**: `sim_bench/triage/__init__.py` (new, empty), `sim_bench/triage/metadata.py` (new), `tests/triage/test_metadata_triage.py` (new, 9 tests), `specs/107-input-triage-discard-review/{spec.md,tasks.md}` (status/progress).
 **Change**: first increment of spec-107. Pure metadata-tier triage: `calc(TriageInputs)->TriageResult` classifies an image from filename / camera-EXIF presence (Make/Model) / format / screen-dimensions into keep|review|set_aside. Conservative — only high-confidence junk is set_aside; ambiguous (no-EXIF, could be edited) -> review; never deletes. 9 unit tests green. Validated on the full 715-photo Slovakia26 roll: 8/8 screenshots set_aside, 707 keep, 0 false positives. Next: RAM++ content tier (P1), pipeline step + set_aside context contract (P2).

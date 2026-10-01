@@ -1,6 +1,6 @@
 # spec-107 — Input Triage & Discard Review
 
-**Status:** In Progress — approved 2026-10-01; **P0 metadata tier implemented** (`sim_bench/triage/metadata.py`, 9 tests, validated 8/8 screenshots on the 715-photo roll, 0 false positives)
+**Status:** In Progress — approved 2026-10-01. **P0 metadata tier** (`triage/metadata.py`, 9 tests, 8/8 screenshots on 715 roll, 0 FP) + **P1 content tier** (`triage/content.py` + `RamTagger`, 8 tests; caught 3 junk items metadata missed incl. the album-leaking poster, no FP) done. Next: P2 pipeline step + Slovakia re-run (0 junk in album).
 **Owner:** Jonathan / Claude
 **Priority:** P1 (proven necessary; blocks honest curation on real uploads)
 **Relation:** feeds / is fed by [[spec-108]] (theme-relevance signal); surfaced in [[spec-106]] UI.

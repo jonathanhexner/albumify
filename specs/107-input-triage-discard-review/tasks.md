@@ -7,10 +7,10 @@
 - [x] T0.2 `tests/triage/test_metadata_triage.py` (9 tests, pure) — green.
 - **Gate:** ✅ met — 715-roll validation: **8/8 screenshots set_aside, 707 keep, 0 review (0 false positives)**.
 
-## P1 — Content tier (RAM++)
-- [ ] T1.1 `triage_content` using RAM++ junk tags (`screenshot, document, poster, receipt, map, menu, logo…`); runs as its own isolated step (spec-104).
-- [ ] T1.2 Threshold tuning + tests; measure added runtime/RSS.
-- **Gate:** catches photographed docs/posters metadata misses; cost bounded.
+## P1 — Content tier (RAM++)  ✅ DONE 2026-10-01
+- [x] T1.1 `sim_bench/triage/content.py`: pure `calc(tags)->TriageResult` (strong/soft junk taxonomy + moment-override: a printed item within a real scene -> review, not set_aside) + `RamTagger` (lazy RAM++ live tag source, transformers shim).
+- [x] T1.2 `tests/triage/test_content_triage.py` (8 tests). Validated on the 75 real-tag subset: caught the 8 screenshots + **3 junk metadata missed** (poster `…105436` that leaked into the album, packaging `…155313`, re-shared screen `…153154`); signs/posters-in-scene -> review (kept); no false positives. Live `RamTagger` smoke green.
+- **Gate:** ✅ met — catches photographed docs/posters metadata misses; cost = one isolated RAM++ step (spec-104).
 
 ## P2 — Triage step + context contract
 - [ ] T2.1 Pipeline step that runs before scoring, writes `context.set_aside = [{image, reason, confidence}]`; curation runs on survivors only.
