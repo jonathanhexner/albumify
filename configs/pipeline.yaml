@@ -14,6 +14,8 @@
 # ACTIVE: InsightFace pipeline (used by API by default)
 default_pipeline:
   - discover_images
+  - triage_metadata             # spec-107: set aside screenshots/downloads (free) BEFORE scoring
+  - triage_content              # spec-107: set aside docs/posters/re-shared screenshots (RAM++, cached)
   - extract_geo_metadata        # spec-022: EXIF GPS + capture time per image
   - score_iqa
   - score_ava

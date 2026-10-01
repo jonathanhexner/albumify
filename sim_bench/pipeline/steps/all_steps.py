@@ -3,6 +3,10 @@
 # Discovery
 from sim_bench.pipeline.steps.discover_images import DiscoverImagesStep
 
+# Triage (spec-107) — set aside irrelevant photos before the expensive pipeline
+from sim_bench.pipeline.steps.triage_metadata import TriageMetadataStep
+from sim_bench.pipeline.steps.triage_content import TriageContentStep
+
 # Geo-temporal (spec-022)
 from sim_bench.pipeline.steps.extract_geo_metadata import ExtractGeoMetadataStep
 from sim_bench.pipeline.steps.geo_temporal_segment import GeoTemporalSegmentStep
