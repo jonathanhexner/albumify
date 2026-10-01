@@ -67,6 +67,9 @@ class PipelineContext:
     # spec-108 P0: cleaned semantic tags + coarse facets per image, derived from ram_tags.
     # semantic_tags[path] = {"tags": [...], "facets": {facet: [...]}, "primary_facet": "nature"}
     semantic_tags: dict[str, dict] = field(default_factory=dict)
+    # spec-108 P1: one album-level theme for the whole run (album_type, facet_distribution, motifs,
+    # top_tags, source="tags"|"vlm"). Drives album-type tuning + UI copy.
+    album_theme: dict = field(default_factory=dict)
 
     # Analysis scores (keyed by image path string)
     iqa_scores: dict[str, float] = field(default_factory=dict)

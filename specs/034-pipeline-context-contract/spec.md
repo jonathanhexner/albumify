@@ -42,6 +42,7 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 | `triage_review` | `list[dict]` | — | `triage_metadata`, `triage_content` (spec-107) | result/UI | NOT YET (P4) | from triage → end | kept-but-flagged items; same entry shape as `set_aside` |
 | `ram_tags` | `dict[str, list]` | text | `triage_content` (RAM++, spec-107) | triage + spec-108 semantic layer | `universal_cache` (`ram_tags`, model `ram_plus_swin_l_14m`) | producer → end | open-vocab content tags per image; cached, reused downstream |
 | `semantic_tags` | `dict[str, dict]` | text | `derive_semantic_tags` (spec-108) | thematic grouping / album-type / search | NOT YET (in-run; derived from cached ram_tags) | producer → end | `{tags, facets, primary_facet}`; cleaned RAM++ tags bucketed into coarse facets |
+| `album_theme` | `dict` | text | `infer_album_theme` (spec-108) | album-type tuning, UI copy, captions | NOT YET (in-run; album-level) | producer → end | one per run: `{album_type, facet_distribution, top_tags, motifs, source}`; tag-based baseline, VLM-refinable |
 
 ### 3.2 Image-level scores
 

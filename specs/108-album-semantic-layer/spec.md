@@ -1,9 +1,13 @@
 # spec-108 — Album Semantic Layer (theme · captions · semantic scene clustering)
 
-**Status:** In Progress — started 2026-10-01. **P0 (semantic tags) building**: reuses the `ram_tags`
-already cached by spec-107 `triage_content` (no second RAM++ pass); a pure cleaner drops verb/fragment
-noise → `context.semantic_tags`. VLM tiers (P1–P3) await the model decision (local Qwen3-VL/MiniCPM-V
-vs API — see §4), surfaced before that code is written.
+**Status:** In Progress — 2026-10-01. **P0 (semantic tags) DONE** (reuses cached `ram_tags`, no second
+RAM++ pass → `context.semantic_tags`). **VLM decision: MiniCPM-V 4.5 local** (chosen 2026-10-01 for
+$0/token + privacy — strangers' photos never leave the box). **P1 theme: tag-based baseline DONE**
+(pure, reuses P0 facets, validated). **VLM-backed tiers (richer theme, captions P2, relevance P3)
+blocked on env**: MiniCPM-V needs `transformers==4.51` (env has 4.57) or an ollama/GGUF runtime (absent),
+and an 8B VLM on CPU is impractical — live VLM runs on the spec-109 GPU worker, in its own pinned env.
+The VLM provider abstraction (`sim_bench/vlm/`) + MiniCPM-V backend are built; live validation deferred
+to the worker (or a local `.venv-vlm`/ollama, pending user call).
 **Owner:** Jonathan / Claude
 **Priority:** P2 (quality depth + the agentic-AI capability; v1.5 of the product)
 **Relation:** produces the interestingness signal consumed by [[spec-107]]; shares VLM infra with

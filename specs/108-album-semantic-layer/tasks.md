@@ -8,9 +8,14 @@
 - **Gate:** ✅ met — clean per-image semantic tags + facets on a real trip, zero added model cost.
 
 ## P1 — Theme inference
-- [ ] T1.1 Pick the VLM (local open: Qwen3-VL / MiniCPM-V vs API) — decision + thin wrapper (shared w/ spec-105).
-- [ ] T1.2 Theme-inference call on a representative sample → structured `{type, place, motifs}`.
-- **Gate:** correct theme on the 3 trips + Slovakia26 (human-judged).
+- [x] T1.1 VLM decision: **MiniCPM-V 4.5 local** (2026-10-01, $0/token + privacy). VLM seam built:
+      `sim_bench/vlm/base.py` `VLMProvider` protocol. **Live backend blocked on env** (needs
+      transformers==4.51 vs 4.57; 8B on CPU impractical) → runs on spec-109 GPU worker / `.venv-vlm` / ollama.
+- [x] T1.2 **Tag-based theme baseline (no VLM)** DONE: `sim_bench/semantic/theme.py` `infer_theme()` +
+      `infer_album_theme` step → `context.album_theme {album_type, facet_distribution, top_tags, motifs}`.
+      7 tests; validated on real Slovakia → "family trip — towns & nature" (people 34/nature 20/urban 11).
+- [ ] T1.3 (deferred) VLM-refined theme from a representative image sample → overwrite with `source="vlm"`.
+- **Gate:** tag-based theme correct on the real trip ✅; VLM refinement pending worker env.
 
 ## P2 — Captioning (the captioning request)
 - [ ] T2.1 Per-keeper captions (~20 survivors) → "why picked" text + scene labels.

@@ -17,6 +17,7 @@ default_pipeline:
   - triage_metadata             # spec-107: set aside screenshots/downloads (free) BEFORE scoring
   - triage_content              # spec-107: set aside docs/posters/re-shared screenshots (RAM++, cached)
   - derive_semantic_tags        # spec-108: clean RAM++ tags -> semantic facets (reuses ram_tags, no model)
+  - infer_album_theme           # spec-108: aggregate facets -> album theme (tag-based, no model)
   - extract_geo_metadata        # spec-022: EXIF GPS + capture time per image
   - score_iqa
   - score_ava
