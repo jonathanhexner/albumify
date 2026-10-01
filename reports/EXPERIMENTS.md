@@ -4,6 +4,12 @@ One entry per experiment, 2 lines each: (1) name + goal, (2) outcome + link.
 Convention: `reports/<YYYY-MM-DD>_<slug>/report.html` + `summary.md` (see CLAUDE.md §Experiment reports).
 Entries below predate the convention; their reports live at the linked legacy locations.
 
+- **2026-10-01 RAM++ vs fixed-method CLIP — content tagging (30 photos, 3 trips)** — is RAM++'s open-vocabulary tagging worth a ~2.8 GB model on the memory floor vs fixed-method CLIP (closed 20-class scene read)?
+  **RAM++ wins decisively: 11.7 tags/img (210 distinct) vs CLIP 2.5 (closed 20).** RAM++ names the actual subject (waffle/syrup/fork, mallard duck, witch hat, pedestrian bridge); CLIP forces wrong buckets (museum->landmark/vehicle) and `a selfie` over-fires. Adopt RAM++ for Tier-1 content tags (post-filter verb noise); keep fixed-CLIP as the near-free fallback. Open cost: RAM++ CPU latency + RSS as an isolated step. [report](2026-10-01_ram_vs_clip_tagging/report.html) · [summary](2026-10-01_ram_vs_clip_tagging/summary.md)
+
+- **2026-10-01 CLIP tagging — scoring method before/after (6 photos, 3 trips)** — is the "poor" CLIP tagging the model (ViT-B/32) or the method (`clip_tagger.py`: raw cosine → top-5 of all 57 prompts)? Same model + prompt text; only the reading changes (per-category softmax + contrastive pairs).
+  **Method, not model — for scene/content.** AFTER gives clean scene reads (landmark 99%, group 85%, food 64%) + working people-gating; BEFORE is dominated by always-on tags (`a color photo`) and self-contradicts (sharp+low-quality+high-quality at once). BUT `poorly composed` fires 88–99% everywhere → CLIP can't judge composition; scope CLIP to content tags only and keep quality from IQA/AVA/tilt. [report](2026-10-01_clip_tagging_method/report.html) · [summary](2026-10-01_clip_tagging_method/summary.md)
+
 - **2026-09-21 spec-104 capacity measurement (Germany, 100/300/500 imgs)** — how does peak RSS scale with album size, and what does per-step process isolation cost vs in-process, on the real `faces` pipeline (CPU, cold cache)?
   **Flat scaling: peak ≈ 2.5 GB model floor + 0.4–0.7 MB/img** (isolated 2,845 MB @ N=500; in-process 2,532 MB) → 16 GB fits ~20k imgs/run, runtime (~1.6 s/img) binds first; isolation costs +~300 MB / +10% time; post-release() in-process no longer stacks models. Anomaly: ±1–2 face-count divergence between modes → SIGHTING-122. [report](2026-09-21_spec104_capacity/report.html) · [summary](2026-09-21_spec104_capacity/summary.md)
 

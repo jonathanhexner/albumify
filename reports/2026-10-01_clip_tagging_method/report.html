@@ -1,0 +1,145 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLIP tagging — method before/after</title>
+<style>
+:root{--ground:#0E0D0C;--surface:#17130F;--surface2:#1E1913;--line:#2C2620;--ink:#F2EEE7;
+--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--good:#7FB682;--crit:#D98A6A;--eng:#6FB3C9;
+--sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;--mono:ui-monospace,"SF Mono",Consolas,monospace;}
+@media(prefers-color-scheme:light){:root{--ground:#F5F0E7;--surface:#FFF;--surface2:#FBF6EC;--line:#E4DACB;
+--ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--good:#3E7A46;--crit:#B25B3C;--eng:#2A7288;}}
+*{box-sizing:border-box;}body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.5;}
+.wrap{max-width:1180px;margin:0 auto;padding:40px 24px 70px;}
+h1{font-size:clamp(24px,4vw,38px);letter-spacing:-.02em;margin:0;}
+.sub{color:var(--ink-dim);margin-top:12px;max-width:72ch;}
+.sub code{color:var(--accent);font-family:var(--mono);font-size:.9em;}
+.cards{display:flex;flex-direction:column;gap:20px;margin-top:30px;}
+.card{display:grid;grid-template-columns:260px 1fr;gap:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;}
+@media(max-width:800px){.card{grid-template-columns:1fr;}}
+.card img{width:100%;height:100%;max-height:300px;object-fit:cover;background:var(--surface2);}
+.body{padding:16px 18px;}
+.name{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:12px;}
+.col{margin-bottom:16px;}
+.lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;}
+.lbl.bad{color:var(--crit);}.lbl.good{color:var(--good);}
+table{border-collapse:collapse;font-size:13px;width:100%;max-width:520px;}
+td{padding:3px 10px 3px 0;border-bottom:1px solid var(--line);}
+td.num{font-family:var(--mono);color:var(--muted);text-align:right;width:58px;}
+td.g{font-family:var(--mono);font-size:10.5px;color:var(--eng);width:150px;}
+.grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;}
+.grp .k{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-transform:uppercase;width:84px;flex-shrink:0;}
+.pill{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--surface2);}
+.pill i{font-style:normal;color:var(--muted);font-family:var(--mono);font-size:10px;margin-right:4px;}
+.pill b{color:var(--accent);font-variant-numeric:tabular-nums;}
+.muted{color:var(--muted);font-size:12px;}
+.foot{margin-top:30px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+</style></head><body><div class="wrap">
+<h1>CLIP tagging — same model, two ways of reading it</h1>
+<p class="sub">Model <code>ViT-B/32 · laion2b_s34b_b79k</code> · 57 prompts from <code>configs/photo_analysis_prompts.yaml</code>, unchanged.
+<b>BEFORE</b> = today's <code>clip_tagger.py</code>: raw cosine, top-5 across all 57.
+<b>AFTER</b> = per-category softmax + contrastive pairs (no prompt text changed). Note how BEFORE fills with
+always-on tags (<code>a color photo</code>, <code>a daytime scene</code>) and mixes axes, while AFTER gives a structured read.</p>
+<div class="cards">
+      <div class="card">
+        <img src="imgs/20250822_112331.jpg" alt="20250822_112331.jpg" loading="lazy">
+        <div class="body">
+          <div class="name">20250822_112331.jpg</div>
+          <div class="col before">
+            <div class="lbl bad">BEFORE — raw top-5 across all 57</div>
+            <table><tr><td class="num">+0.243</td><td class="g">scene_content</td><td>a photo of a person</td></tr><tr><td class="num">+0.241</td><td class="g">quality_technical</td><td>a high-quality photo</td></tr><tr><td class="num">+0.230</td><td class="g">composition_aesthetic</td><td>a poorly composed photograph</td></tr><tr><td class="num">+0.227</td><td class="g">quality_technical</td><td>a color photo</td></tr><tr><td class="num">+0.225</td><td class="g">quality_technical</td><td>a low-quality photo</td></tr></table>
+          </div>
+          <div class="col after">
+            <div class="lbl good">AFTER — per-category softmax + contrastive pairs</div>
+            <div class="grp"><span class="k">scene</span><span class="pill">a photo of a person <b>100%</b></span><span class="pill">a product photo <b>0%</b></span><span class="pill">a crowd of people <b>0%</b></span></div>
+            <div class="grp"><span class="k">people</span><span class="pill">a selfie <b>53%</b></span><span class="pill">a person standing <b>41%</b></span></div>
+            <div class="grp"><span class="k">quality</span><span class="pill"><i>sharpness</i> a sharp photo <b>90%</b></span><span class="pill"><i>exposure</i> an overexposed photo <b>93%</b></span><span class="pill"><i>lighting</i> a photo with good lighting <b>58%</b></span><span class="pill"><i>noise</i> a clean image <b>59%</b></span><span class="pill"><i>overall</i> a high-quality photo <b>83%</b></span></div>
+            <div class="grp"><span class="k">composition</span><span class="pill"><i>composed</i> a poorly composed photograph <b>100%</b></span><span class="pill"><i>balance</i> a balanced composition <b>63%</b></span><span class="pill"><i>framing</i> a photo with bad framing <b>88%</b></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <img src="imgs/20250822_121039.jpg" alt="20250822_121039.jpg" loading="lazy">
+        <div class="body">
+          <div class="name">20250822_121039.jpg</div>
+          <div class="col before">
+            <div class="lbl bad">BEFORE — raw top-5 across all 57</div>
+            <table><tr><td class="num">+0.268</td><td class="g">composition_aesthetic</td><td>a photo with leading lines</td></tr><tr><td class="num">+0.245</td><td class="g">composition_aesthetic</td><td>a photo with depth and perspective</td></tr><tr><td class="num">+0.234</td><td class="g">quality_technical</td><td>a sharp photo</td></tr><tr><td class="num">+0.234</td><td class="g">quality_technical</td><td>a color photo</td></tr><tr><td class="num">+0.234</td><td class="g">composition_aesthetic</td><td>a photo with symmetry</td></tr></table>
+          </div>
+          <div class="col after">
+            <div class="lbl good">AFTER — per-category softmax + contrastive pairs</div>
+            <div class="grp"><span class="k">scene</span><span class="pill">a photo of a person <b>65%</b></span><span class="pill">a photo of a landmark <b>35%</b></span><span class="pill">a product photo <b>0%</b></span></div>
+            <div class="grp"><span class="k">people</span><span class="pill">a portrait of two people <b>40%</b></span><span class="pill">a selfie <b>40%</b></span></div>
+            <div class="grp"><span class="k">quality</span><span class="pill"><i>sharpness</i> a sharp photo <b>99%</b></span><span class="pill"><i>exposure</i> an overexposed photo <b>92%</b></span><span class="pill"><i>lighting</i> a photo with good lighting <b>53%</b></span><span class="pill"><i>noise</i> a clean image <b>97%</b></span><span class="pill"><i>overall</i> a high-quality photo <b>58%</b></span></div>
+            <div class="grp"><span class="k">composition</span><span class="pill"><i>composed</i> a poorly composed photograph <b>91%</b></span><span class="pill"><i>balance</i> an unbalanced composition <b>52%</b></span><span class="pill"><i>framing</i> a photo with good framing <b>61%</b></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <img src="imgs/20230817_142056.jpg" alt="20230817_142056.jpg" loading="lazy">
+        <div class="body">
+          <div class="name">20230817_142056.jpg</div>
+          <div class="col before">
+            <div class="lbl bad">BEFORE — raw top-5 across all 57</div>
+            <table><tr><td class="num">+0.223</td><td class="g">quality_technical</td><td>a color photo</td></tr><tr><td class="num">+0.211</td><td class="g">scene_content</td><td>a vehicle</td></tr><tr><td class="num">+0.195</td><td class="g">quality_technical</td><td>a low-quality photo</td></tr><tr><td class="num">+0.194</td><td class="g">scene_content</td><td>a group photo</td></tr><tr><td class="num">+0.193</td><td class="g">composition_aesthetic</td><td>a poorly composed photograph</td></tr></table>
+          </div>
+          <div class="col after">
+            <div class="lbl good">AFTER — per-category softmax + contrastive pairs</div>
+            <div class="grp"><span class="k">scene</span><span class="pill">a vehicle <b>79%</b></span><span class="pill">a group photo <b>14%</b></span><span class="pill">a daytime scene <b>4%</b></span></div>
+            <div class="grp"><span class="k">people</span><span class="muted">no person (scene mass 14%)</span></div>
+            <div class="grp"><span class="k">quality</span><span class="pill"><i>sharpness</i> a sharp photo <b>99%</b></span><span class="pill"><i>exposure</i> an overexposed photo <b>55%</b></span><span class="pill"><i>lighting</i> a photo with good lighting <b>74%</b></span><span class="pill"><i>noise</i> a clean image <b>99%</b></span><span class="pill"><i>overall</i> a low-quality photo <b>64%</b></span></div>
+            <div class="grp"><span class="k">composition</span><span class="pill"><i>composed</i> a poorly composed photograph <b>96%</b></span><span class="pill"><i>balance</i> an unbalanced composition <b>77%</b></span><span class="pill"><i>framing</i> a photo with bad framing <b>51%</b></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <img src="imgs/20230817_151932.jpg" alt="20230817_151932.jpg" loading="lazy">
+        <div class="body">
+          <div class="name">20230817_151932.jpg</div>
+          <div class="col before">
+            <div class="lbl bad">BEFORE — raw top-5 across all 57</div>
+            <table><tr><td class="num">+0.260</td><td class="g">composition_aesthetic</td><td>a photo with leading lines</td></tr><tr><td class="num">+0.243</td><td class="g">human_focused</td><td>a photo with multiple faces</td></tr><tr><td class="num">+0.241</td><td class="g">quality_technical</td><td>a blurry photo</td></tr><tr><td class="num">+0.228</td><td class="g">quality_technical</td><td>a photo with bad lighting</td></tr><tr><td class="num">+0.228</td><td class="g">quality_technical</td><td>an overexposed photo</td></tr></table>
+          </div>
+          <div class="col after">
+            <div class="lbl good">AFTER — per-category softmax + contrastive pairs</div>
+            <div class="grp"><span class="k">scene</span><span class="pill">a group photo <b>85%</b></span><span class="pill">a photo of a person <b>8%</b></span><span class="pill">a product photo <b>4%</b></span></div>
+            <div class="grp"><span class="k">people</span><span class="pill">a photo with multiple faces <b>84%</b></span><span class="pill">a selfie <b>15%</b></span></div>
+            <div class="grp"><span class="k">quality</span><span class="pill"><i>sharpness</i> a blurry photo <b>98%</b></span><span class="pill"><i>exposure</i> an overexposed photo <b>96%</b></span><span class="pill"><i>lighting</i> a photo with bad lighting <b>82%</b></span><span class="pill"><i>noise</i> a clean image <b>99%</b></span><span class="pill"><i>overall</i> a high-quality photo <b>54%</b></span></div>
+            <div class="grp"><span class="k">composition</span><span class="pill"><i>composed</i> a poorly composed photograph <b>99%</b></span><span class="pill"><i>balance</i> a balanced composition <b>64%</b></span><span class="pill"><i>framing</i> a photo with bad framing <b>71%</b></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <img src="imgs/20240816_080028.jpg" alt="20240816_080028.jpg" loading="lazy">
+        <div class="body">
+          <div class="name">20240816_080028.jpg</div>
+          <div class="col before">
+            <div class="lbl bad">BEFORE — raw top-5 across all 57</div>
+            <table><tr><td class="num">+0.258</td><td class="g">quality_technical</td><td>a low-quality photo</td></tr><tr><td class="num">+0.256</td><td class="g">quality_technical</td><td>an overexposed photo</td></tr><tr><td class="num">+0.256</td><td class="g">composition_aesthetic</td><td>a poorly composed photograph</td></tr><tr><td class="num">+0.256</td><td class="g">quality_technical</td><td>a sharp photo</td></tr><tr><td class="num">+0.253</td><td class="g">quality_technical</td><td>a high-quality photo</td></tr></table>
+          </div>
+          <div class="col after">
+            <div class="lbl good">AFTER — per-category softmax + contrastive pairs</div>
+            <div class="grp"><span class="k">scene</span><span class="pill">a photo of food <b>64%</b></span><span class="pill">a photo of a person <b>35%</b></span><span class="pill">a photo of a landmark <b>0%</b></span></div>
+            <div class="grp"><span class="k">people</span><span class="pill">a selfie <b>98%</b></span><span class="pill">a photo with multiple faces <b>2%</b></span></div>
+            <div class="grp"><span class="k">quality</span><span class="pill"><i>sharpness</i> a sharp photo <b>77%</b></span><span class="pill"><i>exposure</i> an overexposed photo <b>93%</b></span><span class="pill"><i>lighting</i> a photo with good lighting <b>55%</b></span><span class="pill"><i>noise</i> a clean image <b>99%</b></span><span class="pill"><i>overall</i> a low-quality photo <b>62%</b></span></div>
+            <div class="grp"><span class="k">composition</span><span class="pill"><i>composed</i> a poorly composed photograph <b>88%</b></span><span class="pill"><i>balance</i> an unbalanced composition <b>60%</b></span><span class="pill"><i>framing</i> a photo with bad framing <b>82%</b></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <img src="imgs/20240816_133958.jpg" alt="20240816_133958.jpg" loading="lazy">
+        <div class="body">
+          <div class="name">20240816_133958.jpg</div>
+          <div class="col before">
+            <div class="lbl bad">BEFORE — raw top-5 across all 57</div>
+            <table><tr><td class="num">+0.242</td><td class="g">quality_technical</td><td>a color photo</td></tr><tr><td class="num">+0.240</td><td class="g">scene_content</td><td>a photo of a landmark</td></tr><tr><td class="num">+0.220</td><td class="g">composition_aesthetic</td><td>a photo with symmetry</td></tr><tr><td class="num">+0.204</td><td class="g">quality_technical</td><td>a sharp photo</td></tr><tr><td class="num">+0.202</td><td class="g">composition_aesthetic</td><td>a poorly composed photograph</td></tr></table>
+          </div>
+          <div class="col after">
+            <div class="lbl good">AFTER — per-category softmax + contrastive pairs</div>
+            <div class="grp"><span class="k">scene</span><span class="pill">a photo of a landmark <b>99%</b></span><span class="pill">a daytime scene <b>0%</b></span><span class="pill">a house exterior <b>0%</b></span></div>
+            <div class="grp"><span class="k">people</span><span class="muted">no person (scene mass 0%)</span></div>
+            <div class="grp"><span class="k">quality</span><span class="pill"><i>sharpness</i> a sharp photo <b>99%</b></span><span class="pill"><i>exposure</i> an overexposed photo <b>61%</b></span><span class="pill"><i>lighting</i> a photo with good lighting <b>56%</b></span><span class="pill"><i>noise</i> a clean image <b>99%</b></span><span class="pill"><i>overall</i> a high-quality photo <b>61%</b></span></div>
+            <div class="grp"><span class="k">composition</span><span class="pill"><i>composed</i> a poorly composed photograph <b>96%</b></span><span class="pill"><i>balance</i> an unbalanced composition <b>92%</b></span><span class="pill"><i>framing</i> a photo with bad framing <b>73%</b></span></div>
+          </div>
+        </div>
+      </div></div>
+<div class="foot">Albumify · experiment · 2026-10-01 · scripts/experiment_clip_tagging_method.py</div>
+</div></body></html>

@@ -2,6 +2,16 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [TEST] RAM++ vs fixed-CLIP content tagging (30 images)
+**Files**: `scripts/experiment_ram_vs_clip_tagging.py` (new), `reports/2026-10-01_ram_vs_clip_tagging/` (report.html + summary.md + 30 thumbs, new), `reports/EXPERIMENTS.md` (entry). Installed `ram` (recognize-anything, `--no-deps`) + `fairscale --no-deps`; checkpoint `models/ram/ram_plus_swin_large_14m.pth` (2.8 GB, gitignored).
+**Change**: 30-image bake-off, RAM++ (swin_l/384 open-vocab tagger) vs fixed-method CLIP (closed 20-class scene read). Result: RAM++ 11.7 tags/img (210 distinct) vs CLIP 2.5 (closed 20); RAM++ names actual subjects (waffle/syrup, mallard duck, witch hat, pedestrian bridge) while CLIP forces wrong buckets and over-fires `a selfie`. Recommend adopting RAM++ for Tier-1 content tags (post-filter verb noise); keep fixed-CLIP as near-free fallback; measure RAM++ CPU latency/RSS as an isolated step next. A transformers-version shim (RAM's BERT helpers moved to pytorch_utils) is included in the script; env pins (numpy 1.26.4) untouched via --no-deps.
+**Reason**: user asked to run RAM++ vs fixed-CLIP on 30 images with a comprehensive HTML comparison table.
+
+### 2026-10-01 [TEST] CLIP tagging method before/after experiment
+**Files**: `scripts/experiment_clip_tagging_method.py` (new), `reports/2026-10-01_clip_tagging_method/` (report.html + summary.md + imgs, new), `reports/EXPERIMENTS.md` (index entry).
+**Change**: faithful before/after on 6 real trip photos — BEFORE replicates `clip_tagger.py` (raw cosine, top-5 of all 57 prompts); AFTER is per-category softmax + contrastive pairs (same ViT-B/32, same prompt text). Finding: the fix is a clear win for scene/content tagging (clean reads + working people-gating) and removes the self-contradiction of raw top-5; but `poorly composed` fires 88-99% on every image, confirming CLIP can't judge composition. Recommendation: scope CLIP to content tags only (quality stays with IQA/AVA/tilt); keep fixed-method CLIP as a control arm vs RAM++.
+**Reason**: user asked to see the method before/after on their own photos to understand the earlier suggestion (it was about how scores are read, not changing prompt text).
+
 ### 2026-09-28 [DOCS] Agentic & semantic layer design note
 **Files**: `specs/106-albumify-web-showcase/agentic_layer_design.html` (new).
 **Change**: design note (pre-spec) for adding AI reasoning + language on top of the curation engine via the "escalation, not orchestration" pattern. Covers: two distinct clustering jobs (visual dedup keeps DINOv2; thematic grouping is a new text-modality job — captions would over-merge dedup); two-tier caption strategy (CLIP zero-shot tags on all ~800 near-free since CLIP is already resident, VLM free-text only on ~20 keepers); three committed VLM decision points (merge arbiter=spec-105, album-type tuner, story+captions); "AI as reference" guidance (VLM as reference peer + judge + divergence finder, NOT ground truth / distillation target); new config knobs (album_max_picks global-K, min_picks_per_person, dedup_aggressiveness, caption_tier, etc.); and curation test datasets (PhotoTriage, CUFED/ML-CUFED, own trips). Recommends sequence: global-K -> CLIP tags -> validate on datasets -> VLM decision points. Each piece needs its own spec before implementation.
