@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finalizing Albumify — the critical path</title>
+<style>
+:root{
+  --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+  --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C;
+  --accent:#E8B04B; --accent-ink:#1A1206; --eng:#6FB3C9;
+  --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --maxw:1140px;
+}
+@media (prefers-color-scheme:light){
+  :root{--ground:#F5F0E7;--surface:#FFFFFF;--surface-2:#FBF6EC;--line:#E4DACB;
+    --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--accent-ink:#FFF6E4;
+    --eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}
+}
+:root[data-theme="dark"]{--ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;
+  --ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;}
+:root[data-theme="light"]{--ground:#F5F0E7;--surface:#FFFFFF;--surface-2:#FBF6EC;--line:#E4DACB;
+  --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}
+
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.58;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+h1,h2,h3,h4{margin:0;letter-spacing:-0.02em;text-wrap:balance;font-weight:800;}
+p{margin:0;}
+a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+code{font-family:var(--mono);font-size:.9em;}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+
+header{border-bottom:1px solid var(--line);background:var(--surface);}
+.head{padding:52px 0 44px;}
+.flag{display:inline-block;width:14px;height:18px;background:var(--accent);vertical-align:-3px;margin-right:10px;clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);}
+h1{font-size:clamp(30px,5.2vw,52px);line-height:1.02;margin:16px 0 0;}
+.sub{margin-top:18px;font-size:clamp(16px,2vw,20px);color:var(--ink-dim);max-width:64ch;}
+.thesis{font-family:var(--serif);font-style:italic;font-size:clamp(18px,2.4vw,24px);color:var(--ink);margin-top:22px;max-width:56ch;line-height:1.35;}
+
+.toc{border-bottom:1px solid var(--line);background:var(--ground);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);}
+.toc .wrap{display:flex;gap:6px;overflow-x:auto;padding:11px 24px;scrollbar-width:none;}
+.toc .wrap::-webkit-scrollbar{display:none;}
+.toc a{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;padding:5px 10px;border-radius:7px;}
+.toc a:hover{color:var(--ink);background:var(--surface-2);text-decoration:none;}
+
+section{padding:58px 0;border-bottom:1px solid var(--line);}
+.sec-eyebrow{margin-bottom:10px;}
+.sec-title{font-size:clamp(23px,3vw,33px);}
+.sec-lead{margin-top:12px;color:var(--ink-dim);max-width:72ch;}
+.sec-lead code{color:var(--accent);}
+
+/* status columns */
+.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:26px;}
+@media (max-width:860px){.cols3{grid-template-columns:1fr;}}
+.col{border:1px solid var(--line);border-radius:13px;background:var(--surface);padding:18px;}
+.col h4{font-size:13px;font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase;}
+.col.done h4{color:var(--good);}.col.flight h4{color:var(--warn);}.col.unproven h4{color:var(--crit);}
+.col ul{margin:12px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:9px;}
+.col li{font-size:13.5px;color:var(--ink-dim);padding-left:18px;position:relative;line-height:1.4;}
+.col li::before{content:"";position:absolute;left:3px;top:7px;width:7px;height:7px;border-radius:2px;}
+.col.done li::before{background:var(--good);}.col.flight li::before{background:var(--warn);}.col.unproven li::before{background:var(--crit);}
+
+/* gates / two-gate */
+.gates{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px;}
+@media (max-width:760px){.gates{grid-template-columns:1fr;}}
+.gate-card{border:1px solid var(--line);border-radius:14px;padding:22px;background:var(--surface);}
+.gate-card.ok{border-top:3px solid var(--good);}
+.gate-card.risk{border-top:3px solid var(--crit);}
+.gate-card .st{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;}
+.gate-card.ok .st{color:var(--good);}.gate-card.risk .st{color:var(--crit);}
+.gate-card h3{font-size:19px;margin:8px 0 6px;}
+.gate-card p{font-size:14px;color:var(--ink-dim);}
+
+/* critical path roadmap */
+.road{margin-top:30px;display:flex;flex-direction:column;}
+.stage{display:grid;grid-template-columns:110px 1fr;gap:18px;}
+.stage .tag{font-family:var(--mono);font-size:13px;color:var(--accent);padding-top:20px;text-align:right;font-weight:700;}
+.stage .body{border-left:2px solid var(--line);padding:16px 0 26px 24px;position:relative;}
+.stage .body::before{content:"";position:absolute;left:-8px;top:20px;width:13px;height:13px;border-radius:50%;background:var(--accent);border:2px solid var(--ground);}
+.stage.par .body::before{background:var(--eng);}
+.stage:last-child .body{border-left-color:transparent;}
+.stage h4{font-size:17px;}
+.stage .goal{margin-top:6px;font-size:14px;color:var(--ink-dim);}
+.stage ul{margin:11px 0 0;padding-left:18px;color:var(--muted);font-size:13px;display:flex;flex-direction:column;gap:5px;}
+.stage .ref{font-family:var(--mono);font-size:11px;color:var(--eng);margin-top:10px;}
+.decisiongate{margin-top:14px;display:flex;gap:10px;align-items:flex-start;font-family:var(--mono);font-size:12px;padding:11px 14px;border-radius:9px;background:color-mix(in srgb,var(--crit) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--crit) 35%,transparent);color:var(--ink-dim);}
+.decisiongate b{color:var(--crit);}
+.okgate{background:color-mix(in srgb,var(--good) 10%,var(--surface));border-color:color-mix(in srgb,var(--good) 35%,transparent);}
+.okgate b{color:var(--good);}
+
+/* moscow */
+.tscroll{overflow-x:auto;margin-top:24px;border:1px solid var(--line);border-radius:13px;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:620px;}
+th,td{text-align:left;padding:13px 15px;border-bottom:1px solid var(--line);vertical-align:top;}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface-2);}
+tbody tr:last-child td{border-bottom:0;}
+tbody td:first-child{font-weight:700;color:var(--ink);white-space:nowrap;}
+.must{color:var(--good);}.should{color:var(--eng);}.could{color:var(--warn);}.wont{color:var(--muted);}
+
+/* decisions */
+.dec{display:grid;gap:12px;margin-top:24px;}
+.dec .row{display:grid;grid-template-columns:30px 1fr;gap:14px;border:1px solid var(--line);border-radius:11px;padding:14px 16px;background:var(--surface);}
+.dec .n{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700;}
+.dec .q{font-size:14px;}.dec .q b{color:var(--ink);}
+.dec .rec{margin-top:5px;font-size:13px;color:var(--muted);}
+.dec .rec em{color:var(--accent);font-style:normal;}
+
+/* risks */
+.risks{margin-top:24px;display:flex;flex-direction:column;gap:12px;}
+.risk-row{display:grid;grid-template-columns:150px 1fr;gap:16px;border:1px solid var(--line);border-radius:11px;padding:14px 16px;background:var(--surface);}
+@media (max-width:620px){.risk-row{grid-template-columns:1fr;}}
+.risk-row .r{font-weight:700;font-size:14px;}
+.risk-row .r .sev{display:block;font-family:var(--mono);font-size:10px;margin-top:4px;}
+.sev.hi{color:var(--crit);}.sev.me{color:var(--warn);}.sev.lo{color:var(--good);}
+.risk-row .m{font-size:13.5px;color:var(--ink-dim);}
+
+/* DoD checklist */
+.dod{margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;}
+@media (max-width:760px){.dod{grid-template-columns:1fr;}}
+.dod .item{display:flex;gap:11px;align-items:flex-start;font-size:14px;color:var(--ink-dim);}
+.dod .box{width:16px;height:16px;border:2px solid var(--muted);border-radius:4px;flex-shrink:0;margin-top:3px;}
+
+.callout{margin-top:26px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 12px 12px 0;padding:16px 20px;}
+.callout .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);}
+.callout p{margin-top:8px;font-size:14px;color:var(--ink-dim);}
+.callout.warn{border-left-color:var(--warn);}.callout.warn .k{color:var(--warn);}
+.note{margin-top:16px;font-size:13px;color:var(--muted);}
+footer{padding:34px 0 60px;}
+.foot{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap head">
+    <div class="eyebrow"><span class="flag"></span>Albumify · master finalization roadmap</div>
+    <h1>Finalizing Albumify</h1>
+    <p class="sub">The critical path from where we are to a deployed, honest, resume-linkable portfolio piece — and the discipline to get there without another rabbit hole.</p>
+    <p class="thesis">Two kinds of "done": it <em>runs</em> reliably, and the picks are <em>good</em>. The engineering is the known part. Quality is the bet — so we prove it first, cheaply, before building the expensive parts around it.</p>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#now">01 · Where we are</a>
+    <a href="#gates">02 · Two gates</a>
+    <a href="#path">03 · The critical path</a>
+    <a href="#scope">04 · In scope vs deferred</a>
+    <a href="#decisions">05 · Decisions needed</a>
+    <a href="#risks">06 · Risks to finishing</a>
+    <a href="#dod">07 · Definition of done</a>
+  </div>
+</nav>
+
+<!-- 01 -->
+<section id="now">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">01 · Where we are</div>
+    <h2 class="sec-title">Status, honestly</h2>
+    <p class="sec-lead">The reliability foundation is built and the design is thought through. What has <em>not</em> been established is the one thing the whole portfolio rests on: that the curated picks are good enough to impress a stranger.</p>
+    <div class="cols3">
+      <div class="col done">
+        <h4>✓ Done / proven</h4>
+        <ul>
+          <li><b>spec-104 process isolation</b> — merged to main; the live pipeline can't OOM/hang. The enabler.</li>
+          <li><b>Capacity measured</b> — ~2.5 GB floor + 0.67 MB/img; ~1.6 s/img CPU; ~4 GB/worker.</li>
+          <li><b>Model-to-task evidence</b> — tagging method fix; RAM++ wins content tagging; occlusion/blur stay on dedicated tools (defect experiment).</li>
+        </ul>
+      </div>
+      <div class="col flight">
+        <h4>◐ Designed / in flight</h4>
+        <ul>
+          <li><b>spec-106 live curator</b> — full plan drafted (<code>plan.html</code>); not built.</li>
+          <li><b>Agentic &amp; semantic layer</b> — design note; spec-105 (VLM merge arbiter) drafted.</li>
+          <li><b>spec-102 quality A/B</b> — harness built, Budapest pilot prepped; <b>no verdict yet</b>.</li>
+        </ul>
+      </div>
+      <div class="col unproven">
+        <h4>✗ Unproven / undecided</h4>
+        <ul>
+          <li><b>Curation quality on fresh photos</b> — the central unknown. Benchmarks measure retrieval, not "right picks".</li>
+          <li><b>The service</b> — nothing deployed; no queue/worker/UI built.</li>
+          <li><b>Host &amp; content-safety stance</b> — undecided; block serving.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 -->
+<section id="gates">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">02 · Two gates</div>
+    <h2 class="sec-title">Reliability is mostly solved; quality is the real gate</h2>
+    <div class="gates">
+      <div class="gate-card ok">
+        <div class="st">Gate 1 — does it run?</div>
+        <h3>Reliability · ~80% there</h3>
+        <p>spec-104 killed the OOM; bounded input + per-step timeout + a durable queue (spec-106) close the rest. This is engineering with a known path — risky to execute, not risky to <em>believe</em>.</p>
+      </div>
+      <div class="gate-card risk">
+        <div class="st">Gate 2 — are the picks good?</div>
+        <h3>Quality · unproven</h3>
+        <p>No human has blind-rated the picks (spec-102 has no verdict). If a recruiter's upload returns mediocre picks, the polish is wasted. This is cheap to test and must be settled <em>before</em> the 4–6 week serving build.</p>
+      </div>
+    </div>
+    <div class="callout warn">
+      <div class="k">The discipline this plan enforces</div>
+      <p><b>Stop exploring, start converging.</b> The last several sessions (tagging models, RAM++, defect detection) were valuable but are <em>engine enrichment</em>, not the path to shipping. From here, every piece of work must answer: "does this move us toward a deployed, quality-proven app?" If not, it's v1.5.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 03 -->
+<section id="path">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">03 · The critical path</div>
+    <h2 class="sec-title">Prove → finalize → build → polish → ship</h2>
+    <p class="sec-lead">Sequenced to de-risk the cheap-but-decisive thing (quality) before the expensive thing (serving). Each stage ends at a gate; two gates are genuine go/no-go.</p>
+    <div class="road">
+
+      <div class="stage">
+        <div class="tag">STAGE A</div>
+        <div class="body">
+          <h4>Prove the picks — quality validation</h4>
+          <p class="goal">Settle, on evidence, whether the curation is good enough — before building anything around it. The harness already exists; this is days, not weeks.</p>
+          <ul>
+            <li>Run spec-102 blind A/B (even solo N=1, honestly labeled) on the 3 trips.</li>
+            <li>Benchmark on <b>PhotoTriage</b> (best-of-burst) + <b>CUFED</b> (album importance vs human votes; report Kendall tau).</li>
+            <li>Eyeball picks on 1–2 <em>un-tuned</em> rolls (fresh Google Photos export).</li>
+          </ul>
+          <div class="ref">feeds: spec-102 · reports/</div>
+          <div class="decisiongate"><span>◆</span><div><b>GO/NO-GO GATE 1:</b> are the picks good enough to put in front of a stranger? <b>Pass</b> → Stage B. <b>Fail</b> → targeted engine fix (now we know which pass is weak: scoring / dedup / ordering), re-test, then B. Do <b>not</b> start serving until this passes.</div></div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="tag">STAGE B</div>
+        <div class="body">
+          <h4>Finalize the engine</h4>
+          <p class="goal">Lock the production curation path and the config knobs the live product needs. Minimal, driven by Stage A's findings.</p>
+          <ul>
+            <li>Add <code>album_max_picks</code> (global top-K) — today selection is per-cluster with no total cap.</li>
+            <li>Fix whatever Stage A flagged (and only that); lock the production profile.</li>
+            <li>Confirm the normalized <code>album.json</code> contract (shared by live + showcase).</li>
+            <li>Scope the agentic/semantic layer — decide what (if anything) is v1 (see §04).</li>
+          </ul>
+          <div class="ref">feeds: spec-106 P0 · agentic_layer_design.html</div>
+          <div class="decisiongate okgate"><span>◆</span><div><b>GATE:</b> one command turns a folder into a valid <code>album.json</code> with a predictable album size, on the production profile.</div></div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="tag">STAGE C</div>
+        <div class="body">
+          <h4>Build the live service — spec-106</h4>
+          <p class="goal">The product: bounded upload → real pipeline on a scale-to-zero worker → curated album. The 4–6 week core.</p>
+          <ul>
+            <li>P1 containerized worker + durable queue (replaces the in-process <code>_jobs</code> dict).</li>
+            <li>P2 control-plane API (bounds guard, job endpoints, progress relay).</li>
+            <li>P3 Next.js front end (upload → live progress → album → people), every state designed.</li>
+            <li>P4 showcase seed (the 3 precomputed trips, instant first paint).</li>
+          </ul>
+          <div class="ref">full detail: plan.html §3–10</div>
+          <div class="decisiongate"><span>◆</span><div><b>BLOCKED UNTIL DECIDED:</b> host (Modal rec.) + content-safety stance. Everything else can proceed on proposed defaults.</div></div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="tag">STAGE D</div>
+        <div class="body">
+          <h4>Harden, polish &amp; ship</h4>
+          <p class="goal">Make the anti-half-baked promise true, then deploy.</p>
+          <ul>
+            <li>Adversarial uploads (max-N, HEIC, zero-faces); cold-start budget; cost alarm; TTL privacy.</li>
+            <li>Responsive + both themes; no dead ends; truthful progress.</li>
+            <li>AC1–AC10 (plan.html) verified on the public URL from a device that isn't yours.</li>
+            <li><code>/code-review</code> → REVIEW.md; README (run + deploy one command each).</li>
+          </ul>
+          <div class="ref">plan.html §11 AC1–AC10</div>
+          <div class="decisiongate okgate"><span>◆</span><div><b>SHIP GATE:</b> public URL, cold, a stranger's upload returns a good album; AC1–AC10 hold; REVIEW.md clean.</div></div>
+        </div>
+      </div>
+
+      <div class="stage par">
+        <div class="body" style="border-left-color:transparent;">
+          <h4 style="color:var(--eng)">Parallel &amp; lightweight — the narrative</h4>
+          <p class="goal">Runs alongside C/D, low effort: the "how it works" 4-pass explainer, the honest vs-VLM panel (N=1 caveat), and a short technical write-up linking the benchmarks. This is what turns "an app" into "a story a hiring manager remembers."</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- 04 -->
+<section id="scope">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">04 · In scope vs deferred</div>
+    <h2 class="sec-title">v1 ships reliable + honest; v1.5 adds agentic depth</h2>
+    <p class="sec-lead">The agentic layer is a strong hiring signal <em>and</em> genuine quality — but it is <b>not</b> on the critical path to a shippable v1. Ship the reliable curator first; add agentic depth as a fast-follow (or pull exactly one piece forward if it's cheap and visible).</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Tier</th><th>What</th><th>Why here</th></tr></thead>
+        <tbody>
+          <tr><td class="must">MUST (v1)</td><td>Reliable live curation on bounded upload · quality proven acceptable · deployed URL, every state designed · honest framing (N=1, no determinism overclaim)</td><td>This <em>is</em> the portfolio piece. Without these it isn't shippable.</td></tr>
+          <tr><td class="should">SHOULD (v1)</td><td>People view · why-picked score breakdown · showcase seed trips · "how it works" explainer</td><td>Cheap, high-impact depth; mostly reuses existing data.</td></tr>
+          <tr><td class="could">COULD (v1.5)</td><td>Agentic layer: VLM merge arbiter (spec-105) · album-type tuner · story + keeper captions · RAM++ content tags + thematic grouping · adaptive K / min-per-person</td><td>The "agentic AI" résumé signal + quality lift. Fast-follow once v1 is live and quality-proven.</td></tr>
+          <tr><td class="wont">WON'T (v1)</td><td>Accounts · billing · GPU · live model training · multi-user persistence</td><td>Out of scope; not needed to prove "I launched a real ML service."</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>Optional pull-forward:</b> if Stage A shows merge/dedup is the weak link, the <em>VLM merge arbiter</em> becomes quality-critical and may move into v1. And keeper <em>captions</em> (Tier-2, ~20 images, cheap) are the one agentic piece that adds visible polish for little cost — a reasonable single pull-forward.</p>
+  </div>
+</section>
+
+<!-- 05 -->
+<section id="decisions">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">05 · Decisions needed</div>
+    <h2 class="sec-title">What unblocks each stage</h2>
+    <div class="dec">
+      <div class="row"><div class="n">1</div><div><div class="q"><b>Quality go/no-go</b> — is the bar "I'd show these picks to a recruiter"?</div><div class="rec"><em>Can't pre-decide</em> — it's the output of Stage A. But agree the bar now so the gate is objective.</div></div></div>
+      <div class="row"><div class="n">2</div><div><div class="q"><b>Host for the worker</b></div><div class="rec"><em>Rec: Modal</em> (scale-to-zero, native queue, Python). Fly.io fallback. Blocks Stage C.</div></div></div>
+      <div class="row"><div class="n">3</div><div><div class="q"><b>Content-safety stance</b> — public anon upload of strangers' photos</div><div class="rec"><em>Rec: minimum</em> ToS + short TTL for v1; optional safety pre-check later. Blocks public launch, not build.</div></div></div>
+      <div class="row"><div class="n">4</div><div><div class="q"><b>Agentic layer in v1 or v1.5?</b></div><div class="rec"><em>Rec: v1.5</em>, with keeper-captions as a candidate single pull-forward. Revisit if Stage A flags merge quality.</div></div></div>
+      <div class="row"><div class="n">5</div><div><div class="q"><b>MVP scope confirm</b> — anonymous, bounded, TTL'd, no accounts</div><div class="rec"><em>Rec: yes</em> — keeps v1 finishable.</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 -->
+<section id="risks">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">06 · Risks to finishing</div>
+    <h2 class="sec-title">What actually threatens the finish line</h2>
+    <div class="risks">
+      <div class="risk-row"><div class="r">Scope creep<span class="sev hi">highest</span></div><div class="m">The real risk: every subsystem has an interesting rabbit hole (we just did three on tagging). <b>Mitigation:</b> freeze v1 scope (§04); gate new work behind "does it serve shipping?"; park ideas in the v1.5 list.</div></div>
+      <div class="risk-row"><div class="r">Quality shortfall<span class="sev hi">high</span></div><div class="m">Picks turn out mediocre on fresh photos. <b>Mitigation:</b> Stage A first and cheap; if it fails, a <em>targeted</em> fix to the weak pass — not a rebuild — then re-test.</div></div>
+      <div class="risk-row"><div class="r">First-run trust<span class="sev me">med</span></div><div class="m">A slow/failed first upload kills credibility. <b>Mitigation:</b> instant showcase seed + honest queue/progress + cold-start budget (Stage D).</div></div>
+      <div class="risk-row"><div class="r">Cost blowup<span class="sev me">med</span></div><div class="m">Public endpoint + heavy models. <b>Mitigation:</b> scale-to-zero + input/rate caps + TTL + budget alarm.</div></div>
+      <div class="risk-row"><div class="r">Solo bandwidth<span class="sev me">med</span></div><div class="m">One person, 4–6 week core. <b>Mitigation:</b> strict critical-path order; defer all v1.5; narrative runs in parallel at low cost.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 -->
+<section id="dod">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">07 · Definition of done</div>
+    <h2 class="sec-title">What "finalized" means</h2>
+    <p class="sec-lead">The project is a finished portfolio piece when all of these hold — not before, and nothing more required.</p>
+    <div class="dod">
+      <div class="item"><span class="box"></span><div>Public URL loads cold, works first try on a device that isn't yours.</div></div>
+      <div class="item"><span class="box"></span><div>A stranger's bounded upload returns a <b>good</b> curated album, live.</div></div>
+      <div class="item"><span class="box"></span><div>Curation quality <b>validated</b> (a number + honest framing), not hoped.</div></div>
+      <div class="item"><span class="box"></span><div>Every job state designed — queued/rejected/timeout/failed/expired.</div></div>
+      <div class="item"><span class="box"></span><div>Never OOMs under adversarial input; spend is capped.</div></div>
+      <div class="item"><span class="box"></span><div>AC1–AC10 (plan.html) all hold on the deployed URL.</div></div>
+      <div class="item"><span class="box"></span><div>"How it works" + honest vs-VLM narrative live (N=1 caveat).</div></div>
+      <div class="item"><span class="box"></span><div>REVIEW.md clean · CHANGES_LOG · README (run + deploy one command).</div></div>
+      <div class="item"><span class="box"></span><div>URL linkable from a resume — the one-line pitch is true.</div></div>
+      <div class="item"><span class="box"></span><div>v1.5 ideas parked in a backlog, not half-built in v1.</div></div>
+    </div>
+    <div class="callout">
+      <div class="k">The immediate next action</div>
+      <p><b>Stage A — run the quality validation.</b> It's cheap (harness exists), it's the highest-information thing we can do, and its result determines everything downstream: either "quality's good, go build the service" or "here's the weak pass, fix it first." Everything else waits behind it.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <span>Albumify · finalization roadmap · prove → finalize → build → polish → ship</span>
+    <span>engine proven &amp; isolated · quality = the gate · your call on sequence</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var links={};document.querySelectorAll('.toc a').forEach(function(a){links[a.getAttribute('href').slice(1)]=a;});
+  if(!('IntersectionObserver' in window))return;
+  var obs=new IntersectionObserver(function(es){es.forEach(function(e){var a=links[e.target.id];if(!a)return;
+    if(e.isIntersecting){a.style.color='var(--accent)';a.style.background='var(--surface-2)';}else{a.style.color='';a.style.background='';}});},
+    {rootMargin:'-45% 0px -50% 0px'});
+  document.querySelectorAll('section[id]').forEach(function(s){obs.observe(s);});
+})();
+</script>
+</body>
+</html>

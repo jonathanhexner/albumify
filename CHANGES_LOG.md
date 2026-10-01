@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [DOCS] Master finalization roadmap
+**Files**: `specs/106-albumify-web-showcase/finalization_plan.html` (new).
+**Change**: comprehensive critical-path plan to finalize Albumify as a portfolio piece. Two-gate framing (reliability ~80% done vs quality unproven); staged critical path A Prove-the-picks (quality validation, go/no-go gate) -> B Finalize engine (global-K etc.) -> C Build service (spec-106) -> D Harden+ship, with narrative in parallel; MoSCoW scope (v1 = reliable+honest+deployed; agentic layer = v1.5); consolidated decisions; risks (scope-creep #1); definition-of-done checklist. Immediate next action = Stage A quality validation. Ties together spec-104 (done), spec-106 (plan.html), agentic_layer_design.html, spec-102.
+**Reason**: user asked for a comprehensive plan for finalizing the project.
+
 ### 2026-10-01 [DOCS] agentic-layer doc: model-to-task map + CLIP explainer
 **Files**: `specs/106-albumify-web-showcase/agentic_layer_design.html`.
 **Change**: added new section 03 "Model-to-task map — one model per axis": CLIP dual-encoder explainer (two encoders + cosine similarity, not cross-attention), the "closed vocab = CLIP only ranks phrases you supply" vs RAM++'s trained ~4,500-tag head distinction, an axis table (content->RAM++/VLM; occlusion/quality/aesthetics/tilt/dedup->purpose-built, RAM++ wrong tool), and the measured RAM++-vs-CLIP callout (11.7 vs 2.5 tags). Renumbered sections 03-08 -> 04-09; updated Tier-1 captions to RAM++ (fixed-CLIP = near-free fallback) per the experiment.
