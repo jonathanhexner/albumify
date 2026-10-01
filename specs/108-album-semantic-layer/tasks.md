@@ -27,8 +27,12 @@
 - [x] T2.2 `caption_album` step: ONE text-only `provider.generate` synthesizing the headline from keeper
       captions + theme → `album_theme.caption` (`source="vlm"`). Tested (one call, not per-image).
 - **Gate:** steps + helpers green (26 tests), in default_pipeline gated off, build-ordered after
-      select_best. **Live MiniCPM-V caption + latency pending** the 16 GB model load (runs on the GPU
-      worker / local `.venv-vlm`).
+      select_best.
+- **Live MiniCPM-V on this CPU box — PROVEN TO LOAD, inference impractical.** All 4 shards cached on D:
+      (cache relocated off a full C:); worker loads the 8B model in `.venv-vlm` (`{"ready": true}`,
+      bf16). But a single CPU caption did not complete inside the task runner's limit (8B VLM on CPU is
+      minutes/call, swapping on 32 GB). **Live caption + latency deferred to the spec-109 GPU worker**
+      (the designed home). Plumbing fully proven via `--stub`; backend proven to download + load.
 
 ## P3 — Theme-relevance / interestingness (feeds spec-107)
 - [ ] T3.1 Per-photo theme-relevance score (VLM on ambiguous "real-but-maybe-utilitarian" subset).

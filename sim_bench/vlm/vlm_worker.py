@@ -19,9 +19,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 MODEL_ID = "openbmb/MiniCPM-V-4_5"
+
+# Keep the ~16 GB model cache off C: (which is small/full on this box) unless the caller overrides.
+# D: has the room; the GPU worker sets its own HF_HUB_CACHE. Must be set before transformers imports.
+os.environ.setdefault("HF_HUB_CACHE", r"D:\hf_cache\hub")
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")          # plain HTTP is more reliable here
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
 
 def _emit(obj) -> None:

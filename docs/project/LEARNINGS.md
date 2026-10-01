@@ -6,6 +6,25 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-10-02: spec-108 — an 8B VLM (MiniCPM-V) is not practically runnable on this CPU dev box
+**What happened**: wiring MiniCPM-V 4.5 locally via an isolated `.venv-vlm` (to dodge the
+transformers 4.51-vs-4.57 conflict) worked for everything EXCEPT the actual inference. Sequence of
+real-world friction: (1) transformers version conflict → solved with a separate venv; (2) model needs
+`torchvision` (not an obvious dep) → added; (3) HF cache on Windows has no symlinks + `hf_xet`
+permission errors → partial/corrupt shard; (4) the 16 GB download filled **C: to 100%** (cache
+defaults to `~/.cache` on C:) → relocated to D:; (5) once all 4 shards loaded (`ready: true`
+confirmed), a single CPU caption **never finished inside the runner's wall-clock** — an 8B VLM on CPU
+is minutes/call and swaps a 16 GB model on a 32 GB box.
+**Lesson**: (1) isolating a version-conflicting heavy model in its own venv + subprocess is the right
+pattern and works (the seam/plumbing proved out via `--stub`), but (2) **"local VLM" on a CPU dev box
+means "loads, doesn't realistically infer"** — plan for an 8B VLM to run on a GPU worker, not the dev
+machine. (3) Pin the HF cache OFF the system drive from the start (`HF_HUB_CACHE`); a 16 GB default to
+C: will fill it. (4) Prove the plumbing with a stub BEFORE the multi-GB download — we did, so the code
+was validated independent of the model.
+**Prevention**: `vlm_worker.py` sets `HF_HUB_CACHE=D:\hf_cache\hub` + disables xet by default; the
+caption steps are opt-in (`enabled=false`) so no env without the model/GPU is affected; live VLM
+validation is a spec-109 GPU-worker gate, not a dev-box one.
+
 ### 2026-10-01: spec-107 — a unit-green pipeline step was defeated by an ALPHABETICAL tie-break in the builder
 **What happened**: the new `triage_metadata`/`triage_content` steps worked perfectly in isolation (sets
 aside all junk) but the end-to-end verify FAILED — 7 set-aside items still reached the curated album.
