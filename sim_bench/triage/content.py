@@ -14,6 +14,8 @@ from typing import List
 
 from sim_bench.triage.metadata import TriageResult
 
+__all__ = ["calc", "RamTagger"]
+
 # Document / screen content — almost never an album moment.
 _STRONG_JUNK = {
     "screenshot", "document", "text", "text message", "website", "web page", "webpage",

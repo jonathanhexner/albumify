@@ -10,7 +10,7 @@
 
 ## spec-107 input triage — REVIEW.md follow-ups (2026-10-01, non-blocking)
 
-- [ ] F1: add `__all__` to `sim_bench/triage/metadata.py` + `content.py`. | 2026-10-01 | Claude
+- [x] F1: added `__all__` to `sim_bench/triage/metadata.py` + `content.py`. | 2026-10-01 | Claude
 - [x] F2: updated `docs/architecture/data_flow.html` (triage steps + set_aside read path + builder-order note) + `classes.html` (PipelineContext fields + TriageInputs/TriageResult row); LEARNINGS entry for the builder alphabetical-tie-break bug. | 2026-10-01 | Claude
 - [ ] F3: when P4 wires the UI, promote the `set_aside` entry shape to a typed Pydantic model (`extra="forbid"`). | 2026-10-01 | Claude
 - [ ] spec-107 P3: behavioral tier (scene-cluster singletons + no-person; + theme-relevance from spec-108) — needs full contiguous roll. | 2026-10-01 | Claude

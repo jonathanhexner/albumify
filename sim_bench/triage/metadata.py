@@ -23,6 +23,8 @@ _SCREEN_DIMS = {
 }
 _DOWNLOAD_HINTS = ("whatsapp", "download", "img-", "fb_img", "received_")
 
+__all__ = ["TriageInputs", "TriageResult", "calc", "classify_file"]
+
 
 @dataclass
 class TriageInputs:
