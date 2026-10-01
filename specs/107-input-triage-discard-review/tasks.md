@@ -2,10 +2,10 @@
 
 **Status:** Draft — no implementation until spec.md approved. Full rationale: `spec.md`.
 
-## P0 — Metadata tier (cheapest, highest-precision)
-- [ ] T0.1 `triage_metadata` helper: per image, read EXIF (Make/Model), format, dimensions, filename → screenshot/download signal. Pure, no model.
-- [ ] T0.2 Tests on a labeled mini-set (screenshots + real photos) → ~0 false positives.
-- **Gate:** catches the Slovakia26 screenshots (8/8) with no real-photo false positives.
+## P0 — Metadata tier (cheapest, highest-precision)  ✅ DONE 2026-10-01
+- [x] T0.1 `sim_bench/triage/metadata.py`: `calc(TriageInputs)->TriageResult` (filename / camera-EXIF / format / screen-dims → keep|review|set_aside, conservative) + `classify_file(path)`.
+- [x] T0.2 `tests/triage/test_metadata_triage.py` (9 tests, pure) — green.
+- **Gate:** ✅ met — 715-roll validation: **8/8 screenshots set_aside, 707 keep, 0 review (0 false positives)**.
 
 ## P1 — Content tier (RAM++)
 - [ ] T1.1 `triage_content` using RAM++ junk tags (`screenshot, document, poster, receipt, map, menu, logo…`); runs as its own isolated step (spec-104).

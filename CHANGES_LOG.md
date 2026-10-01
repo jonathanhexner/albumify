@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [FEATURE] spec-107 P0 — metadata-tier triage (screenshots/downloads)
+**Files**: `sim_bench/triage/__init__.py` (new, empty), `sim_bench/triage/metadata.py` (new), `tests/triage/test_metadata_triage.py` (new, 9 tests), `specs/107-input-triage-discard-review/{spec.md,tasks.md}` (status/progress).
+**Change**: first increment of spec-107. Pure metadata-tier triage: `calc(TriageInputs)->TriageResult` classifies an image from filename / camera-EXIF presence (Make/Model) / format / screen-dimensions into keep|review|set_aside. Conservative — only high-confidence junk is set_aside; ambiguous (no-EXIF, could be edited) -> review; never deletes. 9 unit tests green. Validated on the full 715-photo Slovakia26 roll: 8/8 screenshots set_aside, 707 keep, 0 false positives. Next: RAM++ content tier (P1), pipeline step + set_aside context contract (P2).
+**Reason**: user approved ("go for it") building spec-107, the proven-necessary triage (6/20 junk leak measured 2026-10-01).
+
 ### 2026-10-01 [DOCS] Three PRDs from the Slovakia26 findings (specs 107-109)
 **Files**: `specs/107-input-triage-discard-review/`, `specs/108-album-semantic-layer/`, `specs/109-parallel-gpu-execution/` (spec.md + tasks.md each, all Draft).
 **Change**: turned the real-trip findings into actionable PRDs. 107 Input Triage & Discard Review (metadata+RAM++ content+behavioral; set-aside-for-review, never silent-delete; proven need = 6/20 junk leak). 108 Album Semantic Layer (VLM theme inference + album/keeper captioning + theme-relevance/interestingness feeding 107 + optional semantic scene-clustering boost; escalation pattern, local VLM). 109 Parallel GPU Execution (remote GPU + parallel per-image steps + defer face-embedding to hit <=3-5min/100-photo; face stack = 75% of ~2.2s/img CPU; est ~1-3c/album on L4; tiering deferred). Clarified my Slovakia run used the lean 'faces' variant (drops occlusion/tilt/straighten), not the full default_pipeline.

@@ -1,6 +1,6 @@
 # spec-107 — Input Triage & Discard Review
 
-**Status:** Draft — awaiting approval
+**Status:** In Progress — approved 2026-10-01; **P0 metadata tier implemented** (`sim_bench/triage/metadata.py`, 9 tests, validated 8/8 screenshots on the 715-photo roll, 0 false positives)
 **Owner:** Jonathan / Claude
 **Priority:** P1 (proven necessary; blocks honest curation on real uploads)
 **Relation:** feeds / is fed by [[spec-108]] (theme-relevance signal); surfaced in [[spec-106]] UI.
