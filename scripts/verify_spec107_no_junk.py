@@ -31,7 +31,10 @@ def main():
     idx = np.linspace(0, len(photos) - 1, SUBSET - len(shots)).round().astype(int)
     subset = shots + [photos[i] for i in dict.fromkeys(idx)]
     for p in subset:
-        im = Image.open(p).convert("RGB"); im.thumbnail((768, 768)); im.save(WORK / p.name, quality=90)
+        src = Image.open(p)
+        exif = src.info.get("exif")  # preserve camera EXIF so the metadata tier is tested honestly
+        im = src.convert("RGB"); im.thumbnail((768, 768))
+        im.save(WORK / p.name, quality=90, **({"exif": exif} if exif else {}))
     print(f"subset {len(subset)} ({len(shots)} screenshots) -> {WORK}")
 
     import yaml
