@@ -54,6 +54,8 @@ default_pipeline:
   - cluster_by_identity         # Sub-cluster scenes by identity
   - select_best                 # Smart selection with composite scoring (incl. frontal penalty)
   - straighten_images           # spec-101: TERMINAL — straighten the selected winners (after selection)
+  - caption_keepers             # spec-108 P2: per-keeper VLM captions (opt-in, enabled=false)
+  - caption_album               # spec-108 P2: one album caption from keeper captions (opt-in)
 
 # MINIMAL: No face detection (fast, scene-only)
 minimal_pipeline:
@@ -127,6 +129,17 @@ score_occlusion: {}             # artifact_path override optional; default model
 # Tilt Scoring (score_tilt, spec-099 Phase 1 / spec-100)
 # Model: GeoCalib learned single-image roll (~1.9 s/img CPU, cached per image).
 score_tilt: {}
+
+# Captions (spec-108 P2) — VLM via the isolated .venv-vlm worker. OFF by default (CI / model-less
+# envs skip entirely); the live product (spec-106/109 worker) flips enabled:true.
+caption_keepers:
+  enabled: false
+  provider: subprocess        # subprocess (MiniCPM-V in .venv-vlm) | stub
+  device: cpu
+caption_album:
+  enabled: false
+  provider: subprocess
+  device: cpu
 
 # Auto-straighten (straighten_images, spec-101 option A) — TERMINAL, straightens the
 # selected winners after select_best. enabled:false = penalize-only (still docks tilt in

@@ -17,10 +17,18 @@
 - [ ] T1.3 (deferred) VLM-refined theme from a representative image sample → overwrite with `source="vlm"`.
 - **Gate:** tag-based theme correct on the real trip ✅; VLM refinement pending worker env.
 
-## P2 — Captioning (the captioning request)
-- [ ] T2.1 Per-keeper captions (~20 survivors) → "why picked" text + scene labels.
-- [ ] T2.2 Album-level caption from theme + keeper captions.
-- **Gate:** captions accurate/useful on spot-check; cost ≈ pennies/album.
+## P2 — Captioning (the captioning request)  — BUILT 2026-10-01 (live validation pending model load)
+- [x] T2.0 Isolated VLM runtime: `.venv-vlm` (transformers 4.51) + `vlm_worker.py` (MiniCPM-V, bf16 CPU)
+      + `SubprocessVLMProvider` over JSON-lines; seam extended with `generate()` (text-only). Plumbing
+      proven end-to-end with `--stub` on a real image.
+- [x] T2.1 `caption_keepers` step: per-keeper caption via `provider.caption` → `context.image_captions`
+      (keepers only; opt-in `enabled=false`). Pure helpers (`KEEPER_PROMPT`, `clean_caption`) + step
+      tested with a fake provider.
+- [x] T2.2 `caption_album` step: ONE text-only `provider.generate` synthesizing the headline from keeper
+      captions + theme → `album_theme.caption` (`source="vlm"`). Tested (one call, not per-image).
+- **Gate:** steps + helpers green (26 tests), in default_pipeline gated off, build-ordered after
+      select_best. **Live MiniCPM-V caption + latency pending** the 16 GB model load (runs on the GPU
+      worker / local `.venv-vlm`).
 
 ## P3 — Theme-relevance / interestingness (feeds spec-107)
 - [ ] T3.1 Per-photo theme-relevance score (VLM on ambiguous "real-but-maybe-utilitarian" subset).

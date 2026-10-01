@@ -10,6 +10,8 @@ from sim_bench.pipeline.steps.triage_content import TriageContentStep
 # Semantic layer (spec-108) — cleaned content tags + album theme from cached RAM++ tags
 from sim_bench.pipeline.steps.derive_semantic_tags import DeriveSemanticTagsStep
 from sim_bench.pipeline.steps.infer_album_theme import InferAlbumThemeStep
+from sim_bench.pipeline.steps.caption_keepers import CaptionKeepersStep  # spec-108 P2 (VLM, opt-in)
+from sim_bench.pipeline.steps.caption_album import CaptionAlbumStep      # spec-108 P2 (VLM, opt-in)
 
 # Geo-temporal (spec-022)
 from sim_bench.pipeline.steps.extract_geo_metadata import ExtractGeoMetadataStep

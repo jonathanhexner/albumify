@@ -51,11 +51,14 @@ class SubprocessVLMProvider:
         if not info.get("ready"):
             raise RuntimeError(f"VLM worker failed to start: {info.get('error')}")
 
-    def _rpc(self, image: str, prompt: str) -> str:
+    def _rpc(self, image: Optional[str], prompt: str) -> str:
         self._ensure()
         self._next_id += 1
         rid = self._next_id
-        self._proc.stdin.write(json.dumps({"id": rid, "image": image, "prompt": prompt}) + "\n")
+        req = {"id": rid, "prompt": prompt}
+        if image:
+            req["image"] = image
+        self._proc.stdin.write(json.dumps(req) + "\n")
         self._proc.stdin.flush()
         line = self._proc.stdout.readline()
         if not line:
@@ -75,6 +78,13 @@ class SubprocessVLMProvider:
 
     def caption_batch(self, image_paths: List[str], prompt: str) -> List[str]:
         return [self.caption(p, prompt) for p in image_paths]
+
+    def generate(self, prompt: str) -> str:
+        try:
+            return self._rpc(None, prompt)
+        except Exception as e:
+            print(f"SubprocessVLMProvider.generate failed: {e}", file=sys.stderr)
+            return ""
 
     def close(self) -> None:
         if self._proc is not None:

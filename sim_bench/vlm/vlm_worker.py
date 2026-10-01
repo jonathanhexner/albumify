@@ -36,6 +36,9 @@ class _StubModel:
         from pathlib import Path
         return f"[stub caption of {Path(image).name} for prompt: {prompt[:40]}]"
 
+    def generate(self, prompt: str) -> str:
+        return f"[stub text generation for prompt: {prompt[:40]}]"
+
 
 class _MiniCPMModel:
     name = MODEL_ID
@@ -44,9 +47,11 @@ class _MiniCPMModel:
         import torch
         from transformers import AutoModel, AutoTokenizer
         self._torch = torch
+        # bfloat16 even on CPU: an 8B model in float32 is ~32 GB RAM (OOMs a 32 GB box);
+        # bf16 halves that to ~16 GB and torch CPU supports the ops.
         self._model = AutoModel.from_pretrained(
             MODEL_ID, trust_remote_code=True,
-            torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+            torch_dtype=torch.bfloat16,
         ).eval().to(device)
         self._tok = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
         self._device = device
@@ -55,6 +60,12 @@ class _MiniCPMModel:
         from PIL import Image
         img = Image.open(image).convert("RGB")
         msgs = [{"role": "user", "content": [img, prompt]}]
+        with self._torch.no_grad():
+            return self._model.chat(image=None, msgs=msgs, tokenizer=self._tok)
+
+    def generate(self, prompt: str) -> str:
+        # text-only: no image in the message content (uses the Qwen3 backbone)
+        msgs = [{"role": "user", "content": [prompt]}]
         with self._torch.no_grad():
             return self._model.chat(image=None, msgs=msgs, tokenizer=self._tok)
 
@@ -85,7 +96,10 @@ def main() -> None:
         if req.get("cmd") == "shutdown":
             break
         try:
-            text = model.caption(req["image"], req.get("prompt", "Describe this photo."))
+            if req.get("image"):
+                text = model.caption(req["image"], req.get("prompt", "Describe this photo."))
+            else:
+                text = model.generate(req.get("prompt", ""))   # text-only (album caption synthesis)
             _emit({"id": rid, "ok": True, "text": text})
         except Exception as e:
             _emit({"id": rid, "ok": False, "error": f"{type(e).__name__}: {e}"})

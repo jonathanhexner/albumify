@@ -32,3 +32,7 @@ class VLMProvider(Protocol):
     def caption_batch(self, image_paths: List[str], prompt: str) -> List[str]:
         """Caption several images with the same prompt. Default impl may loop ``caption``."""
         ...
+
+    def generate(self, prompt: str) -> str:
+        """Text-only generation (no image) — used to synthesize the album caption from keeper captions."""
+        ...
