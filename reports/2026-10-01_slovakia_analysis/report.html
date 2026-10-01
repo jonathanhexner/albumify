@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slovakia26 — triage, curation, performance</title>
+<style>
+:root{
+  --ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;
+  --ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;
+  --accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --maxw:1180px;
+}
+@media (prefers-color-scheme:light){:root{--ground:#F5F0E7;--surface:#FFF;--surface-2:#FBF6EC;--line:#E4DACB;
+  --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}}
+:root[data-theme="dark"]{--ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;--ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;}
+:root[data-theme="light"]{--ground:#F5F0E7;--surface:#FFF;--surface-2:#FBF6EC;--line:#E4DACB;--ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.58;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+h1,h2,h3,h4{margin:0;letter-spacing:-.02em;text-wrap:balance;font-weight:800;}
+p{margin:0;}
+code{font-family:var(--mono);font-size:.9em;}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+header{border-bottom:1px solid var(--line);background:var(--surface);}
+.head{padding:50px 0 40px;}
+.flag{display:inline-block;width:14px;height:18px;background:var(--accent);vertical-align:-3px;margin-right:10px;clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);}
+h1{font-size:clamp(28px,5vw,48px);line-height:1.03;margin:14px 0 0;}
+.sub{margin-top:16px;font-size:clamp(15px,2vw,19px);color:var(--ink-dim);max-width:70ch;}
+.sub code{color:var(--accent);}
+.meta-row{margin-top:22px;display:flex;gap:9px;flex-wrap:wrap;}
+.tag{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);background:var(--surface-2);}
+.tag b{color:var(--ink);}
+.toc{border-bottom:1px solid var(--line);background:var(--ground);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);}
+.toc .wrap{display:flex;gap:6px;overflow-x:auto;padding:11px 24px;scrollbar-width:none;}
+.toc .wrap::-webkit-scrollbar{display:none;}
+.toc a{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;padding:5px 10px;border-radius:7px;}
+.toc a:hover{color:var(--ink);background:var(--surface-2);text-decoration:none;}
+section{padding:56px 0;border-bottom:1px solid var(--line);}
+.sec-eyebrow{margin-bottom:10px;}
+.sec-title{font-size:clamp(22px,3vw,32px);}
+.sec-lead{margin-top:12px;color:var(--ink-dim);max-width:72ch;}
+.sec-lead code{color:var(--accent);}
+h3.blk{font-size:16px;margin:30px 0 10px;color:var(--ink);}
+/* hero stat */
+.hero{margin-top:26px;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+@media(max-width:760px){.hero{grid-template-columns:repeat(2,1fr);}}
+.stat .v{font-size:clamp(28px,4vw,42px);font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;}
+.stat .v.crit{color:var(--crit);}.stat .v.acc{color:var(--accent);}.stat .v.eng{color:var(--eng);}.stat .v.good{color:var(--good);}
+.stat .l{margin-top:4px;color:var(--muted);font-size:12.5px;max-width:24ch;}
+/* galleries */
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:22px;}
+.ph{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);position:relative;}
+.ph img{width:100%;height:118px;object-fit:cover;display:block;background:var(--surface-2);}
+.ph .cap{padding:7px 9px;font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);}
+.ph .cap b{color:var(--ink);}
+.ph.junk{border-color:color-mix(in srgb,var(--crit) 55%,transparent);}
+.ph .badge{position:absolute;top:6px;right:6px;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:5px;}
+.badge.j{background:var(--crit);color:#1a1206;}
+.badge.q{background:var(--warn);color:#1a1206;}
+/* callouts */
+.callout{margin-top:24px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 12px 12px 0;padding:16px 20px;}
+.callout .k{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);}
+.callout p{margin-top:8px;font-size:14px;color:var(--ink-dim);}
+.callout.crit{border-left-color:var(--crit);}.callout.crit .k{color:var(--crit);}
+.callout.warn{border-left-color:var(--warn);}.callout.warn .k{color:var(--warn);}
+.note{margin-top:14px;font-size:13px;color:var(--muted);}
+/* tables */
+.tscroll{overflow-x:auto;margin-top:22px;border:1px solid var(--line);border-radius:12px;}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px;}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface-2);}
+tbody tr:last-child td{border-bottom:0;}
+td.num{font-variant-numeric:tabular-nums;text-align:right;}
+/* timing bars */
+.bars{margin-top:22px;display:flex;flex-direction:column;gap:9px;}
+.brow{display:grid;grid-template-columns:200px 1fr 92px;gap:12px;align-items:center;}
+@media(max-width:620px){.brow{grid-template-columns:140px 1fr 78px;}}
+.brow .nm{font-size:13px;}.brow .nm.face{color:var(--crit);font-weight:700;}
+.track{height:16px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.track span{display:block;height:100%;}
+.brow .v{font-family:var(--mono);font-size:12px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-dim);}
+/* steps list for next */
+.steps{margin-top:24px;display:flex;flex-direction:column;gap:14px;}
+.step{display:grid;grid-template-columns:34px 1fr;gap:14px;border:1px solid var(--line);border-radius:12px;padding:15px 17px;background:var(--surface);}
+.step .n{font-family:var(--mono);font-weight:700;color:var(--accent);}
+.step h4{font-size:15px;}
+.step p{margin-top:5px;font-size:13.5px;color:var(--ink-dim);}
+.step .pri{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:2px;}
+.pri.now{background:color-mix(in srgb,var(--crit) 20%,transparent);color:var(--crit);}
+.pri.next{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn);}
+.pri.later{background:var(--surface-2);color:var(--muted);}
+footer{padding:32px 0 60px;}
+.foot{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap head">
+    <div class="eyebrow"><span class="flag"></span>Albumify · real-trip analysis · D:\Slovakia26</div>
+    <h1>Slovakia26 — run on a real, messy roll</h1>
+    <p class="sub">Ran the pipeline on a 75-image subset of your 715-photo trip (the screenshots left in on purpose), to answer three things with real data: what junk needs discarding, how the curation performs, and <em>what's actually slow</em>.</p>
+    <div class="meta-row">
+      <span class="tag">Roll <b>715 photos</b></span>
+      <span class="tag">Subset <b>75 (68 scored)</b></span>
+      <span class="tag">Pipeline <b>faces (CPU, 768px)</b></span>
+      <span class="tag">K <b>20</b></span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#triage">01 · Discarding junk</a>
+  <a href="#curation">02 · Albumify performance</a>
+  <a href="#perf">03 · What's slow</a>
+  <a href="#next">04 · Next steps</a>
+</div></nav>
+
+<!-- 01 TRIAGE -->
+<section id="triage">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">01 · Discarding irrelevant photos</div>
+    <h2 class="sec-title">The album filled with junk — because quality scoring *prefers* it</h2>
+    <p class="sec-lead">We left the screenshots in the roll to see what happens with no triage. The result is the single most important finding of this run.</p>
+
+    <div class="hero">
+      <div class="stat"><div class="v crit">6 / 20</div><div class="l">album picks that were junk (screenshots + a photographed poster)</div></div>
+      <div class="stat"><div class="v crit">0.70</div><div class="l">top score in the whole album — a <b>Gmail screenshot</b></div></div>
+      <div class="stat"><div class="v acc">0.54 vs 0.41</div><div class="l">mean composite: junk vs real photos — junk scores <em>higher</em></div></div>
+      <div class="stat"><div class="v eng">8 → 10</div><div class="l">junk caught: metadata (8 screenshots) → +2 more via RAM++ (posters)</div></div>
+    </div>
+
+    <div class="callout crit">
+      <div class="k">Why this happens</div>
+      <p>Screenshots are flat, sharp, high-contrast, perfectly exposed, no faces, no occlusion — so IQA/AVA <b>love</b> them. Quality scoring structurally <em>rewards</em> junk. You cannot filter screenshots by scoring them lower; they must be removed <b>before</b> curation. This is the empirical proof for a triage gate.</p>
+    </div>
+
+    <h3 class="blk">The 6 junk picks that reached the top-20</h3>
+    <div class="gal">
+      <div class="ph junk"><span class="badge j">0.70</span><img src="imgs/Screenshot_20260823_104703_Gmail.jpg" loading="lazy" alt="gmail screenshot"><div class="cap"><b>Gmail</b> screenshot · top score</div></div>
+      <div class="ph junk"><span class="badge j">0.68</span><img src="imgs/Screenshot_20260818_144747_Family%20Link.jpg" loading="lazy" alt="family link screenshot"><div class="cap"><b>Family Link</b> screenshot</div></div>
+      <div class="ph junk"><span class="badge j">0.58</span><img src="imgs/Screenshot_20260818_142734_Family%20Link.jpg" loading="lazy" alt="family link screenshot"><div class="cap"><b>Family Link</b> screenshot</div></div>
+      <div class="ph junk"><span class="badge j">0.57</span><img src="imgs/Screenshot_20260822_075812_Chrome.jpg" loading="lazy" alt="chrome screenshot"><div class="cap"><b>Chrome</b> doc screenshot</div></div>
+      <div class="ph junk"><span class="badge j">0.56</span><img src="imgs/20260821_105436.jpg" loading="lazy" alt="poster photo"><div class="cap"><b>Poster/label</b> — real photo, RAM++-only catch</div></div>
+      <div class="ph junk"><span class="badge j">0.53</span><img src="imgs/Screenshot_20260822_075805_Chrome.jpg" loading="lazy" alt="chrome screenshot"><div class="cap"><b>Chrome</b> screenshot</div></div>
+    </div>
+
+    <h3 class="blk">Both triage tiers are needed — confirmed on your data</h3>
+    <div class="tscroll"><table>
+      <thead><tr><th>Tier</th><th>Catches</th><th>On this roll</th></tr></thead>
+      <tbody>
+        <tr><td><b>Metadata</b> (filename / no camera EXIF)</td><td>screenshots, downloads</td><td>all <b>8</b> screenshots (named <code>Screenshot_…</code>, no camera EXIF) — free, zero false positives</td></tr>
+        <tr><td><b>RAM++ content</b></td><td>photographed documents / posters / maps / receipts</td><td>the 8 screenshots <b>plus 2 real photos</b> metadata can't see: <code>…105436</code> (poster/label) &amp; <code>…105928</code> (poster). One of them leaked into the album.</td></tr>
+        <tr><td><b>Behavioral</b> (singleton + no-person)</td><td>utilitarian "notes" (rental car, store product)</td><td><b>inconclusive here</b> — the evenly-spaced subset destroyed the temporal bursts, so no scene-cluster-of-one formed. Needs the <em>full contiguous roll</em> to test (see §04).</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout warn">
+      <div class="k">The harder class is already visible</div>
+      <p>Even among the 14 <em>non-junk</em> picks, a few are "technically fine but uninteresting": a <b>car + license plate</b> shot (<code>…182352</code>), a rack of <b>CDs/electronics</b> (<code>…155313</code>), a <b>construction worker on a ladder</b> (<code>…180139</code>). These are exactly the utilitarian/"note-to-self" photos you flagged — real, sharp, but not album moments. Metadata and quality can't catch them; this is the case for the behavioral + VLM-intent layer.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 02 CURATION -->
+<section id="curation">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">02 · Albumify performance</div>
+    <h2 class="sec-title">Once the junk is set aside, the curation is actually decent</h2>
+    <p class="sec-lead">The 14 real picks (of 20) are genuine trip moments across <b>8 scene clusters</b>, ordered chronologically — boats on a lake, mountains, a cathedral at dusk, climbing, family at a creek. The engine itself looks sound; its album is just being <em>contaminated</em> by junk it shouldn't have scored.</p>
+    <div class="gal">
+      <div class="ph"><span class="badge q">0.61</span><img src="imgs/20260827_204557.jpg" loading="lazy" alt=""><div class="cap">cathedral / bell tower · c-1</div></div>
+      <div class="ph"><img src="imgs/20260823_132950.jpg" loading="lazy" alt=""><div class="cap"><b>0.60</b> climbing · c5</div></div>
+      <div class="ph"><img src="imgs/20260822_162306.jpg" loading="lazy" alt=""><div class="cap"><b>0.58</b> rowboat / lake · c6</div></div>
+      <div class="ph"><img src="imgs/20260822_171645.jpg" loading="lazy" alt=""><div class="cap"><b>0.57</b> lake / mountain · c6</div></div>
+      <div class="ph"><img src="imgs/20260821_102354.jpg" loading="lazy" alt=""><div class="cap"><b>0.57</b> plaza · c1</div></div>
+      <div class="ph"><img src="imgs/20260823_124024(0).jpg" loading="lazy" alt=""><div class="cap"><b>0.50</b> family / creek · c5</div></div>
+      <div class="ph"><img src="imgs/20260827_211534.jpg" loading="lazy" alt=""><div class="cap"><b>0.53</b> city at night · c-1</div></div>
+      <div class="ph"><span class="badge q">?</span><img src="imgs/20260826_182352.jpg" loading="lazy" alt=""><div class="cap">car / license plate · c2 · utilitarian?</div></div>
+    </div>
+    <div class="tscroll"><table>
+      <thead><tr><th>Signal</th><th>Result</th><th>Read</th></tr></thead>
+      <tbody>
+        <tr><td>Scene clustering</td><td>8 clusters over 68 images</td><td>groups moments sensibly; dedup cap = 2/cluster held</td></tr>
+        <tr><td>Real-photo album</td><td>14/20 genuine moments</td><td>coverage across clusters + chronological order looks right</td></tr>
+        <tr><td>Junk contamination</td><td>6/20 (30%)</td><td>the dominant defect — fixed by triage, not by the curation model</td></tr>
+        <tr><td>Utilitarian leaks</td><td>~2–3 of the 14</td><td>car/CDs/ladder — the intent problem, needs the §04 layer</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note"><b>Honest limit:</b> we can't give curation a real grade until (a) triage removes the junk and (b) we compare against <em>your</em> keeper list on the full trip. This run proves the engine isn't the problem — the input hygiene is.</p>
+  </div>
+</section>
+
+<!-- 03 PERF -->
+<section id="perf">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">03 · What's slow</div>
+    <h2 class="sec-title">75% of the runtime is the face stack</h2>
+    <p class="sec-lead">Per-step timing on the 68-image run (faces pipeline, CPU, 768px). Total <b>~2.2 s/image</b>. Two InsightFace steps dominate; everything else is minor.</p>
+    <div class="bars">
+      <div class="brow"><div class="nm face">insightface_detect_faces</div><div class="track"><span style="width:100%;background:var(--crit)"></span></div><div class="v">908 ms/img</div></div>
+      <div class="brow"><div class="nm face">extract_face_embeddings</div><div class="track"><span style="width:83%;background:var(--crit)"></span></div><div class="v">753 ms/img</div></div>
+      <div class="brow"><div class="nm">extract_scene_embedding (DINOv2)</div><div class="track"><span style="width:24%;background:var(--eng)"></span></div><div class="v">216 ms/img</div></div>
+      <div class="brow"><div class="nm">detect_persons (YOLO)</div><div class="track"><span style="width:14%;background:var(--eng)"></span></div><div class="v">129 ms/img</div></div>
+      <div class="brow"><div class="nm">score_ava</div><div class="track"><span style="width:11%;background:var(--accent)"></span></div><div class="v">97 ms/img</div></div>
+      <div class="brow"><div class="nm">select_best</div><div class="track"><span style="width:4%;background:var(--muted)"></span></div><div class="v">33 ms/img</div></div>
+      <div class="brow"><div class="nm">score_iqa</div><div class="track"><span style="width:3%;background:var(--muted)"></span></div><div class="v">31 ms/img</div></div>
+      <div class="brow"><div class="nm">score_expression</div><div class="track"><span style="width:2%;background:var(--muted)"></span></div><div class="v">16 ms/img</div></div>
+    </div>
+    <div class="callout">
+      <div class="k">The one-line answer</div>
+      <p><b>Face detection + face embedding = ~1.66 s of the ~2.2 s per image (75%).</b> Scene, people, and quality scoring together are the other 25%. This is model <em>compute</em> (per-image), not model <em>load</em> (that's a one-time cost, already amortized here). So the bottleneck is real work, and the fix is a faster execution target — not warmer caches alone.</p>
+    </div>
+
+    <h3 class="blk">What this means at upload scale</h3>
+    <div class="tscroll"><table>
+      <thead><tr><th>Upload size</th><th>Faces pipeline @2.2s/img</th><th>+ RAM++ triage @2.0s/img</th><th>+ full pipeline*</th></tr></thead>
+      <tbody>
+        <tr><td>100 photos</td><td class="num">~3.7 min</td><td class="num">~7 min</td><td class="num">slower</td></tr>
+        <tr><td>300 photos</td><td class="num">~11 min</td><td class="num">~21 min</td><td class="num">much slower</td></tr>
+        <tr><td>715 (full roll)</td><td class="num">~26 min</td><td class="num">~50 min</td><td class="num">—</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">*This run used the <code>faces</code> pipeline, which <b>drops</b> the two heaviest steps (occlusion CLIP + GeoCalib tilt). The full <code>default</code> pipeline would add those on top. On CPU this is far beyond interactive — the capacity work already flagged runtime, not memory, as the ceiling. The levers: <b>GPU</b> for the InsightFace/ONNX stack (typically 10–50×), <b>caching</b> per-image features, or <b>deferring the face stack</b> when the album ranking doesn't need per-face identity.</p>
+  </div>
+</section>
+
+<!-- 04 NEXT -->
+<section id="next">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">04 · Next steps</div>
+    <h2 class="sec-title">What this run tells us to do</h2>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div><h4>Build the triage gate — it's now proven, not theoretical<span class="pri now">do first</span></h4><p>30% of the album was junk, and junk out-scored real photos. Ship the pre-curation gate: <b>metadata</b> (free, caught all 8 screenshots) → <b>RAM++ content</b> (caught 2 posters metadata missed) → <b>set aside for review</b>, never silent-delete. This is a small, high-impact pipeline step and a v1 necessity for the live upload path.</p></div></div>
+      <div class="step"><div class="n">2</div><div><h4>Re-run Stage A on the cleaned set + your keepers<span class="pri now">do first</span></h4><p>We can't grade curation while junk dominates. With triage on, compare Albumify's picks to <em>your</em> keeper list on the full trip (precision/recall). The 14 real picks here look promising — now measure it honestly.</p></div></div>
+      <div class="step"><div class="n">3</div><div><h4>Decide the runtime target<span class="pri next">before serving</span></h4><p>2.2 s/img (faces-only, CPU) × a real roll = tens of minutes — not interactive. The face stack is 75%. Choose: <b>GPU</b> worker (biggest win), <b>feature caching</b>, or <b>defer/skip face embedding</b> for album ranking. This directly sizes the spec-106 serving decision.</p></div></div>
+      <div class="step"><div class="n">4</div><div><h4>Test the behavioral + intent layer on the full roll<span class="pri later">v1.5</span></h4><p>The singleton signal was inconclusive on a sampled subset. Run it on the contiguous roll to see if it catches the utilitarian shots (car/CDs/ladder) that quality can't. If not, that's the case for the scoped VLM-intent judge (agentic layer).</p></div></div>
+      <div class="step"><div class="n">5</div><div><h4>Fold into the finalization plan<span class="pri later">plan</span></h4><p>Triage moves into Stage B (engine finalization) as a required pre-curation step; the runtime decision feeds Stage C (serving). The finalization roadmap already has the slots.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap foot">
+  <span>Albumify · Slovakia26 · triage · curation · performance · 2026-10-01</span>
+  <span>junk scored higher than real · face stack = 75% of runtime · triage before curation</span>
+</div></footer>
+</body>
+</html>

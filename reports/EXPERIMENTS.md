@@ -4,6 +4,9 @@ One entry per experiment, 2 lines each: (1) name + goal, (2) outcome + link.
 Convention: `reports/<YYYY-MM-DD>_<slug>/report.html` + `summary.md` (see CLAUDE.md §Experiment reports).
 Entries below predate the convention; their reports live at the linked legacy locations.
 
+- **2026-10-01 Slovakia26 — triage + curation + performance on a real roll (75 of 715)** — run the pipeline on a real messy trip (screenshots left in) to answer: what junk to discard, how curation performs, and what's slow.
+  **6/20 album picks were junk** (incl. a Gmail screenshot at 0.70 = top score); junk out-scored real photos (0.54 vs 0.41) -> quality scoring *rewards* screenshots, so triage must precede curation. Metadata caught 8 screenshots free; RAM++ caught 2 more posters. The 14 real picks look sound (8 scene clusters). Runtime ~2.2 s/img (CPU, faces pipeline), **face stack = 75%** (detect 908 + embed 753 ms/img). [report](2026-10-01_slovakia_analysis/report.html) · [summary](2026-10-01_slovakia_analysis/summary.md)
+
 - **2026-10-01 RAM++ for defect detection — occlusion & blur (labeled)** — can a content tagger (RAM++) double as an occlusion/blur detector vs the purpose-built models? Tested on the labeled occlusion benchmark (83 occ + 84 clean) and RealBlur-J pairs.
   **No, decisively.** Occlusion: trained probe AUC 0.979; RAM++ `hand`/`lens flare` 0.384 (below chance); best-of-4,585 steelman tag = `cognac` 0.898 (spurious, still < probe). Blur: no blur/focus/sharp tag exists, none ever fires -> no blur score possible. RAM++ is content-only; occlusion stays on the probe, blur/quality on IQA. [report](2026-10-01_ram_defect_detection/report.html) · [summary](2026-10-01_ram_defect_detection/summary.md)
 

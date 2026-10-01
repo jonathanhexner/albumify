@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [TEST] Slovakia26 real-roll analysis — triage + curation + performance
+**Files**: `scripts/experiment_slovakia_analysis.py` (new), `reports/2026-10-01_slovakia_analysis/` (report.html + summary.md + results.json + 75 thumbs), `reports/EXPERIMENTS.md`.
+**Change**: ran the pipeline on a 75-img subset (68 scored) of a real 715-photo trip (D:\Slovakia26) with screenshots left in. Findings: (1) 6/20 album picks were junk (5 screenshots + 1 photographed poster); a Gmail screenshot scored 0.703 = album top; junk mean composite 0.54 > real 0.41 -> quality scoring rewards screenshots, triage MUST precede curation. Metadata caught 8 screenshots free; RAM++ content caught 2 more (posters). Behavioral singleton signal inconclusive on a sampled subset. (2) The 14 real picks are sound trip moments across 8 scene clusters. (3) Runtime ~2.2 s/img (faces pipeline, CPU, 768px); face stack = 75% (insightface_detect 908 + extract_embeddings 753 ms/img); per-step timing captured by inlining run_albumify_arm to read PipelineResult.step_results. Script reuses albumify_arm helpers + RAM++ + metadata/EXIF triage.
+**Reason**: user asked to run Albumify on their latest trip and produce a comprehensive report on discarding junk, curation performance, and (added) why it's slow.
+
 ### 2026-10-01 [TEST] RAM++ for defect detection (occlusion + blur) — labeled
 **Files**: `scripts/experiment_ram_defect_detection.py` (new), `reports/2026-10-01_ram_defect_detection/` (report.html + summary.md + thumbs), `reports/EXPERIMENTS.md`.
 **Change**: tested whether RAM++ can detect occlusion/blur vs purpose-built models. Occlusion (83 occ + 84 clean, labeled): trained probe AUC 0.979; RAM++ hand/lens-flare 0.384 (below chance); best-of-4,585-tag steelman = 'cognac' 0.898 (spurious, still < probe). Blur (RealBlur-J pairs): no blur/focus/sharp tag in vocab, none ever fires -> no blur score possible; tag Jaccard blur-vs-sharp 0.77 (lost detail, not blur awareness). Conclusion: RAM++ is content-only; occlusion stays on the probe, blur/quality on IQA/noise-aware sharpness. Added pillow-heif HEIC support + skip-unreadable (first run crashed on a .heic negative). pillow-heif was already installed.
