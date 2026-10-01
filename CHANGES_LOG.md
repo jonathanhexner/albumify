@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [TEST] RAM++ for defect detection (occlusion + blur) — labeled
+**Files**: `scripts/experiment_ram_defect_detection.py` (new), `reports/2026-10-01_ram_defect_detection/` (report.html + summary.md + thumbs), `reports/EXPERIMENTS.md`.
+**Change**: tested whether RAM++ can detect occlusion/blur vs purpose-built models. Occlusion (83 occ + 84 clean, labeled): trained probe AUC 0.979; RAM++ hand/lens-flare 0.384 (below chance); best-of-4,585-tag steelman = 'cognac' 0.898 (spurious, still < probe). Blur (RealBlur-J pairs): no blur/focus/sharp tag in vocab, none ever fires -> no blur score possible; tag Jaccard blur-vs-sharp 0.77 (lost detail, not blur awareness). Conclusion: RAM++ is content-only; occlusion stays on the probe, blur/quality on IQA/noise-aware sharpness. Added pillow-heif HEIC support + skip-unreadable (first run crashed on a .heic negative). pillow-heif was already installed.
+**Reason**: user asked to empirically try RAM++ for blur/occlusion before wrapping up rather than take the conceptual claim on faith.
+
 ### 2026-10-01 [DOCS] Master finalization roadmap
 **Files**: `specs/106-albumify-web-showcase/finalization_plan.html` (new).
 **Change**: comprehensive critical-path plan to finalize Albumify as a portfolio piece. Two-gate framing (reliability ~80% done vs quality unproven); staged critical path A Prove-the-picks (quality validation, go/no-go gate) -> B Finalize engine (global-K etc.) -> C Build service (spec-106) -> D Harden+ship, with narrative in parallel; MoSCoW scope (v1 = reliable+honest+deployed; agentic layer = v1.5); consolidated decisions; risks (scope-creep #1); definition-of-done checklist. Immediate next action = Stage A quality validation. Ties together spec-104 (done), spec-106 (plan.html), agentic_layer_design.html, spec-102.

@@ -4,6 +4,9 @@ One entry per experiment, 2 lines each: (1) name + goal, (2) outcome + link.
 Convention: `reports/<YYYY-MM-DD>_<slug>/report.html` + `summary.md` (see CLAUDE.md §Experiment reports).
 Entries below predate the convention; their reports live at the linked legacy locations.
 
+- **2026-10-01 RAM++ for defect detection — occlusion & blur (labeled)** — can a content tagger (RAM++) double as an occlusion/blur detector vs the purpose-built models? Tested on the labeled occlusion benchmark (83 occ + 84 clean) and RealBlur-J pairs.
+  **No, decisively.** Occlusion: trained probe AUC 0.979; RAM++ `hand`/`lens flare` 0.384 (below chance); best-of-4,585 steelman tag = `cognac` 0.898 (spurious, still < probe). Blur: no blur/focus/sharp tag exists, none ever fires -> no blur score possible. RAM++ is content-only; occlusion stays on the probe, blur/quality on IQA. [report](2026-10-01_ram_defect_detection/report.html) · [summary](2026-10-01_ram_defect_detection/summary.md)
+
 - **2026-10-01 RAM++ vs fixed-method CLIP — content tagging (30 photos, 3 trips)** — is RAM++'s open-vocabulary tagging worth a ~2.8 GB model on the memory floor vs fixed-method CLIP (closed 20-class scene read)?
   **RAM++ wins decisively: 11.7 tags/img (210 distinct) vs CLIP 2.5 (closed 20).** RAM++ names the actual subject (waffle/syrup/fork, mallard duck, witch hat, pedestrian bridge); CLIP forces wrong buckets (museum->landmark/vehicle) and `a selfie` over-fires. Adopt RAM++ for Tier-1 content tags (post-filter verb noise); keep fixed-CLIP as the near-free fallback. Open cost: RAM++ CPU latency + RSS as an isolated step. [report](2026-10-01_ram_vs_clip_tagging/report.html) · [summary](2026-10-01_ram_vs_clip_tagging/summary.md)
 
