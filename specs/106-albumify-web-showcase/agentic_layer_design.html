@@ -184,12 +184,13 @@ footer{padding:34px 0 60px;}
   <div class="wrap">
     <a href="#shape">01 · The shape</a>
     <a href="#clusters">02 · Two clustering jobs</a>
-    <a href="#captions">03 · Two-tier captions</a>
-    <a href="#points">04 · Decision points</a>
-    <a href="#reference">05 · AI as reference</a>
-    <a href="#configs">06 · New configs</a>
-    <a href="#data">07 · Test datasets</a>
-    <a href="#next">08 · Next steps</a>
+    <a href="#models">03 · Model-to-task map</a>
+    <a href="#captions">04 · Two-tier captions</a>
+    <a href="#points">05 · Decision points</a>
+    <a href="#reference">06 · AI as reference</a>
+    <a href="#configs">07 · New configs</a>
+    <a href="#data">08 · Test datasets</a>
+    <a href="#next">09 · Next steps</a>
   </div>
 </nav>
 
@@ -272,20 +273,85 @@ footer{padding:34px 0 60px;}
   </div>
 </section>
 
-<!-- 03 CAPTIONS -->
+<!-- 03 MODEL MAP -->
+<section id="models">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">03 · Model-to-task map</div>
+    <h2 class="sec-title">One model per axis — and how CLIP actually works</h2>
+    <p class="sec-lead">Curation asks several <em>different kinds</em> of question, and each wants a model trained for that kind. The recurring mistake is hoping one model (CLIP, or a VLM) answers all of them. First, how CLIP works — because it explains exactly what it can and can't do.</p>
+
+    <h3 class="blk">CLIP is two encoders + a similarity — not attention</h3>
+    <div class="diagram">
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;min-width:640px;">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="node sem"><div class="t">Image encoder</div><div class="d">the photo &rarr; one vector (e.g. 512 numbers)</div></div>
+          <div class="node ai"><div class="t">Text encoder</div><div class="d">each candidate phrase &rarr; one vector, same size</div></div>
+        </div>
+        <div style="font-size:30px;color:var(--muted);text-align:center;">&#9654;</div>
+        <div class="node"><div class="t">Cosine similarity</div><div class="d">how aligned the two vectors are (the angle between them). Each side is encoded <b>independently</b>, then compared &mdash; there is <b>no cross-attention</b> between a specific image and a specific phrase.</div></div>
+      </div>
+    </div>
+    <p class="note">Because the text is encoded separately, you can pre-encode any list of phrases once and score an image against all of them cheaply. That is the whole trick &mdash; and the whole limitation.</p>
+
+    <h3 class="blk">"Closed vocabulary" = CLIP only ranks the phrases you hand it</h3>
+    <div class="split">
+      <div class="pane visual">
+        <div class="hd">CLIP &mdash; open model, used closed</div>
+        <p class="job">multiple-choice: you write the choices</p>
+        <ul>
+          <li>Give it 20 scene words &rarr; it can only answer one of those 20.</li>
+          <li>A waffle with no "waffle" option &rarr; it returns the nearest, "food". It never <em>invents</em> a tag.</li>
+          <li>You <em>could</em> hand it 4,500 phrases, but raw similarity across that many is poorly calibrated (some words always score high), with no per-tag cutoffs.</li>
+        </ul>
+        <div class="verdict">&rarr; great when you know the small label set</div>
+      </div>
+      <div class="pane text">
+        <div class="hd">RAM++ &mdash; a trained tagger</div>
+        <p class="job">you give nothing but the image</p>
+        <ul>
+          <li>Ships a <b>trained ~4,500-tag head</b> with a learned yes/no threshold per tag.</li>
+          <li>Outputs whichever tags apply &mdash; "waffle, syrup, fork" &mdash; no list from you.</li>
+          <li>Still uses CLIP-style text embeddings under the hood, plus a tagging head on top.</li>
+        </ul>
+        <div class="verdict">&rarr; the open-vocabulary content tagger</div>
+      </div>
+    </div>
+
+    <h3 class="blk">The axis table &mdash; match the model to the question</h3>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Axis</th><th>Question</th><th>Right tool</th><th>RAM++ fit</th></tr></thead>
+        <tbody>
+          <tr><td>Content tags</td><td>what objects / scene is this?</td><td><b>RAM++</b> (or a VLM for sentences)</td><td><span class="chip c-cheap">&#10003; its job</span></td></tr>
+          <tr><td>Occlusion</td><td>is a finger / obstruction over the lens?</td><td>trained occlusion probe (have: clip_b32 probe + occlusion_bench)</td><td><span class="chip c-have">&#10007; wrong task</span></td></tr>
+          <tr><td>Sharpness / exposure / noise</td><td>technical quality?</td><td>IQA (MUSIQ / pyiqa), noise-aware sharpness (spec-098)</td><td><span class="chip c-have">&#10007; no notion of quality</span></td></tr>
+          <tr><td>Aesthetics</td><td>is it a <em>good</em> photo?</td><td>AVA learned model</td><td><span class="chip c-have">&#10007;</span></td></tr>
+          <tr><td>Tilt</td><td>is the horizon level?</td><td>GeoCalib</td><td><span class="chip c-have">&#10007;</span></td></tr>
+          <tr><td>Dedup / similarity</td><td>same moment?</td><td>DINOv2 embeddings + time / GPS</td><td><span class="chip c-have">&#10007;</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <div class="k">Measured &mdash; RAM++ vs fixed-CLIP, 30 trip photos (2026-10-01)</div>
+      <p>On the <b>content axis</b> RAM++ wins decisively: <b>11.7 tags/img (210 distinct)</b> vs fixed-method CLIP's <b>2.5 (closed 20)</b> &mdash; RAM++ names "waffle / mallard duck / witch hat / pedestrian bridge" where CLIP forces wrong buckets (museum &rarr; "landmark, vehicle"). So RAM++ earns a place on <b>exactly one axis &mdash; content</b>; occlusion and quality stay on their purpose-built models. See <code>reports/2026-10-01_ram_vs_clip_tagging/</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 04 CAPTIONS -->
 <section id="captions">
   <div class="wrap">
-    <div class="eyebrow sec-eyebrow">03 · Two-tier captions</div>
+    <div class="eyebrow sec-eyebrow">04 · Two-tier captions</div>
     <h2 class="sec-title">Caption the survivors richly, tag the roll cheaply</h2>
     <p class="sec-lead">You're right that captions are useful <em>regardless</em>. The trick that keeps it affordable is <b>when</b> and <b>with what</b> you caption. Two tiers, matched to cost.</p>
 
     <div class="econ">
       <div class="tier2 all">
         <div class="scope">TIER 1 · ALL ~800</div>
-        <div class="what"><b>CLIP zero-shot tags</b> against a fixed label set (food, portrait, landscape, architecture, night…). CLIP is already resident for occlusion scoring — no new model on the memory floor, no tokens.
+        <div class="what"><b>RAM++ open-vocab tags</b> on every image — the content axis (§03 measured RAM++ 11.7 tags/img vs CLIP 2.5). Cost: a ~2.8 GB model as its own isolated step. <b>Fixed-method CLIP</b> is the near-free fallback (reuses the resident occlusion model, zero added floor) when RAM++ isn't warranted.
           <div class="bar"><span style="width:100%;background:color-mix(in srgb,var(--eng) 45%,var(--surface))"></span></div>
         </div>
-        <div><span class="chip c-cheap">near-free</span></div>
+        <div><span class="chip c-mid">RAM++ ~2.8 GB</span></div>
       </div>
       <div class="tier2 few">
         <div class="scope">TIER 2 · ~20 keepers</div>
@@ -299,10 +365,10 @@ footer{padding:34px 0 60px;}
   </div>
 </section>
 
-<!-- 04 POINTS -->
+<!-- 05 POINTS -->
 <section id="points">
   <div class="wrap">
-    <div class="eyebrow sec-eyebrow">04 · Decision points</div>
+    <div class="eyebrow sec-eyebrow">05 · Decision points</div>
     <h2 class="sec-title">The three places a VLM earns its call</h2>
     <p class="sec-lead">Not scene dedup (deterministic + visual wins). These three are where reasoning or language genuinely beats a threshold — and each is bounded so it can't run away on cost.</p>
     <div class="tscroll">
@@ -319,10 +385,10 @@ footer{padding:34px 0 60px;}
   </div>
 </section>
 
-<!-- 05 REFERENCE -->
+<!-- 06 REFERENCE -->
 <section id="reference">
   <div class="wrap">
-    <div class="eyebrow sec-eyebrow">05 · AI as reference</div>
+    <div class="eyebrow sec-eyebrow">06 · AI as reference</div>
     <h2 class="sec-title">A VLM as a yardstick — but not a teacher to copy</h2>
     <p class="sec-lead">"Use AI as a reference our pipeline thrives toward" is a good idea with one sharp edge. Using a frontier VLM to <em>measure</em> and <em>find our blind spots</em> is high-value. Tuning our thresholds to <em>maximize agreement</em> with it is a trap.</p>
 
@@ -351,10 +417,10 @@ footer{padding:34px 0 60px;}
   </div>
 </section>
 
-<!-- 06 CONFIGS -->
+<!-- 07 CONFIGS -->
 <section id="configs">
   <div class="wrap">
-    <div class="eyebrow sec-eyebrow">06 · New configs</div>
+    <div class="eyebrow sec-eyebrow">07 · New configs</div>
     <h2 class="sec-title">Knobs the pipeline is missing</h2>
     <p class="sec-lead">You're right that some real curation controls don't exist yet. Today selection is per-cluster (<code>max_images_per_cluster: 2</code>, <code>min_score_threshold: 0.4</code>) with <b>no global album size</b>. These are the knobs worth adding — and the album-type tuner (§4) can set them per album instead of hard-coding.</p>
     <div class="tscroll">
@@ -375,10 +441,10 @@ footer{padding:34px 0 60px;}
   </div>
 </section>
 
-<!-- 07 DATA -->
+<!-- 08 DATA -->
 <section id="data">
   <div class="wrap">
-    <div class="eyebrow sec-eyebrow">07 · Test datasets</div>
+    <div class="eyebrow sec-eyebrow">08 · Test datasets</div>
     <h2 class="sec-title">Where to get photo collections to test curation</h2>
     <p class="sec-lead">The quality benchmarks you already have on disk (RealBlur, SIDD, PIQA23, AVA) measure single-image quality — not "did we pick the right photos from an album." For curation you need collections with a <b>human-chosen subset or best-of</b>. Two public datasets are built for exactly this.</p>
     <div class="tscroll">
@@ -405,10 +471,10 @@ footer{padding:34px 0 60px;}
   </div>
 </section>
 
-<!-- 08 NEXT -->
+<!-- 09 NEXT -->
 <section id="next">
   <div class="wrap">
-    <div class="eyebrow sec-eyebrow">08 · Next steps</div>
+    <div class="eyebrow sec-eyebrow">09 · Next steps</div>
     <h2 class="sec-title">How this graduates to specs</h2>
     <div class="cards g3">
       <div class="card good"><h4>Now</h4><p>Add <code>album_max_picks</code> (global K) — it's already spec-106 task T0.1 and unblocks predictable albums.</p></div>

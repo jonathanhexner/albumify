@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [DOCS] agentic-layer doc: model-to-task map + CLIP explainer
+**Files**: `specs/106-albumify-web-showcase/agentic_layer_design.html`.
+**Change**: added new section 03 "Model-to-task map — one model per axis": CLIP dual-encoder explainer (two encoders + cosine similarity, not cross-attention), the "closed vocab = CLIP only ranks phrases you supply" vs RAM++'s trained ~4,500-tag head distinction, an axis table (content->RAM++/VLM; occlusion/quality/aesthetics/tilt/dedup->purpose-built, RAM++ wrong tool), and the measured RAM++-vs-CLIP callout (11.7 vs 2.5 tags). Renumbered sections 03-08 -> 04-09; updated Tier-1 captions to RAM++ (fixed-CLIP = near-free fallback) per the experiment.
+**Reason**: user asked to fold the "one model per axis" framing + how-CLIP-works explainer into the design doc, after confusion about CLIP's closed vocabulary and whether RAM++ fits occlusion/quality.
+
 ### 2026-10-01 [TEST] RAM++ vs fixed-CLIP content tagging (30 images)
 **Files**: `scripts/experiment_ram_vs_clip_tagging.py` (new), `reports/2026-10-01_ram_vs_clip_tagging/` (report.html + summary.md + 30 thumbs, new), `reports/EXPERIMENTS.md` (entry). Installed `ram` (recognize-anything, `--no-deps`) + `fairscale --no-deps`; checkpoint `models/ram/ram_plus_swin_large_14m.pth` (2.8 GB, gitignored).
 **Change**: 30-image bake-off, RAM++ (swin_l/384 open-vocab tagger) vs fixed-method CLIP (closed 20-class scene read). Result: RAM++ 11.7 tags/img (210 distinct) vs CLIP 2.5 (closed 20); RAM++ names actual subjects (waffle/syrup, mallard duck, witch hat, pedestrian bridge) while CLIP forces wrong buckets and over-fires `a selfie`. Recommend adopting RAM++ for Tier-1 content tags (post-filter verb noise); keep fixed-CLIP as near-free fallback; measure RAM++ CPU latency/RSS as an isolated step next. A transformers-version shim (RAM's BERT helpers moved to pytorch_utils) is included in the script; env pins (numpy 1.26.4) untouched via --no-deps.
