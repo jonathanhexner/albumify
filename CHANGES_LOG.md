@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [DOCS] Three PRDs from the Slovakia26 findings (specs 107-109)
+**Files**: `specs/107-input-triage-discard-review/`, `specs/108-album-semantic-layer/`, `specs/109-parallel-gpu-execution/` (spec.md + tasks.md each, all Draft).
+**Change**: turned the real-trip findings into actionable PRDs. 107 Input Triage & Discard Review (metadata+RAM++ content+behavioral; set-aside-for-review, never silent-delete; proven need = 6/20 junk leak). 108 Album Semantic Layer (VLM theme inference + album/keeper captioning + theme-relevance/interestingness feeding 107 + optional semantic scene-clustering boost; escalation pattern, local VLM). 109 Parallel GPU Execution (remote GPU + parallel per-image steps + defer face-embedding to hit <=3-5min/100-photo; face stack = 75% of ~2.2s/img CPU; est ~1-3c/album on L4; tiering deferred). Clarified my Slovakia run used the lean 'faces' variant (drops occlusion/tilt/straighten), not the full default_pipeline.
+**Reason**: user asked to consolidate the discussion into a next-steps list with PRDs for each (discard junk; album-theme AI + captioning + scene-clustering; parallel remote-GPU execution).
+
 ### 2026-10-01 [TEST] Slovakia26 real-roll analysis — triage + curation + performance
 **Files**: `scripts/experiment_slovakia_analysis.py` (new), `reports/2026-10-01_slovakia_analysis/` (report.html + summary.md + results.json + 75 thumbs), `reports/EXPERIMENTS.md`.
 **Change**: ran the pipeline on a 75-img subset (68 scored) of a real 715-photo trip (D:\Slovakia26) with screenshots left in. Findings: (1) 6/20 album picks were junk (5 screenshots + 1 photographed poster); a Gmail screenshot scored 0.703 = album top; junk mean composite 0.54 > real 0.41 -> quality scoring rewards screenshots, triage MUST precede curation. Metadata caught 8 screenshots free; RAM++ content caught 2 more (posters). Behavioral singleton signal inconclusive on a sampled subset. (2) The 14 real picks are sound trip moments across 8 scene clusters. (3) Runtime ~2.2 s/img (faces pipeline, CPU, 768px); face stack = 75% (insightface_detect 908 + extract_embeddings 753 ms/img); per-step timing captured by inlining run_albumify_arm to read PipelineResult.step_results. Script reuses albumify_arm helpers + RAM++ + metadata/EXIF triage.
