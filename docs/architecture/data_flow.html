@@ -99,6 +99,14 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
 <div class="stage sim">
   <div class="head"><span class="name">C · pipeline steps run</span><span class="src">configs/pipeline.yaml::default_pipeline</span></div>
   <div class="body">
+    <span style="opacity:.9"><b>triage (spec-107, runs FIRST, before the expensive stack):</b>
+    <code>triage_metadata</code> (filename / camera-EXIF / format / screen-dims — free, no model) →
+    <code>triage_content</code> (RAM++ open-vocab tags; caches <code>ram_tags</code> for spec-108) —
+    set aside screenshots / documents / posters into <code>context.set_aside</code> and remove them
+    from <code>image_paths</code> so scoring + the 75%-of-runtime face stack never run on junk.
+    Kept-but-flagged items → <code>context.triage_review</code>; nothing is deleted. Verified 0 junk
+    in the curated album on a real roll (was 6/20). Both read the pipeline author's order — see the
+    builder ordering note below.</span><br>
     detect_persons (YOLOv8) → insightface_detect_faces (SCRFD) → filter_faces<br>
     score_iqa, score_ava, <b>score_occlusion</b> (spec-097), <b>score_tilt</b> (spec-099/100) → detect_persons → insightface_detect_faces<br>
     align_faces → insightface_score_{expression,eyes,pose} → … → select_best → <b>straighten_images</b> (spec-101 A, TERMINAL: straightens the winners)<br>
@@ -128,7 +136,7 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
     <code>selected_images</code>. Terminal so nothing depends on it → no dependency-drag into other
     pipelines. Provenance: <code>context.straightened_from</code>.</span>
   </div>
-  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths, insightface_faces, face_embeddings, iqa_scores, ava_scores, noise_scores (spec-098: wavelet noise, higher = cleaner; <code>score_iqa</code> cache bumped to <code>rule_based_v2</code>), method_scores (spec-093), occlusion_scores/_tiles/_penalties (spec-097), tilt_angles/_confidences/_penalties (spec-099/100), scene_cluster_labels, filters. <b>spec-034</b> documents every field.</div>
+  <div class="contract">State accumulates in <code>PipelineContext</code>: image_paths (discover produces; <b>triage filters to survivors</b>, spec-107), set_aside / triage_review / ram_tags (spec-107), insightface_faces, face_embeddings, iqa_scores, ava_scores, noise_scores (spec-098: wavelet noise, higher = cleaner; <code>score_iqa</code> cache bumped to <code>rule_based_v2</code>), method_scores (spec-093), occlusion_scores/_tiles/_penalties (spec-097), tilt_angles/_confidences/_penalties (spec-099/100), scene_cluster_labels, filters. <b>spec-034</b> documents every field. <b>Step order</b>: resolved by <code>PipelineBuilder</code>, which tie-breaks independent steps by the author's <code>pipeline.yaml</code> order (spec-107 fix) — NOT alphabetically — so triage provably precedes its consumers.</div>
   <div class="target"><b>Target (specs/037):</b> insert <code>insightface_score_blur</code> after <code>align_faces</code>.</div>
 </div>
 

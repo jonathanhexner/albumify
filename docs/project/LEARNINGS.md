@@ -6,6 +6,26 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-10-01: spec-107 — a unit-green pipeline step was defeated by an ALPHABETICAL tie-break in the builder
+**What happened**: the new `triage_metadata`/`triage_content` steps worked perfectly in isolation (sets
+aside all junk) but the end-to-end verify FAILED — 7 set-aside items still reached the curated album.
+Root cause was two layers down in `PipelineBuilder`: (1) `_resolve_dependencies` returned the step list
+from a `set()` (arbitrary order), and (2) `_topological_sort` tie-broke ready steps **alphabetically**
+(`queue.sort()`). Together, independent steps ran in alphabetical order regardless of `pipeline.yaml`,
+so `score_ava`/`score_iqa` ran BEFORE `triage_*` and scored the screenshots before triage could remove
+them. `pipeline.yaml` order was silently being ignored for every same-dependency-level step; triage was
+just the first feature whose correctness *depended* on that order.
+**Lesson**: (1) explicit `depends_on` edges are NOT the only thing that determines run order — a
+topological sort's TIE-BREAK is load-bearing, and "alphabetical" is an arbitrary, surprising default
+that silently diverges from the author's declared list. (2) A step that must run before others cannot
+rely on being listed first unless the builder honors list order (or you add hard deps — which
+`auto_resolve` would then drag into every pipeline that includes the consumer, polluting
+`minimal_pipeline` with RAM++). (3) Unit-green ≠ correct: only the real-data E2E caught it.
+**Prevention**: `_resolve_dependencies` now preserves the author's order; `_topological_sort`
+tie-breaks by position in that order, so `pipeline.yaml` order is meaningful.
+`tests/pipeline/test_builder.py::test_independent_steps_keep_declared_order` fails if anyone reverts to
+alphabetical. Keep the "run it end-to-end on real data" step in every feature's acceptance.
+
 ### 2026-07-22: spec-103 — additive metadata fusion over-merges; a ONE-SIDED short-range boost is the safe shape
 **What happened**: fusing capture-time into scene clustering as an ADDITIVE distance
 (`w_v·visual + w_t·time`) over-merged: its symmetric time term *pushed apart* visually-similar shots a

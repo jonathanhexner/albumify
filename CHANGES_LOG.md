@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-01 [DOCS] spec-107 F2 — architecture HTMLs + LEARNINGS
+**Files**: `docs/architecture/data_flow.html`, `docs/architecture/classes.html`, `docs/project/LEARNINGS.md`.
+**Change**: closed the spec-107 documentation follow-up. data_flow.html: added the triage stage (runs first, sets aside junk before the face stack, set_aside/triage_review/ram_tags, 0-junk result) + a builder step-ordering note; updated the PipelineContext state line. classes.html: extended the PipelineContext row with the spec-107 fields and added a TriageInputs/TriageResult + RamTagger dataclass row. LEARNINGS: entry on the builder alphabetical-tie-break bug (topological-sort tie-break is load-bearing; unit-green != correct; the real-data E2E caught it). HTMLs tag-balance verified.
+**Reason**: spec-107 REVIEW.md follow-up F2 (documentation update mandate).
+
 ### 2026-10-01 [DOCS] spec-107 code review — REVIEW.md ACCEPT (P0-P2 Implemented)
 **Files**: `specs/107-input-triage-discard-review/REVIEW.md` (new), `spec.md` (status Implemented P0-P2), `specs/034-pipeline-context-contract/spec.md` (+set_aside/triage_review/ram_tags rows), `tests/architecture/test_no_raw_collection_iteration.py` (ALLOW_LIST +3 triage files), `TODO.md` (F1-F3 + P3/P4 follow-ups).
 **Change**: ran /code-review against spec-107 (all 8 checklist sections). Two architecture-guard blockers surfaced and were fixed during review: B1 new context fields missing from the spec-034 contract -> added rows; B2 raw image_paths iteration in triage steps -> added to ALLOW_LIST (_triage_apply is the centralized filter primitive). Architecture+triage suites green (149 passed). Verdict ACCEPT; P0-P2 Implemented (0 junk in album verified on real data). Non-blocking follow-ups F1 (__all__), F2 (architecture HTMLs + LEARNINGS), F3 (typed set_aside model at P4) filed in TODO; P3 (behavioral, needs spec-108) + P4 (review UX) remain.
