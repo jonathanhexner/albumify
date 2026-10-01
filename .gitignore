@@ -276,3 +276,6 @@ client_secret_*.json
 
 # spec-098: generated rotation-variant image sets (144 MB) stay on disk, not in git
 reports/*/data/variants/
+
+# spec-108 isolated VLM env (MiniCPM-V, transformers 4.51)
+.venv-vlm/
