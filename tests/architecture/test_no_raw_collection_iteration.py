@@ -51,6 +51,13 @@ ALLOW_LIST: dict[str, str] = {
     # Producers — they CREATE the items, so they have nothing to filter against.
     "sim_bench/pipeline/steps/discover_images.py":
         "producer of image_paths",
+    "sim_bench/pipeline/steps/triage_metadata.py":
+        "spec-107 triage: classifies every image to filter image_paths (runs before consumers)",
+    "sim_bench/pipeline/steps/triage_content.py":
+        "spec-107 triage: classifies every image to filter image_paths (runs before consumers)",
+    "sim_bench/pipeline/steps/_triage_apply.py":
+        "spec-107 triage filter primitive: THE place that partitions image_paths into survivors "
+        "vs set_aside (the operation this guard exists to centralize)",
     "sim_bench/pipeline/steps/score_iqa.py":
         "scoring producer; filter_quality consumes the scores",
     "sim_bench/pipeline/steps/score_ava.py":

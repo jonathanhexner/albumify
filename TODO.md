@@ -8,6 +8,14 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-107 input triage — REVIEW.md follow-ups (2026-10-01, non-blocking)
+
+- [ ] F1: add `__all__` to `sim_bench/triage/metadata.py` + `content.py`. | 2026-10-01 | Claude
+- [ ] F2: update `docs/architecture/data_flow.html` (triage_metadata/triage_content steps + set_aside read path) + `classes.html` (new context fields set_aside/triage_review/ram_tags); add LEARNINGS entry for the pipeline-builder alphabetical-tie-break ordering bug. | 2026-10-01 | Claude
+- [ ] F3: when P4 wires the UI, promote the `set_aside` entry shape to a typed Pydantic model (`extra="forbid"`). | 2026-10-01 | Claude
+- [ ] spec-107 P3: behavioral tier (scene-cluster singletons + no-person; + theme-relevance from spec-108) — needs full contiguous roll. | 2026-10-01 | Claude
+- [ ] spec-107 P4: discard-review UX contract (reason chips + one-click restore) for spec-106; never silent-delete. | 2026-10-01 | Claude
+
 ## spec-104 staged process isolation — SIGHTING-117 durable fix (2026-07-30)
 
 - [x] Phase 0: add missing `extract_face_embeddings.release()` (~360 MB reclaimed, verified by probe); re-diagnose SIGHTING-117 (real cause = stacked torch model memory, not detections/crops). | 2026-07-30 | Claude

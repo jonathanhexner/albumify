@@ -1,6 +1,9 @@
 # spec-107 — Input Triage & Discard Review
 
-**Status:** In Progress — approved 2026-10-01. **P0 metadata tier** (`triage/metadata.py`, 9 tests, 8/8 screenshots on 715 roll, 0 FP) + **P1 content tier** (`triage/content.py` + `RamTagger`, 8 tests; caught 3 junk items metadata missed incl. the album-leaking poster, no FP) done. Next: P2 pipeline step + Slovakia re-run (0 junk in album).
+**Status:** Implemented (P0–P2) 2026-10-01 — REVIEW.md ACCEPT, architecture+triage suites green (149).
+P0 metadata tier + P1 content tier + P2 pipeline steps & `set_aside` contract shipped; end-to-end
+verified **0 junk in the curated album** (vs 6/20 before) on the real Slovakia roll. **P3 (behavioral
+singletons/intent) + P4 (review-UX contract) remain** — P3 depends on spec-108; both tracked below.
 **Owner:** Jonathan / Claude
 **Priority:** P1 (proven necessary; blocks honest curation on real uploads)
 **Relation:** feeds / is fed by [[spec-108]] (theme-relevance signal); surfaced in [[spec-106]] UI.

@@ -37,7 +37,10 @@ The intent is bidirectional drift protection — code-and-spec stay aligned, or 
 | Field | Type | Unit | Producer | Consumer(s) | Persisted | Lifecycle | Notes |
 |---|---|---|---|---|---|---|---|
 | `source_directory` | `Path` | path | pipeline runner | (many) | yes (`run_metadata.source_path`) | full run | input only, never mutated |
-| `image_paths` | `list[Path]` | path | `discover_images` | (many) | indirectly (`faces.image_path` rows) | full run | every face/score row keys off these |
+| `image_paths` | `list[Path]` | path | `discover_images`, `triage_metadata`/`triage_content` (filter) | (many) | indirectly (`faces.image_path` rows) | full run | discover produces; triage filters to survivors (spec-107) |
+| `set_aside` | `list[dict]` | — | `triage_metadata`, `triage_content` (spec-107) | result/UI (discard review) | NOT YET (UI contract, P4) | from triage → end | `{image, reason, confidence, tier}`; removed from curation, never deleted |
+| `triage_review` | `list[dict]` | — | `triage_metadata`, `triage_content` (spec-107) | result/UI | NOT YET (P4) | from triage → end | kept-but-flagged items; same entry shape as `set_aside` |
+| `ram_tags` | `dict[str, list]` | text | `triage_content` (RAM++, spec-107) | triage + spec-108 semantic layer | `universal_cache` (`ram_tags`, model `ram_plus_swin_l_14m`) | producer → end | open-vocab content tags per image; cached, reused downstream |
 
 ### 3.2 Image-level scores
 
