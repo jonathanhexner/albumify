@@ -8,6 +8,13 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-108 album semantic layer — REVIEW.md follow-ups (2026-10-02)
+
+- [ ] T1 (§4): document the `album_theme` two-writer contract (infer_album_theme produces source=tags; caption_album refines source=vlm) in code + spec-034. | 2026-10-02 | Claude
+- [ ] T2 (§7): update `docs/architecture/data_flow.html` + `classes.html` for the semantic-layer steps (derive_semantic_tags, infer_album_theme, caption_keepers/album), the new context fields (semantic_tags, album_theme), and the VLM classes (VLMProvider, SubprocessVLMProvider). | 2026-10-02 | Claude
+- [ ] T3 (§5): live caption E2E (MiniCPM-V) on the spec-109 GPU worker — gates spec-108 P2 → Implemented. | 2026-10-02 | Claude/spec-109
+- [ ] T4 (§6): typed `extra="forbid"` model for `album_theme` (and `set_aside`) when the UI consumes them. | 2026-10-02 | Claude
+
 ## spec-107 input triage — REVIEW.md follow-ups (2026-10-01, non-blocking)
 
 - [x] F1: added `__all__` to `sim_bench/triage/metadata.py` + `content.py`. | 2026-10-01 | Claude

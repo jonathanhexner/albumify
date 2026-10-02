@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-02 [DOCS] spec-108 code review — REVIEW.md + REVIEW.html (P0/P1 accept, P2 code-complete)
+**Files**: `specs/108-album-semantic-layer/REVIEW.md` + `REVIEW.html` (new), `TODO.md` (T1-T4), `CHANGES_LOG.md`.
+**Change**: /code-review against all 8 checklist sections for spec-108 P0-P2. Verdict: P0 (semantic tags) + P1 (tag-based theme) ACCEPT; P2 (captions + VLM seam) ACCEPT as code-complete but NOT Implemented (no live VLM E2E — deferred to spec-109 GPU worker); spec stays In Progress (P1.3/P3/P4 unbuilt). 0 hard blockers (not flipping to Implemented). 26 unit tests green. Findings: §4 album_theme two-writer (T1), §7 architecture-HTML drift (T2), §5 P2 live E2E gap (T3), §6 typed album_theme at UI (T4). Also produced an HTML rendering of the review in the Albumify visual identity (theme-aware).
+**Reason**: user ran /code-review on spec-108 and asked for an HTML version.
+
 ### 2026-10-02 [CONFIG] spec-108 — VLM cache off C:; live CPU inference deferred to GPU worker
 **Files**: `sim_bench/vlm/vlm_worker.py` (set `HF_HUB_CACHE=D:\hf_cache\hub` + disable xet before transformers import), `specs/108-album-semantic-layer/tasks.md`, `docs/project/LEARNINGS.md`.
 **Change**: provisioned + load-tested MiniCPM-V 4.5 in the isolated `.venv-vlm`. Proven: downloads (all 4 shards, cache relocated C:->D: after C: hit 100%), and the worker LOADS the 8B model (`{"ready": true}`, bf16, transformers 4.51 isolated from the main 4.57 env). NOT achievable on this CPU box: a single caption inference never completed in the runner's wall-clock (8B VLM on CPU = minutes/call, swaps a 16 GB model on 32 GB). Hardened the worker to keep the ~16 GB cache off the small/full C: drive by default. Live caption + latency are now a spec-109 GPU-worker gate; P2 code is complete + unit-proven against the stub-verified seam (26 tests). LEARNINGS entry captures the 5-step friction chain (version conflict -> torchvision -> xet/symlink -> C: full -> CPU too slow).

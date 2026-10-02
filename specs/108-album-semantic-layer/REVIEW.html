@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spec-108 — Code Review · Album Semantic Layer</title>
+<style>
+:root{
+  --ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;
+  --ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;
+  --accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --maxw:1080px;
+}
+@media (prefers-color-scheme:light){:root{--ground:#F5F0E7;--surface:#FFF;--surface-2:#FBF6EC;--line:#E4DACB;
+  --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}}
+:root[data-theme="dark"]{--ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;--ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;}
+:root[data-theme="light"]{--ground:#F5F0E7;--surface:#FFF;--surface-2:#FBF6EC;--line:#E4DACB;--ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.58;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+h1,h2,h3,h4{margin:0;letter-spacing:-.02em;text-wrap:balance;font-weight:800;}
+p{margin:0;}
+code{font-family:var(--mono);font-size:.88em;color:var(--ink-dim);}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+header{border-bottom:1px solid var(--line);background:var(--surface);}
+.head{padding:48px 0 38px;}
+.flag{display:inline-block;width:14px;height:18px;background:var(--accent);vertical-align:-3px;margin-right:10px;clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);}
+h1{font-size:clamp(27px,4.6vw,44px);line-height:1.04;margin:14px 0 0;}
+.verdict{margin-top:20px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 12px 12px 0;padding:16px 20px;}
+.verdict .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);}
+.verdict p{margin-top:8px;font-size:14.5px;color:var(--ink-dim);}
+.verdict b{color:var(--ink);}
+.meta-row{margin-top:20px;display:flex;gap:9px;flex-wrap:wrap;}
+.tag{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);background:var(--surface-2);}
+section{padding:46px 0;border-bottom:1px solid var(--line);}
+.sec-eyebrow{margin-bottom:10px;}
+.sec-title{font-size:clamp(21px,2.8vw,29px);}
+.sec-lead{margin-top:10px;color:var(--ink-dim);max-width:72ch;}
+h3.blk{font-size:15px;margin:26px 0 8px;color:var(--ink);font-family:var(--mono);letter-spacing:.02em;}
+.tscroll{overflow-x:auto;margin-top:18px;border:1px solid var(--line);border-radius:12px;}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px;}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface-2);}
+tbody tr:last-child td{border-bottom:0;}
+td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);}
+tbody td:first-child code{color:var(--ink);}
+/* findings */
+.find{margin-top:14px;display:flex;flex-direction:column;gap:10px;}
+.f{display:grid;grid-template-columns:132px 1fr;gap:14px;border:1px solid var(--line);border-radius:11px;padding:13px 16px;background:var(--surface);}
+@media(max-width:640px){.f{grid-template-columns:1fr;}}
+.f .sec{font-family:var(--mono);font-size:12px;color:var(--ink);font-weight:700;}
+.f .sec .v{display:block;margin-top:5px;font-weight:400;}
+.v.pass{color:var(--good);}.v.pwf{color:var(--warn);}.v.fail{color:var(--crit);}
+.f .txt{font-size:13.5px;color:var(--ink-dim);}
+.f .txt b{color:var(--ink);}
+/* tickets */
+.tix{margin-top:16px;display:flex;flex-direction:column;gap:9px;}
+.t{display:grid;grid-template-columns:48px 1fr;gap:12px;border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:9px;padding:11px 14px;background:var(--surface);}
+.t .id{font-family:var(--mono);font-weight:700;color:var(--warn);font-size:13px;}
+.t .d{font-size:13.5px;color:var(--ink-dim);}
+.chip{display:inline-block;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:999px;margin-left:6px;}
+.c-low{color:var(--good);border:1px solid color-mix(in srgb,var(--good) 45%,transparent);}
+.c-med{color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);}
+.verd-row{display:grid;grid-template-columns:120px 1fr;gap:14px;border-bottom:1px solid var(--line);padding:11px 0;font-size:14px;}
+.verd-row:last-child{border-bottom:0;}
+.verd-row .s{font-family:var(--mono);font-size:12px;font-weight:700;}
+.s.ok{color:var(--good);}.s.part{color:var(--warn);}
+.note{margin-top:14px;font-size:13px;color:var(--muted);}
+footer{padding:28px 0 56px;}
+.foot{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap head">
+    <div class="eyebrow"><span class="flag"></span>spec-108 · code review · 2026-10-02</div>
+    <h1>Album Semantic Layer — Review</h1>
+    <div class="verdict">
+      <div class="k">Verdict</div>
+      <p><b>spec stays In Progress.</b> P0 + P1 <b style="color:var(--good)">ACCEPT</b> (done, verified).
+      P2 <b style="color:var(--warn)">ACCEPT as code-complete, NOT Implemented</b> — no live VLM E2E
+      (deferred to the spec-109 GPU worker). No §1–§7 hard blockers: the spec is not being flipped to
+      Implemented.</p>
+    </div>
+    <div class="meta-row">
+      <span class="tag">Scope <b>P0 · P1 · P2</b></span>
+      <span class="tag">Tests <b>26 unit · green</b></span>
+      <span class="tag">Base <b>main</b></span>
+      <span class="tag">Blockers <b>0</b></span>
+      <span class="tag">Tickets <b>4</b></span>
+    </div>
+  </div>
+</header>
+
+<!-- Part 1 -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">Part 1 · How it works</div>
+    <h2 class="sec-title">Module inventory &amp; data flow</h2>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>File</th><th class="num">LOC</th><th>Responsibility</th></tr></thead>
+        <tbody>
+          <tr><td><code>semantic/tags.py</code></td><td class="num">82</td><td>pure clean() + categorize() → SemanticTags (facets)</td></tr>
+          <tr><td><code>semantic/theme.py</code></td><td class="num">67</td><td>pure infer_theme() → AlbumTheme</td></tr>
+          <tr><td><code>semantic/captions.py</code></td><td class="num">58</td><td>pure clean_caption(), build_album_prompt(), KEEPER_PROMPT</td></tr>
+          <tr><td><code>steps/derive_semantic_tags.py</code></td><td class="num">42</td><td>step: ram_tags → semantic_tags</td></tr>
+          <tr><td><code>steps/infer_album_theme.py</code></td><td class="num">41</td><td>step: semantic_tags → album_theme</td></tr>
+          <tr><td><code>steps/caption_keepers.py</code></td><td class="num">70</td><td>step (opt-in): per-keeper VLM caption → image_captions</td></tr>
+          <tr><td><code>steps/caption_album.py</code></td><td class="num">67</td><td>step (opt-in): text-only synthesis → album_theme.caption</td></tr>
+          <tr><td><code>vlm/base.py</code></td><td class="num">38</td><td>VLMProvider protocol (the seam)</td></tr>
+          <tr><td><code>vlm/vlm_worker.py</code></td><td class="num">116</td><td>MiniCPM-V worker (runs in .venv-vlm), JSON-lines, --stub</td></tr>
+          <tr><td><code>vlm/subprocess_provider.py</code></td><td class="num">104</td><td>SubprocessVLMProvider — spawns worker, implements seam</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 class="blk">data flow</h3>
+    <p class="sec-lead"><code>triage_content</code> (ram_tags, cached) → <code>derive_semantic_tags</code>
+    → <code>infer_album_theme</code> → … → <code>select_best</code> → <code>caption_keepers</code>
+    → <code>caption_album</code>. Steps are translators; <code>semantic/</code> + <code>vlm/</code>
+    are framework-agnostic; the VLM backend is reachable only through the <code>VLMProvider</code>
+    protocol, and transformers-4.51 lives only in <code>.venv-vlm</code> (never imported by the main env).</p>
+  </div>
+</section>
+
+<!-- Part 2 -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">Part 2 · Findings</div>
+    <h2 class="sec-title">Per checklist section</h2>
+    <div class="find">
+      <div class="f"><div class="sec">§1 Structure<span class="v pass">pass</span></div><div class="txt">All modules ≤116 LOC, single-purpose; steps thin (spec-053). No dead code; no &gt;4-param functions.</div></div>
+      <div class="f"><div class="sec">§2 Code quality<span class="v pass">pass</span></div><div class="txt"><code>try/except</code> only around model load + per-image inference, each degrading to <code>""</code>/empty (never raises → one bad image can't fail a run). No silent defaults on load-bearing fields.</div></div>
+      <div class="f"><div class="sec">§3 Naming<span class="v pass">pass</span></div><div class="txt">New <code>semantic/</code> + <code>vlm/</code> subpackages — correct promotion. <code>__all__</code> on domain modules; <code>vlm_worker.py</code> is a script.</div></div>
+      <div class="f"><div class="sec">§4 Layering<span class="v pwf">pass-with-followup</span></div><div class="txt">Clean domain/step split; VLM behind a protocol. <b>Finding (low):</b> <code>album_theme</code> has <b>two writers</b> — <code>infer_album_theme</code> produces (source=tags), <code>caption_album</code> overwrites (source=vlm). Intentional refine-in-place, ordered by depends_on, but the two-way writer must be documented → <b>T1</b>.</div></div>
+      <div class="f"><div class="sec">§5 Testability<span class="v pass">P0/P1 pass</span> <span class="v pwf">P2 pwf</span></div><div class="txt"><b>26 unit tests</b> (tags 8, theme 5+2, derive 2, captions 12). P0/P1 are pure deterministic logic over tags → unit tests are the right coverage (+ real-tag sanity check). <b>Finding (P2, med):</b> caption steps tested only with a <b>fake provider</b> — <b>no live VLM E2E</b> (MiniCPM loads but CPU inference impractical here; deferred to GPU worker). Gated OFF + not in any active path → followup, not blocker → <b>T3</b>. Subprocess IPC stub-proven.</div></div>
+      <div class="f"><div class="sec">§6 Boundary<span class="v pwf">pass-with-followup</span></div><div class="txt">No new Pydantic/Pandera — internal dataclasses + context dicts. <code>VLMProvider</code> is a runtime_checkable Protocol (seam contract; isinstance holds). New context fields have spec-034 rows. <b>Finding (low):</b> type <code>album_theme</code> (extra=forbid) when the UI consumes it → <b>T4</b>.</div></div>
+      <div class="f"><div class="sec">§7 Documentation<span class="v pwf">pass-with-followup</span></div><div class="txt">spec.md, tasks.md, REVIEW.md, CHANGES_LOG (5), LEARNINGS (VLM-on-CPU) present. <b>Finding (med):</b> <code>data_flow.html</code> + <code>classes.html</code> not yet updated for the semantic steps / context fields / VLM classes → <b>T2</b> (documentation mandate).</div></div>
+      <div class="f"><div class="sec">§8 Risk<span class="v pass">pass</span></div><div class="txt">Deferred work (P2 live, P1.3, P3, P4) tracked. VLM env friction in LEARNINGS. Caption steps gated off → CI/other pipelines unaffected. Hot-path: P0/P1 reuse cached tags (~0 cost); VLM gated + isolated.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- Part 3 -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">Part 3 · Verdict &amp; tickets</div>
+    <h2 class="sec-title">Accept per tier · 0 blockers · 4 follow-ups</h2>
+    <div style="margin-top:18px">
+      <div class="verd-row"><span class="s ok">ACCEPT</span><div><b>P0 — semantic tags.</b> Done, verified, 10 tests.</div></div>
+      <div class="verd-row"><span class="s ok">ACCEPT</span><div><b>P1 — tag-based theme.</b> Done, verified ("family trip — towns &amp; nature"), 7 tests.</div></div>
+      <div class="verd-row"><span class="s part">CODE-COMPLETE</span><div><b>P2 — captions + VLM seam.</b> Accept as code; <b>NOT Implemented</b> until a live caption E2E runs on the spec-109 GPU worker (T3).</div></div>
+      <div class="verd-row"><span class="s part">IN PROGRESS</span><div><b>spec-108 overall</b> — P1.3 / P3 / P4 unbuilt. No handoff to Implemented attempted, so no §1–§7 blocker gate applies.</div></div>
+    </div>
+    <h3 class="blk">follow-up tickets</h3>
+    <div class="tix">
+      <div class="t"><div class="id">T1</div><div class="d">§4 · document the <code>album_theme</code> two-writer contract (produce→refine) in code + spec-034. <span class="chip c-low">low</span></div></div>
+      <div class="t"><div class="id">T2</div><div class="d">§7 · update <code>data_flow.html</code> + <code>classes.html</code> for semantic steps, context fields, VLM classes. <span class="chip c-med">med</span></div></div>
+      <div class="t"><div class="id">T3</div><div class="d">§5 · live caption E2E (MiniCPM-V) on the spec-109 GPU worker — gates P2 → Implemented. <span class="chip c-med">med</span></div></div>
+      <div class="t"><div class="id">T4</div><div class="d">§6 · typed <code>extra="forbid"</code> model for <code>album_theme</code> (and <code>set_aside</code>) when the UI consumes them. <span class="chip c-low">low</span></div></div>
+    </div>
+    <p class="note">Full checklist text: <code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>. Markdown source of this review: <code>specs/108-album-semantic-layer/REVIEW.md</code>.</p>
+  </div>
+</section>
+
+<footer><div class="wrap foot">
+  <span>spec-108 · Album Semantic Layer · code review</span>
+  <span>P0/P1 accept · P2 code-complete · live VLM = GPU worker</span>
+</div></footer>
+</body>
+</html>
