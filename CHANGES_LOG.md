@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-04 [DOCS] Modal explainer HTML (general + our architecture/implementation)
+**Files**: `specs/109-parallel-gpu-execution/modal_explainer.html` (new).
+**Change**: comprehensive explainer — (1) what Modal is (serverless GPU, infra-as-Python, old-way-vs-Modal), (2) the 5 core concepts (App/Image/Function/Volume/run-vs-deploy), (3) scale-to-zero + cold-start viz, (4) OUR architecture (edge -> FastAPI control plane -> Modal curate on L4 -> Volumes, with built/todo badges), (5) OUR implementation (annotated modal_app.py skeleton + code-map rows: two images, add_local_python_source, Volumes, device->cuda, gpu=L4), (6) deploy lifecycle (you-vs-Modal responsibilities), (7) cost table (L4/T4/A10G, ~1-2c/album), (8) status. Theme-aware, 8 sections.
+**Reason**: user asked for a comprehensive HTML explaining Modal generally + our architecture/SW implementation specifically.
+
+
 ### 2026-10-04 [FEATURE] spec-109 P2 — Modal GPU worker scaffolded (host approved)
 **Files**: `sim_bench/serving/__init__.py` + `modal_app.py` + `README.md` (new); `specs/109-parallel-gpu-execution/{spec.md,tasks.md}`. Installed `modal` 1.6.1 (main venv).
 **Change**: user approved Modal as the GPU host. Built the serverless-GPU worker: `modal_app.py` defines an L4 app with `gpu_smoke` (CUDA-visibility proof) + `curate` (runs the real pipeline on GPU over uploaded images, device=cuda in step configs, models on Modal Volumes `albumify-models`/`albumify-hf-cache`, code via add_local_python_source). App constructs against modal 1.6.1 (verified by import). README gives the exact user commands (modal setup -> smoke -> volume put models -> curate -> deploy) + MODEL_MANIFEST + cost (~1-2c/album on L4, $0 idle). Smoke-first design: prove GPU + account cheaply before the heavy image/model upload. **NOT deployed/verified — needs the user's Modal auth (account/billing); cannot deploy from here.** This is the remote-GPU execution target the 9 s/img CPU baseline proved mandatory; also the eventual home for MiniCPM-V live inference (spec-108 P2).
