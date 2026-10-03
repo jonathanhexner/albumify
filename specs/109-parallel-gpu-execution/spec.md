@@ -1,6 +1,8 @@
 # spec-109 — Parallel GPU Execution (hit the interactive runtime bar)
 
-**Status:** In Progress — 2026-10-04. **P0 started.** T0.1 baseline timing running (full default_pipeline).
+**Status:** In Progress — 2026-10-04. **Host: Modal (approved).** P2 GPU worker scaffolded
+(`sim_bench/serving/modal_app.py`, `gpu_smoke` + `curate` on L4, models on Volumes) — deploy/verify
+needs the user's Modal auth. **P0 done** (baseline). T0.1 baseline timing running (full default_pipeline).
 **T0.2 defer-embedding REVISED by a dependency finding:** `select_best` uses `use_face_subclusters=True`
 (default) → it consumes `context.face_clusters` for identity-aware per-person selection, which needs
 `extract_face_embeddings` on ALL faces. **So embeddings are genuinely on the album-critical path and

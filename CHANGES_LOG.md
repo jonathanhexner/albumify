@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-04 [FEATURE] spec-109 P2 — Modal GPU worker scaffolded (host approved)
+**Files**: `sim_bench/serving/__init__.py` + `modal_app.py` + `README.md` (new); `specs/109-parallel-gpu-execution/{spec.md,tasks.md}`. Installed `modal` 1.6.1 (main venv).
+**Change**: user approved Modal as the GPU host. Built the serverless-GPU worker: `modal_app.py` defines an L4 app with `gpu_smoke` (CUDA-visibility proof) + `curate` (runs the real pipeline on GPU over uploaded images, device=cuda in step configs, models on Modal Volumes `albumify-models`/`albumify-hf-cache`, code via add_local_python_source). App constructs against modal 1.6.1 (verified by import). README gives the exact user commands (modal setup -> smoke -> volume put models -> curate -> deploy) + MODEL_MANIFEST + cost (~1-2c/album on L4, $0 idle). Smoke-first design: prove GPU + account cheaply before the heavy image/model upload. **NOT deployed/verified — needs the user's Modal auth (account/billing); cannot deploy from here.** This is the remote-GPU execution target the 9 s/img CPU baseline proved mandatory; also the eventual home for MiniCPM-V live inference (spec-108 P2).
+**Reason**: user: approve Modal, set up the GPU worker.
+
+
 ### 2026-10-04 [TEST] spec-109 T0.1 — full-pipeline CPU timing baseline + defer-embedding finding
 **Files**: `scripts/spec109_baseline_timing.py` (new), `reports/2026-10-04_spec109_baseline/` (summary.md + timing.json), `reports/EXPERIMENTS.md`, `specs/109-parallel-gpu-execution/{spec.md,tasks.md}`.
 **Change**: measured the REAL default_pipeline (38 steps incl. occlusion CLIP + GeoCalib tilt) on 57 scored Slovakia images, CPU: 9.0 s/img total (512s). Top costs: RAM++ triage 3.0s + GeoCalib tilt 2.6s = 62%, face stack (detect+embed) 2.0s = 23%; all GPU-friendly models. Confirms CPU is non-interactive (100 imgs=15min) -> GPU (P2) mandatory. T0.2 finding: defer-embedding is NOT a free win because select_best default use_face_subclusters=True consumes face_clusters (needs embeddings on all faces before selection) -> embeddings stay on the critical path; speed via P1/P2, do not skip. spec/tasks updated.

@@ -18,7 +18,17 @@
 - [ ] T1.3 Verify results equivalent to serial; measure near-linear speedup.
 - **Gate:** CPU parallel speedup ≈ worker count; identical album.
 
-## P2 — Remote GPU path
+## P2 — Remote GPU path  (Modal approved 2026-10-04)
+- [>] T2.0 Modal GPU worker scaffolded: `sim_bench/serving/modal_app.py` (`gpu_smoke` + `curate` on an
+      L4, models on Modal Volumes, code via `add_local_python_source`) + `README.md` (auth→smoke→upload
+      →curate→deploy). App constructs against modal 1.6.1. **Deploy/verify needs the USER's Modal auth
+      (account/billing) — cannot be done from here.** Smoke-first: prove GPU before the heavy image.
+- [ ] T2.1 (next, after user `modal setup` + smoke) iterate the `full_image` dep set on first deploy;
+      upload models to the volume; set `device=cuda` in step configs (done in `curate`).
+- [ ] T2.2 Benchmark GPU per-step ms/img + end-to-end 100/300; confirm ≤3–5 min (target <1 min).
+- [ ] T2.3 `score_tilt` (GeoCalib, 2.6 s/img on CPU) GPU-only/optional; confirm rotation within budget.
+
+## P2 — Remote GPU path (original)
 - [ ] T2.1 Device-aware config: ONNX CUDA EP + torch CUDA for InsightFace / DINOv2 / YOLO / AVA.
 - [ ] T2.2 Benchmark on a cloud GPU (L4/T4): per-step ms/img, end-to-end 100/300 photos.
 - [ ] T2.3 Make `score_tilt` (GeoCalib) GPU-only/optional; confirm rotation included within budget.
