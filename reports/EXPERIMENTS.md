@@ -4,6 +4,10 @@ One entry per experiment, 2 lines each: (1) name + goal, (2) outcome + link.
 Convention: `reports/<YYYY-MM-DD>_<slug>/report.html` + `summary.md` (see CLAUDE.md §Experiment reports).
 Entries below predate the convention; their reports live at the linked legacy locations.
 
+- **2026-10-04 spec-109 full-pipeline CPU timing baseline (57 imgs)** — honest per-step timing of the REAL default_pipeline (38 steps incl. occlusion/tilt), not the lean faces variant.
+  **9.0 s/img on CPU → non-interactive** (100 imgs=15min). Top costs: RAM++ triage 3.0s + GeoCalib tilt 2.6s = 62%; face stack 2.0s = 23%. All GPU-friendly models. Defer-embedding is NOT free (select_best identity-subclusters need embeddings). GPU mandatory; blocker = host choice (Modal). [summary](2026-10-04_spec109_baseline/summary.md)
+
+
 - **2026-10-01 Slovakia26 — triage + curation + performance on a real roll (75 of 715)** — run the pipeline on a real messy trip (screenshots left in) to answer: what junk to discard, how curation performs, and what's slow.
   **6/20 album picks were junk** (incl. a Gmail screenshot at 0.70 = top score); junk out-scored real photos (0.54 vs 0.41) -> quality scoring *rewards* screenshots, so triage must precede curation. Metadata caught 8 screenshots free; RAM++ caught 2 more posters. The 14 real picks look sound (8 scene clusters). Runtime ~2.2 s/img (CPU, faces pipeline), **face stack = 75%** (detect 908 + embed 753 ms/img). [report](2026-10-01_slovakia_analysis/report.html) · [summary](2026-10-01_slovakia_analysis/summary.md)
 

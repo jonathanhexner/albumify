@@ -3,9 +3,14 @@
 **Status:** Draft — no implementation until spec.md approved. Rationale: `spec.md` (Slovakia26 timing).
 
 ## P0 — Baseline & defer-embedding (CPU, measurable now)
-- [ ] T0.1 Re-run the **full** `default_pipeline` (incl. rotation/occlusion) on the Slovakia subset for true per-step timing (today's numbers are the lean `faces` variant).
-- [ ] T0.2 Defer `extract_face_embeddings` to post-selection (embed survivors + for people view only); verify equivalent album. ~−34% critical path.
-- **Gate:** album unchanged (within SIGHTING-122 tolerance); measured CPU speedup from deferral.
+- [>] T0.1 Re-run the **full** `default_pipeline` (incl. rotation/occlusion) on the Slovakia subset for true per-step timing (today's numbers are the lean `faces` variant). | 2026-10-04 running
+- [~] T0.2 Defer `extract_face_embeddings` — **REVISED (not a free win).** Dependency finding 2026-10-04:
+      `select_best` default `use_face_subclusters=True` consumes `context.face_clusters` (identity-aware
+      per-person selection) → needs embeddings on ALL faces BEFORE selection. Deferral would change the
+      default album (identity-aware → scene-only). So embeddings stay on the critical path; deferral is
+      only an **opt-in scene-only selection mode** (future), not the default. The speed lever moves to
+      P1 (parallelize the face stack) + P2 (GPU), since the stack is genuinely needed.
+- **Gate (revised):** honest full-pipeline per-step baseline captured; defer-embedding reframed + documented.
 
 ## P1 — Parallel per-image execution
 - [ ] T1.1 Identify pure per-image steps (score/detect/embed) vs cross-image steps (scene/face cluster, select_best).

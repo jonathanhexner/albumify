@@ -1,6 +1,13 @@
 # spec-109 — Parallel GPU Execution (hit the interactive runtime bar)
 
-**Status:** Draft — awaiting approval
+**Status:** In Progress — 2026-10-04. **P0 started.** T0.1 baseline timing running (full default_pipeline).
+**T0.2 defer-embedding REVISED by a dependency finding:** `select_best` uses `use_face_subclusters=True`
+(default) → it consumes `context.face_clusters` for identity-aware per-person selection, which needs
+`extract_face_embeddings` on ALL faces. **So embeddings are genuinely on the album-critical path and
+cannot be trivially deferred** without changing the default album (identity-aware → scene-only). The
+~34% "defer" win in the original draft was based on a wrong assumption. Real levers: **P1 parallelism +
+P2 GPU** (the face stack is needed, so speed it up rather than skip it). Deferral is only viable as an
+opt-in "scene-only selection" mode — tracked, not default.
 **Owner:** Jonathan / Claude
 **Priority:** P1 (gates the live product's usability; sizes [[spec-106]] serving)
 **Relation:** reuses [[spec-104]] isolation; its output is consumed by [[spec-106]] (the service).

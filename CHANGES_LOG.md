@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-04 [TEST] spec-109 T0.1 — full-pipeline CPU timing baseline + defer-embedding finding
+**Files**: `scripts/spec109_baseline_timing.py` (new), `reports/2026-10-04_spec109_baseline/` (summary.md + timing.json), `reports/EXPERIMENTS.md`, `specs/109-parallel-gpu-execution/{spec.md,tasks.md}`.
+**Change**: measured the REAL default_pipeline (38 steps incl. occlusion CLIP + GeoCalib tilt) on 57 scored Slovakia images, CPU: 9.0 s/img total (512s). Top costs: RAM++ triage 3.0s + GeoCalib tilt 2.6s = 62%, face stack (detect+embed) 2.0s = 23%; all GPU-friendly models. Confirms CPU is non-interactive (100 imgs=15min) -> GPU (P2) mandatory. T0.2 finding: defer-embedding is NOT a free win because select_best default use_face_subclusters=True consumes face_clusters (needs embeddings on all faces before selection) -> embeddings stay on the critical path; speed via P1/P2, do not skip. spec/tasks updated.
+**Reason**: spec-109 P0 baseline before GPU/parallel; corrects the earlier lean-faces numbers + the defer-embedding assumption.
+
+
 ### 2026-10-02 [DOCS] spec-108 code review — REVIEW.md + REVIEW.html (P0/P1 accept, P2 code-complete)
 **Files**: `specs/108-album-semantic-layer/REVIEW.md` + `REVIEW.html` (new), `TODO.md` (T1-T4), `CHANGES_LOG.md`.
 **Change**: /code-review against all 8 checklist sections for spec-108 P0-P2. Verdict: P0 (semantic tags) + P1 (tag-based theme) ACCEPT; P2 (captions + VLM seam) ACCEPT as code-complete but NOT Implemented (no live VLM E2E — deferred to spec-109 GPU worker); spec stays In Progress (P1.3/P3/P4 unbuilt). 0 hard blockers (not flipping to Implemented). 26 unit tests green. Findings: §4 album_theme two-writer (T1), §7 architecture-HTML drift (T2), §5 P2 live E2E gap (T3), §6 typed album_theme at UI (T4). Also produced an HTML rendering of the review in the Albumify visual identity (theme-aware).
