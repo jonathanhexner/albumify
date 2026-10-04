@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-05 [FEATURE] spec-106 P0 — album.json normalizer (drop-reason derivation)
+**Files**: `sim_bench/album/__init__.py` + `schema.py` + `normalizer.py` (new), `tests/album/test_normalizer.py` (new, 6 tests), `specs/106-albumify-web-showcase/tasks.md` (P0 done).
+**Change**: the data contract the whole app reads. `schema.py`: Album/Pick/Dropped/Person/Counts/ScoreBreakdown + reason codes (pick/near_dup/not_selected/set_aside), JSON-friendly to_dict(). `normalizer.py`: pure `classify()` DERIVES each photo's status from state the pipeline already produces (selected->pick; triage set_aside->set_aside; same scene cluster as a pick->near_dup w/ beaten_by; else survivor->not_selected) — formalizing the "the info is already there" insight; `normalize(context,job_id,created_at)` assembles picks (composite+iqa+ava+occlusion+tilt breakdown, "what it beat", caption), ALL dropped photos with reasons (promotable=True, show-everything principle), people (from people_clusters), theme (spec-108 album_theme), counts. Maps straighten derivatives back to original stems (albumify_arm pattern). 6 tests green (pure classify + synthetic-context normalize + straighten mapping + JSON). Real-data validation lands when the worker runs (spec-110).
+**Reason**: user: start 106 P0 normalizer. It is the album.json contract the front end, show-everything view, and verification layer all read.
+
+
 ### 2026-10-05 [DOCS] spec-110 created (CPU worker) + spec-109 re-scoped (GPU-only)
 **Files**: `specs/110-containerized-worker-modal-cpu/{spec.md,tasks.md}` (new); `specs/109-parallel-gpu-execution/{spec.md,tasks.md}` (re-scoped).
 **Change**: split the Modal worker into prove-it-runs vs make-it-fast (user's decomposition). spec-110 = Containerized curation worker on Modal CPU: prove the serving data-plane path end-to-end (image build with the finicky dep set, code mount, storage-reference curate(job_id) pulling images from storage, result write) on CPU, isolating "does it run" from the GPU-image + device=cuda unknowns. spec-109 re-scoped to GPU enablement + parallelism ONLY, layered on spec-110's proven worker: GPU image, device=cuda with PER-STEP verification (MediaPipe may be CPU-only), latency to the <=3-5min target, warm-up worker shape (@enter loads once). Storage-reference input moved from 109 to 110 (it's the worker contract, CPU or GPU); the warm-up trigger stays in spec-106's control plane.

@@ -29,6 +29,19 @@ scaffolded in spec-109).
 
 ## Build order (prove each seam before stacking the next — architecture.html §08)
 
+### P0 — album.json normalizer (the contract everything reads)  ✅ DONE 2026-10-05
+- [x] T0.1 `sim_bench/album/schema.py`: `Album/Pick/Dropped/Person/Counts/ScoreBreakdown` + reason codes
+      (pick/near_dup/not_selected/set_aside); `to_dict()` JSON-friendly.
+- [x] T0.2 `sim_bench/album/normalizer.py`: pure `classify()` **derives each photo's drop-reason from
+      existing context** (selected→pick, triage→set_aside, same-scene-as-pick→near_dup, else not_selected)
+      + `normalize(context)` assembles picks (score breakdown + "what it beat" + caption), dropped-with-
+      reasons (all promotable — show-everything), people, theme, counts. Maps straighten derivatives → original stem.
+- [x] T0.3 `tests/album/test_normalizer.py` (6 tests): classify (pure, synthetic) + normalize (synthetic
+      context) + straighten mapping + JSON-serializable. Green.
+- **Gate:** ✅ a finished context → a valid `album.json` carrying EVERY photo + its reason; same shape for
+      live + showcase. (Real-data validation lands when the worker runs, spec-110.)
+
+
 ### P1 — Prove the GPU seam  (depends on user Modal auth)
 - [ ] T1.1 `modal setup` → `gpu_smoke` (CUDA proof). | user
 - [ ] T1.2 **storage-reference `curate(job_id)`** — pull 768px images from storage, run pipeline (device=cuda),
