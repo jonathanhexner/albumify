@@ -137,6 +137,7 @@ footer{padding:30px 0 58px;}
   <a href="#contract">06 · Data contract</a>
   <a href="#components">07 · Components &amp; status</a>
   <a href="#buildorder">08 · Build order</a>
+  <a href="#durability">09 · Observability &amp; durability</a>
 </div></nav>
 
 <!-- 01 -->
@@ -336,6 +337,74 @@ POST /jobs  → control plane (holds S3 creds) mints a <span class="k">presigned
       <div class="card"><h4>6 · Harden &amp; ship</h4><p>Adversarial uploads, cold-start budget, TTL/privacy, cost alarm, <code>/code-review</code>, deploy.</p></div>
     </div>
     <p class="note">Each step ends green and standalone; the GPU seam (1) is first because everything else assumes it works. Full phase detail: <code>plan.html</code>.</p>
+  </div>
+</section>
+
+<!-- 09 -->
+<section id="durability">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">09 · Observability &amp; durability</div>
+    <h2 class="sec-title">The job is a small persisted state machine — every step hits the DB</h2>
+    <p class="sec-lead">Two different shapes, and only one reuses the existing engine. The <b>image pipeline</b> (the 38 steps inside <code>curate</code>) reuses <code>PipelineExecutor</code> as-is — synchronous, in-process, perfect fit. The <b>job orchestration</b> (presign→upload→warm→curate→store→notify) is <b>async, cross-service, long-lived</b>, so it is NOT the pipeline executor — it's a small <b>event-driven state machine</b> whose state lives in the DB, not in memory. Same spirit (step-wise, observable, resumable); different, tiny mechanism.</p>
+
+    <h3 class="blk">Everything-to-DB: write after every transition</h3>
+    <p class="body">The durability + telemetry rule: <b>every stage and every step writes to the DB as it happens</b> — start, complete, or fail, with timestamps, duration, and error. The DB (not memory) is the source of truth for "what happened" and "where to resume." Two tables:</p>
+    <div class="sec-table">
+      <table>
+        <thead><tr><th>Table</th><th>Rows</th><th>Columns (sketch)</th></tr></thead>
+        <tbody>
+          <tr><td><code>jobs</code></td><td>one per job (mutable)</td><td>job_id · state (created/uploading/queued/running/succeeded/failed/expired) · current_stage · bounds · result_ptr · error · created_at · updated_at · ttl</td></tr>
+          <tr><td><code>job_events</code></td><td>append-only log</td><td>job_id · stage · event (start/complete/fail/retry) · ts · duration_ms · detail(json)</td></tr>
+          <tr><td><code>pipeline_steps</code></td><td>per image-pipeline step (from curate)</td><td>job_id · step · success · duration_ms · error — the engine's <code>step_results</code>, persisted</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">The job layer writes a <code>job_events</code> row on each stage transition; the image layer already produces per-step <code>step_results</code> (name/duration/success/error) which the worker persists as <code>pipeline_steps</code> when <code>curate</code> returns (or streams via the progress callback for live per-step status). So <b>both altitudes land in the DB</b> — nothing is only in memory or only in logs.</p>
+
+    <h3 class="blk">The job is config too (same principle as the image pipeline)</h3>
+    <p class="body">"The pipeline <em>is</em> the config" applies one level up: the job's stages, their prerequisites, platform, retry policy, and timeout are declared in a <b>job spec</b> (analogous to <code>configs/pipeline.yaml</code>), not hardcoded — so stages are flexible and the flow is inspectable.</p>
+    <pre><span class="c"># configs/job_pipeline.yaml  (sketch — the job IS config, like the image pipeline)</span>
+stages:
+  presign:   { platform: control_plane, needs: [],                 retry: 2 }
+  upload:    { platform: browser,       needs: [presign],          retry: 3 }   <span class="c"># ∥</span>
+  warm_up:   { platform: modal,         needs: [presign],          retry: 2 }   <span class="c"># ∥</span>
+  curate:    { platform: modal_gpu,     needs: [upload, warm_up],  retry: 1, timeout_s: 1800 }  <span class="c"># join</span>
+  store:     { platform: modal,         needs: [curate],           retry: 3 }
+  notify:    { platform: control_plane, needs: [store],            retry: 3 }</pre>
+
+    <h3 class="blk">What waits for what · what runs where</h3>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Stage</th><th>Runs on</th><th>Waits for</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>presign</td><td>control plane</td><td>job created</td><td></td></tr>
+          <tr><td>downscale + upload</td><td>browser</td><td>presign</td><td>∥ with warm-up</td></tr>
+          <tr><td>warm-up (boot GPU + load models)</td><td>Modal</td><td>presign</td><td>∥ with upload</td></tr>
+          <tr><td class="rec">curate</td><td class="rec">Modal GPU</td><td class="rec">upload <b>and</b> warm-up</td><td class="rec">← the one JOIN</td></tr>
+          <tr><td>write album.json + displays</td><td>Modal (worker)</td><td>curate</td><td></td></tr>
+          <tr><td>notify / serve status</td><td>control plane</td><td>store</td><td></td></tr>
+          <tr><td>view album</td><td>browser</td><td>result available</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">"What waits for what" = each stage's <code>needs:</code> list, evaluated against recorded <code>job_events</code>. The flow is linear except <b>upload ∥ warm-up</b> (parallel) joined at <b>curate</b>. The orchestrator is the control plane, <b>stateless</b>: each event (upload-done callback, curate-returned) loads the job row, records the event, and fires any stage whose <code>needs</code> are now all met.</p>
+
+    <h3 class="blk">Resume = idempotent re-run from the persisted stage</h3>
+    <p class="body">Because the job's state is in the DB and its inputs are in storage keyed by <code>job_id</code>, recovery is simple: on failure/restart, read the job row, find the first incomplete stage, and run from there. The expensive stage, <code>curate(job_id)</code>, is <b>idempotent</b> — re-running reads the same stored images and overwrites the same result. No mid-pipeline checkpointing, no workflow engine.</p>
+    <div class="cards g3">
+      <div class="card"><h4>Isolation</h4><p>Image steps already crash-isolated (spec-104, spawned children). Each Modal invocation is isolated too. A failed stage fails alone.</p></div>
+      <div class="card"><h4>Logs</h4><p>Modal captures per-invocation stdout/stderr automatically; the DB has the structured event log. Two views: raw logs + the event timeline.</p></div>
+      <div class="card eng"><h4>Telemetry we keep</h4><p>Per stage: timestamps, duration, success/fail, retries, platform. Per curate: per-step GPU ms, cold-start s, upload s. Enough to answer "what happened + where did the time go."</p></div>
+    </div>
+
+    <div class="callout">
+      <div class="k">Future hook — AI in the job layer (not now)</div>
+      <p>An AI orchestrator must NOT sequence the image pipeline (it stays a deterministic DAG — reproducibility, spec-053 ordering invariants). But the job state machine can later gain a bounded <b>"configure" stage</b> before <code>curate</code>: an AI picks the per-album pipeline variant + thresholds (the spec-108 album-type tuner). That's <em>escalation, not orchestration</em> — AI parametrizes the run, never reorders its steps. Noted as a hook; deferred.</p>
+    </div>
+    <div class="callout crit">
+      <div class="k">Scope guard</div>
+      <p>No Temporal / Airflow / heavyweight durable-workflow engine. At minutes-long jobs with inputs in storage, a small persisted state machine + idempotent re-run gives ~90% of the benefit for ~10% of the work. Reach for an engine only if jobs become long, branchy, and many — which a portfolio app is not.</p>
+    </div>
   </div>
 </section>
 

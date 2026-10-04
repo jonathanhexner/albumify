@@ -1,61 +1,79 @@
 # spec-106 — Tasks (Direction B — Live Curator)
 
-**Status:** Draft — **no implementation until spec.md is approved and the §8 open decisions are made
-(host + content-safety stance are the two blockers).**
-Full rationale + diagrams: [`plan.html`](plan.html). Superseded the Direction-A task list.
+**Status:** In Progress — build started 2026-10-04. **Design of record: [`architecture.html`](architecture.html)**
+(four planes, warm-up∥upload lifecycle, resolution tiers, show-everything, secrets, job state machine,
+observability/durability). Phase detail: [`plan.html`](plan.html). Host decided: **Modal** (GPU worker
+scaffolded in spec-109).
 
-## Design notes
-- **Reuse the engine, don't touch it.** Workers call `execute_spec(spec, ctx, isolate_steps=True)`
-  (`sim_bench/pipeline/run.py`) on the `default_pipeline` from `configs/pipeline.yaml`. No step changes
-  except the new global top-K cap (T0.1).
-- **Normalized `album.json`** is the single contract the UI reads — identical for live jobs and the
-  precomputed showcase seed, so both render through the same components.
-- **The in-process `_jobs` dict + `BackgroundTasks` (`sim_bench/api/pipeline_service.py`) is retired**,
-  replaced by a durable queue + job store.
-- **Design source of truth:** `design_drafts/albumify_landing.html` tokens (amber accent, warm dark
-  ground, serif/sans/mono) → the app theme, both light/dark.
+## Design notes (decisions, from architecture.html)
+- **Two shapes, one reuses the engine.** The **image pipeline** (38 steps in `curate`) reuses
+  `PipelineExecutor` as-is on Modal (device=cuda). The **job orchestration** is a NEW small
+  **event-driven state machine** (control plane) — async/cross-service/long-lived; the existing
+  synchronous executor does not fit it.
+- **GPU is mandatory, not optional.** The full-pipeline CPU baseline is **9 s/img → non-interactive**
+  (spec-109 T0.1). The live product runs on the Modal L4 worker. (This corrects the earlier
+  "CPU ships v1, GPU is a later optimization" note — that was wrong.)
+- **Resolution tiers:** browser downscales to **768px** for ALL photos (analysis + review); ~1600px
+  display for keepers; original download-only. Don't upload full-res for analysis.
+- **Warm-up ∥ upload:** fire the GPU warm-up when upload STARTS so the cold start hides under the upload.
+- **Storage-reference, not inline bytes:** browser uploads 768px directly to storage via a short-lived
+  presigned URL; the API passes `job_id`; `curate` pulls from storage (idempotent → free resume).
+- **Show everything:** curation is a proposal, not a verdict. `album.json` carries EVERY photo + its drop
+  reason; all are browsable + one-click promotable. Extends spec-107 `set_aside`.
+- **Secrets:** Modal token + object-store creds on trusted hosts only (Vercel env / Modal Secret); NEVER
+  in git / image / browser. Browser gets only scoped, expiring presigned URLs.
+- **Observability/durability:** every stage + step writes to the DB (`jobs`, `job_events`,
+  `pipeline_steps`); the job is config too (`job_pipeline.yaml`-style); resume = idempotent re-run from
+  the persisted stage. No heavyweight workflow engine.
+- **Design tokens:** `design_drafts/albumify_landing.html` → the app theme (both light/dark).
 
-## P0 — Contract & harness (de-risk before infra)
-- [ ] T0.1 Add a global top-K album cap over `select_best`'s per-cluster picks (no global K today) + test.
-- [ ] T0.2 Define `Album`/`Pick`/`Person` TS types (see `plan.html` §7); write the normalizer from
-      `context.selected_images`/`people_clusters`/`scene_clusters` + the `RunExporter` v5 dir → `album.json`.
-- [ ] T0.3 Headless script: folder → `execute_spec(isolate_steps=True)` → `album.json`, run on all 3 real trips.
-- **Gate:** one command turns a folder into a valid `album.json` matching the showcase shape.
+## Build order (prove each seam before stacking the next — architecture.html §08)
 
-## P1 — Containerized worker + durable queue
-- [ ] T1.1 Package pipeline + models into a worker image on the chosen host (Modal recommended).
-- [ ] T1.2 Durable queue + job store; worker pulls jobs, calls `execute_spec`, emits step-complete events, owns persistence.
-- [ ] T1.3 Adversarial memory test: max-N (150) upload under `isolate_steps` → bounded peak RSS, no OOM; a killed step → clean job failure.
-- **Gate:** hand-enqueued 150-img job → album artifacts in storage; RSS bounded; step-kill fails cleanly.
+### P1 — Prove the GPU seam  (depends on user Modal auth)
+- [ ] T1.1 `modal setup` → `gpu_smoke` (CUDA proof). | user
+- [ ] T1.2 **storage-reference `curate(job_id)`** — pull 768px images from storage, run pipeline (device=cuda),
+      write `album.json` + displays back. Replaces the inline-bytes scaffold. Upload models to the Volume.
+- [ ] T1.3 First real `curate` on a stored trip → per-image **GPU latency** + $/album (proves ≤3–5 min).
 
-## P2 — Control-plane API
-- [ ] T2.1 `POST /jobs` (bounds guard → presign upload → enqueue), `GET /jobs/{id}` (status+progress), `GET /jobs/{id}/result`.
-- [ ] T2.2 Progress relay (SSE or poll) sourced from worker step events.
-- [ ] T2.3 Bounds guard: count/size/MIME + decode probe, rate limit, TTL/expiry; typed rejections (413/415/429) not 500s.
-- **Gate:** curl an upload end-to-end; every bound returns a clean typed rejection.
+### P2 — Storage + presigned upload
+- [ ] T2.1 Object store (S3/R2) + per-job prefixes + TTL.
+- [ ] T2.2 Presign endpoint (scoped, expiring write URL); browser PUTs 768px directly.
+- [ ] T2.3 Prove: browser → storage (presigned) → `curate` pulls. No keys reach the browser.
 
-## P3 — Next.js front end
-- [ ] T3.1 `create-next-app` (TS, App Router); port `albumify_landing.html` tokens; both themes; `prefers-reduced-motion`.
-- [ ] T3.2 Dropzone with client-side bounds; live progress (four passes); album + people + why-picked viewers.
-- [ ] T3.3 A designed screen for every job state: queued / rejected / timeout / failed / expired (AC3).
-- **Gate:** a real browser upload renders an album; all states designed.
+### P3 — Control-plane API + job state machine
+- [ ] T3.1 Job state machine (config-driven stages + `needs`); `jobs`/`job_events`/`pipeline_steps` DB;
+      **write-to-DB on every transition** (status, duration, error) — the telemetry "what happened".
+- [ ] T3.2 `POST /jobs` (bounds guard → presign → **fire warm-up** → enqueue), `GET /jobs/{id}` (status from
+      DB), `GET /jobs/{id}/result`. Stateless orchestrator advanced by events.
+- [ ] T3.3 Bounds guard: count/size/MIME + decode probe, rate limit, TTL; typed rejections (413/415/429).
+- [ ] T3.4 Secrets wiring: Vercel env (API) + `modal.Secret` (worker); nothing in git/image/browser.
+- [ ] T3.5 Resume: on restart, read job row → run from first incomplete stage; `curate` idempotent.
 
-## P4 — Showcase seed
-- [ ] T4.1 Ingest the 3 precomputed trips (`D:\albumify_vs_vlm\{budapest,austria,germany}\`) into `album.json` shape as static seed.
-- [ ] T4.2 "How it works" (four-pass explainer) + honest vs-VLM panel with the **required** "preliminary pilot, N=1" caveat.
-- **Gate:** first paint shows curated trips instantly; live + showcase share one component set.
+### P4 — Next.js front end
+- [ ] T4.1 `create-next-app` (TS, App Router); port `albumify_landing.html` tokens; both themes; reduced-motion.
+- [ ] T4.2 Dropzone + **in-browser downscale to 768px** + client-side bounds; direct-to-storage upload.
+- [ ] T4.3 Live progress from `job_events`; **album + show-everything viewer** (picks + dropped-with-reasons + promote).
+- [ ] T4.4 A designed screen for every job state: queued / rejected / timeout / failed / expired.
 
-## P5 — Harden & load-test
-- [ ] T5.1 Cold-start budget; concurrency test (queue-backlog UX); adversarial uploads (HEIC, oversized, zero-faces).
-- [ ] T5.2 Cost/budget alarm; privacy pass (verify TTL purge of uploads + results).
-- [ ] T5.3 Responsive + perf pass; no horizontal body scroll; album interactive fast.
-- **Gate:** AC1–AC10 hold on the public URL from a device that isn't Jonathan's.
+### P5 — Showcase seed
+- [ ] T5.1 Ingest the 3 precomputed trips into the `album.json` shape → instant first paint.
+- [ ] T5.2 "How it works" explainer + honest vs-VLM panel ("preliminary pilot, N=1" caveat).
 
-## P6 — Review & ship
-- [ ] T6.1 `/code-review` → `REVIEW.md`; resolve High findings.
-- [ ] T6.2 CHANGES_LOG + README (run + deploy each one command); flip spec to Implemented.
-- **Gate:** public URL linkable from a resume; REVIEW.md clean.
+### P6 — Harden &amp; ship
+- [ ] T6.1 Adversarial uploads (HEIC/oversized/zero-faces); cold-start budget; concurrency UX.
+- [ ] T6.2 Cost/budget alarm; privacy pass (TTL purge verified); responsive + perf.
+- [ ] T6.3 AC1–AC10 (plan.html) on the public URL from a second device.
+- [ ] T6.4 `/code-review` → `REVIEW.md`; CHANGES_LOG + README; flip to Implemented.
+
+## Open decisions (deciding factors)
+- **Content-safety stance** (public anon upload) — ToS + TTL minimum, or add a safety pre-check? Blocks public launch.
+- **Shareable/persistent albums in v1?** If no → originals stay on device, zero full-res upload (simplest).
+  If yes → upload full-res of keepers lazily after selection. Decides whether keeper-upload exists.
+
+## Future hooks (noted, deferred)
+- AI "configure" stage in the job state machine (album-type tuner, spec-108) — parametrizes the run,
+  never sequences the pipeline. Escalation, not orchestration.
 
 ## Explicitly out of scope (v1)
-Accounts / login / persistence beyond a TTL'd anon session · billing · GPU (CPU ships v1; GPU is a P5
-optimization) · any change to the Streamlit apps or the engine beyond T0.1.
+Accounts / login / persistence beyond a TTL'd anon session · billing · heavyweight workflow engine ·
+any change to the image pipeline beyond device=cuda + the global top-K cap.
