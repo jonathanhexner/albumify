@@ -1,8 +1,11 @@
 # spec-109 — Parallel GPU Execution (hit the interactive runtime bar)
 
-**Status:** In Progress — 2026-10-04. **Host: Modal (approved).** P2 GPU worker scaffolded
-(`sim_bench/serving/modal_app.py`, `gpu_smoke` + `curate` on L4, models on Volumes) — deploy/verify
-needs the user's Modal auth. **P0 done** (baseline). T0.1 baseline timing running (full default_pipeline).
+**Status:** In Progress — RE-SCOPED 2026-10-05 to **GPU enablement + parallelism only.** The
+*containerize-and-run-the-worker* half (image build, code mount, storage-reference `curate`, result
+write) moved to **[[spec-110]]** (prove it on CPU first). spec-109 is now the **make-it-fast** layer on
+top of spec-110's proven worker: swap to a GPU image, `device=cuda` (verify EACH step honors it —
+MediaPipe may be CPU-only), parallelize per-image steps, measure latency → the ≤3–5 min target.
+Host: Modal (approved). **P0 baseline done** (9 s/img CPU — the number that makes GPU mandatory).
 **T0.2 defer-embedding REVISED by a dependency finding:** `select_best` uses `use_face_subclusters=True`
 (default) → it consumes `context.face_clusters` for identity-aware per-person selection, which needs
 `extract_face_embeddings` on ALL faces. **So embeddings are genuinely on the album-critical path and

@@ -18,29 +18,18 @@
 - [ ] T1.3 Verify results equivalent to serial; measure near-linear speedup.
 - **Gate:** CPU parallel speedup ≈ worker count; identical album.
 
-## P2 — Remote GPU path  (Modal approved 2026-10-04)
-- [>] T2.0 Modal GPU worker scaffolded: `sim_bench/serving/modal_app.py` (`gpu_smoke` + `curate` on an
-      L4, models on Modal Volumes, code via `add_local_python_source`) + `README.md` (auth→smoke→upload
-      →curate→deploy). App constructs against modal 1.6.1. **Deploy/verify needs the USER's Modal auth
-      (account/billing) — cannot be done from here.** Smoke-first: prove GPU before the heavy image.
-- [ ] T2.1 (next, after user `modal setup` + smoke) iterate the `full_image` dep set on first deploy;
-      upload models to the volume; set `device=cuda` in step configs (done in `curate`).
-- [ ] T2.2 Benchmark GPU per-step ms/img + end-to-end 100/300; confirm ≤3–5 min (target <1 min).
-- [ ] T2.3 `score_tilt` (GeoCalib, 2.6 s/img on CPU) GPU-only/optional; confirm rotation within budget.
-- [ ] T2.4 **Storage-reference input** (surfaced by design Q&A 2026-10-04): `curate` currently takes image
-      bytes inline (OK for smoke, too big for a real album). Change to upload→storage (Volume/S3/R2)→pass
-      a job id/path→worker pulls. Decouples slow user upload from fast GPU compute. `modal_q_and_a.html`.
-- [ ] T2.5 **Reactive warm-up** (Q&A): fire `gpu_warm.spawn()` (or keep-warm for the session) when upload
-      STARTS so the cold start hides under upload time; stay reactive to preserve $0-idle. Orchestrated by
-      the spec-106 control-plane API.
-- Design note for newcomers: `specs/109-parallel-gpu-execution/modal_q_and_a.html` (whole-pipeline-on-GPU
-      rationale + the two refinements above) and `modal_explainer.html` (general Modal).
-
-## P2 — Remote GPU path (original)
-- [ ] T2.1 Device-aware config: ONNX CUDA EP + torch CUDA for InsightFace / DINOv2 / YOLO / AVA.
-- [ ] T2.2 Benchmark on a cloud GPU (L4/T4): per-step ms/img, end-to-end 100/300 photos.
-- [ ] T2.3 Make `score_tilt` (GeoCalib) GPU-only/optional; confirm rotation included within budget.
-- **Gate:** 100-photo full pipeline ≤ 3–5 min (target < 1 min) on GPU.
+## P2 — GPU enablement  (on spec-110's proven CPU worker)
+> Containerize-and-run (image build, code mount, storage-ref `curate`, result write) moved to
+> **spec-110** — proven on CPU first. The `sim_bench/serving/modal_app.py` scaffold + the
+> `modal_explainer.html` / `modal_q_and_a.html` design notes are shared. spec-109 = make it fast.
+- [ ] T2.1 GPU image: swap CPU deps → CUDA (`onnxruntime-gpu`, torch-CUDA); `gpu="L4"` on `curate`.
+- [ ] T2.2 **Verify EACH step honors `device=cuda`** — not assumed: InsightFace (ONNX CUDA EP), DINOv2,
+      YOLO, AVA, RAM++, GeoCalib, CLIP all run on GPU; **MediaPipe may be CPU-only** → confirm or keep on CPU.
+- [ ] T2.3 Benchmark GPU per-step ms/img + end-to-end 100/300; confirm ≤3–5 min (target <1 min) + $/album.
+- [ ] T2.4 `score_tilt` (GeoCalib, 2.6 s/img CPU) GPU-only/optional; confirm rotation within budget.
+- [ ] T2.5 **Warm-up worker shape**: load models once at container start (Modal `@enter`), stay warm
+      briefly so a warm-up call benefits the real `curate`. (The warm-up *trigger* is spec-106's control plane.)
+- **Gate:** 100-photo full pipeline ≤ 3–5 min on GPU; every step verified on CUDA (or justified on CPU).
 
 ## P3 — Cost + fallback
 - [ ] T3.1 Measure $/album on the chosen GPU (est. ~1–3¢ on L4); confirm idle $0.
