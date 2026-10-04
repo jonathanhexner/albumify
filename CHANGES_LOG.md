@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-04 [DOCS] spec-106 build started — system architecture (incl. secrets)
+**Files**: `specs/106-albumify-web-showcase/architecture.html` (new, design of record); `spec.md` (status In Progress).
+**Change**: began building spec-106 (Live Curator) with the architecture doc first. Captures every design decision from the Modal/upload discussion: (1) four planes w/ trust boundary (untrusted browser -> FastAPI control plane -> Modal GPU -> storage); (2) job lifecycle with warm-up running PARALLEL to upload (cold start hidden); (3) resolution tiers (768px of all for analysis+review, ~1600 display for keepers, original download-only); (4) show-everything principle (curation is a proposal not a verdict; every photo visible + promotable + reason; extends spec-107 set_aside); (5) secrets/keys section (Modal token + object-store creds on trusted hosts via Vercel env/Modal Secret, NEVER in git/image/browser; browser gets only short-lived scoped presigned URLs; the three nevers); (6) album.json data contract carrying all photos + drop reasons; (7) component status; (8) build order (prove GPU seam first). 8 sections, theme-aware.
+**Reason**: user: start building spec-106; spec should have a clear architecture doc incl. how secrets/keys are passed.
+
+
 ### 2026-10-04 [DOCS] Modal Q&A HTML + 2 design refinements (storage-reference, warm-up)
 **Files**: `specs/109-parallel-gpu-execution/modal_q_and_a.html` (new), `specs/109-parallel-gpu-execution/tasks.md` (T2.4, T2.5).
 **Change**: concise newcomer-focused HTML answering 3 architecture questions precisely. (1) Whole pipeline runs on one GPU box (CPU-only steps are ~2% of time, not worth splitting). (2) Passing image bytes inline is scaffold-only; production should upload to storage (Volume/S3/R2) + pass a job reference the worker pulls -> added as T2.4 (a real correction to curate). (3) Reactive warm-up: fire a warm-up when upload STARTS so cold start hides under upload time, stay reactive to keep $0 idle -> added as T2.5. The user's questions defined these two refinements precisely.

@@ -1,6 +1,8 @@
 # spec-106 — Albumify Live Curator (the launchable product)
 
-**Status:** Draft — awaiting approval
+**Status:** In Progress — build started 2026-10-04. **System architecture = `architecture.html`**
+(design of record: four planes, warm-up∥upload lifecycle, resolution tiers, show-everything principle,
+secrets/keys, data contract, build order). Supersedes the Direction-A draft; `plan.html` has the phase detail.
 **Owner:** Jonathan / Claude
 **Branch:** `spec/106-albumify-web-showcase`
 **Direction:** **B — Live Curator** (settled; see `direction_decision.html`). Supersedes the earlier
