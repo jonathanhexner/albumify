@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-05 [FEATURE] spec-111 P0 — AI verification spine (escalation + baseline-eval gate)
+**Files**: `sim_bench/verification/__init__.py` + `types.py` + `escalation.py` + `eval.py` (new), `tests/verification/test_verification_harness.py` (new, 9 tests), `specs/111-ai-verification-layer/tasks.md` (P0 done).
+**Change**: the shared spine every checkpoint plugs into. types.py: Correction (kind/targets/reason/detail) + VerifyResult + correction kinds. escalation.py: `borderline(items, margin, band)` — the cost-bounding trigger (escalate ONLY items within `band` of a decision fence; confident decisions stand — this is what keeps the VLM cost to a handful of calls/album). eval.py: `evaluate(baseline, verified, truth) -> EvalResult` — the AC1 ship gate: agreement-with-human for {deterministic} vs {+verifier} + the honest helped/hurt breakdown of changed items; `.improved` = raises agreement AND helped>=hurt. A checkpoint that doesn't beat baseline stays off. 9 tests (borderline selection/band/empty; evaluate helps/hurts/net-zero/empty; VerifyResult counts). All pure, no VLM/GPU.
+**Reason**: user: build spec-111 P0 verification harness — the infra + baseline-eval gate before any checkpoint.
+
+
 ### 2026-10-05 [FEATURE] spec-106 P0 — album.json normalizer (drop-reason derivation)
 **Files**: `sim_bench/album/__init__.py` + `schema.py` + `normalizer.py` (new), `tests/album/test_normalizer.py` (new, 6 tests), `specs/106-albumify-web-showcase/tasks.md` (P0 done).
 **Change**: the data contract the whole app reads. `schema.py`: Album/Pick/Dropped/Person/Counts/ScoreBreakdown + reason codes (pick/near_dup/not_selected/set_aside), JSON-friendly to_dict(). `normalizer.py`: pure `classify()` DERIVES each photo's status from state the pipeline already produces (selected->pick; triage set_aside->set_aside; same scene cluster as a pick->near_dup w/ beaten_by; else survivor->not_selected) — formalizing the "the info is already there" insight; `normalize(context,job_id,created_at)` assembles picks (composite+iqa+ava+occlusion+tilt breakdown, "what it beat", caption), ALL dropped photos with reasons (promotable=True, show-everything principle), people (from people_clusters), theme (spec-108 album_theme), counts. Maps straighten derivatives back to original stems (albumify_arm pattern). 6 tests green (pure classify + synthetic-context normalize + straighten mapping + JSON). Real-data validation lands when the worker runs (spec-110).

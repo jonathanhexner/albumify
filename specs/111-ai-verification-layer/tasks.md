@@ -5,14 +5,18 @@
 `sim_bench/verification/` domain module; VLM via the spec-108 seam, grounded in our models; **no
 meta-orchestrator, no loop**. Each checkpoint ships only if it beats the deterministic baseline.
 
-## P0 — Shared infrastructure (the layer's spine)
-- [ ] T0.1 `sim_bench/verification/` module: a `VerifyResult {corrections, escalated, reasons}` type +
-      a shared escalation helper `borderline(items, margin) -> subset` (reads confidences/margins).
-- [ ] T0.2 Correction-application contract: how a verifier writes forward into context (cluster
-      reassignment, pick promote/demote, un-set-aside) + surfaces it (reason + reversible, spec-107).
-- [ ] T0.3 **Baseline-eval harness**: given a checkpoint + the labeled/spec-102 eval set, measure
-      agreement-with-human of {deterministic baseline} vs {+verifier}. This is the AC1 gate every
-      checkpoint must pass before it's enabled. Reuse spec-102 metrics.
+## P0 — Shared infrastructure (the layer's spine)  ✅ DONE 2026-10-05
+- [x] T0.1 `sim_bench/verification/types.py`: `Correction` (kind/targets/reason/detail) + `VerifyResult`
+      (checkpoint, n_reviewed, escalated, corrections) + correction kinds (merge/split/promote/demote/
+      unset_aside/reassign). `escalation.py`: `borderline(items, margin, band)` — the cost-bounding
+      trigger (escalate only items within `band` of a decision fence; confident ones stand).
+- [x] T0.2 Correction *vocabulary* + surfacing contract defined (Correction.reason shown + reversible,
+      spec-107). Per-checkpoint forward-application lands with each checkpoint (P1+).
+- [x] T0.3 **Baseline-eval harness** `eval.py`: `evaluate(baseline, verified, truth)` → `EvalResult`
+      with agreement-with-human for both + helped/hurt breakdown of changed items; `.improved` is the
+      AC1 ship gate (raises agreement AND helped >= hurt). 9 tests green.
+- **Gate:** ✅ the spine is in — every checkpoint plugs its margin-fn into `borderline`, returns a
+      `VerifyResult`, and must pass `evaluate(...).improved` before it's enabled.
 
 ## P1 — Checkpoint #1: verify_face_clusters (fold in spec-105)
 - [ ] T1.1 `verify_face_clusters` step after `cluster_face_components`: escalate cluster pairs whose
