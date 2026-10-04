@@ -27,6 +27,14 @@
       upload models to the volume; set `device=cuda` in step configs (done in `curate`).
 - [ ] T2.2 Benchmark GPU per-step ms/img + end-to-end 100/300; confirm ≤3–5 min (target <1 min).
 - [ ] T2.3 `score_tilt` (GeoCalib, 2.6 s/img on CPU) GPU-only/optional; confirm rotation within budget.
+- [ ] T2.4 **Storage-reference input** (surfaced by design Q&A 2026-10-04): `curate` currently takes image
+      bytes inline (OK for smoke, too big for a real album). Change to upload→storage (Volume/S3/R2)→pass
+      a job id/path→worker pulls. Decouples slow user upload from fast GPU compute. `modal_q_and_a.html`.
+- [ ] T2.5 **Reactive warm-up** (Q&A): fire `gpu_warm.spawn()` (or keep-warm for the session) when upload
+      STARTS so the cold start hides under upload time; stay reactive to preserve $0-idle. Orchestrated by
+      the spec-106 control-plane API.
+- Design note for newcomers: `specs/109-parallel-gpu-execution/modal_q_and_a.html` (whole-pipeline-on-GPU
+      rationale + the two refinements above) and `modal_explainer.html` (general Modal).
 
 ## P2 — Remote GPU path (original)
 - [ ] T2.1 Device-aware config: ONNX CUDA EP + torch CUDA for InsightFace / DINOv2 / YOLO / AVA.

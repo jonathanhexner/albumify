@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-04 [DOCS] Modal Q&A HTML + 2 design refinements (storage-reference, warm-up)
+**Files**: `specs/109-parallel-gpu-execution/modal_q_and_a.html` (new), `specs/109-parallel-gpu-execution/tasks.md` (T2.4, T2.5).
+**Change**: concise newcomer-focused HTML answering 3 architecture questions precisely. (1) Whole pipeline runs on one GPU box (CPU-only steps are ~2% of time, not worth splitting). (2) Passing image bytes inline is scaffold-only; production should upload to storage (Volume/S3/R2) + pass a job reference the worker pulls -> added as T2.4 (a real correction to curate). (3) Reactive warm-up: fire a warm-up when upload STARTS so cold start hides under upload time, stay reactive to keep $0 idle -> added as T2.5. The user's questions defined these two refinements precisely.
+**Reason**: user asked for a more concise/precise Modal explainer for a newcomer + raised 3 good architecture questions (steps-on-gpu, data passing, cold-start orchestration).
+
+
 ### 2026-10-04 [DOCS] Modal explainer HTML (general + our architecture/implementation)
 **Files**: `specs/109-parallel-gpu-execution/modal_explainer.html` (new).
 **Change**: comprehensive explainer — (1) what Modal is (serverless GPU, infra-as-Python, old-way-vs-Modal), (2) the 5 core concepts (App/Image/Function/Volume/run-vs-deploy), (3) scale-to-zero + cold-start viz, (4) OUR architecture (edge -> FastAPI control plane -> Modal curate on L4 -> Volumes, with built/todo badges), (5) OUR implementation (annotated modal_app.py skeleton + code-map rows: two images, add_local_python_source, Volumes, device->cuda, gpu=L4), (6) deploy lifecycle (you-vs-Modal responsibilities), (7) cost table (L4/T4/A10G, ~1-2c/album), (8) status. Theme-aware, 8 sections.
