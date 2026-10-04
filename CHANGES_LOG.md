@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-05 [DOCS] spec-111 AI Verification Layer (+ spec-105 folded in as checkpoint #1)
+**Files**: `specs/111-ai-verification-layer/{spec.md,tasks.md}` (new); `specs/105-vlm-merge-arbiter/spec.md` (superseded -> spec-111 checkpoint #1).
+**Change**: formalized the AI double-check idea as the AI Verification Layer: a family of VERIFIER STEPS, one placed immediately after each decision it checks (verify-early, correct-forward) -> no meta-orchestrator, no loop (rejected: nondeterminism/untestable). Thin steps + a sim_bench/verification/ domain module (spec-053); escalate only the borderline subset (cost-bounded); VLM adjudicates via the spec-108 seam GROUNDED in our own models (PhotoTriage/siamese, triage classifier, cluster distances) = AI+tools not AI-instead; corrections flow forward + surfaced/reversible (spec-107). Five checkpoints: verify_face_clusters (=spec-105), verify_scenes, verify_selection (best-of-cluster + soft-K, resolves global-K as target+band), verify_triage. NON-NEGOTIABLE gate: each checkpoint ships only if MEASURED to beat the deterministic baseline on the spec-102/labeled eval sets (faith != evidence). spec-105 superseded -> checkpoint #1.
+**Reason**: user: formalize the AI verification layer (step-inside-pipeline vs orchestrator?) -> decided inline verifier steps; write spec-111.
+
+
 ### 2026-10-04 [DOCS] spec-106 — Observability & Durability architecture + tasks rewrite
 **Files**: `specs/106-albumify-web-showcase/architecture.html` (+§09), `tasks.md` (rewritten to the architecture).
 **Change**: added architecture §09 Observability & Durability: the job is a small event-driven STATE MACHINE (control plane), NOT the pipeline executor (which the IMAGE pipeline reuses as-is); everything-to-DB telemetry (jobs/job_events/pipeline_steps tables, write on every stage+step transition); the job is config too (job_pipeline.yaml-style stages+needs+retry); stage->platform->waits-for map (linear except upload ∥ warm-up joined at curate); resume = idempotent re-run from the persisted stage; future hook = AI "configure" stage (parametrize, not sequence); scope guard = no Temporal/heavyweight engine. Rewrote tasks.md to the architecture build order (GPU seam first) and CORRECTED the wrong "CPU ships v1, GPU is a later optimization" note (the 9 s/img baseline makes GPU mandatory). Folded in all discussed decisions: resolution tiers, warm-up∥upload, storage-reference input, show-everything, secrets wiring, telemetry/DB.
