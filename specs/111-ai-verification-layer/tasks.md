@@ -19,11 +19,16 @@ meta-orchestrator, no loop**. Each checkpoint ships only if it beats the determi
       `VerifyResult`, and must pass `evaluate(...).improved` before it's enabled.
 
 ## P1 — Checkpoint #1: verify_face_clusters (fold in spec-105)
-- [ ] T1.1 `verify_face_clusters` step after `cluster_face_components`: escalate cluster pairs whose
-      distance is near the merge threshold; VLM adjudicates "same person?" grounded in embeddings/distance.
-- [ ] T1.2 Apply merge/split corrections forward; surface them. Thin step + `verify_face_clusters()` helper + fake-VLM test.
-- [ ] T1.3 **AC1 gate**: measure vs baseline on labeled clusters (spec-102/Budapest 340→15). Enable only if it wins.
-- [ ] T1.4 Retire spec-105 as standalone → it is checkpoint #1 here.
+- [x] T1.1 `sim_bench/verification/face_clusters.py`: pure `merge_candidates` (pairs just above the merge
+      threshold via `borderline`) + `split_candidates` (high internal spread) + `verify_face_clusters(...)`
+      with an INJECTED adjudicator (VLM in prod, fake in tests) → MERGE/SPLIT `Correction`s. `cosine_distance`.
+- [x] T1.2 AC1 gate mechanism: `evaluate_clustering()` — pairwise reduction (co-clustered? vs same-person?)
+      → reuses P0 `evaluate()`. 18 verification tests green (candidates, verify, gate helps/hurts).
+- [ ] T1.3 (needs VLM+data) real adjudicator wrapping the VLM seam on face crops; run the AC1 gate on
+      **Budapest 340→15** ground truth — enable the checkpoint only if it beats baseline.
+- [ ] T1.4 (needs integration) thin pipeline step after `cluster_face_components` that applies MERGE/SPLIT
+      forward into `context.face_clusters` + surfaces corrections.
+- [x] T1.5 spec-105 superseded → this is checkpoint #1.
 
 ## P2 — Checkpoint: verify_selection (best-of-cluster + soft-K)
 - [ ] T2.1 best-of-cluster: when top-2 composite within ε in a near-dup group, VLM picks, grounded in the

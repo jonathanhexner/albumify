@@ -12,7 +12,7 @@ from typing import Dict, Hashable
 
 from sim_bench.verification.types import EvalResult
 
-__all__ = ["evaluate"]
+__all__ = ["evaluate", "evaluate_clustering"]
 
 
 def evaluate(baseline: Dict[Hashable, object],
@@ -44,3 +44,28 @@ def evaluate(baseline: Dict[Hashable, object],
         baseline_agreement=round(base_agree, 4), verified_agreement=round(ver_agree, 4),
         n_changed=len(changed), helped=helped, hurt=hurt,
     )
+
+
+def evaluate_clustering(baseline_labels: Dict[Hashable, object],
+                        verified_labels: Dict[Hashable, object],
+                        truth_labels: Dict[Hashable, object],
+                        checkpoint: str = "") -> EvalResult:
+    """AC1 gate for *clustering* checkpoints (faces/scenes) via pairwise reduction.
+
+    Cluster ids are arbitrary (label permutation), so we can't compare labels directly. Instead reduce
+    to pairwise decisions over the labeled faces: for each pair, ``decision = same cluster?`` vs
+    ``truth = same person?``. Then the generic ``evaluate`` applies. O(n²) pairs — fine for eval sets of
+    a few hundred faces.
+    """
+    ids = sorted(truth_labels)
+    pairs_base: Dict = {}
+    pairs_ver: Dict = {}
+    pairs_truth: Dict = {}
+    for a in range(len(ids)):
+        for b in range(a + 1, len(ids)):
+            i, j = ids[a], ids[b]
+            key = (i, j)
+            pairs_truth[key] = truth_labels[i] == truth_labels[j]
+            pairs_base[key] = baseline_labels.get(i) == baseline_labels.get(j)
+            pairs_ver[key] = verified_labels.get(i) == verified_labels.get(j)
+    return evaluate(pairs_base, pairs_ver, pairs_truth, checkpoint)
