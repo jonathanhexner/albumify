@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="REVIEW.md">REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-104-v1--code-review-per-step-process-isolation"
+id="toc-spec-104-v1--code-review-per-step-process-isolation">spec-104 v1
+— Code Review (per-step process isolation)</a>
+<ul>
+<li><a href="#part-1--how-it-works" id="toc-part-1--how-it-works">Part 1
+— How it works</a></li>
+<li><a href="#part-2--findings-by-section"
+id="toc-part-2--findings-by-section">Part 2 — Findings by
+section</a></li>
+<li><a href="#part-3--verdict--follow-ups"
+id="toc-part-3--verdict--follow-ups">Part 3 — Verdict &amp;
+follow-ups</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-104-v1--code-review-per-step-process-isolation">spec-104 v1
+— Code Review (per-step process isolation)</h1>
+<p><strong>Branch</strong>:
+<code>spec/104-staged-process-isolation</code> · <strong>Base</strong>:
+<code>main</code> · <strong>Reviewed</strong>: 2026-09-15
+<strong>Scope</strong>: executor-only per-step process isolation behind
+<code>PipelineConfig.isolate_steps</code> (default OFF).
+<strong>Checklist</strong>:
+<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>.</p>
+<hr />
+<h2 id="part-1--how-it-works">Part 1 — How it works</h2>
+<p><strong>Module inventory (diff vs main):</strong> | File | Change |
+|---|---| | <code>sim_bench/pipeline/config.py</code> |
++<code>isolate_steps: bool = False</code> | |
+<code>sim_bench/pipeline/executor.py</code> |
++<code>_isolated_step_worker</code> (module-level spawn target),
++<code>_execute_step_isolated</code>, +1 branch in
+<code>_execute_step</code> | |
+<code>tests/pipeline/test_step_isolation.py</code> | 6 tests (new) | |
+<code>tests/pipeline/_isolation_fixtures.py</code> | importable step
+fixtures (new) | | <code>scripts/spec104_isolation_probe.py</code> | RSS
+probe (new) | |
+<code>specs/104-.../{spec.md,engineering_design.html}</code> | v1
+section + eng doc |</p>
+<p><strong>Data flow (flag ON):</strong> parent
+<code>_execute_step_isolated</code> → validate in parent → marshal
+picklable context (minus <code>on_progress</code>) → <code>spawn</code>
+child → child re-imports step class (module+qualname), rebuilds context,
+runs <code>step.process()</code> (mutates in place), ships mutated state
+back over a queue → child <strong>exits</strong> (OS reclaims model RSS)
+→ parent applies state, fires relayed progress, returns
+<code>StepResult</code>. Flag OFF → unchanged in-process path.</p>
+<p><strong>Tests run:</strong>
+<code>tests/pipeline/test_step_isolation.py</code> +
+<code>test_executor_step_io_logging.py</code> +
+<code>tests/architecture</code> = <strong>142 passed, 0 failed</strong>.
+Probe: parent RSS <strong>+480 MB in-process vs +1 MB isolated</strong>
+(~100% reclaimed).</p>
+<hr />
+<h2 id="part-2--findings-by-section">Part 2 — Findings by section</h2>
+<p><strong>§1 Structure</strong> — <code>pass-with-followup</code></p>
+<ul>
+<li>⚠ <code>executor.py</code> is now ~388 LOC (&gt;300). Single
+responsibility (the executor) but no size-justifying header. →
+follow-up: extract isolation machinery into
+<code>sim_bench/pipeline/isolation.py</code>.</li>
+<li>⚠ <code>_isolated_step_worker</code> has 5 params (&gt;4). Justified
+— it's a <code>multiprocessing</code> target and the args ARE the
+marshaling payload; could become a small namedtuple. Minor.</li>
+<li>No dead code; no reverse imports; <code>multiprocessing</code> is
+stdlib.</li>
+</ul>
+<p><strong>§2 Code quality</strong> — <code>pass</code></p>
+<ul>
+<li><code>except Exception</code> in the worker is the isolation
+error-capture (ships the failure back, does not swallow). Progress-relay
++ <code>release()</code> swallow-to-warning are on cosmetic/best-effort
+paths, not load-bearing. No precedence traps. Comments answer
+"why".</li>
+</ul>
+<p><strong>§3 Naming</strong> — <code>pass</code></p>
+<ul>
+<li><code>isolate_steps</code>, <code>_execute_step_isolated</code>,
+<code>_isolated_step_worker</code> are accurate. No <code>__all__</code>
+— consistent with the rest of <code>sim_bench/pipeline</code>.</li>
+</ul>
+<p><strong>§4 Layering / coupling</strong> —
+<code>pass-with-followup</code></p>
+<ul>
+<li>⚠ <code>_execute_step_isolated</code> duplicates the
+validation-error block and the in/out logging of
+<code>_execute_step</code>. → follow-up: extract shared
+<code>_validation_failure_result()</code> + <code>_log_io()</code>
+helpers.</li>
+<li>Single-writer respected: the two execution paths are mutually
+exclusive (flag branch); the isolated path replaces context state
+wholesale from the child's copy.</li>
+</ul>
+<p><strong>§5 Testability</strong> — <code>pass-with-followup</code>
+<strong>← the one item for your decision</strong></p>
+<ul>
+<li>Test inventory: <strong>9 integration tests</strong> (real
+subprocesses, not mocks) + <strong>1 probe</strong>. No mocks used.</li>
+<li>✅ Failure-mode walk-through — every known adverse case is
+exercised:
+<ul>
+<li>OOM-kill / segfault (the SIGHTING-117 scenario) →
+<code>test_isolated_crash_parent_survives</code></li>
+<li><strong>hung / infinite step</strong> →
+<code>test_isolated_hung_step_times_out</code> (per-step timeout
+terminates the child)</li>
+<li><strong>non-picklable produced value</strong> →
+<code>test_isolated_nonpicklable_produce_is_clean_error</code> (clean
+error, no hang)</li>
+<li>large payload round-trip →
+<code>test_isolated_large_payload_marshals_back</code> (no feeder-thread
+deadlock)</li>
+<li>in-child exception →
+<code>test_isolated_exception_becomes_failed_result</code>; parity →
+<code>test_default_off_is_identical_to_in_process</code></li>
+<li>memory reclamation → the probe</li>
+</ul></li>
+<li>⚠ <strong>No E2E on the <em>real</em> album pipeline with
+<code>isolate_steps=True</code></strong> (heavy models + data). The
+mechanism + all failure modes are exercised on synthetic steps, but not
+with the real model-loading steps. Mitigations: flag is
+<strong>default-OFF</strong> (production path byte-identical); a
+real-pipeline E2E needs models + <code>needs_data</code>. → follow-up
+ticket: a <code>slow</code>/<code>needs_data</code> E2E running a small
+real pipeline isolated, asserting output equivalence + a bounded-RSS
+assertion.</li>
+</ul>
+<p><strong>§6 Boundary contracts</strong> — <code>pass</code></p>
+<ul>
+<li>No new Pydantic/Pandera models, no DB schema change. The
+serialization boundary is self-enforcing (a non-picklable field fails
+loudly); the only non-picklable member (<code>on_progress</code>) is
+excluded + relayed. Config knob → producer: <code>isolate_steps</code> →
+the executor branch exists.</li>
+</ul>
+<p><strong>§7 Documentation</strong> —
+<code>pass-with-followup</code></p>
+<ul>
+<li>✅ <code>spec.md</code> (v1 section),
+<code>engineering_design.html</code> (the head-of-eng deliverable),
+<code>CHANGES_LOG.md</code>.</li>
+<li>⚠ <code>tasks.md</code> not updated to mark v1 done (still the
+original stage-phase plan). → follow-up.</li>
+<li>⚠ Verify <code>docs/architecture/classes.html</code> —
+<code>PipelineConfig</code> gained a field +
+<code>PipelineExecutor</code> gained a path; update if those docs cover
+the pipeline executor (they may not — currently
+face_cluster/DB-focused). → follow-up.</li>
+<li>⚠ <code>LEARNINGS.md</code> — the durable lesson ("torch CPU RSS
+isn't returned in-process on Windows; process death is the only reliable
+free()") warrants an entry. → follow-up.</li>
+</ul>
+<p><strong>§8 Risk register</strong> — <code>pass</code></p>
+<ul>
+<li>Deferred v2 stage-grouping documented (spec + doc) → follow-up
+ticket.</li>
+<li>No pinned workarounds. Backwards-compat: default-OFF → nothing
+breaks on legacy runs.</li>
+<li>⚠ Hot-path perf: per-step spawn + full-context marshal overhead is
+characterized qualitatively (risk map) but not timed on a real pipeline
+→ covered by the same real-pipeline E2E follow-up.</li>
+</ul>
+<hr />
+<h2 id="part-3--verdict--follow-ups">Part 3 — Verdict &amp;
+follow-ups</h2>
+<p><strong>No high-severity blockers.</strong> No failing tests, no
+safety mechanism removed, no claimed-but-unenforced contract, no
+DB/dependency risk. The default-OFF flag means the production path is
+byte-identical.</p>
+<p><strong>One finding for your explicit call (§5):</strong> the
+isolated path has <strong>no E2E on the real model-loading
+pipeline</strong>. Per the checklist's strict reading ("new API without
+real-data E2E"), this <em>could</em> be treated as a blocker; given
+default-OFF + a fully-exercised mechanism (real subprocesses) + a proven
+memory probe, the reviewer recommends
+<strong>Accept-with-follow-up</strong> (ticket the real-pipeline
+isolated E2E as <code>slow</code>/<code>needs_data</code>).</p>
+<p><strong>Verdict: ACCEPT (v1, flag-gated) with follow-ups</strong> —
+pending your decision on §5.</p>
+<p><strong>Follow-up tickets (→ TODO.md):</strong></p>
+<ol type="1">
+<li><code>slow</code>/<code>needs_data</code> E2E: run a small real
+pipeline with <code>isolate_steps=True</code>; assert output equivalence
+vs in-process + bounded peak RSS. <em>(the §5 item)</em></li>
+<li>Extract isolation machinery into
+<code>sim_bench/pipeline/isolation.py</code>; share validation/logging
+helpers with <code>_execute_step</code>.</li>
+<li>Update <code>tasks.md</code> (v1 done); add
+<code>LEARNINGS.md</code> entry (Windows torch RSS); verify
+<code>classes.html</code>.</li>
+<li>v2: stage-grouping (contiguous steps in one child; disjoint model
+set per stage).</li>
+</ol>
+</div>
+</body>
+</html>

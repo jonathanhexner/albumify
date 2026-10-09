@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-105--vlm-merge-arbiter-renumbered-from-099--collision-with-tilt-spec-adjudicate-the-review-tier"
+id="toc-spec-105--vlm-merge-arbiter-renumbered-from-099--collision-with-tilt-spec-adjudicate-the-review-tier">spec-105
+— VLM Merge Arbiter (renumbered from 099 — collision with tilt spec)
+(adjudicate the <code>review</code> tier)</a>
+<ul>
+<li><a href="#goal" id="toc-goal">Goal</a></li>
+<li><a href="#why-this-slot-nothing-new-to-plumb"
+id="toc-why-this-slot-nothing-new-to-plumb">Why this slot (nothing new
+to plumb)</a></li>
+<li><a href="#scope" id="toc-scope">Scope</a></li>
+<li><a href="#the-vlm-contract" id="toc-the-vlm-contract">The VLM
+contract</a></li>
+<li><a href="#determinism--safety"
+id="toc-determinism--safety">Determinism &amp; safety</a></li>
+<li><a href="#acceptance-criteria"
+id="toc-acceptance-criteria">Acceptance criteria</a></li>
+<li><a href="#open-questions-for-approval"
+id="toc-open-questions-for-approval">Open questions (for
+approval)</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-105--vlm-merge-arbiter-renumbered-from-099--collision-with-tilt-spec-adjudicate-the-review-tier">spec-105
+— VLM Merge Arbiter (renumbered from 099 — collision with tilt spec)
+(adjudicate the <code>review</code> tier)</h1>
+<p><strong>Created</strong>: 2026-07-12 · <strong>Status</strong>:
+SUPERSEDED 2026-10-05 → folded into [[spec-111]] AI Verification Layer
+as <strong>checkpoint #1 (<code>verify_face_clusters</code>)</strong>.
+The merge-arbitration idea here is sound; it is now one checkpoint of
+the general verifier-steps family (verify-early, correct-forward,
+baseline-eval gated). Implement via spec-111 P1, not standalone. ·
+<strong>Priority</strong>: P2 <strong>Depends on</strong>:
+<code>face_cluster/merge.py</code> (<code>ConservativeMerger</code>,
+<code>group_merge_candidates</code>) already emits
+<code>auto_approve / review / auto_reject</code>. Related:
+<code>docs/PLAN_ML_CLUSTER_MERGING.md</code> (the logistic
+<code>MLMerger</code> this spec produces training data for).</p>
+<h2 id="goal">Goal</h2>
+<p>A vision-language model (Claude) adjudicates <strong>only the
+borderline cluster-merge pairs</strong> — the ones the 4-gate heuristic
+already labels <code>review</code>. The VLM sees a few exemplar face
+crops per side, answers <em>same person? yes/no + confidence +
+reason</em>. Verdicts are (a) applied to the merge, (b) <strong>cached
+by pair-hash</strong> so re-runs are free and deterministic, (c)
+<strong>logged as <code>(features → label)</code> rows</strong> that
+train the planned <code>MLMerger</code>. Arbiter now, teacher for
+later.</p>
+<h2 id="why-this-slot-nothing-new-to-plumb">Why this slot (nothing new
+to plumb)</h2>
+<pre><code>candidate pairs ─► 4 gates ─► group_merge_candidates()
+                                     │
+                 ┌───────────────────┼───────────────────┐
+            auto_approve          review              auto_reject
+              (merge)        ► VLM ARBITER ◄            (drop)
+                              THIS SPEC             ~5% of pairs</code></pre>
+<p>The margin already exists (<code>merge_margin</code>, gate C) and the
+<code>review</code> bucket already exists. This spec fills the empty
+arbiter slot; it does <strong>not</strong> touch gate thresholds or the
+bulk clustering path.</p>
+<h2 id="scope">Scope</h2>
+<p><strong>In:</strong></p>
+<ol type="1">
+<li><code>VLMMergeArbiter</code> helper (spec-053 shape:
+<code>__init__(config)</code> + <code>calc(inputs) -&gt; result</code>).
+<ul>
+<li>Input: <code>CandidateGroup</code>s with
+<code>confidence == "review"</code> + exemplar face indices + a
+crop-loader callback.</li>
+<li>For each <code>review</code> pair: render up to N exemplar
+crops/side → one VLM call →
+<code>{merge: bool, confidence: float, reason: str}</code>.</li>
+<li>Output: approved pair list (fed into existing
+<code>apply_manual_merges</code>).</li>
+</ul></li>
+<li><strong>Cache</strong> keyed by
+<code>sha256(sorted exemplar face embeddings + model_id + prompt_version)</code>.
+Same faces → same verdict, no re-call. Stored in
+<code>universal_cache</code> (feature_type
+<code>vlm_merge_verdict</code>), matching the embedding-cache
+pattern.</li>
+<li><strong>Teacher log</strong>: every verdict appended to
+<code>results/face_clustering_training/vlm_verdicts/&lt;run_id&gt;.csv</code>
+with the full 12-feature vector from <code>candidate_pairs</code> + VLM
+label + confidence + reason. This is drop-in training data for
+<code>MLMerger</code> (PLAN_ML_CLUSTER_MERGING §4.5).</li>
+<li><strong>Budget cap</strong> per run
+(<code>vlm_arbiter_max_calls</code>, default e.g. 40). On cap:
+<code>log()</code> how many <code>review</code> pairs were left
+un-adjudicated (no silent truncation).</li>
+<li>Config flags on <code>PipelineConfig</code> (all default OFF —
+opt-in): <code>vlm_arbiter_enabled=False</code>,
+<code>vlm_arbiter_model="claude-opus-4-8"</code>,
+<code>vlm_arbiter_max_calls=40</code>,
+<code>vlm_arbiter_exemplars_per_side=4</code>,
+<code>vlm_arbiter_min_confidence=0.6</code> (below → treat as no-merge,
+keep separate).</li>
+</ol>
+<p><strong>Out (explicitly):</strong></p>
+<ul>
+<li>No change to gate thresholds, candidate proposal, or
+<code>auto_approve</code>/<code>auto_reject</code>.</li>
+<li>Not a runtime dependency for the happy path — with the flag off,
+behavior is byte-identical to today (Budapest E2E must stay
+<code>n_clusters == 15</code>).</li>
+<li>No <code>MLMerger</code> training in this spec — we only
+<em>produce</em> its rows.</li>
+<li>No new UI tab; surface verdicts in the existing merge-decisions
+panel later.</li>
+</ul>
+<h2 id="the-vlm-contract">The VLM contract</h2>
+<pre><code>System: You judge whether two sets of face crops show the SAME person.
+        Default to &quot;no&quot; when uncertain — a wrong merge is worse than a miss.
+Input:  side A: [crop, crop, crop, crop]   side B: [crop, crop, crop, crop]
+Output (StructuredOutput / tool): {&quot;same_person&quot;: bool,
+                                   &quot;confidence&quot;: 0.0-1.0,
+                                   &quot;reason&quot;: &quot;&lt;=15 words&quot;}</code></pre>
+<p>Asymmetry is deliberate: escalation exists to <em>prevent</em>
+over-merging, so the arbiter is biased conservative and
+<code>min_confidence</code> gates the "yes".</p>
+<h2 id="determinism--safety">Determinism &amp; safety</h2>
+<ul>
+<li>Cache-first: a hashed verdict never re-calls the model →
+reproducible runs.</li>
+<li>Cap-bounded: <code>vlm_arbiter_max_calls</code> is a hard ceiling on
+cost per run.</li>
+<li>Flag-gated: OFF by default; every existing test path is
+unaffected.</li>
+<li>Conservative default: uncertain / low-confidence → do
+<strong>not</strong> merge.</li>
+</ul>
+<h2 id="acceptance-criteria">Acceptance criteria</h2>
+<ol type="1">
+<li>Flag OFF → Budapest E2E unchanged (<code>n_clusters == 15</code>,
+sizes match). <em>(binding)</em></li>
+<li>Flag ON, cache warm → <strong>zero</strong> VLM calls on a second
+identical run (assert call count 0).</li>
+<li>Every adjudicated pair writes exactly one teacher row with all 12
+features + label; row count == VLM call count.</li>
+<li>Cap reached → a <code>log()</code>/warning names the count of
+un-adjudicated <code>review</code> pairs.</li>
+<li><code>confidence &lt; min_confidence</code> → pair NOT merged (unit
+test with a mocked VLM).</li>
+<li>Unit tests mock the VLM (no network in CI); one integration test
+behind a marker hits the real API on the Budapest <code>review</code>
+set.</li>
+<li>REVIEW.md produced via <code>/code-review</code>; no High findings
+open.</li>
+</ol>
+<h2 id="open-questions-for-approval">Open questions (for approval)</h2>
+<ul>
+<li><strong>Q1 crop source</strong>: aligned crops from spec-091 disk
+cache, or crop-on-the-fly from <code>image_path + bbox</code>? (Lean:
+reuse spec-091 cache — already on disk.)</li>
+<li><strong>Q2 merge application</strong>: route VLM-approved pairs
+through the existing <code>apply_manual_merges()</code> (treat VLM as an
+auto-labeler of the manual panel), or a new path? (Lean: reuse
+<code>apply_manual_merges</code> — same union-find,
+transitive-safe.)</li>
+<li><strong>Q3 client</strong>: does this repo already have an Anthropic
+client/key wired, or is adding <code>anthropic</code> + key management
+part of this spec's slice-0?</li>
+</ul>
+</div>
+</body>
+</html>

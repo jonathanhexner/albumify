@@ -131,6 +131,12 @@ Brief technical decisions that inform the tasks below.
 - Each phase ends with a checkpoint (usually a test command)
 - Mark tasks done as `[x]` during implementation
 
+### 3. `updates.md` — Progress & verification log (required once work starts)
+Dated entries, newest first. Each entry: what landed + **how it was verified** (test file and count,
+report path, real-data outcome). Also records decisions, blockers, and branch-outs to other specs.
+Header links back to `ROADMAP.md` and names the roadmap stage. Flipping to `Implemented` requires an
+entry naming the verification evidence. Render with `scripts/md2html.py` after each edit.
+
 ## Optional Artifacts
 
 Create these only when they earn their keep:

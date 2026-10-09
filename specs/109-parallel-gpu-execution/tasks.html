@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-109--tasks-parallel-gpu-execution"
+id="toc-spec-109--tasks-parallel-gpu-execution">spec-109 — Tasks
+(Parallel GPU Execution)</a>
+<ul>
+<li><a href="#p0--baseline--defer-embedding-cpu-measurable-now"
+id="toc-p0--baseline--defer-embedding-cpu-measurable-now">P0 — Baseline
+&amp; defer-embedding (CPU, measurable now)</a></li>
+<li><a href="#p1--parallel-per-image-execution"
+id="toc-p1--parallel-per-image-execution">P1 — Parallel per-image
+execution</a></li>
+<li><a href="#p2--gpu-enablement-on-spec-110s-proven-cpu-worker"
+id="toc-p2--gpu-enablement-on-spec-110s-proven-cpu-worker">P2 — GPU
+enablement (on spec-110's proven CPU worker)</a></li>
+<li><a href="#p3--cost--fallback" id="toc-p3--cost--fallback">P3 — Cost
++ fallback</a></li>
+<li><a href="#p4--ship" id="toc-p4--ship">P4 — Ship</a></li>
+<li><a href="#out-of-scope" id="toc-out-of-scope">Out of scope</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-109--tasks-parallel-gpu-execution">spec-109 — Tasks
+(Parallel GPU Execution)</h1>
+<p><strong>Status:</strong> Draft — no implementation until spec.md
+approved. Rationale: <code>spec.md</code> (Slovakia26 timing).</p>
+<h2 id="p0--baseline--defer-embedding-cpu-measurable-now">P0 — Baseline
+&amp; defer-embedding (CPU, measurable now)</h2>
+<ul>
+<li>[&gt;] T0.1 Re-run the <strong>full</strong>
+<code>default_pipeline</code> (incl. rotation/occlusion) on the Slovakia
+subset for true per-step timing (today's numbers are the lean
+<code>faces</code> variant). | 2026-10-04 running</li>
+<li>[~] T0.2 Defer <code>extract_face_embeddings</code> —
+<strong>REVISED (not a free win).</strong> Dependency finding
+2026-10-04: <code>select_best</code> default
+<code>use_face_subclusters=True</code> consumes
+<code>context.face_clusters</code> (identity-aware per-person selection)
+→ needs embeddings on ALL faces BEFORE selection. Deferral would change
+the default album (identity-aware → scene-only). So embeddings stay on
+the critical path; deferral is only an <strong>opt-in scene-only
+selection mode</strong> (future), not the default. The speed lever moves
+to P1 (parallelize the face stack) + P2 (GPU), since the stack is
+genuinely needed.</li>
+<li><strong>Gate (revised):</strong> honest full-pipeline per-step
+baseline captured; defer-embedding reframed + documented.</li>
+</ul>
+<h2 id="p1--parallel-per-image-execution">P1 — Parallel per-image
+execution</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T1.1 Identify pure per-image steps
+(score/detect/embed) vs cross-image steps (scene/face cluster,
+select_best).</label></li>
+<li><label><input type="checkbox" />T1.2 Parallel executor: fan
+per-image steps across workers (≈1/4 GB, spec-104 capacity) / GPU
+batches; barrier into cross-image steps.</label></li>
+<li><label><input type="checkbox" />T1.3 Verify results equivalent to
+serial; measure near-linear speedup.</label></li>
+</ul>
+<ul>
+<li><strong>Gate:</strong> CPU parallel speedup ≈ worker count;
+identical album.</li>
+</ul>
+<h2 id="p2--gpu-enablement-on-spec-110s-proven-cpu-worker">P2 — GPU
+enablement (on spec-110's proven CPU worker)</h2>
+<blockquote>
+<p>Containerize-and-run (image build, code mount, storage-ref
+<code>curate</code>, result write) moved to <strong>spec-110</strong> —
+proven on CPU first. The <code>sim_bench/serving/modal_app.py</code>
+scaffold + the <code>modal_explainer.html</code> /
+<code>modal_q_and_a.html</code> design notes are shared. spec-109 = make
+it fast.</p>
+</blockquote>
+<ul class="task-list">
+<li><label><input type="checkbox" />T2.1 GPU image: swap CPU deps → CUDA
+(<code>onnxruntime-gpu</code>, torch-CUDA); <code>gpu="L4"</code> on
+<code>curate</code>.</label></li>
+<li><label><input type="checkbox" />T2.2 <strong>Verify EACH step honors
+<code>device=cuda</code></strong> — not assumed: InsightFace (ONNX CUDA
+EP), DINOv2, YOLO, AVA, RAM++, GeoCalib, CLIP all run on GPU;
+<strong>MediaPipe may be CPU-only</strong> → confirm or keep on
+CPU.</label></li>
+<li><label><input type="checkbox" />T2.3 Benchmark GPU per-step ms/img +
+end-to-end 100/300; confirm ≤3–5 min (target &lt;1 min) +
+$/album.</label></li>
+<li><label><input type="checkbox" />T2.4 <code>score_tilt</code>
+(GeoCalib, 2.6 s/img CPU) GPU-only/optional; confirm rotation within
+budget.</label></li>
+<li><label><input type="checkbox" />T2.5 <strong>Warm-up worker
+shape</strong>: load models once at container start (Modal
+<code>@enter</code>), stay warm briefly so a warm-up call benefits the
+real <code>curate</code>. (The warm-up <em>trigger</em> is spec-106's
+control plane.)</label></li>
+</ul>
+<ul>
+<li><strong>Gate:</strong> 100-photo full pipeline ≤ 3–5 min on GPU;
+every step verified on CUDA (or justified on CPU).</li>
+</ul>
+<h2 id="p3--cost--fallback">P3 — Cost + fallback</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T3.1 Measure $/album on the chosen
+GPU (est. ~1–3¢ on L4); confirm idle $0.</label></li>
+<li><label><input type="checkbox" />T3.2 Characterize the CPU-parallel
+fallback (potential free tier).</label></li>
+</ul>
+<ul>
+<li><strong>Gate:</strong> $/album reported; fallback measured.</li>
+</ul>
+<h2 id="p4--ship">P4 — Ship</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T4.1 CHANGES_LOG +
+<code>/code-review</code> → REVIEW.md; hand the execution path to
+spec-106.</label></li>
+</ul>
+<h2 id="out-of-scope">Out of scope</h2>
+<p>The serving app/queue/upload (spec-106) · auto-scaling &amp; tiering
+policy · any change to curation results.</p>
+</div>
+</body>
+</html>

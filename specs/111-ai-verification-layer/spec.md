@@ -1,6 +1,6 @@
 # spec-111 — AI Verification Layer
 
-**Status:** Draft — awaiting approval
+**Status:** In Progress — P0 (spine) + P1 core (`verify_face_clusters`, pairwise gate) built 2026-10-05, 18 tests green. Built ahead of the roadmap's v1.5 placement; owner call pending (ROADMAP decision #4). Progress: [updates.html](updates.html)
 **Owner:** Jonathan / Claude
 **Priority:** P2 (the marquee "shine" feature; quality depth on top of the deterministic engine)
 **Relation:** subsumes [[spec-105]] (VLM merge arbiter) as checkpoint #1; shares the VLM seam with

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>updates</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="updates.md">updates.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-107--progress--verification-updates"
+id="toc-spec-107--progress--verification-updates">spec-107 — Progress
+&amp; verification updates</a>
+<ul>
+<li><a href="#how-it-was-verified" id="toc-how-it-was-verified">How it
+was verified</a></li>
+<li><a href="#why-it-exists" id="toc-why-it-exists">Why it
+exists</a></li>
+<li><a href="#notable" id="toc-notable">Notable</a></li>
+<li><a href="#timeline" id="toc-timeline">Timeline</a></li>
+<li><a href="#reports--artifacts" id="toc-reports--artifacts">Reports
+&amp; artifacts</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-107--progress--verification-updates">spec-107 — Progress
+&amp; verification updates</h1>
+<p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
+href="tasks.html">tasks.md</a> · <a href="REVIEW.html">REVIEW.md</a> ·
+roadmap stage: <strong>B</strong> · see <a
+href="../../ROADMAP.html">ROADMAP.md</a></p>
+<p><strong>Status:</strong> Implemented P0–P2 (2026-10-01). P3
+(behavioral tier) and P4 (discard-review UX) open.</p>
+<h2 id="how-it-was-verified">How it was verified</h2>
+<table>
+<thead>
+<tr>
+<th>Increment</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P0 metadata tier (filename / camera EXIF / format / screen
+dims)</td>
+<td>9 unit tests; full 715-photo Slovakia26 roll: 8/8 screenshots set
+aside, 707 kept, 0 false positives</td>
+</tr>
+<tr>
+<td>P1 RAM++ content tier (photographed docs/posters/re-shared
+screenshots)</td>
+<td>8 unit tests; 75-image real-tag Slovakia subset: caught the 8
+screenshots + 3 junk items metadata missed (incl. the poster that had
+leaked into the album), signs-in-scene downgraded to review, no false
+positives</td>
+</tr>
+<tr>
+<td>P2 pipeline steps + <code>set_aside</code> contract</td>
+<td>19 triage tests incl. real-roll integration; end-to-end
+<code>scripts/verify_spec107_no_junk.py</code> → <strong>0 junk in the
+curated album</strong></td>
+</tr>
+<tr>
+<td>Builder ordering bug found by the E2E</td>
+<td><code>tests/pipeline/test_builder.py::test_independent_steps_keep_declared_order</code>;
+191 pipeline+triage tests green</td>
+</tr>
+<tr>
+<td>Code review</td>
+<td>REVIEW.md ACCEPT; architecture + triage suites 149 passed; 2
+architecture-guard blockers fixed during review</td>
+</tr>
+</tbody>
+</table>
+<h2 id="why-it-exists">Why it exists</h2>
+<p>Slovakia26 analysis (2026-10-01, see spec-102 updates): 6/20 picks
+were junk and scoring rewarded screenshots. Triage must run before
+scoring.</p>
+<h2 id="notable">Notable</h2>
+<ul>
+<li>The end-to-end verify first FAILED: the pipeline builder was
+tie-breaking the topological sort alphabetically, so scoring ran before
+triage regardless of pipeline.yaml. Fixed in the builder; LEARNINGS
+entry 2026-10-01.</li>
+</ul>
+<h2 id="timeline">Timeline</h2>
+<ul>
+<li>2026-10-01 — P0, P1, P2 built and verified; builder fix; REVIEW.md
+ACCEPT; architecture HTMLs updated.</li>
+</ul>
+<h2 id="reports--artifacts">Reports &amp; artifacts</h2>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a
+href="../../reports/2026-10-01_slovakia_analysis/report.html">Slovakia26
+analysis</a></td>
+<td>the proof of need: 6/20 picks junk, Gmail screenshot top score, junk
+0.54 vs real 0.41 composite</td>
+</tr>
+<tr>
+<td><a
+href="../../reports/2026-10-01_ram_vs_clip_tagging/report.html">RAM++ vs
+CLIP tagging</a></td>
+<td>30 photos, 3 trips: RAM++ 11.7 tags/img (210 distinct) vs CLIP 2.5
+(closed 20) → RAM++ chosen for the content tier</td>
+</tr>
+<tr>
+<td><a
+href="../../reports/2026-10-01_ram_defect_detection/report.html">RAM++
+for defect detection</a></td>
+<td>RAM++ is content-only: occlusion AUC 0.38 vs probe 0.98, no blur tag
+ever fires → triage uses it for junk content, not quality</td>
+</tr>
+<tr>
+<td><a
+href="../../reports/2026-10-01_clip_tagging_method/report.html">CLIP
+tagging method</a></td>
+<td>the poor CLIP tags were the reading method, not the model; CLIP
+still cannot judge composition</td>
+</tr>
+<tr>
+<td>Verify log</td>
+<td><code>reports/_spec107_verify.log</code>: 11 set aside (8 metadata +
+3 content), 57 scored, 0 junk in the 20 picks</td>
+</tr>
+<tr>
+<td><a href="REVIEW.html">REVIEW</a></td>
+<td>ACCEPT; 149 tests</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>

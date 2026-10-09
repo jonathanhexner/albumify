@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-109--parallel-gpu-execution-hit-the-interactive-runtime-bar"
+id="toc-spec-109--parallel-gpu-execution-hit-the-interactive-runtime-bar">spec-109
+— Parallel GPU Execution (hit the interactive runtime bar)</a>
+<ul>
+<li><a href="#1-problem-measured" id="toc-1-problem-measured">1. Problem
+(measured)</a></li>
+<li><a href="#2-goal--non-goals" id="toc-2-goal--non-goals">2. Goal /
+non-goals</a></li>
+<li><a href="#3-scope" id="toc-3-scope">3. Scope</a></li>
+<li><a href="#4-approach" id="toc-4-approach">4. Approach</a></li>
+<li><a href="#5-acceptance-criteria" id="toc-5-acceptance-criteria">5.
+Acceptance criteria</a></li>
+<li><a href="#6-dependencies-risks--the-tiering-note"
+id="toc-6-dependencies-risks--the-tiering-note">6. Dependencies, risks
+&amp; the tiering note</a></li>
+<li><a href="#7-definition-of-done" id="toc-7-definition-of-done">7.
+Definition of done</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-109--parallel-gpu-execution-hit-the-interactive-runtime-bar">spec-109
+— Parallel GPU Execution (hit the interactive runtime bar)</h1>
+<p><strong>Status:</strong> In Progress — RE-SCOPED 2026-10-05 to
+<strong>GPU enablement + parallelism only.</strong> The
+<em>containerize-and-run-the-worker</em> half (image build, code mount,
+storage-reference <code>curate</code>, result write) moved to
+<strong>[[spec-110]]</strong> (prove it on CPU first). spec-109 is now
+the <strong>make-it-fast</strong> layer on top of spec-110's proven
+worker: swap to a GPU image, <code>device=cuda</code> (verify EACH step
+honors it — MediaPipe may be CPU-only), parallelize per-image steps,
+measure latency → the ≤3–5 min target. Host: Modal (approved).
+<strong>P0 baseline done</strong> (9 s/img CPU — the number that makes
+GPU mandatory). <strong>T0.2 defer-embedding REVISED by a dependency
+finding:</strong> <code>select_best</code> uses
+<code>use_face_subclusters=True</code> (default) → it consumes
+<code>context.face_clusters</code> for identity-aware per-person
+selection, which needs <code>extract_face_embeddings</code> on ALL
+faces. <strong>So embeddings are genuinely on the album-critical path
+and cannot be trivially deferred</strong> without changing the default
+album (identity-aware → scene-only). The ~34% "defer" win in the
+original draft was based on a wrong assumption. Real levers: <strong>P1
+parallelism + P2 GPU</strong> (the face stack is needed, so speed it up
+rather than skip it). Deferral is only viable as an opt-in "scene-only
+selection" mode — tracked, not default. <strong>Owner:</strong> Jonathan
+/ Claude <strong>Priority:</strong> P1 (gates the live product's
+usability; sizes [[spec-106]] serving) <strong>Relation:</strong> reuses
+[[spec-104]] isolation; its output is consumed by [[spec-106]] (the
+service).</p>
+<h2 id="1-problem-measured">1. Problem (measured)</h2>
+<p>The full pipeline on CPU is far over the interactive bar. Measured on
+Slovakia26 (2026-10-01, 768px, CPU, the lean <code>faces</code>
+variant):</p>
+<ul>
+<li><strong>~2.2 s/image</strong>; the <strong>face stack is
+75%</strong> (<code>insightface_detect_faces</code> 908 ms/img +
+<code>extract_face_embeddings</code> 753 ms/img). Scene/people/quality
+are the other 25%.</li>
+<li>This <strong>excludes</strong> rotation (<code>score_tilt</code>
+GeoCalib ~1.9 s/img) + occlusion CLIP, which the full
+<code>default_pipeline</code> adds on top.</li>
+<li>Extrapolated: 100 photos ≈ 3.7 min (faces only); +triage +rotation
++occlusion → <strong>10+ min.</strong></li>
+</ul>
+<p><strong>Target:</strong> a 100-photo album should complete in
+<strong>≤ 3–5 min</strong> (aim &lt; 1 min). Runtime — not memory
+(spec-104 capacity) — is the ceiling.</p>
+<h2 id="2-goal--non-goals">2. Goal / non-goals</h2>
+<p><strong>Goal:</strong> execute the pipeline fast enough for
+interactive use via (a) remote <strong>GPU</strong> execution and (b)
+<strong>parallelism</strong> over the embarrassingly-parallel per-image
+steps, plus (c) deferring work that the album ranking doesn't need.</p>
+<p><strong>Non-goals:</strong> the serving app / queue / upload path
+(spec-106 consumes this); auto-scaling policy and tiering (later — see
+note); changing curation <em>results</em> (must stay equivalent).</p>
+<h2 id="3-scope">3. Scope</h2>
+<ul>
+<li><strong>Remote GPU worker</strong> — ONNX CUDA EP + torch CUDA for
+the InsightFace / DINOv2 / YOLO / AVA stack. Estimated ~10–30× →
+~0.1–0.2 s/img → 100 photos in ~20–40 s (to be validated on real
+hardware).</li>
+<li><strong>Parallelize per-image steps</strong> — score / detect /
+embed shard across workers (or GPU batches); the <strong>cross-image
+steps</strong> (scene clustering, face clustering, select_best) run once
+on the gathered results. CPU fallback: shard across processes (~1 worker
+/ 4 GB, spec-104 capacity).</li>
+<li><strong>Defer face embedding</strong> —
+<code>extract_face_embeddings</code> (34% of runtime) produces
+<em>identity</em> for the "who's here" view, <strong>not</strong> needed
+for album pick ranking. Run detection on all; embed only the survivors +
+for the people view. Removes ~a third of the critical path.</li>
+<li><strong>Rotation cost</strong> — <code>score_tilt</code> (GeoCalib)
+is heavy; make it GPU-only or optional; <code>straighten_images</code>
+is already terminal (winners only).</li>
+<li><strong>Benchmark</strong> — per-step GPU timing, end-to-end for
+100/300 photos, and <strong>$/album</strong> (Modal L4 $0.000222/s →
+est. ~1–3¢/100-photo album; validate).</li>
+</ul>
+<h2 id="4-approach">4. Approach</h2>
+<p>Add a GPU execution path (device-aware step config) and a parallel
+executor that fans the per-image steps across workers/batches, then
+barriers into the cross-image steps. Land the defer-embedding change as
+an ordering/scope change in the pipeline. Validate on a cloud GPU (we
+only have CPU torch locally).</p>
+<h2 id="5-acceptance-criteria">5. Acceptance criteria</h2>
+<ul>
+<li><strong>AC1</strong> 100-photo <strong>full</strong> pipeline (incl.
+rotation) completes <strong>≤ 3–5 min</strong> (target &lt; 1 min) on
+the chosen GPU.</li>
+<li><strong>AC2</strong> Measured <strong>$/album</strong> reported
+(est. ~1–3¢ on L4); idle cost $0 (scale-to-zero via spec-106 host).</li>
+<li><strong>AC3</strong> Defer-embedding produces an <strong>equivalent
+album</strong> (same picks within SIGHTING-122 tolerance) and still
+powers the people view.</li>
+<li><strong>AC4</strong> Parallel per-image steps give near-linear
+speedup to the worker count; cross-image steps unaffected; results
+equivalent to serial.</li>
+<li><strong>AC5</strong> CPU parallel fallback measured (for a possible
+free tier).</li>
+</ul>
+<h2 id="6-dependencies-risks--the-tiering-note">6. Dependencies, risks
+&amp; the tiering note</h2>
+<ul>
+<li>Reuses spec-104 isolation; feeds spec-106 serving; uses the engine
+as-is (+ defer-embedding change).</li>
+<li>Risk: GPU numbers are <strong>estimates</strong> until benchmarked
+on real hardware → AC1/AC2 require a cloud-GPU run.</li>
+<li>Risk: parallelism races on shared context → per-image steps must be
+pure; cross-image steps barrier.</li>
+<li><strong>Tiering (noted, deferred):</strong> at portfolio volume GPU
+is ~1–3¢/album, so v1 can give <strong>everyone</strong> the fast GPU
+path — no free/paid split needed yet. A free-CPU / paid-GPU tier only
+earns its complexity at real scale; the CPU-parallel fallback (AC5) is
+what a free tier would use.</li>
+</ul>
+<h2 id="7-definition-of-done">7. Definition of done</h2>
+<p>GPU path + parallel executor + defer-embedding implemented; AC1–AC5
+benchmarked on real GPU; $/album reported; REVIEW.md; CHANGES_LOG. See
+<code>tasks.md</code>.</p>
+</div>
+</body>
+</html>

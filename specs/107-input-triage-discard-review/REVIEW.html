@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="REVIEW.md">REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-107--code-review-input-triage--discard-review"
+id="toc-spec-107--code-review-input-triage--discard-review">spec-107 —
+Code Review (Input Triage &amp; Discard Review)</a>
+<ul>
+<li><a href="#part-1--how-it-works" id="toc-part-1--how-it-works">Part 1
+— How it works</a></li>
+<li><a href="#part-2--findings-by-checklist-section"
+id="toc-part-2--findings-by-checklist-section">Part 2 — Findings by
+checklist section</a></li>
+<li><a href="#part-3--verdict--tickets"
+id="toc-part-3--verdict--tickets">Part 3 — Verdict &amp;
+tickets</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-107--code-review-input-triage--discard-review">spec-107 —
+Code Review (Input Triage &amp; Discard Review)</h1>
+<p><strong>Reviewed:</strong> 2026-10-01 · <strong>Reviewer:</strong>
+Claude · <strong>Base:</strong> <code>main</code>
+<strong>Scope:</strong> P0 (metadata tier) + P1 (content/RAM++ tier) +
+P2 (pipeline steps + <code>set_aside</code> contract)</p>
+<ul>
+<li>the pipeline-builder ordering fix that P2 surfaced. P3 (behavioral)
++ P4 (review UX) are not yet built and are out of scope for this review.
+<strong>Verdict:</strong> <strong>ACCEPT</strong> — the 2
+architecture-guard blockers (B1, B2) were resolved during review;
+architecture + triage suites green (149 passed). P0–P2 Implemented;
+P3/P4 remain as follow-up specs.</li>
+</ul>
+<hr />
+<h2 id="part-1--how-it-works">Part 1 — How it works</h2>
+<h3 id="module-inventory">Module inventory</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>LOC</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/triage/metadata.py</code></td>
+<td>94</td>
+<td>Tier-1: pure <code>calc(TriageInputs)-&gt;TriageResult</code> from
+filename/EXIF/format/dims + <code>classify_file</code>.</td>
+</tr>
+<tr>
+<td><code>sim_bench/triage/content.py</code></td>
+<td>88</td>
+<td>Tier-2: pure <code>calc(tags)-&gt;TriageResult</code> (strong/soft
+junk taxonomy + moment-override) + lazy <code>RamTagger</code>.</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/triage_metadata.py</code></td>
+<td>39</td>
+<td>Thin step wrapping <code>metadata.classify_file</code>.</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/triage_content.py</code></td>
+<td>78</td>
+<td>Thin step wrapping <code>content</code> (cache template for
+<code>ram_tags</code>).</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/_triage_apply.py</code></td>
+<td>38</td>
+<td>Shared step-side helper: record decisions + filter survivors.</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/builder.py</code></td>
+<td>(edit)</td>
+<td>Stable, author-ordered dependency resolution + topo sort.</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/context.py</code></td>
+<td>(edit)</td>
+<td>+<code>set_aside</code>, <code>triage_review</code>,
+<code>ram_tags</code> fields.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="dependency-map--layering">Dependency map / layering</h3>
+<p><code>steps/triage_*</code> (framework) →
+<code>sim_bench.triage.*</code> (framework-agnostic domain, spec-053
+compliant) → nothing upward. <code>_triage_apply</code> is the only
+framework-coupled helper (touches <code>PipelineContext</code>),
+correctly placed on the step side. No reverse imports.</p>
+<h3 id="data-flow">Data flow</h3>
+<p><code>discover_images</code> → <code>triage_metadata</code> (sets
+aside named screenshots, free) → <code>triage_content</code> (RAM++ on
+survivors; caches <code>ram_tags</code>; sets aside docs/posters) →
+scoring/face/scene steps run on survivors only →
+<code>select_best</code>.
+<code>set_aside</code>/<code>triage_review</code> ride the context to
+the result for the UI. <code>set_aside</code> images are removed from
+<code>image_paths</code>; nothing is deleted.</p>
+<hr />
+<h2 id="part-2--findings-by-checklist-section">Part 2 — Findings by
+checklist section</h2>
+<h3 id="1-structure--pass">§1 Structure — <strong>pass</strong></h3>
+<p>All modules ≤94 LOC, single responsibility; step files thin (≤80,
+spec-053). No dead code. No function &gt;4 params. Domain/step split
+respected.</p>
+<h3 id="2-code-quality--pass">§2 Code quality —
+<strong>pass</strong></h3>
+<p><code>try/except</code> only around image I/O + RAM++ inference, each
+degrading to a safe default (unreadable → <code>review</code>/empty
+tags, never raised). No silent defaults on load-bearing fields. Nesting
+≤3.</p>
+<h3 id="3-naming--package-structure--pass-with-followup">§3 Naming /
+package structure — <strong>pass-with-followup</strong></h3>
+<p>New <code>sim_bench/triage/</code> subpackage (3 files sharing a
+concern) — correct promotion. <strong>Finding (low):</strong> no
+<code>__all__</code> in <code>triage/metadata.py</code> /
+<code>content.py</code>. Repo is inconsistent on this; follow-up
+TODO.</p>
+<h3 id="4-layering--coupling--pass">§4 Layering / coupling —
+<strong>pass</strong></h3>
+<p><strong>Single-writer check:</strong>
+<code>set_aside</code>/<code>triage_review</code>/<code>ram_tags</code>
+written only by the triage steps (via <code>_triage_apply</code>).
+<code>image_paths</code> is now written by <code>discover_images</code>
+(producer) and the triage steps (filter) — a deliberate producer→filter
+chain, same pattern as
+<code>filter_quality</code>/<code>filter_portraits</code> on
+<code>active_images</code>; documented here as the contract. No
+duplicated logic (reuses the cache template).</p>
+<h3 id="5-testability--pass">§5 Testability — <strong>pass</strong></h3>
+<p>Test inventory: <strong>19 unit</strong>
+(<code>test_metadata_triage</code> 9, <code>test_content_triage</code>
+8, <code>_triage_apply</code> 2) + <strong>1 real-data
+integration</strong> (<code>needs_data</code>: 715-roll metadata run) +
+<strong>2 builder-ordering</strong> + <strong>1 real-data E2E</strong>
+(<code>scripts/verify_spec107_no_junk.py</code> → PASS: 0 junk in album
+vs 6/20). Failure-mode walk-through: the exact bug class the feature
+prevents (junk in the album) has a named E2E assertion; the ordering bug
+that defeated it has
+<code>test_independent_steps_keep_declared_order</code>. Mocks: none —
+all tests run against real code / real tags.</p>
+<h3 id="6-boundary-contracts--pass-with-followup">§6 Boundary contracts
+— <strong>pass-with-followup</strong></h3>
+<p>No new Pydantic/Pandera boundary (triage steps have no typed config
+model — optional, consistent with many existing steps).
+<code>set_aside</code> is an internal context list, not an external
+contract. <code>ram_tags</code> cache uses <code>feature_type</code> +
+<code>model_version</code> versioning (correct). <strong>Follow-up
+(low):</strong> when the UI consumes <code>set_aside</code> (P4),
+promote its entry shape to a typed model with
+<code>extra="forbid"</code>.</p>
+<h3 id="7-documentation--pass-with-followup">§7 Documentation —
+<strong>pass-with-followup</strong></h3>
+<p><code>spec.md</code> ✓, <code>tasks.md</code> ✓,
+<code>REVIEW.md</code> ✓ (this), CHANGES_LOG ✓ (5 entries).
+<strong>Follow-up:</strong>
+<code>docs/architecture/data_flow.html</code> should show the two new
+pre-curation steps + <code>set_aside</code> read path;
+<code>classes.html</code> should note the new context fields. LEARNINGS
+entry for the builder-ordering bug.</p>
+<h3 id="8-risk-register--pass">§8 Risk register —
+<strong>pass</strong></h3>
+<p>Backwards-compat: triage is in <code>default_pipeline</code>; other
+pipelines (<code>minimal_pipeline</code>) unaffected (no hard depends_on
+pulls RAM++ in). Builder change is behavior-affecting but covered by 191
+green pipeline tests + 2 new ordering tests. Hot-path: triage runs
+<em>before</em> the expensive stack and <em>reduces</em> total work (57
+survivors vs 68 scored on the Slovakia subset); RAM++ cost is the one
+added model, cached.</p>
+<hr />
+<h2 id="part-3--verdict--tickets">Part 3 — Verdict &amp; tickets</h2>
+<h3 id="blockers--resolved-during-review">Blockers — RESOLVED during
+review</h3>
+<ul>
+<li><strong>B1 (§7/contract) — FIXED:</strong> added
+<code>set_aside</code>, <code>triage_review</code>,
+<code>ram_tags</code> rows to
+<code>specs/034-pipeline-context-contract/spec.md</code> §3.1.
+<code>test_pipeline_context_contract</code> green.</li>
+<li><strong>B2 (§4/guard) — FIXED:</strong> added
+<code>triage_metadata.py</code>, <code>triage_content.py</code>,
+<code>_triage_apply.py</code> to the raw-iteration
+<code>ALLOW_LIST</code> with reasons (<code>_triage_apply</code> is the
+centralized filter primitive this guard exists to encourage).
+<code>test_no_raw_collection_iteration</code> green. Full suite: 149
+passed.</li>
+</ul>
+<h3 id="follow-up-tickets-non-blocking--todo">Follow-up tickets
+(non-blocking → TODO)</h3>
+<ul>
+<li>F1 (§3): add <code>__all__</code> to <code>triage/metadata.py</code>
++ <code>content.py</code>.</li>
+<li>F2 (§7): update <code>data_flow.html</code> (two triage steps +
+<code>set_aside</code> read path) + <code>classes.html</code> (new
+context fields); add LEARNINGS entry for the builder tie-break bug.</li>
+<li>F3 (§6): typed <code>extra="forbid"</code> model for the
+<code>set_aside</code> entry shape when P4 wires the UI.</li>
+</ul>
+<h3 id="accept-criteria-met">Accept criteria met</h3>
+<p>Core feature proven on real data (0 junk in album), 19+ tests green,
+thin-step convention held, no regressions (191 pipeline tests pass).
+<strong>Accept once B1 + B2 are fixed and the architecture suite is
+green.</strong></p>
+</div>
+</body>
+</html>

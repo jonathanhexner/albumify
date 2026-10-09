@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#tasks--spec-103-scene-clustering--timegeo-fusion-graceful-degradation"
+id="toc-tasks--spec-103-scene-clustering--timegeo-fusion-graceful-degradation">Tasks
+— Spec 103: Scene clustering — time+geo fusion (graceful
+degradation)</a>
+<ul>
+<li><a href="#t0--decisions-draft--awaiting-approval-see-spec-d1-d8"
+id="toc-t0--decisions-draft--awaiting-approval-see-spec-d1-d8">T0 —
+Decisions [DRAFT — awaiting approval, see spec D1-D8]</a></li>
+<li><a href="#t1--reference-labels-gates-everything-do-first"
+id="toc-t1--reference-labels-gates-everything-do-first">T1 — Reference
+labels (gates everything; do first)</a></li>
+<li><a
+href="#t2--fusion-helper-spec-053-shape-framework-agnostic--returns-a-distance"
+id="toc-t2--fusion-helper-spec-053-shape-framework-agnostic--returns-a-distance">T2
+— Fusion helper (spec-053 shape, framework-agnostic) — returns a
+DISTANCE</a></li>
+<li><a
+href="#t3--pipeline-integration-option-b--dedicated-step-gated-by-presence--done-path-a"
+id="toc-t3--pipeline-integration-option-b--dedicated-step-gated-by-presence--done-path-a">T3
+— Pipeline integration (Option B — dedicated step, gated by presence) —
+DONE (Path A)</a></li>
+<li><a href="#t4--experiment-arms--scoring"
+id="toc-t4--experiment-arms--scoring">T4 — Experiment arms +
+scoring</a></li>
+<li><a href="#t5--report--close-out" id="toc-t5--report--close-out">T5 —
+Report + close-out</a></li>
+<li><a href="#deferred-design-ideas-parked--decide-later"
+id="toc-deferred-design-ideas-parked--decide-later">Deferred design
+ideas (parked — decide later)</a></li>
+<li><a href="#arms-built-during-the-exploration-ahead-of-formal-t-order"
+id="toc-arms-built-during-the-exploration-ahead-of-formal-t-order">Arms
+built during the exploration (ahead of formal T-order)</a></li>
+<li><a href="#notes--risks" id="toc-notes--risks">Notes / risks</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="tasks--spec-103-scene-clustering--timegeo-fusion-graceful-degradation">Tasks
+— Spec 103: Scene clustering — time+geo fusion (graceful
+degradation)</h1>
+<blockquote>
+<p>Experiment that LANDS in the pipeline. Winner ships as a flag-gated
+<code>cluster_scenes</code> method. Budapest (geo-rich) + Germany
+(geo-poor) are the two labeled reference trips; Germany is the binding
+degradation stress test. Default behavior unchanged until the gates
+clear.</p>
+</blockquote>
+<h2 id="t0--decisions-draft--awaiting-approval-see-spec-d1-d8">T0 —
+Decisions [DRAFT — awaiting approval, see spec D1-D8]</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />Confirm D1-D8. Key binding ones:
+<strong>D2 no-imputation</strong>, <strong>D5 hand-label
+Budapest+Germany</strong>, <strong>D7 ship gated (default OFF)</strong>.
+Open: is solo N=1 labeling acceptable for the reference (per spec-102
+lineage), or do we want ≥2 labelers on the scene groups?</label></li>
+</ul>
+<h2 id="t1--reference-labels-gates-everything-do-first">T1 — Reference
+labels (gates everything; do first)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T1.1 Labeling tool:
+group-the-thumbnails HTML (drag/assign each photo to a scene group),
+emits <code>scene_labels.json</code> per trip. Written rubric for "what
+is one scene" baked into the page.</label></li>
+<li><label><input type="checkbox" />T1.2 Hand-label
+<strong>Budapest</strong> (122) and <strong>Germany</strong> (797 — may
+sample a labeled subset if full is too heavy; document the sample). Save
+under the spec dir.</label></li>
+<li><label><input type="checkbox" />T1.3 Loader + validator for
+<code>scene_labels.json</code> (every labeled image maps to exactly one
+group).</label></li>
+</ul>
+<h2
+id="t2--fusion-helper-spec-053-shape-framework-agnostic--returns-a-distance">T2
+— Fusion helper (spec-053 shape, framework-agnostic) — returns a
+DISTANCE</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T2.1
+<code>sim_bench/scene_cluster/geo_time_fusion.py</code>:
+<code>SceneDistanceBuilder</code> (Path A, SHIPPED) +
+<code>SceneDistanceFuser</code> (additive D3, superseded experiment).
+Both: typed <code>SceneDistanceInputs</code>,
+<code>calc() -&gt; SceneDistanceResult</code> (matrix + image_ids +
+per_image_signal_used). Returns a distance.</label></li>
+<li><label><input type="checkbox" checked="" />T2.2 <strong>Path
+A</strong> distance (validated):
+<code>d = visual_cos · (1 - boost·exp(-dt_sec/tau_sec))</code> — a
+one-sided short-range time boost (pulls near-simultaneous shots, never
+pushes apart). Time from GeoMetadata.timestamp else filename stem.
+(Additive D3 blend kept in <code>SceneDistanceFuser</code> for the sweep
+but NOT shipped — it over-merged.)</label></li>
+<li><label><input type="checkbox" checked="" />T2.3 Unit tests
+<code>tests/scene_cluster/test_scene_distance_builder.py</code>:
+short-range pull shrinks distance; far-apart == pure visual;
+<strong>never pushes apart</strong>; missing-time == pure visual (no
+imputation); symmetric/zero-diag/aligned; determinism; result
+type.</label></li>
+</ul>
+<h2
+id="t3--pipeline-integration-option-b--dedicated-step-gated-by-presence--done-path-a">T3
+— Pipeline integration (Option B — dedicated step, gated by presence) —
+DONE (Path A)</h2>
+<blockquote>
+<p>NOTE: shipped <strong>Path A</strong>
+(<code>SceneDistanceBuilder</code>: visual × one-sided short-range time
+boost), NOT the D3 additive blend — the additive term over-merged (see
+report over-merge case). <code>requires</code> is
+<code>{scene_embeddings}</code> only (time from EXIF else filename; geo
+unused in Path A), so the step degrades without an
+<code>extract_geo_metadata</code> dependency.</p>
+</blockquote>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T3.1 New step
+<code>build_scene_distance</code> (thin, ≤80 LOC):
+<code>sim_bench/pipeline/steps/build_scene_distance.py</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T3.2 Two new
+<code>PipelineContext</code> fields <code>scene_distance</code> +
+<code>scene_distance_signal</code> (documented in context.py +
+classes.html + data_flow.html).</label></li>
+<li><label><input type="checkbox" checked="" />T3.3
+<code>cluster_scenes</code>: ONE None-guarded branch — if
+<code>context.scene_distance</code> present, cluster it with
+<code>metric="precomputed"</code>; else unchanged.</label></li>
+<li><label><input type="checkbox" checked="" />T3.4
+<code>configs/pipeline.yaml</code>: documented
+<code>build_scene_distance</code> block (boost + tau_sec); NOT in
+<code>default_pipeline</code>. Typed
+<code>BuildSceneDistanceConfig</code> registered.</label></li>
+<li><label><input type="checkbox" checked="" />T3.5 <strong>Absent-step
+regression (binding A5)</strong>:
+<code>ut_A5_boost_zero_equals_embedding_path</code> +
+<code>ut_cluster_scenes_unchanged_when_distance_absent</code> in
+<code>tests/pipeline/test_build_scene_distance.py</code> prove the
+precomputed path == embedding path (byte-identical when absent). Full
+face E2E unaffected (step not in any default pipeline).</label></li>
+</ul>
+<h2 id="t4--experiment-arms--scoring">T4 — Experiment arms +
+scoring</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T4.1 Scoring: ARI +
+homogeneity/completeness vs reference, <strong>stratified by geo
+availability</strong> (report the geo-absent stratum separately —
+A4).</label></li>
+<li><label><input type="checkbox" />T4.2 Run arms A0 (baseline) / A1
+(time+visual) / A2 (time+geo+visual) / A3 (two-stage, reuse
+<code>geo_temporal_segment</code>) on Budapest + Germany.</label></li>
+<li><label><input type="checkbox" />T4.3 <strong>Degradation gate
+(binding A1)</strong>: assert A2/A3 ARI ≥ A0 on geo-absent photos and on
+Germany overall. A regression here blocks the spec.</label></li>
+</ul>
+<h2 id="t5--report--close-out">T5 — Report + close-out</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T5.1
+<code>reports/&lt;date&gt;_scene_clustering_fusion/report.html</code> +
+summary.md + EXPERIMENTS.md entry: inline before/after cluster galleries
+per trip, metric tables, the degradation-gate result, geo-availability
+caveats stated.</label></li>
+<li><label><input type="checkbox" />T5.2 Docs (A7):
+<code>docs/architecture/data_flow.html</code> (geo→scene edge),
+<code>classes.html</code> (helper + Inputs/Result), pipeline.yaml
+comments, overview if the step contract shifts.</label></li>
+<li><label><input type="checkbox" />T5.3 <code>/code-review</code> →
+REVIEW.md; resolve High findings. Flip status → Implemented only after
+A1/A5 (the binding gates) are green.</label></li>
+<li><label><input type="checkbox" />T5.4 LEARNINGS.md entry; decide
+whether the VLM-scene arm (spec-099-adjacent) is worth a follow-up spec
+based on the ARI ceiling the metadata fusion hits.</label></li>
+</ul>
+<h2 id="deferred-design-ideas-parked--decide-later">Deferred design
+ideas (parked — decide later)</h2>
+<ul>
+<li><strong>DEFERRED (user, 2026-07-21): scene cluster-merge pass,
+mirroring face recognition.</strong> After initial clustering, run a
+merge step like the face pipeline's cluster-merging (centroid/medoid
+similarity + a threshold, or a VLM/model arbiter as in spec-099) to fuse
+over-split scenes. Could subsume the flat-vs-two-stage tension: cluster
+conservatively, then merge. NOT scoped yet — revisit after the A0-A3 arm
+comparison shows where the residual over-split/over-merge errors
+actually are.</li>
+</ul>
+<h2 id="arms-built-during-the-exploration-ahead-of-formal-t-order">Arms
+built during the exploration (ahead of formal T-order)</h2>
+<ul>
+<li><strong>A2 flat fusion</strong> helper
+<code>sim_bench/scene_cluster/geo_time_fusion.py</code> — built.
+Time-scale sweep in <code>scripts/exp_scene_sweep.py</code>. Eyeballing
+showed scale=30min over-merges (see report 2.2).</li>
+<li><strong>A3 two-stage</strong> helper
+<code>sim_bench/scene_cluster/two_stage.py</code> (segment by time/geo,
+then visual connected-components within) — built + unit-tested
+(<code>tests/scene_cluster/test_two_stage.py</code>). Compared against
+A0/A2 in <code>scripts/exp_scene_sweep.py</code> on the two hand-flagged
+reference pairs.</li>
+</ul>
+<h2 id="notes--risks">Notes / risks</h2>
+<ul>
+<li>Do T1 FIRST — with no reference labels the whole thing degenerates
+to "methods differ" (the EXP-1 trap). Labeling is the long pole.</li>
+<li>Germany is 4% geo: it is the degradation test, not an afterthought.
+Tune weights on Budapest, then Germany must not regress vs
+visual-only.</li>
+<li>Keep DINOv2 fixed across all arms (isolate the time/geo
+contribution; embedding choice is a separate spec).</li>
+</ul>
+</div>
+</body>
+</html>

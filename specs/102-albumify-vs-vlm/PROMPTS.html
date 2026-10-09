@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>PROMPTS</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="PROMPTS.md">PROMPTS.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#prompts--rater-sheet--spec-102-versioned-deliverable"
+id="toc-prompts--rater-sheet--spec-102-versioned-deliverable">Prompts
+&amp; rater sheet — Spec 102 (versioned deliverable)</a>
+<ul>
+<li><a href="#curation_v1-vlm-album-selection-prompt"
+id="toc-curation_v1-vlm-album-selection-prompt">curation_v1 (VLM
+album-selection prompt)</a></li>
+<li><a href="#annotation_v1-vlm-annotation-prompt-exp-3-vlm-only"
+id="toc-annotation_v1-vlm-annotation-prompt-exp-3-vlm-only">annotation_v1
+(VLM annotation prompt, EXP-3, VLM-only)</a></li>
+<li><a href="#rater-instruction-sheet-exp-1-judging--v1-solo-n1-pilot"
+id="toc-rater-instruction-sheet-exp-1-judging--v1-solo-n1-pilot">Rater
+instruction sheet (EXP-1 judging) — v1, solo N=1 pilot</a></li>
+<li><a href="#exp-2-within-cluster-pick--prompt-fragment"
+id="toc-exp-2-within-cluster-pick--prompt-fragment">EXP-2 within-cluster
+pick — prompt fragment</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="prompts--rater-sheet--spec-102-versioned-deliverable">Prompts
+&amp; rater sheet — Spec 102 (versioned deliverable)</h1>
+<p>The prompt is a first-class variable (both experts). Everything here
+is <strong>v1</strong>; a new version = a new heading, so
+prompt-sensitivity stays inspectable. v1 encodes the <strong>reframed
+objective</strong> (ordered story sequence, QC as a filter, scale
+variety, opener/closer, protagonist weighting) — NOT the naive "best-K
+checklist".</p>
+<hr />
+<h2 id="curation_v1-vlm-album-selection-prompt">curation_v1 (VLM
+album-selection prompt)</h2>
+<blockquote>
+<p><strong>Role.</strong> You are a seasoned photo-album editor
+assembling a keepsake album from one trip's photos. You are building a
+<em>sequence that tells the story</em>, not ranking photos by technical
+quality.</p>
+<p><strong>Task.</strong> From the images provided (each has a stable
+ID), choose <strong>{K}</strong> and return them as an
+<strong>ordered</strong> sequence — first image to last — that a person
+would actually want to show a friend.</p>
+<p><strong>What makes a good album (in priority order):</strong></p>
+<ol type="1">
+<li><strong>Story arc</strong> — arrival → settling in → the big
+set-pieces → quieter in-between moments → the emotional peak → wind-down
+/ departure. Order carries the story.</li>
+<li><strong>A strong opener and a resolving closer.</strong> The first
+frame sets the tone; the last one lands the ending.</li>
+<li><strong>Variety of scale</strong> — intercut wide establishing
+shots, human-scale medium shots, and tight details (a coffee cup, hands
+on a railing). Don't let the album collapse to one scale.</li>
+<li><strong>The moment over the merely nice</strong> — a slightly soft
+frame of genuine laughter beats a sharp posed one. Keep peaks even if
+imperfect.</li>
+<li><strong>Protagonists, not a headcount</strong> — give more frames to
+whoever the trip is about; you need not represent everyone equally. But
+don't drop a person who clearly matters.</li>
+<li><strong>Coverage</strong> — represent the distinct places and days
+of the trip; don't over-index on one location.</li>
+<li><strong>Intentional repetition is allowed</strong> — 2-3 frames of a
+moment <em>building</em> (a kid on a swing, a toast) is storytelling,
+not "duplicates". Avoid only <em>redundant</em> near-identical frames
+that add nothing.</li>
+</ol>
+<p><strong>Quality is a filter, not the goal.</strong> Reject the
+technically broken — heavy blur, a finger over the lens, badly blown
+exposure, everyone mid-blink — <em>unless</em> the moment is worth the
+flaw.</p>
+<p><strong>Output.</strong> JSON only:
+<code>{"order": ["&lt;id&gt;", ...], "picks": [{"id": "&lt;id&gt;", "role": "opener|hero|connective|detail|peak|closer", "reason": "&lt;one short clause&gt;"}]}</code>.
+<code>order</code> and the <code>picks</code> ids must match and be
+exactly {K} long.</p>
+</blockquote>
+<p><strong>Batching note (harness, not prompt):</strong> images arrive
+as 12-16-thumb contact sheets (map phase), then a reduce pass re-orders
+the batch-winners into the final {K}. Temperature 0, &gt;=3 seeds. {K}
+floats 18-24 (~1 per 15 source photos).</p>
+<hr />
+<h2
+id="annotation_v1-vlm-annotation-prompt-exp-3-vlm-only">annotation_v1
+(VLM annotation prompt, EXP-3, VLM-only)</h2>
+<blockquote>
+<p><strong>Role.</strong> You are labelling a personal photo collection
+so its owner can build an album faster. Useful labels scaffold an album;
+literal descriptions ("a bridge over a river") are noise — don't produce
+them.</p>
+<p><strong>Task.</strong> Group the images into meaningful moments and
+annotate. Return <strong>JSON only</strong>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;album_type&quot;</span><span class="fu">:</span> <span class="st">&quot;trip | kids-growing | family | wedding | milestone-celebration | everyday |</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="st">                 pet | project | memorial | event | mixed&quot;</span><span class="fu">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;trip_subtype&quot;</span><span class="fu">:</span> <span class="st">&quot;city | road | beach | hike | null&quot;</span><span class="fu">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;narrative&quot;</span><span class="fu">:</span> <span class="st">&quot;&lt;one sentence: the arc of this collection&gt;&quot;</span><span class="fu">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;groups&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;Day 3 - Buda Castle &amp; the funicular&quot;</span><span class="fu">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;day&quot;</span><span class="fu">:</span> <span class="st">&quot;YYYY-MM-DD&quot;</span><span class="fu">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;scene_type&quot;</span><span class="fu">:</span> <span class="st">&quot;&lt;place/activity, human-readable&gt;&quot;</span><span class="fu">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;moment_type&quot;</span><span class="fu">:</span> <span class="st">&quot;meal | transit | landmark | candid | goofing | golden-hour |</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="st">                      posed-group | detail | the-one-where-X&quot;</span><span class="fu">,</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;people&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;&lt;who, if identifiable/nameable by role&gt;&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;image_ids&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;&lt;id&gt;&quot;</span><span class="ot">,</span> <span class="er">...</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;best_id&quot;</span><span class="fu">:</span> <span class="st">&quot;&lt;the single best frame in this group&gt;&quot;</span><span class="fu">,</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;reason&quot;</span><span class="fu">:</span> <span class="st">&quot;&lt;why that frame is the group&#39;s best MOMENT, in the owner&#39;s terms&gt;&quot;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Prefer human-readable day/place labels and moment tags over object
+lists. <code>best_id.reason</code> should be about the moment
+("everyone's actually looking and laughing"), not the pixels.</p>
+</blockquote>
+<hr />
+<h2 id="rater-instruction-sheet-exp-1-judging--v1-solo-n1-pilot">Rater
+instruction sheet (EXP-1 judging) — v1, solo N=1 pilot</h2>
+<blockquote>
+<p>You will see two albums, <strong>A</strong> and <strong>B</strong>
+(which system made which is hidden; left/right is randomized). Each is
+shown <strong>in its intended order</strong>. Spend ~10 seconds forming
+a gut reaction before analysing.</p>
+<ol type="1">
+<li><strong>Overall:</strong> Which album would you actually want to
+<strong>show someone</strong> — A or B? (forced)</li>
+<li><strong>The one moment:</strong> What single image or moment made
+you pick it?</li>
+<li><strong>Story vs slideshow:</strong> Does the winner feel like a
+<em>story</em> or a <em>pile of nice photos</em>? Rate each album on
+that axis (1 = pile … 5 = story).</li>
+<li><strong>Sub-ratings (1-5 each, per album):</strong> coverage (people
+&amp; places) · photo quality · redundancy (5 = no wasted near-dups) ·
+narrative (flow/pacing/opener-closer).</li>
+<li><strong>Human rescue:</strong> Name up to <strong>5 photos you'd add
+back</strong> that BOTH albums missed (and which trip source folder
+they're in). This captures the "draft quality" framing — the frames the
+metrics wanted to cut.</li>
+</ol>
+<p>Record answers in the judging sheet the viewer writes; do not look up
+which system is which until all trips are judged.</p>
+</blockquote>
+<p><strong>Honesty note (in the report):</strong> v1 is <strong>N=1, the
+pipeline's owner</strong> — an illustrative anecdote, not a measured
+win-rate. Self-recognition leakage is possible and is disclosed. No
+inter-rater agreement until the multi-rater upgrade.</p>
+<hr />
+<h2 id="exp-2-within-cluster-pick--prompt-fragment">EXP-2 within-cluster
+pick — prompt fragment</h2>
+<blockquote>
+<p>From this set of near-identical frames (same moment), pick the
+<strong>single best</strong> to keep in an album, and give a one-clause
+reason. Prefer eyes-open, in-focus, best expression, cleanest framing —
+but the <em>best moment</em> wins ties. Output:
+<code>{"best_id": "&lt;id&gt;", "reason": "&lt;clause&gt;"}</code>.</p>
+</blockquote>
+<p>Reference truth = 3 blind human best-picks per cluster (majority);
+report top-1 accuracy + Kendall tau. (In the N=1 pilot, the owner is the
+single rater; upgrade to 3 raters later.)</p>
+</div>
+</body>
+</html>

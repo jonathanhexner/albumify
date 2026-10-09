@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-111--ai-verification-layer"
+id="toc-spec-111--ai-verification-layer">spec-111 — AI Verification
+Layer</a>
+<ul>
+<li><a href="#1-problem" id="toc-1-problem">1. Problem</a></li>
+<li><a href="#2-goal--non-goals" id="toc-2-goal--non-goals">2. Goal /
+non-goals</a></li>
+<li><a
+href="#3-architecture--verifier-steps-verify-early-correct-forward"
+id="toc-3-architecture--verifier-steps-verify-early-correct-forward">3.
+Architecture — verifier steps, "verify early, correct forward"</a></li>
+<li><a href="#4-checkpoints" id="toc-4-checkpoints">4.
+Checkpoints</a></li>
+<li><a
+href="#5-the-non-negotiable-gate--each-checkpoint-must-beat-the-baseline"
+id="toc-5-the-non-negotiable-gate--each-checkpoint-must-beat-the-baseline">5.
+The non-negotiable gate — each checkpoint must beat the
+baseline</a></li>
+<li><a href="#6-acceptance-criteria" id="toc-6-acceptance-criteria">6.
+Acceptance criteria</a></li>
+<li><a href="#7-dependencies--risks" id="toc-7-dependencies--risks">7.
+Dependencies &amp; risks</a></li>
+<li><a href="#8-definition-of-done" id="toc-8-definition-of-done">8.
+Definition of done</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-111--ai-verification-layer">spec-111 — AI Verification
+Layer</h1>
+<p><strong>Status:</strong> In Progress — P0 (spine) + P1 core
+(<code>verify_face_clusters</code>, pairwise gate) built 2026-10-05, 18
+tests green. Built ahead of the roadmap's v1.5 placement; owner call
+pending (ROADMAP decision #4). Progress: <a
+href="updates.html">updates.html</a> <strong>Owner:</strong> Jonathan /
+Claude <strong>Priority:</strong> P2 (the marquee "shine" feature;
+quality depth on top of the deterministic engine)
+<strong>Relation:</strong> subsumes [[spec-105]] (VLM merge arbiter) as
+checkpoint #1; shares the VLM seam with [[spec-108]]; its corrections
+honor the [[spec-107]] set_aside / show-everything principle.</p>
+<h2 id="1-problem">1. Problem</h2>
+<p>The curation pipeline is deterministic and fast, but it makes
+<strong>borderline calls</strong> it sometimes gets wrong — and those
+errors are the <em>visible</em> ones a user notices: two people merged
+into one cluster, a genuinely-different moment collapsed as a near-dup,
+the wrong frame picked as "best" of a burst, a standout photo dropped
+just past the K cutoff, a real photo set aside as junk. The
+deterministic signals (cluster distances, composite scores, triage
+confidence) are <em>uncertain</em> exactly at these boundaries.</p>
+<p>We want a <strong>second reviewer</strong> — an AI that double-checks
+the pipeline's <em>borderline</em> decisions, <strong>grounded in our
+own trained models</strong>, and corrects the likely mistakes. Not an
+orchestrator that sequences the pipeline (that stays a deterministic
+DAG); a set of bounded <strong>verifier steps</strong>.</p>
+<h2 id="2-goal--non-goals">2. Goal / non-goals</h2>
+<p><strong>Goal:</strong> a family of verifier steps, one per decision
+checkpoint, each of which (a) escalates only the borderline subset, (b)
+adjudicates with a VLM grounded in our models' scores, (c) writes
+corrections forward into the context, (d) is independently shippable and
+<strong>proven to beat the deterministic baseline</strong> before it's
+enabled.</p>
+<p><strong>Non-goals:</strong> a meta-orchestrator that loops over /
+re-sequences the pipeline (rejected — nondeterminism, untestable);
+re-reviewing <em>confident</em> decisions (cost); VLM per-image on
+everything; silent overrides (all corrections are surfaced + reversible,
+per spec-107).</p>
+<h2 id="3-architecture--verifier-steps-verify-early-correct-forward">3.
+Architecture — verifier steps, "verify early, correct forward"</h2>
+<p>Each checkpoint is a <strong>normal pipeline step placed immediately
+after the step it verifies</strong>, so its corrections propagate
+forward to every downstream consumer — no loop-back, no
+meta-orchestrator.</p>
+<pre><code>… cluster_face_components → [verify_face_clusters] → merge_face_clusters …
+… cluster_scenes          → [verify_scenes]        → select_best …
+… select_best             → [verify_selection]      (soft-K + best-of-cluster)
+… triage_content          → [verify_triage]        → scoring …</code></pre>
+<ul>
+<li><strong>Thin steps + domain module</strong> (spec-053): a
+<code>verify_&lt;x&gt;</code> step wraps
+<code>verify_&lt;x&gt;(inputs, vlm) -&gt; corrections</code> in a new
+<code>sim_bench/verification/</code>. Framework-agnostic helpers; step
+is the translator.</li>
+<li><strong>Escalation trigger</strong> (bounds cost): each step reads
+confidences/margins from context (cluster distance near threshold, top-2
+composite within ε, triage confidence in-band) and escalates
+<strong>only that subset</strong>. Confident decisions stand
+untouched.</li>
+<li><strong>Grounded in our models</strong> (AI + tools, not AI instead
+of tools): the VLM adjudicates <em>with</em> our trained signals as
+evidence — the PhotoTriage/siamese pairwise model for best-of-cluster,
+cluster distances for merges, the triage classifier for junk. Cleanest
+composition: our model makes the call; the VLM reviews disagreements /
+low-confidence picks.</li>
+<li><strong>VLM via the seam</strong>: uses the <code>VLMProvider</code>
+(spec-108) — in-container on the Modal GPU worker.</li>
+<li><strong>Corrections flow forward</strong> into context (reassign
+clusters, promote/demote picks, un-set-aside); surfaced + reversible
+(spec-107 show-everything). Never silent.</li>
+<li><strong>Can stop</strong> via the existing step-failure mechanism
+(rare; norm is correct-and-continue).</li>
+</ul>
+<h2 id="4-checkpoints">4. Checkpoints</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Step</th>
+<th>Catches</th>
+<th>Escalation trigger</th>
+<th>Grounded in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>verify_face_clusters</code></td>
+<td>split one person / merged two</td>
+<td>cluster distance near merge threshold</td>
+<td>face embeddings + distances (= <strong>spec-105</strong>)</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>verify_scenes</code></td>
+<td>collapsed real moments / missed dups</td>
+<td>DINOv2 distance near dedup cutoff</td>
+<td>scene embeddings + time/GPS</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>verify_selection</code> (best-of-cluster)</td>
+<td>wrong "best" of a burst</td>
+<td>top-2 composite within ε</td>
+<td><strong>PhotoTriage/siamese</strong> + IQA/AVA</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>verify_selection</code> (soft-K)</td>
+<td>standout just past the cut</td>
+<td>score near K cutoff</td>
+<td>composite scores</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>verify_triage</code></td>
+<td>wrongly set aside / kept junk</td>
+<td>triage confidence in band</td>
+<td>triage classifier (spec-107)</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="5-the-non-negotiable-gate--each-checkpoint-must-beat-the-baseline">5.
+The non-negotiable gate — each checkpoint must beat the baseline</h2>
+<p>AI double-checking <em>sounds</em> obviously good but can add cost +
+noise without adding quality. So each checkpoint ships <strong>only if
+measured to beat the deterministic baseline</strong> on the
+human-labeled / spec-102 eval sets (does the VLM's correction agree with
+human judgment more than the pipeline alone?). Faith is not evidence. A
+checkpoint that doesn't win on the eval stays disabled.</p>
+<h2 id="6-acceptance-criteria">6. Acceptance criteria</h2>
+<ul>
+<li><strong>AC1</strong> Each enabled checkpoint improves
+agreement-with-human vs the deterministic baseline on the eval set
+(measured, recorded) — else it stays off.</li>
+<li><strong>AC2</strong> Escalation is bounded: only the borderline
+subset hits the VLM; cost/album measured + capped.</li>
+<li><strong>AC3</strong> Corrections are surfaced + reversible (never
+silent); the album shows "promoted/merged because…".</li>
+<li><strong>AC4</strong> The pipeline stays deterministic outside the
+verifier steps; no loop / meta-orchestrator.</li>
+<li><strong>AC5</strong> Each verifier is a thin step (spec-053) + a
+tested <code>verify()</code> helper (fake-VLM unit test).</li>
+</ul>
+<h2 id="7-dependencies--risks">7. Dependencies &amp; risks</h2>
+<ul>
+<li>VLM seam (spec-108); our trained models (PhotoTriage/siamese in
+<code>select_best</code>, triage classifier spec-107); the eval sets
+(spec-102 + labeled occlusion/trips).</li>
+<li>Risk: cost/latency if triggers are loose → tight borderline-only
+triggers + measured cap (AC2).</li>
+<li>Risk: a checkpoint adds noise not quality → the AC1 baseline gate
+blocks it.</li>
+<li>Risk: nondeterminism creep → confined to verifier steps on
+borderline subsets; the DAG is otherwise deterministic;
+SIGHTING-122-style tolerance applies.</li>
+</ul>
+<h2 id="8-definition-of-done">8. Definition of done</h2>
+<p>≥1 checkpoint (start with spec-105's
+<code>verify_face_clusters</code>) implemented as a step + helper,
+measured to beat baseline (AC1), bounded (AC2), surfaced (AC3);
+REVIEW.md; others follow the same gate. See <code>tasks.md</code>.</p>
+</div>
+</body>
+</html>

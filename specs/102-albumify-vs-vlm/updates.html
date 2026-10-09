@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>updates</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="updates.md">updates.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-102--progress--verification-updates"
+id="toc-spec-102--progress--verification-updates">spec-102 — Progress
+&amp; verification updates</a>
+<ul>
+<li><a
+href="#2026-10-09--testing-method-clarified-recorded-by-the-owner"
+id="toc-2026-10-09--testing-method-clarified-recorded-by-the-owner">2026-10-09
+— Testing method clarified (recorded by the owner)</a></li>
+<li><a
+href="#2026-10-01--slovakia26-real-roll-analysis-branch-out-to-specs-107109"
+id="toc-2026-10-01--slovakia26-real-roll-analysis-branch-out-to-specs-107109">2026-10-01
+— Slovakia26 real-roll analysis (branch-out to specs 107–109)</a></li>
+<li><a
+href="#2026-07-19--exp-2-within-cluster-best-frame-harness-budapest"
+id="toc-2026-07-19--exp-2-within-cluster-best-frame-harness-budapest">2026-07-19
+— EXP-2 within-cluster best-frame harness (Budapest)</a></li>
+<li><a href="#2026-07-1718--both-arms--3-trips-budapest-austria-germany"
+id="toc-2026-07-1718--both-arms--3-trips-budapest-austria-germany">2026-07-17/18
+— Both arms + 3 trips (Budapest, Austria, Germany)</a></li>
+<li><a href="#2026-07-17--harness-t1--decisions-locked"
+id="toc-2026-07-17--harness-t1--decisions-locked">2026-07-17 — Harness
+(T1) + decisions locked</a></li>
+<li><a href="#open-to-close-this-spec"
+id="toc-open-to-close-this-spec">Open to close this spec</a></li>
+<li><a href="#reports--artifacts" id="toc-reports--artifacts">Reports
+&amp; artifacts</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-102--progress--verification-updates">spec-102 — Progress
+&amp; verification updates</h1>
+<p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
+href="tasks.html">tasks.md</a> · roadmap stage: <strong>A (prove the
+picks)</strong> · see <a href="../../ROADMAP.html">ROADMAP.md</a></p>
+<p><strong>Status:</strong> In Progress — harness + 3-trip runs done;
+<strong>no human verdict</strong> (Gate 1 still open).</p>
+<p>Newest first. Every entry says what was done and how it was
+verified.</p>
+<h2
+id="2026-10-09--testing-method-clarified-recorded-by-the-owner">2026-10-09
+— Testing method clarified (recorded by the owner)</h2>
+<ul>
+<li><strong>Decision:</strong> PhotoTriage / CUFED benchmarks are NOT
+the quality gate for Albumify. PhotoTriage is best-of-burst on
+near-duplicate series, not a real album; CUFED is importance voting.
+Neither says "would these 20 picks make a good trip album." The gate is
+<strong>real trips</strong> (Slovakia26, Budapest, Austria, Germany)
+judged against the owner's own keeper list.</li>
+<li><strong>Follow-up:</strong> the roadmap Stage A row still lists
+PhotoTriage + CUFED (carried over from the 2026-10-01 finalization
+plan). To be struck when the owner revises <code>ROADMAP.md</code>.</li>
+<li>Note: this decision was not written down earlier; the written trail
+(finalization plan, agentic_layer_design) proposed PhotoTriage/CUFED.
+Recorded here so it is not re-proposed.</li>
+</ul>
+<h2
+id="2026-10-01--slovakia26-real-roll-analysis-branch-out-to-specs-107109">2026-10-01
+— Slovakia26 real-roll analysis (branch-out to specs 107–109)</h2>
+<ul>
+<li><strong>What:</strong> ran the <code>faces</code> pipeline (CPU,
+768px, K=20) on a 75-image subset of the real 715-photo Slovakia26 trip
+with screenshots deliberately left in.</li>
+<li><strong>Finding:</strong> 6 of 20 picks were junk (5 screenshots + 1
+photographed poster). A Gmail screenshot scored 0.703, the top score in
+the album. Junk mean composite 0.54 vs 0.41 for real photos:
+<strong>quality scoring rewards screenshots</strong>, so they must be
+removed before curation, not filtered by score.</li>
+<li><strong>Also:</strong> the 14 real picks were sound trip moments
+across 8 scene clusters. Runtime 2.2 s/img with the face stack at 75% of
+it.</li>
+<li><strong>Branched out:</strong> spec-107 (input triage), spec-108
+(semantic layer), spec-109 (GPU). The quality verdict itself was
+deferred until triage is on and a keeper list exists.</li>
+<li><strong>Verified by:</strong>
+<code>reports/2026-10-01_slovakia_analysis/</code> (report.html with
+inline samples, summary.md, results.json). Repro:
+<code>scripts/experiment_slovakia_analysis.py</code>.</li>
+</ul>
+<h2
+id="2026-07-19--exp-2-within-cluster-best-frame-harness-budapest">2026-07-19
+— EXP-2 within-cluster best-frame harness (Budapest)</h2>
+<ul>
+<li><strong>What:</strong> <code>exp2.py</code> + blind best-frame
+picker HTML; Budapest Albumify arm regenerated with occlusion/tilt
+penalties after the SIGHTING-117 memory fix.</li>
+<li><strong>Verified by:</strong> 7 unit tests
+(<code>tests/albumify_vs_vlm/test_exp2.py</code>). Human picking step
+(T5.2b) <strong>not done</strong>.</li>
+</ul>
+<h2
+id="2026-07-1718--both-arms--3-trips-budapest-austria-germany">2026-07-17/18
+— Both arms + 3 trips (Budapest, Austria, Germany)</h2>
+<ul>
+<li><strong>What:</strong> Albumify arm (real pipeline on 768px inputs,
+exactly K=20) vs VLM arm (Claude Opus, raw images only, map-shortlist
+then reduce), blind A/B viewer, metrics, structured annotation
+(EXP-3).</li>
+<li><strong>Finding:</strong> pick overlap shrinks with trip size:
+Budapest 6/20, Austria 3/20, Germany 0/20. VLM annotation (album type,
+moment groups, a caught finger-occlusion) is strong and Albumify has no
+equivalent. Full people-aware pipeline OOMed above ~120 images
+(SIGHTING-117), so the big trips ran the <code>minimal</code> pipeline
+without the person penalty.</li>
+<li><strong>Verified by:</strong> 3 reports under
+<code>reports/2026-07-17_albumify_vs_vlm_budapest/</code>,
+<code>2026-07-18_albumify_vs_vlm_austria/</code>,
+<code>2026-07-18_albumify_vs_vlm_germany/</code>; unit tests
+<code>tests/albumify_vs_vlm/</code> (schema, curation, metrics, VLM
+reduce, viewer/report). <strong>Human blind judging (T4.HUMAN) not
+done.</strong></li>
+</ul>
+<h2 id="2026-07-17--harness-t1--decisions-locked">2026-07-17 — Harness
+(T1) + decisions locked</h2>
+<ul>
+<li>Downsample (EXIF-transposed, HEIC-aware, 768px, content hash),
+roster with day segmentation, versioned prompts. Decisions: Claude-only,
+solo N=1 pilot, Budapest first.</li>
+<li><strong>Verified by:</strong> 11 unit tests green.</li>
+</ul>
+<h2 id="open-to-close-this-spec">Open to close this spec</h2>
+<ol type="1">
+<li>Owner judges the 3 blind viewers (T4.HUMAN) and the EXP-2 picker
+(T5.2b).</li>
+<li>Re-run the Albumify arm on Slovakia26 <strong>with triage
+on</strong> vs the owner's keeper list.</li>
+<li><code>/code-review</code> (experiment-scoped) + LEARNINGS entry
+(T7.3, T7.4).</li>
+</ol>
+<h2 id="reports--artifacts">Reports &amp; artifacts</h2>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a
+href="../../reports/2026-07-17_albumify_vs_vlm_budapest/report.html">Budapest
+A/B report</a></td>
+<td>122 imgs, K=20 each arm: 6/20 overlap; VLM annotation strong;
+Albumify ran the <code>faces</code> pipeline (OOM, SIGHTING-117)</td>
+</tr>
+<tr>
+<td><a
+href="../../reports/2026-07-18_albumify_vs_vlm_austria/report.html">Austria
+A/B report</a></td>
+<td>474 imgs: 3/20 overlap; Albumify ran <code>minimal</code> (no person
+penalty)</td>
+</tr>
+<tr>
+<td><a
+href="../../reports/2026-07-18_albumify_vs_vlm_germany/report.html">Germany
+A/B report</a></td>
+<td>797 imgs incl. HEIC: 0/20 overlap; redundancy saturates at 0 on big
+trips</td>
+</tr>
+<tr>
+<td><a
+href="../../reports/2026-10-01_slovakia_analysis/report.html">Slovakia26
+analysis</a></td>
+<td>75-img subset: 6/20 junk, scoring rewards screenshots, 14 real picks
+sound, 2.2 s/img</td>
+</tr>
+<tr>
+<td><a href="EXPERT_REVIEW.html">Expert reviews</a></td>
+<td>two independent critiques of the design and how each was
+addressed</td>
+</tr>
+<tr>
+<td><a href="PROMPTS.html">Prompts</a></td>
+<td>versioned curation / annotation / rater-sheet prompts</td>
+</tr>
+<tr>
+<td>Index</td>
+<td><code>reports/EXPERIMENTS.md</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Reading the three trips together:</strong> the VLM is a
+useful reference peer (different, equally valid picks; strong
+annotation) but not a truth source, and agreement collapses with trip
+size. That is why Stage A moved to the owner's own keeper list on a real
+roll (Slovakia26) instead of VLM agreement.</p>
+</div>
+</body>
+</html>

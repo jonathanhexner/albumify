@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-104--staged-process-isolation-for-the-pipeline-sighting-117-durable-fix"
+id="toc-spec-104--staged-process-isolation-for-the-pipeline-sighting-117-durable-fix">spec-104
+— Staged process isolation for the pipeline (SIGHTING-117 durable
+fix)</a>
+<ul>
+<li><a
+href="#v1--implemented-per-step-isolation-stage-grouping-deferred"
+id="toc-v1--implemented-per-step-isolation-stage-grouping-deferred">v1 —
+implemented (per-step isolation; stage-grouping deferred)</a></li>
+<li><a href="#1-problem-measured-not-assumed"
+id="toc-1-problem-measured-not-assumed">1. Problem (measured, not
+assumed)</a></li>
+<li><a href="#2-goal" id="toc-2-goal">2. Goal</a></li>
+<li><a href="#3-design" id="toc-3-design">3. Design</a></li>
+<li><a href="#4-acceptance-criteria" id="toc-4-acceptance-criteria">4.
+Acceptance criteria</a></li>
+<li><a href="#5-non-goals" id="toc-5-non-goals">5. Non-goals</a></li>
+<li><a href="#6-risks" id="toc-6-risks">6. Risks</a></li>
+<li><a href="#7-phasing" id="toc-7-phasing">7. Phasing</a></li>
+<li><a href="#8-open-questions-for-approval"
+id="toc-8-open-questions-for-approval">8. Open questions (for
+approval)</a></li>
+<li><a
+href="#9-scaling--cloud-path-anticipated-deferred--own-future-spec"
+id="toc-9-scaling--cloud-path-anticipated-deferred--own-future-spec">9.
+Scaling &amp; cloud path (anticipated, deferred — own future
+spec)</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-104--staged-process-isolation-for-the-pipeline-sighting-117-durable-fix">spec-104
+— Staged process isolation for the pipeline (SIGHTING-117 durable
+fix)</h1>
+<p><strong>Status</strong>: Implemented (v1) — merged to
+<code>main</code> 2026-09-28 (<code>--no-ff</code>). Per-step isolation
+behind a default-off <code>PipelineConfig.isolate_steps</code> flag;
+REVIEW.md ACCEPT (no High findings). Phase 0 (cheap release fix) landed
+2026-07-30. <strong>v2 stage-grouping deferred</strong> (pure
+optimization; see <code>tasks.md</code> Phases 2–4). Open review
+follow-ups + SIGHTING-122 tracked in <code>TODO.md</code>.</p>
+<h2 id="v1--implemented-per-step-isolation-stage-grouping-deferred">v1 —
+implemented (per-step isolation; stage-grouping deferred)</h2>
+<p>The simplest correct form of §3: isolate <strong>one step at a
+time</strong> (the "stage of one" the design calls the degenerate case).
+<strong>Executor-only change — no step or pipeline-construction
+changes.</strong></p>
+<ul>
+<li><code>PipelineConfig.isolate_steps: bool = False</code> — default
+OFF; the in-process path is byte-identical.</li>
+<li><code>PipelineExecutor._execute_step</code> branches to
+<code>_execute_step_isolated</code> when the flag is on.</li>
+<li>The child (<code>multiprocessing</code> <strong>spawn</strong>)
+re-imports the step's own class (module + qualname), rebuilds the
+context from the marshalled state, runs <code>step.process()</code>
+(mutates context in place), and ships the mutated state back. Child
+<strong>exits</strong> → OS reclaims 100% of the models it loaded.</li>
+<li>Only the picklable context data crosses; <code>on_progress</code> (a
+Callable) stays in the parent and is fired from relayed messages over
+the same queue.</li>
+<li>A child crash/OOM (no terminal message) → parent
+<strong>survives</strong> and returns a failed <code>StepResult</code>
+(today an OOM kills the whole run silently).</li>
+</ul>
+<p><strong>Proven</strong>
+(<code>scripts/spec104_isolation_probe.py</code>): a step leaking ~480
+MB → parent RSS in-process <strong>+480 MB</strong> vs isolated
+<strong>+1 MB</strong> (100% reclaimed), isolated step succeeds. 6 tests
+in <code>tests/pipeline/test_step_isolation.py</code> (marshal-back,
+runs-in-child, default-off parity, exception, hard-crash survival).</p>
+<p><strong>Deferred to v2 (pure optimization, not correctness):</strong>
+grouping contiguous steps into a <strong>stage</strong> so big
+intermediates (e.g. 149 MB face crops) stay inside one child instead of
+being pickled across per step, and each stage loads a disjoint model
+set. Wire into Albumify/API once v1 burns in.</p>
+<hr />
+<p><strong>Status (original)</strong>: Draft — awaiting approval. Phase
+0 (cheap release fix) already landed 2026-07-30. <strong>Owner</strong>:
+Claude / user <strong>Supersedes</strong>: the "stream/batch InsightFace
+detections" framing of SIGHTING-117 (measured wrong).
+<strong>Related</strong>: SIGHTING-117, spec-040 (unified pipeline
+framework), <code>feedback_pipeline_is_config</code>.</p>
+<hr />
+<h2 id="1-problem-measured-not-assumed">1. Problem (measured, not
+assumed)</h2>
+<p>The full album pipeline OOM-kills on real-size trips. Three memory
+probes (2026-07-30, on the 768px working sets) established the real
+cause, which <strong>corrects</strong> the sighting's recorded text:</p>
+<ul>
+<li>It is <strong>NOT</strong> detections (tiny) and
+<strong>NOT</strong> aligned crops (Budapest 67 MB, Austria 149
+MB).</li>
+<li>It <strong>IS stacked model memory that <code>release()</code> never
+returns to the OS.</strong> Full <code>faces</code> pipeline: peak
+<strong>1735 MB</strong> on 122 imgs (Budapest), <strong>2090
+MB</strong> on 474 (Austria). Peak is ~model-count-bound; image count
+adds only a few hundred MB. The <code>default</code> pipeline (adds
+CLIP-occlusion + GeoCalib-tilt + Siamese) projects to <strong>3
+GB+</strong> → OOM on a low-RAM box.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>step</th>
+<th>leaked &amp; kept</th>
+<th>backend</th>
+<th>release()?</th>
+<th>RSS freed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>extract_scene_embedding (DINOv2)</td>
+<td>+425 MB</td>
+<td>torch</td>
+<td>✅ nulls handle</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>extract_face_embeddings</td>
+<td>+363 MB</td>
+<td>ONNX</td>
+<td>❌ was missing → <strong>fixed Phase 0</strong></td>
+<td>0→~360 recovered</td>
+</tr>
+<tr>
+<td>score_ava (resnet50)</td>
+<td>+187 MB</td>
+<td>torch</td>
+<td>✅</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>detect_persons (YOLO)</td>
+<td>+164 MB</td>
+<td>torch</td>
+<td>✅</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>insightface_detect_faces</td>
+<td>+33 MB</td>
+<td>ONNX</td>
+<td>✅</td>
+<td><strong>freed 471</strong> ✅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Root fact:</strong> InsightFace ONNX sessions drop on
+<code>gc</code>, but <strong>torch CPU models do not return memory to
+the OS on Windows</strong> — no <code>torch.cuda.empty_cache</code>
+equivalent for CPU, no <code>malloc_trim</code> on Windows.
+<code>del + gc.collect()</code> frees the Python object; RSS stays as a
+high-water mark and fragments (models don't reuse each other's freed
+pages).</p>
+<p><strong>Proven remedy:</strong> process isolation. Prototype
+(<code>isolation_proto.py</code>): DINOv2 work done in a child process
+that exits → <strong>parent RSS delta +0 MB</strong> (results handed
+back via disk); same work in-process → <strong>+1105 MB</strong>
+retained. Process death is the only reliable <code>free()</code> for
+torch here.</p>
+<h2 id="2-goal">2. Goal</h2>
+<p>Make the executor own a <strong>two-tier resource-management
+contract</strong> so peak RSS is bounded by <strong>one stage's
+models</strong>, not the sum of the whole pipeline — and so a step's
+OOM/crash no longer kills the whole run. Directly answers "should the
+pipeline control release/isolation, incl. on error?":
+<strong>yes.</strong></p>
+<h3
+id="the-contract-executor-owned-both-tiers-under-one-error-umbrella">The
+contract (executor-owned, both tiers under one error umbrella)</h3>
+<ul>
+<li><strong>Tier 1 — <code>release()</code> (already exists).</strong>
+Default no-op; model-owning steps null their handle. Executor calls it
+in <code>finally</code> after every step (success OR failure).
+Lightweight, same-process. Sufficient for ONNX; <strong>insufficient for
+torch</strong> (measured).</li>
+<li><strong>Tier 2 — isolation boundary (new).</strong> A declared
+<strong>contiguous stage</strong> of steps runs in a child process that
+<strong>exits</strong> when the stage finishes. The OS reclaims 100% of
+the stage's model memory. Also under unified error handling: a stage
+exception → clean failed <code>StepResult</code>; a stage
+<strong>crash/OOM</strong> (non-zero child exit) → the <strong>parent
+survives</strong> and reports the failure (today an OOM kills everything
+with no traceback).</li>
+</ul>
+<p>Both tiers are declarative and controlled by the executor — step
+authors don't manage processes.</p>
+<h2 id="3-design">3. Design</h2>
+<h3 id="31-stage-granularity-why-not-per-step">3.1 Stage granularity
+(why not per-step)</h3>
+<p>Large intermediates must stay <strong>inside</strong> one child.
+<code>align_faces</code> produces 149 MB of crops that
+<code>extract_face_embeddings</code> consumes; if those were separate
+isolated steps we'd pickle 149 MB across the boundary. So the isolation
+unit is a <strong>contiguous stage</strong> grouping the steps that
+share big intermediates. Only small, declared <strong>exports</strong>
+cross back (embeddings/scores/records/clusters — all a few MB). Per-step
+isolation is the degenerate case (stage of one).</p>
+<p>Proposed stages for the album pipeline (image-level, face-level,
+scene-level — the user's split):</p>
+<pre><code>image_features : detect_persons, insightface_detect_faces, filter_faces, score_face_frontal,
+                 detect_face_orientation, align_faces, insightface_score_*, extract_face_embeddings,
+                 score_iqa, score_ava, score_occlusion, score_tilt, extract_scene_embedding
+                 exports: face_records(+embeddings), *_scores, scene_embeddings, insightface_faces(meta)
+                 kept-inside (never exported): aligned_faces (crops)
+face_clustering: quality_gate, build_face_knn_graph, cluster_face_components, select_face_exemplars,
+                 merge_face_clusters, attach_holdout_faces, apply_diameter_cap, assign_people_clusters,
+                 identity_refinement, cluster_by_identity        exports: people_clusters, cluster_*
+scene_org      : build_scene_distance?, cluster_scenes, select_best, straighten_images
+                 exports: selected_images, composite_scores, scene_clusters</code></pre>
+<p>(Exact grouping tuned in Phase 2 so each stage loads a disjoint model
+set.)</p>
+<h3 id="32-marshaling-across-the-boundary">3.2 Marshaling across the
+boundary</h3>
+<p>The child gets a <strong>fresh</strong> <code>PipelineContext</code>
+seeded with: <code>source_directory</code>, <code>image_paths</code>,
+the stage's declared <strong>imports</strong> (picklable values produced
+by earlier stages), and a locally constructed <code>cache_handler</code>
+(disk-backed, reconstructable from its path — NOT pickled). The child
+runs the stage's steps via the existing executor loop (so Tier-1
+<code>release()</code> still runs between steps inside the child,
+bounding the child's own peak). The child returns a dict of the stage's
+declared <strong>exports</strong>; the parent merges them into its
+long-lived context.</p>
+<p>Not crossed: <code>on_progress</code> (relayed via a Queue → parent
+invokes the real callback), non-picklable handles, and large kept-inside
+intermediates (crops). <code>spawn</code> context (Windows default);
+worker is a module-level function in
+<code>sim_bench.pipeline</code>.</p>
+<h3 id="33-error--crash-handling-the-also-in-case-of-an-error-ask">3.3
+Error / crash handling (the "also in case of an error" ask)</h3>
+<ul>
+<li>Stage step raises → child catches, returns serialized
+<code>{error_type, message, traceback}</code> → parent builds a failed
+<code>StepResult</code> exactly like the inline path;
+<code>fail_fast</code> respected.</li>
+<li>Child dies (OOM / segfault) → non-zero exit, no result on the queue
+→ parent detects, emits a failed
+<code>StepResult("&lt;stage&gt;", "child process exited N — likely OOM")</code>.
+<strong>Parent stays alive.</strong></li>
+<li>Tier-1 <code>release()</code> remains best-effort in
+<code>finally</code>; a <code>release()</code> bug never masks the
+result.</li>
+</ul>
+<h3 id="34-off-by-default-zero-behavior-change">3.4 Off by default (zero
+behavior change)</h3>
+<p>No <code>isolated_stages</code> declared → executor runs exactly as
+today, byte-identical. Isolation is opt-in per pipeline spec (album
+pipeline turns it on; FC-v2 anchor runs can stay inline).</p>
+<h2 id="4-acceptance-criteria">4. Acceptance criteria</h2>
+<ul>
+<li><strong>AC1 (memory):</strong> <code>faces</code> pipeline on
+Austria (474) staged peak RSS <strong>&lt; 1.2 GB</strong> (from 2.1
+GB).</li>
+<li><strong>AC2 (equivalence, BINDING):</strong> staged run output
+byte-identical to inline on the Budapest anchor —
+<code>n_clusters == 15</code>, <code>n_faces == 340</code>, same cluster
+sizes, same <code>selected_images</code>.</li>
+<li><strong>AC3 (error):</strong> a step that raises inside an isolated
+stage → run fails gracefully, <code>failed_step</code> correct,
+<strong>parent process alive</strong>.</li>
+<li><strong>AC4 (crash):</strong> a stage child that
+OOMs/<code>os._exit(1)</code> → parent reports failure, stays
+alive.</li>
+<li><strong>AC5 (off = identical):</strong> no stages declared →
+byte-identical to today (regression guard).</li>
+<li><strong>AC6 (scale):</strong> Germany (788) <code>default</code>
+pipeline completes without OOM on the dev box.</li>
+<li><strong>AC7:</strong>
+<code>tests/face_clustering/e2e_budapest/</code> stays green (V2
+baseline gate).</li>
+</ul>
+<h2 id="5-non-goals">5. Non-goals</h2>
+<ul>
+<li>GPU/CUDA memory (CPU is the shipping target). CUDA
+<code>empty_cache</code> is out of scope.</li>
+<li>Rewriting steps' internals. Isolation is an executor concern; steps
+are unchanged except the (existing) <code>release()</code> hook.</li>
+<li>A distributed / multi-machine runner. Single host, multiple
+short-lived child processes. The cloud path is <strong>anticipated but
+deferred</strong> — kept a clean <code>NodeRunner</code> seam, not built
+(see §9).</li>
+</ul>
+<h2 id="6-risks">6. Risks</h2>
+<ul>
+<li><strong>Pickling cost / non-picklable exports.</strong> Mitigated:
+exports are small + declared; a startup check asserts every declared
+export key is picklable before a run.</li>
+<li><strong>Per-stage torch re-import (~seconds).</strong> Acceptable vs
+minute-scale runs; 3 stages = 3 spawns.</li>
+<li><strong>Two code paths (inline vs isolated).</strong> Mitigated by
+AC5 (off=identical) + AC2 (on=identical output) as permanent regression
+guards.</li>
+</ul>
+<h2 id="7-phasing">7. Phasing</h2>
+<ul>
+<li><strong>Phase 0 (DONE 2026-07-30):</strong> add missing
+<code>extract_face_embeddings.release()</code> (~360 MB); probes;
+re-diagnose + reprice SIGHTING-117.</li>
+<li><strong>Phase 1:</strong> executor subprocess-stage primitive (spawn
+worker, marshal imports/exports, progress relay, error + crash handling)
+behind a spec flag; default off. Unit + error + crash tests.</li>
+<li><strong>Phase 2:</strong> declare image/face/scene stages for the
+album pipeline; AC1/AC2/AC5 gates.</li>
+<li><strong>Phase 3:</strong> wire Albumify arm + API to staged mode for
+large trips; measure Austria/Germany (AC6).</li>
+<li><strong>Phase 4:</strong> docs
+(<code>docs/architecture/data_flow.html</code>,
+<code>overview.md</code>), REVIEW.md, flip to Implemented.</li>
+</ul>
+<h2 id="8-open-questions-for-approval">8. Open questions (for
+approval)</h2>
+<ol type="1">
+<li>Stage grouping: three stages (image/face/scene) as above, or finer?
+(affects spawn count vs peak)</li>
+<li>Import/export declaration: explicit per-stage lists (safer, more
+boilerplate) vs auto-derived from steps'
+<code>requires</code>/<code>produces</code> (less boilerplate, risk of
+pickling something large)?</li>
+<li>Should staged mode auto-enable above an image-count threshold, or
+always be an explicit flag?</li>
+</ol>
+<blockquote>
+<p><strong>Design note (2026-07-30):</strong> the API has evolved from a
+flat <code>isolated_stages</code> list to a
+<strong>PipelineGraph</strong> (nodes = named pipelines,
+<code>after:</code> edges, <code>exports</code> lists,
+<code>NodeRunner</code> transport seam).
+<code>specs/104-staged-process-isolation/architecture.html</code> is the
+authoritative API + TDD design; §3 above will be revised to match once
+the brief is approved. Q3 dissolves under the graph model (a pipeline
+either declares a graph or it doesn't — no separate "mode").</p>
+</blockquote>
+<h2 id="9-scaling--cloud-path-anticipated-deferred--own-future-spec">9.
+Scaling &amp; cloud path (anticipated, deferred — own future spec)</h2>
+<p>Two <strong>independent</strong> axes of parallelism; spec-104 builds
+only the first:</p>
+<ul>
+<li><strong>Within one trip (this spec):</strong> graph nodes run as
+local child processes (<code>multiprocessing</code>). Bounds
+<strong>memory</strong>.
+<code>image → face ∥ scene → select</code>.</li>
+<li><strong>Across many trips (future):</strong> each trip is one
+independent <code>run_graph</code> job. Bounds
+<strong>throughput</strong>. The unit of cloud parallelism is a
+<strong>whole trip</strong>, not a node; inside a cloud worker the graph
+still uses local multiprocessing.</li>
+</ul>
+<p><strong>Where (cheapest first, no heavy orchestration):</strong></p>
+<ul>
+<li>Rung 0 — one bigger VM (Hetzner/DO/spot), run the identical graph.
+Pennies/hr; <strong>kills the OOM</strong>.</li>
+<li>Rung 1 — per-trip container on demand (Modal / Fly Machines / Cloud
+Run Jobs). Pay-per-second.</li>
+<li>Rung 2 — queue (Postgres table or Upstash Redis) + N stateless
+workers, autoscale by depth.</li>
+<li>Avoid Kubernetes / EMR / Celery+RabbitMQ — this is a batch CPU
+job.</li>
+</ul>
+<p><strong>Why the compute code doesn't change:</strong> a node is
+<code>run(seed) -&gt; exports</code>; a job is a picklable
+<code>(steps, step_configs, seed)</code>. Local multiprocessing is the
+same-machine transport; cloud is a different transport for the identical
+payload, behind <code>NodeRunner</code> (<code>LocalRunner</code> now,
+<code>RemoteRunner</code> later — same
+<code>Node</code>/<code>exports</code> contract).</p>
+<p><strong>The real cloud cost is STORAGE, not compute</strong> (own
+future spec): <code>universal_cache</code> (SQLite),
+<code>image_cache</code> (local disk), <code>run_db</code> (SQLite) are
+all local-disk. Multi-machine needs them network-addressable — Postgres
++ an S3-compatible object store (Cloudflare R2 / Backblaze B2).</p>
+<p><strong>Cost kicker:</strong> isolation is also a cloud cost lever —
+peak 1.2 GB vs 3 GB per trip → ~2.5× more concurrent trips per worker →
+~2.5× cheaper. Spec-104 pays off in cloud economics as a local
+change.</p>
+</div>
+</body>
+</html>

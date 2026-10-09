@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-107--tasks-input-triage--discard-review"
+id="toc-spec-107--tasks-input-triage--discard-review">spec-107 — Tasks
+(Input Triage &amp; Discard Review)</a>
+<ul>
+<li><a
+href="#p0--metadata-tier-cheapest-highest-precision-white_check_mark-done-2026-10-01"
+id="toc-p0--metadata-tier-cheapest-highest-precision-white_check_mark-done-2026-10-01">P0
+— Metadata tier (cheapest, highest-precision) ✅ DONE
+2026-10-01</a></li>
+<li><a href="#p1--content-tier-ram-white_check_mark-done-2026-10-01"
+id="toc-p1--content-tier-ram-white_check_mark-done-2026-10-01">P1 —
+Content tier (RAM++) ✅ DONE 2026-10-01</a></li>
+<li><a href="#p2--triage-step--context-contract"
+id="toc-p2--triage-step--context-contract">P2 — Triage step + context
+contract</a></li>
+<li><a href="#p3--behavioral-tier-optional-needs-full-roll"
+id="toc-p3--behavioral-tier-optional-needs-full-roll">P3 — Behavioral
+tier (optional, needs full roll)</a></li>
+<li><a href="#p4--reviewrestore-ux-contract--ship"
+id="toc-p4--reviewrestore-ux-contract--ship">P4 — Review/restore UX
+contract + ship</a></li>
+<li><a href="#out-of-scope" id="toc-out-of-scope">Out of scope</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-107--tasks-input-triage--discard-review">spec-107 — Tasks
+(Input Triage &amp; Discard Review)</h1>
+<p><strong>Status:</strong> Draft — no implementation until spec.md
+approved. Full rationale: <code>spec.md</code>.</p>
+<h2
+id="p0--metadata-tier-cheapest-highest-precision-white_check_mark-done-2026-10-01">P0
+— Metadata tier (cheapest, highest-precision) ✅ DONE 2026-10-01</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T0.1
+<code>sim_bench/triage/metadata.py</code>:
+<code>calc(TriageInputs)-&gt;TriageResult</code> (filename / camera-EXIF
+/ format / screen-dims → keep|review|set_aside, conservative) +
+<code>classify_file(path)</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T0.2
+<code>tests/triage/test_metadata_triage.py</code> (9 tests, pure) —
+green.</label></li>
+</ul>
+<ul>
+<li><strong>Gate:</strong> ✅ met — 715-roll validation: <strong>8/8
+screenshots set_aside, 707 keep, 0 review (0 false
+positives)</strong>.</li>
+</ul>
+<h2 id="p1--content-tier-ram-white_check_mark-done-2026-10-01">P1 —
+Content tier (RAM++) ✅ DONE 2026-10-01</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T1.1
+<code>sim_bench/triage/content.py</code>: pure
+<code>calc(tags)-&gt;TriageResult</code> (strong/soft junk taxonomy +
+moment-override: a printed item within a real scene -&gt; review, not
+set_aside) + <code>RamTagger</code> (lazy RAM++ live tag source,
+transformers shim).</label></li>
+<li><label><input type="checkbox" checked="" />T1.2
+<code>tests/triage/test_content_triage.py</code> (8 tests). Validated on
+the 75 real-tag subset: caught the 8 screenshots + <strong>3 junk
+metadata missed</strong> (poster <code>…105436</code> that leaked into
+the album, packaging <code>…155313</code>, re-shared screen
+<code>…153154</code>); signs/posters-in-scene -&gt; review (kept); no
+false positives. Live <code>RamTagger</code> smoke green.</label></li>
+</ul>
+<ul>
+<li><strong>Gate:</strong> ✅ met — catches photographed docs/posters
+metadata misses; cost = one isolated RAM++ step (spec-104).</li>
+</ul>
+<h2 id="p2--triage-step--context-contract">P2 — Triage step + context
+contract</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T2.1 Pipeline step that runs before
+scoring, writes
+<code>context.set_aside = [{image, reason, confidence}]</code>; curation
+runs on survivors only.</label></li>
+<li><label><input type="checkbox" />T2.2 Surface <code>set_aside</code>
+(+ reasons, counts) in the result schema the UI reads.</label></li>
+<li><label><input type="checkbox" />T2.3 Slovakia26
+<strong>re-run</strong>: assert 0 junk in the curated album (vs
+6/20).</label></li>
+</ul>
+<ul>
+<li><strong>Gate:</strong> album is junk-free; set_aside populated with
+reasons.</li>
+</ul>
+<h2 id="p3--behavioral-tier-optional-needs-full-roll">P3 — Behavioral
+tier (optional, needs full roll)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T3.1 Singleton
+(scene-cluster-of-one) + no-person signal → "possible
+note-to-self".</label></li>
+<li><label><input type="checkbox" />T3.2 Consume theme-relevance from
+spec-108 (if available) to extend set-aside to
+low-interest.</label></li>
+</ul>
+<ul>
+<li><strong>Gate:</strong> catches ≥ the Slovakia utilitarian leaks
+(car/CDs/ladder) with low false-positives on the full contiguous
+roll.</li>
+</ul>
+<h2 id="p4--reviewrestore-ux-contract--ship">P4 — Review/restore UX
+contract + ship</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T4.1 Define the "Set aside (N)"
+review contract for spec-106 (reason chips, one-click restore). Never
+silent-delete.</label></li>
+<li><label><input type="checkbox" />T4.2 CHANGES_LOG +
+<code>/code-review</code> → REVIEW.md; flip to Implemented.</label></li>
+</ul>
+<h2 id="out-of-scope">Out of scope</h2>
+<p>Theme/interestingness <em>scoring</em> (spec-108 produces it) · the
+review UI build (spec-106) · hard delete.</p>
+</div>
+</body>
+</html>
