@@ -711,6 +711,32 @@ class ApiClient:
         )
 
 
+    # Jobs (spec-112): control-plane jobs, albums built from DB rows
+    def list_jobs(self) -> List[Dict[str, Any]]:
+        return self._get("/jobs")
+
+    def get_job(self, job_id: str) -> Dict[str, Any]:
+        return self._get(f"/jobs/{job_id}")
+
+    def get_job_album(self, job_id: str) -> Dict[str, Any]:
+        return self._get(f"/jobs/{job_id}/album")
+
+    def list_job_photos(self, job_id: str) -> List[Dict[str, Any]]:
+        return self._get(f"/jobs/{job_id}/photos")
+
+    def list_job_faces(self, job_id: str, person_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        return self._get(f"/jobs/{job_id}/faces",
+                         params={"person_id": person_id} if person_id is not None else None)
+
+    def add_job_edit(self, job_id: str, kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self._post(f"/jobs/{job_id}/edits", json={"kind": kind, "payload": payload})
+
+    def job_photo_url(self, job_id: str, photo_id: str) -> str:
+        return self._url(f"/jobs/{job_id}/photos/{photo_id}/image")
+
+    def job_face_url(self, job_id: str, face_id: int) -> str:
+        return self._url(f"/jobs/{job_id}/faces/{face_id}/crop")
+
 # Global client instance
 _client: Optional[ApiClient] = None
 

@@ -74,6 +74,7 @@ class RamTagger:
         if checkpoint is None:
             root = Path(__file__).resolve().parents[2]
             checkpoint = str(root / "models" / "ram" / "ram_plus_swin_large_14m.pth")
+        self.device = device
         self._model = ram_plus(pretrained=checkpoint, image_size=image_size, vit="swin_l").eval().to(device)
         self._tf = get_transform(image_size=image_size)
 
@@ -82,7 +83,7 @@ class RamTagger:
         from PIL import Image
         from ram import inference_ram
         with torch.no_grad():
-            res = inference_ram(self._tf(Image.open(path).convert("RGB")).unsqueeze(0), self._model)
+            res = inference_ram(self._tf(Image.open(path).convert("RGB")).unsqueeze(0).to(self.device), self._model)
         en = res[0] if isinstance(res, (list, tuple)) else res
         return [t.strip() for t in str(en).split("|") if t.strip()]
 

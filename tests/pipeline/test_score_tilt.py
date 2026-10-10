@@ -27,6 +27,9 @@ CALLS = {"n": 0}
 class _FakeScorer:
     version = "fake-v1"
 
+    def __init__(self, device="cpu"):
+        self.device = device
+
     def calc(self, inputs):
         CALLS["n"] += len(inputs.image_paths)
         return tilt_mod.TiltScoreResult(

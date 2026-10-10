@@ -2,13 +2,40 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · [architecture.html](architecture.html) · [plan.html](plan.html) · roadmap stage: **C–D (the product)** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** In Progress — build started 2026-10-04. P0 done; P1 blocked on Modal auth.
+**Status:** In Progress — P0 done; P1 L4 smoke and inline-byte pipeline proof passed. Storage-reference result, full-size latency and cost remain open.
+
+## 2026-10-09 — The album contract gained an ordering guarantee (from spec-110)
+
+`normalize()` now owns ordering, because the worker's two-run proof showed album.json was not
+reproducible (SIGHTING-126): scenes are renumbered `0..n-1` by their earliest photo, picks are
+ordered by EXIF capture time (falling back to the id, so `Pick.order` really is the album's reading
+order), and `beat` / `beaten_by` are sorted. The pipeline's own `scene_cluster` ids and
+`selected_images` order follow an embedding-dict order that varies between runs, so the front end
+must not treat them as identifiers — the album's numbering is the stable one. Scene 0 is the trip's
+first scene.
+
+| How it was verified | Evidence |
+|---|---|
+| Order-insensitivity of the contract | `tests/album/test_normalizer.py::ut_AlbumDeterminism` — 6 tests (permuted cluster ids + reversed selected order → identical album; EXIF-time ordering; noise stays -1; duplicate in `selected_images` picked once) |
+| Real-data album through the worker path | [local job report](../../reports/_local_job_localproof12.json) — 4 picks with score breakdowns + captions, 8 dropped with reasons, displays written |
+
+
+## 2026-10-09 — Follow-up: Modal blocker cleared, production seam still incomplete
+- Modal auth/billing, image imports, L4 smoke, and CPU/GPU 12-photo full-pipeline runs passed.
+- Saved CPU/GPU outputs match on input filenames, pick filename sets, theme and set_aside.
+  GPU: 142.186 s pipeline / 313.8 s driver wall. This does not establish the 100-photo latency gate.
+- `_curate` returns an inline-byte pipeline summary; the normalizer is still not invoked by the worker.
+  Storage-reference input, normalized persisted album.json/displays, idempotence and complete cache reuse
+  remain spec-110 work before the control plane consumes the worker.
+- Verified: saved [CPU result](../../reports/_modal_curate_last.json) and
+  [GPU result](../../reports/_modal_curate_gpu12_retry2.json), worker source inspection, and 37 local
+  focused regression tests (including the six normalizer tests); one slow test deselected.
 
 ## Progress by phase
 | Phase | State | Verified by |
 |---|---|---|
 | P0 album.json normalizer | **Done 2026-10-05** | `tests/album/test_normalizer.py` (6 tests): pure classify, synthetic-context normalize, straighten-derivative mapping, JSON round-trip. **Real-data validation pending** the worker run |
-| P1 prove the GPU seam | Blocked — needs owner's `modal setup` | — |
+| P1 prove the GPU seam | Smoke + inline-byte real-data proof passed; storage result, latency/cost gate pending | [109 updates](../109-parallel-gpu-execution/updates.html), [110 updates](../110-containerized-worker-modal-cpu/updates.html); GPU 12-photo result matches CPU picks/theme |
 | P2 storage + presigned upload | Not started | — |
 | P3 control-plane API + job state machine | Not started (unblocked, no Modal needed) | — |
 | P4 Next.js front end | Not started | — |

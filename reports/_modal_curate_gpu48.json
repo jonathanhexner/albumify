@@ -1,0 +1,323 @@
+{
+  "ok": true,
+  "selected": [
+    "/tmp/tmpfl0w7i74/20260823_121510.jpg",
+    "/tmp/tmpfl0w7i74/20260822_181233.jpg",
+    "/tmp/tmpfl0w7i74/20260822_181213.jpg",
+    "/tmp/tmpfl0w7i74/20260823_121732.jpg",
+    "/tmp/tmpfl0w7i74/20260823_121636.jpg",
+    "/tmp/tmpfl0w7i74/20260823_120312.jpg",
+    "/tmp/tmpfl0w7i74/20260823_120328.jpg",
+    "/tmp/tmpfl0w7i74/20260823_120537.jpg",
+    "/tmp/tmpfl0w7i74/20260822_181558.jpg",
+    "/tmp/tmpfl0w7i74/20260823_123916.jpg",
+    "/tmp/tmpfl0w7i74/20260823_123956.jpg",
+    "/tmp/tmpfl0w7i74/20260823_072734.jpg",
+    "/tmp/tmpfl0w7i74/20260823_122538.jpg"
+  ],
+  "scene_clusters": {
+    "5": [
+      "/tmp/tmpfl0w7i74/20260823_121512.jpg",
+      "/tmp/tmpfl0w7i74/20260823_121510.jpg",
+      "/tmp/tmpfl0w7i74/20260823_121503.jpg"
+    ],
+    "1": [
+      "/tmp/tmpfl0w7i74/20260822_181211.jpg",
+      "/tmp/tmpfl0w7i74/20260822_181235.jpg",
+      "/tmp/tmpfl0w7i74/20260822_181234.jpg",
+      "/tmp/tmpfl0w7i74/20260822_181233.jpg",
+      "/tmp/tmpfl0w7i74/20260822_181213.jpg"
+    ],
+    "3": [
+      "/tmp/tmpfl0w7i74/20260823_121636.jpg",
+      "/tmp/tmpfl0w7i74/20260823_121732.jpg",
+      "/tmp/tmpfl0w7i74/20260823_121654.jpg",
+      "/tmp/tmpfl0w7i74/20260823_121656.jpg",
+      "/tmp/tmpfl0w7i74/20260823_121735.jpg",
+      "/tmp/tmpfl0w7i74/20260823_121735(0).jpg"
+    ],
+    "4": [
+      "/tmp/tmpfl0w7i74/20260823_120346.jpg",
+      "/tmp/tmpfl0w7i74/20260823_120309.jpg",
+      "/tmp/tmpfl0w7i74/20260823_120346(0).jpg",
+      "/tmp/tmpfl0w7i74/20260823_120328.jpg",
+      "/tmp/tmpfl0w7i74/20260823_120312.jpg"
+    ],
+    "2": [
+      "/tmp/tmpfl0w7i74/20260823_120534.jpg",
+      "/tmp/tmpfl0w7i74/20260823_120530.jpg",
+      "/tmp/tmpfl0w7i74/20260823_120537.jpg",
+      "/tmp/tmpfl0w7i74/20260823_120538.jpg"
+    ],
+    "6": [
+      "/tmp/tmpfl0w7i74/20260822_181556.jpg",
+      "/tmp/tmpfl0w7i74/20260822_181541.jpg",
+      "/tmp/tmpfl0w7i74/20260822_181558.jpg",
+      "/tmp/tmpfl0w7i74/20260822_181557.jpg",
+      "/tmp/tmpfl0w7i74/20260822_181546.jpg",
+      "/tmp/tmpfl0w7i74/20260822_181544.jpg"
+    ],
+    "0": [
+      "/tmp/tmpfl0w7i74/20260823_123753.jpg",
+      "/tmp/tmpfl0w7i74/20260823_123916.jpg",
+      "/tmp/tmpfl0w7i74/20260823_124014.jpg",
+      "/tmp/tmpfl0w7i74/20260823_123910.jpg",
+      "/tmp/tmpfl0w7i74/20260823_123956.jpg"
+    ],
+    "-1": [
+      "/tmp/tmpfl0w7i74/20260823_072729.jpg",
+      "/tmp/tmpfl0w7i74/20260823_072734.jpg",
+      "/tmp/tmpfl0w7i74/20260823_122538.jpg",
+      "/tmp/tmpfl0w7i74/20260822_174227.jpg"
+    ]
+  },
+  "set_aside": [],
+  "album_theme": {
+    "album_type": "outdoors with family/friends",
+    "facet_distribution": {
+      "food": 1,
+      "nature": 14,
+      "people": 30
+    },
+    "top_tags": [
+      "woman",
+      "girl",
+      "person",
+      "man",
+      "hillside",
+      "park bench",
+      "tree",
+      "pine",
+      "mountain",
+      "water",
+      "stone",
+      "log"
+    ],
+    "motifs": [
+      "woman",
+      "girl",
+      "person",
+      "man",
+      "park bench"
+    ],
+    "source": "tags",
+    "caption": ""
+  },
+  "image_captions": {},
+  "timing": {
+    "total_ms": 217234,
+    "steps": [
+      {
+        "step": "discover_images",
+        "ms": 5
+      },
+      {
+        "step": "triage_metadata",
+        "ms": 33
+      },
+      {
+        "step": "triage_content",
+        "ms": 18685
+      },
+      {
+        "step": "derive_semantic_tags",
+        "ms": 1
+      },
+      {
+        "step": "infer_album_theme",
+        "ms": 0
+      },
+      {
+        "step": "extract_geo_metadata",
+        "ms": 37
+      },
+      {
+        "step": "score_iqa",
+        "ms": 1642
+      },
+      {
+        "step": "score_ava",
+        "ms": 3733
+      },
+      {
+        "step": "score_occlusion",
+        "ms": 11700
+      },
+      {
+        "step": "score_tilt",
+        "ms": 15612
+      },
+      {
+        "step": "detect_persons",
+        "ms": 2310
+      },
+      {
+        "step": "insightface_detect_faces",
+        "ms": 85284
+      },
+      {
+        "step": "filter_faces",
+        "ms": 38
+      },
+      {
+        "step": "score_face_frontal",
+        "ms": 36
+      },
+      {
+        "step": "detect_face_orientation",
+        "ms": 0
+      },
+      {
+        "step": "align_faces",
+        "ms": 311
+      },
+      {
+        "step": "insightface_score_expression",
+        "ms": 2707
+      },
+      {
+        "step": "insightface_score_eyes",
+        "ms": 1515
+      },
+      {
+        "step": "insightface_score_pose",
+        "ms": 2
+      },
+      {
+        "step": "filter_quality",
+        "ms": 0
+      },
+      {
+        "step": "extract_scene_embedding",
+        "ms": 8275
+      },
+      {
+        "step": "cluster_scenes",
+        "ms": 273
+      },
+      {
+        "step": "extract_face_embeddings",
+        "ms": 61451
+      },
+      {
+        "step": "quality_gate",
+        "ms": 76
+      },
+      {
+        "step": "build_face_knn_graph",
+        "ms": 1
+      },
+      {
+        "step": "cluster_face_components",
+        "ms": 2
+      },
+      {
+        "step": "select_face_exemplars",
+        "ms": 2
+      },
+      {
+        "step": "merge_face_clusters",
+        "ms": 0
+      },
+      {
+        "step": "attach_holdout_faces",
+        "ms": 0
+      },
+      {
+        "step": "apply_diameter_cap",
+        "ms": 0
+      },
+      {
+        "step": "assign_people_clusters",
+        "ms": 0
+      },
+      {
+        "step": "face_cluster_analysis_export",
+        "ms": 0
+      },
+      {
+        "step": "select_best",
+        "ms": 3457
+      },
+      {
+        "step": "straighten_images",
+        "ms": 6
+      },
+      {
+        "step": "caption_keepers",
+        "ms": 0
+      },
+      {
+        "step": "caption_album",
+        "ms": 0
+      },
+      {
+        "step": "cluster_people",
+        "ms": 14
+      },
+      {
+        "step": "identity_refinement",
+        "ms": 2
+      },
+      {
+        "step": "cluster_by_identity",
+        "ms": 0
+      }
+    ]
+  },
+  "driver": {
+    "n_images": 48,
+    "wall_s": 255.4,
+    "mode": "gpu",
+    "inputs": [
+      "20260822_174227.jpg",
+      "20260822_181211.jpg",
+      "20260822_181213.jpg",
+      "20260822_181233.jpg",
+      "20260822_181234.jpg",
+      "20260822_181235.jpg",
+      "20260822_181541.jpg",
+      "20260822_181544.jpg",
+      "20260822_181546.jpg",
+      "20260822_181556.jpg",
+      "20260822_181557.jpg",
+      "20260822_181558.jpg",
+      "20260823_072729.jpg",
+      "20260823_072734.jpg",
+      "20260823_120309.jpg",
+      "20260823_120312.jpg",
+      "20260823_120328.jpg",
+      "20260823_120344.jpg",
+      "20260823_120346(0).jpg",
+      "20260823_120346.jpg",
+      "20260823_120530.jpg",
+      "20260823_120534.jpg",
+      "20260823_120537.jpg",
+      "20260823_120538.jpg",
+      "20260823_121502.jpg",
+      "20260823_121503.jpg",
+      "20260823_121510.jpg",
+      "20260823_121512.jpg",
+      "20260823_121636.jpg",
+      "20260823_121651.jpg",
+      "20260823_121654.jpg",
+      "20260823_121656.jpg",
+      "20260823_121732.jpg",
+      "20260823_121735(0).jpg",
+      "20260823_121735.jpg",
+      "20260823_122538.jpg",
+      "20260823_123354.jpg",
+      "20260823_123413.jpg",
+      "20260823_123414.jpg",
+      "20260823_123753.jpg",
+      "20260823_123802.jpg",
+      "20260823_123907.jpg",
+      "20260823_123910.jpg",
+      "20260823_123916.jpg",
+      "20260823_123943.jpg",
+      "20260823_123951.jpg",
+      "20260823_123956.jpg",
+      "20260823_124014.jpg"
+    ]
+  }
+}

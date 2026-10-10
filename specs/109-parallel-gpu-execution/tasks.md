@@ -1,9 +1,9 @@
 # spec-109 — Tasks (Parallel GPU Execution)
 
-**Status:** Draft — no implementation until spec.md approved. Rationale: `spec.md` (Slovakia26 timing).
+**Status:** In Progress — CPU baseline and 12-photo GPU proof complete; full-size latency/cost and parallelism gates pending. Evidence: [updates](updates.html).
 
 ## P0 — Baseline & defer-embedding (CPU, measurable now)
-- [>] T0.1 Re-run the **full** `default_pipeline` (incl. rotation/occlusion) on the Slovakia subset for true per-step timing (today's numbers are the lean `faces` variant). | 2026-10-04 running
+- [x] T0.1 Re-run the **full** `default_pipeline` (incl. rotation/occlusion) on the Slovakia subset for true per-step timing. | 2026-10-04: 57 scored images, 512 s, 9.0 s/img; `reports/2026-10-04_spec109_baseline/timing.json`
 - [~] T0.2 Defer `extract_face_embeddings` — **REVISED (not a free win).** Dependency finding 2026-10-04:
       `select_best` default `use_face_subclusters=True` consumes `context.face_clusters` (identity-aware
       per-person selection) → needs embeddings on ALL faces BEFORE selection. Deferral would change the
@@ -22,13 +22,17 @@
 > Containerize-and-run (image build, code mount, storage-ref `curate`, result write) moved to
 > **spec-110** — proven on CPU first. The `sim_bench/serving/modal_app.py` scaffold + the
 > `modal_explainer.html` / `modal_q_and_a.html` design notes are shared. spec-109 = make it fast.
-- [ ] T2.1 GPU image: swap CPU deps → CUDA (`onnxruntime-gpu`, torch-CUDA); `gpu="L4"` on `curate`.
-- [ ] T2.2 **Verify EACH step honors `device=cuda`** — not assumed: InsightFace (ONNX CUDA EP), DINOv2,
+- [x] T2.1 GPU image: CUDA (`onnxruntime-gpu`, torch-CUDA); `gpu="L4"` on `curate`. | 2026-10-09 L4 smoke + full 12-photo run
+- [>] T2.2 **Verify EACH step honors `device=cuda`** — not assumed: InsightFace (ONNX CUDA EP), DINOv2,
       YOLO, AVA, RAM++, GeoCalib, CLIP all run on GPU; **MediaPipe may be CPU-only** → confirm or keep on CPU.
+      Device routing fixes landed; InsightFace CUDA providers confirmed; picks and theme match CPU.
+      Full per-model runtime evidence / justified CPU exceptions remain pending (see updates).
 - [ ] T2.3 Benchmark GPU per-step ms/img + end-to-end 100/300; confirm ≤3–5 min (target <1 min) + $/album.
-- [ ] T2.4 `score_tilt` (GeoCalib, 2.6 s/img CPU) GPU-only/optional; confirm rotation within budget.
+- [>] T2.4 `score_tilt` (GeoCalib, 2.6 s/img CPU) GPU-only/optional; confirm rotation within budget. | CUDA routing fixed; 5.994 s for 12 photos; full-size budget pending
 - [ ] T2.5 **Warm-up worker shape**: load models once at container start (Modal `@enter`), stay warm
       briefly so a warm-up call benefits the real `curate`. (The warm-up *trigger* is spec-106's control plane.)
+      First profile the two buffalo_l initializations/downloads: detection + embeddings take 101.850 s
+      (72% of the 12-photo GPU run). Persist non-HF caches and separate model startup from inference.
 - **Gate:** 100-photo full pipeline ≤ 3–5 min on GPU; every step verified on CUDA (or justified on CPU).
 
 ## P3 — Cost + fallback

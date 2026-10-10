@@ -4,6 +4,232 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-131: Dev box commit charge pinned at its limit -> every local model load fails
+**Status**: OPEN, intermittent — cleared on its own 2026-10-10 ~23:40 without a reboot (commit 31.1 / 67.9 GB; the page file had shrunk); `tests/pipeline` then 183 passed. Cause unknown; capture evidence next time.
+**Severity**: High for local work (no model can load: no local pipeline run, model tests crash), none for the Modal worker
+**Reported**: 2026-10-10 (spec-112 Phase A test run)
+**Persona**: DevOps / Environment
+
+**Problem**: Windows reports 126.6 GB committed of a 127.9 GB commit limit (11.8 GB physical free), while the
+largest visible process commits 1.6 GB. Model loads then fail: ONNX Runtime `Load model ... 1k3d68.onnx
+failed: bad allocation` (`tests/pipeline/steps/test_extract_face_embeddings.py`), and torch dies with
+`Windows fatal exception: access violation` allocating DINOv2 (`tests/pipeline/test_integration.py`,
+`dinov2.py:_build_model`), which kills the pytest process.
+
+**Suspicion**: commit held outside any listed process -- a driver / kernel pool leak, or a page-file-backed
+section kept alive by a crashed process (repeated killed model-loading Python processes on 10-09). Not code:
+the same tests load models fine in the Modal container, and the failure moves to whichever test loads first.
+
+**Reproduction**: `Get-CimInstance Win32_OperatingSystem` -> (TotalVirtualMemorySize - FreeVirtualMemory)
+near the limit; `.venv/Scripts/python -m pytest tests/pipeline -q` -> access violation at the first model load.
+
+**Next**: if it recurs, before anything else capture: `Get-Counter '\Memory\Committed Bytes','\Memory\Pool Paged Bytes','\Memory\Pool Nonpaged Bytes'`,
+the sum of process `PrivateMemorySize64`, and RAMMap Use Counts. Process private commit summed to ~25 GB once
+cleared, so a ~95 GB gap points at a short-lived process (e.g. a model-loading job elsewhere on the box) or a
+page-file-backed section, not a steady leak. Reboot only if it does not clear.
+
+---
+
+### SIGHTING-130: GeoCalib tilt angle is nondeterministic on the GPU worker (blocks spec-110 AC4 byte-identity)
+**Status**: OPEN (found 2026-10-09; options below, owner's call)
+**Severity**: Low for curation (composite scores and picks were identical in every double run), Medium for the contract (album.json cannot be byte-compared while `score.tilt` jitters)
+**Reported**: 2026-10-09 (spec-110 AC4 double runs on the L4)
+**Persona**: ML Engineer / Pipeline
+
+**Problem**: three `curate_job` double runs of the same 48 Slovakia26 images produced identical picks,
+order and composite scores, but `Pick.score.tilt` differed: -0.84 vs -0.76 deg (plain), then
+**-0.54 vs -1.40 deg** with `cudnn.deterministic=True`, `benchmark=False`, TF32 off. So it is not cuDNN
+autotuning or TF32 rounding; GeoCalib's estimate itself varies run to run on CUDA by up to ~1 deg.
+Everything else in the album is byte-identical (`reports/_modal_job_slovakia48_{pb4,det}.json`).
+
+**Suspicion**: GeoCalib's LM refinement / sampling is sensitive to nondeterministic CUDA kernels
+(scatter/atomics) that the cudnn flags do not cover; `torch.use_deterministic_algorithms(True)` may
+either fix it or raise on an unsupported op. Not yet tested. The affected photo likely has low tilt
+confidence (angle is noise when `roll_uncertainty` is high), which is why no penalty moved.
+
+**Options**: (1) `torch.use_deterministic_algorithms(True)` + `CUBLAS_WORKSPACE_CONFIG=:4096:8` in the
+worker and re-measure; (2) run `score_tilt` on CPU in the worker (0.24 s/img -> slower, but the step
+was deterministic in the CPU container); (3) contract-level: store `tilt` only when confidence passes
+the gate (else null) and round to 0.1 deg — AC4 then compares what the album actually uses.
+Recommendation: (3) now (cheap, honest), (1) as a follow-up measurement.
+
+---
+
+### SIGHTING-128: `album.json` silently omits photos dropped before scoring (48 staged -> 38 in the album)
+**Status**: OPEN — needs an owner decision on the reason code before it is fixed
+**Severity**: Medium (breaks the stated show-everything principle: the front end cannot offer a
+photo back to the user if the album never mentions it)
+**Reported**: 2026-10-09 (surfaced by the owner's 48-photo Modal GPU job run)
+**Persona**: SW Engineer / Album contract
+
+**Problem**: `sim_bench/album/schema.py` says the Album "carries EVERY photo (picks +
+dropped-with-reason), honoring the show-everything principle: curation is a proposal, not a verdict".
+It does not. `normalize()` builds its universe as
+`set(composite_scores) | set(scene_cluster_labels) | set(set_aside) | set(selected)`, so a photo that
+a pre-scoring gate removed from `active_images` (quality/face filters) appears in **none** of those
+and vanishes from the album entirely.
+
+**Evidence**: `reports/_modal_job_slovakia48.json` — 48 images staged, `counts.uploaded = 38`,
+`set_aside = 0`, 13 picks + 25 `near_dup` dropped = 38. Ten staged photos are unaccounted for in
+`album.json`. The same run shows the rest of the contract healthy (all score fields populated, theme
+present), so this is the universe, not the translation.
+
+**Decision needed (owner)**: how should a pre-scoring drop read in the UI?
+  (a) add a `FILTERED` reason code to the contract (clearest, but it changes the spec-106 P0 shape);
+  (b) reuse `NOT_SELECTED` with a `reason_detail` naming the gate (no contract change, vaguer);
+  (c) leave them out deliberately and soften the docstring (then "show everything" is not the rule).
+Recommendation: (a) — the reason is genuinely different from "not among the top picks", and the
+front end will want to say which gate dropped it; `promotable` then also means something concrete.
+
+**Fix sketch** (once decided): take the universe from the discovered input set
+(`context.image_paths`, or the job's staged inputs, which `JobCurator` already has) instead of from
+the score dicts, and carry the gate name from `context.filters` / `step_decisions` into
+`reason_detail`. Needs a test that stages N images, filters some before scoring, and asserts
+`counts.uploaded == N`.
+
+### SIGHTING-127: RAM++ (`RamTagger`) load segfaults on the local CPU venv -> no local default-pipeline run
+**Status**: OPEN (blocks local full-pipeline runs; the same load works in the Modal container)
+**Severity**: Medium (local-only: the worker path is unaffected, but the default pipeline cannot be
+run or compared on the dev box, so Modal is the only place the full album path can be proven)
+**Reported**: 2026-10-09 (surfaced by the spec-110 T2.1 local storage-reference proof)
+**Persona**: SW Engineer / Pipeline
+
+**Problem**: `RamTagger(device="cpu")` dies with a Windows access violation
+(exit `-1073741819` / `0xC0000005`) immediately after `ram_plus(...)` prints the vocab-expansion
+notice ("The new embeddings will be initialized from a multivariate normal distribution..."). Any
+pipeline containing `triage_content` therefore cannot run locally: the process dies at step 3 of 38.
+
+**Reproduction** (no pipeline needed, so this is not a serving bug):
+```
+.venv/Scripts/python -c "import sys; sys.path.insert(0,'.'); from sim_bench.triage.content import RamTagger; RamTagger(device='cpu')"
+```
+-> exits `-1073741819` in both git-bash and PowerShell. `minimal_pipeline` (no `triage_content`)
+runs locally to completion on the same images.
+
+**Suspicion**: a native-library conflict in the local venv at swin_l + BERT embedding-resize time
+(timm/transformers against the pinned torch 2.4 CPU build), of the same family as SIGHTING-111
+(three OpenCV variants). The Modal image pins the same versions and loads RAM++ fine on CPU and
+GPU, which points at the local install, not the code.
+
+**Impact on spec-110**: the local AC3 comparison run can only use `minimal_pipeline`; the full
+38-step comparison has to be the Modal CPU run. Noted in `specs/110-.../updates.md`.
+
+**Next step**: compare `pip freeze` against the Modal image pins (`sim_bench/serving/modal_app.py::full_image`)
+and try the load with `mean_resizing=False`; file the fix under its own spec if it turns out to be a pin change.
+
+### SIGHTING-126: scene cluster ids and pick order are not stable across runs (album.json not reproducible)
+**Status**: RESOLVED 2026-10-09 (the album numbers and orders its own scenes; 6 tests)
+**Severity**: Medium (the curation decision is stable; its *presentation* is not -- scene ids,
+`Pick.order` and `beat`/`beaten_by` lists varied run to run, so album.json could not be diffed,
+cached or compared, and spec-110 AC4 could not be claimed)
+**Reported**: 2026-10-09 (surfaced by the spec-110 T2.1 local two-run proof)
+**Persona**: SW Engineer / Pipeline
+
+**Problem**: `extract_scene_embedding` returns a dict whose key order varies between runs on
+identical inputs; `cluster_scenes` feeds those rows to HDBSCAN, whose cluster *id numbering* follows
+row order; `select_best` then iterates `scene_clusters`. The partition and the scores are identical
+run to run -- the same 4 photos with the same composite scores -- but the same group was cluster 0
+in one run and cluster 1 in the next, and the picks came out in a different order.
+
+**Evidence**: two consecutive `JobCurator` runs over the same 12 staged Slovakia26 images
+(`minimal_pipeline`, CPU):
+```
+A picks: [(181558, 0.591537, scene 0), (181233, 0.579506, scene 1), (181213, 0.51635, scene 1), (174227, 0.550084, -1)]
+B picks: [(181233, 0.579506, scene 0), (181213, 0.51635, scene 0), (181558, 0.591537, scene 1), (174227, 0.550084, -1)]
+```
+A row-order probe confirmed `scene_embeddings` key order differs between runs while the per-image
+labels agree, i.e. the instability is in the numbering, not the clustering.
+
+**Fix / prevention**: canonicalize in `sim_bench/album/normalizer.py` rather than in the clusterer
+(cluster ids are inherently arbitrary; the album is where a stable contract is owed):
+scenes renumbered `0..n-1` by their earliest photo, picks ordered by EXIF capture time (falling back
+to the id), `beat` / `beaten_by` sorted. `tests/album/test_normalizer.py::ut_AlbumDeterminism`
+(6 tests) pins it, including the permuted-ids case, so the normalizer stays order-insensitive.
+
+**Verification**: the same two-run proof now reports identical albums (`created_at` excluded), and
+`tests/serving/test_curate_job.py::test_rerunning_the_same_job_reproduces_the_album` asserts it on
+the worker path. Scene 0 is now the first scene of the trip rather than an arbitrary one.
+
+
+**Update 2026-10-09 (full roll, CLI session):** on all 715 Slovakia26 photos, 89 are absent from
+album.json (626 present); spread over every day of the trip, so not one bad batch. All 89 have no composite
+score, consistent with `filter_quality` (min_iqa 0.3 / min_sharpness 0.2) removing them from
+`image_paths` before scene clustering. List in `reports/2026-10-09_slovakia_full_gpu/report.html`.
+
+---
+
+### SIGHTING-125: rebuilt Modal image resolves a PyArrow wheel incompatible with pinned NumPy
+**Status**: RESOLVED 2026-10-09; full Modal GPU retry succeeded after the pin
+**Severity**: High (real pipeline fails at `triage_content` before inference)
+**Reported**: 2026-10-09
+**Persona**: SW Engineer / Serving
+**Problem**: a fresh image resolved an unpinned transitive PyArrow wheel requiring NumPy 2. `transformers` imports scikit-learn, which imports PyArrow, raising `ImportError: pyarrow requires NumPy 2.0 or newer, found 1.26.4`.
+**Reproduction / evidence**: `reports/_modal_curate_gpu12_retry.log` and `.json`; Modal run `ap-4EGJfnlJ7n0Sc0fPVaAaqc`.
+**Fix / prevention**: pin `pyarrow==21.0.0` (the local venv's working version) in the container image; retain the real-data smoke run after rebuilds.
+**Verification**: `reports/_modal_curate_gpu12_retry2.json` (`ok=true`) and `.log`; Modal run `ap-9Jh59QFjqss55pWj7gORxH`.
+
+### SIGHTING-124: GPU device routing stops at GeoCalib wrapper and RAM++ model
+**Status**: RESOLVED 2026-10-09; offline regressions and real GPU retry passed
+**Severity**: High (GeoCalib silently stays on CPU; RAM++ per-image failures become empty tags)
+**Reported**: 2026-10-09
+**Persona**: SW Engineer / Pipeline
+**Problem**: `estimate_tilt(image, device)` called `estimate_tilt_raw(image)` without forwarding the device. `RamTagger` moved its model to CUDA but left its input tensor on CPU; the triage step catches inference exceptions and returns empty tags. The original GPU report has an empty facet distribution, unlike the CPU report on the same photos.
+**Fix / prevention**: forward the device through the GeoCalib wrapper and move RAM++ input batches to the model device. Four offline CPU/CUDA routing cases in `tests/quality_assessment/test_tilt_device.py` and `tests/triage/test_ram_tagger_device.py` prevent recurrence without requiring a local GPU.
+**Verification**: real GPU retry scored tilt for all 12 photos in 5.994 s (previous GPU: 55.518 s) and restored the exact CPU theme/facet distribution. Evidence: `reports/_modal_curate_gpu12_retry2.json` and `.log`.
+
+---
+
+### SIGHTING-129: pure-Python protobuf makes every InsightFace load cost ~60 s (dev box AND worker)
+**Status**: RESOLVED 2026-10-09 — protobuf 4.25.3 (upb) + mediapipe 0.10.14 in the worker image, the venv, requirements.txt and the CLAUDE.md rule. Measured on the L4: FaceAnalysis construct 38.7 s -> 1.1 s (probe); in the pipeline, detect 88.7 -> 4.7 s and embeddings 69.6 -> 1.8 s; warm 48-image run 172 s -> 49 s. Local verification pending (dev box at its commit limit).
+**Severity**: High for the live product (175 s fixed cost per curate, 134 s of it this; the <=3-5 min bar is unreachable with it), Medium for the dev box (silently inflates every face-step timing)
+**Reported**: 2026-10-09 (spec-109 P1 GPU probes)
+**Persona**: ML Engineer / Infra
+
+**Problem**: `protobuf==3.20.3` (pinned `<4` for mediapipe 0.10.9) ships no C++ extension for Python
+3.11, so `google.protobuf` runs its pure-Python parser (`api_implementation.Type() == "python"`).
+InsightFace's `FaceAnalysis("buffalo_l")` calls `onnx.load()` on each model to read input
+normalization (`landmark.py`, `arcface_onnx.py`); parsing the 144 MB `1k3d68.onnx` took **38 s** and
+then raised `MemoryError` locally; the 174 MB `w600k_r50.onnx` is parsed the same way. Measured on
+the L4 worker: FaceAnalysis construct = 61-71 s regardless of provider, with the files on local disk
+and ONNX session creation itself < 1 s per model. The pipeline constructs it TWICE per run (detect
+step + `insightface_native` embedding step) -> ~134 s of the 175 s fixed cost. The dev box pays the
+same on every run (the "1.1 s/img detect over 57 images" baseline is mostly this).
+
+**Reproduction**: `.venv/Scripts/python -c "from google.protobuf.internal import api_implementation; print(api_implementation.Type())"` -> `python`; time `onnx.load` of `~/.insightface/models/buffalo_l/1k3d68.onnx`.
+
+**Fix candidates**: (1) protobuf 4.25 (upb, C-accelerated) + mediapipe >= 0.10.14 (accepts protobuf 4)
+— being measured in a container variant; CLAUDE.md's `protobuf>=3.20,<4` rule would move to
+`>=4.25,<5` with mediapipe bumped (mediapipe is NOT in `default_pipeline`, only `mediapipe_pipeline`);
+(2) construct InsightFace once and share it between the two steps; (3) warm container (`@modal.enter`).
+(1) removes the cost; (2)/(3) only hide it.
+
+---
+
+### SIGHTING-123: step JSON schema and typed Pydantic config disagree on `device` (AVA could never run on GPU)
+**Status**: RESOLVED 2026-10-09 (device added to `ScoreAVAConfig`; worker validates each flip)
+**Severity**: Medium (silent: the knob is documented in the step's `config_schema` and read by the step code, but the typed config `extra="forbid"` rejects it, so any pipeline that sets it fails validation and nobody sets it -> AVA always CPU)
+**Reported**: 2026-10-09 (surfaced by the Modal worker's per-step device flip, spec-110)
+**Persona**: SW Engineer / Pipeline
+
+**Problem**: `score_ava` declares `device` in its `StepMetadata.config_schema` and reads
+`config.get("device", "cpu")`, but `sim_bench/pipeline/steps/configs/score_ava.py::ScoreAVAConfig`
+(spec-040 typed configs, `extra="forbid"`) has no `device` field. `validate_spec_or_raise` uses the typed
+model, so `{"device": "cuda"}` is rejected: "Extra inputs are not permitted". The two schemas have no
+test pinning them to each other.
+
+**Suspicion -> confirmed**: spec-040 Phase 2 typed configs were written from the yaml blocks, not from the
+JSON schemas, so any knob the yaml did not set was dropped.
+
+**Reproduction**: `validate_step_config("score_ava", {"device": "cuda"})` -> ValidationError.
+
+**Resolution**: `device: str = "cpu"` added to `ScoreAVAConfig`. The Modal worker now validates
+`{**cfg, "device": ...}` per step and skips (and logs) any step whose typed config forbids it.
+**Prevention (open)**: an architecture test asserting every key in a step's `config_schema.properties`
+is accepted by its typed config (and vice versa). Other candidates to audit: `score_iqa`, `score_tilt`,
+`score_occlusion` have no device knob at all (spec-109 P1 per-step GPU verification).
+
+---
+
 ### SIGHTING-122: face counts diverge slightly between isolated and in-process pipeline runs
 **Status**: OPEN
 **Severity**: Medium (identical inputs + config should give identical outputs; a ±1–2 face divergence means either nondeterminism in detection or a real behavior difference at the isolation boundary — blocks a strict equality assertion in the spec-104 §5 equivalence E2E)

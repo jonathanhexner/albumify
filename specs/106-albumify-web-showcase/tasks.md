@@ -42,19 +42,19 @@ scaffolded in spec-109).
       live + showcase. (Real-data validation lands when the worker runs, spec-110.)
 
 
-### P1 — Prove the GPU seam  (depends on user Modal auth)
-- [ ] T1.1 `modal setup` → `gpu_smoke` (CUDA proof). | user
+### P1 — Prove the GPU seam
+- [x] T1.1 `modal setup` → `gpu_smoke` (CUDA proof). | 2026-10-09 auth/billing working, NVIDIA L4 + CUDA confirmed
 - [ ] T1.2 **storage-reference `curate(job_id)`** — pull 768px images from storage, run pipeline (device=cuda),
       write `album.json` + displays back. Replaces the inline-bytes scaffold. Upload models to the Volume.
 - [ ] T1.3 First real `curate` on a stored trip → per-image **GPU latency** + $/album (proves ≤3–5 min).
 
 ### P2 — Storage + presigned upload
-- [ ] T2.1 Object store (S3/R2) + per-job prefixes + TTL.
+- [ ] T2.1 Object store (S3/R2) + per-job prefixes + TTL. **→ moved to spec-112 (Neon + R2, 2026-10-10).**
 - [ ] T2.2 Presign endpoint (scoped, expiring write URL); browser PUTs 768px directly.
 - [ ] T2.3 Prove: browser → storage (presigned) → `curate` pulls. No keys reach the browser.
 
 ### P3 — Control-plane API + job state machine
-- [ ] T3.1 Job state machine (config-driven stages + `needs`); `jobs`/`job_events`/`pipeline_steps` DB;
+- [ ] T3.1 (`jobs`/`job_events` tables + status set → spec-112 P2) Job state machine (config-driven stages + `needs`); `jobs`/`job_events`/`pipeline_steps` DB;
       **write-to-DB on every transition** (status, duration, error) — the telemetry "what happened".
 - [ ] T3.2 `POST /jobs` (bounds guard → presign → **fire warm-up** → enqueue), `GET /jobs/{id}` (status from
       DB), `GET /jobs/{id}/result`. Stateless orchestrator advanced by events.

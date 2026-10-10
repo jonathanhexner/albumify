@@ -260,47 +260,106 @@ id="toc-p2--storage-reference-curate-cpu">P2 — Storage-reference curate
 </nav>
 <h1 id="spec-110--tasks-containerized-worker-on-modal-cpu">spec-110 —
 Tasks (Containerized worker on Modal, CPU)</h1>
-<p><strong>Status:</strong> Draft — no implementation until spec.md
-approved. Rationale: <code>spec.md</code>. <strong>Builds on:</strong>
-the <code>sim_bench/serving/modal_app.py</code> scaffold (spec-109).
-This spec owns the <strong>worker structure + CPU image +
-storage-reference curate</strong>; spec-109 owns the GPU variant.
-<strong>Needs:</strong> user Modal auth (<code>modal setup</code>) —
-deploy/verify is the user's account.</p>
+<p><strong>Status:</strong> In Progress — AC1/AC2 met; <strong>AC3
+met</strong> on the owner's 48-photo Modal GPU job run
+(storage-reference input to a valid normalized <code>album.json</code>).
+AC4 failed on that run only on pick order, the cause (SIGHTING-126) is
+fixed, and one re-run closes it. AC5 unproven. New gap: SIGHTING-128
+(album omits photos dropped before scoring). Evidence: <a
+href="updates.html">updates</a>. <strong>Builds on:</strong> the
+<code>sim_bench/serving/modal_app.py</code> scaffold (spec-109). This
+spec owns the <strong>worker structure + CPU image + storage-reference
+curate</strong>; spec-109 owns the GPU variant. <strong>Decision
+2026-10-09:</strong> owner chose the shared GPU image for acceptance
+rather than building a separate CPU dependency set.
+<code>curate_cpu</code> retains the CPU proof; account auth and GPU
+billing are working.</p>
 <h2 id="p0--prove-the-modal-accountpath">P0 — Prove the Modal
 account/path</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T0.1 <code>modal setup</code> (user)
-→ <code>modal run …/modal_app.py</code> → <code>gpu_smoke</code>
-returns. (AC1)</label></li>
+<li><label><input type="checkbox" checked="" />T0.1
+<code>modal setup</code> (user) → <code>modal run …/modal_app.py</code>
+→ <code>gpu_smoke</code> returns. (AC1) | 2026-10-09 NVIDIA L4, CUDA
+available</label></li>
 </ul>
 <h2 id="p1--cpu-image">P1 — CPU image</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T1.1 Define the CPU
+<li><label><input type="checkbox" checked="" />T1.1 Define the shared
 <code>modal.Image</code>: pipeline deps that work together on a clean
-container (torch-cpu, onnxruntime, insightface, ultralytics,
+container (torch-CUDA, onnxruntime-gpu, insightface, ultralytics,
 transformers, timm, pyiqa+numpy&lt;2, ram --no-deps, mediapipe,
 opencv-headless) +
 <code>add_local_python_source(sim_bench, face_cluster, geo_cluster)</code>.</label></li>
-<li><label><input type="checkbox" />T1.2 First build on Modal; iterate
-until the pipeline imports cleanly in-container. (AC2)</label></li>
-<li><label><input type="checkbox" />T1.3 Upload model weights to the
-Volume (<code>modal volume put</code>); confirm reuse across runs.
-(AC5)</label></li>
+<li><label><input type="checkbox" checked="" />T1.2 First build on
+Modal; iterate until the pipeline imports cleanly in-container. (AC2) |
+2026-10-09 imports and full CPU/GPU runs</label></li>
+</ul>
+<ul>
+<li>[&gt;] T1.3 Upload model weights to the Volume
+(<code>modal volume put</code>); confirm reuse across runs. (AC5) | 3.1
+GB uploaded; RAM++ loads from Volume. <strong>2026-10-09:</strong> the
+leak is fixed in code — <code>_prepare_caches()</code> sets
+<code>HF_HUB_CACHE</code>, <code>TORCH_HOME</code> (torch.hub:
+DINOv2/GeoCalib/pyiqa) and <code>INSIGHTFACE_HOME</code>, and the job
+functions commit <code>models_vol</code>. <code>INSIGHTFACE_HOME</code>
+is read via <code>sim_bench/pipeline/utils/insightface_home.py</code> by
+<strong>both</strong> <code>FaceAnalysis</code> call sites — detection
+(<code>insightface_pipeline/face_analyzer.py</code>) <em>and</em>
+embeddings (<code>face_embedding/insightface_native.py</code>, found
+while closing this task; missing it would have kept buffalo_l
+downloading for <code>extract_face_embeddings</code>). 9 tests. Reuse
+itself stays unproven until two consecutive remote runs show the second
+not downloading.</li>
 </ul>
 <h2 id="p2--storage-reference-curate-cpu">P2 — Storage-reference curate
 (CPU)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T2.1 Replace inline-bytes with
-<code>curate(job_id)</code>: pull the job's 768px images from
-storage/Volume → <code>execute_spec(..., device=cpu)</code> → write
-<code>album.json</code> + keeper displays back. Idempotent.</label></li>
-<li><label><input type="checkbox" />T2.2 Run on a small real trip (≤40
-imgs staged in storage); assert a valid <code>album.json</code>
-equivalent to the local CPU run (within SIGHTING-122 tolerance).
-(AC3)</label></li>
-<li><label><input type="checkbox" />T2.3 Re-run same <code>job_id</code>
-→ identical result (idempotence). (AC4)</label></li>
+<li><label><input type="checkbox" checked="" />T2.1 Replace inline-bytes
+with <code>curate(job_id)</code>: pull the job's 768px images from
+storage/Volume → <code>execute_spec(...)</code> → write
+<code>album.json</code> + keeper displays back. Idempotent. | 2026-10-09
+<code>job_store.py</code> (a job <em>is</em> a directory:
+<code>input/</code>, <code>album.json</code>, <code>display/</code>,
+<code>run.json</code>), <code>curate_job.py</code>
+(<code>JobCurator.calc</code>: scratch copy → plan →
+<code>normalize()</code> → write), <code>pipeline_runner.py</code>
+(<code>SpecBuilder</code>: config + per-step device placement, lifted
+out of <code>modal_app._curate</code>). Modal side:
+<code>stage_job</code> / <code>curate_job</code> /
+<code>curate_job_cpu</code> / <code>fetch_album</code> on volume
+<code>albumify-jobs</code>. 41 tests in
+<code>tests/serving/</code>.</label></li>
+</ul>
+<ul>
+<li>[&gt;] T2.2 Run on a small real trip (≤40 imgs staged in storage);
+assert a valid <code>album.json</code> equivalent to the local CPU run
+(within SIGHTING-122 tolerance). (AC3) <strong>Met 2026-10-09 on
+Modal</strong> (owner's run, GPU, 48 Slovakia26 images,
+<code>--job-id slovakia48</code>): 48 staged produced an
+<code>album.json</code> with 13 picks, 25 <code>near_dup</code>
+dropped-with-reason, 7 scenes, 10 people, a full theme, and every score
+field populated on every pick; displays written;
+<code>fetch_album</code> read it back. Evidence:
+<code>reports/_modal_job_slovakia48.json</code>. Local no-spend proof
+(12 images, <code>minimal_pipeline</code>):
+<code>reports/_local_job_localproof12.json</code>.
+<strong>Caveat:</strong> the full pipeline still cannot run locally
+(<code>RamTagger</code> segfaults, SIGHTING-127), so a local-vs-remote
+comparison on the <em>default</em> pipeline is impossible on this box;
+the remote CPU/GPU pair from the inline runs stays the equivalence
+evidence. <strong>Found by this run:</strong> SIGHTING-128 — 48 staged
+but <code>counts.uploaded = 38</code>; photos dropped before scoring are
+missing from the album. Needs the owner's call on the reason code.</li>
+<li>[&gt;] T2.3 Re-run same <code>job_id</code> → identical result
+(idempotence). (AC4) Proven locally after fixing SIGHTING-126 (scene ids
++ pick order were not stable across runs): two consecutive
+<code>JobCurator</code> runs over the same staged inputs now return
+identical albums (<code>created_at</code> excluded). The owner's
+48-photo GPU run, made <em>before</em> the fix, independently reproduced
+the bug: identical pick set, scene ids, scores, dropped reasons and
+theme, differing only in pick order, so <code>idempotent: false</code>.
+<strong>One re-run of <code>--job-id slovakia48 --twice</code> closes
+AC4</strong>; nothing further to build.</li>
 </ul>
 <h2 id="p3--review">P3 — Review</h2>
 <ul class="task-list">

@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict
 
 import torch
+
+from sim_bench.image_quality_models.checkpoint_io import load_checkpoint
 import torch.nn.functional as F
 
 from sim_bench.image_quality_models.base_model import BaseQualityModel
@@ -28,7 +30,7 @@ class SiameseQualityModel(BaseQualityModel):
         """
         super().__init__(name='Siamese-E2E', device=device)
         
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = load_checkpoint(checkpoint_path, device)  # portable: Windows-pickled paths OK on Linux
         self.config = checkpoint['config']
         
         # Create model

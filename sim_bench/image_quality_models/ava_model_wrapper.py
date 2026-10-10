@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict
 
 import torch
+
+from sim_bench.image_quality_models.checkpoint_io import load_checkpoint
 import torch.nn.functional as F
 from PIL import Image
 
@@ -27,7 +29,7 @@ class AVAQualityModel(BaseQualityModel):
         """
         super().__init__(name='AVA-ResNet', device=device)
         
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = load_checkpoint(checkpoint_path, device)  # portable: Windows-pickled paths OK on Linux
         self.config = checkpoint['config']
         
         # Create model

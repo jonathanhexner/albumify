@@ -96,7 +96,7 @@ Every exploration/experiment (model comparison, detector research, validation st
 ## Coding
 - Python 3.10+. Type hints. Full imports (no relative). Logging over prints.
 - `__init__.py` kept empty except `face_cluster/__init__.py`.
-- **Protobuf**: `protobuf>=3.20,<4` (MediaPipe).
+- **Protobuf**: `protobuf>=4.25,<5` with `mediapipe>=0.10.14`. Never pin protobuf 3.x again: it has no compiled wheel for Python 3.11, so `onnx.load` runs in pure Python and every InsightFace load costs ~60 s (SIGHTING-129, 2026-10-09).
 - **Metadata Storage**: Always save source path, timestamp, version when exporting.
 
 ## Testing

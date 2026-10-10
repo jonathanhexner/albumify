@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-112--live-db--storage-runner-as-config"
+id="toc-spec-112--live-db--storage-runner-as-config">spec-112 — Live DB
++ storage, runner as config</a>
+<ul>
+<li><a href="#1-problem" id="toc-1-problem">1. Problem</a></li>
+<li><a href="#2-goal" id="toc-2-goal">2. Goal</a></li>
+<li><a href="#3-non-goals" id="toc-3-non-goals">3. Non-goals</a></li>
+<li><a href="#4-scope" id="toc-4-scope">4. Scope</a></li>
+<li><a href="#5-acceptance-criteria" id="toc-5-acceptance-criteria">5.
+Acceptance criteria</a></li>
+<li><a href="#6-open-decisions" id="toc-6-open-decisions">6. Open
+decisions</a></li>
+<li><a href="#7-dependencies--risks" id="toc-7-dependencies--risks">7.
+Dependencies &amp; risks</a></li>
+<li><a href="#8-definition-of-done" id="toc-8-definition-of-done">8.
+Definition of done</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-112--live-db--storage-runner-as-config">spec-112 — Live DB
++ storage, runner as config</h1>
+<p><strong>Status:</strong> In Progress (Phase A)
+<strong>Owner:</strong> Jonathan / Claude <strong>Priority:</strong> P1
+(Stage C critical path — every later product piece reads from here)
+<strong>Roadmap:</strong> Stage C · see <a
+href="../../ROADMAP.html">ROADMAP.md</a> <strong>Relation:</strong>
+takes over [[spec-106]] T2.1 (object store) and the DB half of T3.1
+(<code>jobs</code> / <code>job_events</code>); builds on the
+[[spec-110]] job layout (<code>input/</code>, <code>album.json</code>,
+<code>display/</code>, <code>run.json</code>) and reuses the normalized
+per-run schema written by <code>sim_bench/run_db/exporter.py</code>
+(<code>RunExporter</code>). spec-106 keeps presigned browser upload
+(T2.2), the state-machine logic, the browser-facing API, and the Next.js
+front end.</p>
+<p><strong>Decisions (owner, 2026-10-10):</strong></p>
+<ul>
+<li>Neon Postgres (free plan) for the DB, Cloudflare R2 for
+storage.</li>
+<li><strong>Local first:</strong> Phase A builds everything on local
+SQLite + a local folder; Phase B switches to Neon + R2 by configuration
+only.</li>
+<li>Full storage map in v1: photos, faces, people, scenes and user edits
+are DB rows, not only fields inside <code>album.json</code>.</li>
+<li>Face embeddings stay in the worker's results file in storage (not DB
+columns) for v1.</li>
+</ul>
+<h2 id="1-problem">1. Problem</h2>
+<p>The same pipeline (<code>execute_spec</code>) runs in two places that
+never share results:</p>
+<pre><code>FastAPI app:    local folder -&gt; execute_spec -&gt; sim_bench.db on the PC        -&gt; Streamlit
+Modal worker:   Modal Volume -&gt; execute_spec -&gt; album.json on the Modal Volume -&gt; (nothing)</code></pre>
+<p>Product data is also scattered over three stores:
+<code>sim_bench.db</code> (JSON-blob results mixed with the feature
+cache), one <code>face_clustering.db</code> file per face-clustering run
+(normalized, but loose files), and <code>album.json</code> (the curated
+result, in no DB). So the 715-photo Slovakia26 GPU run is invisible to
+the app, nothing is queryable across jobs, and "where it runs" is baked
+into each path.</p>
+<h2 id="2-goal">2. Goal</h2>
+<p><strong>One rule: rows go in the DB, bytes go in storage, compute
+cache stays local.</strong> Where the pipeline runs is a setting.</p>
+<pre><code>            API (control plane) --- writes ---&gt; DB   (SQLite file in Phase A, Neon in Phase B)
+                    |
+                    |  runner: local | modal_gpu | modal_cpu        &lt;- config
+          +---------+---------+
+     local runner        Modal worker (L4)
+          |                   |
+          +-- read input/, write results/ + album.json + display/ --+
+                              |
+                         STORAGE  (local folder in Phase A, R2 in Phase B)</code></pre>
+<p>The <strong>worker writes storage only, never the DB.</strong> It
+writes a results bundle; the API loads the bundle into the DB. The
+worker then needs no DB credentials, and local and Modal runs behave the
+same.</p>
+<h3 id="storage-map">Storage map</h3>
+<table>
+<thead>
+<tr>
+<th>DB tables (rows)</th>
+<th>Storage keys (bytes)</th>
+<th>Local only (not product data)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>jobs</code> — id, status, runner, n_inputs, timings,
+error</td>
+<td><code>jobs/&lt;id&gt;/input/&lt;photo&gt;.jpg</code> (768 px)</td>
+<td>pipeline feature cache (<code>universal_cache</code>)</td>
+</tr>
+<tr>
+<td><code>job_events</code> — job_id, ts, kind, message</td>
+<td><code>jobs/&lt;id&gt;/display/&lt;photo&gt;.jpg</code></td>
+<td>model weights (Modal Volumes)</td>
+</tr>
+<tr>
+<td><code>photos</code> — (job_id, photo_id), storage key, taken_at,
+gps, scores, <code>status</code> pick/dropped, <code>drop_reason</code>,
+scene_id, order</td>
+<td><code>jobs/&lt;id&gt;/faces/&lt;face&gt;.jpg</code> (crops)</td>
+<td>legacy <code>sim_bench.db</code> tables (unchanged)</td>
+</tr>
+<tr>
+<td><code>faces</code> — (job_id, face_id), photo_id, bbox, person_id,
+quality scores</td>
+<td><code>jobs/&lt;id&gt;/results/run.db</code> +
+<code>embeddings.npy</code> (worker output)</td>
+<td></td>
+</tr>
+<tr>
+<td><code>people</code> — (job_id, person_id), label, face_count</td>
+<td><code>jobs/&lt;id&gt;/album.json</code> (export, see below)</td>
+<td></td>
+</tr>
+<tr>
+<td><code>scenes</code> — (job_id, scene_id), time range, n_photos</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>user_edits</code> — job_id, ts, kind (promote / rename / merge
+/ split), payload</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><code>album.json</code> stops being the source of truth: the API
+builds it from the tables (the worker's copy remains as a debug artifact
+and for byte-comparison in spec-110 AC4).</p>
+<h2 id="3-non-goals">3. Non-goals</h2>
+<ul>
+<li>Browser upload / presigned URLs, rate limits, TTL purge job
+(spec-106 P2/P3/P6).</li>
+<li>Next.js front end (spec-106 P4).</li>
+<li>Migrating the existing <code>sim_bench.db</code> tables (Albumify
+blobs, metric rows, people, overrides). They stay local and untouched;
+the local tools keep using them.</li>
+<li>Embeddings in the DB / cross-trip person search
+(<code>pgvector</code>) — v1.5.</li>
+</ul>
+<h2 id="4-scope">4. Scope</h2>
+<p><strong>Phase A — local, offline (no accounts):</strong></p>
+<ol type="1">
+<li><strong>Object store interface</strong> with a local-directory
+backend; the spec-110 job layout as keys.</li>
+<li><strong>Worker results bundle:</strong> the worker's job run
+(<code>curate_job</code>) also calls <code>RunExporter</code> and writes
+<code>results/</code> (normalized SQLite + embeddings + face crops) next
+to <code>album.json</code>.</li>
+<li><strong>Control-plane DB</strong> at <code>DATABASE_URL</code>
+(default <code>sqlite:///~/.sim_bench/control.db</code>), separate
+engine from <code>sim_bench.db</code>, SQLAlchemy models portable to
+Postgres, every table keyed by <code>job_id</code>.</li>
+<li><strong>Loader:</strong> results bundle + <code>album.json</code> →
+<code>photos</code>, <code>faces</code>, <code>people</code>,
+<code>scenes</code> rows. Idempotent (re-load replaces the job's
+rows).</li>
+<li><strong>Runner config:</strong>
+<code>runner: local | modal_gpu | modal_cpu</code> in
+<code>configs/serving.yaml</code> (env override). A
+<code>JobService</code> stages inputs, records the job, dispatches,
+records events, loads results. In Phase A <code>modal_gpu</code> keeps
+using the <code>albumify-jobs</code> Volume and the driver pulls results
+to the local store.</li>
+<li><strong>FastAPI endpoints:</strong> <code>POST /jobs</code> (local
+folder), <code>GET /jobs/{id}</code> (status + events),
+<code>GET /jobs/{id}/album</code> (built from tables),
+<code>GET /jobs/{id}/photos/{photo_id}/display</code>,
+<code>POST /jobs/{id}/edits</code> (promote / rename person).</li>
+<li><strong>Viewer (O1):</strong> thin read-only Streamlit page over the
+API: job list → picks, dropped with reasons, people.</li>
+</ol>
+<p><strong>Phase B — cloud, configuration only:</strong> 8. R2 backend
+for the object store (<code>boto3</code>, S3 protocol); short-lived
+download URLs. 9. <code>DATABASE_URL</code> → Neon; the worker
+reads/writes R2 (Volume retired for job data); <code>modal deploy</code>
+so the API calls the worker by name; <code>modal.Secret</code> with R2
+keys only.</p>
+<h2 id="5-acceptance-criteria">5. Acceptance criteria</h2>
+<p><strong>Phase A</strong></p>
+<ul>
+<li><strong>AC1</strong> A Slovakia26 job run on Modal
+(<code>runner=modal_gpu</code>) is loaded into the local DB and visible
+in the viewer: every pick, every dropped photo with its reason, people,
+scenes.</li>
+<li><strong>AC2</strong> <code>photos</code> / <code>faces</code> /
+<code>people</code> / <code>scenes</code> row counts match the job's
+<code>album.json</code> and results bundle (no photo or face lost in
+loading); re-loading the same job leaves the counts unchanged.</li>
+<li><strong>AC3</strong> <code>GET /jobs/{id}/album</code> built from
+tables equals the worker's <code>album.json</code> (same picks, order,
+reasons, scores).</li>
+<li><strong>AC4</strong> A failed run (bad input or raised exception)
+ends <code>failed</code> with the error in <code>job_events</code>, not
+stuck in <code>running</code>.</li>
+<li><strong>AC5</strong> A promote / rename edit through the API is
+stored in <code>user_edits</code> and reflected in the next
+<code>GET /jobs/{id}/album</code>.</li>
+</ul>
+<p><strong>Phase B</strong></p>
+<ul>
+<li><strong>AC6</strong> Switching only <code>DATABASE_URL</code> and
+the storage root to Neon + R2, the same job runs with
+<code>runner=modal_gpu</code> and passes AC1–AC3 against the cloud DB
+and bucket.</li>
+<li><strong>AC7</strong> The worker holds no DB credentials (the
+<code>modal.Secret</code> has R2 keys only).</li>
+<li><strong>AC8</strong> No secret in git, the Modal image, or any API
+response. With no <code>.env</code>, the app and the test suite run
+fully on local SQLite + local folder.</li>
+</ul>
+<h2 id="6-open-decisions">6. Open decisions</h2>
+<ul>
+<li><strong>O2</strong> R2 lifecycle (auto-delete) rule: set now (e.g.
+delete <code>jobs/*</code> after 30 days, showcase trips under
+<code>seed/</code> never expire) or with spec-106 TTL work. Rec: with
+spec-106; nothing anonymous is uploaded before then.</li>
+</ul>
+<h2 id="7-dependencies--risks">7. Dependencies &amp; risks</h2>
+<ul>
+<li><strong>Phase B owner setup:</strong> Neon project + connection
+string; Cloudflare account, R2 bucket, scoped token; local
+<code>.env</code>; <code>modal secret create</code>. Claude cannot
+create accounts.</li>
+<li><strong>Local default-pipeline runs are blocked</strong> by
+SIGHTING-127 (RAM++ segfault). Phase A proves the local runner with
+<code>minimal_pipeline</code>; full-pipeline evidence comes from Modal
+runs.</li>
+<li><strong>Slovakia re-run needed:</strong> the 2026-10-09 run predates
+the results bundle, so AC1 needs one new Modal run of the trip (about 6
+min on the L4).</li>
+<li><strong>Schema rekey:</strong> <code>RunExporter</code> keys images
+by file path; the DB keys by <code>(job_id, photo_id)</code>. The loader
+translates; the exporter itself is not changed for the face-clustering
+app.</li>
+<li><strong>SQLite → Postgres portability:</strong> booleans stored as
+INTEGER and timestamps as TEXT in the run schema; the control DB uses
+portable SQLAlchemy types and Phase B runs the same tests on Neon.</li>
+<li>Neon free plan sleeps after 5 min idle (about 1 s wake) and suspends
+at the monthly compute cap. R2 free plan: 10 GB; one trip at 768 px plus
+crops is about 0.1–0.2 GB.</li>
+</ul>
+<h2 id="8-definition-of-done">8. Definition of done</h2>
+<p>AC1–AC8 verified (Phase A on local, Phase B on real Neon + R2 +
+Modal); <code>updates.md</code> names the evidence;
+<code>docs/architecture/{data_flow,classes,db_schemas}.html</code>
+updated; CHANGES_LOG; <code>/code-review</code> → REVIEW.md with no High
+findings. See <code>tasks.md</code>.</p>
+</div>
+</body>
+</html>

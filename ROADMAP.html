@@ -263,10 +263,9 @@ trackers</a></li>
 <h1 id="albumify--roadmap">Albumify — Roadmap</h1>
 <p><strong>This is the single roadmap file. Read it first every session;
 every spec below links back here.</strong> Last revised: 2026-10-09,
-links point to rendered HTML (seeded from
-<code>specs/106-albumify-web-showcase/finalization_plan.html</code>,
-2026-10-01, reconciled to the code state of 2026-10-05).
-<strong>Awaiting the owner's revision.</strong></p>
+reconciled to the saved CPU/GPU runs and current worker code. Links
+point to rendered HTML. <strong>Open scope decisions still await the
+owner's revision.</strong></p>
 <p>Readable view: <code>ROADMAP.html</code> (generated — run
 <code>.venv/Scripts/python scripts/md2html.py ROADMAP.md</code> after
 editing this file).</p>
@@ -291,17 +290,17 @@ STAGE D  harden + ship   ──► SHIP GATE: cold public URL, stranger upload, 
 <th>Stage</th>
 <th>What</th>
 <th>Gate</th>
-<th>Status (2026-10-05)</th>
+<th>Status (2026-10-09)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>A — Prove the picks</td>
-<td>spec-102 blind A/B on the 3 trips; PhotoTriage + CUFED benchmarks;
-eyeball 1–2 fresh rolls</td>
+<td>spec-102 real trips (Slovakia26, Budapest, Austria, Germany), judged
+against the owner's keeper list</td>
 <td>GATE 1: "would I show these picks to a recruiter"</td>
-<td><strong>Not run.</strong> spec-102 harness built, pilot prepped, no
-verdict.</td>
+<td><strong>No human verdict.</strong> Harness and trip reports exist;
+PhotoTriage/CUFED are not this gate (owner decision 2026-10-09).</td>
 </tr>
 <tr>
 <td>B — Finalize the engine</td>
@@ -316,9 +315,15 @@ album.json contract</td>
 <td>containerized worker (110) → GPU (109) → control-plane API + job
 state machine → Next.js front end → showcase seed</td>
 <td>host + content-safety decided</td>
-<td>Modal approved as host; worker scaffolded, <strong>not
-deployed</strong> (needs <code>modal setup</code>). API and front end
-not started.</td>
+<td>Modal auth and L4 smoke passed; full CPU/GPU pipeline ran on 12 real
+photos with matching picks/theme. <strong>2026-10-09:</strong>
+storage-reference <code>curate_job(job_id)</code> + persisted normalized
+<code>album.json</code> built; <strong>AC3 met on Modal</strong>
+(48-photo GPU run: 13 picks, 25 dropped-with-reason, 7 scenes, full
+theme). Idempotence (AC4) failed on that run only on pick order — cause
+fixed (SIGHTING-126), one re-run closes it. Open: AC5 model-cache reuse,
+persistent deployment, and SIGHTING-128 (album omits photos dropped
+before scoring). API and front end not started.</td>
 </tr>
 <tr>
 <td>D — Harden, polish, ship</td>
@@ -338,14 +343,32 @@ technical write-up</td>
 </table>
 <h2 id="current-position">Current position</h2>
 <ul>
-<li>Last commit 2026-10-05: spec-111 P1 (verify_face_clusters
-checkpoint, core + pairwise gate).</li>
+<li>Last commit 2026-10-09: roadmap and rendered documentation. Latest
+worker fixes and run artifacts are still uncommitted.</li>
 <li>The last week worked Stages B and C (and the v1.5 agentic layer)
 <strong>ahead of Stage A</strong>. Gate 1 is still open.</li>
-<li><strong>Blocked on the owner:</strong> Modal auth
-(<code>modal setup</code>) for spec-110 T0.1 / spec-106 P1.</li>
-<li>Next unblocked engineering: spec-111 T1.4 (apply-corrections step),
-spec-106 P3 (control-plane API + job state machine).</li>
+<li><strong>Modal account blocker cleared:</strong> auth, billing, image
+imports, and L4 smoke passed. Owner chose the shared GPU image for
+spec-110 acceptance, with CPU proof retained.</li>
+<li>Saved GPU retry: <strong>142.186 s pipeline / 313.8 s driver
+wall</strong>, four picks matching CPU; face detection + embeddings
+consume <strong>101.850 s (72%)</strong>. This 12-photo result does not
+establish the 100/300-photo latency gate.</li>
+<li>Next worker work (owner action): re-run
+<code>scripts/modal_curate_driver.py --src D:/Slovakia26 --start 300 --n 48 --job-id slovakia48 --twice</code>
+to close spec-110 AC4 (the ordering fix landed after the 2026-10-09
+run), then once more to close AC5 (models must not re-download). Then
+profile face-model startup versus inference and benchmark 100/300 photos
+and cost. Built since: storage-reference <code>curate_job(job_id)</code>
+→ normalized persisted <code>album.json</code>, Volume-backed model
+caches, and the local no-spend proof path (<code>--local-root</code>).
+See <a href="specs/109-parallel-gpu-execution/updates.html">109
+updates</a> and <a
+href="specs/110-containerized-worker-modal-cpu/tasks.html">110
+tasks</a>.</li>
+<li>Other unblocked engineering: spec-106 P3 (control-plane API + job
+state machine). Spec-111 T1.4 remains a v1.5 task pending the scope
+decision.</li>
 </ul>
 <h2 id="decisions">Decisions</h2>
 <table>
@@ -389,6 +412,13 @@ call.</td>
 <td>GPU in v1</td>
 <td><strong>Reversed 2026-10-04:</strong> CPU baseline 9.0 s/img makes
 GPU mandatory (was "WON'T v1")</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Live DB + storage</td>
+<td><strong>Decided 2026-10-10: Neon Postgres (free) + Cloudflare
+R2</strong>; where the pipeline runs (local / Modal GPU / Modal CPU) is
+a config setting (spec-112)</td>
 </tr>
 </tbody>
 </table>
@@ -480,15 +510,29 @@ href="specs/106-albumify-web-showcase/updates.html">updates</a></td>
 href="specs/110-containerized-worker-modal-cpu/spec.html">110</a></td>
 <td>Containerized worker on Modal (CPU)</td>
 <td>C</td>
-<td>Draft — blocked on <code>modal setup</code></td>
+<td>In Progress — AC1-AC3 met (AC3 on a 48-photo Modal GPU job run); AC4
+needs one re-run after the SIGHTING-126 fix; AC5 unproven; SIGHTING-128
+open</td>
 <td><a
 href="specs/110-containerized-worker-modal-cpu/updates.html">updates</a></td>
+</tr>
+<tr>
+<td><a href="specs/112-live-db-storage-runner/spec.html">112</a></td>
+<td>Live DB + storage, runner as config (Neon + R2)</td>
+<td>C</td>
+<td>In Progress — Phase A A1–A5 built 2026-10-10, real-data proof
+pending; Phase A local (SQLite + folder), Phase B Neon + R2 by config;
+photos/faces/people/scenes as DB rows; takes spec-106 T2.1 + DB half of
+T3.1</td>
+<td><a href="specs/112-live-db-storage-runner/updates.html">updates</a>
+· <a href="specs/112-live-db-storage-runner/tasks.html">tasks</a></td>
 </tr>
 <tr>
 <td><a href="specs/109-parallel-gpu-execution/spec.html">109</a></td>
 <td>GPU enablement + parallelism</td>
 <td>C</td>
-<td>In Progress — scaffolded, re-scoped 2026-10-05</td>
+<td>In Progress — 12-photo GPU run matches CPU picks/theme; face stack
+dominates; full-size gate pending</td>
 <td><a href="specs/109-parallel-gpu-execution/updates.html">updates</a>
 · <a href="reports/2026-10-04_spec109_baseline/summary.html">CPU
 baseline</a> · <a

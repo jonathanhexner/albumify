@@ -4,6 +4,8 @@ One entry per experiment, 2 lines each: (1) name + goal, (2) outcome + link.
 Convention: `reports/<YYYY-MM-DD>_<slug>/report.html` + `summary.md` (see CLAUDE.md §Experiment reports).
 Entries below predate the convention; their reports live at the linked legacy locations.
 
+- **2026-10-09 Slovakia26 full roll (715 photos) on the Modal L4 worker — Stage A input + first at-scale job-flow run** — run the real default_pipeline over the whole trip on the GPU worker and emit album.json for the owner's keeper-list judgement.
+  **0.48 s/img (341 s pipeline, 521 s wall incl. upload); 147 picks / 96 scenes (no global cap yet), 423 near-dups, 56 set aside, 121 people clusters (over-split), 89 photos silently missing (quality filter, SIGHTING-128).** Judging sheet with every pick + set-aside inline. [report](2026-10-09_slovakia_full_gpu/report.html) · [summary](2026-10-09_slovakia_full_gpu/summary.md)
 - **2026-10-04 spec-109 full-pipeline CPU timing baseline (57 imgs)** — honest per-step timing of the REAL default_pipeline (38 steps incl. occlusion/tilt), not the lean faces variant.
   **9.0 s/img on CPU → non-interactive** (100 imgs=15min). Top costs: RAM++ triage 3.0s + GeoCalib tilt 2.6s = 62%; face stack 2.0s = 23%. All GPU-friendly models. Defer-embedding is NOT free (select_best identity-subclusters need embeddings). GPU mandatory; blocker = host choice (Modal). [summary](2026-10-04_spec109_baseline/summary.md)
 

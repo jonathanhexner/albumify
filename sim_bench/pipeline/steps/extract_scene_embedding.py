@@ -48,7 +48,8 @@ class ExtractSceneEmbeddingStep(BaseStep):
             from sim_bench.feature_extraction.base import load_method
             extractor_config = {
                 "method": method,
-                "batch_size": config.get("batch_size", 32)
+                "batch_size": config.get("batch_size", 32),
+                "device": config.get("device", "cpu"),  # spec-109 P1: was dropped -> DINOv2 always CPU
             }
             self._extractor = load_method(method, extractor_config)
             self._current_method = method

@@ -347,11 +347,11 @@ JSON-serializable. Green.</label></li>
 for live + showcase. (Real-data validation lands when the worker runs,
 spec-110.)</li>
 </ul>
-<h3 id="p1--prove-the-gpu-seam-depends-on-user-modal-auth">P1 — Prove
-the GPU seam (depends on user Modal auth)</h3>
+<h3 id="p1--prove-the-gpu-seam">P1 — Prove the GPU seam</h3>
 <ul class="task-list">
-<li><label><input type="checkbox" />T1.1 <code>modal setup</code> →
-<code>gpu_smoke</code> (CUDA proof). | user</label></li>
+<li><label><input type="checkbox" checked="" />T1.1
+<code>modal setup</code> → <code>gpu_smoke</code> (CUDA proof). |
+2026-10-09 auth/billing working, NVIDIA L4 + CUDA confirmed</label></li>
 <li><label><input type="checkbox" />T1.2 <strong>storage-reference
 <code>curate(job_id)</code></strong> — pull 768px images from storage,
 run pipeline (device=cuda), write <code>album.json</code> + displays
@@ -365,7 +365,8 @@ on a stored trip → per-image <strong>GPU latency</strong> + $/album
 upload</h3>
 <ul class="task-list">
 <li><label><input type="checkbox" />T2.1 Object store (S3/R2) + per-job
-prefixes + TTL.</label></li>
+prefixes + TTL. <strong>→ moved to spec-112 (Neon + R2,
+2026-10-10).</strong></label></li>
 <li><label><input type="checkbox" />T2.2 Presign endpoint (scoped,
 expiring write URL); browser PUTs 768px directly.</label></li>
 <li><label><input type="checkbox" />T2.3 Prove: browser → storage
@@ -375,8 +376,10 @@ browser.</label></li>
 <h3 id="p3--control-plane-api--job-state-machine">P3 — Control-plane API
 + job state machine</h3>
 <ul class="task-list">
-<li><label><input type="checkbox" />T3.1 Job state machine
-(config-driven stages + <code>needs</code>);
+<li><label><input type="checkbox" />T3.1
+(<code>jobs</code>/<code>job_events</code> tables + status set →
+spec-112 P2) Job state machine (config-driven stages +
+<code>needs</code>);
 <code>jobs</code>/<code>job_events</code>/<code>pipeline_steps</code>
 DB; <strong>write-to-DB on every transition</strong> (status, duration,
 error) — the telemetry "what happened".</label></li>

@@ -169,6 +169,71 @@
       vertical-align: middle;
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
   </style>
   <style>
   /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
@@ -245,6 +310,30 @@
 id="toc-spec-110--progress--verification-updates">spec-110 — Progress
 &amp; verification updates</a>
 <ul>
+<li><a
+href="#2026-10-09--owners-48-photo-gpu-run-on-the-job-path-ac3-met-ac4-reproduced-the-ordering-bug-and-a-new-contract-gap"
+id="toc-2026-10-09--owners-48-photo-gpu-run-on-the-job-path-ac3-met-ac4-reproduced-the-ordering-bug-and-a-new-contract-gap">2026-10-09
+— Owner's 48-photo GPU run on the job path: AC3 met, AC4 reproduced the
+ordering bug, and a new contract gap</a></li>
+<li><a
+href="#2026-10-09--storage-reference-curate-built-job-store-albumjson-and-an-album-that-is-actually-reproducible"
+id="toc-2026-10-09--storage-reference-curate-built-job-store-albumjson-and-an-album-that-is-actually-reproducible">2026-10-09
+— Storage-reference curate built: job store, <code>album.json</code>,
+and an album that is actually reproducible</a></li>
+<li><a
+href="#2026-10-09--follow-up-audit-correct-ac3-and-remove-stale-account-blocker"
+id="toc-2026-10-09--follow-up-audit-correct-ac3-and-remove-stale-account-blocker">2026-10-09
+— Follow-up audit: correct AC3 and remove stale account blocker</a></li>
+<li><a
+href="#2026-10-09--gpu-retry-succeeds-after-remaining-device-routing-and-rebuilt-image-fixes"
+id="toc-2026-10-09--gpu-retry-succeeds-after-remaining-device-routing-and-rebuilt-image-fixes">2026-10-09
+— GPU retry succeeds after remaining device-routing and rebuilt-image
+fixes</a></li>
+<li><a
+href="#2026-10-09--modal-account-live-full-pipeline-image-imports-cleanly-ac2-met-cpu-free-tier"
+id="toc-2026-10-09--modal-account-live-full-pipeline-image-imports-cleanly-ac2-met-cpu-free-tier">2026-10-09
+— Modal account live; full pipeline image imports cleanly (AC2 met, CPU,
+free tier)</a></li>
 <li><a href="#purpose" id="toc-purpose">Purpose</a></li>
 <li><a href="#verification-plan-acceptance-criteria"
 id="toc-verification-plan-acceptance-criteria">Verification plan
@@ -260,8 +349,391 @@ id="toc-verification-plan-acceptance-criteria">Verification plan
 <p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
-<p><strong>Status:</strong> Draft — nothing built or verified. Blocked
-on the owner running <code>modal setup</code> (T0.1).</p>
+<p><strong>Status:</strong> In Progress — AC1, AC2 met; <strong>AC3 met
+on Modal</strong> (owner's 48-photo GPU job run wrote a valid normalized
+<code>album.json</code> from storage-reference input). AC4
+<strong>failed on that run for the reason since fixed</strong>
+(SIGHTING-126, pick order) and needs one re-run to close. AC5 still
+unproven (no two-run download comparison yet). New gap found by the same
+run: SIGHTING-128 — the album omits photos dropped before scoring (48
+staged, 38 in the album), which needs an owner decision on the reason
+code.</p>
+<h2
+id="2026-10-09--owners-48-photo-gpu-run-on-the-job-path-ac3-met-ac4-reproduced-the-ordering-bug-and-a-new-contract-gap">2026-10-09
+— Owner's 48-photo GPU run on the job path: AC3 met, AC4 reproduced the
+ordering bug, and a new contract gap</h2>
+<p>The owner ran the new storage-reference path on Modal (GPU,
+<code>--job-id slovakia48 --twice</code>) while the ordering fix was
+still being written, which turned out to be the most useful possible
+timing: the remote run independently reproduced SIGHTING-126 and proved
+everything around it.</p>
+<ul>
+<li><strong>AC3 met.</strong> 48 images staged to the
+<code>albumify-jobs</code> Volume, <code>curate_job</code> read them by
+id, and a valid normalized <code>album.json</code> came back: 13 picks,
+25 <code>near_dup</code> dropped-with-reason, 7 scenes, 10 people, a
+full album theme, and <strong>every</strong> score field populated on
+every pick (composite / sharpness / aesthetic / occlusion / tilt) — i.e.
+<code>normalize()</code> reads the right <code>PipelineContext</code>
+fields on the real 38-step pipeline, which the local
+<code>minimal_pipeline</code> proof could not show. Displays written for
+all 13 picks; <code>fetch_album</code> read the result back out.</li>
+<li><strong>AC4 not yet met, and the diff is exactly
+SIGHTING-126.</strong> Between the two runs: pick <em>set</em>, scene
+ids, composite scores, dropped set, dropped reasons and theme were
+<strong>all identical</strong>; only the <strong>pick order</strong>
+differed, so <code>idempotent</code> reported <code>False</code>. That
+is the same instability found locally, from the same cause, and the fix
+landed after this run — so closing AC4 needs one re-run, not new work.
+(<code>album_matches_store: False</code> is the same artifact: the store
+held run 2's album while the comparison used run 1's.)</li>
+<li><strong>Warm container is ~1.3x faster:</strong> 227.0 s pipeline on
+the cold run, 172.2 s on the second (254.2 s / 173.6 s driver wall).
+Per-run model downloading is what AC5 has to rule out.</li>
+<li><strong>New: SIGHTING-128 — the album is not carrying every
+photo.</strong> 48 staged, <code>counts.uploaded = 38</code>,
+<code>set_aside = 0</code>: ten photos dropped by pre-scoring gates
+appear nowhere in <code>album.json</code>, which contradicts the
+show-everything principle the contract states. Filed with a fix sketch;
+it needs an owner decision on the reason code (new <code>FILTERED</code>
+code vs. reusing <code>NOT_SELECTED</code>) because it changes the
+spec-106 P0 shape.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>How it was verified</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC3 on Modal, GPU, real trip</td>
+<td><a href="../../reports/_modal_job_slovakia48.json">48-photo job
+report</a> — <code>ok=True</code> twice, <code>device=cuda</code>, 48
+staged -&gt; <code>album.json</code> with 13 picks / 25 dropped / 7
+scenes / 10 people / theme / all score fields set</td>
+</tr>
+<tr>
+<td>AC4 blocked only by pick order</td>
+<td>same report: pick sets, scene ids, scores, dropped reasons and theme
+identical across the two runs; order differs -&gt;
+<code>idempotent: false</code>. Fixed after the run by the canonical
+ordering in <code>album/normalizer.py</code> (6 tests)</td>
+</tr>
+<tr>
+<td>Device really reached the GPU steps</td>
+<td>same report, <code>flipped</code> = 11 steps incl.
+<code>triage_content</code>, <code>score_ava</code>,
+<code>insightface_detect_faces</code>,
+<code>extract_scene_embedding</code>,
+<code>extract_face_embeddings</code>, <code>caption_*</code></td>
+</tr>
+<tr>
+<td>SIGHTING-128</td>
+<td>same report: <code>counts.uploaded = 38</code> vs 48 staged inputs,
+<code>set_aside = 0</code>, 13 + 25 = 38</td>
+</tr>
+</tbody>
+</table>
+<p><strong>To close AC3/AC4/AC5 (owner, one command, then repeat
+it):</strong></p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="va">PYTHONUTF8</span><span class="op">=</span>1 <span class="ex">.venv/Scripts/python</span> scripts/modal_curate_driver.py     <span class="at">--src</span> D:/Slovakia26 <span class="at">--start</span> 300 <span class="at">--n</span> 48 <span class="at">--job-id</span> slovakia48 <span class="at">--twice</span></span></code></pre></div>
+<p>Expect <code>AC4 idempotence ...: True</code> and
+<code>album.json in store matches the returned album: True</code> now
+that ordering is canonical; run it a second time and check the log for
+model downloads (AC5).</p>
+<h2
+id="2026-10-09--storage-reference-curate-built-job-store-albumjson-and-an-album-that-is-actually-reproducible">2026-10-09
+— Storage-reference curate built: job store, <code>album.json</code>,
+and an album that is actually reproducible</h2>
+<p>The worker no longer takes image bytes. A job is a directory and the
+worker is handed its id.</p>
+<pre><code>stage_job(job_id, images) -&gt; /jobs/&lt;id&gt;/input/*     (CPU, light image)
+curate_job(job_id)        -&gt; /jobs/&lt;id&gt;/album.json  (GPU) | curate_job_cpu (free tier)
+fetch_album(job_id)       -&gt; {album, run, displays}</code></pre>
+<ul>
+<li><strong>New modules, all testable off Modal</strong> (this is the
+point — the worker body used to only be observable by paying for a
+container): <code>sim_bench/serving/job_store.py</code> (layout +
+<code>job_id</code>/filename validation, since both become paths),
+<code>sim_bench/serving/curate_job.py</code>
+(<code>JobCurator.calc</code>: read inputs → <strong>scratch
+copy</strong> → plan → <code>normalize()</code> → write
+album/displays/run record),
+<code>sim_bench/serving/pipeline_runner.py</code>
+(<code>SpecBuilder</code>: <code>configs/pipeline.yaml</code> → steps +
+per-step device placement, lifted verbatim out of
+<code>modal_app._curate</code>, which is now thin).</li>
+<li><strong>The run uses a scratch copy of <code>input/</code></strong>
+because <code>straighten_images</code> writes derivatives beside its
+inputs: without the copy, a second run of the same job would see N +
+derivatives. That one decision is what makes AC4 meaningful rather than
+accidental.</li>
+<li><strong>Found and fixed SIGHTING-126 — the album was not
+reproducible.</strong> Two consecutive runs over the same staged images
+returned the same four picks with the same composite scores, but with
+the scene ids swapped and the picks in a different order:
+<code>extract_scene_embedding</code>'s dict order varies between runs,
+HDBSCAN numbers clusters by row order, and <code>select_best</code>
+iterates that dict. Fixed in <code>album/normalizer.py</code> (not in
+the clusterer — cluster ids are inherently arbitrary; the album is where
+a stable contract is owed): scenes renumbered by their earliest photo,
+picks ordered by EXIF capture time (id fallback),
+<code>beat</code>/<code>beaten_by</code> sorted. Scene 0 is now the
+trip's first scene.</li>
+<li><strong>AC5 cause fixed in code:</strong>
+<code>_prepare_caches()</code> sets <code>HF_HUB_CACHE</code>,
+<code>TORCH_HOME</code> (torch.hub: DINOv2/GeoCalib/pyiqa) and
+<code>INSIGHTFACE_HOME</code>, the last honored by a 4-line change in
+<code>InsightFaceFaceAnalyzer._load_app</code>; the job functions commit
+<code>models_vol</code>. buffalo_l was landing in
+<code>~/.insightface</code> — container scratch — so it was
+re-downloaded every cold start.</li>
+<li><strong>Blocked locally, not by this work:</strong> the full 38-step
+pipeline cannot run on the dev box at all —
+<code>RamTagger(device="cpu")</code> segfaults (SIGHTING-127, filed).
+The local proof therefore uses <code>minimal_pipeline</code>; the
+default-pipeline comparison must be the Modal CPU run.</li>
+<li><strong>Not done:</strong> no remote run of the job path (owner's
+call on spend). AC3/AC4/AC5 need <code>--job-id ... --twice</code> on
+Modal, twice, to also show the second run skipping model downloads.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>How it was verified</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Storage-reference path end-to-end on real photos</td>
+<td><code>scripts/modal_curate_driver.py --src D:/Slovakia26 --start 300 --n 12 --job-id localproof12 --pipeline minimal --local-root reports/_local_jobs --twice</code>
+→ <a href="../../reports/_local_job_localproof12.json">local job
+report</a>: 12 staged, 4 picks, 8 dropped with reasons, 2 scenes,
+displays written, 13.5 s pipeline</td>
+</tr>
+<tr>
+<td>AC4 idempotence (local)</td>
+<td>same command:
+<code>AC4 idempotence (created_at excluded): True</code>; before the
+SIGHTING-126 fix the same command reported <code>False</code> with
+permuted scene ids</td>
+</tr>
+<tr>
+<td>Album ordering is order-insensitive</td>
+<td><code>tests/album/test_normalizer.py::ut_AlbumDeterminism</code> — 6
+tests incl. permuted cluster ids + reversed selected order → identical
+album; 12 tests in the file</td>
+</tr>
+<tr>
+<td>Worker orchestration + storage contract</td>
+<td><code>tests/serving/</code> — 41 tests:
+<code>test_pipeline_runner.py</code> (9, device placement incl. the
+SIGHTING-123 regression guard), <code>test_job_store.py</code> (19,
+incl. <code>job_id</code>/filename traversal),
+<code>test_curate_job.py</code> (13, incl. inputs-never-mutated, scratch
+cleanup, failed-step path)</td>
+</tr>
+<tr>
+<td>InsightFace reads the Volume</td>
+<td><code>tests/pipeline/test_insightface_model_root.py</code> — 3 tests
+(env set → <code>root</code> passed; unset → upstream default; CUDA
+provider still requested)</td>
+</tr>
+<tr>
+<td>No regression elsewhere</td>
+<td><code>pytest tests/album tests/serving tests/pipeline tests/triage tests/quality_assessment tests/image_quality_models</code>
+→ <strong>303 passed</strong>, 47 deselected (6:18). One integration
+test
+(<code>test_extract_face_embeddings.py::test_full_extraction_pipeline</code>)
+failed once in an earlier run of the same suite and passed in isolation
+and on re-run — flaky under model-load pressure, not related to these
+changes</td>
+</tr>
+<tr>
+<td>Local full-pipeline block is pre-existing</td>
+<td><code>python -c "from sim_bench.triage.content import RamTagger; RamTagger(device='cpu')"</code>
+→ exit <code>-1073741819</code>, no pipeline involved
+(SIGHTING-127)</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="2026-10-09--follow-up-audit-correct-ac3-and-remove-stale-account-blocker">2026-10-09
+— Follow-up audit: correct AC3 and remove stale account blocker</h2>
+<ul>
+<li>Inspected <code>_curate</code>: accepts
+<code>(filename, bytes)</code> pairs and returns
+picks/clusters/theme/timing with temporary file paths. It does not
+accept <code>job_id</code>, call the album normalizer, or persist keeper
+displays and <code>album.json</code>. The earlier "AC3 met" claim meant
+pipeline success and was too broad for AC3.</li>
+<li>Updated spec/task headers and ROADMAP to the recorded owner
+decision: shared GPU image for acceptance; CPU comparison path retained.
+Authentication and billing are working; implementation gates remain
+open.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>How it was verified</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Real-data execution, partial AC3</td>
+<td><a href="../../reports/_modal_curate_last.json">CPU JSON</a> + <a
+href="../../reports/_modal_curate_gpu12_retry2.json">GPU retry JSON</a>:
+both ok, same 12 input filenames and four pick filenames, identical
+theme/set_aside</td>
+</tr>
+<tr>
+<td>Storage/result gap</td>
+<td><code>sim_bench/serving/modal_app.py::_curate</code>: inline bytes →
+temporary directory → pipeline summary; no normalize/persist call or job
+ID</td>
+</tr>
+<tr>
+<td>Local regressions</td>
+<td>37 passed, 1 slow test deselected across device routing, portable
+checkpoints, triage, scorer cache behavior, config/spec validation and
+normalizer; full command scope recorded in <a
+href="../109-parallel-gpu-execution/updates.html">109 updates</a></td>
+</tr>
+<tr>
+<td>AC5 remains partial</td>
+<td>3.1 GB uploaded; RAM++ Volume load proven, but buffalo_l downloads
+outside the persistent HF cache (see <a
+href="../../reports/_modal_curate_gpu12_retry2.log">GPU retry
+log</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="2026-10-09--gpu-retry-succeeds-after-remaining-device-routing-and-rebuilt-image-fixes">2026-10-09
+— GPU retry succeeds after remaining device-routing and rebuilt-image
+fixes</h2>
+<ul>
+<li>Full GPU pipeline on the same 12 Slovakia26 images:
+<code>ok=True</code>, same four selected filenames as CPU, restored
+matching theme/facets; active CUDA providers confirmed for InsightFace
+detection and embeddings.</li>
+<li>Fixed GeoCalib wrapper device forwarding and RAM++ input placement.
+First rebuilt-image retry failed due to unpinned PyArrow 26 requiring
+NumPy 2; pinned PyArrow 21.0.0 to the local venv's working version. 19
+regression tests + 9 pipeline/config tests pass.</li>
+<li>Evidence: <code>reports/_modal_curate_gpu12_retry2.json</code>,
+<code>.log</code>; Modal run <code>ap-9Jh59QFjqss55pWj7gORxH</code>.
+Pipeline 142.186 s; driver wall 313.8 s. See spec-109 updates for
+per-step comparison and remaining face-model startup bottleneck.</li>
+<li>This is the inline-byte scaffold proof. Storage-reference input,
+normalized persisted <code>album.json</code>, same-job idempotence, and
+complete model-cache reuse remain open.</li>
+</ul>
+<h2
+id="2026-10-09--modal-account-live-full-pipeline-image-imports-cleanly-ac2-met-cpu-free-tier">2026-10-09
+— Modal account live; full pipeline image imports cleanly (AC2 met, CPU,
+free tier)</h2>
+<ul>
+<li>Owner ran <code>modal setup</code> (workspace
+<code>jonathan-hexner</code>). Token on this machine.</li>
+<li>First <code>modal run</code> built both images but <strong>L4 GPU
+functions need a payment method</strong> on the account (blocks AC1
+<code>gpu_smoke</code> until the owner adds one). Also: on Windows set
+<code>PYTHONUTF8=1</code>, or the Modal CLI dies on a <code>✓</code>
+glyph with a charmap error.</li>
+<li>CPU functions run free, so a scratch <code>import_check</code>
+function on the full image was used instead. First build surfaced two
+real image bugs: <code>pydantic</code> (and
+pandera/SQLAlchemy/hdbscan/umap/sixdrepnet/geocalib…) missing, and pip
+pulled transformers 5.x which refuses torch 2.4 and disables PyTorch
+(RAM++ would die).</li>
+<li>Fix: <code>full_image</code> now mirrors the venv pins (torch
+2.4.0+cu121, transformers 4.57.1, numpy 1.26.4, protobuf 3.20.3,
+mediapipe 0.10.9, one opencv variant, GeoCalib + RAM++ from pinned git
+commits with <code>--no-deps</code>) and mounts <code>configs/</code>
+which <code>curate()</code> reads. <strong>Verified:</strong> every
+third-party package + <code>sim_bench.pipeline.steps.all_steps</code>,
+<code>sim_bench.album.normalizer</code>,
+<code>face_cluster.pipeline</code> import inside the container (run
+<code>ap-hrWjtVpCsHvNLOhXAp9Mno</code>).</li>
+<li>Model weights (3.1 GB: RAM++, AVA, ArcFace, Siamese, occlusion
+probes) uploaded to Volume <code>albumify-models</code>, mounted at
+<code>/root/models</code> (= <code>&lt;repo&gt;/models</code>; steps
+resolve weights relative to the repo root). First upload from Git Bash
+landed under <code>C:/Program Files/Git/</code> (MSYS path rewrite) —
+redone via the Python API.</li>
+<li><code>curate</code> refactored: shared
+<code>_curate(images, pipeline, device)</code> + <code>curate</code>
+(L4) and <code>curate_cpu</code> on a separate CPU-only app
+(<code>app.run()</code> registers every function, so a GPU function in
+the same app blocks free-tier runs). Driver:
+<code>scripts/modal_curate_driver.py</code> (768px downsample, keeps
+EXIF).</li>
+<li>Device flip now covers every step whose <code>config_schema</code>
+declares <code>device</code> (RAM++ triage and AVA were missed by the
+yaml-only flip) and validates each flip against the typed config
+first.</li>
+<li><strong>SIGHTING-123</strong> found by that flip:
+<code>score_ava</code>'s typed config forbade <code>device</code>
+although the step reads it — AVA could never run on GPU. Fixed
+(<code>ScoreAVAConfig.device</code>); 26 pipeline config/spec tests
+green.</li>
+<li>Data-path proof on the free CPU container (12 contiguous Slovakia26
+images): spec validation passes, discover → triage (RAM++ loads from the
+Volume) → semantic → geo run; first stop was <code>score_iqa</code>
+needing <code>PyWavelets</code> (added, pinned 1.9.0). Re-running.</li>
+<li><strong>AC3 preliminary CPU proof (free tier), 2026-10-09:</strong>
+after two more container-only fixes (<code>select_best</code> could not
+unpickle a <code>WindowsPath</code> inside the Siamese checkpoint's
+training config -&gt; portable
+<code>checkpoint_io.load_checkpoint</code>; <code>PyWavelets</code> for
+<code>score_iqa</code>), the full 38-step <code>default_pipeline</code>
+ran end to end on 12 contiguous Slovakia26 images in the container:
+<code>ok=True</code>, 4 picks, 0 set aside (no screenshots in that
+burst), 201 s pipeline = <strong>16.8 s/img on 4 vCPU</strong> (vs 9.0
+s/img on the dev box). Top CPU costs in-container: InsightFace detect
+5.6 s, face embeddings 3.7 s, RAM++ 2.6 s, GeoCalib 2.4 s. Result JSON:
+<code>reports/_modal_curate_last.json</code>. Full AC3 still needs
+storage-reference input and normalized persisted album.json; AC4
+(idempotent re-run) still to do.</li>
+<li><strong>AC1 met:</strong> owner added a payment method;
+<code>gpu_smoke</code> -&gt;
+<code>cuda_available: True, NVIDIA L4, torch 2.4.0+cu121</code>.</li>
+<li><strong>AC4 on the GPU job flow (48 imgs, same job_id twice),
+2026-10-09:</strong> after the SIGHTING-126 ordering fix,
+picks/order/scores are byte-identical; the ONLY remaining diff is the
+GeoCalib tilt angle in the 2nd decimal (-0.84 vs -0.76 deg) = GPU
+floating-point nondeterminism (cuDNN autotune / TF32). Fix staged:
+<code>_deterministic_torch()</code> (cudnn deterministic, no benchmark,
+TF32 off) in both curate bodies; to be confirmed with the next
+<code>--twice</code> run. Note: the driver's "album matches store" line
+compares run 1 to the store, which holds run 2 — run 2 vs store is
+identical. Results
+<code>reports/_modal_job_slovakia48_pb4.json</code>.</li>
+<li><strong>AC3 at scale, 2026-10-09:</strong>
+<code>curate_job(slovakia_full)</code> over all 715 photos (97 MB staged
+inline in one <code>stage_job</code> call — worked, but is the ceiling
+for inline staging): 341 s pipeline = 0.48 s/img, wall 521 s. Valid
+album.json (147 picks, 423 near_dup, 56 set_aside). Report
+<code>reports/2026-10-09_slovakia_full_gpu/</code>. Surfaced: 89 photos
+absent from album.json (SIGHTING-128).</li>
+<li><strong>AC4 re-measured with deterministic torch (48 imgs,
+twice):</strong> picks/order/scores byte-identical;
+<code>score.tilt</code> STILL differs (-0.54 vs -1.40 deg) -&gt; not
+cuDNN/TF32; GeoCalib itself is nondeterministic on CUDA -&gt;
+<strong>SIGHTING-130</strong> with three options (owner's call). Warm
+run 50 s. <code>reports/_modal_job_slovakia48_det.json</code>.</li>
+<li><strong>Fixed cost solved (SIGHTING-129):</strong> protobuf 4.25
+-&gt; warm 48-image run 49 s (was 172 s).</li>
+<li>Decision (owner, 2026-10-09): go GPU directly; spec-110's acceptance
+criteria are satisfied on the GPU image rather than a separate CPU
+image, to avoid building the dependency set twice.</li>
+</ul>
 <h2 id="purpose">Purpose</h2>
 <p>Prove the serving data path on CPU before touching GPU: image build
 with the full dependency set, code mount, storage-reference
@@ -282,14 +754,34 @@ valid <code>album.json</code>.</li>
 <li>2026-10-05 — spec created (split out of spec-109).</li>
 </ul>
 <h2 id="reports--artifacts">Reports &amp; artifacts</h2>
-<p>Nothing run yet. Background reading: <a
-href="../109-parallel-gpu-execution/modal_explainer.html">Modal
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../../reports/_modal_curate_last.json">CPU JSON</a></td>
+<td>successful 12-photo full pipeline on 4 vCPU, 201.504 s; inline-byte
+summary only</td>
+</tr>
+<tr>
+<td><a href="../../reports/_modal_curate_gpu12_retry2.json">GPU retry
+JSON</a> · <a
+href="../../reports/_modal_curate_gpu12_retry2.log">log</a></td>
+<td>successful L4 retry, matching picks/theme; 142.186 s pipeline /
+313.8 s driver wall; model-cache gap visible</td>
+</tr>
+<tr>
+<td><a href="../109-parallel-gpu-execution/modal_explainer.html">Modal
 explainer</a> · <a
-href="../109-parallel-gpu-execution/modal_q_and_a.html">Modal
-Q&amp;A</a> · worker scaffold
-<code>sim_bench/serving/modal_app.py</code> · dependency pitfalls
-recorded in LEARNINGS (2026-07-13 dry-run gate, 2026-10-02 VLM env
-isolation).</p>
+href="../109-parallel-gpu-execution/modal_q_and_a.html">Q&amp;A</a></td>
+<td>worker architecture and storage-reference design</td>
+</tr>
+</tbody>
+</table>
 </div>
 </body>
 </html>

@@ -18,8 +18,8 @@ CALLS = {"n": 0}
 class _FakeScorer:
     version = "fake-v1"
 
-    def __init__(self, artifact_path=None):
-        pass
+    def __init__(self, artifact_path=None, device="cpu"):
+        self.device = device
 
     def calc(self, inputs: OcclusionInputs) -> OcclusionResult:
         CALLS["n"] += len(inputs.image_paths)

@@ -6,13 +6,24 @@
 
 Newest first. Every entry says what was done and how it was verified.
 
+## 2026-10-09 — Stage A input produced: full 715-photo Slovakia26 roll curated on the GPU worker
+- Real `default_pipeline` over the whole trip on the Modal L4 (spec-110 job flow): 0.48 s/img, 341 s.
+  Album: **147 picks** across 96 scenes (per-scene max 2, no global cap yet), 423 near-dups, 56 set
+  aside with reasons, 121 people clusters (over-split at this scale), **89 photos missing** from
+  album.json (dropped by `filter_quality` before scene clustering, no record — SIGHTING-128).
+- **Judging sheet for the owner:** [report](../../reports/2026-10-09_slovakia_full_gpu/report.html) —
+  every pick and every set-aside photo inline, grouped by day, plus 24 near-dup pairs. Verdict per pick
+  (keep / not) + the list of the owner's keepers that are absent and the reason given = Gate 1.
+- Caveats before reading the verdict as final: the global top-K cap (Stage B) is not built, so 147 is
+  "everything that won its scene", not a 20-photo album; the 89 invisible drops must be surfaced first.
+
 ## 2026-10-09 — Testing method clarified (recorded by the owner)
 - **Decision:** PhotoTriage / CUFED benchmarks are NOT the quality gate for Albumify. PhotoTriage is
   best-of-burst on near-duplicate series, not a real album; CUFED is importance voting. Neither says
   "would these 20 picks make a good trip album." The gate is **real trips** (Slovakia26, Budapest,
   Austria, Germany) judged against the owner's own keeper list.
-- **Follow-up:** the roadmap Stage A row still lists PhotoTriage + CUFED (carried over from the
-  2026-10-01 finalization plan). To be struck when the owner revises `ROADMAP.md`.
+- **Follow-up completed 2026-10-09:** roadmap Stage A now uses real trips judged against the owner's
+  keeper list; PhotoTriage/CUFED removed from the quality gate in line with this recorded decision.
 - Note: this decision was not written down earlier; the written trail (finalization plan,
   agentic_layer_design) proposed PhotoTriage/CUFED. Recorded here so it is not re-proposed.
 

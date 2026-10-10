@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 
 from sim_bench.pipeline.face_embedding.base import BaseFaceEmbeddingExtractor
+from sim_bench.pipeline.utils.insightface_home import model_root_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +31,14 @@ class InsightFaceNativeExtractor(BaseFaceEmbeddingExtractor):
         if self._app is None:
             from insightface.app import FaceAnalysis
 
-            providers = ['CUDAExecutionProvider'] if self.device == 'cuda' else ['CPUExecutionProvider']
+            providers = ([('CUDAExecutionProvider', {'cudnn_conv_algo_search': 'HEURISTIC'}), 'CPUExecutionProvider'] if self.device == 'cuda'
+                         else ['CPUExecutionProvider'])
             logger.info(f"Loading InsightFace model '{self.model_name_config}' with providers: {providers}")
 
-            self._app = FaceAnalysis(name=self.model_name_config, providers=providers)
+            # spec-110 T1.3: same model root as detection -- the mounted Volume on the worker,
+            # InsightFace's default locally (see sim_bench/pipeline/utils/insightface_home.py).
+            self._app = FaceAnalysis(name=self.model_name_config, providers=providers,
+                                     **model_root_kwargs())
             ctx_id = 0 if self.device == 'cuda' else -1
             self._app.prepare(ctx_id=ctx_id)
             

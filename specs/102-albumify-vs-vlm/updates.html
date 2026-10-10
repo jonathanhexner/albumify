@@ -246,6 +246,11 @@ id="toc-spec-102--progress--verification-updates">spec-102 — Progress
 &amp; verification updates</a>
 <ul>
 <li><a
+href="#2026-10-09--stage-a-input-produced-full-715-photo-slovakia26-roll-curated-on-the-gpu-worker"
+id="toc-2026-10-09--stage-a-input-produced-full-715-photo-slovakia26-roll-curated-on-the-gpu-worker">2026-10-09
+— Stage A input produced: full 715-photo Slovakia26 roll curated on the
+GPU worker</a></li>
+<li><a
 href="#2026-10-09--testing-method-clarified-recorded-by-the-owner"
 id="toc-2026-10-09--testing-method-clarified-recorded-by-the-owner">2026-10-09
 — Testing method clarified (recorded by the owner)</a></li>
@@ -280,6 +285,27 @@ picks)</strong> · see <a href="../../ROADMAP.html">ROADMAP.md</a></p>
 <p>Newest first. Every entry says what was done and how it was
 verified.</p>
 <h2
+id="2026-10-09--stage-a-input-produced-full-715-photo-slovakia26-roll-curated-on-the-gpu-worker">2026-10-09
+— Stage A input produced: full 715-photo Slovakia26 roll curated on the
+GPU worker</h2>
+<ul>
+<li>Real <code>default_pipeline</code> over the whole trip on the Modal
+L4 (spec-110 job flow): 0.48 s/img, 341 s. Album: <strong>147
+picks</strong> across 96 scenes (per-scene max 2, no global cap yet),
+423 near-dups, 56 set aside with reasons, 121 people clusters
+(over-split at this scale), <strong>89 photos missing</strong> from
+album.json (dropped by <code>filter_quality</code> before scene
+clustering, no record — SIGHTING-128).</li>
+<li><strong>Judging sheet for the owner:</strong> <a
+href="../../reports/2026-10-09_slovakia_full_gpu/report.html">report</a>
+— every pick and every set-aside photo inline, grouped by day, plus 24
+near-dup pairs. Verdict per pick (keep / not) + the list of the owner's
+keepers that are absent and the reason given = Gate 1.</li>
+<li>Caveats before reading the verdict as final: the global top-K cap
+(Stage B) is not built, so 147 is "everything that won its scene", not a
+20-photo album; the 89 invisible drops must be surfaced first.</li>
+</ul>
+<h2
 id="2026-10-09--testing-method-clarified-recorded-by-the-owner">2026-10-09
 — Testing method clarified (recorded by the owner)</h2>
 <ul>
@@ -289,9 +315,10 @@ near-duplicate series, not a real album; CUFED is importance voting.
 Neither says "would these 20 picks make a good trip album." The gate is
 <strong>real trips</strong> (Slovakia26, Budapest, Austria, Germany)
 judged against the owner's own keeper list.</li>
-<li><strong>Follow-up:</strong> the roadmap Stage A row still lists
-PhotoTriage + CUFED (carried over from the 2026-10-01 finalization
-plan). To be struck when the owner revises <code>ROADMAP.md</code>.</li>
+<li><strong>Follow-up completed 2026-10-09:</strong> roadmap Stage A now
+uses real trips judged against the owner's keeper list;
+PhotoTriage/CUFED removed from the quality gate in line with this
+recorded decision.</li>
 <li>Note: this decision was not written down earlier; the written trail
 (finalization plan, agentic_layer_design) proposed PhotoTriage/CUFED.
 Recorded here so it is not re-proposed.</li>

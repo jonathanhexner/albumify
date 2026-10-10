@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-112--tasks-live-db--storage-runner-as-config"
+id="toc-spec-112--tasks-live-db--storage-runner-as-config">spec-112 —
+Tasks (Live DB + storage, runner as config)</a>
+<ul>
+<li><a href="#design-notes" id="toc-design-notes">Design notes</a></li>
+</ul></li>
+<li><a href="#phase-a--local-offline"
+id="toc-phase-a--local-offline">Phase A — local, offline</a>
+<ul>
+<li><a href="#a1--object-store--results-bundle"
+id="toc-a1--object-store--results-bundle">A1 — Object store + results
+bundle</a></li>
+<li><a href="#a2--control-db" id="toc-a2--control-db">A2 — Control
+DB</a></li>
+<li><a href="#a3--loader" id="toc-a3--loader">A3 — Loader</a></li>
+<li><a href="#a4--runner-config--jobservice"
+id="toc-a4--runner-config--jobservice">A4 — Runner config +
+JobService</a></li>
+<li><a href="#a5--api--viewer" id="toc-a5--api--viewer">A5 — API +
+viewer</a></li>
+<li><a href="#a6--prove-phase-a" id="toc-a6--prove-phase-a">A6 — Prove
+Phase A</a></li>
+</ul></li>
+<li><a href="#phase-b--cloud-configuration-only"
+id="toc-phase-b--cloud-configuration-only">Phase B — cloud,
+configuration only</a>
+<ul>
+<li><a href="#b0--accounts-and-secrets-owner"
+id="toc-b0--accounts-and-secrets-owner">B0 — Accounts and secrets
+(owner)</a></li>
+<li><a href="#b1--cloud-backends" id="toc-b1--cloud-backends">B1 — Cloud
+backends</a></li>
+<li><a href="#b2--prove-phase-b" id="toc-b2--prove-phase-b">B2 — Prove
+Phase B</a></li>
+</ul></li>
+<li><a href="#close-out" id="toc-close-out">Close out</a></li>
+</ul>
+</nav>
+<h1 id="spec-112--tasks-live-db--storage-runner-as-config">spec-112 —
+Tasks (Live DB + storage, runner as config)</h1>
+<p><strong>Status:</strong> In Progress — Phase A A1–A5 built 2026-10-10
+(63 new tests); A6 real-data proof pending (Modal re-run of Slovakia26).
+<strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
+href="updates.html">updates</a> · roadmap stage <strong>C</strong> · <a
+href="../../ROADMAP.html">ROADMAP.md</a></p>
+<h2 id="design-notes">Design notes</h2>
+<ul>
+<li><strong>Rows in the DB, bytes in storage, compute cache
+local.</strong> Storage map: spec §2.</li>
+<li><strong>Job layout unchanged.</strong>
+<code>jobs/&lt;id&gt;/{input/, album.json, display/, run.json}</code>
+from spec-110 plus a new <code>results/</code> (<code>run.db</code>,
+<code>embeddings.npy</code>, face crops). <code>JobCurator</code> keeps
+working on a local directory; <code>JobSync</code> moves files in and
+out of the object store.</li>
+<li><strong>ObjectStore interface</strong>
+(<code>sim_bench/serving/object_store.py</code>): <code>put_file</code>,
+<code>get_file</code>, <code>list(prefix)</code>, <code>exists</code>,
+<code>delete_prefix</code>, <code>download_url(key, ttl)</code>. Phase
+A: <code>LocalObjectStore</code>. Phase B: <code>R2ObjectStore</code>
+(<code>boto3</code>).</li>
+<li><strong>Worker writes storage only.</strong> DB writes happen in
+<code>JobService</code> / the loader (API process or CLI).</li>
+<li><strong>Control DB = separate engine</strong>
+(<code>sim_bench/control/</code>), never <code>sim_bench.db</code>,
+never the per-run <code>run_db</code> factory (they must not be
+cross-imported, see <code>sim_bench/run_db/_session.py</code>).</li>
+<li><strong>Loader reuses the run schema read-side:</strong> open
+<code>results/run.db</code> with the <code>run_db</code> models, map to
+control-DB rows keyed by <code>(job_id, photo_id)</code> /
+<code>(job_id, face_id)</code>.</li>
+<li><strong>Runner</strong> protocol:
+<code>run(job_id) -&gt; RunOutcome</code>. <code>LocalRunner</code> runs
+<code>JobCurator</code> in a child process (spec-104: torch memory is
+only freed by process exit). <code>ModalRunner</code>: Phase A shells
+out to the existing driver path; Phase B calls the deployed function via
+<code>modal.Function.from_name</code>.</li>
+<li>New deps: Phase A none expected; Phase B <code>boto3</code>,
+<code>psycopg[binary]</code>, <code>moto</code> (fake S3, tests).</li>
+</ul>
+<h1 id="phase-a--local-offline">Phase A — local, offline</h1>
+<h2 id="a1--object-store--results-bundle">A1 — Object store + results
+bundle</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />TA1.1 <strong>Moved to
+TB1.1.</strong> In Phase A the local <code>JobStore</code> directory
+<em>is</em> the storage; an object-store interface only matters once R2
+exists. Every runner leaves the job's files in the local store (Modal:
+<code>ModalVolumeRemote.download</code>). | 2026-10-10</label></li>
+<li><label><input type="checkbox" checked="" />TA1.2
+<code>curate_job</code> writes <code>results/bundle.json</code> +
+<code>embeddings.npy</code> + <code>faces/&lt;id&gt;.jpg</code>.
+<strong>Not RunExporter</strong> (gap recorded in updates.md): it is
+face-centric, has no capture time/GPS/album status, needs FC-app
+<code>ClusterResult</code> objects, keys by absolute path. New
+<code>sim_bench/album/results_bundle.py</code>
+(<code>ResultsBundler.calc</code>); photos carry pipeline decisions so
+pre-scoring drops keep their reason. | 2026-10-10</label></li>
+<li><label><input type="checkbox" checked="" />TA1.3
+<code>tests/album/test_results_bundle.py</code> (9),
+<code>tests/serving/test_curate_job.py</code> (+2),
+<code>tests/serving/test_job_store.py</code> (+2). Real-pipeline bundle:
+TA6. | 2026-10-10</label></li>
+</ul>
+<h2 id="a2--control-db">A2 — Control DB</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />TA2.1
+<code>sim_bench/control/{db,models}.py</code>: <code>jobs</code>,
+<code>job_events</code>, <code>photos</code>, <code>faces</code>,
+<code>people</code>, <code>scenes</code>, <code>user_edits</code>;
+engine from <code>DATABASE_URL</code> (SQLite <code>connect_args</code>
+only for SQLite); portable types. Schema creation: read
+<code>alembic/env.py</code> first; separate Alembic config or
+<code>create_all</code> — decide and record. | 2026-10-10
+<code>create_all</code> (Alembic targets sim_bench.db only);
+<code>pool_pre_ping</code> for Neon; SQLite FK pragma</label></li>
+<li><label><input type="checkbox" checked="" />TA2.2 Job status set
+<code>queued → staging → running → loading → succeeded | failed</code>;
+invalid transitions raise. (AC4)</label></li>
+<li><label><input type="checkbox" checked="" />TA2.3
+<code>tests/control/test_jobs.py</code> (13). | 2026-10-10</label></li>
+</ul>
+<h2 id="a3--loader">A3 — Loader</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />TA3.1
+<code>ResultsLoader.calc(job_id)</code>: results bundle +
+<code>album.json</code> → rows; replaces the job's rows in one
+transaction (idempotent). (AC2)</label></li>
+<li><label><input type="checkbox" checked="" />TA3.2
+<code>AlbumBuilder</code>: tables (+ <code>user_edits</code>) →
+<code>Album</code>, via the spec-106 schema. (AC3, AC5)</label></li>
+<li><label><input type="checkbox" checked="" />TA3.3
+<code>tests/control/test_loader_builder.py</code> (15): counts,
+idempotent re-load, built album == worker album, promote/demote/rename,
+edits survive re-load. | 2026-10-10</label></li>
+</ul>
+<h2 id="a4--runner-config--jobservice">A4 — Runner config +
+JobService</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />TA4.1
+<code>configs/serving.yaml</code> (<code>runner</code>,
+<code>pipeline</code>, <code>device</code>); env override
+<code>ALBUMIFY_RUNNER</code>.</label></li>
+<li><label><input type="checkbox" checked="" />TA4.2
+<code>JobService.submit(source, runner)</code>: stage → record →
+dispatch → events → load. (AC4)</label></li>
+<li><label><input type="checkbox" checked="" />TA4.3
+<code>LocalRunner</code> (child process); <code>ModalRunner</code>
+(stage → curate_job → <code>Volume.read_file</code> copy-back). Download
+verified read-only on the real <code>slovakia48</code> job (15 files). |
+2026-10-10</label></li>
+<li><label><input type="checkbox" checked="" />TA4.4
+<code>tests/control/test_job_service.py</code> (16). |
+2026-10-10</label></li>
+</ul>
+<h2 id="a5--api--viewer">A5 — API + viewer</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />TA5.1
+<code>sim_bench/api/routers/jobs.py</code>: <code>POST /jobs</code>,
+<code>GET /jobs/{id}</code>, <code>GET /jobs/{id}/album</code>,
+<code>GET /jobs/{id}/photos/{photo_id}/display</code>,
+<code>POST /jobs/{id}/edits</code>. Typed Pydantic responses. |
+2026-10-10 also <code>GET /jobs</code>, <code>/photos</code>,
+<code>/faces</code>, <code>/faces/{id}/crop</code>,
+<code>POST /jobs/{id}/load</code>; image route is
+<code>/photos/{id}/image</code></label></li>
+<li><label><input type="checkbox" checked="" />TA5.2 API tests (SQLite +
+local store + fake runner).</label></li>
+</ul>
+<ul>
+<li>[&gt;] TA5.3 Streamlit page (built:
+<code>app/streamlit/pages/jobs.py</code>, with promote / remove / rename
+buttons; Playwright check in TA6.4) —: job list → picks, dropped with
+reasons, people (real <code>st.button</code> grids for any clickable
+thumbnails).</li>
+</ul>
+<h2 id="a6--prove-phase-a">A6 — Prove Phase A</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />TA6.1 Owner: re-run Slovakia26 on
+Modal with the results bundle; load it locally. (AC1, AC2)</label></li>
+<li><label><input type="checkbox" />TA6.2 Compare
+<code>GET /jobs/{id}/album</code> with the worker's
+<code>album.json</code>. (AC3)</label></li>
+<li><label><input type="checkbox" />TA6.3 Forced failure; promote +
+rename edit round-trip. (AC4, AC5)</label></li>
+<li><label><input type="checkbox" />TA6.4 Playwright screenshots of the
+viewer on the Slovakia job; updates.md entry.</label></li>
+</ul>
+<h1 id="phase-b--cloud-configuration-only">Phase B — cloud,
+configuration only</h1>
+<h2 id="b0--accounts-and-secrets-owner">B0 — Accounts and secrets
+(owner)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />TB0.1 Neon project (free plan);
+pooled connection string.</label></li>
+<li><label><input type="checkbox" />TB0.2 Cloudflare R2 bucket
+<code>albumify</code>; API token scoped to it.</label></li>
+<li><label><input type="checkbox" />TB0.3 Local <code>.env</code>
+(gitignored, verified): <code>DATABASE_URL</code>,
+<code>R2_ACCOUNT_ID</code>, <code>R2_ACCESS_KEY_ID</code>,
+<code>R2_SECRET_ACCESS_KEY</code>, <code>R2_BUCKET</code>.</label></li>
+<li><label><input type="checkbox" />TB0.4
+<code>modal secret create albumify-r2 ...</code> (R2 keys only).
+(AC7)</label></li>
+</ul>
+<h2 id="b1--cloud-backends">B1 — Cloud backends</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />TB1.1 <code>R2ObjectStore</code> +
+<code>moto</code> tests; <code>needs_r2</code> round-trip test on the
+real bucket.</label></li>
+<li><label><input type="checkbox" />TB1.2 Run the A2/A3 test suites
+against Neon (<code>needs_neon</code> marker).</label></li>
+<li><label><input type="checkbox" />TB1.3 Worker reads/writes R2 via
+<code>JobSync</code>; <code>albumify-jobs</code> Volume retired for job
+data; <code>modal deploy</code>; <code>ModalRunner</code> →
+<code>Function.from_name</code>.</label></li>
+</ul>
+<h2 id="b2--prove-phase-b">B2 — Prove Phase B</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />TB2.1 Slovakia26 via
+<code>POST /jobs</code>, <code>runner=modal_gpu</code>, on Neon + R2:
+AC1–AC3 again. (AC6)</label></li>
+<li><label><input type="checkbox" />TB2.2 Secret audit:
+<code>git grep</code>, image env, API responses; no-<code>.env</code>
+run of the suite. (AC8)</label></li>
+</ul>
+<h1 id="close-out">Close out</h1>
+<ul class="task-list">
+<li><label><input type="checkbox" />TC.1
+<code>docs/architecture/{data_flow,classes,db_schemas}.html</code>;
+<code>sim_bench/serving/README.md</code>.</label></li>
+<li><label><input type="checkbox" />TC.2 CHANGES_LOG;
+<code>updates.md</code> with evidence; <code>/code-review</code> →
+REVIEW.md.</label></li>
+</ul>
+</div>
+</body>
+</html>

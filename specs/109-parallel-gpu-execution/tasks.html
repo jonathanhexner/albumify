@@ -263,15 +263,19 @@ enablement (on spec-110's proven CPU worker)</a></li>
 </nav>
 <h1 id="spec-109--tasks-parallel-gpu-execution">spec-109 — Tasks
 (Parallel GPU Execution)</h1>
-<p><strong>Status:</strong> Draft — no implementation until spec.md
-approved. Rationale: <code>spec.md</code> (Slovakia26 timing).</p>
+<p><strong>Status:</strong> In Progress — CPU baseline and 12-photo GPU
+proof complete; full-size latency/cost and parallelism gates pending.
+Evidence: <a href="updates.html">updates</a>.</p>
 <h2 id="p0--baseline--defer-embedding-cpu-measurable-now">P0 — Baseline
 &amp; defer-embedding (CPU, measurable now)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T0.1 Re-run the
+<strong>full</strong> <code>default_pipeline</code> (incl.
+rotation/occlusion) on the Slovakia subset for true per-step timing. |
+2026-10-04: 57 scored images, 512 s, 9.0 s/img;
+<code>reports/2026-10-04_spec109_baseline/timing.json</code></label></li>
+</ul>
 <ul>
-<li>[&gt;] T0.1 Re-run the <strong>full</strong>
-<code>default_pipeline</code> (incl. rotation/occlusion) on the Slovakia
-subset for true per-step timing (today's numbers are the lean
-<code>faces</code> variant). | 2026-10-04 running</li>
 <li>[~] T0.2 Defer <code>extract_face_embeddings</code> —
 <strong>REVISED (not a free win).</strong> Dependency finding
 2026-10-04: <code>select_best</code> default
@@ -313,25 +317,39 @@ scaffold + the <code>modal_explainer.html</code> /
 it fast.</p>
 </blockquote>
 <ul class="task-list">
-<li><label><input type="checkbox" />T2.1 GPU image: swap CPU deps → CUDA
+<li><label><input type="checkbox" checked="" />T2.1 GPU image: CUDA
 (<code>onnxruntime-gpu</code>, torch-CUDA); <code>gpu="L4"</code> on
-<code>curate</code>.</label></li>
-<li><label><input type="checkbox" />T2.2 <strong>Verify EACH step honors
+<code>curate</code>. | 2026-10-09 L4 smoke + full 12-photo
+run</label></li>
+</ul>
+<ul>
+<li>[&gt;] T2.2 <strong>Verify EACH step honors
 <code>device=cuda</code></strong> — not assumed: InsightFace (ONNX CUDA
 EP), DINOv2, YOLO, AVA, RAM++, GeoCalib, CLIP all run on GPU;
-<strong>MediaPipe may be CPU-only</strong> → confirm or keep on
-CPU.</label></li>
+<strong>MediaPipe may be CPU-only</strong> → confirm or keep on CPU.
+Device routing fixes landed; InsightFace CUDA providers confirmed; picks
+and theme match CPU. Full per-model runtime evidence / justified CPU
+exceptions remain pending (see updates).</li>
+</ul>
+<ul class="task-list">
 <li><label><input type="checkbox" />T2.3 Benchmark GPU per-step ms/img +
 end-to-end 100/300; confirm ≤3–5 min (target &lt;1 min) +
 $/album.</label></li>
-<li><label><input type="checkbox" />T2.4 <code>score_tilt</code>
-(GeoCalib, 2.6 s/img CPU) GPU-only/optional; confirm rotation within
-budget.</label></li>
+</ul>
+<ul>
+<li>[&gt;] T2.4 <code>score_tilt</code> (GeoCalib, 2.6 s/img CPU)
+GPU-only/optional; confirm rotation within budget. | CUDA routing fixed;
+5.994 s for 12 photos; full-size budget pending</li>
+</ul>
+<ul class="task-list">
 <li><label><input type="checkbox" />T2.5 <strong>Warm-up worker
 shape</strong>: load models once at container start (Modal
 <code>@enter</code>), stay warm briefly so a warm-up call benefits the
 real <code>curate</code>. (The warm-up <em>trigger</em> is spec-106's
-control plane.)</label></li>
+control plane.) First profile the two buffalo_l
+initializations/downloads: detection + embeddings take 101.850 s (72% of
+the 12-photo GPU run). Persist non-HF caches and separate model startup
+from inference.</label></li>
 </ul>
 <ul>
 <li><strong>Gate:</strong> 100-photo full pipeline ≤ 3–5 min on GPU;

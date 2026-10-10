@@ -1,10 +1,15 @@
 # spec-110 — Containerized curation worker on Modal (CPU)
 
-**Status:** Draft — awaiting approval
+**Status:** In Progress — account and image imports proven; storage result/idempotence/model-cache gates pending
 **Owner:** Jonathan / Claude
 **Priority:** P1 (proves the serving data plane before the GPU optimization)
 **Relation:** the worker [[spec-106]]'s control plane calls; [[spec-109]] later makes it fast on GPU.
 Splits the old spec-109 "Modal worker" scaffold into *prove-it-runs* (here) vs *make-it-fast* (109).
+
+**Implementation decision (owner, 2026-10-09):** use the shared GPU-capable image for this spec's
+acceptance rather than building the dependency set twice; `curate_cpu` retains a CPU comparison path.
+CPU-only image language below records the original plan. AC3 still requires storage-reference input
+and normalized persisted `album.json`; inline-byte pipeline summaries are preliminary evidence only.
 
 ## 1. Problem
 

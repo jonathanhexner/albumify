@@ -11,6 +11,7 @@ from insightface.app import FaceAnalysis
 from sim_bench.pipeline.insightface_pipeline.types import InsightFaceDetection
 from sim_bench.pipeline.person_detection.types import BoundingBox
 from sim_bench.pipeline.utils.image_cache import get_image_cache
+from sim_bench.pipeline.utils.insightface_home import model_root_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,17 @@ class InsightFaceFaceAnalyzer:
     def _load_app(self):
         """Lazy load InsightFace app."""
         ctx_id = -1 if self.device == 'cpu' else 0
-        self._app = FaceAnalysis(name=self.model_name, providers=['CPUExecutionProvider'])
+        # spec-109 P1: providers were hard-coded to CPU, so device=cuda only changed ctx_id (a no-op
+        # without the CUDA provider) and detection silently stayed on CPU in the GPU worker.
+        # HEURISTIC: ORT's default EXHAUSTIVE cuDNN algo search benchmarks every conv algorithm on
+        # first inference per input shape — seconds per model, repeated for each of buffalo_l's 5 nets.
+        providers = ([('CUDAExecutionProvider', {'cudnn_conv_algo_search': 'HEURISTIC'}), 'CPUExecutionProvider'] if self.device != 'cpu'
+                     else ['CPUExecutionProvider'])
+        # spec-110 T1.3: read the weights from the mounted models Volume instead of re-downloading
+        # them into container scratch on every cold start. No-op locally.
+        self._app = FaceAnalysis(name=self.model_name, providers=providers, **model_root_kwargs())
+        logger.info("InsightFace providers requested=%s active=%s", providers,
+                    getattr(next(iter(self._app.models.values())).session, 'get_providers', lambda: '?')())
         self._app.prepare(ctx_id=ctx_id, det_thresh=self.detection_threshold)
         logger.info(f"Loaded InsightFace model: {self.model_name}")
         return self._app

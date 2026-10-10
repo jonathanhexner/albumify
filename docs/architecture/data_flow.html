@@ -125,7 +125,7 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
     consumed by <code>select_best</code>: composite = quality + person_penalty + <b>occlusion_penalty</b>
     (0 unless P ≥ 0.8 gate; <code>scoring/occlusion_penalty.py</code>)</span><br>
     <span style="opacity:.8">tilt (spec-099 Phase 1 / spec-100): <code>score_tilt</code> — GeoCalib learned roll
-    (~1.9 s/img CPU, cached <code>tilt</code>/<code>geocalib_v1</code>) → <code>context.tilt_angles/_confidences</code>;
+    (~1.9 s/img CPU, cached <code>tilt</code>/<code>geocalib_v1</code>; spec-109 forwards the configured device through the scorer, both estimators, model and input tensor) → <code>context.tilt_angles/_confidences</code>;
     consumed by <code>select_best</code>: composite += <b>tilt_penalty</b> (0 unless confident |roll| > 3°;
     small tie-breaker, cap −0.15; <code>scoring/tilt_penalty.py</code>)</span><br>
     <span style="opacity:.8">auto-straighten (spec-101, option A): selection accounts for the crop via the
@@ -298,6 +298,47 @@ no <code>sqlite3</code> / <code>open()</code> / <code>RunStore(</code> / <code>j
 <code>cfg.get(</code> in the Tab or Components layer; every Service method has a typed
 return annotation; Repository takes <code>ClusterAnalysisRepoConfig</code>;
 <code>ForceMergePreview</code> field set is locked against <code>ForceMergeResult</code>.
+</p>
+
+<h2>spec-110 &mdash; serving worker write path (storage-reference curate)</h2>
+
+<pre style="font-family: Consolas, monospace; font-size: 12px; background: #fafafa; border: 1px solid #ddd; padding: 10px;">  client / spec-106 control plane
+        |  (768 px analysis-tier JPEGs, EXIF kept)
+        v
+  stage_job(job_id, images)              &lt;-- sim_bench/serving/modal_app.py  (CPU, light image)
+        |                                    JobStore.stage_inputs -> validates job_id + names
+        v
+  /jobs/&lt;job_id&gt;/input/*.jpg             &lt;-- Modal Volume "albumify-jobs" (committed)
+        |
+        |   curate_job(job_id)  (GPU)  |  curate_job_cpu(job_id)  (free tier)
+        v
+  JobCurator.calc(CurateJobInputs)       &lt;-- sim_bench/serving/curate_job.py
+   1. JobStore.input_images(job_id)         (jobs_vol.reload() first: see stage_job's commit)
+   2. copy -> scratch tmpdir                (straighten writes derivatives beside its inputs;
+                                             the staged input set must not grow -> AC4)
+   3. SpecBuilder.calc(SpecInputs)          configs/pipeline.yaml + per-step device placement
+        |                                   (flipped / refused recorded in run.json)
+        v
+      execute_spec(spec, PipelineContext)   the real 38-step pipeline
+        |                                   models read from /root/models + /cache
+        v                                   (_prepare_caches: HF_HUB_CACHE, TORCH_HOME,
+   4. normalize(ctx, job_id, created_at)     INSIGHTFACE_HOME -> AC5, no re-download)
+        |   canonical scene ids + chronological picks (SIGHTING-126)
+        v
+  /jobs/&lt;job_id&gt;/album.json  +  display/&lt;pick&gt;.jpg  +  run.json
+        |                                    (overwritten, never appended -> re-run = same result)
+        v
+  fetch_album(job_id)  ->  {album, run, displays}
+</pre>
+
+<p>
+What each layer owes: <code>modal_app.py</code> owes only mounts, env and commits;
+<code>JobCurator</code> owes the orchestration constraints (scratch copy before run, normalize
+after success, overwrite on re-run); <code>JobStore</code> owes the layout and the path validation;
+<code>normalize()</code> owes the UI contract <em>and its ordering</em>. The feature cache is
+<b>not</b> in this path: <code>universal_cache</code> lives in <code>~/.sim_bench/sim_bench.db</code>,
+which on a serverless container is scratch &mdash; every worker run is a cold-cache run, and the
+scratch copy's paths would miss the key anyway (SIGHTING-112). Cross-run feature reuse is spec-109 work.
 </p>
 
 <h2>Related documents</h2>

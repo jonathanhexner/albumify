@@ -2,6 +2,107 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-10 [FEATURE] spec-112 Phase A — control DB, results bundle, runner config, jobs API + viewer
+**Files**: new `sim_bench/control/{__init__,db,models,jobs,loader,album_builder}.py`, `sim_bench/album/results_bundle.py`, `sim_bench/serving/{job_service,runners,staging,serving_config}.py`, `configs/serving.yaml`, `sim_bench/api/{routers,schemas}/jobs.py`, `app/streamlit/pages/jobs.py`; changed `sim_bench/serving/{curate_job,job_store}.py` (bundle + `results/`, `faces/`), `sim_bench/album/{schema,normalizer}.py` (`Person.label`; public `canonical_scene_ids`, `chrono_key`), `sim_bench/api/main.py` (router), `app/streamlit/{main,api_client}.py` + `components/sidebar.py` (Jobs page), `scripts/modal_curate_driver.py` (shared `downsample`); tests `tests/album/test_results_bundle.py`, `tests/control/{fakes,test_jobs,test_loader_builder,test_job_service}.py`, `tests/api/test_jobs_router.py`, +4 in `tests/serving`; `docs/project/SIGHTINGS.md` (131); spec-112 spec/tasks/updates; ROADMAP; TODO.
+**Change**: the worker now writes a results bundle (every staged photo with time/GPS/scores/pipeline decisions, every face with its person, embeddings, face crops) beside album.json. A separate control DB (`DATABASE_URL`, default `~/.sim_bench/control.db`) holds jobs, job events, photos, faces, people, scenes and user edits; `ResultsLoader` fills it idempotently from a job's files, `AlbumBuilder` rebuilds the album from rows + edits (equal to the worker album when there are no edits). `JobService` runs one flow for every runner (`local` child process; `modal_gpu`/`modal_cpu` stage → curate → copy-back), chosen in `configs/serving.yaml`. FastAPI `/jobs` endpoints and a Streamlit Jobs page (picks, dropped by reason, removed-before-scoring with the pipeline's reason, people; promote/remove/rename).
+**Verification**: 63 new tests; serving+album+control+api 132 passed. Modal copy-back verified read-only on the real `slovakia48` Volume job (15 files). SIGHTING-131 (dev box commit charge at its limit, local model loads failing) cleared on its own the same evening; `tests/pipeline` then 183 passed. Real-pipeline proof pending a Modal re-run of Slovakia26 to produce the bundle.
+**Reason**: spec-112 Phase A (owner: go).
+
+### 2026-10-10 [DOCS] spec-112 amended — local-first phases + full storage map
+**Files**: `specs/112-live-db-storage-runner/{spec,tasks,updates}.md` (+ `.html`), `ROADMAP.md` (+`.html`).
+**Change**: Phase A (local SQLite + local folder, no accounts) then Phase B (Neon + R2 by config only). Storage rule: rows in the DB, bytes in storage, compute cache local. New tables `photos`, `faces`, `people`, `scenes`, `user_edits` keyed by `job_id`; the worker writes a `results/` bundle via the existing `RunExporter`, a loader fills the DB, `album.json` is built from tables. ACs regrouped: AC1-AC5 Phase A, AC6-AC8 Phase B.
+**Reason**: user: order on what is stored where; do it for the current (local) configuration first.
+
+### 2026-10-10 [DOCS] spec-112 drafted — live DB + storage (Neon + R2), runner as config
+**Files**: `specs/112-live-db-storage-runner/{spec,tasks,updates}.md` (+ `.html`), `ROADMAP.md` (+`.html`; Specs row + decision #7), `specs/106-albumify-web-showcase/tasks.md` (+`.html`; T2.1 and the DB half of T3.1 point to spec-112), `TODO.md`.
+**Change**: new spec. One Neon Postgres DB (`jobs`, `job_events`, written only by the control plane) and one R2 bucket (the spec-110 job layout as object keys); `runner: local | modal_gpu | modal_cpu` is a setting, so the same job lands in the same DB and bucket wherever it runs. Worker never holds DB credentials. Legacy `sim_bench.db` tables and the feature cache stay local. 6 ACs, P0 (owner account setup) through P6.
+**Reason**: user: the Slovakia26 GPU run was invisible to the FastAPI app; wants a live DB + storage with local vs L4 as config. Owner chose Neon + R2.
+
+### 2026-10-09 [FEATURE] Full 715-photo Slovakia26 roll on the GPU worker -> Stage A judging report; deterministic torch for AC4
+**Files**: `scripts/report_slovakia_full_gpu.py` (new), `reports/2026-10-09_slovakia_full_gpu/{report.html,summary.md,imgs/}` (new), `reports/EXPERIMENTS.md`, `reports/_modal_job_slovakia_full.json`, `sim_bench/serving/modal_app.py` (`_deterministic_torch()` in both curate bodies), `specs/102-albumify-vs-vlm/updates.md`, `specs/110-containerized-worker-modal-cpu/updates.md`, `docs/project/SIGHTINGS.md` (SIGHTING-128 update).
+**Change**: ran the whole trip through `curate_job` on the L4: 0.48 s/img (341 s), 147 picks / 96 scenes, 423 near-dups, 56 set aside, 121 people clusters, 89 photos silently absent (quality filter, SIGHTING-128). Built the Stage A judging sheet (every pick + set-aside inline, by day, 24 near-dup pairs) per the experiment-report rule. AC4 diff on the 48-image double run narrowed to GeoCalib tilt jitter on GPU -> cudnn deterministic / TF32 off in the worker (to be re-measured).
+**Reason**: ROADMAP Stage A needs the real album for the owner's keeper-list judgement; spec-110 AC3 at scale.
+
+
+### 2026-10-09 [PERF] protobuf 4.25 + mediapipe 0.10.14 (SIGHTING-129): InsightFace load 60 s -> 1 s; warm 48-img GPU run 172 s -> 49 s
+**Files**: `sim_bench/serving/modal_app.py` (image layer), `requirements.txt` (pins), `CLAUDE.md` (protobuf rule), venv upgraded (protobuf 4.25.3, mediapipe 0.10.14, jax pulled in; numpy stays 1.26.4), `docs/project/SIGHTINGS.md` (129 resolved), `docs/project/LEARNINGS.md`, `specs/109-parallel-gpu-execution/updates.md`.
+**Change**: root cause of the 175 s fixed cost per worker run: protobuf 3.20.3 (pinned for mediapipe 0.10.9) has no C++ wheel for py3.11 -> pure-Python parser -> InsightFace's `onnx.load()` of its 144/174 MB models took ~60 s per construction, twice per run. Cloud probe: construct 38.7 s -> 1.1 s with protobuf 4.25.3 (upb). Pipeline on the L4 (48 Slovakia imgs, job flow): detect 88.7 -> 4.7 s, embeddings 69.6 -> 1.8 s; warm run 172 -> 49 s (1.0 s/img all-in), wall 51 s. Picks unchanged (13). Local InsightFace verification blocked: dev box commit charge 126.6/127.9 GB -> "bad allocation" on every model load (reboot advised).
+**Reason**: user approved the protobuf upgrade if proven; spec-109 P1 (GPU per-step verification).
+
+
+### 2026-10-09 [PERF] spec-109 P1 — per-step GPU verification: six places where device=cuda was ignored
+**Files**: `sim_bench/pipeline/insightface_pipeline/face_analyzer.py` (CUDA+CPU providers when device!=cpu, logs active provider), `sim_bench/pipeline/steps/extract_scene_embedding.py` (device passthrough to DINOv2), `sim_bench/occlusion_bench/scorer.py` + `steps/score_occlusion.py` (`OcclusionScorer(device=)`, device knob), `sim_bench/quality_assessment/tilt_geocalib.py` + `steps/score_tilt.py` (`TiltScorer(device=)`, `_get_model(device)`, `estimate_tilt(..., device)`, device knob), `sim_bench/serving/modal_app.py` (`curate` cpu=4.0; image uninstalls both ORT wheels then installs `onnxruntime-gpu==1.19.2` last; `import torch` before ORT), `specs/109-parallel-gpu-execution/updates.md`.
+**Change**: first L4 run of the real pipeline was no faster than CPU (16.9 vs 16.8 s/img, picks identical). Causes: GPU function requested no CPU cores (CPU-bound steps starved); InsightFace providers hard-coded CPU; CPU `onnxruntime` (pulled by insightface) shadowed `onnxruntime-gpu`; DINOv2 extractor never received `device`; CLIP occlusion and GeoCalib hard-coded `.to("cpu")`. All six fixed; `score_iqa` is rule-based (no model). Tests: occlusion/tilt/scene/insightface step tests + quality tilt/occlusion suites green (42 tests). GPU re-run with the fixes in progress.
+**Reason**: spec-109 P1 (verify each step honors device=cuda); user: GPU first to offload the PC.
+
+
+### 2026-10-09 [FEATURE] spec-110 T2.1 — storage-reference `curate_job` + normalized `album.json`; SIGHTING-126/127
+**Files**: `sim_bench/serving/job_store.py` (new), `sim_bench/serving/curate_job.py` (new),
+`sim_bench/serving/pipeline_runner.py` (new), `sim_bench/serving/modal_app.py` (jobs Volume,
+`stage_job`/`curate_job`/`curate_job_cpu`/`fetch_album`, `_prepare_caches`, `_curate` thinned),
+`sim_bench/album/normalizer.py` (canonical scene ids + chronological picks + sorted beat lists),
+`sim_bench/pipeline/utils/insightface_home.py` (new), `sim_bench/pipeline/insightface_pipeline/face_analyzer.py`
++ `sim_bench/pipeline/face_embedding/insightface_native.py` (both `FaceAnalysis` call sites use it),
+`scripts/modal_curate_driver.py` (`--job-id`, `--twice`, `--local-root`),
+`tests/serving/{test_pipeline_runner,test_job_store,test_curate_job}.py` (new, 41),
+`tests/pipeline/test_insightface_model_root.py` (new, 9: helper + both loaders),
+`tests/album/test_normalizer.py` (+6 determinism tests), `docs/architecture/{classes,data_flow}.html`,
+`docs/project/{SIGHTINGS,LEARNINGS}.md`, `specs/110-.../{tasks,updates}.md`,
+`specs/106-.../updates.md`, `TODO.md`, `reports/_local_job_localproof12.json`.
+**Change**: the worker now takes a `job_id` instead of image bytes. A job is a directory
+(`input/`, `album.json`, `display/`, `run.json`) under a root that is a Modal Volume in production
+and any directory in tests — which is what finally makes the worker body testable without paying for
+a container. `JobCurator.calc` reads the staged inputs, runs the plan over a **scratch copy**
+(`straighten_images` writes derivatives beside its inputs, so a re-run would otherwise see N +
+derivatives), calls the spec-106 normalizer and writes `album.json` + pick displays + a run record;
+`SpecBuilder` (lifted out of `modal_app._curate`) resolves `configs/pipeline.yaml` and places
+`device` per step by trying each flip through the step's typed config. Two consecutive runs then
+exposed **SIGHTING-126**: same picks and scores, but permuted scene ids and pick order, because a
+step's output dict order varies run to run and HDBSCAN numbers clusters by row order — fixed in the
+normalizer (scenes renumbered by earliest photo, picks by EXIF capture time with id fallback,
+`beat`/`beaten_by` sorted), not in the clusterer. `_prepare_caches()` + `INSIGHTFACE_HOME` stop
+buffalo_l and the torch.hub checkpoints landing in container scratch (AC5 cause); the env var is read
+by a shared helper because there are **two** `FaceAnalysis` call sites — detection and embeddings —
+and redirecting only the first would have kept `extract_face_embeddings` re-downloading. **SIGHTING-127**
+filed: `RamTagger(device="cpu")` segfaults on the local venv, so no default-pipeline run is possible
+on the dev box; the local proof uses `minimal_pipeline`.
+**Verification**: the owner ran the new job path on Modal (GPU, 48 Slovakia26 images,
+`--job-id slovakia48 --twice`) while the ordering fix was being written: both runs `ok=True`,
+`album.json` with 13 picks / 25 `near_dup` dropped / 7 scenes / 10 people / full theme and **every**
+score field populated (AC3 met, `reports/_modal_job_slovakia48.json`), and the two runs differed
+*only* in pick order — an independent reproduction of SIGHTING-126, so AC4 needs one re-run now that
+ordering is canonical. That run also exposed **SIGHTING-128** (48 staged, `counts.uploaded = 38`:
+photos dropped before scoring are missing from the album; filed, needs an owner decision on the
+reason code, not fixed here). Locally: `--local-root ... --twice` on 12 Slovakia26 images → 4 picks, 8
+dropped-with-reason, 2 scenes, displays written, `AC4 idempotence: True` (`False` before the fix);
+303 passed / 47 deselected across album, serving, pipeline, triage, quality_assessment and
+image_quality_models (one model-loading integration test flaked once in an earlier run of the same
+suite; passes in isolation and on re-run). Claude ran nothing on Modal and deployed nothing; the
+remote evidence above is the owner's own run.
+**Reason**: continue spec-110 from T1.3/T2.1, the two tasks the previous session left open.
+
+### 2026-10-09 [DOCS] Recent-activity follow-up: reconcile roadmap, worker tasks and acceptance evidence
+**Files**: `ROADMAP.md`, spec-102/106/109/110 updates, spec-106/109/110 tasks, spec-110 spec, generated HTML siblings.
+**Change**: removed stale Modal auth blockers and Draft/task statuses; recorded completed baseline/image/smoke work and the owner-approved shared GPU image. Corrected spec-110 AC3 from complete to partial: worker still accepts inline bytes and does not normalize/persist album.json. Kept storage-result, idempotence, complete cache reuse, latency/cost and deployment gates open. Roadmap quality gate now follows the recorded owner decision (real trips versus keeper list). Added clickable raw run evidence and next performance work. Verified saved CPU/GPU retry outputs match inputs, pick sets, theme and set_aside; 37 focused local regression tests pass, one slow test deselected. No new remote run or deployment.
+**Reason**: user requested follow-up on recent activity; trackers contradicted the latest evidence and overstated the worker result contract.
+
+### 2026-10-09 [BUGFIX] Modal GPU retry: GeoCalib device forwarding, RAM++ input placement, PyArrow pin
+**Files**: `sim_bench/quality_assessment/tilt_geocalib.py`, `sim_bench/triage/content.py`, `sim_bench/serving/modal_app.py`, `scripts/modal_curate_driver.py`, `tests/quality_assessment/test_tilt_device.py`, `tests/triage/test_ram_tagger_device.py`, `tests/pipeline/test_score_tilt.py`, `tests/pipeline/test_score_occlusion.py`, architecture HTMLs and project/spec logs.
+**Change**: forwarded the requested device through `estimate_tilt` to its raw estimator; moved RAM++ input batches to the model device; updated scorer test doubles for the device argument; enabled Modal output and worker INFO logs. First retry failed at `triage_content` because newly resolved PyArrow requires NumPy 2; pinned `pyarrow==21.0.0` to match the working local venv. 19 focused regression tests and 9 pipeline/config tests pass. Second Modal retry succeeded: same 12 inputs and four picks as CPU, restored matching semantic theme, active CUDA providers for detection and embeddings; 142.186 s pipeline (1.43x faster than previous GPU run), 313.8 s driver wall time. Evidence: `reports/_modal_curate_gpu12_retry2.json` and `.log`.
+**Reason**: user requested a retry and fixes to the ineffective first GPU run. Preserve existing CPU behavior while making GPU execution real and inspectable.
+
+### 2026-10-09 [BUGFIX] Worker data-path proof: ScoreAVAConfig.device (SIGHTING-123), portable checkpoint loader, curate_cpu
+**Files**: `sim_bench/pipeline/steps/configs/score_ava.py` (+`device`), `sim_bench/image_quality_models/checkpoint_io.py` (new) + `siamese_model_wrapper.py` + `ava_model_wrapper.py` (use it), `tests/image_quality_models/test_checkpoint_io.py` (new, 3 tests), `sim_bench/serving/modal_app.py` (`_curate` shared body; `curate` GPU on `app`, `curate_cpu` on `cpu_app`; per-step device flip validated against the typed config; `/root/models` mount; +PyWavelets/scikit-image pins), `scripts/modal_curate_driver.py` (new), `sim_bench/serving/README.md`, `docs/project/SIGHTINGS.md` (SIGHTING-123), `docs/project/LEARNINGS.md`.
+**Change**: running the real pipeline on 12 Slovakia26 images in a free-tier Modal CPU container surfaced, one per run: (1) `app.run()` registers the GPU function too -> billing gate blocks CPU runs -> `curate_cpu` moved to its own `cpu_app`; (2) `score_ava` typed config forbade `device` though the step reads it (AVA could never go GPU) -> field added, SIGHTING-123 filed+resolved; (3) `score_iqa` lazily needs PyWavelets -> added; (4) `select_best` loads the Siamese checkpoint whose pickled training config holds a `WindowsPath` -> `cannot instantiate 'WindowsPath'` on Linux -> `checkpoint_io.load_checkpoint` aliases the foreign Path class during load (both wrappers use it; verified: Siamese loads locally; 3 tests incl. an opcode-built foreign-path pickle that fails without the alias and loads with it). 26 pipeline config/spec tests green.
+**Reason**: user: enable GPU execution (offload the PC). Proving the container on the free CPU tier before GPU spend, per spec-110.
+
+
+### 2026-10-09 [CONFIG] spec-110/109 — Modal worker image fixed to the venv pins; imports verified in-container
+**Files**: `sim_bench/serving/modal_app.py` (`full_image`), `specs/110-containerized-worker-modal-cpu/updates.md`.
+**Change**: owner authenticated Modal (`modal setup`). First build revealed the image was missing pydantic/pandera/SQLAlchemy/hdbscan/umap/sixdrepnet/geocalib and had pulled transformers 5.x (refuses torch 2.4, disables PyTorch -> RAM++ unusable). `full_image` now mirrors the working venv pins (torch 2.4.0+cu121, transformers 4.57.1, numpy 1.26.4, protobuf 3.20.3, mediapipe 0.10.9, single opencv variant, GeoCalib + RAM++ at pinned git commits with --no-deps) and mounts `configs/` (curate() reads pipeline.yaml from it). Verified via a free-tier CPU function: all packages + all_steps/normalizer/face_cluster.pipeline import in-container. GPU smoke still blocked: L4 functions require a payment method on the account. Windows note: run the Modal CLI with PYTHONUTF8=1.
+**Reason**: user: enable GPU execution first (offload the PC); prove the container before spending on GPU.
+
+
 ### 2026-10-09 [DOCS] ROADMAP + updates.md link to rendered HTML; experiment results linked per spec
 **Files**: `ROADMAP.md` (+`.html`), `specs/{102..111}-*/updates.md` (+`.html`), `specs/111-ai-verification-layer/spec.md` (status), rendered `specs/102-albumify-vs-vlm/{EXPERT_REVIEW,PROMPTS}.html`, `reports/2026-10-04_spec109_baseline/summary.html`.
 **Change**: every doc link in ROADMAP and the updates files now targets the rendered `.html` (not `.md`); ROADMAP Specs table gained a "Progress & evidence" column (updates + REVIEW + report links per spec). Each updates.md gained a "Reports & artifacts" table: experiment outcomes with links (spec-102: 3 trip A/B reports + Slovakia26 + expert reviews/prompts; 103: fusion report orphan-bucket numbers; 104: capacity report + design HTMLs; 106: all five design HTMLs + seed inputs + runtime evidence; 107/108: Slovakia26 + the three 2026-10-01 RAM++/CLIP tagging reports with what each decided; 109: CPU baseline summary + Modal explainers; 110/111: pointers + "nothing measured yet"). spec-111 status corrected Draft -> In Progress (P0/P1 built). Link check: 0 broken across ROADMAP.html + 10 updates.html.

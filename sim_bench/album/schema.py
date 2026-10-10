@@ -53,6 +53,7 @@ class Person:
     id: str
     face_count: int = 0
     sample_ids: List[str] = field(default_factory=list)
+    label: str = ""                       # owner-given name (spec-112 user edit); "" = unnamed
 
 
 @dataclass

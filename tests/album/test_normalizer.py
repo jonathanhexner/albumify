@@ -79,3 +79,67 @@ class ut_Normalize:
         ctx.selected_images = ["x/a_straight.jpg"]                      # pick is the derivative
         alb = normalize(ctx, "j", "t")
         assert [p.id for p in alb.picks] == ["a"]                       # mapped back to original stem
+
+
+class ut_AlbumDeterminism:
+    """spec-110 AC4 - the album must not change when only the pipeline's own ordering changes.
+
+    HDBSCAN numbers its clusters by the row order it is handed, and the embedding dict it is handed
+    is not order-stable (SIGHTING-126). The partition stays the same; the ids and the selected order
+    do not. The album therefore does its own numbering and ordering.
+    """
+
+    @staticmethod
+    def _context(selected, labels):
+        return SimpleNamespace(
+            selected_images=[f"/t/{s}.jpg" for s in selected],
+            scene_cluster_labels={f"/t/{s}.jpg": c for s, c in labels.items()},
+            composite_scores={f"/t/{s}.jpg": 0.5 for s in labels},
+            set_aside=[], straightened_from={}, people_clusters={},
+            image_captions={}, album_theme={},
+        )
+
+    def test_permuted_cluster_ids_and_selected_order_give_the_same_album(self):
+        # same partition twice: {a,b} and {c,d}, picks a and c -- only the ids/order differ
+        run1 = normalize(self._context(["a", "c"], {"a": 0, "b": 0, "c": 1, "d": 1}),
+                         job_id="j", created_at="t").to_dict()
+        run2 = normalize(self._context(["c", "a"], {"a": 1, "b": 1, "c": 0, "d": 0}),
+                         job_id="j", created_at="t").to_dict()
+        assert run1 == run2
+
+    def test_scene_zero_is_the_earliest_scene_not_an_arbitrary_one(self):
+        album = normalize(self._context(["c", "a"], {"a": 7, "b": 7, "c": 3, "d": 3}),
+                          job_id="j", created_at="t").to_dict()
+        by_id = {p["id"]: p["scene_cluster"] for p in album["picks"]}
+        assert by_id == {"a": 0, "c": 1}          # a's scene starts first -> scene 0
+
+    def test_noise_stays_minus_one(self):
+        album = normalize(self._context(["a", "x"], {"a": 4, "b": 4, "x": -1}),
+                          job_id="j", created_at="t").to_dict()
+        assert {p["id"]: p["scene_cluster"] for p in album["picks"]} == {"a": 0, "x": -1}
+
+    def test_picks_are_chronological_by_capture_time_when_exif_has_it(self):
+        from datetime import datetime
+
+        ctx = self._context(["a", "b"], {"a": 0, "b": 1})
+        # EXIF says b was shot first, although 'a' sorts first by name
+        ctx.geo_metadata = {
+            "/t/a.jpg": SimpleNamespace(timestamp=datetime(2026, 8, 22, 18, 15)),
+            "/t/b.jpg": SimpleNamespace(timestamp=datetime(2026, 8, 22, 17, 42)),
+        }
+        album = normalize(ctx, job_id="j", created_at="t").to_dict()
+        assert [p["id"] for p in album["picks"]] == ["b", "a"]
+        assert [p["order"] for p in album["picks"]] == [0, 1]
+        assert {p["id"]: p["scene_cluster"] for p in album["picks"]} == {"b": 0, "a": 1}
+
+    def test_beat_and_beaten_by_lists_are_ordered(self):
+        ctx = self._context(["b"], {"b": 0, "a": 0, "c": 0})
+        album = normalize(ctx, job_id="j", created_at="t").to_dict()
+        assert album["picks"][0]["beat"] == ["a", "c"]
+        assert all(d["beaten_by"] == ["b"] for d in album["dropped"])
+
+    def test_a_duplicate_in_selected_images_is_picked_once(self):
+        ctx = self._context(["a", "a"], {"a": 0, "b": 0})
+        album = normalize(ctx, job_id="j", created_at="t").to_dict()
+        assert [p["id"] for p in album["picks"]] == ["a"]
+        assert album["counts"]["kept"] == 1

@@ -8,6 +8,26 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-112 live DB + storage (2026-10-10)
+
+- [ ] Owner (Phase B only): P0 setup — Neon project, R2 bucket + scoped token, local `.env`, `modal secret create albumify-r2`. | 2026-10-10 | Jonathan
+- [x] spec-112 Phase A A1-A5: results bundle, control DB, loader/builder, JobService + runners, /jobs API, Jobs page (63 tests). | 2026-10-10 | Claude
+- [x] SIGHTING-131 dev-box commit charge at limit: cleared without a reboot; `tests/pipeline` 183 passed. Intermittent, watch for recurrence. | 2026-10-10 | Claude
+- [ ] **Owner (approve spend):** Slovakia26 Modal run through `JobService` (`runner=modal_gpu`) so the bundle exists -> spec-112 TA6.1/AC1. | 2026-10-10 | Jonathan
+- [ ] spec-112 TA6 proof (AC1-AC5 on real data, Playwright screenshots) + architecture HTMLs (data_flow, classes, db_schemas). | 2026-10-10 | Claude
+
+## spec-110 serving worker — storage-reference curate (2026-10-09)
+
+- [x] T2.1 job store + `JobCurator` + `SpecBuilder`; Modal `stage_job`/`curate_job`/`curate_job_cpu`/`fetch_album`; 41 tests. | 2026-10-09 | Claude
+- [x] SIGHTING-126: album.json not reproducible (scene ids + pick order unstable) — canonical ordering in `album/normalizer.py`, 6 tests. | 2026-10-09 | Claude
+- [x] T1.3 code side of AC5: `HF_HUB_CACHE` / `TORCH_HOME` / `INSIGHTFACE_HOME` on mounted Volumes + `models_vol.commit()`. | 2026-10-09 | Claude
+- [x] AC3 met on Modal: the owner's 48-photo GPU job run wrote a valid normalized `album.json` (13 picks, 25 dropped, 7 scenes, all score fields). `reports/_modal_job_slovakia48.json`. | 2026-10-09 | Jonathan
+- [>] **Needs the owner:** re-run `scripts/modal_curate_driver.py --src D:/Slovakia26 --start 300 --n 48 --job-id slovakia48 --twice` — AC4 failed on the 14:56 run only on pick order and the fix landed after it; then run once more and check the log for model downloads (AC5). | 2026-10-09 | Jonathan
+- [ ] SIGHTING-128: `album.json` omits photos dropped before scoring (48 staged, 38 in the album), contradicting the show-everything principle. **Needs the owner's call** on the reason code (new `FILTERED` vs reuse `NOT_SELECTED`) since it changes the spec-106 P0 contract. | 2026-10-09 | Jonathan/Claude
+- [ ] SIGHTING-127: `RamTagger(device="cpu")` segfaults on the local venv — blocks every local default-pipeline run; compare `pip freeze` with the Modal image pins, try `mean_resizing=False`. | 2026-10-09 | Claude
+- [ ] T3.1 `/code-review` → `specs/110-containerized-worker-modal-cpu/REVIEW.md` before the spec can flip to Implemented. | 2026-10-09 | Claude
+- [ ] Follow-up (spec-109): the feature cache (`universal_cache` in `~/.sim_bench/sim_bench.db`) is container scratch on Modal and keyed by absolute path, which the per-run scratch copy changes — so no run reuses another run's features. Decide whether the worker gets a Volume-backed cache keyed by content hash (SIGHTING-112). | 2026-10-09 | Claude
+
 ## spec-108 album semantic layer — REVIEW.md follow-ups (2026-10-02)
 
 - [ ] T1 (§4): document the `album_theme` two-writer contract (infer_album_theme produces source=tags; caption_album refines source=vlm) in code + spec-034. | 2026-10-02 | Claude

@@ -260,13 +260,21 @@ Definition of done</a></li>
 </nav>
 <h1 id="spec-110--containerized-curation-worker-on-modal-cpu">spec-110 —
 Containerized curation worker on Modal (CPU)</h1>
-<p><strong>Status:</strong> Draft — awaiting approval
+<p><strong>Status:</strong> In Progress — account and image imports
+proven; storage result/idempotence/model-cache gates pending
 <strong>Owner:</strong> Jonathan / Claude <strong>Priority:</strong> P1
 (proves the serving data plane before the GPU optimization)
 <strong>Relation:</strong> the worker [[spec-106]]'s control plane
 calls; [[spec-109]] later makes it fast on GPU. Splits the old spec-109
 "Modal worker" scaffold into <em>prove-it-runs</em> (here) vs
 <em>make-it-fast</em> (109).</p>
+<p><strong>Implementation decision (owner, 2026-10-09):</strong> use the
+shared GPU-capable image for this spec's acceptance rather than building
+the dependency set twice; <code>curate_cpu</code> retains a CPU
+comparison path. CPU-only image language below records the original
+plan. AC3 still requires storage-reference input and normalized
+persisted <code>album.json</code>; inline-byte pipeline summaries are
+preliminary evidence only.</p>
 <h2 id="1-problem">1. Problem</h2>
 <p>Before chasing GPU speed, we need to know the <strong>serving
 data-plane path works at all</strong>: can we build a container image

@@ -1,0 +1,447 @@
+{
+  "job_id": "localproof12",
+  "runs": [
+    {
+      "ok": true,
+      "n_inputs": 12,
+      "album": {
+        "job_id": "localproof12",
+        "created_at": "2026-10-09T12:15:46.987111+00:00",
+        "counts": {
+          "uploaded": 12,
+          "kept": 4,
+          "people": 0,
+          "scenes": 2,
+          "set_aside": 0
+        },
+        "picks": [
+          {
+            "id": "20260822_174227",
+            "order": 0,
+            "score": {
+              "composite": 0.5500837368803873,
+              "sharpness": 0.6306843900142955,
+              "aesthetic": 0.515540599822998,
+              "occlusion": null,
+              "tilt": null
+            },
+            "scene_cluster": -1,
+            "beat": [],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181213",
+            "order": 1,
+            "score": {
+              "composite": 0.5163504624302857,
+              "sharpness": 0.6024042844559332,
+              "aesthetic": 0.47947025299072266,
+              "occlusion": null,
+              "tilt": null
+            },
+            "scene_cluster": 0,
+            "beat": [
+              "20260822_181211",
+              "20260822_181234",
+              "20260822_181235"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181233",
+            "order": 2,
+            "score": {
+              "composite": 0.5795060727366586,
+              "sharpness": 0.5965942970146008,
+              "aesthetic": 0.4793905735015869,
+              "occlusion": null,
+              "tilt": null
+            },
+            "scene_cluster": 0,
+            "beat": [
+              "20260822_181211",
+              "20260822_181234",
+              "20260822_181235"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181558",
+            "order": 3,
+            "score": {
+              "composite": 0.5915371712755702,
+              "sharpness": 0.6751695860463851,
+              "aesthetic": 0.4796326160430908,
+              "occlusion": null,
+              "tilt": null
+            },
+            "scene_cluster": 1,
+            "beat": [
+              "20260822_181541",
+              "20260822_181544",
+              "20260822_181546",
+              "20260822_181556",
+              "20260822_181557"
+            ],
+            "people": [],
+            "caption": ""
+          }
+        ],
+        "dropped": [
+          {
+            "id": "20260822_181211",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181213",
+              "20260822_181233"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181234",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181213",
+              "20260822_181233"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181235",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181213",
+              "20260822_181233"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181541",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181544",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181546",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181556",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181557",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          }
+        ],
+        "people": [],
+        "theme": {}
+      },
+      "album_path": "reports\\_local_jobs\\localproof12\\album.json",
+      "flipped": [
+        "score_ava",
+        "extract_scene_embedding"
+      ],
+      "timing": {
+        "total_ms": 13503,
+        "steps": [
+          {
+            "step": "discover_images",
+            "ms": 1
+          },
+          {
+            "step": "score_iqa",
+            "ms": 991
+          },
+          {
+            "step": "score_ava",
+            "ms": 1880
+          },
+          {
+            "step": "filter_quality",
+            "ms": 0
+          },
+          {
+            "step": "extract_scene_embedding",
+            "ms": 9199
+          },
+          {
+            "step": "cluster_scenes",
+            "ms": 38
+          },
+          {
+            "step": "select_best",
+            "ms": 1392
+          }
+        ]
+      },
+      "failed_step": null,
+      "error": null,
+      "wall_s": 18.4
+    },
+    {
+      "ok": true,
+      "n_inputs": 12,
+      "album": {
+        "job_id": "localproof12",
+        "created_at": "2026-10-09T12:15:57.892665+00:00",
+        "counts": {
+          "uploaded": 12,
+          "kept": 4,
+          "people": 0,
+          "scenes": 2,
+          "set_aside": 0
+        },
+        "picks": [
+          {
+            "id": "20260822_174227",
+            "order": 0,
+            "score": {
+              "composite": 0.5500837368803873,
+              "sharpness": 0.6306843900142955,
+              "aesthetic": 0.515540599822998,
+              "occlusion": null,
+              "tilt": null
+            },
+            "scene_cluster": -1,
+            "beat": [],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181213",
+            "order": 1,
+            "score": {
+              "composite": 0.5163504624302857,
+              "sharpness": 0.6024042844559332,
+              "aesthetic": 0.47947025299072266,
+              "occlusion": null,
+              "tilt": null
+            },
+            "scene_cluster": 0,
+            "beat": [
+              "20260822_181211",
+              "20260822_181234",
+              "20260822_181235"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181233",
+            "order": 2,
+            "score": {
+              "composite": 0.5795060727366586,
+              "sharpness": 0.5965942970146008,
+              "aesthetic": 0.4793905735015869,
+              "occlusion": null,
+              "tilt": null
+            },
+            "scene_cluster": 0,
+            "beat": [
+              "20260822_181211",
+              "20260822_181234",
+              "20260822_181235"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181558",
+            "order": 3,
+            "score": {
+              "composite": 0.5915371712755702,
+              "sharpness": 0.6751695860463851,
+              "aesthetic": 0.4796326160430908,
+              "occlusion": null,
+              "tilt": null
+            },
+            "scene_cluster": 1,
+            "beat": [
+              "20260822_181541",
+              "20260822_181544",
+              "20260822_181546",
+              "20260822_181556",
+              "20260822_181557"
+            ],
+            "people": [],
+            "caption": ""
+          }
+        ],
+        "dropped": [
+          {
+            "id": "20260822_181211",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181213",
+              "20260822_181233"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181234",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181213",
+              "20260822_181233"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181235",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181213",
+              "20260822_181233"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181541",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181544",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181546",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181556",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181557",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          }
+        ],
+        "people": [],
+        "theme": {}
+      },
+      "album_path": "reports\\_local_jobs\\localproof12\\album.json",
+      "flipped": [
+        "score_ava",
+        "extract_scene_embedding"
+      ],
+      "timing": {
+        "total_ms": 10872,
+        "steps": [
+          {
+            "step": "discover_images",
+            "ms": 0
+          },
+          {
+            "step": "score_iqa",
+            "ms": 558
+          },
+          {
+            "step": "score_ava",
+            "ms": 1806
+          },
+          {
+            "step": "filter_quality",
+            "ms": 0
+          },
+          {
+            "step": "extract_scene_embedding",
+            "ms": 7097
+          },
+          {
+            "step": "cluster_scenes",
+            "ms": 0
+          },
+          {
+            "step": "select_best",
+            "ms": 1409
+          }
+        ]
+      },
+      "failed_step": null,
+      "error": null,
+      "wall_s": 10.9
+    }
+  ],
+  "driver": {
+    "mode": "local",
+    "n_images": 12,
+    "root": "reports\\_local_jobs",
+    "inputs": [
+      "20260822_174227.jpg",
+      "20260822_181211.jpg",
+      "20260822_181213.jpg",
+      "20260822_181233.jpg",
+      "20260822_181234.jpg",
+      "20260822_181235.jpg",
+      "20260822_181541.jpg",
+      "20260822_181544.jpg",
+      "20260822_181546.jpg",
+      "20260822_181556.jpg",
+      "20260822_181557.jpg",
+      "20260822_181558.jpg"
+    ]
+  },
+  "idempotent": true
+}

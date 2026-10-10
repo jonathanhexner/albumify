@@ -6,6 +6,65 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-10-09: spec-109 — "the GPU is slow" was a pure-Python protobuf parser (and the dev box paid it too)
+**What happened**: the first L4 run of the pipeline was no faster than CPU. Device fixes (six places
+ignoring `device=cuda`) made per-image cost 0.88 s but left ~175 s of fixed cost per run, 134 s of it in
+InsightFace. Guesses in order: model download (no — cached), ORT session creation (no — <1 s/model
+measured), thread oversubscription (no). The truth came from timing `onnx.load` locally: protobuf
+3.20.3 has no C++ wheel for Python 3.11, so `google.protobuf` parses in pure Python; InsightFace's
+constructors `onnx.load()` their 144/174 MB models -> 38 s + MemoryError. protobuf 4.25 (upb): 1.1 s.
+**Lesson**: (1) when a fixed cost survives every "obvious" cause, time the constructor's INTERNAL steps
+in isolation (one probe function, four numbers) instead of re-running the pipeline; (2) a
+compatibility pin (`protobuf<4` for MediaPipe) can silently switch a C library to a pure-Python
+fallback on a newer interpreter — check `api_implementation.Type()` after any protobuf/py bump;
+(3) the dev box had paid this on every run for months; "1.1 s/img detect over 57 images" was mostly load.
+**Prevention**: CLAUDE.md now forbids protobuf 3.x; requirements pin `protobuf>=4.25,<5`,
+`mediapipe>=0.10.14`; SIGHTING-129 records the measurement; `scripts/modal_curate_driver.py` prints
+per-step times so a regression is visible on the next run.
+
+### 2026-10-09 — A "reproducible result" claim needs two runs, not one green run
+Two consecutive worker runs over the identical staged images returned the same four picks with the
+same scores — and different scene ids and pick order (SIGHTING-126). The chain: a step's output dict
+order varies run to run, HDBSCAN numbers clusters by row order, downstream iterates that dict. The
+decision was stable; only its presentation was not, which is the kind of difference a single run can
+never show. Lesson: an idempotence AC has to be exercised by actually re-running, and the fix belongs
+at the layer that owes the stable contract (the album), not in the clusterer, whose ids are
+inherently arbitrary.
+
+### 2026-10-09 — Default cache paths are the quiet cost on serverless
+Three downloaders (HuggingFace, torch.hub, InsightFace) default to a path under `$HOME`. On a
+scale-to-zero container `$HOME` dies with the container, so buffalo_l and the torch.hub checkpoints
+were re-downloaded on every cold start while the mounted Volumes sat unused. Nothing fails, nothing
+logs an error — it just costs seconds and bandwidth per run. Worth auditing every new model loader
+for where it caches, and committing the Volume afterwards.
+
+
+### 2026-10-09: GPU configuration must reach both the estimator and its input tensor
+**What happened**: staged GPU fixes still dropped GeoCalib's device in a wrapper; RAM++ moved its model but not its input, producing empty tags behind the triage error handler. A rebuilt container also resolved PyArrow incompatible with NumPy 1.26.
+**Lesson**: CUDA visibility and a successful pipeline result do not prove every model ran successfully. Trace wrappers and tensor placement, compare semantic outputs, and inspect warning logs.
+**Prevention**: four offline CPU/CUDA device-routing regression cases; PyArrow pinned to the working venv version; Modal driver output and worker INFO logging enabled for real-data retries.
+
+### 2026-10-09: spec-110 — "it imports" is not "it runs": four container-only failures, each one layer deeper
+**What happened**: the Modal worker image was validated by importing every package + the pipeline
+modules (green). The first real `curate` run on 12 Slovakia images then failed four times, each at a
+deeper layer: (1) `score_ava`'s typed config forbade the `device` knob its own JSON schema advertises
+(SIGHTING-123); (2) `score_iqa` lazily imports `skimage.restoration` which needs `PyWavelets` — an
+import inside a function, invisible to module-level import checks; (3) `select_best` loads the Siamese
+checkpoint whose pickled training config holds a `WindowsPath` → `cannot instantiate 'WindowsPath'`
+on Linux; (4) before all that, `app.run()` refused to start because the same Modal app also declared a
+GPU function on an unbillable account. Also: Git Bash rewrote the Volume path `/` into
+`C:/Program Files/Git/`, and the Modal CLI crashed on a `✓` glyph without `PYTHONUTF8=1`.
+**Lesson**: (1) module import checks catch only top-level imports — lazily imported deps and pickled
+objects only surface on a real run with real weights; budget for several short iterations and make each
+one cheap (CPU container, 12 images). (2) Any checkpoint saved on Windows can carry `WindowsPath`
+objects; load through a portable loader. (3) Keep free-tier-runnable functions in their own Modal app so
+billing gates on one function don't block the others. (4) On Windows, use PowerShell or the Python API
+for anything with a POSIX remote path.
+**Prevention**: `checkpoint_io.load_checkpoint` (+ test) aliases the foreign Path class during load;
+`curate` validates each device flip against the typed config; `curate_cpu` lives on `cpu_app`;
+README documents `PYTHONUTF8=1` and the Git Bash path trap; SIGHTING-123 asks for a schema-vs-typed-config
+architecture test.
+
 ### 2026-10-02: spec-108 — an 8B VLM (MiniCPM-V) is not practically runnable on this CPU dev box
 **What happened**: wiring MiniCPM-V 4.5 locally via an isolated `.venv-vlm` (to dodge the
 transformers 4.51-vs-4.57 conflict) worked for everything EXCEPT the actual inference. Sequence of

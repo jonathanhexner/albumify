@@ -1,7 +1,7 @@
 # Albumify — Roadmap
 
 **This is the single roadmap file. Read it first every session; every spec below links back here.**
-Last revised: 2026-10-09, links point to rendered HTML (seeded from `specs/106-albumify-web-showcase/finalization_plan.html`, 2026-10-01, reconciled to the code state of 2026-10-05). **Awaiting the owner's revision.**
+Last revised: 2026-10-09, reconciled to the saved CPU/GPU runs and current worker code. Links point to rendered HTML. **Open scope decisions still await the owner's revision.**
 
 Readable view: `ROADMAP.html` (generated — run `.venv/Scripts/python scripts/md2html.py ROADMAP.md` after editing this file).
 
@@ -23,20 +23,22 @@ STAGE D  harden + ship   ──► SHIP GATE: cold public URL, stranger upload, 
          narrative (parallel, low effort)
 ```
 
-| Stage | What | Gate | Status (2026-10-05) |
+| Stage | What | Gate | Status (2026-10-09) |
 |---|---|---|---|
-| A — Prove the picks | spec-102 blind A/B on the 3 trips; PhotoTriage + CUFED benchmarks; eyeball 1–2 fresh rolls | GATE 1: "would I show these picks to a recruiter" | **Not run.** spec-102 harness built, pilot prepped, no verdict. |
+| A — Prove the picks | spec-102 real trips (Slovakia26, Budapest, Austria, Germany), judged against the owner's keeper list | GATE 1: "would I show these picks to a recruiter" | **No human verdict.** Harness and trip reports exist; PhotoTriage/CUFED are not this gate (owner decision 2026-10-09). |
 | B — Finalize the engine | global top-K cap; fix only what A flags; lock production profile; album.json contract | one command: folder → valid album.json, predictable size | Partly done ahead of A: album.json normalizer (106 P0), triage (107), semantic tags + theme (108 P0/P1). Top-K cap not built. |
-| C — Build the service | containerized worker (110) → GPU (109) → control-plane API + job state machine → Next.js front end → showcase seed | host + content-safety decided | Modal approved as host; worker scaffolded, **not deployed** (needs `modal setup`). API and front end not started. |
+| C — Build the service | containerized worker (110) → GPU (109) → control-plane API + job state machine → Next.js front end → showcase seed | host + content-safety decided | Modal auth and L4 smoke passed; full CPU/GPU pipeline ran on 12 real photos with matching picks/theme. **2026-10-09:** storage-reference `curate_job(job_id)` + persisted normalized `album.json` built; **AC3 met on Modal** (48-photo GPU run: 13 picks, 25 dropped-with-reason, 7 scenes, full theme). Idempotence (AC4) failed on that run only on pick order — cause fixed (SIGHTING-126), one re-run closes it. Open: AC5 model-cache reuse, persistent deployment, and SIGHTING-128 (album omits photos dropped before scoring). API and front end not started. |
 | D — Harden, polish, ship | adversarial uploads, cold-start budget, cost alarm, TTL privacy, both themes, AC1–AC10 on public URL, REVIEW.md | SHIP GATE | Not started. |
 | Narrative (parallel) | "how it works" explainer, honest vs-VLM panel (N=1 caveat), short technical write-up | — | Not started. |
 
 ## Current position
 
-- Last commit 2026-10-05: spec-111 P1 (verify_face_clusters checkpoint, core + pairwise gate).
+- Last commit 2026-10-09: roadmap and rendered documentation. Latest worker fixes and run artifacts are still uncommitted.
 - The last week worked Stages B and C (and the v1.5 agentic layer) **ahead of Stage A**. Gate 1 is still open.
-- **Blocked on the owner:** Modal auth (`modal setup`) for spec-110 T0.1 / spec-106 P1.
-- Next unblocked engineering: spec-111 T1.4 (apply-corrections step), spec-106 P3 (control-plane API + job state machine).
+- **Modal account blocker cleared:** auth, billing, image imports, and L4 smoke passed. Owner chose the shared GPU image for spec-110 acceptance, with CPU proof retained.
+- Saved GPU retry: **142.186 s pipeline / 313.8 s driver wall**, four picks matching CPU; face detection + embeddings consume **101.850 s (72%)**. This 12-photo result does not establish the 100/300-photo latency gate.
+- Next worker work (owner action): re-run `scripts/modal_curate_driver.py --src D:/Slovakia26 --start 300 --n 48 --job-id slovakia48 --twice` to close spec-110 AC4 (the ordering fix landed after the 2026-10-09 run), then once more to close AC5 (models must not re-download). Then profile face-model startup versus inference and benchmark 100/300 photos and cost. Built since: storage-reference `curate_job(job_id)` → normalized persisted `album.json`, Volume-backed model caches, and the local no-spend proof path (`--local-root`). See [109 updates](specs/109-parallel-gpu-execution/updates.html) and [110 tasks](specs/110-containerized-worker-modal-cpu/tasks.html).
+- Other unblocked engineering: spec-106 P3 (control-plane API + job state machine). Spec-111 T1.4 remains a v1.5 task pending the scope decision.
 
 ## Decisions
 
@@ -48,6 +50,7 @@ STAGE D  harden + ship   ──► SHIP GATE: cold public URL, stranger upload, 
 | 4 | Agentic layer in v1 or v1.5 | Drifted: spec-111 P0/P1 built 2026-10-05. Needs an explicit call. |
 | 5 | MVP scope: anonymous, bounded, TTL'd, no accounts | Open — rec: yes |
 | 6 | GPU in v1 | **Reversed 2026-10-04:** CPU baseline 9.0 s/img makes GPU mandatory (was "WON'T v1") |
+| 7 | Live DB + storage | **Decided 2026-10-10: Neon Postgres (free) + Cloudflare R2**; where the pipeline runs (local / Modal GPU / Modal CPU) is a config setting (spec-112) |
 
 ## Scope tiers
 
@@ -65,8 +68,9 @@ STAGE D  harden + ship   ──► SHIP GATE: cold public URL, stranger upload, 
 | [107](specs/107-input-triage-discard-review/spec.html) | Input triage + discard review | B | Implemented P0–P2 (2026-10-01); P3/P4 open | [updates](specs/107-input-triage-discard-review/updates.html) · [REVIEW](specs/107-input-triage-discard-review/REVIEW.html) · [Slovakia26 report](reports/2026-10-01_slovakia_analysis/report.html) |
 | [108](specs/108-album-semantic-layer/spec.html) | Album semantic layer | B / v1.5 | P0–P1 done; P2 code-complete, live VLM awaits GPU | [updates](specs/108-album-semantic-layer/updates.html) · [REVIEW](specs/108-album-semantic-layer/REVIEW.html) · [RAM++ vs CLIP](reports/2026-10-01_ram_vs_clip_tagging/report.html) |
 | [106](specs/106-albumify-web-showcase/spec.html) | Albumify Live Curator (the product) | C–D | In Progress — P0 done; [architecture](specs/106-albumify-web-showcase/architecture.html) · [plan](specs/106-albumify-web-showcase/plan.html) · [tasks](specs/106-albumify-web-showcase/tasks.html) | [updates](specs/106-albumify-web-showcase/updates.html) |
-| [110](specs/110-containerized-worker-modal-cpu/spec.html) | Containerized worker on Modal (CPU) | C | Draft — blocked on `modal setup` | [updates](specs/110-containerized-worker-modal-cpu/updates.html) |
-| [109](specs/109-parallel-gpu-execution/spec.html) | GPU enablement + parallelism | C | In Progress — scaffolded, re-scoped 2026-10-05 | [updates](specs/109-parallel-gpu-execution/updates.html) · [CPU baseline](reports/2026-10-04_spec109_baseline/summary.html) · [Modal explainer](specs/109-parallel-gpu-execution/modal_explainer.html) |
+| [110](specs/110-containerized-worker-modal-cpu/spec.html) | Containerized worker on Modal (CPU) | C | In Progress — AC1-AC3 met (AC3 on a 48-photo Modal GPU job run); AC4 needs one re-run after the SIGHTING-126 fix; AC5 unproven; SIGHTING-128 open | [updates](specs/110-containerized-worker-modal-cpu/updates.html) |
+| [112](specs/112-live-db-storage-runner/spec.html) | Live DB + storage, runner as config (Neon + R2) | C | In Progress — Phase A A1–A5 built 2026-10-10, real-data proof pending; Phase A local (SQLite + folder), Phase B Neon + R2 by config; photos/faces/people/scenes as DB rows; takes spec-106 T2.1 + DB half of T3.1 | [updates](specs/112-live-db-storage-runner/updates.html) · [tasks](specs/112-live-db-storage-runner/tasks.html) |
+| [109](specs/109-parallel-gpu-execution/spec.html) | GPU enablement + parallelism | C | In Progress — 12-photo GPU run matches CPU picks/theme; face stack dominates; full-size gate pending | [updates](specs/109-parallel-gpu-execution/updates.html) · [CPU baseline](reports/2026-10-04_spec109_baseline/summary.html) · [Modal explainer](specs/109-parallel-gpu-execution/modal_explainer.html) |
 | [111](specs/111-ai-verification-layer/spec.html) | AI verification layer | v1.5 | In Progress — P0 + P1 core built 2026-10-05 (owner call pending on v1 vs v1.5) | [updates](specs/111-ai-verification-layer/updates.html) |
 | [105](specs/105-vlm-merge-arbiter/spec.html) | VLM merge arbiter | — | Superseded by 111 checkpoint #1 | [updates](specs/105-vlm-merge-arbiter/updates.html) |
 | [103](specs/103-scene-clustering-geo-time-fusion/spec.html) | Scene clustering geo/time fusion | B (optional) | In Progress — gated off by default | [updates](specs/103-scene-clustering-geo-time-fusion/updates.html) · [fusion report](reports/2026-07-21_scene_clustering_fusion/report.html) |
