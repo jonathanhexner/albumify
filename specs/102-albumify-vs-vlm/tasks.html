@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#tasks--spec-102-albumify-vs-vlm"
+id="toc-tasks--spec-102-albumify-vs-vlm">Tasks — Spec 102: Albumify vs
+VLM</a>
+<ul>
+<li><a href="#t0--decisions-locked-2026-07-17-see-spec-d1-d6"
+id="toc-t0--decisions-locked-2026-07-17-see-spec-d1-d6">T0 — Decisions
+[LOCKED 2026-07-17, see spec D1-D6]</a></li>
+<li><a href="#t1--harness-scaffolding-done-2026-07-17"
+id="toc-t1--harness-scaffolding-done-2026-07-17">T1 — Harness
+scaffolding [DONE 2026-07-17]</a></li>
+<li><a href="#t2--albumify-arm-done-2026-07-17"
+id="toc-t2--albumify-arm-done-2026-07-17">T2 — Albumify arm [DONE
+2026-07-17]</a></li>
+<li><a href="#t3--vlm-arm-done-2026-07-17"
+id="toc-t3--vlm-arm-done-2026-07-17">T3 — VLM arm [DONE
+2026-07-17]</a></li>
+<li><a
+href="#t4--exp-1-judging--metrics-viewermetrics-done-human-verdict-pending"
+id="toc-t4--exp-1-judging--metrics-viewermetrics-done-human-verdict-pending">T4
+— EXP-1 judging + metrics [viewer+metrics DONE; human verdict
+PENDING]</a></li>
+<li><a
+href="#t5--exp-2-within-cluster-harness-done-2026-07-19-human-judging-pending"
+id="toc-t5--exp-2-within-cluster-harness-done-2026-07-19-human-judging-pending">T5
+— EXP-2 within-cluster [HARNESS DONE 2026-07-19; human judging
+PENDING]</a></li>
+<li><a href="#t6--exp-3-annotation-done-2026-07-17"
+id="toc-t6--exp-3-annotation-done-2026-07-17">T6 — EXP-3 annotation
+[DONE 2026-07-17]</a></li>
+<li><a href="#t7--report--close-out" id="toc-t7--report--close-out">T7 —
+Report + close-out</a></li>
+<li><a href="#open-items-to-confirm-with-user-non-blocking-for-drafting"
+id="toc-open-items-to-confirm-with-user-non-blocking-for-drafting">Open
+items to confirm with user (non-blocking for drafting)</a></li>
+<li><a
+href="#status-in-progress-2026-07-18--all-3-trips-ran-end-to-end-exp-1--exp-3-6-reportsartifacts"
+id="toc-status-in-progress-2026-07-18--all-3-trips-ran-end-to-end-exp-1--exp-3-6-reportsartifacts">Status:
+IN PROGRESS 2026-07-18 — ALL 3 TRIPS ran end-to-end (EXP-1 + EXP-3). 6
+reports/artifacts.</a></li>
+<li><a
+href="#remaining-t4human-owner-judges-3-viewers-t5-exp-2-within-cluster-t33-seed-stability"
+id="toc-remaining-t4human-owner-judges-3-viewers-t5-exp-2-within-cluster-t33-seed-stability">Remaining:
+T4.HUMAN (owner judges 3 viewers), T5 (EXP-2 within-cluster), T3.3
+(seed-stability/</a></li>
+<li><a
+href="#ablation-defect-rate-metric-roster-hand-labeling-a6-t73-code-review-t74-learnings"
+id="toc-ablation-defect-rate-metric-roster-hand-labeling-a6-t73-code-review-t74-learnings">ablation),
+defect-rate metric, roster hand-labeling (A6), T7.3 /code-review, T7.4
+learnings.</a></li>
+<li><a
+href="#open-sighting-117-people-aware-pipeline-ooms-120-imgs---big-trips-lack-person-penalty"
+id="toc-open-sighting-117-people-aware-pipeline-ooms-120-imgs---big-trips-lack-person-penalty">Open:
+SIGHTING-117 (people-aware pipeline OOMs &gt;~120 imgs -&gt; big trips
+lack person-penalty).</a></li>
+<li><a
+href="#decisions-locked-2026-07-17-d7-claude-opus-48-only-v1-d6-solo-n1-pilot-v1"
+id="toc-decisions-locked-2026-07-17-d7-claude-opus-48-only-v1-d6-solo-n1-pilot-v1">Decisions
+locked 2026-07-17: D7 Claude Opus 4.8 only (v1); D6 solo N=1 pilot
+(v1).</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="tasks--spec-102-albumify-vs-vlm">Tasks — Spec 102: Albumify vs
+VLM</h1>
+<blockquote>
+<p>Experiment. Output is <code>reports/</code> HTML, not production
+code. Budapest pilot gates the expansion.</p>
+</blockquote>
+<h2 id="t0--decisions-locked-2026-07-17-see-spec-d1-d6">T0 — Decisions
+[LOCKED 2026-07-17, see spec D1-D6]</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />D1 raw-images-only VLM;
+D2 Budapest pilot first; D3 EXP-2 = 3-rater truth on ~50 clusters; D4
+structured-JSON annotation + free-form reason; D5 same-768px inputs both
+arms; D6 framed as pilot.</label></li>
+<li><label><input type="checkbox" checked="" />Two expert reviews
+captured -&gt; <code>EXPERT_REVIEW.md</code> (verbatim + how
+addressed).</label></li>
+</ul>
+<h2 id="t1--harness-scaffolding-done-2026-07-17">T1 — Harness
+scaffolding [DONE 2026-07-17]</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T1.1
+<code>scripts/experiment_albumify_vs_vlm.py</code> (<code>prep</code>
+cmd) + <code>sim_bench/albumify_vs_vlm/downsample.py</code>: downsample
+to 768px longest edge (JPEG q80, LANCZOS, EXIF-transposed, HEIC-aware)
+into a data-drive working dir; content hash over decoded pixels -&gt;
+<code>input_set_hash</code> (A1); manifest.json. Budapest prep run: 122
+imgs (2 .mp4 correctly skipped), hash 878d0c14..., working set on
+<code>D:\albumify_vs_vlm</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T1.2
+<code>sim_bench/albumify_vs_vlm/roster.py</code>: day segmentation
+auto-filled from <code>YYYYMMDD_HHMMSS</code> filenames (EXIF fallback);
+persons/scenes stubs for the human.
+<code>rosters/budapest.roster.json</code> emitted (Aug 22: 102, Aug 24:
+20). <strong>HUMAN STEP PENDING</strong>: hand-label persons + scenes
+for A6.</label></li>
+<li><label><input type="checkbox" checked="" />T1.3
+<code>PROMPTS.md</code>: <code>curation_v1</code>,
+<code>annotation_v1</code>, rater sheet, EXP-2 fragment. Encodes the
+reframed objective (story + QC-as-filter + scale variety + opener/closer
++ protagonist weighting).</label></li>
+<li><label><input type="checkbox" checked="" />T1.4 11 unit tests
+(<code>tests/albumify_vs_vlm/</code>): max-edge cap + ratio, no-upscale,
+hash determinism/ order-independence/content-sensitivity, day
+segmentation, roster validation. All green.</label></li>
+</ul>
+<h2 id="t2--albumify-arm-done-2026-07-17">T2 — Albumify arm [DONE
+2026-07-17]</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T2.1/2.2
+<code>albumify_arm.py</code> runs the album pipeline on 768px inputs;
+<code>curation.py</code> enforces exactly K (coverage-first over
+select_best's picks, backfilled) then chronological order. Emits
+normalized <code>AlbumResult</code> JSON (schema.py, shared with the VLM
+arm). Budapest: 20 picks, 14 scenes.</label></li>
+<li><label><input type="checkbox" checked="" />T2.3 <strong>OOM
+FINDING</strong>: full 33-step <code>default_pipeline</code> OOM-kills
+this box when occlusion CLIP loads atop YOLO+InsightFace+DINOv2+AVA
+(silent kill, no traceback). Added <code>faces</code> variant = default
+minus score_occlusion/score_tilt/straighten + the post-select_best face
+tail (never influences picks). Keeps person-penalty + IQA/AVA +
+scene-dedup. <strong>Occlusion/tilt penalties disabled in this
+pilot</strong> (SIGHTING filed; release-model-per-step is the real
+fix).</label></li>
+</ul>
+<h2 id="t3--vlm-arm-done-2026-07-17">T3 — VLM arm [DONE 2026-07-17]</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T3.1/3.2
+<code>vlm_arm.py</code>: raw-images-only, map(shortlist per 15-img
+batch) -&gt; reduce(order exactly K). Opus 4.8 (<code>temperature</code>
+deprecated on this model -&gt; removed). IDs validated vs known set;
+tokens logged. Budapest: 50 shortlisted/9 batches, 94k/3.3k tokens
+(&lt;$2). Sent full images per batch, NOT ID-overlay contact sheets
+(misread risk &gt; token cost at 768px) — deviation from S/EXP-1
+noted.</label></li>
+<li><label><input type="checkbox" />T3.3 &gt;=3-seed stability +
+full-context no-batching ablation (A4/A5) — not yet run (single
+pass).</label></li>
+</ul>
+<h2
+id="t4--exp-1-judging--metrics-viewermetrics-done-human-verdict-pending">T4
+— EXP-1 judging + metrics [viewer+metrics DONE; human verdict
+PENDING]</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T4.1
+<code>ab_viewer.py</code>: blind ordered A/B HTML, labels hidden, L/R
+seeded-shuffle (A2/A3), images base64-embedded, full rater sheet,
+unblind key written separately. Budapest viewer built
+(4.5MB).</label></li>
+<li><label><input type="checkbox" checked="" />T4.2
+<code>metrics.py</code>: duplicate-survival (Albumify scene clusters as
+truth) + coverage P/R hook (None until roster labelled). Budapest:
+Albumify redundancy 0.25, VLM 0.20; overlap 6/20; VLM kept 3
+quality-filtered shots. Defect-rate (detectors on the 40 picks) —
+TODO.</label></li>
+<li><label><input type="checkbox" />T4.3 Krippendorff alpha (A8) — N/A
+for solo N=1; deferred to multi-rater upgrade.</label></li>
+<li><label><input type="checkbox" />T4.HUMAN <strong>Owner must
+judge</strong>: open <code>ab_viewer_budapest.html</code>, save answers,
+THEN open unblind key.</label></li>
+</ul>
+<h2
+id="t5--exp-2-within-cluster-harness-done-2026-07-19-human-judging-pending">T5
+— EXP-2 within-cluster [HARNESS DONE 2026-07-19; human judging
+PENDING]</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T5.1
+<code>sim_bench/albumify_vs_vlm/exp2.py</code>: cluster cases =
+multi-frame scene clusters (excl. singletons + the oversized catch-all
+&gt;30). Albumify best-of-cluster = argmax composite_score (arm now
+dumps full <code>composite_scores</code> in AlbumResult.meta -&gt; no
+selector re-run). VLM best-per-cluster = one call/cluster over raw
+frames (reuses vlm_arm client). Budapest: 14 clusters (95 frames). CLI
+<code>exp2</code>. 6 unit tests (no network).</label></li>
+<li><label><input type="checkbox" checked="" />T5.2a
+<code>exp2_viewer.py</code> + <code>exp2-viewer</code> cmd: blind
+best-frame picker HTML (frames seeded-shuffled per cluster, no system
+tell; copy-answers -&gt; exp2_judging.json). <code>exp2-metrics</code>
+cmd folds judging back -&gt; top-1 accuracy per system + system
+agreement.</label></li>
+<li><label><input type="checkbox" />T5.2b <strong>HUMAN STEP</strong>:
+open <code>exp2_picker_budapest.html</code>, pick best/cluster, save
+exp2_judging.json, run <code>exp2-metrics</code>. Solo N=1 (D6); Kendall
+tau deferred (needs full human ranking, not just best).</label></li>
+</ul>
+<h2 id="t6--exp-3-annotation-done-2026-07-17">T6 — EXP-3 annotation
+[DONE 2026-07-17]</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T6.1
+<code>annotate.py</code>: per-day moment grouping -&gt; structured JSON
+(label/scene_type/moment_type/ people/image_ids/best_id/reason per
+group; album_type + trip_subtype + narrative per album) + text-only
+album classifier. Budapest: <strong>type=trip/city</strong>, 30 moment
+groups, 66k/5k tokens.</label></li>
+<li><label><input type="checkbox" checked="" />T6.2 Qualitative: STRONG.
+Editorial labels ("The one where they walk with Reagan", "Musical
+fountain lights up at dusk"), caught the finger-occlusion ("...with a
+sneaky lens finger") and the Shoes-on-the-Danube memorial. Rendered as a
+table in the report EXP-3 section (Playwright-verified).</label></li>
+</ul>
+<h2 id="t7--report--close-out">T7 — Report + close-out</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T7.1
+<code>report.py</code> -&gt;
+<code>reports/2026-07-17_albumify_vs_vlm_budapest/report.html</code>
+(A9) + summary.md + EXPERIMENTS.md entry. Titled PILOT. Both albums
+inline (34 downscaled samples), KPI cards, metric table,
+editorial-reason captions, both OOM + N=1 caveats stated.
+Playwright-verified render.</label></li>
+<li><label><input type="checkbox" checked="" />T7.2 EXPANDED to Austria
+(474 imgs, trip/road) + Germany (797 imgs incl .heic, trip/road).
+Reports
+<code>reports/2026-07-18_albumify_vs_vlm_{austria,germany}/</code> +
+Artifacts. <strong>Cross-trip finding: overlap shrinks with size
+(Budapest 6/20, Austria 3/20, Germany 0/20)</strong>. Two scale bugs
+fixed: <code>faces</code> OOMs &gt;~120 imgs -&gt; big trips ran
+<code>minimal</code> (no person-penalty); VLM reduce 413 -&gt;
+hierarchical narrowing + shortlist cache (test_vlm_reduce.py).
+<strong>Caveat: Albumify arm not identical across trips</strong>
+(Budapest=faces, Austria/Germany=minimal).</label></li>
+<li><label><input type="checkbox" />T7.3 <code>/code-review</code>
+(experiment-scoped: reproducibility, honest framing, no over-claim)
+-&gt; REVIEW.md.</label></li>
+<li><label><input type="checkbox" />T7.4 Log learnings (LEARNINGS.md);
+file any follow-up feature specs the results warrant.</label></li>
+</ul>
+<h2 id="open-items-to-confirm-with-user-non-blocking-for-drafting">Open
+items to confirm with user (non-blocking for drafting)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />Rater pool: can we get &gt;=5 (or
+&gt;=3) blind raters, or is this a solo N=1 pilot? Changes A8
+headline.</label></li>
+<li><label><input type="checkbox" />Second VLM (GPT) as a data point, or
+Claude-only for v1?</label></li>
+</ul>
+<h2
+id="status-in-progress-2026-07-18--all-3-trips-ran-end-to-end-exp-1--exp-3-6-reportsartifacts">Status:
+IN PROGRESS 2026-07-18 — ALL 3 TRIPS ran end-to-end (EXP-1 + EXP-3). 6
+reports/artifacts.</h2>
+<h2
+id="remaining-t4human-owner-judges-3-viewers-t5-exp-2-within-cluster-t33-seed-stability">Remaining:
+T4.HUMAN (owner judges 3 viewers), T5 (EXP-2 within-cluster), T3.3
+(seed-stability/</h2>
+<h2
+id="ablation-defect-rate-metric-roster-hand-labeling-a6-t73-code-review-t74-learnings">ablation),
+defect-rate metric, roster hand-labeling (A6), T7.3 /code-review, T7.4
+learnings.</h2>
+<h2
+id="open-sighting-117-people-aware-pipeline-ooms-120-imgs---big-trips-lack-person-penalty">Open:
+SIGHTING-117 (people-aware pipeline OOMs &gt;~120 imgs -&gt; big trips
+lack person-penalty).</h2>
+<h2
+id="decisions-locked-2026-07-17-d7-claude-opus-48-only-v1-d6-solo-n1-pilot-v1">Decisions
+locked 2026-07-17: D7 Claude Opus 4.8 only (v1); D6 solo N=1 pilot
+(v1).</h2>
+</div>
+</body>
+</html>

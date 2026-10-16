@@ -33,7 +33,7 @@ class ScoreTiltStep(BaseStep):
             requires={"image_paths"},
             produces={"tilt_angles", "tilt_confidences"},
             depends_on=["discover_images"],
-            config_schema={"type": "object", "properties": {}},
+            config_schema={"type": "object", "properties": {"device": {"type": "string", "enum": ["cpu", "cuda", "mps"], "default": "cpu", "description": "Torch device for GeoCalib"}}},
         )
         self._scorer = None
         self._scorer_failed = False
@@ -42,7 +42,7 @@ class ScoreTiltStep(BaseStep):
         if self._scorer is None and not self._scorer_failed:
             try:
                 from sim_bench.quality_assessment.tilt_geocalib import TiltScorer
-                self._scorer = TiltScorer()
+                self._scorer = TiltScorer(device=config.get("device", "cpu"))
                 logger.info("tilt scorer loaded: %s", self._scorer.version)
             except Exception as exc:  # geocalib not installed / model load failed
                 self._scorer_failed = True

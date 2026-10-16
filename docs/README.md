@@ -70,6 +70,11 @@ No date prefix — reference material for the current system:
 <topic>.md                  — e.g. merge_criteria_reference.md
 ```
 
+## Roadmap and generated HTML views
+
+- **`ROADMAP.md` (repo root)** is the single roadmap: stages, gates, current position, and a link to every spec. Start there.
+- Markdown docs can be rendered to a styled HTML sibling with `.venv/Scripts/python scripts/md2html.py <file.md>` (pandoc + `docs/assets/md.css`). Generated `.html` files are never hand-edited; `--check` reports if one is older than its `.md`.
+
 ## Placement Rules
 
 1. **New sighting** → append to `docs/project/SIGHTINGS.md`

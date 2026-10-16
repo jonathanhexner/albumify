@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albumify Live Curator — System Architecture</title>
+<style>
+:root{
+  --ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;
+  --ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;
+  --accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --maxw:1140px;
+}
+@media (prefers-color-scheme:light){:root{--ground:#F5F0E7;--surface:#FFF;--surface-2:#FBF6EC;--line:#E4DACB;
+  --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}}
+:root[data-theme="dark"]{--ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;--ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;}
+:root[data-theme="light"]{--ground:#F5F0E7;--surface:#FFF;--surface-2:#FBF6EC;--line:#E4DACB;--ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+h1,h2,h3,h4{margin:0;letter-spacing:-.02em;text-wrap:balance;font-weight:800;}
+p{margin:0;}
+code{font-family:var(--mono);font-size:.88em;color:var(--ink-dim);}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.17em;text-transform:uppercase;color:var(--muted);}
+header{border-bottom:1px solid var(--line);background:var(--surface);}
+.head{padding:50px 0 40px;}
+.flag{display:inline-block;width:14px;height:18px;background:var(--accent);vertical-align:-3px;margin-right:10px;clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);}
+h1{font-size:clamp(28px,4.8vw,46px);line-height:1.03;margin:14px 0 0;}
+.sub{margin-top:16px;font-size:clamp(16px,2vw,19px);color:var(--ink-dim);max-width:64ch;}
+.thesis{font-family:var(--serif);font-style:italic;font-size:clamp(17px,2.2vw,21px);color:var(--ink);margin-top:20px;max-width:58ch;line-height:1.35;}
+.meta-row{margin-top:22px;display:flex;gap:9px;flex-wrap:wrap;}
+.tag{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink-dim);background:var(--surface-2);}
+.tag b{color:var(--ink);}
+.toc{border-bottom:1px solid var(--line);background:var(--ground);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);}
+.toc .wrap{display:flex;gap:6px;overflow-x:auto;padding:11px 24px;scrollbar-width:none;}
+.toc .wrap::-webkit-scrollbar{display:none;}
+.toc a{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;padding:5px 10px;border-radius:7px;}
+.toc a:hover{color:var(--ink);background:var(--surface-2);text-decoration:none;}
+section{padding:54px 0;border-bottom:1px solid var(--line);}
+.sec-eyebrow{margin-bottom:10px;}
+.sec-title{font-size:clamp(22px,3vw,31px);}
+.sec-lead{margin-top:12px;color:var(--ink-dim);max-width:72ch;}
+.sec-lead code{color:var(--accent);}
+h3.blk{font-size:16px;margin:28px 0 10px;}
+p.body{margin-top:12px;color:var(--ink-dim);max-width:72ch;}
+p.body code{color:var(--accent);}
+/* planes diagram */
+.diagram{margin-top:24px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--surface-2),var(--surface));padding:20px;overflow-x:auto;}
+.arch{min-width:700px;display:flex;flex-direction:column;}
+.tier{display:grid;grid-template-columns:128px 1fr;gap:16px;}
+.tier .rail{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;justify-content:center;border-right:2px solid var(--line);padding:8px 0;}
+.tier .rail b{display:block;color:var(--ink);font-size:12px;margin-bottom:3px;}
+.tier .rail .z{font-size:9.5px;margin-top:4px;}
+.z.trust{color:var(--crit);}.z.safe{color:var(--good);}
+.tier .boxes{display:flex;gap:11px;flex-wrap:wrap;padding:11px 0;}
+.node{flex:1;min-width:150px;border:1px solid var(--line);border-radius:11px;padding:12px 14px;background:var(--surface);}
+.node .t{font-weight:700;font-size:13.5px;}
+.node .d{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.45;}
+.node .k{margin-top:7px;font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);}
+.node.accent{border-color:color-mix(in srgb,var(--accent) 55%,transparent);}.node.accent .t{color:var(--accent);}
+.node.eng{border-color:color-mix(in srgb,var(--eng) 50%,transparent);}.node.eng .t{color:var(--eng);}
+.node.modal{border-color:color-mix(in srgb,var(--good) 55%,transparent);background:color-mix(in srgb,var(--good) 7%,var(--surface));}.node.modal .t{color:var(--good);}
+.flowdown{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13.5px;height:22px;line-height:22px;letter-spacing:.2em;}
+.badge{display:inline-block;margin-left:7px;font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:5px;vertical-align:2px;}
+.b-have{background:var(--surface-2);color:var(--muted);}.b-build{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn);}.b-done{background:color-mix(in srgb,var(--good) 20%,transparent);color:var(--good);}
+/* timeline */
+.tl{margin-top:22px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:18px;}
+.tl .lane{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center;margin-bottom:9px;}
+.tl .lbl{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.tl .bar{height:22px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);display:flex;overflow:hidden;}
+.tl .seg{height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9.5px;color:var(--ink);white-space:nowrap;}
+.seg.up{background:color-mix(in srgb,var(--eng) 32%,var(--surface));}
+.seg.warm{background:color-mix(in srgb,var(--warn) 32%,var(--surface));}
+.seg.run{background:color-mix(in srgb,var(--good) 38%,var(--surface));}
+.seg.idle{background:var(--surface-2);color:var(--muted);}
+.tl .cap{font-size:12px;color:var(--muted);margin-top:8px;}
+/* resolution tiers */
+.tiers{margin-top:22px;display:flex;flex-direction:column;gap:10px;}
+.rt{display:grid;grid-template-columns:130px 1fr;gap:14px;border:1px solid var(--line);border-radius:11px;padding:13px 16px;background:var(--surface);}
+@media(max-width:620px){.rt{grid-template-columns:1fr;}}
+.rt .res{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700;}
+.rt .use{font-size:13.5px;color:var(--ink-dim);}
+.rt .use b{color:var(--ink);}
+/* secrets */
+.sec-table,.tscroll{overflow-x:auto;margin-top:20px;border:1px solid var(--line);border-radius:12px;}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:600px;}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface-2);}
+tbody tr:last-child td{border-bottom:0;}
+tbody td:first-child{font-weight:700;color:var(--ink);}
+.never{color:var(--crit);font-weight:700;}
+.cards{display:grid;gap:14px;margin-top:22px;}
+.g2{grid-template-columns:repeat(2,1fr);}.g3{grid-template-columns:repeat(3,1fr);}
+@media(max-width:820px){.g2,.g3{grid-template-columns:1fr;}}
+.card{border:1px solid var(--line);border-radius:12px;padding:16px 17px;background:var(--surface);}
+.card h4{font-size:13px;font-family:var(--mono);letter-spacing:.03em;text-transform:uppercase;color:var(--accent);}
+.card.eng h4{color:var(--eng);}.card.crit h4{color:var(--crit);}
+.card p{margin-top:8px;font-size:13.5px;color:var(--ink-dim);}
+pre{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--ink-dim);}
+pre .c{color:var(--muted);font-style:italic;}
+pre .k{color:var(--accent);}
+pre .f{color:var(--eng);}
+.callout{margin-top:20px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 12px 12px 0;padding:15px 18px;}
+.callout .k{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);}
+.callout p{margin-top:7px;font-size:13.5px;color:var(--ink-dim);}
+.callout.crit{border-left-color:var(--crit);}.callout.crit .k{color:var(--crit);}
+.note{margin-top:12px;font-size:12.5px;color:var(--muted);}
+footer{padding:30px 0 58px;}
+.foot{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap head">
+    <div class="eyebrow"><span class="flag"></span>Albumify · spec-106 · system architecture</div>
+    <h1>Live Curator — Architecture</h1>
+    <p class="sub">The design of record for the web app: how a visitor's trip becomes a curated album — the four planes, the job lifecycle, how images move at the right resolution, how secrets are handled, and the contract the UI reads.</p>
+    <p class="thesis">"Upload small, curate on a GPU that's warm by the time you finish, show everything with reasons, download full-res only what you keep — and never let a secret reach the browser."</p>
+    <div class="meta-row">
+      <span class="tag">Direction <b>B — Live Curator</b></span>
+      <span class="tag">Status <b>architecture drafted · build starting</b></span>
+      <span class="tag">Hosts <b>Vercel · Modal</b></span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#planes">01 · Four planes</a>
+  <a href="#lifecycle">02 · Job lifecycle</a>
+  <a href="#resolution">03 · Resolution tiers</a>
+  <a href="#showall">04 · Show-everything</a>
+  <a href="#secrets">05 · Secrets &amp; keys</a>
+  <a href="#contract">06 · Data contract</a>
+  <a href="#components">07 · Components &amp; status</a>
+  <a href="#buildorder">08 · Build order</a>
+  <a href="#durability">09 · Observability &amp; durability</a>
+</div></nav>
+
+<!-- 01 -->
+<section id="planes">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">01 · The four planes</div>
+    <h2 class="sec-title">Who does what — and the trust boundary</h2>
+    <p class="sec-lead">Four layers, each with one job. The split that matters most: the <b>browser is untrusted</b> (it never holds a long-lived secret); the GPU plane is expensive (used only for model compute); storage decouples the slow upload from the fast compute.</p>
+    <div class="diagram">
+      <div class="arch">
+        <div class="tier">
+          <div class="rail"><b>Client</b>Vercel edge<span class="z trust">UNTRUSTED</span></div>
+          <div class="boxes">
+            <div class="node accent"><div class="t">Next.js app <span class="badge b-build">build</span></div><div class="d">Upload UI · downscales to 768px in-browser · live progress · album + "see everything" viewer. Static/edge. Holds NO secrets, NO models.</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; asks for an upload target &nbsp;·&nbsp; gets a short-lived presigned URL &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Control plane</b>FastAPI<span class="z safe">TRUSTED</span></div>
+          <div class="boxes">
+            <div class="node eng"><div class="t">Job API <span class="badge b-build">build</span></div><div class="d">Mints presigned upload URLs, enforces bounds (count/size/rate), fires the GPU warm-up, calls <code>curate(job_id)</code>, serves status + result. Holds the secrets.</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; curate(job_id) &nbsp;·&nbsp; warm-up fired at upload-start &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Data plane</b>Modal · L4<span class="z safe">TRUSTED</span></div>
+          <div class="boxes">
+            <div class="node modal"><div class="t">curate() <span class="badge b-done">scaffolded</span></div><div class="d">Pulls the job's 768px images from storage → runs the real 38-step pipeline on GPU (triage→score→faces→scenes→select→captions) → writes the album result back. Scale-to-zero.</div><div class="k">sim_bench/serving/modal_app.py</div></div>
+            <div class="node modal"><div class="t">engine <span class="badge b-done">done</span></div><div class="d">spec-104/107/108: isolation, triage, semantic layer — reused as-is with device=cuda.</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; read / write objects &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Storage</b>S3 / R2 + Volumes</div>
+          <div class="boxes">
+            <div class="node"><div class="t">Object store <span class="badge b-build">build</span></div><div class="d">Per-job: uploaded 768px images (TTL), the album result JSON, keeper display/full-res. Browser reads results via signed URLs.</div></div>
+            <div class="node"><div class="t">Modal Volumes <span class="badge b-done">scaffolded</span></div><div class="d">Model weights + HF cache — mounted into the GPU, uploaded once.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>Golden rule:</b> the browser talks to storage only through short-lived, narrowly-scoped <em>presigned URLs</em> the control plane mints — it never receives storage keys or the Modal token. Everything expensive or secret lives behind the control plane.</p>
+  </div>
+</section>
+
+<!-- 02 -->
+<section id="lifecycle">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">02 · Job lifecycle</div>
+    <h2 class="sec-title">Warm-up and upload run in parallel</h2>
+    <p class="sec-lead">The moment the user commits, two things fire together: the browser begins uploading the 768px images, and the control plane triggers the GPU warm-up. The cold start hides under the upload; by the time the last byte lands, the GPU is hot.</p>
+    <div class="tl">
+      <div class="lane"><div class="lbl">browser</div><div class="bar">
+        <span class="seg up" style="flex:4">downscale + upload 768px (small)</span>
+        <span class="seg idle" style="flex:4">watch progress</span>
+        <span class="seg run" style="flex:2">view album</span>
+      </div></div>
+      <div class="lane"><div class="lbl">control plane</div><div class="bar">
+        <span class="seg warm" style="flex:4">fire warm-up + presign</span>
+        <span class="seg run" style="flex:4">curate(job_id)</span>
+        <span class="seg idle" style="flex:2">serve result</span>
+      </div></div>
+      <div class="lane"><div class="lbl">Modal GPU</div><div class="bar">
+        <span class="seg warm" style="flex:3">cold start + load models</span>
+        <span class="seg idle" style="flex:1">warm, waiting</span>
+        <span class="seg run" style="flex:4">pull → pipeline → write result</span>
+        <span class="seg idle" style="flex:2">scale to 0</span>
+      </div></div>
+      <p class="cap">Warm-up (orange) overlaps the upload (blue) — it isn't added on top. The GPU is hot when curate (green) starts. Models load once at container start (Modal <code>@enter</code>) and stay resident for the real call.</p>
+    </div>
+    <p class="body"><b>Sequence:</b> (1) user commits → (2) API presigns + fires warm-up → (3) browser uploads 768px straight to storage → (4) API calls <code>curate(job_id)</code> → (5) worker pulls from storage, runs pipeline, writes <code>album.json</code> + keeper displays back → (6) browser reads the result via signed URLs → (7) GPU scales to zero. Net user wait ≈ <code>max(upload, warm-up) + curate compute</code>.</p>
+  </div>
+</section>
+
+<!-- 03 -->
+<section id="resolution">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">03 · Resolution tiers</div>
+    <h2 class="sec-title">Upload small, keep full-res for what you download</h2>
+    <p class="sec-lead">The models work at ≤768px and the pipeline was validated there, so analysis never needs full-res. Downscaling in the browser makes the upload ~15–20× smaller and keeps originals on the device.</p>
+    <div class="tiers">
+      <div class="rt"><div class="res">768px · ALL</div><div class="use"><b>Analysis + review.</b> Every photo, downscaled in-browser, uploaded. Powers the pipeline AND the "see everything / why dropped / override" view. ~0.2 MB each.</div></div>
+      <div class="rt"><div class="res">~1600px · keepers</div><div class="use"><b>On-screen album.</b> Display versions of the selected set (and any the user promotes). Lazily produced after selection; plenty for viewing.</div></div>
+      <div class="rt"><div class="res">original · on demand</div><div class="use"><b>Download only.</b> Full quality, one photo at a time, only for what the user actually keeps. Stays on the device unless downloaded/shared.</div></div>
+    </div>
+    <p class="note">Floor: never below 768px (sharpness/occlusion/blur are calibrated there). Ceiling: full-res gives analysis nothing (models downsample internally) — so we never upload it for analysis. The 768px tier does double duty: curation input <em>and</em> the browse-everything review surface.</p>
+  </div>
+</section>
+
+<!-- 04 -->
+<section id="showall">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">04 · Show-everything principle</div>
+    <h2 class="sec-title">Curation is a proposal, not a verdict</h2>
+    <p class="sec-lead">A curator that hides the 80 it didn't pick is presumptuous and breaks trust. Every input photo stays visible, carries the reason it was dropped, and is one click to promote into the album. Same rule as triage's <code>set_aside</code> (spec-107) — never silently hide, always recoverable — now applied to selection itself.</p>
+    <pre><span class="c"># the result groups EVERY photo by why, not just the winners</span>
+★ Album (the picks)        ordered keepers + why each won
+  Near-duplicates dropped   "beaten by this pick in its moment"   <span class="c"># the "what it beat" data</span>
+  Low-quality dropped       "blurry / occluded / tilted"
+  Set aside (junk)          "screenshot / document"                <span class="c"># spec-107 set_aside</span>
+      <span class="k">every item → shows the reason + a "keep anyway" button</span></pre>
+    <p class="body">Cost: <b>zero extra upload</b> — the browse-everything view runs off the 768px copies already uploaded for analysis + the result metadata. This is both better product (the user can argue with it) and a better portfolio story ("it explains itself").</p>
+  </div>
+</section>
+
+<!-- 05 -->
+<section id="secrets">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">05 · Secrets &amp; keys</div>
+    <h2 class="sec-title">What's secret, where it lives, who never sees it</h2>
+    <p class="sec-lead">Three secrets exist. The one rule that governs all of them: <b>secrets live on trusted hosts (as platform-managed env vars / secret stores), never in git, never in the container image, never in the browser.</b> The browser only ever gets short-lived, narrowly-scoped tokens.</p>
+    <div class="sec-table">
+      <table>
+        <thead><tr><th>Secret</th><th>What it's for</th><th>Lives in</th><th>Browser sees it?</th></tr></thead>
+        <tbody>
+          <tr><td>Modal token<br><code>MODAL_TOKEN_ID/SECRET</code></td><td>control plane authenticates to Modal to call <code>curate</code></td><td>Vercel encrypted env var (prod) · <code>~/.modal.toml</code> (local dev)</td><td class="never">NEVER</td></tr>
+          <tr><td>Object-store creds<br><code>S3/R2 access + secret key</code></td><td>control plane mints presigned URLs; worker reads/writes objects</td><td>Vercel env var (control plane) · <b>Modal Secret</b> (worker, injected at runtime)</td><td class="never">NEVER</td></tr>
+          <tr><td>Presigned URL</td><td>lets the browser upload ONE job's images / read its result</td><td>minted per-request by the control plane</td><td>yes — but <b>scoped + expiring</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 class="blk">How the browser uploads without ever holding a key</h3>
+    <pre><span class="c"># 1. browser asks the control plane for an upload target (no keys involved)</span>
+POST /jobs  → control plane (holds S3 creds) mints a <span class="k">presigned PUT URL</span>:
+     scoped to ONE prefix (jobs/&lt;id&gt;/), write-only, expires in ~10 min
+<span class="c"># 2. browser PUTs the 768px images straight to storage with that URL</span>
+     the raw S3 keys never leave the control plane; the URL can do nothing else
+<span class="c"># 3. worker reads those objects using creds injected by a Modal Secret</span>
+<span class="k">@app.function</span>(secrets=[modal.Secret.from_name(<span class="k">"albumify-storage"</span>)])
+<span class="k">def</span> <span class="f">curate</span>(job_id): ...   <span class="c"># boto3 reads S3 env vars Modal injected at runtime</span></pre>
+    <div class="cards g3">
+      <div class="card"><h4>Platform secret stores</h4><p>Prod secrets live in <b>Vercel env vars</b> (control plane) and <b>Modal Secrets</b> (worker) — encrypted at rest, injected as env vars at runtime. Not in code.</p></div>
+      <div class="card"><h4>Local dev</h4><p><code>.env</code> (gitignored) for the API; <code>modal setup</code> stores the Modal token in <code>~/.modal.toml</code>. The repo's <code>.gitignore</code> already blocks <code>.env</code>.</p></div>
+      <div class="card crit"><h4>Least privilege + expiry</h4><p>A presigned URL writes to ONE job prefix and expires in minutes. If leaked it can't touch other jobs or read keys. Rotate the long-lived creds periodically.</p></div>
+    </div>
+    <div class="callout crit">
+      <div class="k">The three nevers</div>
+      <p><b>Never</b> commit a secret to git (use env vars + a gitignored <code>.env</code>). <b>Never</b> bake a secret into the Modal image (use <code>modal.Secret</code>, injected at runtime). <b>Never</b> ship a long-lived key to the browser (mint a scoped, expiring presigned URL instead). The browser is untrusted by design.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 06 -->
+<section id="contract">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">06 · Data contract</div>
+    <h2 class="sec-title">One <code>album.json</code> the UI reads</h2>
+    <p class="sec-lead">The worker writes a single normalized result. It carries <b>every</b> photo (not just picks) with its selection reason — the data the show-everything view needs — plus the picks, people, theme, and captions.</p>
+    <pre><span class="k">type</span> Album = {
+  jobId: <span class="f">string</span>; createdAt: <span class="f">string</span>;
+  counts: { uploaded, kept, people, scenes, setAside };
+  picks: <span class="f">Pick[]</span>;            <span class="c">// ordered winners + score breakdown + "what it beat"</span>
+  dropped: <span class="f">Dropped[]</span>;       <span class="c">// EVERY non-pick + reason {near-dup|low-quality|set-aside}</span>
+  people: <span class="f">Person[]</span>;         <span class="c">// face clusters → distinct people</span>
+  theme: <span class="f">AlbumTheme</span>;        <span class="c">// album_type, motifs, caption (spec-108)</span>
+};
+<span class="k">type</span> Pick    = { id, order, thumb768, display1600, score:{sharp,aesthetic,occlusion,tilt,faces}, beat:string[], people:string[] };
+<span class="k">type</span> Dropped = { id, thumb768, reason, reasonDetail, promotable:true };   <span class="c">// one click → picks</span></pre>
+    <p class="note">Shape is identical to the precomputed showcase trips, so live results and seed trips render through the same components. <code>promotable:true</code> encodes the show-everything principle in the contract itself.</p>
+  </div>
+</section>
+
+<!-- 07 -->
+<section id="components">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">07 · Components &amp; status</div>
+    <h2 class="sec-title">What exists vs what this spec builds</h2>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Component</th><th>Spec</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Curation engine (pipeline, executor, isolation)</td><td>104</td><td>✅ done, merged</td></tr>
+          <tr><td>Input triage + set_aside</td><td>107</td><td>✅ done (P0–P2)</td></tr>
+          <tr><td>Semantic layer (tags, theme, captions)</td><td>108</td><td>✅ P0/P1 done · P2 code-complete</td></tr>
+          <tr><td>Modal GPU worker (<code>curate</code>)</td><td>109</td><td>◐ scaffolded — needs deploy + storage-reference input</td></tr>
+          <tr><td>Object storage + presigned uploads</td><td><b>106</b></td><td>◻ build</td></tr>
+          <tr><td>Control-plane API (jobs, bounds, warm-up)</td><td><b>106</b></td><td>◻ build</td></tr>
+          <tr><td>Next.js front end (upload, progress, album, show-all)</td><td><b>106</b></td><td>◻ build</td></tr>
+          <tr><td>Secrets wiring (Vercel env + Modal Secret)</td><td><b>106</b></td><td>◻ build</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 08 -->
+<section id="buildorder">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">08 · Build order</div>
+    <h2 class="sec-title">Prove each seam before stacking the next</h2>
+    <div class="cards g2">
+      <div class="card eng"><h4>1 · Prove the GPU seam</h4><p><code>modal setup</code> → <code>gpu_smoke</code> → first real <code>curate</code> on a storage reference. Establishes the data plane works + the per-image GPU latency.</p></div>
+      <div class="card eng"><h4>2 · Storage + presign</h4><p>Object store + the mint-presigned-URL endpoint. Prove a browser can upload 768px directly and the worker can pull it.</p></div>
+      <div class="card eng"><h4>3 · Control-plane API</h4><p>POST /jobs (bounds + presign + warm-up + enqueue), GET status, GET result. Secrets via env/Modal Secret.</p></div>
+      <div class="card eng"><h4>4 · Front end</h4><p>Upload + in-browser downscale → live progress → album + show-everything viewer. Every job state designed.</p></div>
+      <div class="card"><h4>5 · Showcase seed</h4><p>Precomputed trips in the same <code>album.json</code> shape → instant first paint.</p></div>
+      <div class="card"><h4>6 · Harden &amp; ship</h4><p>Adversarial uploads, cold-start budget, TTL/privacy, cost alarm, <code>/code-review</code>, deploy.</p></div>
+    </div>
+    <p class="note">Each step ends green and standalone; the GPU seam (1) is first because everything else assumes it works. Full phase detail: <code>plan.html</code>.</p>
+  </div>
+</section>
+
+<!-- 09 -->
+<section id="durability">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">09 · Observability &amp; durability</div>
+    <h2 class="sec-title">The job is a small persisted state machine — every step hits the DB</h2>
+    <p class="sec-lead">Two different shapes, and only one reuses the existing engine. The <b>image pipeline</b> (the 38 steps inside <code>curate</code>) reuses <code>PipelineExecutor</code> as-is — synchronous, in-process, perfect fit. The <b>job orchestration</b> (presign→upload→warm→curate→store→notify) is <b>async, cross-service, long-lived</b>, so it is NOT the pipeline executor — it's a small <b>event-driven state machine</b> whose state lives in the DB, not in memory. Same spirit (step-wise, observable, resumable); different, tiny mechanism.</p>
+
+    <h3 class="blk">Everything-to-DB: write after every transition</h3>
+    <p class="body">The durability + telemetry rule: <b>every stage and every step writes to the DB as it happens</b> — start, complete, or fail, with timestamps, duration, and error. The DB (not memory) is the source of truth for "what happened" and "where to resume." Two tables:</p>
+    <div class="sec-table">
+      <table>
+        <thead><tr><th>Table</th><th>Rows</th><th>Columns (sketch)</th></tr></thead>
+        <tbody>
+          <tr><td><code>jobs</code></td><td>one per job (mutable)</td><td>job_id · state (created/uploading/queued/running/succeeded/failed/expired) · current_stage · bounds · result_ptr · error · created_at · updated_at · ttl</td></tr>
+          <tr><td><code>job_events</code></td><td>append-only log</td><td>job_id · stage · event (start/complete/fail/retry) · ts · duration_ms · detail(json)</td></tr>
+          <tr><td><code>pipeline_steps</code></td><td>per image-pipeline step (from curate)</td><td>job_id · step · success · duration_ms · error — the engine's <code>step_results</code>, persisted</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">The job layer writes a <code>job_events</code> row on each stage transition; the image layer already produces per-step <code>step_results</code> (name/duration/success/error) which the worker persists as <code>pipeline_steps</code> when <code>curate</code> returns (or streams via the progress callback for live per-step status). So <b>both altitudes land in the DB</b> — nothing is only in memory or only in logs.</p>
+
+    <h3 class="blk">The job is config too (same principle as the image pipeline)</h3>
+    <p class="body">"The pipeline <em>is</em> the config" applies one level up: the job's stages, their prerequisites, platform, retry policy, and timeout are declared in a <b>job spec</b> (analogous to <code>configs/pipeline.yaml</code>), not hardcoded — so stages are flexible and the flow is inspectable.</p>
+    <pre><span class="c"># configs/job_pipeline.yaml  (sketch — the job IS config, like the image pipeline)</span>
+stages:
+  presign:   { platform: control_plane, needs: [],                 retry: 2 }
+  upload:    { platform: browser,       needs: [presign],          retry: 3 }   <span class="c"># ∥</span>
+  warm_up:   { platform: modal,         needs: [presign],          retry: 2 }   <span class="c"># ∥</span>
+  curate:    { platform: modal_gpu,     needs: [upload, warm_up],  retry: 1, timeout_s: 1800 }  <span class="c"># join</span>
+  store:     { platform: modal,         needs: [curate],           retry: 3 }
+  notify:    { platform: control_plane, needs: [store],            retry: 3 }</pre>
+
+    <h3 class="blk">What waits for what · what runs where</h3>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Stage</th><th>Runs on</th><th>Waits for</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>presign</td><td>control plane</td><td>job created</td><td></td></tr>
+          <tr><td>downscale + upload</td><td>browser</td><td>presign</td><td>∥ with warm-up</td></tr>
+          <tr><td>warm-up (boot GPU + load models)</td><td>Modal</td><td>presign</td><td>∥ with upload</td></tr>
+          <tr><td class="rec">curate</td><td class="rec">Modal GPU</td><td class="rec">upload <b>and</b> warm-up</td><td class="rec">← the one JOIN</td></tr>
+          <tr><td>write album.json + displays</td><td>Modal (worker)</td><td>curate</td><td></td></tr>
+          <tr><td>notify / serve status</td><td>control plane</td><td>store</td><td></td></tr>
+          <tr><td>view album</td><td>browser</td><td>result available</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">"What waits for what" = each stage's <code>needs:</code> list, evaluated against recorded <code>job_events</code>. The flow is linear except <b>upload ∥ warm-up</b> (parallel) joined at <b>curate</b>. The orchestrator is the control plane, <b>stateless</b>: each event (upload-done callback, curate-returned) loads the job row, records the event, and fires any stage whose <code>needs</code> are now all met.</p>
+
+    <h3 class="blk">Resume = idempotent re-run from the persisted stage</h3>
+    <p class="body">Because the job's state is in the DB and its inputs are in storage keyed by <code>job_id</code>, recovery is simple: on failure/restart, read the job row, find the first incomplete stage, and run from there. The expensive stage, <code>curate(job_id)</code>, is <b>idempotent</b> — re-running reads the same stored images and overwrites the same result. No mid-pipeline checkpointing, no workflow engine.</p>
+    <div class="cards g3">
+      <div class="card"><h4>Isolation</h4><p>Image steps already crash-isolated (spec-104, spawned children). Each Modal invocation is isolated too. A failed stage fails alone.</p></div>
+      <div class="card"><h4>Logs</h4><p>Modal captures per-invocation stdout/stderr automatically; the DB has the structured event log. Two views: raw logs + the event timeline.</p></div>
+      <div class="card eng"><h4>Telemetry we keep</h4><p>Per stage: timestamps, duration, success/fail, retries, platform. Per curate: per-step GPU ms, cold-start s, upload s. Enough to answer "what happened + where did the time go."</p></div>
+    </div>
+
+    <div class="callout">
+      <div class="k">Future hook — AI in the job layer (not now)</div>
+      <p>An AI orchestrator must NOT sequence the image pipeline (it stays a deterministic DAG — reproducibility, spec-053 ordering invariants). But the job state machine can later gain a bounded <b>"configure" stage</b> before <code>curate</code>: an AI picks the per-album pipeline variant + thresholds (the spec-108 album-type tuner). That's <em>escalation, not orchestration</em> — AI parametrizes the run, never reorders its steps. Noted as a hook; deferred.</p>
+    </div>
+    <div class="callout crit">
+      <div class="k">Scope guard</div>
+      <p>No Temporal / Airflow / heavyweight durable-workflow engine. At minutes-long jobs with inputs in storage, a small persisted state machine + idempotent re-run gives ~90% of the benefit for ~10% of the work. Reach for an engine only if jobs become long, branchy, and many — which a portfolio app is not.</p>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap foot">
+  <span>Albumify · spec-106 · system architecture · design of record</span>
+  <span>untrusted browser · warm-up ∥ upload · show everything · secrets never client-side</span>
+</div></footer>
+</body>
+</html>

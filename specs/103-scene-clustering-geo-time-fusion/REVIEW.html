@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="REVIEW.md">REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#reviewmd--spec-103-build_scene_distance-path-a-pipeline-wiring"
+id="toc-reviewmd--spec-103-build_scene_distance-path-a-pipeline-wiring">REVIEW.md
+— spec-103 <code>build_scene_distance</code> (Path A) pipeline
+wiring</a>
+<ul>
+<li><a href="#1--structure--pass" id="toc-1--structure--pass">1 ·
+Structure — <code>pass</code></a></li>
+<li><a href="#2--code-quality--pass" id="toc-2--code-quality--pass">2 ·
+Code quality — <code>pass</code></a></li>
+<li><a href="#3--naming--package--pass"
+id="toc-3--naming--package--pass">3 · Naming / package —
+<code>pass</code></a></li>
+<li><a href="#4--layering--coupling--pass"
+id="toc-4--layering--coupling--pass">4 · Layering / coupling —
+<code>pass</code></a></li>
+<li><a href="#5--testability--pass" id="toc-5--testability--pass">5 ·
+Testability — <code>pass</code></a></li>
+<li><a href="#6--boundary-contracts--pass"
+id="toc-6--boundary-contracts--pass">6 · Boundary contracts —
+<code>pass</code></a></li>
+<li><a href="#7--documentation--pass" id="toc-7--documentation--pass">7
+· Documentation — <code>pass</code></a></li>
+<li><a href="#8--risk-register--pass-with-followup"
+id="toc-8--risk-register--pass-with-followup">8 · Risk register —
+<code>pass-with-followup</code></a></li>
+<li><a href="#findings" id="toc-findings">Findings</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="reviewmd--spec-103-build_scene_distance-path-a-pipeline-wiring">REVIEW.md
+— spec-103 <code>build_scene_distance</code> (Path A) pipeline
+wiring</h1>
+<p><strong>Scope reviewed</strong>: the pipeline integration only — the
+<code>build_scene_distance</code> step, the
+<code>SceneDistanceBuilder</code> (Path A) helper, the two new
+<code>PipelineContext</code> fields, and the <code>cluster_scenes</code>
+precomputed-metric branch. NOT the full experiment validation (labels T1
+/ ARI T4 remain open — spec stays <strong>In Progress</strong>, not
+Implemented).</p>
+<p><strong>Overall verdict</strong>: <code>pass-with-followup</code>. No
+high-severity findings. No previously-green test is left failing by this
+change (the one contract test my new fields tripped was fixed in the
+same change). Three unrelated pre-existing failures surfaced during the
+full run and are filed as <strong>SIGHTING-118</strong> (none touch
+scene clustering).</p>
+<p>Date: 2026-07-22 · Reviewer: automated walk of
+CODE_REVIEW_CHECKLIST.md (8 sections).</p>
+<hr />
+<h2 id="1--structure--pass">1 · Structure — <code>pass</code></h2>
+<ul>
+<li><code>build_scene_distance.py</code> step is 71 LOC (≤80, spec-053).
+<code>SceneDistanceBuilder</code> added to
+<code>geo_time_fusion.py</code> (domain module, not the step) — a closed
+type family with <code>SceneDistanceInputs</code>/
+<code>SceneDistanceResult</code>, reused from the existing fuser. No
+module &gt;300 LOC.</li>
+<li>Step reads context → builds <code>Inputs</code> → calls
+<code>helper.calc()</code> → writes <code>Result</code> (the spec-053
+shape).</li>
+<li><code>calc()</code> takes one typed <code>Inputs</code> (not &gt;4
+params). No dead code; the superseded <code>SceneDistanceFuser</code> is
+explicitly labeled and still used by the experiment sweep (not
+orphaned).</li>
+</ul>
+<h2 id="2--code-quality--pass">2 · Code quality — <code>pass</code></h2>
+<ul>
+<li>No try/except on the new path (pure numpy). No bare excepts.</li>
+<li><code>if/else</code> nesting ≤2 (the precomputed-vs-embedding branch
+in <code>cluster_scenes</code>).</li>
+<li><code>config.get("boost", 0.6)</code> /
+<code>get("tau_sec", 60.0)</code> are genuinely-optional tuning knobs
+with a typed <code>BuildSceneDistanceConfig</code> backing them — not
+load-bearing silent defaults.</li>
+<li>Comments explain <em>why</em> (one-sided boost = the over-merge
+fix), not what.</li>
+</ul>
+<h2 id="3--naming--package--pass">3 · Naming / package —
+<code>pass</code></h2>
+<ul>
+<li><code>build_scene_distance</code> step name matches its file and
+produces
+(<code>scene_distance</code>/<code>scene_distance_signal</code>).</li>
+<li>Helper lives in <code>sim_bench/scene_cluster/</code> alongside
+<code>two_stage.py</code> (≥3 files now share the concern — correctly a
+subpackage). Config registered in <code>STEP_CONFIG_MODELS</code> +
+<code>__all__</code>.</li>
+</ul>
+<h2 id="4--layering--coupling--pass">4 · Layering / coupling —
+<code>pass</code></h2>
+<ul>
+<li><code>scene_cluster/</code> (domain) imports only numpy/stdlib; the
+step imports the helper (correct direction, no reverse import).
+<code>context.py</code> types the field as <code>Optional[Any]</code> to
+avoid importing the helper dataclass (no new coupling).</li>
+<li><strong>Single writer</strong>: <code>scene_distance</code> is
+written only by <code>build_scene_distance</code>; read only by
+<code>cluster_scenes</code>. <code>scene_clusters</code> still has its
+single writer (<code>cluster_scenes</code>) — unchanged.</li>
+</ul>
+<h2 id="5--testability--pass">5 · Testability — <code>pass</code></h2>
+<ul>
+<li><strong>Test inventory</strong>: unit = 7
+(<code>test_scene_distance_builder.py</code>) + 4
+(<code>test_build_scene_distance.py</code>, step+wiring) + 6
+(<code>test_two_stage.py</code>, the A3 probe) = 17 new.
+Static/architecture = the spec-034 contract test (now covers the 2 new
+fields). E2E on real data = the 3-trip report runs
+(<code>report_path_a.py</code>, Budapest/Austria/Germany) — the feature
+exercised on production photos.</li>
+<li><strong>Failure-mode walk-through</strong>:
+<ul>
+<li><em>over-merge</em> (visually-distinct shots minutes apart glued):
+<code>ut_SceneDistance_never_pushes_apart</code> +
+<code>ut_SceneDistance_far_apart_is_pure_visual</code> guard the
+one-sidedness that prevents it.</li>
+<li><em>near-dup miss</em> (rescue): covered end-to-end by the Austria
+case in the report; unit-guarded by
+<code>ut_SceneDistance_short_range_pull_shrinks_distance</code>.</li>
+<li><em>byte-identical-when-absent</em> (A5, binding):
+<code>ut_A5_boost_zero_equals_embedding_path</code> +
+<code>ut_cluster_scenes_unchanged_when_distance_absent</code>.</li>
+<li><em>no imputation</em> (missing time never fabricated):
+<code>ut_SceneDistance_missing_time_is_pure_visual</code>.</li>
+</ul></li>
+<li>Mock usage: none (toy vectors + filename timestamps, real code
+paths).</li>
+<li>Placement correct: unit in <code>tests/scene_cluster</code> +
+<code>tests/pipeline</code>; contract in
+<code>tests/architecture</code>.</li>
+</ul>
+<h2 id="6--boundary-contracts--pass">6 · Boundary contracts —
+<code>pass</code></h2>
+<ul>
+<li><code>BuildSceneDistanceConfig(extra="forbid")</code> on the new
+config (bounds: <code>boost∈[0,1]</code>,
+<code>tau_sec&gt;0</code>).</li>
+<li>The <code>scene_distance</code> field is consumed at a real boundary
+(<code>cluster_scenes</code> clusters it) — not a defined-but-unused
+contract.</li>
+<li><strong>Config knob → producer check</strong>:
+<code>cluster_scenes</code> only reads <code>scene_distance</code> when
+it is not None, and the only producer
+(<code>build_scene_distance</code>) sets it — no
+gated-value-without-producer (SIGHTING-061 class).</li>
+</ul>
+<h2 id="7--documentation--pass">7 · Documentation —
+<code>pass</code></h2>
+<ul>
+<li><code>spec.md</code> (design-update note added, supersedes D3),
+<code>tasks.md</code> (T2/T3 checked), this <code>REVIEW.md</code>.</li>
+<li><code>classes.html</code> (helper + Inputs/Result row),
+<code>data_flow.html</code> (opt-in step node), <code>context.py</code>
+docstring, <code>configs/pipeline.yaml</code> block — all updated. No DB
+column changed (in-run only) → no <code>db_schemas.html</code> change
+needed. <code>CHANGES_LOG.md</code> entry added. spec-034 contract
+updated for the 2 fields.</li>
+<li>LEARNINGS: candidate entry — "additive metadata fusion over-merges;
+one-sided short-range boost is the safe shape" — see follow-up
+below.</li>
+</ul>
+<h2 id="8--risk-register--pass-with-followup">8 · Risk register —
+<code>pass-with-followup</code></h2>
+<ul>
+<li><strong>Backwards-compat</strong>: zero. Step is gated by presence
+(not in any default pipeline); absent → clustering byte-identical (A5
+test). No legacy data breaks.</li>
+<li><strong>Hot-path perf</strong>:
+<code>SceneDistanceBuilder.calc</code> has an O(N²) Python loop for the
+time discount. On the largest trip (Germany, 797 imgs → ~317k
+pair-iterations) it is sub-second and dwarfed by DINOv2 extraction;
+acceptable. <strong>Follow-up</strong>: vectorize the discount
+(broadcast the pairwise <code>dt</code> matrix) if it is ever run on
+&gt;few-thousand-image sets. Filed as a note in tasks.md.</li>
+<li><strong>Deferred</strong>: labels (T1) + ARI scoring (T4) still open
+— spec stays In Progress. Face-style cluster-merge idea parked in
+tasks.md. Geo term unused in Path A (visual+time only).</li>
+</ul>
+<hr />
+<h2 id="findings">Findings</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Severity</th>
+<th>Finding</th>
+<th>Disposition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>none (fixed)</td>
+<td>New context fields tripped
+<code>test_pipeline_context_fields_covered</code></td>
+<td>Fixed: spec-034 rows added; test green</td>
+</tr>
+<tr>
+<td>2</td>
+<td>low</td>
+<td>O(N²) Python discount loop</td>
+<td>Follow-up: vectorize if run on &gt;few-thousand imgs (tasks.md)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>n/a (pre-existing)</td>
+<td>3 unrelated test failures + 1 stale-import test</td>
+<td>Filed <strong>SIGHTING-118</strong>; none touch scene
+clustering</td>
+</tr>
+</tbody>
+</table>
+<p><strong>No high-severity findings. Handoff of the wiring is OK. Spec
+remains In Progress pending the experiment-validation tasks (T1 labels,
+T4 ARI) before any flip to Implemented.</strong></p>
+</div>
+</body>
+</html>

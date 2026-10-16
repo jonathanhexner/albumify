@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-106--tasks-direction-b--live-curator"
+id="toc-spec-106--tasks-direction-b--live-curator">spec-106 — Tasks
+(Direction B — Live Curator)</a>
+<ul>
+<li><a href="#design-notes-decisions-from-architecturehtml"
+id="toc-design-notes-decisions-from-architecturehtml">Design notes
+(decisions, from architecture.html)</a></li>
+<li><a
+href="#build-order-prove-each-seam-before-stacking-the-next--architecturehtml-08"
+id="toc-build-order-prove-each-seam-before-stacking-the-next--architecturehtml-08">Build
+order (prove each seam before stacking the next — architecture.html
+§08)</a></li>
+<li><a href="#open-decisions-deciding-factors"
+id="toc-open-decisions-deciding-factors">Open decisions (deciding
+factors)</a></li>
+<li><a href="#future-hooks-noted-deferred"
+id="toc-future-hooks-noted-deferred">Future hooks (noted,
+deferred)</a></li>
+<li><a href="#explicitly-out-of-scope-v1"
+id="toc-explicitly-out-of-scope-v1">Explicitly out of scope
+(v1)</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-106--tasks-direction-b--live-curator">spec-106 — Tasks
+(Direction B — Live Curator)</h1>
+<p><strong>Status:</strong> In Progress — build started 2026-10-04.
+<strong>Design of record: <a
+href="architecture.html"><code>architecture.html</code></a></strong>
+(four planes, warm-up∥upload lifecycle, resolution tiers,
+show-everything, secrets, job state machine, observability/durability).
+Phase detail: <a href="plan.html"><code>plan.html</code></a>. Host
+decided: <strong>Modal</strong> (GPU worker scaffolded in spec-109).</p>
+<h2 id="design-notes-decisions-from-architecturehtml">Design notes
+(decisions, from architecture.html)</h2>
+<ul>
+<li><strong>Two shapes, one reuses the engine.</strong> The
+<strong>image pipeline</strong> (38 steps in <code>curate</code>) reuses
+<code>PipelineExecutor</code> as-is on Modal (device=cuda). The
+<strong>job orchestration</strong> is a NEW small <strong>event-driven
+state machine</strong> (control plane) — async/cross-service/long-lived;
+the existing synchronous executor does not fit it.</li>
+<li><strong>GPU is mandatory, not optional.</strong> The full-pipeline
+CPU baseline is <strong>9 s/img → non-interactive</strong> (spec-109
+T0.1). The live product runs on the Modal L4 worker. (This corrects the
+earlier "CPU ships v1, GPU is a later optimization" note — that was
+wrong.)</li>
+<li><strong>Resolution tiers:</strong> browser downscales to
+<strong>768px</strong> for ALL photos (analysis + review); ~1600px
+display for keepers; original download-only. Don't upload full-res for
+analysis.</li>
+<li><strong>Warm-up ∥ upload:</strong> fire the GPU warm-up when upload
+STARTS so the cold start hides under the upload.</li>
+<li><strong>Storage-reference, not inline bytes:</strong> browser
+uploads 768px directly to storage via a short-lived presigned URL; the
+API passes <code>job_id</code>; <code>curate</code> pulls from storage
+(idempotent → free resume).</li>
+<li><strong>Show everything:</strong> curation is a proposal, not a
+verdict. <code>album.json</code> carries EVERY photo + its drop reason;
+all are browsable + one-click promotable. Extends spec-107
+<code>set_aside</code>.</li>
+<li><strong>Secrets:</strong> Modal token + object-store creds on
+trusted hosts only (Vercel env / Modal Secret); NEVER in git / image /
+browser. Browser gets only scoped, expiring presigned URLs.</li>
+<li><strong>Observability/durability:</strong> every stage + step writes
+to the DB (<code>jobs</code>, <code>job_events</code>,
+<code>pipeline_steps</code>); the job is config too
+(<code>job_pipeline.yaml</code>-style); resume = idempotent re-run from
+the persisted stage. No heavyweight workflow engine.</li>
+<li><strong>Design tokens:</strong>
+<code>design_drafts/albumify_landing.html</code> → the app theme (both
+light/dark).</li>
+</ul>
+<h2
+id="build-order-prove-each-seam-before-stacking-the-next--architecturehtml-08">Build
+order (prove each seam before stacking the next — architecture.html
+§08)</h2>
+<h3
+id="p0--albumjson-normalizer-the-contract-everything-reads-white_check_mark-done-2026-10-05">P0
+— album.json normalizer (the contract everything reads) ✅ DONE
+2026-10-05</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T0.1
+<code>sim_bench/album/schema.py</code>:
+<code>Album/Pick/Dropped/Person/Counts/ScoreBreakdown</code> + reason
+codes (pick/near_dup/not_selected/set_aside); <code>to_dict()</code>
+JSON-friendly.</label></li>
+<li><label><input type="checkbox" checked="" />T0.2
+<code>sim_bench/album/normalizer.py</code>: pure <code>classify()</code>
+<strong>derives each photo's drop-reason from existing context</strong>
+(selected→pick, triage→set_aside, same-scene-as-pick→near_dup, else
+not_selected) + <code>normalize(context)</code> assembles picks (score
+breakdown + "what it beat" + caption), dropped-with- reasons (all
+promotable — show-everything), people, theme, counts. Maps straighten
+derivatives → original stem.</label></li>
+<li><label><input type="checkbox" checked="" />T0.3
+<code>tests/album/test_normalizer.py</code> (6 tests): classify (pure,
+synthetic) + normalize (synthetic context) + straighten mapping +
+JSON-serializable. Green.</label></li>
+</ul>
+<ul>
+<li><strong>Gate:</strong> ✅ a finished context → a valid
+<code>album.json</code> carrying EVERY photo + its reason; same shape
+for live + showcase. (Real-data validation lands when the worker runs,
+spec-110.)</li>
+</ul>
+<h3 id="p1--prove-the-gpu-seam">P1 — Prove the GPU seam</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T1.1
+<code>modal setup</code> → <code>gpu_smoke</code> (CUDA proof). |
+2026-10-09 auth/billing working, NVIDIA L4 + CUDA confirmed</label></li>
+<li><label><input type="checkbox" />T1.2 <strong>storage-reference
+<code>curate(job_id)</code></strong> — pull 768px images from storage,
+run pipeline (device=cuda), write <code>album.json</code> + displays
+back. Replaces the inline-bytes scaffold. Upload models to the
+Volume.</label></li>
+<li><label><input type="checkbox" />T1.3 First real <code>curate</code>
+on a stored trip → per-image <strong>GPU latency</strong> + $/album
+(proves ≤3–5 min).</label></li>
+</ul>
+<h3 id="p2--storage--presigned-upload">P2 — Storage + presigned
+upload</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />T2.1 Object store (S3/R2) + per-job
+prefixes + TTL. <strong>→ moved to spec-112 (Neon + R2,
+2026-10-10).</strong></label></li>
+<li><label><input type="checkbox" />T2.2 Presign endpoint (scoped,
+expiring write URL); browser PUTs 768px directly.</label></li>
+<li><label><input type="checkbox" />T2.3 Prove: browser → storage
+(presigned) → <code>curate</code> pulls. No keys reach the
+browser.</label></li>
+</ul>
+<h3 id="p3--control-plane-api--job-state-machine">P3 — Control-plane API
++ job state machine</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />T3.1
+(<code>jobs</code>/<code>job_events</code> tables + status set →
+spec-112 P2) Job state machine (config-driven stages +
+<code>needs</code>);
+<code>jobs</code>/<code>job_events</code>/<code>pipeline_steps</code>
+DB; <strong>write-to-DB on every transition</strong> (status, duration,
+error) — the telemetry "what happened".</label></li>
+<li><label><input type="checkbox" />T3.2 <code>POST /jobs</code> (bounds
+guard → presign → <strong>fire warm-up</strong> → enqueue),
+<code>GET /jobs/{id}</code> (status from DB),
+<code>GET /jobs/{id}/result</code>. Stateless orchestrator advanced by
+events.</label></li>
+<li><label><input type="checkbox" />T3.3 Bounds guard: count/size/MIME +
+decode probe, rate limit, TTL; typed rejections
+(413/415/429).</label></li>
+<li><label><input type="checkbox" />T3.4 Secrets wiring: Vercel env
+(API) + <code>modal.Secret</code> (worker); nothing in
+git/image/browser.</label></li>
+<li><label><input type="checkbox" />T3.5 Resume: on restart, read job
+row → run from first incomplete stage; <code>curate</code>
+idempotent.</label></li>
+</ul>
+<h3 id="p4--nextjs-front-end">P4 — Next.js front end</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />T4.1 <code>create-next-app</code>
+(TS, App Router); port <code>albumify_landing.html</code> tokens; both
+themes; reduced-motion.</label></li>
+<li><label><input type="checkbox" />T4.2 Dropzone + <strong>in-browser
+downscale to 768px</strong> + client-side bounds; direct-to-storage
+upload.</label></li>
+<li><label><input type="checkbox" />T4.3 Live progress from
+<code>job_events</code>; <strong>album + show-everything viewer</strong>
+(picks + dropped-with-reasons + promote).</label></li>
+<li><label><input type="checkbox" />T4.4 A designed screen for every job
+state: queued / rejected / timeout / failed / expired.</label></li>
+</ul>
+<h3 id="p5--showcase-seed">P5 — Showcase seed</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />T5.1 Ingest the 3 precomputed trips
+into the <code>album.json</code> shape → instant first
+paint.</label></li>
+<li><label><input type="checkbox" />T5.2 "How it works" explainer +
+honest vs-VLM panel ("preliminary pilot, N=1" caveat).</label></li>
+</ul>
+<h3 id="p6--harden--ship">P6 — Harden &amp; ship</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />T6.1 Adversarial uploads
+(HEIC/oversized/zero-faces); cold-start budget; concurrency
+UX.</label></li>
+<li><label><input type="checkbox" />T6.2 Cost/budget alarm; privacy pass
+(TTL purge verified); responsive + perf.</label></li>
+<li><label><input type="checkbox" />T6.3 AC1–AC10 (plan.html) on the
+public URL from a second device.</label></li>
+<li><label><input type="checkbox" />T6.4 <code>/code-review</code> →
+<code>REVIEW.md</code>; CHANGES_LOG + README; flip to
+Implemented.</label></li>
+</ul>
+<h2 id="open-decisions-deciding-factors">Open decisions (deciding
+factors)</h2>
+<ul>
+<li><strong>Content-safety stance</strong> (public anon upload) — ToS +
+TTL minimum, or add a safety pre-check? Blocks public launch.</li>
+<li><strong>Shareable/persistent albums in v1?</strong> If no →
+originals stay on device, zero full-res upload (simplest). If yes →
+upload full-res of keepers lazily after selection. Decides whether
+keeper-upload exists.</li>
+</ul>
+<h2 id="future-hooks-noted-deferred">Future hooks (noted, deferred)</h2>
+<ul>
+<li>AI "configure" stage in the job state machine (album-type tuner,
+spec-108) — parametrizes the run, never sequences the pipeline.
+Escalation, not orchestration.</li>
+</ul>
+<h2 id="explicitly-out-of-scope-v1">Explicitly out of scope (v1)</h2>
+<p>Accounts / login / persistence beyond a TTL'd anon session · billing
+· heavyweight workflow engine · any change to the image pipeline beyond
+device=cuda + the global top-K cap.</p>
+</div>
+</body>
+</html>

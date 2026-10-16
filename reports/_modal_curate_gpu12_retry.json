@@ -1,0 +1,24 @@
+{
+  "ok": false,
+  "failed_step": "triage_content",
+  "error": "Step 'triage_content' failed: ImportError: pyarrow requires NumPy 2.0 or newer, found 1.26.4",
+  "driver": {
+    "n_images": 12,
+    "wall_s": 147.3,
+    "mode": "gpu",
+    "inputs": [
+      "20260822_174227.jpg",
+      "20260822_181211.jpg",
+      "20260822_181213.jpg",
+      "20260822_181233.jpg",
+      "20260822_181234.jpg",
+      "20260822_181235.jpg",
+      "20260822_181541.jpg",
+      "20260822_181544.jpg",
+      "20260822_181546.jpg",
+      "20260822_181556.jpg",
+      "20260822_181557.jpg",
+      "20260822_181558.jpg"
+    ]
+  }
+}

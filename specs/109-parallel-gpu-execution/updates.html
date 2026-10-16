@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>updates</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="updates.md">updates.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-109--progress--verification-updates"
+id="toc-spec-109--progress--verification-updates">spec-109 — Progress
+&amp; verification updates</a>
+<ul>
+<li><a
+href="#2026-10-09--follow-up-audit-trackers-reconciled-saved-outputs-compared-regressions-re-run"
+id="toc-2026-10-09--follow-up-audit-trackers-reconciled-saved-outputs-compared-regressions-re-run">2026-10-09
+— Follow-up audit: trackers reconciled, saved outputs compared,
+regressions re-run</a></li>
+<li><a
+href="#2026-10-09--gpu-retry-two-remaining-routing-gaps-fixed-rebuilt-image-dependency-failure"
+id="toc-2026-10-09--gpu-retry-two-remaining-routing-gaps-fixed-rebuilt-image-dependency-failure">2026-10-09
+— GPU retry: two remaining routing gaps fixed; rebuilt-image dependency
+failure</a></li>
+<li><a
+href="#2026-10-09--first-gpu-run-the-pipeline-barely-used-the-gpu-p1-finding-fixes-staged-not-yet-re-run"
+id="toc-2026-10-09--first-gpu-run-the-pipeline-barely-used-the-gpu-p1-finding-fixes-staged-not-yet-re-run">2026-10-09
+— First GPU run: the pipeline barely used the GPU (P1 finding, fixes
+staged, NOT yet re-run)</a></li>
+<li><a
+href="#2026-10-09--gpu-run-v2-after-the-six-fixes-gpu-engaged-but-12-images-is-too-few-to-read-per-image-cost"
+id="toc-2026-10-09--gpu-run-v2-after-the-six-fixes-gpu-engaged-but-12-images-is-too-few-to-read-per-image-cost">2026-10-09
+— GPU run v2 (after the six fixes): GPU engaged, but 12 images is too
+few to read per-image cost</a></li>
+<li><a
+href="#2026-10-09--gpu-run-v3-48-images-the-cost-model-is-175-s-fixed--088-simg"
+id="toc-2026-10-09--gpu-run-v3-48-images-the-cost-model-is-175-s-fixed--088-simg">2026-10-09
+— GPU run v3 (48 images): the cost model is ~175 s fixed + 0.88
+s/img</a></li>
+<li><a
+href="#2026-10-09--probe-the-134-s-insightface-warm-up-is-a-model-download-twice-per-run"
+id="toc-2026-10-09--probe-the-134-s-insightface-warm-up-is-a-model-download-twice-per-run">2026-10-09
+— Probe: the 134 s InsightFace warm-up is a model DOWNLOAD, twice per
+run</a></li>
+<li><a
+href="#2026-10-09--job-flow-on-gpu-48-imgs-twice--the-real-root-cause-of-the-warm-up-pure-python-protobuf"
+id="toc-2026-10-09--job-flow-on-gpu-48-imgs-twice--the-real-root-cause-of-the-warm-up-pure-python-protobuf">2026-10-09
+— Job flow on GPU (48 imgs, twice) + the real root cause of the warm-up:
+pure-Python protobuf</a></li>
+<li><a
+href="#2026-10-09--protobuf-4-applied-warm-48-image-gpu-run-172-s---49-s-10-simg-all-in"
+id="toc-2026-10-09--protobuf-4-applied-warm-48-image-gpu-run-172-s---49-s-10-simg-all-in">2026-10-09
+— protobuf 4 applied: warm 48-image GPU run 172 s -&gt; 49 s (1.0 s/img
+all-in)</a></li>
+<li><a href="#how-it-was-verified-so-far"
+id="toc-how-it-was-verified-so-far">How it was verified so far</a></li>
+<li><a href="#decisions" id="toc-decisions">Decisions</a></li>
+<li><a href="#open" id="toc-open">Open</a></li>
+<li><a href="#timeline" id="toc-timeline">Timeline</a></li>
+<li><a href="#reports--artifacts" id="toc-reports--artifacts">Reports
+&amp; artifacts</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-109--progress--verification-updates">spec-109 — Progress
+&amp; verification updates</h1>
+<p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
+href="tasks.html">tasks.md</a> · <a
+href="modal_explainer.html">modal_explainer.html</a> · <a
+href="modal_q_and_a.html">modal_q_and_a.html</a> · roadmap stage:
+<strong>C</strong> · see <a href="../../ROADMAP.html">ROADMAP.md</a></p>
+<p><strong>Status:</strong> In Progress — re-scoped 2026-10-05 to GPU
+enablement + parallelism only (spec-110 proves the worker first).</p>
+<h2
+id="2026-10-09--follow-up-audit-trackers-reconciled-saved-outputs-compared-regressions-re-run">2026-10-09
+— Follow-up audit: trackers reconciled, saved outputs compared,
+regressions re-run</h2>
+<ul>
+<li>Reconciled ROADMAP and spec-106/109/110 task statuses with the
+latest run: Modal auth/billing are working, the image runs, and the
+12-photo GPU proof is complete. No spec is marked Implemented.</li>
+<li>Saved CPU versus GPU retry outputs have identical ordered input
+filenames, selected filename sets, album_theme, and set_aside. Pick
+order and temporary paths differ; exact JSON idempotence is
+unproven.</li>
+<li>Next performance work: profile face-model initialization versus
+inference, persist non-HF weights, reuse/preload sessions, then measure
+100/300-photo latency and cost. Storage/job durability belongs to
+110.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>How it was verified</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Saved CPU/GPU output comparison</td>
+<td><a href="../../reports/_modal_curate_last.json">CPU JSON</a>, <a
+href="../../reports/_modal_curate_gpu12_retry2.json">GPU retry JSON</a>:
+12 identical inputs, same four picks/theme/set_aside; 201.504 → 142.186
+s pipeline; GPU driver wall 313.8 s</td>
+</tr>
+<tr>
+<td>CUDA provider and bottleneck evidence</td>
+<td><a href="../../reports/_modal_curate_gpu12_retry2.log">GPU retry
+log</a>: active CUDA providers; detection + embeddings 101.850 s /
+142.186 s = 71.6%</td>
+</tr>
+<tr>
+<td>Current local regression run</td>
+<td><strong>37 passed, 1 slow test deselected</strong>: checkpoint_io,
+tilt_device, ram_tagger_device, content_triage, triage_steps,
+score_tilt, score_occlusion, albumify_default_spec, pipeline_spec,
+typed_step_configs, album normalizer;
+<code>-m 'not slow and not e2e and not budapest'</code> explicitly
+includes offline tests under the needs_data-marked tilt module</td>
+</tr>
+<tr>
+<td>Limits</td>
+<td>Read-only comparison of existing remote artifacts plus local tests;
+no new Modal benchmark/deployment. Storage-reference result, same-job
+idempotence, complete cache reuse, full-size latency, and measured cost
+remain pending</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="2026-10-09--gpu-retry-two-remaining-routing-gaps-fixed-rebuilt-image-dependency-failure">2026-10-09
+— GPU retry: two remaining routing gaps fixed; rebuilt-image dependency
+failure</h2>
+<ul>
+<li>Fixed <code>estimate_tilt</code> dropping <code>device</code> before
+<code>estimate_tilt_raw</code>, and RAM++ input tensors staying on CPU
+after its model moved to CUDA (SIGHTING-124).</li>
+<li>Enabled Modal output and worker INFO logging. First retry stopped at
+<code>triage_content</code>: newly resolved PyArrow requires NumPy 2,
+incompatible with the pinned NumPy 1.26.4 (SIGHTING-125). Pinned
+<code>pyarrow==21.0.0</code> to the working local version; second retry
+succeeded.</li>
+<li><strong>Local verification:</strong> 19 focused tests
+(GeoCalib/RAM++ device routing, triage, scorer cache contracts, portable
+checkpoints) and 9 pipeline/config tests pass;
+<code>git diff --check</code> passes.</li>
+<li>First retry evidence:
+<code>reports/_modal_curate_gpu12_retry.json</code>,
+<code>reports/_modal_curate_gpu12_retry.log</code>; Modal run
+<code>ap-4EGJfnlJ7n0Sc0fPVaAaqc</code>.</li>
+<li><strong>Real GPU verification:</strong>
+<code>reports/_modal_curate_gpu12_retry2.json</code> and
+<code>.log</code>; Modal run <code>ap-9Jh59QFjqss55pWj7gORxH</code>.
+<code>ok=True</code>; exactly the same 12 inputs and four selected
+filenames as the CPU reference. Restored theme matches CPU: outdoors
+with family/friends, facets food=1/nature=3/people=8. Both InsightFace
+detection and embedding logs confirm active CUDA providers; no pipeline
+model-failure warnings.</li>
+<li>Pipeline <strong>142.186 s = 11.85 s/img</strong>, versus 202.862 s
+previous GPU / 201.504 s CPU (1.43x / 1.42x faster). Driver wall
+<strong>313.8 s</strong>, including startup and image preparation;
+pipeline improvement is not a wall-time improvement.</li>
+<li>Per-step previous GPU → retry: RAM++ 11.439 → 12.497 s (previous run
+returned empty tags), occlusion 18.103 → 6.944 s, GeoCalib 55.518 →
+5.994 s, DINOv2 11.226 → 6.019 s, InsightFace detection 53.544 → 56.936
+s, embeddings 43.391 → 44.914 s.</li>
+<li><strong>Remaining bottleneck:</strong> face detection + embedding
+account for 101.850 s (72% of pipeline time), despite CUDA being active.
+Logs show two complete buffalo_l model initializations and downloads
+outside the persistent HF cache. Profile initialization versus
+inference, reuse/preload model sessions, and persist non-HF caches
+before claiming the 100-photo latency gate. Same-job idempotence and
+persistent deployment remain unverified.</li>
+</ul>
+<h2
+id="2026-10-09--first-gpu-run-the-pipeline-barely-used-the-gpu-p1-finding-fixes-staged-not-yet-re-run">2026-10-09
+— First GPU run: the pipeline barely used the GPU (P1 finding, fixes
+staged, NOT yet re-run)</h2>
+<ul>
+<li><code>gpu_smoke</code> passed (NVIDIA L4, torch 2.4.0+cu121).
+<code>curate</code> on 12 Slovakia26 images on the L4: <strong>16.9
+s/img — identical to the 4-vCPU CPU container (16.8)</strong>. Picks
+identical by filename. Result:
+<code>reports/_modal_curate_gpu12.json</code>. Per step vs CPU
+container: RAM++ 2.7x faster, YOLO 2.7x; InsightFace detect 1.3x,
+embeddings 1.0x; GeoCalib tilt 0.5x, occlusion CLIP 0.6x, DINOv2 0.7x
+(slower).</li>
+<li>Root causes found by reading each step's device path:
+<ol type="1">
+<li>the GPU function had no <code>cpu=</code> request (default
+fractional core) -&gt; every CPU-bound step starved;</li>
+<li><code>InsightFaceFaceAnalyzer</code> hard-coded
+<code>providers=['CPUExecutionProvider']</code> (device only changed
+ctx_id);</li>
+<li>the image installed both <code>onnxruntime</code> (via insightface)
+and <code>onnxruntime-gpu</code>; the CPU wheel shadows the CUDA
+provider;</li>
+<li><code>extract_scene_embedding</code> dropped <code>device</code>
+when building the DINOv2 extractor;</li>
+<li><code>OcclusionScorer</code> hard-coded
+<code>clip.load(device="cpu")</code>; 6. GeoCalib
+<code>_get_model</code> hard-coded <code>.to("cpu")</code>.</li>
+</ol></li>
+<li><strong>Staged fixes (code edited, imports verified, NOT yet run on
+Modal):</strong> <code>curate</code> gets <code>cpu=4.0</code>; CUDA+CPU
+providers in <code>face_analyzer.py</code> (logs the active provider);
+image layer uninstalls both ORT wheels and installs
+<code>onnxruntime-gpu==1.19.2</code> last, <code>torch</code> imported
+before ORT; DINOv2 device passthrough;
+<code>OcclusionScorer(device=)</code> + <code>score_occlusion</code>
+device knob; <code>TiltScorer(device=)</code> + <code>score_tilt</code>
+device knob. <code>score_iqa</code> is rule-based (no model) — nothing
+to move.</li>
+<li><strong>Next:</strong> re-run
+<code>scripts/modal_curate_driver.py --start 300 --n 12</code> (GPU),
+confirm the InsightFace provider log says CUDA, compare per-step times;
+then AC4 idempotence; then storage-reference input.</li>
+</ul>
+<h2
+id="2026-10-09--gpu-run-v2-after-the-six-fixes-gpu-engaged-but-12-images-is-too-few-to-read-per-image-cost">2026-10-09
+— GPU run v2 (after the six fixes): GPU engaged, but 12 images is too
+few to read per-image cost</h2>
+<ul>
+<li>Same 12 images, same picks. InsightFace log confirms
+<code>active=['CUDAExecutionProvider', ...]</code>. GeoCalib tilt 28.7 s
+-&gt; 7.1 s (x4), DINOv2 x1.2, RAM++ x2.1, YOLO x2.3. Face stack got
+SLOWER (detect 67.6 -&gt; 75.1 s, embeddings 44.6 -&gt; 62.2 s). Total
+15.5 s/img (CPU container 16.8). Result:
+<code>reports/_modal_curate_gpu12_v2.json</code>.</li>
+<li>Reading: every step's time includes its model's cold load from the
+network-backed Volume plus first-inference setup, so at N=12 fixed costs
+dominate and the per-image GPU cost is not yet visible. For InsightFace
+specifically, ORT's default EXHAUSTIVE cuDNN algorithm search runs on
+first inference per shape for each of buffalo_l's 5 nets, twice (detect
+step + embedding step reload).</li>
+<li>Staged: <code>cudnn_conv_algo_search=HEURISTIC</code> in both
+InsightFace loaders; next run uses N=48 to separate fixed vs per-image
+cost (if detect time stays ~75 s at 4x images, it is warm-up; if it
+4x's, it is per-image).</li>
+</ul>
+<h2
+id="2026-10-09--gpu-run-v3-48-images-the-cost-model-is-175-s-fixed--088-simg">2026-10-09
+— GPU run v3 (48 images): the cost model is ~175 s fixed + 0.88
+s/img</h2>
+<ul>
+<li><p>48 contiguous Slovakia26 images on the L4 (HEURISTIC cuDNN
+search): ok, 13 picks, 8 scene clusters, 0 set aside, wall 255 s. Result
+<code>reports/_modal_curate_gpu48.json</code>.</p></li>
+<li><p>Comparing 12 vs 48 images per step gives fixed (warm-up) vs
+marginal (per image) cost:</p>
+<table>
+<thead>
+<tr>
+<th>step</th>
+<th>fixed s</th>
+<th>per-image s</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>insightface_detect_faces</td>
+<td>72</td>
+<td>0.28</td>
+</tr>
+<tr>
+<td>extract_face_embeddings</td>
+<td>62</td>
+<td>~0</td>
+</tr>
+<tr>
+<td>triage_content (RAM++)</td>
+<td>13</td>
+<td>0.11</td>
+</tr>
+<tr>
+<td>score_tilt (GeoCalib)</td>
+<td>4</td>
+<td>0.24</td>
+</tr>
+<tr>
+<td>score_occlusion</td>
+<td>9</td>
+<td>0.06</td>
+</tr>
+<tr>
+<td>extract_scene_embedding</td>
+<td>6</td>
+<td>0.05</td>
+</tr>
+<tr>
+<td><strong>total</strong></td>
+<td><strong>175</strong></td>
+<td><strong>0.88</strong></td>
+</tr>
+</tbody>
+</table></li>
+<li><p>Reading: per image the GPU is ~19x the dev box (0.88 vs 16.8 s).
+The problem is the fixed 175 s, of which 134 s is InsightFace warm-up —
+and buffalo_l is loaded TWICE (detect step, then the embedding step
+builds its own FaceAnalysis). 100 photos today ≈ 175 + 88 = 4.4 min; 715
+≈ 13.6 min.</p></li>
+<li><p>Implication for the live product: the fixed cost must move out of
+the request path — load once per container (<code>@modal.enter</code>),
+keep the container warm during upload (spec-106 warm-up ∥ upload), and
+share one InsightFace instance between the two steps. Probing where the
+134 s go next.</p></li>
+</ul>
+<h2
+id="2026-10-09--probe-the-134-s-insightface-warm-up-is-a-model-download-twice-per-run">2026-10-09
+— Probe: the 134 s InsightFace warm-up is a model DOWNLOAD, twice per
+run</h2>
+<ul>
+<li>Isolated timing on the L4 (<code>ort_warmup_probe</code>):
+<code>buffalo_l_cached: False</code>;
+<code>FaceAnalysis("buffalo_l")</code> construct = <strong>71 s (CPU
+provider) / 61 s (CUDA)</strong>; <code>prepare</code> 0-1 s; first
+inference 0.6 s; next 5 inferences <strong>0.07 s total (14
+ms/img)</strong>. torch CUDA init 4.7 s.</li>
+<li>So <code>~/.insightface</code> is container-local and buffalo_l is
+re-downloaded from GitHub on every run, once by the detect step and once
+by the embedding step. GPU inference itself is ~20x faster than
+CPU.</li>
+<li>Fix staged: <code>_persist_home_caches()</code> symlinks
+<code>~/.insightface</code> and <code>~/.cache</code> (torch hub, clip,
+pyiqa, ultralytics) onto the <code>/cache</code> Volume before any model
+import; <code>TORCH_HOME</code> set. First run populates the cache,
+every later container reuses it. Re-running 48 images twice (populate,
+then warm).</li>
+</ul>
+<h2
+id="2026-10-09--job-flow-on-gpu-48-imgs-twice--the-real-root-cause-of-the-warm-up-pure-python-protobuf">2026-10-09
+— Job flow on GPU (48 imgs, twice) + the real root cause of the warm-up:
+pure-Python protobuf</h2>
+<ul>
+<li>Storage-reference flow (<code>stage_job</code> -&gt;
+<code>curate_job</code> -&gt; <code>fetch_album</code>, built in a
+parallel session) ran end to end on the L4: album.json with picks + drop
+reasons + display copies. Run 1 227 s, run 2 (warm) 172 s; detect 89
+-&gt; 64 s, embed 70 -&gt; 61 s even with buffalo_l on the Volume.
+Result <code>reports/_modal_job_slovakia48.json</code>.</li>
+<li>AC4: same 13 picks, identical scores, <strong>different
+order</strong> -&gt; SIGHTING-126 (fixed in the normalizer by the
+parallel session: chronological picks + canonical scene ids).</li>
+<li>ORT session creation measured at &lt; 1 s per model (all
+providers/thread settings). The 60 s is <code>onnx.load</code> inside
+InsightFace's constructors under <strong>pure-Python protobuf</strong>
+(3.20.3 has no C++ wheel for py3.11): 38 s + MemoryError on the 144 MB
+landmark model locally -&gt; SIGHTING-129. Affects the dev box
+identically. Fix candidate (protobuf 4.25 + mediapipe 0.10.14) being
+measured in a container variant.</li>
+</ul>
+<h2
+id="2026-10-09--protobuf-4-applied-warm-48-image-gpu-run-172-s---49-s-10-simg-all-in">2026-10-09
+— protobuf 4 applied: warm 48-image GPU run 172 s -&gt; 49 s (1.0 s/img
+all-in)</h2>
+<ul>
+<li>Probe (free CPU container, standalone images): protobuf 3.20.3 =
+<code>python</code> impl, FaceAnalysis construct 38.7 s; protobuf 4.25.3
+= <code>upb</code>, <strong>1.1 s</strong>; mediapipe 0.10.14 + onnx
+1.22 import fine.</li>
+<li>Applied to the worker image (+ venv, requirements.txt, CLAUDE.md
+rule; owner approved). Job flow, 48 images, twice: run 1 73 s (wall 92),
+<strong>run 2 49 s (wall 51)</strong>. detect 88.7 -&gt; 4.7 s,
+embeddings 69.6 -&gt; 1.8 s. Same 13 picks. Result
+<code>reports/_modal_job_slovakia48_pb4.json</code>.</li>
+<li>Remaining fixed cost (~25 s): RAM++ 10 s (2.8 GB checkpoint from the
+Volume), GeoCalib 12 s, occlusion CLIP 6 s — all model loads;
+<code>@modal.enter</code> warm containers (P2) hide them.</li>
+<li>Projection: 100 photos ≈ 1.5-2 min cold, under 1.5 min warm — inside
+the 3-5 min bar without any parallelism. Full 715-photo Slovakia roll ≈
+11-12 min.</li>
+<li>AC4 idempotence still reports False on the job flow — being diffed
+(SIGHTING-126 fix is in the tree).</li>
+</ul>
+<h2 id="how-it-was-verified-so-far">How it was verified so far</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T0.1 CPU baseline of the REAL default pipeline (38 steps)</td>
+<td><code>reports/2026-10-04_spec109_baseline/</code>: <strong>9.0
+s/img</strong> on 57 Slovakia images; RAM++ triage 3.0 s + GeoCalib tilt
+2.6 s = 62%, face stack 2.0 s = 23%</td>
+</tr>
+<tr>
+<td>T0.2 "defer face embeddings" idea</td>
+<td>Rejected with evidence: <code>select_best</code> defaults to face
+sub-clusters, which need embeddings on all faces</td>
+</tr>
+<tr>
+<td>P2 Modal worker (<code>sim_bench/serving/modal_app.py</code>)</td>
+<td>L4 smoke, image imports, and full CPU/GPU inline-byte runs passed
+2026-10-09. GPU retry: 142.186 s / 12 images, matching CPU picks/theme.
+Persistent deployment and 100/300-photo gate pending</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decisions">Decisions</h2>
+<ul>
+<li>Host = Modal (owner approved 2026-10-04). L4 GPU, ~1–2 cents per
+album, $0 idle.</li>
+<li>Whole pipeline runs on one GPU box; CPU-only steps are ~2% of time,
+not worth splitting.</li>
+<li>Storage-reference input and the warm-up trigger moved to spec-110 /
+spec-106.</li>
+</ul>
+<h2 id="open">Open</h2>
+<ul>
+<li>Account/auth blocker cleared; storage-reference result, idempotence,
+complete model reuse and persistent deployment remain in
+spec-110/106.</li>
+<li>Complete per-step runtime device evidence (MediaPipe may be
+CPU-only), face-model profiling/preload, 100/300-photo latency, measured
+cost, and parallelism/fallback gates.</li>
+</ul>
+<h2 id="timeline">Timeline</h2>
+<ul>
+<li>2026-10-05 — re-scoped to GPU-only; CPU proof split into
+spec-110.</li>
+<li>2026-10-04 — baseline report; Modal approved; worker scaffolded; two
+explainer HTMLs.</li>
+<li>2026-10-01 — PRD created from the Slovakia26 findings.</li>
+</ul>
+<h2 id="reports--artifacts">Reports &amp; artifacts</h2>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../../reports/_modal_curate_gpu12_retry2.json">GPU retry
+JSON</a> · <a
+href="../../reports/_modal_curate_gpu12_retry2.log">log</a></td>
+<td>12-photo successful L4 run; matching CPU pick filenames/theme;
+142.186 s pipeline, 313.8 s driver wall; CUDA providers active</td>
+</tr>
+<tr>
+<td><a href="../../reports/_modal_curate_last.json">Modal CPU
+JSON</a></td>
+<td>same 12 inputs; four picks; 201.504 s pipeline on 4 vCPU; comparison
+reference, not persisted album.json</td>
+</tr>
+<tr>
+<td><a href="../../reports/2026-10-04_spec109_baseline/summary.html">CPU
+baseline summary</a></td>
+<td>full 38-step pipeline, 57 Slovakia imgs: 9.0 s/img; RAM++ 3.0 s +
+GeoCalib 2.6 s = 62%, face stack 2.0 s = 23%. Raw per-step numbers in
+<code>timing.json</code> (timing only, no image report)</td>
+</tr>
+<tr>
+<td><a
+href="../../reports/2026-10-01_slovakia_analysis/report.html">Slovakia26
+analysis</a></td>
+<td>the earlier lean <code>faces</code> number (2.2 s/img, face stack
+75%) this baseline corrected</td>
+</tr>
+<tr>
+<td><a href="modal_explainer.html">Modal explainer</a></td>
+<td>what Modal is, our architecture and implementation, deploy
+lifecycle, cost table</td>
+</tr>
+<tr>
+<td><a href="modal_q_and_a.html">Modal Q&amp;A</a></td>
+<td>whole pipeline on one GPU box; storage-reference input; reactive
+warm-up</td>
+</tr>
+<tr>
+<td>Worker scaffold</td>
+<td><code>sim_bench/serving/modal_app.py</code> + <code>README.md</code>
+(commands: setup → smoke → volume put → curate → deploy)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>

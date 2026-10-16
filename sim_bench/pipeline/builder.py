@@ -30,23 +30,30 @@ class PipelineBuilder:
         return [self._registry.get(name) for name in ordered_names]
 
     def _resolve_dependencies(self, step_names: list[str]) -> list[str]:
-        """Add missing dependencies to the step list."""
-        resolved = set()
-        to_process = list(step_names)
+        """Add missing dependencies, preserving the author's declared order.
 
-        while to_process:
-            name = to_process.pop(0)
-            if name in resolved:
-                continue
+        Order matters: the topological sort tie-breaks by position in this list, so the
+        pipeline.yaml order is honored among independent steps (e.g. triage before scoring).
+        Listed steps keep their given order; auto-added dependencies are appended after.
+        """
+        resolved: list[str] = []
+        seen: set[str] = set()
 
-            resolved.add(name)
-            step = self._registry.get(name)
+        def add(name: str) -> None:
+            if name not in seen:
+                seen.add(name)
+                resolved.append(name)
 
+        for name in step_names:          # keep the author's order first
+            add(name)
+        i = 0
+        while i < len(resolved):         # then pull in any missing (transitive) deps
+            step = self._registry.get(resolved[i])
             for dep in step.metadata.depends_on:
-                if dep not in resolved and self._registry.has_step(dep):
-                    to_process.append(dep)
-
-        return list(resolved)
+                if dep not in seen and self._registry.has_step(dep):
+                    add(dep)
+            i += 1
+        return resolved
 
     def _topological_sort(self, step_names: list[str]) -> list[str]:
         """Sort steps so dependencies come before dependents."""
@@ -60,11 +67,15 @@ class PipelineBuilder:
                     graph[dep].append(name)
                     in_degree[name] += 1
 
+        # Tie-break by the author's declared order (index in step_names), NOT alphabetically.
+        # Among steps whose dependencies are all satisfied, the one listed earliest in the
+        # pipeline runs first — so pipeline.yaml order is meaningful (e.g. triage before scoring).
+        rank = {name: i for i, name in enumerate(step_names)}
         queue = [name for name, degree in in_degree.items() if degree == 0]
         result = []
 
         while queue:
-            queue.sort()
+            queue.sort(key=lambda n: rank[n])
             name = queue.pop(0)
             result.append(name)
 

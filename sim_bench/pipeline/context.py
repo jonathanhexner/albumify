@@ -57,6 +57,20 @@ class PipelineContext:
     geo_coord_predictions: dict[str, list] = field(default_factory=dict)
     image_captions: dict[str, str] = field(default_factory=dict)
 
+    # spec-107 triage: images removed from curation (screenshots / documents / etc.),
+    # and images kept-but-flagged for user review. Each entry:
+    # {image, reason, confidence, tier}. Nothing is deleted — the UI shows + restores these.
+    set_aside: list[dict] = field(default_factory=list)
+    triage_review: list[dict] = field(default_factory=list)
+    # spec-107 P1 / spec-108: RAM++ content tags per image (cached), reused for semantic layer.
+    ram_tags: dict[str, list] = field(default_factory=dict)
+    # spec-108 P0: cleaned semantic tags + coarse facets per image, derived from ram_tags.
+    # semantic_tags[path] = {"tags": [...], "facets": {facet: [...]}, "primary_facet": "nature"}
+    semantic_tags: dict[str, dict] = field(default_factory=dict)
+    # spec-108 P1: one album-level theme for the whole run (album_type, facet_distribution, motifs,
+    # top_tags, source="tags"|"vlm"). Drives album-type tuning + UI copy.
+    album_theme: dict = field(default_factory=dict)
+
     # Analysis scores (keyed by image path string)
     iqa_scores: dict[str, float] = field(default_factory=dict)
     ava_scores: dict[str, float] = field(default_factory=dict)

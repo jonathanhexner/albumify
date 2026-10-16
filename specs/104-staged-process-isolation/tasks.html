@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-104-tasks--staged-process-isolation"
+id="toc-spec-104-tasks--staged-process-isolation">spec-104 tasks —
+Staged process isolation</a>
+<ul>
+<li><a href="#phase-0--cheap-in-process-win-done-2026-07-30"
+id="toc-phase-0--cheap-in-process-win-done-2026-07-30">Phase 0 — cheap
+in-process win (DONE 2026-07-30)</a></li>
+<li><a
+href="#phase-1--executor-isolation-primitive-default-off-byte-identical-when-off"
+id="toc-phase-1--executor-isolation-primitive-default-off-byte-identical-when-off">Phase
+1 — executor isolation primitive (default OFF, byte-identical when
+off)</a></li>
+<li><a href="#phase-2--declare-album-stages--equivalence-gate"
+id="toc-phase-2--declare-album-stages--equivalence-gate">Phase 2 —
+declare album stages + equivalence gate</a></li>
+<li><a href="#phase-3--wire-real-entry-points--scale-proof"
+id="toc-phase-3--wire-real-entry-points--scale-proof">Phase 3 — wire
+real entry points + scale proof</a></li>
+<li><a href="#phase-4--docs-review-close"
+id="toc-phase-4--docs-review-close">Phase 4 — docs, review,
+close</a></li>
+<li><a href="#decisions-needed-before-phase-1-from-spec-8"
+id="toc-decisions-needed-before-phase-1-from-spec-8">Decisions needed
+before Phase 1 (from spec §8)</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-104-tasks--staged-process-isolation">spec-104 tasks —
+Staged process isolation</h1>
+<p>Status legend: <code>[ ]</code> todo · <code>[&gt;]</code> in
+progress · <code>[x]</code> done · <code>[!]</code> blocked</p>
+<h2 id="phase-0--cheap-in-process-win-done-2026-07-30">Phase 0 — cheap
+in-process win (DONE 2026-07-30)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T0.1 Add
+<code>release()</code> to <code>extract_face_embeddings</code>
+(<code>_release_models("_extractor")</code> + reset
+config).</label></li>
+<li><label><input type="checkbox" checked="" />T0.2 Verify with probe:
+retained delta +366 → +5 MB (freed ~361 MB). CHANGES_LOG +
+SIGHTING-117.</label></li>
+<li><label><input type="checkbox" checked="" />T0.3 Audit all step files
+for model-attr-without-release: only <code>insightface_score_pose</code>
+(pure-geometry <code>FacePoseScorer</code>, no model) — no
+action.</label></li>
+</ul>
+<h2
+id="phase-1--executor-isolation-primitive-default-off-byte-identical-when-off">Phase
+1 — executor isolation primitive (default OFF, byte-identical when
+off)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T1.1 <code>IsolatedStage</code> spec
+type:
+<code>{name, steps: list[str], imports: list[str], exports: list[str]}</code>.
+Add optional <code>isolated_stages</code> to <code>PipelineSpec</code>
+(empty = today's behavior).</label></li>
+<li><label><input type="checkbox" />T1.2 Module-level worker
+<code>sim_bench/pipeline/isolation.py::_run_stage(payload)</code> —
+rebuilds a fresh <code>PipelineContext</code> from imports + a local
+disk-backed cache_handler, runs the stage's steps via the existing
+executor loop (Tier-1 <code>release()</code> between steps), returns
+exports + relayed progress. <code>spawn</code> context; args
+picklable.</label></li>
+<li><label><input type="checkbox" />T1.3 Executor: when the next steps
+match a declared stage, dispatch via <code>_run_stage</code> in a child
+process instead of inline; merge returned exports into the parent
+context.</label></li>
+<li><label><input type="checkbox" />T1.4 Progress relay: child →
+<code>Queue</code> → parent invokes the real
+<code>on_progress</code>.</label></li>
+<li><label><input type="checkbox" />T1.5 Error handling: stage exception
+→ serialized error → failed <code>StepResult</code> (respect
+fail_fast).</label></li>
+<li><label><input type="checkbox" />T1.6 Crash handling: non-zero child
+exit / no result → failed
+<code>StepResult("&lt;stage&gt;", "child exited N — likely OOM")</code>;
+<strong>parent survives</strong>.</label></li>
+<li><label><input type="checkbox" />T1.7 Startup guard: assert every
+declared <code>exports</code> key is picklable; fail the spec loudly if
+not.</label></li>
+<li><label><input type="checkbox" />T1.8 Tests
+<code>tests/pipeline/test_isolated_stage.py</code>: - runs a 2-step
+stage in a child, exports return, parent RSS stays ~flat (psutil
+assert). [AC1] - stage step raises → failed StepResult, parent alive.
+[AC3] - child <code>os._exit(1)</code> mid-stage → failed StepResult,
+parent alive. [AC4] - no <code>isolated_stages</code> → identical
+StepResults + context to inline run. [AC5]</label></li>
+</ul>
+<h2 id="phase-2--declare-album-stages--equivalence-gate">Phase 2 —
+declare album stages + equivalence gate</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T2.1 Define image_features /
+face_clustering / scene_org stages (disjoint model sets; crops stay
+inside image_features — NOT exported).</label></li>
+<li><label><input type="checkbox" />T2.2 Equivalence test: staged vs
+inline on Budapest anchor → identical clusters (15/340) + identical
+<code>selected_images</code>. [AC2] Byte-compare exports.</label></li>
+<li><label><input type="checkbox" />T2.3 Memory test: staged
+<code>faces</code> on Austria (474) peak RSS &lt; 1.2 GB via the full
+probe. [AC1]</label></li>
+<li><label><input type="checkbox" />T2.4 Run
+<code>tests/face_clustering/e2e_budapest/</code> — stays green.
+[AC7]</label></li>
+</ul>
+<h2 id="phase-3--wire-real-entry-points--scale-proof">Phase 3 — wire
+real entry points + scale proof</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T3.1 Albumify arm
+(<code>albumify_vs_vlm/albumify_arm.py</code>) + API
+<code>PipelineService</code>: opt into staged mode (flag or image-count
+threshold — see open Q3).</label></li>
+<li><label><input type="checkbox" />T3.2 Germany (788)
+<code>default</code> pipeline completes without OOM on the dev box;
+capture peak. [AC6]</label></li>
+<li><label><input type="checkbox" />T3.3 Re-run Austria/Germany Albumify
+arms on the FULL people-aware pipeline (was blocked by the OOM → had
+fallen back to <code>minimal</code>); note in the spec-102
+reports.</label></li>
+</ul>
+<h2 id="phase-4--docs-review-close">Phase 4 — docs, review, close</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T4.1 Update
+<code>docs/architecture/data_flow.html</code> + <code>overview.md</code>
+(staged execution + boundaries).</label></li>
+<li><label><input type="checkbox" />T4.2 <code>/code-review</code> →
+REVIEW.md; resolve High findings.</label></li>
+<li><label><input type="checkbox" />T4.3 LEARNINGS.md entry (torch CPU
+memory not OS-returnable on Windows → isolation is the only reliable
+free; measured, corrects SIGHTING-117).</label></li>
+<li><label><input type="checkbox" />T4.4 Flip spec + SIGHTING-117 to
+Implemented; remove the deferred-half note.</label></li>
+</ul>
+<h2 id="decisions-needed-before-phase-1-from-spec-8">Decisions needed
+before Phase 1 (from spec §8)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />Q1 stage grouping: 3 stages vs
+finer.</label></li>
+<li><label><input type="checkbox" />Q2 imports/exports: explicit lists
+vs auto-derived from requires/produces.</label></li>
+<li><label><input type="checkbox" />Q3 staged mode: auto-enable above an
+image-count threshold vs always-explicit flag.</label></li>
+</ul>
+</div>
+</body>
+</html>

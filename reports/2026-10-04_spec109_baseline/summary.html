@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>summary</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="summary.md">summary.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-109-t01--full-pipeline-cpu-timing-baseline-2026-10-04"
+id="toc-spec-109-t01--full-pipeline-cpu-timing-baseline-2026-10-04">spec-109
+T0.1 — full pipeline CPU timing baseline (2026-10-04)</a>
+<ul>
+<li><a href="#per-step-cost-slowest-simage"
+id="toc-per-step-cost-slowest-simage">Per-step cost (slowest),
+s/image</a></li>
+<li><a href="#findings" id="toc-findings">Findings</a></li>
+<li><a href="#implication" id="toc-implication">Implication</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-109-t01--full-pipeline-cpu-timing-baseline-2026-10-04">spec-109
+T0.1 — full pipeline CPU timing baseline (2026-10-04)</h1>
+<p>Full <code>default_pipeline</code> (38 steps, incl. occlusion CLIP +
+GeoCalib tilt) on 75 Slovakia images (57 scored after triage set aside
+11), CPU, 768 px. <strong>Total 512 s = 9.0 s/image.</strong></p>
+<h2 id="per-step-cost-slowest-simage">Per-step cost (slowest),
+s/image</h2>
+<table>
+<thead>
+<tr>
+<th>step</th>
+<th>s/img</th>
+<th>model</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>triage_content (RAM++)</td>
+<td><strong>3.0</strong></td>
+<td>RAM++ swin-L</td>
+</tr>
+<tr>
+<td>score_tilt (GeoCalib)</td>
+<td><strong>2.6</strong></td>
+<td>GeoCalib</td>
+</tr>
+<tr>
+<td>insightface_detect_faces</td>
+<td>1.1</td>
+<td>SCRFD</td>
+</tr>
+<tr>
+<td>extract_face_embeddings</td>
+<td>0.9</td>
+<td>ArcFace</td>
+</tr>
+<tr>
+<td>score_occlusion</td>
+<td>0.5</td>
+<td>CLIP ViT-B/32</td>
+</tr>
+<tr>
+<td>extract_scene_embedding</td>
+<td>0.3</td>
+<td>DINOv2</td>
+</tr>
+<tr>
+<td>detect_persons</td>
+<td>0.2</td>
+<td>YOLOv8</td>
+</tr>
+<tr>
+<td>score_ava / select_best / score_iqa / …</td>
+<td>≤0.1 each</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<ol type="1">
+<li><strong>9 s/img on CPU → non-interactive.</strong> 100 photos ≈ 15
+min, 300 ≈ 45 min. The live product's ≤3–5 min bar is impossible on CPU.
+<strong>GPU (P2) is mandatory, not optional.</strong></li>
+<li><strong>The cost moved.</strong> vs the 2026-10-01 lean
+<code>faces</code> run (face stack = 75%), the full pipeline is now
+dominated by the two heaviest <em>added</em> models: <strong>RAM++
+triage (3.0 s) + GeoCalib tilt (2.6 s) = 62%</strong> of the 9 s/img.
+The face stack (detect + embed = 2.0 s) is 23%.</li>
+<li><strong>All top costs are GPU-friendly models</strong> (RAM++,
+GeoCalib, SCRFD/ArcFace, CLIP, DINOv2, YOLO) — GPU should cut the
+per-image time ~10–30× across the board.</li>
+<li><strong>Defer-embedding is NOT a free win</strong> (dependency
+finding): <code>select_best</code> default
+<code>use_face_subclusters=True</code> consumes
+<code>face_clusters</code> → needs embeddings on all faces before
+selection. Embeddings stay on the critical path; speed them up (P1/P2),
+don't skip them.</li>
+</ol>
+<h2 id="implication">Implication</h2>
+<p>The baseline confirms the live product cannot run on CPU. The real
+blocker is <strong>choosing + provisioning a GPU host (Modal, per
+spec-106)</strong> — then P1 (parallelize per-image steps) + P2 (GPU)
+deliver the ≤3–5 min target. Cheap per-image reconsideration also worth
+a look: GeoCalib tilt (2.6 s) only yields a tie-breaker penalty — making
+it GPU-only or optional is low-hanging.</p>
+<p>Repro:
+<code>.venv/Scripts/python scripts/spec109_baseline_timing.py</code>
+(reads <code>_slovakia_triage_work</code>).</p>
+</div>
+</body>
+</html>

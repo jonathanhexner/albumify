@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modal, and how Albumify uses it</title>
+<style>
+:root{
+  --ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;
+  --ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;
+  --accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;
+  --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --maxw:1120px;
+}
+@media (prefers-color-scheme:light){:root{--ground:#F5F0E7;--surface:#FFF;--surface-2:#FBF6EC;--line:#E4DACB;
+  --ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}}
+:root[data-theme="dark"]{--ground:#0E0D0C;--surface:#17130F;--surface-2:#1E1913;--line:#2C2620;--ink:#F2EEE7;--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--warn:#E0A23A;--crit:#D98A6A;}
+:root[data-theme="light"]{--ground:#F5F0E7;--surface:#FFF;--surface-2:#FBF6EC;--line:#E4DACB;--ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--warn:#B0791B;--crit:#B25B3C;}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+h1,h2,h3,h4{margin:0;letter-spacing:-.02em;text-wrap:balance;font-weight:800;}
+p{margin:0;}
+code{font-family:var(--mono);font-size:.88em;color:var(--ink-dim);}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+header{border-bottom:1px solid var(--line);background:var(--surface);}
+.head{padding:52px 0 42px;}
+.flag{display:inline-block;width:14px;height:18px;background:var(--accent);vertical-align:-3px;margin-right:10px;clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);}
+h1{font-size:clamp(29px,5vw,50px);line-height:1.02;margin:14px 0 0;}
+.sub{margin-top:16px;font-size:clamp(16px,2vw,20px);color:var(--ink-dim);max-width:64ch;}
+.thesis{font-family:var(--serif);font-style:italic;font-size:clamp(17px,2.2vw,22px);color:var(--ink);margin-top:20px;max-width:58ch;line-height:1.35;}
+.toc{border-bottom:1px solid var(--line);background:var(--ground);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);}
+.toc .wrap{display:flex;gap:6px;overflow-x:auto;padding:11px 24px;scrollbar-width:none;}
+.toc .wrap::-webkit-scrollbar{display:none;}
+.toc a{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;padding:5px 10px;border-radius:7px;}
+.toc a:hover{color:var(--ink);background:var(--surface-2);text-decoration:none;}
+section{padding:56px 0;border-bottom:1px solid var(--line);}
+.sec-eyebrow{margin-bottom:10px;}
+.sec-title{font-size:clamp(22px,3vw,32px);}
+.sec-lead{margin-top:12px;color:var(--ink-dim);max-width:72ch;}
+.sec-lead code{color:var(--accent);}
+h3.blk{font-size:17px;margin:30px 0 10px;}
+p.body{margin-top:12px;color:var(--ink-dim);max-width:72ch;}
+p.body code{color:var(--accent);}
+/* concept cards */
+.cards{display:grid;gap:14px;margin-top:24px;}
+.g2{grid-template-columns:repeat(2,1fr);}.g3{grid-template-columns:repeat(3,1fr);}
+@media(max-width:820px){.g2,.g3{grid-template-columns:1fr;}}
+.card{border:1px solid var(--line);border-radius:13px;padding:17px 18px;background:var(--surface);}
+.card h4{font-size:13px;font-family:var(--mono);letter-spacing:.03em;text-transform:uppercase;color:var(--accent);}
+.card p{margin-top:8px;font-size:14px;color:var(--ink-dim);}
+.card.eng h4{color:var(--eng);}
+/* analogy strip */
+.analogy{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px;}
+@media(max-width:700px){.analogy{grid-template-columns:1fr;}}
+.an{border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:var(--surface-2);}
+.an .k{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.an h4{font-size:15px;margin-top:6px;}
+.an p{margin-top:7px;font-size:13.5px;color:var(--ink-dim);}
+/* diagram */
+.diagram{margin-top:24px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--surface-2),var(--surface));padding:20px;overflow-x:auto;}
+.arch{min-width:680px;display:flex;flex-direction:column;gap:0;}
+.tier{display:grid;grid-template-columns:118px 1fr;gap:16px;}
+.tier .rail{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;justify-content:center;border-right:2px solid var(--line);padding:8px 0;}
+.tier .rail b{display:block;color:var(--ink);font-size:12px;margin-bottom:3px;}
+.tier .boxes{display:flex;gap:11px;flex-wrap:wrap;padding:11px 0;align-items:stretch;}
+.node{flex:1;min-width:150px;border:1px solid var(--line);border-radius:11px;padding:12px 14px;background:var(--surface);}
+.node .t{font-weight:700;font-size:13.5px;}
+.node .d{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.45;}
+.node .k{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);}
+.node.accent{border-color:color-mix(in srgb,var(--accent) 55%,transparent);}.node.accent .t{color:var(--accent);}
+.node.eng{border-color:color-mix(in srgb,var(--eng) 50%,transparent);}.node.eng .t{color:var(--eng);}
+.node.modal{border-color:color-mix(in srgb,var(--good) 55%,transparent);background:color-mix(in srgb,var(--good) 7%,var(--surface));}.node.modal .t{color:var(--good);}
+.flowdown{grid-column:1/-1;text-align:center;color:var(--muted);font-size:14px;height:22px;line-height:22px;letter-spacing:.25em;}
+.badge{display:inline-block;margin-left:7px;font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:5px;vertical-align:2px;}
+.b-have{background:var(--surface-2);color:var(--muted);}.b-new{background:color-mix(in srgb,var(--good) 20%,transparent);color:var(--good);}.b-todo{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn);}
+/* scale-to-zero viz */
+.stz{margin-top:24px;border:1px solid var(--line);border-radius:13px;background:var(--surface);padding:20px;}
+.stz .lane{display:grid;grid-template-columns:90px 1fr;gap:12px;align-items:center;margin-bottom:10px;}
+.stz .lbl{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.stz .bar{height:22px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);display:flex;overflow:hidden;}
+.stz .seg{height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--ink);white-space:nowrap;}
+.seg.idle{background:var(--surface-2);color:var(--muted);}
+.seg.cold{background:color-mix(in srgb,var(--warn) 35%,var(--surface));}
+.seg.run{background:color-mix(in srgb,var(--good) 40%,var(--surface));}
+.seg.bill{background:color-mix(in srgb,var(--accent) 40%,var(--surface));}
+.stz .note{font-size:12.5px;color:var(--muted);margin-top:8px;}
+/* code */
+pre{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--ink-dim);}
+pre .c{color:var(--muted);font-style:italic;}
+pre .k{color:var(--accent);}
+pre .f{color:var(--eng);}
+/* code-map rows */
+.cmap{margin-top:22px;display:flex;flex-direction:column;gap:10px;}
+.cm{display:grid;grid-template-columns:180px 1fr;gap:14px;border:1px solid var(--line);border-radius:11px;padding:13px 16px;background:var(--surface);}
+@media(max-width:640px){.cm{grid-template-columns:1fr;}}
+.cm .code{font-family:var(--mono);font-size:12px;color:var(--accent);}
+.cm .what{font-size:13.5px;color:var(--ink-dim);}
+.cm .what b{color:var(--ink);}
+/* steps */
+.steps{margin-top:22px;display:flex;flex-direction:column;}
+.step{display:grid;grid-template-columns:40px 1fr;gap:16px;}
+.step .n{font-family:var(--mono);color:var(--accent);font-weight:700;padding-top:14px;}
+.step .body2{border-left:2px solid var(--line);padding:12px 0 20px 20px;position:relative;}
+.step .body2::before{content:"";position:absolute;left:-7px;top:16px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--ground);}
+.step:last-child .body2{border-left-color:transparent;}
+.step h4{font-size:15px;}
+.step .where{font-family:var(--mono);font-size:11px;margin-top:3px;}
+.where.you{color:var(--crit);}.where.auto{color:var(--good);}
+.step p{margin-top:7px;font-size:13.5px;color:var(--ink-dim);}
+.step code{color:var(--accent);}
+/* table */
+.tscroll{overflow-x:auto;margin-top:22px;border:1px solid var(--line);border-radius:12px;}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:540px;}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--surface-2);}
+tbody tr:last-child td{border-bottom:0;}
+tbody td:first-child{font-weight:700;color:var(--ink);}
+td.rec{background:color-mix(in srgb,var(--accent) 9%,transparent);}
+.num{text-align:right;font-variant-numeric:tabular-nums;}
+.callout{margin-top:22px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 12px 12px 0;padding:16px 20px;}
+.callout .k{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);}
+.callout p{margin-top:8px;font-size:14px;color:var(--ink-dim);}
+.callout.warn{border-left-color:var(--warn);}.callout.warn .k{color:var(--warn);}
+.note{margin-top:14px;font-size:13px;color:var(--muted);}
+footer{padding:32px 0 60px;}
+.foot{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap head">
+    <div class="eyebrow"><span class="flag"></span>Albumify · infrastructure explainer · spec-109 / spec-106</div>
+    <h1>Modal — and how we use it</h1>
+    <p class="sub">What Modal is in general, then specifically how Albumify's GPU worker is architected and implemented in <code>sim_bench/serving/modal_app.py</code>.</p>
+    <p class="thesis">"Write a normal Python function, decorate it, and it runs on a GPU in the cloud that costs nothing when idle."</p>
+  </div>
+</header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#what">01 · What Modal is</a>
+  <a href="#concepts">02 · Core concepts</a>
+  <a href="#scaletozero">03 · Scale-to-zero</a>
+  <a href="#arch">04 · Our architecture</a>
+  <a href="#impl">05 · Our implementation</a>
+  <a href="#lifecycle">06 · Deploy lifecycle</a>
+  <a href="#cost">07 · Cost</a>
+  <a href="#status">08 · Status</a>
+</div></nav>
+
+<!-- 01 -->
+<section id="what">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">01 · What Modal is</div>
+    <h2 class="sec-title">Serverless GPUs, defined in Python</h2>
+    <p class="sec-lead">Modal is a cloud platform for running Python code on cloud machines — including <b>GPUs</b> — <em>without</em> managing servers, Dockerfiles, or Kubernetes. You describe the machine and its dependencies <em>in Python</em>, decorate a function, and Modal runs it on demand. "Serverless" here means: you never provision or keep a server running; Modal spins one up when a request arrives and tears it down when idle.</p>
+    <div class="analogy">
+      <div class="an">
+        <div class="k">The old way</div>
+        <h4>Rent a GPU server 24/7</h4>
+        <p>Provision a VM with a GPU, install CUDA + drivers + deps, write a Dockerfile, keep it running (and paying) even at 3am with zero traffic, scale it by hand. Weeks of DevOps; a constant bill.</p>
+      </div>
+      <div class="an">
+        <div class="k">The Modal way</div>
+        <h4>Decorate a function</h4>
+        <p><code>@app.function(gpu="L4")</code> on a Python function. Modal builds the container, finds a GPU, runs it per-request, bills per-second, and scales to <b>zero</b> when idle. The infra <em>is</em> the Python file.</p>
+      </div>
+    </div>
+    <p class="body">For Albumify this matters because our pipeline needs heavy GPU models (InsightFace, DINOv2, RAM++, GeoCalib, CLIP) but traffic is <b>bursty</b> — a portfolio piece serves a handful of uploads, then sits idle for hours. Paying for a 24/7 GPU would be absurd; paying per-second only when someone uploads is exactly right.</p>
+  </div>
+</section>
+
+<!-- 02 -->
+<section id="concepts">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">02 · Core concepts</div>
+    <h2 class="sec-title">Five things, and nothing more</h2>
+    <p class="sec-lead">Modal's whole model is five primitives. Once these click, the code reads plainly.</p>
+    <div class="cards g2">
+      <div class="card"><h4>App</h4><p>A named deployment unit — a collection of functions + their resources. Ours: <code>modal.App("albumify-curator")</code>.</p></div>
+      <div class="card eng"><h4>Image</h4><p>The container's contents, <em>built from Python</em>: a base OS + pip/apt installs + your code. e.g. <code>Image.debian_slim().pip_install("torch", ...)</code>. Modal builds + caches it in the cloud. No Dockerfile.</p></div>
+      <div class="card"><h4>Function</h4><p>A normal Python function wrapped with <code>@app.function(gpu="L4", image=..., volumes=...)</code>. That decorator is where you say "run this on a GPU, in this image, with these disks." Call it with <code>.remote(args)</code> and it executes in the cloud.</p></div>
+      <div class="card eng"><h4>Volume</h4><p>A persistent cloud disk that survives between runs — for data too big to bake into the image. We put the ~GBs of model weights + the HuggingFace cache here, uploaded <em>once</em>.</p></div>
+      <div class="card"><h4>run vs deploy</h4><p><code>modal run</code> = execute once (dev/smoke). <code>modal deploy</code> = publish a persistent endpoint others can call by name (<code>Function.from_name(...)</code>) — what the live app uses.</p></div>
+    </div>
+    <div class="callout">
+      <div class="k">The key mental shift</div>
+      <p>There is <b>no separate infrastructure repo</b>. The container image, the GPU choice, the disks, and the business logic all live in <em>one Python file</em> that you version alongside your code. "Infrastructure as code" taken literally — it's just Python.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 03 -->
+<section id="scaletozero">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">03 · Scale-to-zero &amp; cold starts</div>
+    <h2 class="sec-title">You pay only while code runs</h2>
+    <p class="sec-lead">This is the property that makes a GPU affordable for a bursty portfolio app. When no one is uploading, <b>zero</b> GPU instances exist and the bill is <b>$0</b>. A request wakes one up ("cold start"), it runs, then it's torn down after a short idle.</p>
+    <div class="stz">
+      <div class="lane"><div class="lbl">traffic</div><div class="bar">
+        <span class="seg idle" style="flex:4">idle (hours)</span>
+        <span class="seg" style="flex:2;background:color-mix(in srgb,var(--eng) 30%,var(--surface))">upload!</span>
+        <span class="seg idle" style="flex:5">idle</span>
+      </div></div>
+      <div class="lane"><div class="lbl">GPU state</div><div class="bar">
+        <span class="seg idle" style="flex:4">0 instances</span>
+        <span class="seg cold" style="flex:1">cold start</span>
+        <span class="seg run" style="flex:1">running</span>
+        <span class="seg idle" style="flex:5">scaled to 0</span>
+      </div></div>
+      <div class="lane"><div class="lbl">billing</div><div class="bar">
+        <span class="seg idle" style="flex:4">$0</span>
+        <span class="seg bill" style="flex:2">billed per-second</span>
+        <span class="seg idle" style="flex:5">$0</span>
+      </div></div>
+      <p class="note">Cold start = the seconds to pull the cached image + mount volumes + load models into GPU memory. Mitigations we use: models on a <b>Volume</b> (not re-downloaded), a cached image, and keeping the model-load inside the warm function. Modal also offers memory snapshots to shrink this further.</p>
+    </div>
+    <p class="body">The trade: the very first request after idle pays the cold-start latency. For a portfolio app that's acceptable (and the <em>showcase trips render instantly</em> from precomputed data while a live upload spins up — spec-106). A 24/7 service would instead keep one instance warm.</p>
+  </div>
+</section>
+
+<!-- 04 -->
+<section id="arch">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">04 · Our architecture</div>
+    <h2 class="sec-title">Where Modal sits in Albumify</h2>
+    <p class="sec-lead">Modal is the <b>data plane</b> — the heavy GPU worker. The browser and the control-plane API never touch a model; they hand a bounded job to Modal's <code>curate</code> function and read the result back.</p>
+    <div class="diagram">
+      <div class="arch">
+        <div class="tier">
+          <div class="rail"><b>Client</b>Vercel</div>
+          <div class="boxes">
+            <div class="node accent"><div class="t">Next.js app <span class="badge b-todo">spec-106</span></div><div class="d">Upload UI · live progress · album viewer. Static on the edge; never runs a model.</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; bounded upload (≤N photos) &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Control plane</b>FastAPI</div>
+          <div class="boxes">
+            <div class="node eng"><div class="t">Job API <span class="badge b-todo">spec-106</span></div><div class="d">Validates bounds, then calls the Modal function by name: <code>Function.from_name("albumify-curator","curate").remote(images)</code>. Holds no GPU.</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; .remote(images) &nbsp;—&nbsp; Modal spins up a GPU &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Data plane</b>Modal · L4 GPU</div>
+          <div class="boxes">
+            <div class="node modal"><div class="t">curate() <span class="badge b-new">built</span></div><div class="d">Runs the real 38-step pipeline on GPU (device=cuda): triage → score → faces → scenes → select → captions. Returns album + scores + set_aside + theme.</div><div class="k">sim_bench/serving/modal_app.py</div></div>
+            <div class="node modal"><div class="t">gpu_smoke() <span class="badge b-new">built</span></div><div class="d">Trivial CUDA-visibility check — deploy FIRST to prove the path.</div></div>
+          </div>
+        </div>
+        <div class="flowdown">↓ &nbsp; mounts (persistent) &nbsp; ↓</div>
+        <div class="tier">
+          <div class="rail"><b>Storage</b>Volumes</div>
+          <div class="boxes">
+            <div class="node"><div class="t">albumify-models</div><div class="d">InsightFace · DINOv2 · YOLO · AVA · occlusion CLIP · GeoCalib · Siamese weights. Uploaded once.</div></div>
+            <div class="node"><div class="t">albumify-hf-cache</div><div class="d">HuggingFace downloads (RAM++, etc.) — populated on first run, reused after.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>Reused wholesale:</b> the entire pipeline engine, executor, step configs, result shapes. Modal doesn't change the pipeline — it just runs it on a GPU. The same <code>execute_spec()</code> that runs on your CPU runs in <code>curate</code>, with <code>device=cuda</code>.</p>
+  </div>
+</section>
+
+<!-- 05 -->
+<section id="impl">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">05 · Our implementation</div>
+    <h2 class="sec-title">Reading <code>modal_app.py</code></h2>
+    <p class="sec-lead">The whole worker is one file. Here's the skeleton, then what each piece does.</p>
+    <pre><span class="c"># 1. the App + persistent disks</span>
+app = modal.<span class="f">App</span>(<span class="k">"albumify-curator"</span>)
+models_vol   = modal.Volume.from_name(<span class="k">"albumify-models"</span>,   create_if_missing=True)
+hf_cache_vol = modal.Volume.from_name(<span class="k">"albumify-hf-cache"</span>, create_if_missing=True)
+
+<span class="c"># 2. two images: a light one to prove the GPU, a full one for the pipeline</span>
+smoke_image = modal.Image.<span class="f">debian_slim</span>().pip_install(<span class="k">"torch"</span>)
+full_image  = (modal.Image.debian_slim()
+    .apt_install(<span class="k">"libgl1"</span>, <span class="k">"git"</span>)                      <span class="c"># opencv/mediapipe libs</span>
+    .pip_install(<span class="k">"torch"</span>, <span class="k">"onnxruntime-gpu"</span>, <span class="k">"insightface"</span>, ...)
+    .pip_install(<span class="k">"git+…/recognize-anything"</span>, extra_options=<span class="k">"--no-deps"</span>)
+    .<span class="f">add_local_python_source</span>(<span class="k">"sim_bench"</span>, <span class="k">"face_cluster"</span>, <span class="k">"geo_cluster"</span>))
+
+<span class="c"># 3. the smoke: prove CUDA is visible on the Modal GPU</span>
+<span class="k">@app.function</span>(image=smoke_image, gpu=<span class="k">"L4"</span>)
+<span class="k">def</span> <span class="f">gpu_smoke</span>():
+    <span class="k">import</span> torch
+    <span class="k">return</span> {<span class="k">"cuda_available"</span>: torch.cuda.is_available(), ...}
+
+<span class="c"># 4. the real worker: run the pipeline on GPU over uploaded images</span>
+<span class="k">@app.function</span>(image=full_image, gpu=<span class="k">"L4"</span>, timeout=1800,
+    volumes={<span class="k">"/models"</span>: models_vol, <span class="k">"/cache"</span>: hf_cache_vol})
+<span class="k">def</span> <span class="f">curate</span>(images, pipeline=<span class="k">"default"</span>):
+    <span class="c"># write uploaded bytes to a temp dir, load pipeline.yaml,</span>
+    <span class="c"># flip every step's device -> "cuda", run execute_spec(), return the album</span>
+    ...</pre>
+
+    <div class="cmap">
+      <div class="cm"><div class="code">App("albumify-curator")</div><div class="what"><b>The deployment unit.</b> Everything below belongs to it; the name is how the control-plane API finds the function later.</div></div>
+      <div class="cm"><div class="code">two Images</div><div class="what"><b>Smoke vs full, on purpose.</b> The full image's dep set is finicky (numpy&lt;2 for pyiqa, transformers for RAM++, onnxruntime-gpu, geocalib) and will need iteration on first deploy — so the trivial <code>smoke_image</code> lets us prove the GPU path in 30s before fighting the big image.</div></div>
+      <div class="cm"><div class="code">add_local_python_source</div><div class="what"><b>Ships our code into the container</b> as importable packages — no <code>pip install</code> of the repo, no publishing. <code>curate</code> imports <code>sim_bench.pipeline</code> exactly as on your machine.</div></div>
+      <div class="cm"><div class="code">Volumes (/models, /cache)</div><div class="what"><b>The ~GBs of weights live here, not in the image.</b> Baking them in would make every image build huge and slow; a Volume is uploaded once and mounted on every run. <code>HF_HUB_CACHE</code> points at the cache volume so RAM++ etc. download once.</div></div>
+      <div class="cm"><div class="code">device → "cuda"</div><div class="what"><b>The one pipeline change.</b> Steps take a <code>device</code> config knob (default <code>cpu</code>); <code>curate</code> flips each to <code>cuda</code>. The engine code is otherwise identical to the local run.</div></div>
+      <div class="cm"><div class="code">gpu="L4", timeout=1800</div><div class="what"><b>The resource request.</b> An L4 (cheap inference GPU) for up to 30 min/job. Change the string to <code>"A10G"</code>/<code>"A100"</code> if timing demands — a one-word edit.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 -->
+<section id="lifecycle">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">06 · Deploy lifecycle</div>
+    <h2 class="sec-title">From code to a live GPU endpoint</h2>
+    <p class="sec-lead">Who does what. <span style="color:var(--crit)">Red = only you can (your Modal account/billing)</span>; <span style="color:var(--good)">green = Modal does automatically</span>.</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div class="body2"><h4>Authenticate</h4><div class="where you">you · once</div><p><code>modal setup</code> → browser login. Writes a token so the CLI can talk to your account.</p></div></div>
+      <div class="step"><div class="n">2</div><div class="body2"><h4>Prove the GPU (smoke)</h4><div class="where you">you · 30s</div><p><code>modal run …/modal_app.py</code> → Modal builds the light image, grabs an L4, runs <code>gpu_smoke</code>, prints <code>cuda_available: True</code>. Confirms account + GPU + path before any heavy work.</p></div></div>
+      <div class="step"><div class="n">3</div><div class="body2"><h4>Build the full image</h4><div class="where auto">Modal · automatic, cached</div><p>First call to <code>curate</code> triggers Modal to build + cache the full image (pip/apt/our code). Slow once; instant after. Iterate here if a dep clashes.</p></div></div>
+      <div class="step"><div class="n">4</div><div class="body2"><h4>Upload models</h4><div class="where you">you · once</div><p><code>modal volume put albumify-models ./models /models</code>. The weights land on the Volume; HF-downloaded models self-populate the cache volume on first run.</p></div></div>
+      <div class="step"><div class="n">5</div><div class="body2"><h4>Deploy</h4><div class="where you">you</div><p><code>modal deploy …/modal_app.py</code> → <code>curate</code> becomes a persistent named endpoint. The control-plane API calls it via <code>Function.from_name(...)</code>.</p></div></div>
+      <div class="step"><div class="n">6</div><div class="body2"><h4>Serve</h4><div class="where auto">Modal · automatic</div><p>Each upload spins up a GPU, runs <code>curate</code>, returns the album, scales back to zero. You pay per-second of run time only.</p></div></div>
+    </div>
+    <div class="callout warn">
+      <div class="k">The honest boundary</div>
+      <p>Steps 1, 2, 4, 5 are <b>yours</b> — they need your Modal auth and billing, which Claude cannot do. The code (steps 3/6 logic) is written and verified to construct; it gets <em>runtime-verified</em> when you deploy. Same pattern as the local VLM: real code, verified on real hardware by you.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 07 -->
+<section id="cost">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">07 · Cost</div>
+    <h2 class="sec-title">Per-second, idle-free</h2>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>GPU</th><th class="num">$/hour</th><th class="num">$/second</th><th>Fit</th></tr></thead>
+        <tbody>
+          <tr class="rec"><td>L4</td><td class="num">~0.80</td><td class="num">0.000222</td><td>our default — enough for inference</td></tr>
+          <tr><td>T4</td><td class="num">~0.59</td><td class="num">0.000164</td><td>cheaper, slower</td></tr>
+          <tr><td>A10G</td><td class="num">~1.10</td><td class="num">0.000306</td><td>if L4 timing falls short</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cards g3">
+      <div class="card"><h4>At rest</h4><p>Scale-to-zero → <b>$0</b>. No instances, no charge, for hours of idle.</p></div>
+      <div class="card"><h4>Per 100-photo album</h4><p>If GPU lands ~0.3–0.5 s/img → ~30–50 GPU-seconds → <b>~1–2¢</b> on L4. <em>(Estimate — the real number is step 2–3's output.)</em></p></div>
+      <div class="card"><h4>Guardrails</h4><p>Input cap + rate limit (spec-106) + a Modal budget alarm bound worst-case spend even under a traffic spike.</p></div>
+    </div>
+    <p class="note">Context: the CPU baseline was 9 s/img and non-interactive. GPU is both <em>faster</em> (lands the ≤3–5 min bar) and, at portfolio volume, <em>cheaper than a single hour of a rented GPU</em> for a whole month of demos.</p>
+  </div>
+</section>
+
+<!-- 08 -->
+<section id="status">
+  <div class="wrap">
+    <div class="eyebrow sec-eyebrow">08 · Status</div>
+    <h2 class="sec-title">What's done vs pending</h2>
+    <div class="cards g2">
+      <div class="card"><h4>✓ Built</h4><p><code>modal_app.py</code> (gpu_smoke + curate), Volumes, two images, README with exact commands. Constructs against modal 1.6.1. <code>modal</code> client installed.</p></div>
+      <div class="card eng"><h4>⏳ Pending (you)</h4><p><code>modal setup</code> → smoke → upload models → first <code>curate</code> (iterate the image) → deploy. Then: the real per-image GPU latency + $/album numbers.</p></div>
+    </div>
+    <div class="callout">
+      <div class="k">Why this unblocks three things at once</div>
+      <p>The Modal worker is the shared home for: <b>spec-109</b> GPU pipeline execution, the <b>≤3–5 min</b> latency target, and <b>spec-108</b>'s MiniCPM-V captions (same GPU env). One deploy brings all three to life on real hardware.</p>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap foot">
+  <span>Albumify · Modal explainer · spec-109 P2</span>
+  <span>serverless GPU · scale-to-zero · one Python file</span>
+</div></footer>
+</body>
+</html>

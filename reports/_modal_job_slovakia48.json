@@ -1,0 +1,2476 @@
+{
+  "job_id": "slovakia48",
+  "driver": {
+    "mode": "job-gpu",
+    "n_images": 48,
+    "inputs": [
+      "20260822_174227.jpg",
+      "20260822_181211.jpg",
+      "20260822_181213.jpg",
+      "20260822_181233.jpg",
+      "20260822_181234.jpg",
+      "20260822_181235.jpg",
+      "20260822_181541.jpg",
+      "20260822_181544.jpg",
+      "20260822_181546.jpg",
+      "20260822_181556.jpg",
+      "20260822_181557.jpg",
+      "20260822_181558.jpg",
+      "20260823_072729.jpg",
+      "20260823_072734.jpg",
+      "20260823_120309.jpg",
+      "20260823_120312.jpg",
+      "20260823_120328.jpg",
+      "20260823_120344.jpg",
+      "20260823_120346(0).jpg",
+      "20260823_120346.jpg",
+      "20260823_120530.jpg",
+      "20260823_120534.jpg",
+      "20260823_120537.jpg",
+      "20260823_120538.jpg",
+      "20260823_121502.jpg",
+      "20260823_121503.jpg",
+      "20260823_121510.jpg",
+      "20260823_121512.jpg",
+      "20260823_121636.jpg",
+      "20260823_121651.jpg",
+      "20260823_121654.jpg",
+      "20260823_121656.jpg",
+      "20260823_121732.jpg",
+      "20260823_121735(0).jpg",
+      "20260823_121735.jpg",
+      "20260823_122538.jpg",
+      "20260823_123354.jpg",
+      "20260823_123413.jpg",
+      "20260823_123414.jpg",
+      "20260823_123753.jpg",
+      "20260823_123802.jpg",
+      "20260823_123907.jpg",
+      "20260823_123910.jpg",
+      "20260823_123916.jpg",
+      "20260823_123943.jpg",
+      "20260823_123951.jpg",
+      "20260823_123956.jpg",
+      "20260823_124014.jpg"
+    ],
+    "wall_s": 465.5
+  },
+  "staged": {
+    "job_id": "slovakia48",
+    "staged": [
+      "20260822_174227.jpg",
+      "20260822_181211.jpg",
+      "20260822_181213.jpg",
+      "20260822_181233.jpg",
+      "20260822_181234.jpg",
+      "20260822_181235.jpg",
+      "20260822_181541.jpg",
+      "20260822_181544.jpg",
+      "20260822_181546.jpg",
+      "20260822_181556.jpg",
+      "20260822_181557.jpg",
+      "20260822_181558.jpg",
+      "20260823_072729.jpg",
+      "20260823_072734.jpg",
+      "20260823_120309.jpg",
+      "20260823_120312.jpg",
+      "20260823_120328.jpg",
+      "20260823_120344.jpg",
+      "20260823_120346(0).jpg",
+      "20260823_120346.jpg",
+      "20260823_120530.jpg",
+      "20260823_120534.jpg",
+      "20260823_120537.jpg",
+      "20260823_120538.jpg",
+      "20260823_121502.jpg",
+      "20260823_121503.jpg",
+      "20260823_121510.jpg",
+      "20260823_121512.jpg",
+      "20260823_121636.jpg",
+      "20260823_121651.jpg",
+      "20260823_121654.jpg",
+      "20260823_121656.jpg",
+      "20260823_121732.jpg",
+      "20260823_121735(0).jpg",
+      "20260823_121735.jpg",
+      "20260823_122538.jpg",
+      "20260823_123354.jpg",
+      "20260823_123413.jpg",
+      "20260823_123414.jpg",
+      "20260823_123753.jpg",
+      "20260823_123802.jpg",
+      "20260823_123907.jpg",
+      "20260823_123910.jpg",
+      "20260823_123916.jpg",
+      "20260823_123943.jpg",
+      "20260823_123951.jpg",
+      "20260823_123956.jpg",
+      "20260823_124014.jpg"
+    ],
+    "input_dir": "/jobs/slovakia48/input"
+  },
+  "runs": [
+    {
+      "ok": true,
+      "job_id": "slovakia48",
+      "n_inputs": 48,
+      "device": "cuda",
+      "album": {
+        "job_id": "slovakia48",
+        "created_at": "2026-10-09T11:53:43.653418+00:00",
+        "counts": {
+          "uploaded": 38,
+          "kept": 13,
+          "people": 10,
+          "scenes": 7,
+          "set_aside": 0
+        },
+        "picks": [
+          {
+            "id": "20260823_072734",
+            "order": 0,
+            "score": {
+              "composite": 0.5976436523188469,
+              "sharpness": 0.6963887147073338,
+              "aesthetic": 0.47211661338806155,
+              "occlusion": 0.09545220831981173,
+              "tilt": 2.69000244140625
+            },
+            "scene_cluster": -1,
+            "beat": [
+              "20260822_174227",
+              "20260823_072729"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_122538",
+            "order": 1,
+            "score": {
+              "composite": 0.5071697476102123,
+              "sharpness": 0.6772540260001053,
+              "aesthetic": 0.43427648544311526,
+              "occlusion": 0.5138795570101704,
+              "tilt": -5.040858745574951
+            },
+            "scene_cluster": -1,
+            "beat": [
+              "20260822_174227",
+              "20260823_072729"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181233",
+            "order": 2,
+            "score": {
+              "composite": 0.5795071897277018,
+              "sharpness": 0.5965942970146008,
+              "aesthetic": 0.4793921947479248,
+              "occlusion": 0.012663470561691018,
+              "tilt": -2.0225212574005127
+            },
+            "scene_cluster": 1,
+            "beat": [
+              "20260822_181234",
+              "20260822_181235",
+              "20260822_181211"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181213",
+            "order": 3,
+            "score": {
+              "composite": 0.516351931088733,
+              "sharpness": 0.6024042844559332,
+              "aesthetic": 0.47947235107421876,
+              "occlusion": 0.010548634565391058,
+              "tilt": -1.3081610202789307
+            },
+            "scene_cluster": 1,
+            "beat": [
+              "20260822_181234",
+              "20260822_181235",
+              "20260822_181211"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_123916",
+            "order": 4,
+            "score": {
+              "composite": 0.557720750724717,
+              "sharpness": 0.5603382473370901,
+              "aesthetic": 0.47118287086486815,
+              "occlusion": 0.0036945988575408195,
+              "tilt": 2.091538190841675
+            },
+            "scene_cluster": 0,
+            "beat": [
+              "20260823_123910",
+              "20260823_123753",
+              "20260823_124014"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_123956",
+            "order": 5,
+            "score": {
+              "composite": 0.5244248736652456,
+              "sharpness": 0.4528754753380094,
+              "aesthetic": 0.5550889015197754,
+              "occlusion": 0.005048013413539314,
+              "tilt": 0.8932703733444214
+            },
+            "scene_cluster": 0,
+            "beat": [
+              "20260823_123910",
+              "20260823_123753",
+              "20260823_124014"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_120312",
+            "order": 6,
+            "score": {
+              "composite": 0.49541732318559123,
+              "sharpness": 0.4698919616592869,
+              "aesthetic": 0.5063567638397217,
+              "occlusion": 0.0038581721409900907,
+              "tilt": -3.3025805950164795
+            },
+            "scene_cluster": 4,
+            "beat": [
+              "20260823_120309",
+              "20260823_120346",
+              "20260823_120346(0)"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_120328",
+            "order": 7,
+            "score": {
+              "composite": 0.4870437444746297,
+              "sharpness": 0.4627628847956001,
+              "aesthetic": 0.4974498271942139,
+              "occlusion": 0.007414971257598326,
+              "tilt": -1.0503134727478027
+            },
+            "scene_cluster": 4,
+            "beat": [
+              "20260823_120309",
+              "20260823_120346",
+              "20260823_120346(0)"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_120537",
+            "order": 8,
+            "score": {
+              "composite": 0.5879985864769268,
+              "sharpness": 0.7356299267248474,
+              "aesthetic": 0.5247280120849609,
+              "occlusion": 0.008059571113428818,
+              "tilt": 1.9877475500106812
+            },
+            "scene_cluster": 2,
+            "beat": [
+              "20260823_120530",
+              "20260823_120538",
+              "20260823_120534"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_121510",
+            "order": 9,
+            "score": {
+              "composite": 0.48772352958027193,
+              "sharpness": 0.5384148844183705,
+              "aesthetic": 0.5374272346496582,
+              "occlusion": 0.011467219399324578,
+              "tilt": 4.587453842163086
+            },
+            "scene_cluster": 5,
+            "beat": [
+              "20260823_121512",
+              "20260823_121503"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_121732",
+            "order": 10,
+            "score": {
+              "composite": 0.5219506903412232,
+              "sharpness": 0.46064142251090523,
+              "aesthetic": 0.5327862739562989,
+              "occlusion": 0.0022740879141284064,
+              "tilt": -3.976365089416504
+            },
+            "scene_cluster": 3,
+            "beat": [
+              "20260823_121656",
+              "20260823_121735",
+              "20260823_121654",
+              "20260823_121735(0)"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_121636",
+            "order": 11,
+            "score": {
+              "composite": 0.46072495547569414,
+              "sharpness": 0.47784633529307563,
+              "aesthetic": 0.5295309543609619,
+              "occlusion": 0.014234998556695907,
+              "tilt": -0.6919922828674316
+            },
+            "scene_cluster": 3,
+            "beat": [
+              "20260823_121656",
+              "20260823_121735",
+              "20260823_121654",
+              "20260823_121735(0)"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181558",
+            "order": 12,
+            "score": {
+              "composite": 0.541533044249966,
+              "sharpness": 0.6751695860463851,
+              "aesthetic": 0.4796267032623291,
+              "occlusion": 0.005880108742770877,
+              "tilt": 1.278302550315857
+            },
+            "scene_cluster": 6,
+            "beat": [
+              "20260822_181557",
+              "20260822_181546",
+              "20260822_181556",
+              "20260822_181544",
+              "20260822_181541"
+            ],
+            "people": [],
+            "caption": ""
+          }
+        ],
+        "dropped": [
+          {
+            "id": "20260822_174227",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_072734",
+              "20260823_122538"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181211",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181233",
+              "20260822_181213"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181234",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181233",
+              "20260822_181213"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181235",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181233",
+              "20260822_181213"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181541",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181544",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181546",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181556",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181557",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_072729",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_072734",
+              "20260823_122538"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120309",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120328",
+              "20260823_120312"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120346",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120328",
+              "20260823_120312"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120346(0)",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120328",
+              "20260823_120312"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120530",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120537"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120534",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120537"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120538",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120537"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121503",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121510"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121512",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121510"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121654",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121636",
+              "20260823_121732"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121656",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121636",
+              "20260823_121732"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121735",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121636",
+              "20260823_121732"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121735(0)",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121636",
+              "20260823_121732"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_123753",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_123916",
+              "20260823_123956"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_123910",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_123916",
+              "20260823_123956"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_124014",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_123916",
+              "20260823_123956"
+            ],
+            "promotable": true
+          }
+        ],
+        "people": [
+          {
+            "id": "person_4",
+            "face_count": 5,
+            "sample_ids": []
+          },
+          {
+            "id": "person_3",
+            "face_count": 3,
+            "sample_ids": []
+          },
+          {
+            "id": "person_8",
+            "face_count": 6,
+            "sample_ids": []
+          },
+          {
+            "id": "person_2",
+            "face_count": 13,
+            "sample_ids": []
+          },
+          {
+            "id": "person_0",
+            "face_count": 11,
+            "sample_ids": []
+          },
+          {
+            "id": "person_6",
+            "face_count": 19,
+            "sample_ids": []
+          },
+          {
+            "id": "person_7",
+            "face_count": 6,
+            "sample_ids": []
+          },
+          {
+            "id": "person_5",
+            "face_count": 3,
+            "sample_ids": []
+          },
+          {
+            "id": "person_1",
+            "face_count": 4,
+            "sample_ids": []
+          },
+          {
+            "id": "person_9",
+            "face_count": 3,
+            "sample_ids": []
+          }
+        ],
+        "theme": {
+          "album_type": "outdoors with family/friends",
+          "facet_distribution": {
+            "food": 1,
+            "nature": 14,
+            "people": 30
+          },
+          "top_tags": [
+            "woman",
+            "girl",
+            "person",
+            "man",
+            "hillside",
+            "park bench",
+            "tree",
+            "pine",
+            "mountain",
+            "water",
+            "stone",
+            "log"
+          ],
+          "motifs": [
+            "woman",
+            "girl",
+            "person",
+            "man",
+            "park bench"
+          ],
+          "source": "tags",
+          "caption": ""
+        }
+      },
+      "album_path": "/jobs/slovakia48/album.json",
+      "display_paths": [
+        "/jobs/slovakia48/display/20260823_072734.jpg",
+        "/jobs/slovakia48/display/20260823_122538.jpg",
+        "/jobs/slovakia48/display/20260822_181233.jpg",
+        "/jobs/slovakia48/display/20260822_181213.jpg",
+        "/jobs/slovakia48/display/20260823_123916.jpg",
+        "/jobs/slovakia48/display/20260823_123956.jpg",
+        "/jobs/slovakia48/display/20260823_120312.jpg",
+        "/jobs/slovakia48/display/20260823_120328.jpg",
+        "/jobs/slovakia48/display/20260823_120537.jpg",
+        "/jobs/slovakia48/display/20260823_121510.jpg",
+        "/jobs/slovakia48/display/20260823_121732.jpg",
+        "/jobs/slovakia48/display/20260823_121636.jpg",
+        "/jobs/slovakia48/display/20260822_181558.jpg"
+      ],
+      "flipped": [
+        "triage_content",
+        "score_ava",
+        "score_occlusion",
+        "score_tilt",
+        "detect_persons",
+        "insightface_detect_faces",
+        "insightface_score_pose",
+        "extract_scene_embedding",
+        "extract_face_embeddings",
+        "caption_keepers",
+        "caption_album"
+      ],
+      "refused": [],
+      "timing": {
+        "total_ms": 227014,
+        "steps": [
+          {
+            "step": "discover_images",
+            "ms": 2
+          },
+          {
+            "step": "triage_metadata",
+            "ms": 25
+          },
+          {
+            "step": "triage_content",
+            "ms": 18058
+          },
+          {
+            "step": "derive_semantic_tags",
+            "ms": 1
+          },
+          {
+            "step": "infer_album_theme",
+            "ms": 0
+          },
+          {
+            "step": "extract_geo_metadata",
+            "ms": 36
+          },
+          {
+            "step": "score_iqa",
+            "ms": 1573
+          },
+          {
+            "step": "score_ava",
+            "ms": 4121
+          },
+          {
+            "step": "score_occlusion",
+            "ms": 10854
+          },
+          {
+            "step": "score_tilt",
+            "ms": 15896
+          },
+          {
+            "step": "detect_persons",
+            "ms": 2242
+          },
+          {
+            "step": "insightface_detect_faces",
+            "ms": 88732
+          },
+          {
+            "step": "filter_faces",
+            "ms": 38
+          },
+          {
+            "step": "score_face_frontal",
+            "ms": 39
+          },
+          {
+            "step": "detect_face_orientation",
+            "ms": 0
+          },
+          {
+            "step": "align_faces",
+            "ms": 295
+          },
+          {
+            "step": "insightface_score_expression",
+            "ms": 2220
+          },
+          {
+            "step": "insightface_score_eyes",
+            "ms": 1466
+          },
+          {
+            "step": "insightface_score_pose",
+            "ms": 2
+          },
+          {
+            "step": "filter_quality",
+            "ms": 0
+          },
+          {
+            "step": "extract_scene_embedding",
+            "ms": 8045
+          },
+          {
+            "step": "cluster_scenes",
+            "ms": 130
+          },
+          {
+            "step": "extract_face_embeddings",
+            "ms": 69589
+          },
+          {
+            "step": "quality_gate",
+            "ms": 76
+          },
+          {
+            "step": "build_face_knn_graph",
+            "ms": 1
+          },
+          {
+            "step": "cluster_face_components",
+            "ms": 2
+          },
+          {
+            "step": "select_face_exemplars",
+            "ms": 2
+          },
+          {
+            "step": "merge_face_clusters",
+            "ms": 0
+          },
+          {
+            "step": "attach_holdout_faces",
+            "ms": 0
+          },
+          {
+            "step": "apply_diameter_cap",
+            "ms": 0
+          },
+          {
+            "step": "assign_people_clusters",
+            "ms": 0
+          },
+          {
+            "step": "face_cluster_analysis_export",
+            "ms": 0
+          },
+          {
+            "step": "select_best",
+            "ms": 3523
+          },
+          {
+            "step": "straighten_images",
+            "ms": 5
+          },
+          {
+            "step": "caption_keepers",
+            "ms": 0
+          },
+          {
+            "step": "caption_album",
+            "ms": 0
+          },
+          {
+            "step": "cluster_people",
+            "ms": 14
+          },
+          {
+            "step": "identity_refinement",
+            "ms": 3
+          },
+          {
+            "step": "cluster_by_identity",
+            "ms": 0
+          }
+        ]
+      },
+      "failed_step": null,
+      "error": null,
+      "wall_s": 254.2
+    },
+    {
+      "ok": true,
+      "job_id": "slovakia48",
+      "n_inputs": 48,
+      "device": "cuda",
+      "album": {
+        "job_id": "slovakia48",
+        "created_at": "2026-10-09T11:56:37.311491+00:00",
+        "counts": {
+          "uploaded": 38,
+          "kept": 13,
+          "people": 10,
+          "scenes": 7,
+          "set_aside": 0
+        },
+        "picks": [
+          {
+            "id": "20260823_121732",
+            "order": 0,
+            "score": {
+              "composite": 0.5219506903412232,
+              "sharpness": 0.46064142251090523,
+              "aesthetic": 0.5327862739562989,
+              "occlusion": 0.0022740879141284064,
+              "tilt": -3.737548828125
+            },
+            "scene_cluster": 3,
+            "beat": [
+              "20260823_121656",
+              "20260823_121735",
+              "20260823_121654",
+              "20260823_121735(0)"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_121636",
+            "order": 1,
+            "score": {
+              "composite": 0.46072495547569414,
+              "sharpness": 0.47784633529307563,
+              "aesthetic": 0.5295309543609619,
+              "occlusion": 0.014234998556695907,
+              "tilt": -0.6965674161911011
+            },
+            "scene_cluster": 3,
+            "beat": [
+              "20260823_121656",
+              "20260823_121735",
+              "20260823_121654",
+              "20260823_121735(0)"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_123916",
+            "order": 2,
+            "score": {
+              "composite": 0.557720750724717,
+              "sharpness": 0.5603382473370901,
+              "aesthetic": 0.47118287086486815,
+              "occlusion": 0.0036945988575408195,
+              "tilt": 2.346522092819214
+            },
+            "scene_cluster": 0,
+            "beat": [
+              "20260823_123910",
+              "20260823_123753",
+              "20260823_124014"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_123956",
+            "order": 3,
+            "score": {
+              "composite": 0.5244248736652456,
+              "sharpness": 0.4528754753380094,
+              "aesthetic": 0.5550889015197754,
+              "occlusion": 0.005048013413539314,
+              "tilt": 0.9271594285964966
+            },
+            "scene_cluster": 0,
+            "beat": [
+              "20260823_123910",
+              "20260823_123753",
+              "20260823_124014"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_072734",
+            "order": 4,
+            "score": {
+              "composite": 0.5976436523188469,
+              "sharpness": 0.6963887147073338,
+              "aesthetic": 0.47211661338806155,
+              "occlusion": 0.09545220831981173,
+              "tilt": 2.676440715789795
+            },
+            "scene_cluster": -1,
+            "beat": [
+              "20260822_174227",
+              "20260823_072729"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_122538",
+            "order": 5,
+            "score": {
+              "composite": 0.5071697476102123,
+              "sharpness": 0.6772540260001053,
+              "aesthetic": 0.43427648544311526,
+              "occlusion": 0.5138795570101704,
+              "tilt": -5.4185967445373535
+            },
+            "scene_cluster": -1,
+            "beat": [
+              "20260822_174227",
+              "20260823_072729"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181558",
+            "order": 6,
+            "score": {
+              "composite": 0.541533044249966,
+              "sharpness": 0.6751695860463851,
+              "aesthetic": 0.4796267032623291,
+              "occlusion": 0.005880108742770877,
+              "tilt": 1.2197819948196411
+            },
+            "scene_cluster": 6,
+            "beat": [
+              "20260822_181557",
+              "20260822_181546",
+              "20260822_181556",
+              "20260822_181544",
+              "20260822_181541"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181233",
+            "order": 7,
+            "score": {
+              "composite": 0.5795071897277018,
+              "sharpness": 0.5965942970146008,
+              "aesthetic": 0.4793921947479248,
+              "occlusion": 0.012663470561691018,
+              "tilt": -1.7207677364349365
+            },
+            "scene_cluster": 1,
+            "beat": [
+              "20260822_181234",
+              "20260822_181235",
+              "20260822_181211"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260822_181213",
+            "order": 8,
+            "score": {
+              "composite": 0.516351931088733,
+              "sharpness": 0.6024042844559332,
+              "aesthetic": 0.47947235107421876,
+              "occlusion": 0.010548634565391058,
+              "tilt": -0.9788776636123657
+            },
+            "scene_cluster": 1,
+            "beat": [
+              "20260822_181234",
+              "20260822_181235",
+              "20260822_181211"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_120312",
+            "order": 9,
+            "score": {
+              "composite": 0.49541732318559123,
+              "sharpness": 0.4698919616592869,
+              "aesthetic": 0.5063567638397217,
+              "occlusion": 0.0038581721409900907,
+              "tilt": -3.557352066040039
+            },
+            "scene_cluster": 4,
+            "beat": [
+              "20260823_120309",
+              "20260823_120346",
+              "20260823_120346(0)"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_120328",
+            "order": 10,
+            "score": {
+              "composite": 0.4870437444746297,
+              "sharpness": 0.4627628847956001,
+              "aesthetic": 0.4974498271942139,
+              "occlusion": 0.007414971257598326,
+              "tilt": -1.750696063041687
+            },
+            "scene_cluster": 4,
+            "beat": [
+              "20260823_120309",
+              "20260823_120346",
+              "20260823_120346(0)"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_121510",
+            "order": 11,
+            "score": {
+              "composite": 0.48772352958027193,
+              "sharpness": 0.5384148844183705,
+              "aesthetic": 0.5374272346496582,
+              "occlusion": 0.011467219399324578,
+              "tilt": 4.227334499359131
+            },
+            "scene_cluster": 5,
+            "beat": [
+              "20260823_121512",
+              "20260823_121503"
+            ],
+            "people": [],
+            "caption": ""
+          },
+          {
+            "id": "20260823_120537",
+            "order": 12,
+            "score": {
+              "composite": 0.5879985864769268,
+              "sharpness": 0.7356299267248474,
+              "aesthetic": 0.5247280120849609,
+              "occlusion": 0.008059571113428818,
+              "tilt": 2.0054666996002197
+            },
+            "scene_cluster": 2,
+            "beat": [
+              "20260823_120530",
+              "20260823_120538",
+              "20260823_120534"
+            ],
+            "people": [],
+            "caption": ""
+          }
+        ],
+        "dropped": [
+          {
+            "id": "20260822_174227",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_072734",
+              "20260823_122538"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181211",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181233",
+              "20260822_181213"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181234",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181233",
+              "20260822_181213"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181235",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181233",
+              "20260822_181213"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181541",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181544",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181546",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181556",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260822_181557",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260822_181558"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_072729",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_072734",
+              "20260823_122538"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120309",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120328",
+              "20260823_120312"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120346",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120328",
+              "20260823_120312"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120346(0)",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120328",
+              "20260823_120312"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120530",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120537"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120534",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120537"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_120538",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_120537"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121503",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121510"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121512",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121510"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121654",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121636",
+              "20260823_121732"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121656",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121636",
+              "20260823_121732"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121735",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121636",
+              "20260823_121732"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_121735(0)",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_121636",
+              "20260823_121732"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_123753",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_123916",
+              "20260823_123956"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_123910",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_123916",
+              "20260823_123956"
+            ],
+            "promotable": true
+          },
+          {
+            "id": "20260823_124014",
+            "reason": "near_dup",
+            "reason_detail": "a stronger shot of this moment was kept",
+            "beaten_by": [
+              "20260823_123916",
+              "20260823_123956"
+            ],
+            "promotable": true
+          }
+        ],
+        "people": [
+          {
+            "id": "person_4",
+            "face_count": 5,
+            "sample_ids": []
+          },
+          {
+            "id": "person_3",
+            "face_count": 3,
+            "sample_ids": []
+          },
+          {
+            "id": "person_8",
+            "face_count": 6,
+            "sample_ids": []
+          },
+          {
+            "id": "person_2",
+            "face_count": 13,
+            "sample_ids": []
+          },
+          {
+            "id": "person_0",
+            "face_count": 11,
+            "sample_ids": []
+          },
+          {
+            "id": "person_6",
+            "face_count": 19,
+            "sample_ids": []
+          },
+          {
+            "id": "person_7",
+            "face_count": 6,
+            "sample_ids": []
+          },
+          {
+            "id": "person_5",
+            "face_count": 3,
+            "sample_ids": []
+          },
+          {
+            "id": "person_1",
+            "face_count": 4,
+            "sample_ids": []
+          },
+          {
+            "id": "person_9",
+            "face_count": 3,
+            "sample_ids": []
+          }
+        ],
+        "theme": {
+          "album_type": "outdoors with family/friends",
+          "facet_distribution": {
+            "food": 1,
+            "nature": 14,
+            "people": 30
+          },
+          "top_tags": [
+            "woman",
+            "girl",
+            "person",
+            "man",
+            "hillside",
+            "park bench",
+            "tree",
+            "pine",
+            "mountain",
+            "water",
+            "stone",
+            "log"
+          ],
+          "motifs": [
+            "woman",
+            "girl",
+            "person",
+            "man",
+            "park bench"
+          ],
+          "source": "tags",
+          "caption": ""
+        }
+      },
+      "album_path": "/jobs/slovakia48/album.json",
+      "display_paths": [
+        "/jobs/slovakia48/display/20260823_121732.jpg",
+        "/jobs/slovakia48/display/20260823_121636.jpg",
+        "/jobs/slovakia48/display/20260823_123916.jpg",
+        "/jobs/slovakia48/display/20260823_123956.jpg",
+        "/jobs/slovakia48/display/20260823_072734.jpg",
+        "/jobs/slovakia48/display/20260823_122538.jpg",
+        "/jobs/slovakia48/display/20260822_181558.jpg",
+        "/jobs/slovakia48/display/20260822_181233.jpg",
+        "/jobs/slovakia48/display/20260822_181213.jpg",
+        "/jobs/slovakia48/display/20260823_120312.jpg",
+        "/jobs/slovakia48/display/20260823_120328.jpg",
+        "/jobs/slovakia48/display/20260823_121510.jpg",
+        "/jobs/slovakia48/display/20260823_120537.jpg"
+      ],
+      "flipped": [
+        "triage_content",
+        "score_ava",
+        "score_occlusion",
+        "score_tilt",
+        "detect_persons",
+        "insightface_detect_faces",
+        "insightface_score_pose",
+        "extract_scene_embedding",
+        "extract_face_embeddings",
+        "caption_keepers",
+        "caption_album"
+      ],
+      "refused": [],
+      "timing": {
+        "total_ms": 172227,
+        "steps": [
+          {
+            "step": "discover_images",
+            "ms": 1
+          },
+          {
+            "step": "triage_metadata",
+            "ms": 12
+          },
+          {
+            "step": "triage_content",
+            "ms": 12011
+          },
+          {
+            "step": "derive_semantic_tags",
+            "ms": 1
+          },
+          {
+            "step": "infer_album_theme",
+            "ms": 0
+          },
+          {
+            "step": "extract_geo_metadata",
+            "ms": 35
+          },
+          {
+            "step": "score_iqa",
+            "ms": 1629
+          },
+          {
+            "step": "score_ava",
+            "ms": 1844
+          },
+          {
+            "step": "score_occlusion",
+            "ms": 7335
+          },
+          {
+            "step": "score_tilt",
+            "ms": 12699
+          },
+          {
+            "step": "detect_persons",
+            "ms": 1422
+          },
+          {
+            "step": "insightface_detect_faces",
+            "ms": 63532
+          },
+          {
+            "step": "filter_faces",
+            "ms": 37
+          },
+          {
+            "step": "score_face_frontal",
+            "ms": 34
+          },
+          {
+            "step": "detect_face_orientation",
+            "ms": 0
+          },
+          {
+            "step": "align_faces",
+            "ms": 299
+          },
+          {
+            "step": "insightface_score_expression",
+            "ms": 1447
+          },
+          {
+            "step": "insightface_score_eyes",
+            "ms": 1647
+          },
+          {
+            "step": "insightface_score_pose",
+            "ms": 2
+          },
+          {
+            "step": "filter_quality",
+            "ms": 0
+          },
+          {
+            "step": "extract_scene_embedding",
+            "ms": 3147
+          },
+          {
+            "step": "cluster_scenes",
+            "ms": 4
+          },
+          {
+            "step": "extract_face_embeddings",
+            "ms": 61070
+          },
+          {
+            "step": "quality_gate",
+            "ms": 76
+          },
+          {
+            "step": "build_face_knn_graph",
+            "ms": 1
+          },
+          {
+            "step": "cluster_face_components",
+            "ms": 2
+          },
+          {
+            "step": "select_face_exemplars",
+            "ms": 2
+          },
+          {
+            "step": "merge_face_clusters",
+            "ms": 0
+          },
+          {
+            "step": "attach_holdout_faces",
+            "ms": 0
+          },
+          {
+            "step": "apply_diameter_cap",
+            "ms": 0
+          },
+          {
+            "step": "assign_people_clusters",
+            "ms": 0
+          },
+          {
+            "step": "face_cluster_analysis_export",
+            "ms": 0
+          },
+          {
+            "step": "select_best",
+            "ms": 3893
+          },
+          {
+            "step": "straighten_images",
+            "ms": 5
+          },
+          {
+            "step": "caption_keepers",
+            "ms": 0
+          },
+          {
+            "step": "caption_album",
+            "ms": 0
+          },
+          {
+            "step": "cluster_people",
+            "ms": 13
+          },
+          {
+            "step": "identity_refinement",
+            "ms": 2
+          },
+          {
+            "step": "cluster_by_identity",
+            "ms": 0
+          }
+        ]
+      },
+      "failed_step": null,
+      "error": null,
+      "wall_s": 173.6
+    }
+  ],
+  "fetched": {
+    "job_id": "slovakia48",
+    "album": {
+      "job_id": "slovakia48",
+      "created_at": "2026-10-09T11:56:37.311491+00:00",
+      "counts": {
+        "uploaded": 38,
+        "kept": 13,
+        "people": 10,
+        "scenes": 7,
+        "set_aside": 0
+      },
+      "picks": [
+        {
+          "id": "20260823_121732",
+          "order": 0,
+          "score": {
+            "composite": 0.5219506903412232,
+            "sharpness": 0.46064142251090523,
+            "aesthetic": 0.5327862739562989,
+            "occlusion": 0.0022740879141284064,
+            "tilt": -3.737548828125
+          },
+          "scene_cluster": 3,
+          "beat": [
+            "20260823_121656",
+            "20260823_121735",
+            "20260823_121654",
+            "20260823_121735(0)"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260823_121636",
+          "order": 1,
+          "score": {
+            "composite": 0.46072495547569414,
+            "sharpness": 0.47784633529307563,
+            "aesthetic": 0.5295309543609619,
+            "occlusion": 0.014234998556695907,
+            "tilt": -0.6965674161911011
+          },
+          "scene_cluster": 3,
+          "beat": [
+            "20260823_121656",
+            "20260823_121735",
+            "20260823_121654",
+            "20260823_121735(0)"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260823_123916",
+          "order": 2,
+          "score": {
+            "composite": 0.557720750724717,
+            "sharpness": 0.5603382473370901,
+            "aesthetic": 0.47118287086486815,
+            "occlusion": 0.0036945988575408195,
+            "tilt": 2.346522092819214
+          },
+          "scene_cluster": 0,
+          "beat": [
+            "20260823_123910",
+            "20260823_123753",
+            "20260823_124014"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260823_123956",
+          "order": 3,
+          "score": {
+            "composite": 0.5244248736652456,
+            "sharpness": 0.4528754753380094,
+            "aesthetic": 0.5550889015197754,
+            "occlusion": 0.005048013413539314,
+            "tilt": 0.9271594285964966
+          },
+          "scene_cluster": 0,
+          "beat": [
+            "20260823_123910",
+            "20260823_123753",
+            "20260823_124014"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260823_072734",
+          "order": 4,
+          "score": {
+            "composite": 0.5976436523188469,
+            "sharpness": 0.6963887147073338,
+            "aesthetic": 0.47211661338806155,
+            "occlusion": 0.09545220831981173,
+            "tilt": 2.676440715789795
+          },
+          "scene_cluster": -1,
+          "beat": [
+            "20260822_174227",
+            "20260823_072729"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260823_122538",
+          "order": 5,
+          "score": {
+            "composite": 0.5071697476102123,
+            "sharpness": 0.6772540260001053,
+            "aesthetic": 0.43427648544311526,
+            "occlusion": 0.5138795570101704,
+            "tilt": -5.4185967445373535
+          },
+          "scene_cluster": -1,
+          "beat": [
+            "20260822_174227",
+            "20260823_072729"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260822_181558",
+          "order": 6,
+          "score": {
+            "composite": 0.541533044249966,
+            "sharpness": 0.6751695860463851,
+            "aesthetic": 0.4796267032623291,
+            "occlusion": 0.005880108742770877,
+            "tilt": 1.2197819948196411
+          },
+          "scene_cluster": 6,
+          "beat": [
+            "20260822_181557",
+            "20260822_181546",
+            "20260822_181556",
+            "20260822_181544",
+            "20260822_181541"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260822_181233",
+          "order": 7,
+          "score": {
+            "composite": 0.5795071897277018,
+            "sharpness": 0.5965942970146008,
+            "aesthetic": 0.4793921947479248,
+            "occlusion": 0.012663470561691018,
+            "tilt": -1.7207677364349365
+          },
+          "scene_cluster": 1,
+          "beat": [
+            "20260822_181234",
+            "20260822_181235",
+            "20260822_181211"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260822_181213",
+          "order": 8,
+          "score": {
+            "composite": 0.516351931088733,
+            "sharpness": 0.6024042844559332,
+            "aesthetic": 0.47947235107421876,
+            "occlusion": 0.010548634565391058,
+            "tilt": -0.9788776636123657
+          },
+          "scene_cluster": 1,
+          "beat": [
+            "20260822_181234",
+            "20260822_181235",
+            "20260822_181211"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260823_120312",
+          "order": 9,
+          "score": {
+            "composite": 0.49541732318559123,
+            "sharpness": 0.4698919616592869,
+            "aesthetic": 0.5063567638397217,
+            "occlusion": 0.0038581721409900907,
+            "tilt": -3.557352066040039
+          },
+          "scene_cluster": 4,
+          "beat": [
+            "20260823_120309",
+            "20260823_120346",
+            "20260823_120346(0)"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260823_120328",
+          "order": 10,
+          "score": {
+            "composite": 0.4870437444746297,
+            "sharpness": 0.4627628847956001,
+            "aesthetic": 0.4974498271942139,
+            "occlusion": 0.007414971257598326,
+            "tilt": -1.750696063041687
+          },
+          "scene_cluster": 4,
+          "beat": [
+            "20260823_120309",
+            "20260823_120346",
+            "20260823_120346(0)"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260823_121510",
+          "order": 11,
+          "score": {
+            "composite": 0.48772352958027193,
+            "sharpness": 0.5384148844183705,
+            "aesthetic": 0.5374272346496582,
+            "occlusion": 0.011467219399324578,
+            "tilt": 4.227334499359131
+          },
+          "scene_cluster": 5,
+          "beat": [
+            "20260823_121512",
+            "20260823_121503"
+          ],
+          "people": [],
+          "caption": ""
+        },
+        {
+          "id": "20260823_120537",
+          "order": 12,
+          "score": {
+            "composite": 0.5879985864769268,
+            "sharpness": 0.7356299267248474,
+            "aesthetic": 0.5247280120849609,
+            "occlusion": 0.008059571113428818,
+            "tilt": 2.0054666996002197
+          },
+          "scene_cluster": 2,
+          "beat": [
+            "20260823_120530",
+            "20260823_120538",
+            "20260823_120534"
+          ],
+          "people": [],
+          "caption": ""
+        }
+      ],
+      "dropped": [
+        {
+          "id": "20260822_174227",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_072734",
+            "20260823_122538"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260822_181211",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260822_181233",
+            "20260822_181213"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260822_181234",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260822_181233",
+            "20260822_181213"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260822_181235",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260822_181233",
+            "20260822_181213"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260822_181541",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260822_181558"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260822_181544",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260822_181558"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260822_181546",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260822_181558"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260822_181556",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260822_181558"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260822_181557",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260822_181558"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_072729",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_072734",
+            "20260823_122538"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_120309",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_120328",
+            "20260823_120312"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_120346",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_120328",
+            "20260823_120312"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_120346(0)",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_120328",
+            "20260823_120312"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_120530",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_120537"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_120534",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_120537"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_120538",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_120537"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_121503",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_121510"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_121512",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_121510"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_121654",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_121636",
+            "20260823_121732"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_121656",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_121636",
+            "20260823_121732"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_121735",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_121636",
+            "20260823_121732"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_121735(0)",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_121636",
+            "20260823_121732"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_123753",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_123916",
+            "20260823_123956"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_123910",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_123916",
+            "20260823_123956"
+          ],
+          "promotable": true
+        },
+        {
+          "id": "20260823_124014",
+          "reason": "near_dup",
+          "reason_detail": "a stronger shot of this moment was kept",
+          "beaten_by": [
+            "20260823_123916",
+            "20260823_123956"
+          ],
+          "promotable": true
+        }
+      ],
+      "people": [
+        {
+          "id": "person_4",
+          "face_count": 5,
+          "sample_ids": []
+        },
+        {
+          "id": "person_3",
+          "face_count": 3,
+          "sample_ids": []
+        },
+        {
+          "id": "person_8",
+          "face_count": 6,
+          "sample_ids": []
+        },
+        {
+          "id": "person_2",
+          "face_count": 13,
+          "sample_ids": []
+        },
+        {
+          "id": "person_0",
+          "face_count": 11,
+          "sample_ids": []
+        },
+        {
+          "id": "person_6",
+          "face_count": 19,
+          "sample_ids": []
+        },
+        {
+          "id": "person_7",
+          "face_count": 6,
+          "sample_ids": []
+        },
+        {
+          "id": "person_5",
+          "face_count": 3,
+          "sample_ids": []
+        },
+        {
+          "id": "person_1",
+          "face_count": 4,
+          "sample_ids": []
+        },
+        {
+          "id": "person_9",
+          "face_count": 3,
+          "sample_ids": []
+        }
+      ],
+      "theme": {
+        "album_type": "outdoors with family/friends",
+        "facet_distribution": {
+          "food": 1,
+          "nature": 14,
+          "people": 30
+        },
+        "top_tags": [
+          "woman",
+          "girl",
+          "person",
+          "man",
+          "hillside",
+          "park bench",
+          "tree",
+          "pine",
+          "mountain",
+          "water",
+          "stone",
+          "log"
+        ],
+        "motifs": [
+          "woman",
+          "girl",
+          "person",
+          "man",
+          "park bench"
+        ],
+        "source": "tags",
+        "caption": ""
+      }
+    },
+    "run": {
+      "job_id": "slovakia48",
+      "ok": true,
+      "pipeline": "default",
+      "device": "cuda",
+      "n_inputs": 48,
+      "device_flipped_steps": [
+        "triage_content",
+        "score_ava",
+        "score_occlusion",
+        "score_tilt",
+        "detect_persons",
+        "insightface_detect_faces",
+        "insightface_score_pose",
+        "extract_scene_embedding",
+        "extract_face_embeddings",
+        "caption_keepers",
+        "caption_album"
+      ],
+      "device_refused_steps": [],
+      "timing": {
+        "total_ms": 172227,
+        "steps": [
+          {
+            "step": "discover_images",
+            "ms": 1
+          },
+          {
+            "step": "triage_metadata",
+            "ms": 12
+          },
+          {
+            "step": "triage_content",
+            "ms": 12011
+          },
+          {
+            "step": "derive_semantic_tags",
+            "ms": 1
+          },
+          {
+            "step": "infer_album_theme",
+            "ms": 0
+          },
+          {
+            "step": "extract_geo_metadata",
+            "ms": 35
+          },
+          {
+            "step": "score_iqa",
+            "ms": 1629
+          },
+          {
+            "step": "score_ava",
+            "ms": 1844
+          },
+          {
+            "step": "score_occlusion",
+            "ms": 7335
+          },
+          {
+            "step": "score_tilt",
+            "ms": 12699
+          },
+          {
+            "step": "detect_persons",
+            "ms": 1422
+          },
+          {
+            "step": "insightface_detect_faces",
+            "ms": 63532
+          },
+          {
+            "step": "filter_faces",
+            "ms": 37
+          },
+          {
+            "step": "score_face_frontal",
+            "ms": 34
+          },
+          {
+            "step": "detect_face_orientation",
+            "ms": 0
+          },
+          {
+            "step": "align_faces",
+            "ms": 299
+          },
+          {
+            "step": "insightface_score_expression",
+            "ms": 1447
+          },
+          {
+            "step": "insightface_score_eyes",
+            "ms": 1647
+          },
+          {
+            "step": "insightface_score_pose",
+            "ms": 2
+          },
+          {
+            "step": "filter_quality",
+            "ms": 0
+          },
+          {
+            "step": "extract_scene_embedding",
+            "ms": 3147
+          },
+          {
+            "step": "cluster_scenes",
+            "ms": 4
+          },
+          {
+            "step": "extract_face_embeddings",
+            "ms": 61070
+          },
+          {
+            "step": "quality_gate",
+            "ms": 76
+          },
+          {
+            "step": "build_face_knn_graph",
+            "ms": 1
+          },
+          {
+            "step": "cluster_face_components",
+            "ms": 2
+          },
+          {
+            "step": "select_face_exemplars",
+            "ms": 2
+          },
+          {
+            "step": "merge_face_clusters",
+            "ms": 0
+          },
+          {
+            "step": "attach_holdout_faces",
+            "ms": 0
+          },
+          {
+            "step": "apply_diameter_cap",
+            "ms": 0
+          },
+          {
+            "step": "assign_people_clusters",
+            "ms": 0
+          },
+          {
+            "step": "face_cluster_analysis_export",
+            "ms": 0
+          },
+          {
+            "step": "select_best",
+            "ms": 3893
+          },
+          {
+            "step": "straighten_images",
+            "ms": 5
+          },
+          {
+            "step": "caption_keepers",
+            "ms": 0
+          },
+          {
+            "step": "caption_album",
+            "ms": 0
+          },
+          {
+            "step": "cluster_people",
+            "ms": 13
+          },
+          {
+            "step": "identity_refinement",
+            "ms": 2
+          },
+          {
+            "step": "cluster_by_identity",
+            "ms": 0
+          }
+        ]
+      },
+      "failed_step": null,
+      "error": null
+    },
+    "displays": [
+      "20260822_181213.jpg",
+      "20260822_181233.jpg",
+      "20260822_181558.jpg",
+      "20260823_072734.jpg",
+      "20260823_120312.jpg",
+      "20260823_120328.jpg",
+      "20260823_120537.jpg",
+      "20260823_121510.jpg",
+      "20260823_121636.jpg",
+      "20260823_121732.jpg",
+      "20260823_122538.jpg",
+      "20260823_123916.jpg",
+      "20260823_123956.jpg"
+    ]
+  },
+  "album_matches_store": false,
+  "idempotent": false
+}

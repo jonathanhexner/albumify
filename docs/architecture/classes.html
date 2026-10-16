@@ -209,11 +209,13 @@ introduces the change.
     <tr><td><code>ClusterResult</code></td><td>face_cluster/types.py</td><td>{labels, clusters, cluster_stats, exemplars, n_clusters, n_noise}.</td></tr>
     <tr><td><code>GraphResult</code></td><td>face_cluster/types.py</td><td>{neighbors, neighbor_distances, edges, G (networkx), distance_matrix}.</td></tr>
     <tr><td><code>StepDecision</code></td><td>sim_bench/pipeline/context.py</td><td>spec-012 per-item decision record (coexists with FilterContext).</td></tr>
-    <tr><td><code>PipelineContext</code></td><td>sim_bench/pipeline/context.py</td><td>Albumify shared state container (~30 fields). Contract: specs/034. spec-097 added <code>occlusion_scores</code>, <code>occlusion_tiles</code> (from <code>score_occlusion</code>) and <code>occlusion_penalties</code> (from <code>select_best</code>). spec-099/100 added <code>tilt_angles</code>, <code>tilt_confidences</code> (from <code>score_tilt</code>) and <code>tilt_penalties</code> (from <code>select_best</code>).</td></tr>
+    <tr><td><code>PipelineContext</code></td><td>sim_bench/pipeline/context.py</td><td>Albumify shared state container (~30 fields). Contract: specs/034. spec-097 added <code>occlusion_scores</code>, <code>occlusion_tiles</code> (from <code>score_occlusion</code>) and <code>occlusion_penalties</code> (from <code>select_best</code>). spec-099/100 added <code>tilt_angles</code>, <code>tilt_confidences</code> (from <code>score_tilt</code>) and <code>tilt_penalties</code> (from <code>select_best</code>). <strong>spec-107</strong> added <code>set_aside</code> + <code>triage_review</code> (list[dict] <code>{image, reason, confidence, tier}</code>, from <code>triage_metadata</code>/<code>triage_content</code>) and <code>ram_tags</code> (from <code>triage_content</code>, RAM++ open-vocab tags, cached); triage also filters <code>image_paths</code> to survivors.</td></tr>
     <tr><td><code>OcclusionScorer / OcclusionInputs / OcclusionResult</code></td><td>sim_bench/occlusion_bench/scorer.py</td><td><strong>spec-097</strong> production occlusion detector (spec-096 winner: CLIP ViT-B/32 global+tile-max logistic head, 0.86 scene PR-AUC adjudicated). <code>calc(inputs) → result</code> per spec-053; artifact <code>models/occlusion/clip_b32_gmax_v1.npz</code> carries scaler+coef+version (cache key).</td></tr>
     <tr><td><code>OcclusionPenaltyComputer / OcclusionPenaltyConfig</code></td><td>sim_bench/pipeline/scoring/occlusion_penalty.py</td><td><strong>spec-097</strong> third composite component in <code>select_best</code> (spec-084 pattern): 0 unless P(occluded) ≥ gate (0.8 ≈ 86% precision); then <code>weight·P·area_factor(tiles)</code>, floored at −0.5. Bokeh-safe: driver is the learned P, never raw blur.</td></tr>
-    <tr><td><code>TiltScorer / TiltInputs / TiltScoreResult</code></td><td>sim_bench/quality_assessment/tilt_geocalib.py</td><td><strong>spec-099/spec-100</strong> learned crooked-photo detector: GeoCalib single-image roll (validated spec-100; MAE 0.25–0.45° when confident, abstains honestly on structureless scenes). <code>calc(inputs) → result</code> per spec-053; <code>score_tilt</code> step caches per image, <code>model_name="geocalib"</code>, <code>version="geocalib_v1"</code>.</td></tr>
+    <tr><td><code>TiltScorer / TiltInputs / TiltScoreResult</code></td><td>sim_bench/quality_assessment/tilt_geocalib.py</td><td><strong>spec-099/spec-100</strong> learned crooked-photo detector: GeoCalib single-image roll (validated spec-100; MAE 0.25–0.45° when confident, abstains honestly on structureless scenes). <code>calc(inputs) → result</code> per spec-053; <code>score_tilt</code> step caches per image, <code>model_name="geocalib"</code>, <code>version="geocalib_v1"</code>. <strong>spec-109:</strong> <code>TiltScorer(device="cpu")</code> forwards the device through both estimator functions to the model and input tensor.</td></tr>
+    <tr><td><code>RamTagger</code></td><td>sim_bench/triage/content.py</td><td><strong>spec-107/spec-109</strong> RAM++ content tag source. <code>device="cpu"</code> by default; model and transformed input batch use the same requested device. Tags feed triage and semantic theme inference.</td></tr>
     <tr><td><code>SceneDistanceBuilder / SceneDistanceInputs / SceneDistanceResult</code></td><td>sim_bench/scene_cluster/geo_time_fusion.py</td><td><strong>spec-103</strong> Path A scene-distance fusion: visual cosine distance with a one-sided short-range capture-time boost (<code>d = visual·(1−boost·exp(−dt/τ))</code>; time only pulls near-simultaneous shots, never pushes apart). <code>calc(inputs) → result</code> per spec-053; consumed by the OPT-IN <code>build_scene_distance</code> step → <code>context.scene_distance</code>, clustered by <code>cluster_scenes</code> with metric=precomputed. Gated by presence (not in default_pipeline). <code>SceneDistanceFuser</code> (additive geo/time blend) is the superseded experiment variant.</td></tr>
+    <tr><td><code>TriageInputs / TriageResult</code></td><td>sim_bench/triage/{metadata,content}.py</td><td><strong>spec-107</strong> input triage. Framework-agnostic domain (spec-053): metadata <code>calc(TriageInputs)→TriageResult</code> (filename/EXIF/format/dims) + content <code>calc(tags)→TriageResult</code> (RAM++ junk taxonomy + moment-override); <code>TriageResult{decision: keep|review|set_aside, reason, confidence, signals}</code>. Lazy <code>RamTagger</code> is the live RAM++ tag source. Wrapped by the thin <code>triage_metadata</code>/<code>triage_content</code> steps; <code>_triage_apply.partition_and_record</code> applies decisions to the context (set_aside removed, review flagged, nothing deleted).</td></tr>
     <tr><td><code>TiltPenaltyComputer / TiltPenaltyConfig</code></td><td>sim_bench/pipeline/scoring/tilt_penalty.py</td><td><strong>spec-099/101(A)</strong> fourth composite component in <code>select_best</code>, scaled by <em>fixability</em>: 0 unless confident+tilted; then <code>−min(fov_weight·(1−retained_area), cap)</code> if the crop cleanly straightens (small FOV cost), else <code>−min(slope·(|roll|−gate_deg), cap=0.15)</code> if UNFIXABLE (crop would clip a prominent person / drop below area floor). Reuses <code>straighten_gate.decide</code> so score and pixel fix agree.</td></tr>
     <tr><td><code>straighten / largest_inscribed_rect / aspect_preserving_rect</code></td><td>sim_bench/quality_assessment/straighten.py</td><td><strong>spec-101</strong> roll correction: rotate by −roll then crop to the largest inscribed rectangle (max-area or aspect-preserving closed forms) — no black/smeared border pixels ever. <code>retained_area_fraction</code> = the FOV cost.</td></tr>
     <tr><td><code>GateConfig / GateResult / decide</code></td><td>sim_bench/quality_assessment/straighten_gate.py</td><td><strong>spec-101</strong> subject-aware straighten decision (pure geometry): straighten iff confident+tilted AND crop keeps ≥ min_retained_area AND does not clip any YOLO person box ≥ prominent_person_frac of the frame; else decline. No saliency — reuses <code>detect_persons</code>.</td></tr>
@@ -317,6 +319,46 @@ targets the ephemeral per-run DB with no migrations (a new run = a fresh DB).</p
   </tbody>
 </table>
 
+<h2 id="serving">5c &middot; Album contract + serving worker <span class="pill plain">spec-106 P0 / spec-110</span></h2>
+
+<p><strong>The album contract.</strong> <code>sim_bench/album/schema.py</code> holds the single shape the
+front end reads &mdash; identical for a live job and a precomputed showcase trip. It carries
+<em>every</em> photo: <code>picks</code> plus <code>dropped</code> with a reason
+(<code>near_dup</code> / <code>not_selected</code> / <code>set_aside</code>) and
+<code>promotable=True</code>, because curation is a proposal, not a verdict.
+<code>album/normalizer.py::normalize(context, job_id, created_at)</code> is the only translator
+from <code>PipelineContext</code> into it; <code>classify()</code> is the pure status derivation.</p>
+
+<p><strong>Ordering is part of the contract</strong> (spec-110 AC4, SIGHTING-126): scenes are
+renumbered <code>0..n-1</code> by their earliest photo and picks are ordered by EXIF capture time
+(falling back to the id), because HDBSCAN's cluster <em>ids</em> and the pipeline's
+<code>selected_images</code> order both follow an embedding-dict order that is not stable across
+runs. The partition is stable; the numbering was not. Pinned by
+<code>tests/album/test_normalizer.py::ut_AlbumDeterminism</code>.</p>
+
+<table>
+  <thead><tr><th>Class / function</th><th>Module</th><th>Shape</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><code>Album</code> / <code>Pick</code> / <code>Dropped</code> / <code>Person</code> / <code>Counts</code> / <code>ScoreBreakdown</code> <span class="pill dc">Dataclass</span></td><td>sim_bench/album/schema.py</td><td><code>to_dict()</code> &rarr; album.json</td><td><strong>spec-106 P0</strong> the UI contract. <code>Pick.id</code> is the photo stem, stable across straighten derivatives (<code>straightened_from</code> maps back to the original).</td></tr>
+    <tr><td><code>SpecBuilder</code> + <code>SpecInputs</code> / <code>SpecResult</code></td><td>sim_bench/serving/pipeline_runner.py</td><td><code>calc(inputs) -&gt; result</code></td><td><strong>spec-110</strong> resolves <code>configs/pipeline.yaml</code> into a run plan and places <code>device</code> per step by <em>trying</em> each flip through the step's typed config &mdash; <code>flipped</code> / <code>refused</code> record the outcome (SIGHTING-123 made silent CPU fallback possible).</td></tr>
+    <tr><td><code>JobStore</code> + <code>JobPaths</code></td><td>sim_bench/serving/job_store.py</td><td>plain class</td><td><strong>spec-110 T2.1</strong> a job <em>is</em> a directory: <code>input/</code>, <code>album.json</code>, <code>display/</code>, <code>run.json</code>. Modal-agnostic (root = a mounted Volume in production, any dir in tests). Validates <code>job_id</code> and image names: both become paths.</td></tr>
+    <tr><td><code>JobCurator</code> + <code>CurateJobInputs</code> / <code>CurateJobResult</code></td><td>sim_bench/serving/curate_job.py</td><td><code>calc(inputs) -&gt; result</code></td><td><strong>spec-110 T2.1</strong> storage-reference curation: read the job's inputs &rarr; run the plan over a <em>scratch copy</em> (straighten writes derivatives beside its inputs) &rarr; <code>normalize()</code> &rarr; write <code>album.json</code> + displays. Injectable runner/clock keep it testable off Modal.</td></tr>
+    <tr><td><code>run_pipeline</code> / <code>stable_album</code> <span class="pill plain">function</span></td><td>sim_bench/serving/curate_job.py</td><td>&mdash;</td><td>The production runner <code>(work_dir, plan) -&gt; (context, result)</code>; <code>stable_album</code> drops <code>created_at</code> so two runs can be compared (AC4).</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Where the Modal app fits.</strong> <code>sim_bench/serving/modal_app.py</code> holds no
+domain logic: <code>stage_job</code> writes a job's images into the store,
+<code>curate_job</code> (GPU) / <code>curate_job_cpu</code> call <code>JobCurator</code>,
+<code>fetch_album</code> reads the result back, and <code>_prepare_caches()</code> points
+HuggingFace / torch.hub / InsightFace at mounted Volumes so weights are not re-downloaded per cold
+start (AC5). <code>INSIGHTFACE_HOME</code> is read by
+<code>sim_bench/pipeline/utils/insightface_home.py::model_root_kwargs()</code>, used by
+<em>both</em> <code>FaceAnalysis</code> call sites &mdash; detection
+(<code>insightface_pipeline/face_analyzer.py</code>) and embeddings
+(<code>face_embedding/insightface_native.py</code>) &mdash; since redirecting one still leaves the
+other downloading buffalo_l into container scratch.</p>
+
 <h2 id="relationships">6 · Cross-class relationships</h2>
 
 <table>
@@ -327,6 +369,7 @@ targets the ephemeral per-run DB with no migrations (a new run = a fresh DB).</p
     <tr><td>RunExporter</td><td>SQLite</td><td>tuples → DataFrame</td><td>Pandera FACES_SCHEMA / FACE_SCORES_SCHEMA (P-H); validate before INSERT.</td></tr>
     <tr><td>RunStore.image_detail</td><td>UI / analysis</td><td>ImageDetail</td><td>Pydantic ImageDetail / FaceDetail (P-D).</td></tr>
     <tr><td>filter steps</td><td>FilterContext</td><td>FilterDecision</td><td>spec-032; KNOWN_FILTERS registry gates filter names.</td></tr>
+    <tr><td>JobCurator</td><td>spec-106 front end</td><td>album.json in the job store</td><td><strong>spec-110</strong> Album dataclasses; ordering canonical (scene ids by first photo, picks chronological).</td></tr>
     <tr><td>FC App PipelineConfig</td><td>config_diff</td><td>effective_config dict</td><td>spec-033 P-F; canonical shape compared via <code>compute()</code>.</td></tr>
   </tbody>
 </table>

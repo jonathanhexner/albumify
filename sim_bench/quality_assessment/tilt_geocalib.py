@@ -48,14 +48,16 @@ _UNC_TAU = 2.0
 _SIGN = -1.0
 
 _MODEL = None
+_MODEL_DEVICE = "cpu"
 
 
-def _get_model():
-    """Load GeoCalib once (CPU). Import is lazy so the dependency is optional."""
-    global _MODEL
-    if _MODEL is None:
+def _get_model(device: str = "cpu"):
+    """Load GeoCalib once on `device` (spec-109 P1: was hard-coded CPU). Import is lazy."""
+    global _MODEL, _MODEL_DEVICE
+    if _MODEL is None or _MODEL_DEVICE != device:
         from geocalib import GeoCalib  # optional extra; see spec-100 T0
-        _MODEL = GeoCalib().to("cpu").eval()
+        _MODEL = GeoCalib().to(device).eval()
+        _MODEL_DEVICE = device
     return _MODEL
 
 
@@ -95,10 +97,10 @@ class RawTilt:
     roll_uncertainty_deg: float
 
 
-def estimate_tilt_raw(image: ImageLike) -> RawTilt:
+def estimate_tilt_raw(image: ImageLike, device: str = "cpu") -> RawTilt:
     """Signed roll + raw uncertainty. Used by the spec-100 gate sweep."""
-    model = _get_model()
-    t = _to_chw_tensor(image).to("cpu")
+    model = _get_model(device)
+    t = _to_chw_tensor(image).to(device)
     with torch.no_grad():
         res = model.calibrate(t)
     angle = _SIGN * float(torch.rad2deg(res["gravity"].roll))
@@ -106,13 +108,13 @@ def estimate_tilt_raw(image: ImageLike) -> RawTilt:
     return RawTilt(angle_deg=angle, roll_uncertainty_deg=unc_deg)
 
 
-def estimate_tilt(image: ImageLike) -> TiltResult:
+def estimate_tilt(image: ImageLike, device: str = "cpu") -> TiltResult:
     """Estimate photo roll via GeoCalib, mapped onto spec-099's TiltResult.
 
     confidence in [0,1] from the native roll uncertainty; n_lines is 0 (the
     learned backend has no line count -- the field is kept for contract parity).
     """
-    raw = estimate_tilt_raw(image)
+    raw = estimate_tilt_raw(image, device=device)
     confidence = float(np.exp(-max(raw.roll_uncertainty_deg, 0.0) / _UNC_TAU))
     return TiltResult(angle_deg=raw.angle_deg, confidence=confidence, n_lines=0)
 
@@ -148,11 +150,14 @@ class TiltScorer:
 
     version = TILT_MODEL_VERSION
 
+    def __init__(self, device: str = "cpu"):
+        self.device = device
+
     def calc(self, inputs: TiltInputs) -> TiltScoreResult:
         angles, confidences, skipped = {}, {}, []
         for path in inputs.image_paths:
             try:
-                r = estimate_tilt(path)
+                r = estimate_tilt(path, self.device)
                 angles[path] = r.angle_deg
                 confidences[path] = r.confidence
             except Exception as exc:  # unreadable image / inference failure

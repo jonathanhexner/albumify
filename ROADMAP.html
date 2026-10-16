@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ROADMAP</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="ROADMAP.md">ROADMAP.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#albumify--roadmap" id="toc-albumify--roadmap">Albumify —
+Roadmap</a>
+<ul>
+<li><a href="#goal" id="toc-goal">Goal</a></li>
+<li><a href="#stages-and-gates" id="toc-stages-and-gates">Stages and
+gates</a></li>
+<li><a href="#current-position" id="toc-current-position">Current
+position</a></li>
+<li><a href="#decisions" id="toc-decisions">Decisions</a></li>
+<li><a href="#scope-tiers" id="toc-scope-tiers">Scope tiers</a></li>
+<li><a href="#specs-prds" id="toc-specs-prds">Specs (PRDs)</a></li>
+<li><a href="#definition-of-done" id="toc-definition-of-done">Definition
+of done</a></li>
+<li><a href="#risks" id="toc-risks">Risks</a></li>
+<li><a href="#related-trackers" id="toc-related-trackers">Related
+trackers</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="albumify--roadmap">Albumify — Roadmap</h1>
+<p><strong>This is the single roadmap file. Read it first every session;
+every spec below links back here.</strong> Last revised: 2026-10-09,
+reconciled to the saved CPU/GPU runs and current worker code. Links
+point to rendered HTML. <strong>Open scope decisions still await the
+owner's revision.</strong></p>
+<p>Readable view: <code>ROADMAP.html</code> (generated — run
+<code>.venv/Scripts/python scripts/md2html.py ROADMAP.md</code> after
+editing this file).</p>
+<hr />
+<h2 id="goal">Goal</h2>
+<p>Ship Albumify as a finished portfolio piece: a public URL where a
+stranger uploads a bounded set of photos and gets back a good,
+honestly-framed curated album, live, from the real pipeline on a
+scale-to-zero GPU worker.</p>
+<p>Two kinds of "done": <strong>it runs reliably</strong> (engineering,
+known path) and <strong>the picks are good</strong> (the bet, must be
+measured).</p>
+<h2 id="stages-and-gates">Stages and gates</h2>
+<pre><code>STAGE A  prove the picks ──► GATE 1 (go/no-go: quality)
+STAGE B  finalize engine ──► gate: folder -&gt; album.json, one command
+STAGE C  build service   ──► blocked until host + content-safety decided
+STAGE D  harden + ship   ──► SHIP GATE: cold public URL, stranger upload, AC1-AC10
+         narrative (parallel, low effort)</code></pre>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>What</th>
+<th>Gate</th>
+<th>Status (2026-10-09)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A — Prove the picks</td>
+<td>spec-102 real trips (Slovakia26, Budapest, Austria, Germany), judged
+against the owner's keeper list</td>
+<td>GATE 1: "would I show these picks to a recruiter"</td>
+<td><strong>No human verdict.</strong> Harness and trip reports exist;
+PhotoTriage/CUFED are not this gate (owner decision 2026-10-09).</td>
+</tr>
+<tr>
+<td>B — Finalize the engine</td>
+<td>global top-K cap; fix only what A flags; lock production profile;
+album.json contract</td>
+<td>one command: folder → valid album.json, predictable size</td>
+<td>Partly done ahead of A: album.json normalizer (106 P0), triage
+(107), semantic tags + theme (108 P0/P1). Top-K cap not built.</td>
+</tr>
+<tr>
+<td>C — Build the service</td>
+<td>containerized worker (110) → GPU (109) → control-plane API + job
+state machine → Next.js front end → showcase seed</td>
+<td>host + content-safety decided</td>
+<td>Modal auth and L4 smoke passed; full CPU/GPU pipeline ran on 12 real
+photos with matching picks/theme. <strong>2026-10-09:</strong>
+storage-reference <code>curate_job(job_id)</code> + persisted normalized
+<code>album.json</code> built; <strong>AC3 met on Modal</strong>
+(48-photo GPU run: 13 picks, 25 dropped-with-reason, 7 scenes, full
+theme). Idempotence (AC4) failed on that run only on pick order — cause
+fixed (SIGHTING-126), one re-run closes it. Open: AC5 model-cache reuse,
+persistent deployment, and SIGHTING-128 (album omits photos dropped
+before scoring). API and front end not started.</td>
+</tr>
+<tr>
+<td>D — Harden, polish, ship</td>
+<td>adversarial uploads, cold-start budget, cost alarm, TTL privacy,
+both themes, AC1–AC10 on public URL, REVIEW.md</td>
+<td>SHIP GATE</td>
+<td>Not started.</td>
+</tr>
+<tr>
+<td>Narrative (parallel)</td>
+<td>"how it works" explainer, honest vs-VLM panel (N=1 caveat), short
+technical write-up</td>
+<td>—</td>
+<td>Not started.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="current-position">Current position</h2>
+<ul>
+<li>Last commit 2026-10-09: roadmap and rendered documentation. Latest
+worker fixes and run artifacts are still uncommitted.</li>
+<li>The last week worked Stages B and C (and the v1.5 agentic layer)
+<strong>ahead of Stage A</strong>. Gate 1 is still open.</li>
+<li><strong>Modal account blocker cleared:</strong> auth, billing, image
+imports, and L4 smoke passed. Owner chose the shared GPU image for
+spec-110 acceptance, with CPU proof retained.</li>
+<li>Saved GPU retry: <strong>142.186 s pipeline / 313.8 s driver
+wall</strong>, four picks matching CPU; face detection + embeddings
+consume <strong>101.850 s (72%)</strong>. This 12-photo result does not
+establish the 100/300-photo latency gate.</li>
+<li>Next worker work (owner action): re-run
+<code>scripts/modal_curate_driver.py --src D:/Slovakia26 --start 300 --n 48 --job-id slovakia48 --twice</code>
+to close spec-110 AC4 (the ordering fix landed after the 2026-10-09
+run), then once more to close AC5 (models must not re-download). Then
+profile face-model startup versus inference and benchmark 100/300 photos
+and cost. Built since: storage-reference <code>curate_job(job_id)</code>
+→ normalized persisted <code>album.json</code>, Volume-backed model
+caches, and the local no-spend proof path (<code>--local-root</code>).
+See <a href="specs/109-parallel-gpu-execution/updates.html">109
+updates</a> and <a
+href="specs/110-containerized-worker-modal-cpu/tasks.html">110
+tasks</a>.</li>
+<li>Other unblocked engineering: spec-106 P3 (control-plane API + job
+state machine). Spec-111 T1.4 remains a v1.5 task pending the scope
+decision.</li>
+</ul>
+<h2 id="decisions">Decisions</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Quality bar for Gate 1</td>
+<td>Open — agree the bar before running Stage A</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Worker host</td>
+<td><strong>Decided 2026-10-04: Modal</strong> (CPU first via spec-110,
+GPU via spec-109)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Content-safety stance for anonymous uploads</td>
+<td>Open — rec: minimal ToS + short TTL for v1</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Agentic layer in v1 or v1.5</td>
+<td>Drifted: spec-111 P0/P1 built 2026-10-05. Needs an explicit
+call.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>MVP scope: anonymous, bounded, TTL'd, no accounts</td>
+<td>Open — rec: yes</td>
+</tr>
+<tr>
+<td>6</td>
+<td>GPU in v1</td>
+<td><strong>Reversed 2026-10-04:</strong> CPU baseline 9.0 s/img makes
+GPU mandatory (was "WON'T v1")</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Live DB + storage</td>
+<td><strong>Decided 2026-10-10: Neon Postgres (free) + Cloudflare
+R2</strong>; where the pipeline runs (local / Modal GPU / Modal CPU) is
+a config setting (spec-112)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scope-tiers">Scope tiers</h2>
+<ul>
+<li><strong>MUST (v1):</strong> reliable live curation on bounded upload
+· quality proven · deployed URL with every job state designed · honest
+framing.</li>
+<li><strong>SHOULD (v1):</strong> people view · why-picked score
+breakdown · showcase seed trips · "how it works" explainer.</li>
+<li><strong>COULD (v1.5):</strong> AI verification layer (111) ·
+album-type tuner · captions (108 P2) · thematic grouping.</li>
+<li><strong>WON'T (v1):</strong> accounts · billing · live model
+training · multi-user persistence.</li>
+</ul>
+<h2 id="specs-prds">Specs (PRDs)</h2>
+<table>
+<thead>
+<tr>
+<th>Spec</th>
+<th>Title</th>
+<th>Stage</th>
+<th>Status</th>
+<th>Progress &amp; evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="specs/102-albumify-vs-vlm/spec.html">102</a></td>
+<td>Albumify vs VLM blind A/B</td>
+<td>A</td>
+<td>In Progress — harness done, no verdict</td>
+<td><a href="specs/102-albumify-vs-vlm/updates.html">updates</a> ·
+reports: <a
+href="reports/2026-07-17_albumify_vs_vlm_budapest/report.html">Budapest</a>
+· <a
+href="reports/2026-07-18_albumify_vs_vlm_austria/report.html">Austria</a>
+· <a
+href="reports/2026-07-18_albumify_vs_vlm_germany/report.html">Germany</a>
+· <a
+href="reports/2026-10-01_slovakia_analysis/report.html">Slovakia26</a></td>
+</tr>
+<tr>
+<td><a href="specs/104-staged-process-isolation/spec.html">104</a></td>
+<td>Staged process isolation</td>
+<td>B (enabler)</td>
+<td>Implemented v1, merged to main 2026-09-28</td>
+<td><a
+href="specs/104-staged-process-isolation/updates.html">updates</a> · <a
+href="specs/104-staged-process-isolation/REVIEW.html">REVIEW</a> · <a
+href="reports/2026-09-21_spec104_capacity/report.html">capacity
+report</a></td>
+</tr>
+<tr>
+<td><a
+href="specs/107-input-triage-discard-review/spec.html">107</a></td>
+<td>Input triage + discard review</td>
+<td>B</td>
+<td>Implemented P0–P2 (2026-10-01); P3/P4 open</td>
+<td><a
+href="specs/107-input-triage-discard-review/updates.html">updates</a> ·
+<a href="specs/107-input-triage-discard-review/REVIEW.html">REVIEW</a> ·
+<a href="reports/2026-10-01_slovakia_analysis/report.html">Slovakia26
+report</a></td>
+</tr>
+<tr>
+<td><a href="specs/108-album-semantic-layer/spec.html">108</a></td>
+<td>Album semantic layer</td>
+<td>B / v1.5</td>
+<td>P0–P1 done; P2 code-complete, live VLM awaits GPU</td>
+<td><a href="specs/108-album-semantic-layer/updates.html">updates</a> ·
+<a href="specs/108-album-semantic-layer/REVIEW.html">REVIEW</a> · <a
+href="reports/2026-10-01_ram_vs_clip_tagging/report.html">RAM++ vs
+CLIP</a></td>
+</tr>
+<tr>
+<td><a href="specs/106-albumify-web-showcase/spec.html">106</a></td>
+<td>Albumify Live Curator (the product)</td>
+<td>C–D</td>
+<td>In Progress — P0 done; <a
+href="specs/106-albumify-web-showcase/architecture.html">architecture</a>
+· <a href="specs/106-albumify-web-showcase/plan.html">plan</a> · <a
+href="specs/106-albumify-web-showcase/tasks.html">tasks</a></td>
+<td><a
+href="specs/106-albumify-web-showcase/updates.html">updates</a></td>
+</tr>
+<tr>
+<td><a
+href="specs/110-containerized-worker-modal-cpu/spec.html">110</a></td>
+<td>Containerized worker on Modal (CPU)</td>
+<td>C</td>
+<td>In Progress — AC1-AC3 met (AC3 on a 48-photo Modal GPU job run); AC4
+needs one re-run after the SIGHTING-126 fix; AC5 unproven; SIGHTING-128
+open</td>
+<td><a
+href="specs/110-containerized-worker-modal-cpu/updates.html">updates</a></td>
+</tr>
+<tr>
+<td><a href="specs/112-live-db-storage-runner/spec.html">112</a></td>
+<td>Live DB + storage, runner as config (Neon + R2)</td>
+<td>C</td>
+<td>In Progress — Phase A A1–A5 built 2026-10-10, real-data proof
+pending; Phase A local (SQLite + folder), Phase B Neon + R2 by config;
+photos/faces/people/scenes as DB rows; takes spec-106 T2.1 + DB half of
+T3.1</td>
+<td><a href="specs/112-live-db-storage-runner/updates.html">updates</a>
+· <a href="specs/112-live-db-storage-runner/tasks.html">tasks</a></td>
+</tr>
+<tr>
+<td><a href="specs/109-parallel-gpu-execution/spec.html">109</a></td>
+<td>GPU enablement + parallelism</td>
+<td>C</td>
+<td>In Progress — 12-photo GPU run matches CPU picks/theme; face stack
+dominates; full-size gate pending</td>
+<td><a href="specs/109-parallel-gpu-execution/updates.html">updates</a>
+· <a href="reports/2026-10-04_spec109_baseline/summary.html">CPU
+baseline</a> · <a
+href="specs/109-parallel-gpu-execution/modal_explainer.html">Modal
+explainer</a></td>
+</tr>
+<tr>
+<td><a href="specs/111-ai-verification-layer/spec.html">111</a></td>
+<td>AI verification layer</td>
+<td>v1.5</td>
+<td>In Progress — P0 + P1 core built 2026-10-05 (owner call pending on
+v1 vs v1.5)</td>
+<td><a
+href="specs/111-ai-verification-layer/updates.html">updates</a></td>
+</tr>
+<tr>
+<td><a href="specs/105-vlm-merge-arbiter/spec.html">105</a></td>
+<td>VLM merge arbiter</td>
+<td>—</td>
+<td>Superseded by 111 checkpoint #1</td>
+<td><a href="specs/105-vlm-merge-arbiter/updates.html">updates</a></td>
+</tr>
+<tr>
+<td><a
+href="specs/103-scene-clustering-geo-time-fusion/spec.html">103</a></td>
+<td>Scene clustering geo/time fusion</td>
+<td>B (optional)</td>
+<td>In Progress — gated off by default</td>
+<td><a
+href="specs/103-scene-clustering-geo-time-fusion/updates.html">updates</a>
+· <a
+href="reports/2026-07-21_scene_clustering_fusion/report.html">fusion
+report</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="definition-of-done">Definition of done</h2>
+<ul>
+<li>Public URL loads cold and works first try on a device that isn't the
+owner's.</li>
+<li>A stranger's bounded upload returns a good curated album, live.</li>
+<li>Curation quality validated with a number and honest framing.</li>
+<li>Every job state designed: queued / rejected / timeout / failed /
+expired.</li>
+<li>Never OOMs under adversarial input; spend is capped.</li>
+<li>AC1–AC10 (spec-106 plan.html §11) hold on the deployed URL.</li>
+<li>"How it works" + honest vs-VLM narrative live.</li>
+<li>REVIEW.md clean · CHANGES_LOG · README with one-command run and
+deploy.</li>
+<li>v1.5 ideas parked here, not half-built in v1.</li>
+</ul>
+<h2 id="risks">Risks</h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Level</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scope creep (every subsystem has a rabbit hole)</td>
+<td>highest</td>
+<td>Freeze v1 scope; every task must answer "does this serve
+shipping?"</td>
+</tr>
+<tr>
+<td>Quality shortfall on fresh photos</td>
+<td>high</td>
+<td>Stage A first; targeted fix to the weak pass, not a rebuild</td>
+</tr>
+<tr>
+<td>First-run trust (slow/failed first upload)</td>
+<td>med</td>
+<td>Showcase seed + honest progress + cold-start budget</td>
+</tr>
+<tr>
+<td>Cost blowup on a public endpoint</td>
+<td>med</td>
+<td>Scale-to-zero + caps + TTL + budget alarm</td>
+</tr>
+<tr>
+<td>Solo bandwidth</td>
+<td>med</td>
+<td>Strict critical-path order; defer v1.5</td>
+</tr>
+</tbody>
+</table>
+<h2 id="related-trackers">Related trackers</h2>
+<ul>
+<li><code>TODO.md</code> — task-level items and review follow-ups.</li>
+<li><code>docs/project/SIGHTINGS.md</code> — open bugs.</li>
+<li><code>CHANGES_LOG.md</code> — every change, newest first.</li>
+</ul>
+</div>
+</body>
+</html>

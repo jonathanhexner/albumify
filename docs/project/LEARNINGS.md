@@ -6,6 +6,104 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-10-09: spec-109 — "the GPU is slow" was a pure-Python protobuf parser (and the dev box paid it too)
+**What happened**: the first L4 run of the pipeline was no faster than CPU. Device fixes (six places
+ignoring `device=cuda`) made per-image cost 0.88 s but left ~175 s of fixed cost per run, 134 s of it in
+InsightFace. Guesses in order: model download (no — cached), ORT session creation (no — <1 s/model
+measured), thread oversubscription (no). The truth came from timing `onnx.load` locally: protobuf
+3.20.3 has no C++ wheel for Python 3.11, so `google.protobuf` parses in pure Python; InsightFace's
+constructors `onnx.load()` their 144/174 MB models -> 38 s + MemoryError. protobuf 4.25 (upb): 1.1 s.
+**Lesson**: (1) when a fixed cost survives every "obvious" cause, time the constructor's INTERNAL steps
+in isolation (one probe function, four numbers) instead of re-running the pipeline; (2) a
+compatibility pin (`protobuf<4` for MediaPipe) can silently switch a C library to a pure-Python
+fallback on a newer interpreter — check `api_implementation.Type()` after any protobuf/py bump;
+(3) the dev box had paid this on every run for months; "1.1 s/img detect over 57 images" was mostly load.
+**Prevention**: CLAUDE.md now forbids protobuf 3.x; requirements pin `protobuf>=4.25,<5`,
+`mediapipe>=0.10.14`; SIGHTING-129 records the measurement; `scripts/modal_curate_driver.py` prints
+per-step times so a regression is visible on the next run.
+
+### 2026-10-09 — A "reproducible result" claim needs two runs, not one green run
+Two consecutive worker runs over the identical staged images returned the same four picks with the
+same scores — and different scene ids and pick order (SIGHTING-126). The chain: a step's output dict
+order varies run to run, HDBSCAN numbers clusters by row order, downstream iterates that dict. The
+decision was stable; only its presentation was not, which is the kind of difference a single run can
+never show. Lesson: an idempotence AC has to be exercised by actually re-running, and the fix belongs
+at the layer that owes the stable contract (the album), not in the clusterer, whose ids are
+inherently arbitrary.
+
+### 2026-10-09 — Default cache paths are the quiet cost on serverless
+Three downloaders (HuggingFace, torch.hub, InsightFace) default to a path under `$HOME`. On a
+scale-to-zero container `$HOME` dies with the container, so buffalo_l and the torch.hub checkpoints
+were re-downloaded on every cold start while the mounted Volumes sat unused. Nothing fails, nothing
+logs an error — it just costs seconds and bandwidth per run. Worth auditing every new model loader
+for where it caches, and committing the Volume afterwards.
+
+
+### 2026-10-09: GPU configuration must reach both the estimator and its input tensor
+**What happened**: staged GPU fixes still dropped GeoCalib's device in a wrapper; RAM++ moved its model but not its input, producing empty tags behind the triage error handler. A rebuilt container also resolved PyArrow incompatible with NumPy 1.26.
+**Lesson**: CUDA visibility and a successful pipeline result do not prove every model ran successfully. Trace wrappers and tensor placement, compare semantic outputs, and inspect warning logs.
+**Prevention**: four offline CPU/CUDA device-routing regression cases; PyArrow pinned to the working venv version; Modal driver output and worker INFO logging enabled for real-data retries.
+
+### 2026-10-09: spec-110 — "it imports" is not "it runs": four container-only failures, each one layer deeper
+**What happened**: the Modal worker image was validated by importing every package + the pipeline
+modules (green). The first real `curate` run on 12 Slovakia images then failed four times, each at a
+deeper layer: (1) `score_ava`'s typed config forbade the `device` knob its own JSON schema advertises
+(SIGHTING-123); (2) `score_iqa` lazily imports `skimage.restoration` which needs `PyWavelets` — an
+import inside a function, invisible to module-level import checks; (3) `select_best` loads the Siamese
+checkpoint whose pickled training config holds a `WindowsPath` → `cannot instantiate 'WindowsPath'`
+on Linux; (4) before all that, `app.run()` refused to start because the same Modal app also declared a
+GPU function on an unbillable account. Also: Git Bash rewrote the Volume path `/` into
+`C:/Program Files/Git/`, and the Modal CLI crashed on a `✓` glyph without `PYTHONUTF8=1`.
+**Lesson**: (1) module import checks catch only top-level imports — lazily imported deps and pickled
+objects only surface on a real run with real weights; budget for several short iterations and make each
+one cheap (CPU container, 12 images). (2) Any checkpoint saved on Windows can carry `WindowsPath`
+objects; load through a portable loader. (3) Keep free-tier-runnable functions in their own Modal app so
+billing gates on one function don't block the others. (4) On Windows, use PowerShell or the Python API
+for anything with a POSIX remote path.
+**Prevention**: `checkpoint_io.load_checkpoint` (+ test) aliases the foreign Path class during load;
+`curate` validates each device flip against the typed config; `curate_cpu` lives on `cpu_app`;
+README documents `PYTHONUTF8=1` and the Git Bash path trap; SIGHTING-123 asks for a schema-vs-typed-config
+architecture test.
+
+### 2026-10-02: spec-108 — an 8B VLM (MiniCPM-V) is not practically runnable on this CPU dev box
+**What happened**: wiring MiniCPM-V 4.5 locally via an isolated `.venv-vlm` (to dodge the
+transformers 4.51-vs-4.57 conflict) worked for everything EXCEPT the actual inference. Sequence of
+real-world friction: (1) transformers version conflict → solved with a separate venv; (2) model needs
+`torchvision` (not an obvious dep) → added; (3) HF cache on Windows has no symlinks + `hf_xet`
+permission errors → partial/corrupt shard; (4) the 16 GB download filled **C: to 100%** (cache
+defaults to `~/.cache` on C:) → relocated to D:; (5) once all 4 shards loaded (`ready: true`
+confirmed), a single CPU caption **never finished inside the runner's wall-clock** — an 8B VLM on CPU
+is minutes/call and swaps a 16 GB model on a 32 GB box.
+**Lesson**: (1) isolating a version-conflicting heavy model in its own venv + subprocess is the right
+pattern and works (the seam/plumbing proved out via `--stub`), but (2) **"local VLM" on a CPU dev box
+means "loads, doesn't realistically infer"** — plan for an 8B VLM to run on a GPU worker, not the dev
+machine. (3) Pin the HF cache OFF the system drive from the start (`HF_HUB_CACHE`); a 16 GB default to
+C: will fill it. (4) Prove the plumbing with a stub BEFORE the multi-GB download — we did, so the code
+was validated independent of the model.
+**Prevention**: `vlm_worker.py` sets `HF_HUB_CACHE=D:\hf_cache\hub` + disables xet by default; the
+caption steps are opt-in (`enabled=false`) so no env without the model/GPU is affected; live VLM
+validation is a spec-109 GPU-worker gate, not a dev-box one.
+
+### 2026-10-01: spec-107 — a unit-green pipeline step was defeated by an ALPHABETICAL tie-break in the builder
+**What happened**: the new `triage_metadata`/`triage_content` steps worked perfectly in isolation (sets
+aside all junk) but the end-to-end verify FAILED — 7 set-aside items still reached the curated album.
+Root cause was two layers down in `PipelineBuilder`: (1) `_resolve_dependencies` returned the step list
+from a `set()` (arbitrary order), and (2) `_topological_sort` tie-broke ready steps **alphabetically**
+(`queue.sort()`). Together, independent steps ran in alphabetical order regardless of `pipeline.yaml`,
+so `score_ava`/`score_iqa` ran BEFORE `triage_*` and scored the screenshots before triage could remove
+them. `pipeline.yaml` order was silently being ignored for every same-dependency-level step; triage was
+just the first feature whose correctness *depended* on that order.
+**Lesson**: (1) explicit `depends_on` edges are NOT the only thing that determines run order — a
+topological sort's TIE-BREAK is load-bearing, and "alphabetical" is an arbitrary, surprising default
+that silently diverges from the author's declared list. (2) A step that must run before others cannot
+rely on being listed first unless the builder honors list order (or you add hard deps — which
+`auto_resolve` would then drag into every pipeline that includes the consumer, polluting
+`minimal_pipeline` with RAM++). (3) Unit-green ≠ correct: only the real-data E2E caught it.
+**Prevention**: `_resolve_dependencies` now preserves the author's order; `_topological_sort`
+tie-breaks by position in that order, so `pipeline.yaml` order is meaningful.
+`tests/pipeline/test_builder.py::test_independent_steps_keep_declared_order` fails if anyone reverts to
+alphabetical. Keep the "run it end-to-end on real data" step in every feature's acceptance.
+
 ### 2026-07-22: spec-103 — additive metadata fusion over-merges; a ONE-SIDED short-range boost is the safe shape
 **What happened**: fusing capture-time into scene clustering as an ADDITIVE distance
 (`w_v·visual + w_t·time`) over-merged: its symmetric time term *pushed apart* visually-similar shots a

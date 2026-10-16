@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="REVIEW.md">REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-108--code-review-album-semantic-layer"
+id="toc-spec-108--code-review-album-semantic-layer">spec-108 — Code
+Review (Album Semantic Layer)</a>
+<ul>
+<li><a href="#part-1--how-it-works" id="toc-part-1--how-it-works">Part 1
+— How it works</a></li>
+<li><a href="#part-2--findings-by-checklist-section"
+id="toc-part-2--findings-by-checklist-section">Part 2 — Findings by
+checklist section</a></li>
+<li><a href="#part-3--verdict--tickets"
+id="toc-part-3--verdict--tickets">Part 3 — Verdict &amp;
+tickets</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-108--code-review-album-semantic-layer">spec-108 — Code
+Review (Album Semantic Layer)</h1>
+<p><strong>Reviewed:</strong> 2026-10-02 · <strong>Reviewer:</strong>
+Claude · <strong>Base:</strong> <code>main</code>
+<strong>Scope:</strong> P0 (semantic tags) + P1 (tag-based album theme)
++ P2 (per-keeper &amp; album captions + the isolated
+<code>.venv-vlm</code> VLM seam). P1.3 (VLM-refined theme), P3
+(theme-relevance), P4 (scene-cluster boost) are NOT built — out of
+scope. <strong>Verdict:</strong> <strong>spec stays In
+Progress.</strong> P0 + P1 <strong>ACCEPT</strong> (done, verified). P2
+<strong>ACCEPT as code-complete, NOT Implemented</strong> — no live VLM
+E2E (deferred to the spec-109 GPU worker). No §1–§7 hard blockers,
+because the spec is <em>not</em> being flipped to Implemented.</p>
+<hr />
+<h2 id="part-1--how-it-works">Part 1 — How it works</h2>
+<h3 id="module-inventory-all-116-loc-single-responsibility">Module
+inventory (all ≤116 LOC, single responsibility)</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>LOC</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/semantic/tags.py</code></td>
+<td>82</td>
+<td>pure <code>clean()</code> + <code>categorize()</code> →
+<code>SemanticTags</code> (facets)</td>
+</tr>
+<tr>
+<td><code>sim_bench/semantic/theme.py</code></td>
+<td>67</td>
+<td>pure <code>infer_theme()</code> → <code>AlbumTheme</code>
+(album_type, facets, motifs)</td>
+</tr>
+<tr>
+<td><code>sim_bench/semantic/captions.py</code></td>
+<td>58</td>
+<td>pure <code>clean_caption()</code>,
+<code>build_album_prompt()</code>, <code>KEEPER_PROMPT</code></td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/derive_semantic_tags.py</code></td>
+<td>42</td>
+<td>step: <code>ram_tags</code> → <code>semantic_tags</code></td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/infer_album_theme.py</code></td>
+<td>41</td>
+<td>step: <code>semantic_tags</code> → <code>album_theme</code></td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/caption_keepers.py</code></td>
+<td>70</td>
+<td>step (opt-in): per-keeper VLM caption →
+<code>image_captions</code></td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/caption_album.py</code></td>
+<td>67</td>
+<td>step (opt-in): text-only synthesis →
+<code>album_theme.caption</code></td>
+</tr>
+<tr>
+<td><code>sim_bench/vlm/base.py</code></td>
+<td>38</td>
+<td><code>VLMProvider</code> protocol (the seam)</td>
+</tr>
+<tr>
+<td><code>sim_bench/vlm/vlm_worker.py</code></td>
+<td>116</td>
+<td>MiniCPM-V worker (runs in <code>.venv-vlm</code>), JSON-lines,
+<code>--stub</code></td>
+</tr>
+<tr>
+<td><code>sim_bench/vlm/subprocess_provider.py</code></td>
+<td>104</td>
+<td><code>SubprocessVLMProvider</code> — spawns worker, implements
+seam</td>
+</tr>
+</tbody>
+</table>
+<h3 id="dependency-map--layering">Dependency map / layering</h3>
+<p><code>steps/*</code> (framework) → <code>sim_bench/semantic/*</code>
++ <code>sim_bench/vlm/*</code> (framework-agnostic domain). The VLM
+backend is reachable only through the <code>VLMProvider</code> protocol
+— steps never import a concrete model. No reverse imports; the main env
+never imports transformers-4.51 (that lives in
+<code>.venv-vlm</code>).</p>
+<h3 id="data-flow">Data flow</h3>
+<p><code>triage_content</code> (ram_tags, cached) →
+<code>derive_semantic_tags</code> (semantic_tags) →
+<code>infer_album_theme</code> (album_theme) → … →
+<code>select_best</code> → <code>caption_keepers</code> (image_captions)
+→ <code>caption_album</code> (album_theme.caption). Captions are opt-in
+(<code>enabled=false</code>) and run only on keepers.</p>
+<hr />
+<h2 id="part-2--findings-by-checklist-section">Part 2 — Findings by
+checklist section</h2>
+<h3 id="1-structure--pass">§1 Structure — <strong>pass</strong></h3>
+<p>Every module small + single-purpose; steps thin (spec-053). No dead
+code. No &gt;4-param functions.</p>
+<h3 id="2-code-quality--pass">§2 Code quality —
+<strong>pass</strong></h3>
+<p><code>try/except</code> only around model load + per-image inference,
+each degrading to <code>""</code>/empty (never raises, so one bad image
+can't fail a run). No silent defaults on load-bearing fields. Nesting
+≤3.</p>
+<h3 id="3-naming--package-structure--pass">§3 Naming / package structure
+— <strong>pass</strong></h3>
+<p>New <code>sim_bench/semantic/</code> + <code>sim_bench/vlm/</code>
+subpackages (≥3 related files) — correct promotion. <code>__all__</code>
+present on the domain modules; <code>__init__.py</code> empty by repo
+convention; <code>vlm_worker.py</code> is a script (no
+<code>__all__</code> needed).</p>
+<h3 id="4-layering--coupling--pass-with-followup">§4 Layering / coupling
+— <strong>pass-with-followup</strong></h3>
+<p>Clean domain/step split; VLM behind a protocol. <strong>Finding
+(low):</strong> <code>album_theme</code> has <strong>two
+writers</strong> — <code>infer_album_theme</code> produces it
+(<code>source="tags"</code>), <code>caption_album</code> overwrites it
+(<code>source="vlm"</code> + caption). Intentional (refine-in-place) and
+ordered by <code>depends_on</code>, but a two-way writer per §4 must be
+documented → ticket T1.</p>
+<h3 id="5-testability--p0p1-pass--p2-pass-with-followup">§5 Testability
+— <strong>P0/P1 pass · P2 pass-with-followup</strong></h3>
+<p>Inventory: <strong>26 unit tests</strong> (tags 8, theme 5,
+theme-step 2, derive-step 2, captions 12). P0/P1 are pure deterministic
+logic over tags (no images needed) → unit tests are the right coverage;
+also sanity-checked on real Slovakia tags. <strong>Finding (P2,
+medium):</strong> the caption steps are tested only with a <strong>fake
+provider</strong> — there is <strong>no live VLM E2E on real
+data</strong> (MiniCPM-V loads but CPU inference is impractical here;
+deferred to the GPU worker). The steps are gated OFF
+(<code>enabled=false</code>) and not in any active production path, so
+this is a followup, not a blocker → ticket T3. The stub-verified
+subprocess IPC proves the plumbing independent of the model.</p>
+<h3 id="6-boundary-contracts--pass-with-followup">§6 Boundary contracts
+— <strong>pass-with-followup</strong></h3>
+<p>No new Pydantic/Pandera boundary — internal dataclasses
+(<code>SemanticTags</code>, <code>AlbumTheme</code>) + context dicts.
+<code>VLMProvider</code> is a <code>runtime_checkable</code> Protocol
+(the seam's contract) and <code>isinstance</code> holds for the
+provider. New context fields (<code>semantic_tags</code>,
+<code>album_theme</code>) have spec-034 rows. <strong>Finding
+(low):</strong> the <code>album_theme</code> dict shape is not
+type-enforced; promote to a typed model (<code>extra="forbid"</code>)
+when the UI consumes it → ticket T4.</p>
+<h3 id="7-documentation--pass-with-followup">§7 Documentation —
+<strong>pass-with-followup</strong></h3>
+<p><code>spec.md</code>, <code>tasks.md</code>, <code>REVIEW.md</code>
+(this), CHANGES_LOG (5 entries), LEARNINGS (VLM-on-CPU entry) all
+present. <strong>Finding (medium):</strong>
+<code>docs/architecture/data_flow.html</code> +
+<code>classes.html</code> not yet updated for the semantic-layer steps,
+the new context fields, and the VLM classes → ticket T2 (documentation
+mandate).</p>
+<h3 id="8-risk-register--pass">§8 Risk register —
+<strong>pass</strong></h3>
+<p>Deferred work (P2 live, P1.3, P3, P4) tracked in tasks.md. VLM env
+friction + mitigations captured in LEARNINGS. Backwards-compat: caption
+steps gated off → other pipelines/CI unaffected. Hot-path: P0/P1 reuse
+cached tags (near-zero cost); the VLM is the only heavy piece and it is
+gated + isolated.</p>
+<hr />
+<h2 id="part-3--verdict--tickets">Part 3 — Verdict &amp; tickets</h2>
+<h3 id="verdict">Verdict</h3>
+<ul>
+<li><strong>P0 (semantic tags) — ACCEPT.</strong> Done, verified, 10
+tests.</li>
+<li><strong>P1 (tag-based theme) — ACCEPT.</strong> Done, verified
+("family trip — towns &amp; nature"), 7 tests.</li>
+<li><strong>P2 (captions + VLM seam) — ACCEPT as code-complete; NOT
+Implemented</strong> until a live caption E2E runs on the spec-109 GPU
+worker (T3).</li>
+<li><strong>spec-108 overall remains <code>In Progress</code></strong>
+(P1.3/P3/P4 unbuilt). No handoff to Implemented attempted, so no §1–§7
+blocker gate applies.</li>
+</ul>
+<h3 id="follow-up-tickets--todo--spec-109">Follow-up tickets (→ TODO /
+spec-109)</h3>
+<ul>
+<li><strong>T1 (§4, low):</strong> document the <code>album_theme</code>
+two-writer contract (produce→refine) in code + spec-034.</li>
+<li><strong>T2 (§7, med):</strong> update <code>data_flow.html</code> +
+<code>classes.html</code> for semantic steps, context fields, VLM
+classes.</li>
+<li><strong>T3 (§5, med):</strong> live caption E2E (MiniCPM-V) on the
+spec-109 GPU worker — gates P2 → Implemented.</li>
+<li><strong>T4 (§6, low):</strong> typed <code>extra="forbid"</code>
+model for <code>album_theme</code> (and <code>set_aside</code>) when the
+UI consumes them.</li>
+</ul>
+</div>
+</body>
+</html>

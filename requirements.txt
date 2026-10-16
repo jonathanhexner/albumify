@@ -54,8 +54,8 @@ insightface>=0.7.0  # Face detection and analysis (SCRFD, attributes)
 onnxruntime>=1.16.0  # InsightFace backend (CPU)
 onnxruntime-gpu>=1.16.0; platform_system != "Darwin"  # InsightFace backend (GPU, optional)
 ultralytics>=8.0.0  # YOLOv8-Pose for person detection
-mediapipe>=0.10.0  # Required for portrait analysis (album organization feature)
-protobuf>=3.20,<4  # Pin for MediaPipe compatibility (newer versions break it)
+mediapipe>=0.10.14  # Required for portrait analysis; >=0.10.14 accepts protobuf 4 (SIGHTING-129)
+protobuf>=4.25,<5  # upb (C-accelerated) parser; 3.20 has no C++ wheel on py3.11 -> onnx.load took ~60 s per InsightFace load (SIGHTING-129)
 sixdrepnet>=0.1.6  # Head pose estimation for face pipeline
 
 # Optional: Earth Mover's Distance (advanced)

@@ -1,0 +1,2031 @@
+{
+  "folder": "D:\\Slovakia26",
+  "total_images": 715,
+  "triage_all": {
+    "screenshots_by_name": 8,
+    "no_camera_exif": 8,
+    "total_flagged": 8,
+    "flagged_names": [
+      "Screenshot_20260818_142734_Family Link.jpg",
+      "Screenshot_20260818_144747_Family Link.jpg",
+      "Screenshot_20260818_170819_baseus Security.jpg",
+      "Screenshot_20260822_075805_Chrome.jpg",
+      "Screenshot_20260822_075812_Chrome.jpg",
+      "Screenshot_20260823_104703_Gmail.jpg",
+      "Screenshot_20260823_114041_Gopass.jpg",
+      "Screenshot_20260825_081741_Mapycom.jpg"
+    ]
+  },
+  "subset_n": 75,
+  "album": {
+    "ok": true,
+    "k": 20,
+    "order": [
+      "Screenshot_20260818_142734_Family Link",
+      "Screenshot_20260818_144747_Family Link",
+      "20260820_155313",
+      "20260821_101651",
+      "20260821_102354",
+      "20260821_105436",
+      "Screenshot_20260822_075805_Chrome",
+      "Screenshot_20260822_075812_Chrome",
+      "20260822_113544",
+      "20260822_162306",
+      "20260822_171645",
+      "Screenshot_20260823_104703_Gmail",
+      "20260823_124024(0)",
+      "20260823_132950",
+      "20260826_182352",
+      "20260827_204557",
+      "20260827_211534",
+      "20260828_121916",
+      "20260829_171920",
+      "20260829_180139"
+    ],
+    "n_scene_clusters": 8,
+    "picks": [
+      {
+        "id": "Screenshot_20260818_142734_Family Link",
+        "score": 0.5787,
+        "cluster": 4
+      },
+      {
+        "id": "Screenshot_20260818_144747_Family Link",
+        "score": 0.6754,
+        "cluster": 4
+      },
+      {
+        "id": "20260820_155313",
+        "score": 0.4067,
+        "cluster": 3
+      },
+      {
+        "id": "20260821_101651",
+        "score": 0.5423,
+        "cluster": -1
+      },
+      {
+        "id": "20260821_102354",
+        "score": 0.5694,
+        "cluster": 1
+      },
+      {
+        "id": "20260821_105436",
+        "score": 0.5591,
+        "cluster": 3
+      },
+      {
+        "id": "Screenshot_20260822_075805_Chrome",
+        "score": 0.531,
+        "cluster": -1
+      },
+      {
+        "id": "Screenshot_20260822_075812_Chrome",
+        "score": 0.5723,
+        "cluster": -1
+      },
+      {
+        "id": "20260822_113544",
+        "score": 0.4393,
+        "cluster": 0
+      },
+      {
+        "id": "20260822_162306",
+        "score": 0.5772,
+        "cluster": 6
+      },
+      {
+        "id": "20260822_171645",
+        "score": 0.5738,
+        "cluster": 6
+      },
+      {
+        "id": "Screenshot_20260823_104703_Gmail",
+        "score": 0.7031,
+        "cluster": 4
+      },
+      {
+        "id": "20260823_124024(0)",
+        "score": 0.5003,
+        "cluster": 5
+      },
+      {
+        "id": "20260823_132950",
+        "score": 0.6002,
+        "cluster": 5
+      },
+      {
+        "id": "20260826_182352",
+        "score": 0.575,
+        "cluster": 2
+      },
+      {
+        "id": "20260827_204557",
+        "score": 0.6055,
+        "cluster": -1
+      },
+      {
+        "id": "20260827_211534",
+        "score": 0.5249,
+        "cluster": -1
+      },
+      {
+        "id": "20260828_121916",
+        "score": 0.5408,
+        "cluster": -1
+      },
+      {
+        "id": "20260829_171920",
+        "score": 0.4453,
+        "cluster": 1
+      },
+      {
+        "id": "20260829_180139",
+        "score": 0.5165,
+        "cluster": 2
+      }
+    ]
+  },
+  "timing": {
+    "phases": {
+      "metadata_triage_all": 0.3,
+      "downsample_subset": 6.7,
+      "ram_load": 6.2,
+      "ram_inference": 133.3
+    },
+    "album_total_ms": 149765,
+    "album_wall_s": 149.8,
+    "n_scored": 68,
+    "steps": [
+      {
+        "step": "insightface_detect_faces",
+        "ms": 61777,
+        "ms_per_img": 908.5
+      },
+      {
+        "step": "extract_face_embeddings",
+        "ms": 51209,
+        "ms_per_img": 753.1
+      },
+      {
+        "step": "extract_scene_embedding",
+        "ms": 14714,
+        "ms_per_img": 216.4
+      },
+      {
+        "step": "detect_persons",
+        "ms": 8744,
+        "ms_per_img": 128.6
+      },
+      {
+        "step": "score_ava",
+        "ms": 6615,
+        "ms_per_img": 97.3
+      },
+      {
+        "step": "select_best",
+        "ms": 2237,
+        "ms_per_img": 32.9
+      },
+      {
+        "step": "score_iqa",
+        "ms": 2078,
+        "ms_per_img": 30.6
+      },
+      {
+        "step": "insightface_score_expression",
+        "ms": 1087,
+        "ms_per_img": 16.0
+      },
+      {
+        "step": "insightface_score_eyes",
+        "ms": 789,
+        "ms_per_img": 11.6
+      },
+      {
+        "step": "align_faces",
+        "ms": 265,
+        "ms_per_img": 3.9
+      },
+      {
+        "step": "quality_gate",
+        "ms": 73,
+        "ms_per_img": 1.1
+      },
+      {
+        "step": "cluster_scenes",
+        "ms": 62,
+        "ms_per_img": 0.9
+      },
+      {
+        "step": "score_face_frontal",
+        "ms": 31,
+        "ms_per_img": 0.5
+      },
+      {
+        "step": "filter_faces",
+        "ms": 23,
+        "ms_per_img": 0.3
+      },
+      {
+        "step": "cluster_face_components",
+        "ms": 19,
+        "ms_per_img": 0.3
+      },
+      {
+        "step": "discover_images",
+        "ms": 15,
+        "ms_per_img": 0.2
+      },
+      {
+        "step": "extract_geo_metadata",
+        "ms": 15,
+        "ms_per_img": 0.2
+      },
+      {
+        "step": "insightface_score_pose",
+        "ms": 1,
+        "ms_per_img": 0.0
+      },
+      {
+        "step": "build_face_knn_graph",
+        "ms": 1,
+        "ms_per_img": 0.0
+      },
+      {
+        "step": "detect_face_orientation",
+        "ms": 0,
+        "ms_per_img": 0.0
+      },
+      {
+        "step": "filter_quality",
+        "ms": 0,
+        "ms_per_img": 0.0
+      }
+    ]
+  },
+  "images": [
+    {
+      "name": "Screenshot_20260818_142734_Family Link.jpg",
+      "flagged_meta": true,
+      "ram_tags": [
+        "smartphone",
+        "screenshot",
+        "text",
+        "text message"
+      ],
+      "junk_tags": [
+        "screenshot",
+        "text"
+      ],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.5786945107957723,
+      "scene_cluster": 4,
+      "singleton": false
+    },
+    {
+      "name": "Screenshot_20260818_144747_Family Link.jpg",
+      "flagged_meta": true,
+      "ram_tags": [
+        "screenshot",
+        "text",
+        "text message"
+      ],
+      "junk_tags": [
+        "screenshot",
+        "text"
+      ],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.6754324976543286,
+      "scene_cluster": 4,
+      "singleton": false
+    },
+    {
+      "name": "Screenshot_20260818_170819_baseus Security.jpg",
+      "flagged_meta": true,
+      "ram_tags": [
+        "car",
+        "smartphone",
+        "person",
+        "image",
+        "website",
+        "man",
+        "screenshot",
+        "skateboarder"
+      ],
+      "junk_tags": [
+        "screenshot",
+        "website"
+      ],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.27305457020370066,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "Screenshot_20260822_075805_Chrome.jpg",
+      "flagged_meta": true,
+      "ram_tags": [
+        "computer screen",
+        "image",
+        "note",
+        "screen",
+        "screenshot",
+        "text",
+        "writing"
+      ],
+      "junk_tags": [
+        "screenshot",
+        "text"
+      ],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.5309912527152185,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "Screenshot_20260822_075812_Chrome.jpg",
+      "flagged_meta": true,
+      "ram_tags": [
+        "checklist",
+        "document",
+        "note",
+        "notepad",
+        "paper",
+        "screenshot",
+        "text",
+        "text message",
+        "writing"
+      ],
+      "junk_tags": [
+        "document",
+        "screenshot",
+        "text"
+      ],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.5723491620570965,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "Screenshot_20260823_104703_Gmail.jpg",
+      "flagged_meta": true,
+      "ram_tags": [
+        "smartphone",
+        "image",
+        "screenshot",
+        "text",
+        "text message"
+      ],
+      "junk_tags": [
+        "screenshot",
+        "text"
+      ],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.703133407755036,
+      "scene_cluster": 4,
+      "singleton": false
+    },
+    {
+      "name": "Screenshot_20260823_114041_Gopass.jpg",
+      "flagged_meta": true,
+      "ram_tags": [
+        "app",
+        "smartphone",
+        "screenshot",
+        "text",
+        "text message"
+      ],
+      "junk_tags": [
+        "screenshot",
+        "text"
+      ],
+      "has_person": false,
+      "in_album": false,
+      "composite": 0.5590819370151483,
+      "scene_cluster": 4,
+      "singleton": false
+    },
+    {
+      "name": "Screenshot_20260825_081741_Mapycom.jpg",
+      "flagged_meta": true,
+      "ram_tags": [
+        "image",
+        "map",
+        "screenshot",
+        "text",
+        "text message"
+      ],
+      "junk_tags": [
+        "map",
+        "screenshot",
+        "text"
+      ],
+      "has_person": false,
+      "in_album": false,
+      "composite": 0.5496959437860142,
+      "scene_cluster": 4,
+      "singleton": false
+    },
+    {
+      "name": "20260818_083208.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "plane",
+        "child",
+        "family",
+        "flight",
+        "person",
+        "man",
+        "pose",
+        "seat",
+        "sit",
+        "smile"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.3687346309618519,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260818_152913.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "goggles",
+        "person",
+        "lay",
+        "pole",
+        "relax",
+        "selfie",
+        "sky",
+        "street sign",
+        "take",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.2250779577014444,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260818_160204.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "path",
+        "person",
+        "lake",
+        "sea",
+        "river",
+        "walk",
+        "water",
+        "waterway"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.518602444562042,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260818_165425.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "cliff",
+        "man",
+        "sea",
+        "rock face",
+        "tree",
+        "water",
+        "waterfall"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.5016714150506618,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260819_094107.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "child",
+        "city",
+        "family",
+        "family photo",
+        "girl",
+        "person",
+        "man",
+        "pose",
+        "stand",
+        "town",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.26004587829513715,
+      "scene_cluster": 1,
+      "singleton": false
+    },
+    {
+      "name": "20260819_104921.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "child",
+        "construction worker",
+        "engineer",
+        "equipment",
+        "girl",
+        "hat",
+        "person",
+        "man",
+        "mine",
+        "stand",
+        "tunnel",
+        "wear",
+        "woman",
+        "yellow"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.41962232153668677,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260819_125645.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "beam",
+        "ceiling",
+        "child",
+        "denim jacket",
+        "table",
+        "dinning table",
+        "restaurant",
+        "exhaust hood",
+        "food",
+        "girl",
+        "log cabin",
+        "pose",
+        "sit",
+        "smile"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.36118227828808647,
+      "scene_cluster": 0,
+      "singleton": false
+    },
+    {
+      "name": "20260820_110028.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "brush",
+        "catch",
+        "dandelion",
+        "girl",
+        "hillside",
+        "mountain",
+        "pose",
+        "smile",
+        "stand",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.48128525843446746,
+      "scene_cluster": 6,
+      "singleton": false
+    },
+    {
+      "name": "20260820_122215.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "climb",
+        "climber",
+        "rope",
+        "hiker",
+        "person",
+        "mountain",
+        "peak",
+        "ridge",
+        "stone",
+        "stand",
+        "summit"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.2614069618088893,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260820_122856.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "couple",
+        "goggles",
+        "hill",
+        "hillside",
+        "person",
+        "man",
+        "mountain",
+        "peak",
+        "pose",
+        "smile",
+        "stand",
+        "sunglasses",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.4121960929039423,
+      "scene_cluster": 6,
+      "singleton": false
+    },
+    {
+      "name": "20260820_124803.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "beam",
+        "climb",
+        "climber",
+        "cross",
+        "girl",
+        "person",
+        "pole",
+        "stone",
+        "rock climber",
+        "rock climbing",
+        "rock face",
+        "sky",
+        "stick",
+        "sweatshirt"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.29516108495441923,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260820_132259.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "girl",
+        "mountain",
+        "observation tower",
+        "peak",
+        "pose",
+        "rail",
+        "sign",
+        "stand"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.5101057375811289,
+      "scene_cluster": 6,
+      "singleton": false
+    },
+    {
+      "name": "20260820_154819.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "blue",
+        "wall",
+        "family photo",
+        "frame",
+        "photo",
+        "photo frame",
+        "picture",
+        "picture frame",
+        "tile wall"
+      ],
+      "junk_tags": [],
+      "has_person": false,
+      "in_album": false,
+      "composite": null,
+      "scene_cluster": null,
+      "singleton": false
+    },
+    {
+      "name": "20260820_155313.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "blanket",
+        "folder",
+        "CD",
+        "DVD",
+        "electronic",
+        "package",
+        "peel",
+        "remote"
+      ],
+      "junk_tags": [],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.40674584315955664,
+      "scene_cluster": 3,
+      "singleton": false
+    },
+    {
+      "name": "20260821_101651.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "building",
+        "person",
+        "pavement",
+        "plaza",
+        "retail",
+        "road",
+        "shopper",
+        "mall",
+        "store",
+        "street scene",
+        "stroll",
+        "town",
+        "town square",
+        "walk"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": true,
+      "composite": 0.542274928935294,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260821_102354.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "building",
+        "person",
+        "plaza",
+        "retail",
+        "road",
+        "store",
+        "street corner",
+        "street scene",
+        "town",
+        "town square",
+        "walk"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": true,
+      "composite": 0.5693966916121278,
+      "scene_cluster": 1,
+      "singleton": false
+    },
+    {
+      "name": "20260821_105436.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "blanket",
+        "folder",
+        "label",
+        "magazine",
+        "package",
+        "poster",
+        "stool"
+      ],
+      "junk_tags": [
+        "label",
+        "poster"
+      ],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.559068771134053,
+      "scene_cluster": 3,
+      "singleton": false
+    },
+    {
+      "name": "20260821_105928.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "artifact",
+        "wall",
+        "building",
+        "bulletin board",
+        "display",
+        "person",
+        "photo",
+        "photo frame",
+        "picture frame",
+        "plaque",
+        "poster",
+        "student",
+        "stand",
+        "woman"
+      ],
+      "junk_tags": [
+        "poster"
+      ],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.4186661764492522,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260821_142601.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "bend",
+        "bicycle helmet",
+        "creek",
+        "climb",
+        "helmet",
+        "person",
+        "man",
+        "mountain bike",
+        "mountain biker",
+        "ride",
+        "stone",
+        "shirt",
+        "stream",
+        "trail"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.3631046020207963,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260821_143325.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "bicycle",
+        "bicycle helmet",
+        "cycle",
+        "dirt road",
+        "dirt track",
+        "path",
+        "girl",
+        "person",
+        "ride",
+        "road",
+        "rural",
+        "trail",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": null,
+      "scene_cluster": null,
+      "singleton": false
+    },
+    {
+      "name": "20260821_154610.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "wall",
+        "cliff",
+        "climb",
+        "climber",
+        "crack",
+        "ledge",
+        "man",
+        "stone",
+        "rock climber",
+        "rock face",
+        "tree",
+        "tree trunk"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": null,
+      "scene_cluster": null,
+      "singleton": false
+    },
+    {
+      "name": "20260821_192744.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "pillar",
+        "dress",
+        "floor",
+        "goggles",
+        "person",
+        "man",
+        "pose",
+        "robe",
+        "sandal",
+        "selfie",
+        "stand",
+        "white",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.33404427432669076,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260822_113544.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "building",
+        "child",
+        "fence",
+        "girl",
+        "house",
+        "pose",
+        "stand",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": true,
+      "composite": 0.43934680081633304,
+      "scene_cluster": 0,
+      "singleton": false
+    },
+    {
+      "name": "20260822_125632.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "shed",
+        "building",
+        "cabin",
+        "house",
+        "house exterior",
+        "hut",
+        "log cabin",
+        "outhouse",
+        "stand",
+        "woman",
+        "wood"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.49837913948390544,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260822_161907.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "calm",
+        "lake",
+        "log cabin",
+        "lush",
+        "mountain",
+        "mountain lake",
+        "surround",
+        "tree",
+        "water"
+      ],
+      "junk_tags": [],
+      "has_person": false,
+      "in_album": false,
+      "composite": 0.5000114930171887,
+      "scene_cluster": 6,
+      "singleton": false
+    },
+    {
+      "name": "20260822_162306.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "boat",
+        "calm",
+        "rowboat",
+        "dock",
+        "canoe",
+        "float",
+        "lake",
+        "mountain",
+        "mountain lake",
+        "water"
+      ],
+      "junk_tags": [],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.5771723745307727,
+      "scene_cluster": 6,
+      "singleton": false
+    },
+    {
+      "name": "20260822_165337.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "boat",
+        "paddle",
+        "calm",
+        "rowboat",
+        "canoe",
+        "evergreen",
+        "girl",
+        "lake",
+        "life jacket",
+        "pine",
+        "relax",
+        "sit",
+        "smile",
+        "water"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.49317161060633663,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260822_171645.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "calm",
+        "lake",
+        "ledge",
+        "man",
+        "mountain",
+        "mountain lake",
+        "pose",
+        "stone",
+        "short",
+        "stand",
+        "water"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": true,
+      "composite": 0.5737938155108722,
+      "scene_cluster": 6,
+      "singleton": false
+    },
+    {
+      "name": "20260822_174227.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "brownie",
+        "cream",
+        "cake",
+        "cheesecake",
+        "chocolate cake",
+        "cut",
+        "table",
+        "plate",
+        "food",
+        "fork",
+        "person",
+        "napkin",
+        "pastry",
+        "peak"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.24225450472072024,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260822_181557.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "family",
+        "family photo",
+        "person",
+        "lake",
+        "man",
+        "park bench",
+        "photo",
+        "pose",
+        "smile",
+        "water",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.3409919842183233,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260823_120534.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "bench",
+        "carve",
+        "girl",
+        "person",
+        "log",
+        "make",
+        "park bench",
+        "pose",
+        "sculpture",
+        "sit",
+        "stump",
+        "woman",
+        "wood"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.36084501724592494,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260823_121732.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "brush",
+        "girl",
+        "hillside",
+        "lush",
+        "mountain",
+        "polka dot",
+        "pose",
+        "smile",
+        "stand",
+        "wildflower",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.4503997558239839,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_123910.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "boulder",
+        "creek",
+        "mountain stream",
+        "pine",
+        "pose",
+        "river",
+        "stone",
+        "smile",
+        "stand",
+        "stream",
+        "water",
+        "waterfall",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.49109262611281246,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_124024(0).jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "creek",
+        "family",
+        "family photo",
+        "goggles",
+        "person",
+        "man",
+        "photo",
+        "pose",
+        "river",
+        "stone",
+        "stand",
+        "stream",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": true,
+      "composite": 0.5002890978270855,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_125010.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "cliff",
+        "climb",
+        "climber",
+        "person",
+        "ledge",
+        "man",
+        "stone",
+        "rock climber",
+        "rock climbing",
+        "rock face",
+        "up",
+        "waterfall"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": null,
+      "scene_cluster": null,
+      "singleton": false
+    },
+    {
+      "name": "20260823_125151.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "boulder",
+        "creek",
+        "girl",
+        "pose",
+        "stone",
+        "stand",
+        "stream",
+        "water",
+        "waterfall",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.5000197785453108,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_125228.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "cliff",
+        "climb",
+        "climber",
+        "person",
+        "ledge",
+        "man",
+        "pine",
+        "stone",
+        "rock climber",
+        "rock climbing",
+        "rock face",
+        "shirt",
+        "up"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.20783510033848102,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_125446.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "boulder",
+        "creek",
+        "girl",
+        "hike",
+        "hiker",
+        "person",
+        "stone",
+        "rocky",
+        "stand",
+        "stream",
+        "walk",
+        "waterfall",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.4785380258671271,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_131958.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "cliff",
+        "climb",
+        "climber",
+        "girl",
+        "person",
+        "ledge",
+        "log",
+        "pole",
+        "rail",
+        "stone",
+        "rock climber",
+        "rock climbing",
+        "rock face",
+        "stand"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.2170318057761243,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_132950.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "wall",
+        "cliff",
+        "climb",
+        "climber",
+        "fence",
+        "girl",
+        "ledge",
+        "stone",
+        "rock climber",
+        "rock climbing",
+        "rock face",
+        "up",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": true,
+      "composite": 0.6001987667345646,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_134901.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "creek",
+        "girl",
+        "hike",
+        "person",
+        "man",
+        "pose",
+        "stone",
+        "stand",
+        "trail",
+        "waterfall",
+        "woman",
+        "wood"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.486003002183067,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_141446.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "couple",
+        "floor",
+        "glasses",
+        "goggles",
+        "hike",
+        "person",
+        "man",
+        "pose",
+        "stand",
+        "sunglasses",
+        "wear",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.42889169988439785,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260823_141938.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "floor",
+        "girl",
+        "person",
+        "lay",
+        "log",
+        "man",
+        "pose",
+        "relax",
+        "stone",
+        "stand",
+        "tree",
+        "tree trunk",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.31149459137149466,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260823_173608.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "baby carriage",
+        "chair",
+        "chairlift",
+        "child",
+        "daughter",
+        "father",
+        "folding chair",
+        "girl",
+        "lap",
+        "man",
+        "pose",
+        "sit",
+        "ski lift",
+        "smile"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.4339370728693665,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260824_153154.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "catch",
+        "smartphone",
+        "hand",
+        "person",
+        "iphone",
+        "phone",
+        "photo",
+        "screen",
+        "selfie",
+        "text message"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.17011470228955045,
+      "scene_cluster": 3,
+      "singleton": false
+    },
+    {
+      "name": "20260825_083839.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "barber",
+        "hair drier",
+        "boy",
+        "brush",
+        "child",
+        "clipper",
+        "comb",
+        "freckle",
+        "girl",
+        "hair",
+        "hairbrush",
+        "haircut",
+        "man",
+        "smile"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": null,
+      "scene_cluster": null,
+      "singleton": false
+    },
+    {
+      "name": "20260825_125659.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "wall",
+        "cliff",
+        "climb",
+        "climber",
+        "grass",
+        "green",
+        "hillside",
+        "lay",
+        "ledge",
+        "man",
+        "relax",
+        "stone",
+        "rock climber",
+        "rock climbing"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.49308012418625463,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260825_132613.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "child",
+        "family",
+        "family photo",
+        "forest",
+        "goggles",
+        "person",
+        "man",
+        "photo",
+        "picture",
+        "pose",
+        "stone",
+        "stand",
+        "tree",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.29866417563444686,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260825_142343.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "boy",
+        "child",
+        "cliff",
+        "climb",
+        "climber",
+        "girl",
+        "ledge",
+        "stone",
+        "rock climber",
+        "rock climbing",
+        "rock face",
+        "shirt",
+        "up",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.4131918395514085,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260825_142646.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "blue",
+        "dress",
+        "floor",
+        "girl",
+        "lay",
+        "pine",
+        "relax",
+        "shirt",
+        "stand",
+        "tree",
+        "wear",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.41642595283567396,
+      "scene_cluster": 5,
+      "singleton": false
+    },
+    {
+      "name": "20260826_165814.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "building",
+        "floor",
+        "girl",
+        "person",
+        "lay",
+        "ledge",
+        "pose",
+        "relax",
+        "selfie",
+        "sky",
+        "stand",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.1776611453758175,
+      "scene_cluster": 2,
+      "singleton": false
+    },
+    {
+      "name": "20260826_182352.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "building",
+        "car",
+        "license plate",
+        "park",
+        "red",
+        "sky"
+      ],
+      "junk_tags": [],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.5750305072664459,
+      "scene_cluster": 2,
+      "singleton": false
+    },
+    {
+      "name": "20260827_123834.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "bronze statue",
+        "pillar",
+        "floor",
+        "girl",
+        "person",
+        "pose",
+        "sculpture",
+        "stand",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.2243903424045403,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260827_204557.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "clock",
+        "bell tower",
+        "building",
+        "cathedral",
+        "church",
+        "gothic",
+        "light",
+        "illuminate",
+        "night",
+        "night view",
+        "palace",
+        "tower",
+        "spire",
+        "worship"
+      ],
+      "junk_tags": [],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.6055489816961992,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260827_211534.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "building",
+        "city",
+        "light",
+        "illuminate",
+        "night",
+        "night view",
+        "palace"
+      ],
+      "junk_tags": [],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.5248550197677008,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260828_121916.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "wall",
+        "building",
+        "make",
+        "plaque",
+        "stone",
+        "writing"
+      ],
+      "junk_tags": [],
+      "has_person": false,
+      "in_album": true,
+      "composite": 0.5407664872843165,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260828_151424.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "child",
+        "girl",
+        "grave",
+        "monument",
+        "park bench",
+        "plaque",
+        "sit",
+        "woman",
+        "writing"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.376206038573877,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260828_155356.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "clock",
+        "bell tower",
+        "building",
+        "tower",
+        "reflection",
+        "sky"
+      ],
+      "junk_tags": [],
+      "has_person": false,
+      "in_album": false,
+      "composite": 0.5191741791944025,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260828_204820.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "bag",
+        "box",
+        "candy",
+        "candy bar",
+        "catch",
+        "chip",
+        "hand",
+        "food",
+        "person",
+        "package",
+        "stand"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.2729021827923856,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260829_121555.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "boy",
+        "child",
+        "cosmetic",
+        "draw",
+        "face",
+        "forehead",
+        "girl",
+        "mark",
+        "pink",
+        "shirt",
+        "smile",
+        "swing"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": null,
+      "scene_cluster": null,
+      "singleton": false
+    },
+    {
+      "name": "20260829_132659.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "balustrade",
+        "bridge",
+        "cosmetic",
+        "draw",
+        "face",
+        "girl",
+        "pose",
+        "rail",
+        "river",
+        "stand",
+        "water",
+        "waterway",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.25842610217412254,
+      "scene_cluster": 1,
+      "singleton": false
+    },
+    {
+      "name": "20260829_171411.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "bell tower",
+        "building",
+        "climb",
+        "person",
+        "tower",
+        "sky",
+        "spire",
+        "stand",
+        "woman"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.2961525947325829,
+      "scene_cluster": 2,
+      "singleton": false
+    },
+    {
+      "name": "20260829_171920.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "balustrade",
+        "city",
+        "city wall",
+        "city view",
+        "cosmetic",
+        "draw",
+        "face",
+        "girl",
+        "lean",
+        "ledge",
+        "peak",
+        "rail",
+        "shirt",
+        "stand"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": true,
+      "composite": 0.4453424293018566,
+      "scene_cluster": 1,
+      "singleton": false
+    },
+    {
+      "name": "20260829_172126.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "blue",
+        "pillar",
+        "draw",
+        "face",
+        "girl",
+        "lean",
+        "ledge",
+        "pink",
+        "pose",
+        "shirt",
+        "sky",
+        "smile",
+        "stand",
+        "wear"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": null,
+      "scene_cluster": null,
+      "singleton": false
+    },
+    {
+      "name": "20260829_172303.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "building",
+        "cone",
+        "person",
+        "ice cream cone",
+        "man",
+        "peak",
+        "pole",
+        "tower",
+        "sky",
+        "spire",
+        "stand",
+        "traffic light"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.260378456744182,
+      "scene_cluster": -1,
+      "singleton": false
+    },
+    {
+      "name": "20260829_172838.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "blue",
+        "building",
+        "child",
+        "climb",
+        "draw",
+        "face",
+        "girl",
+        "hide",
+        "lean",
+        "ledge",
+        "pink",
+        "tower",
+        "stone",
+        "shirt"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": false,
+      "composite": 0.43895242002849433,
+      "scene_cluster": 2,
+      "singleton": false
+    },
+    {
+      "name": "20260829_180139.jpg",
+      "flagged_meta": false,
+      "ram_tags": [
+        "building",
+        "construction worker",
+        "person",
+        "ladder",
+        "man",
+        "office building",
+        "rise building",
+        "scaffold",
+        "shadow",
+        "sky",
+        "stand",
+        "wash",
+        "job",
+        "worker"
+      ],
+      "junk_tags": [],
+      "has_person": true,
+      "in_album": true,
+      "composite": 0.5165273149527017,
+      "scene_cluster": 2,
+      "singleton": false
+    }
+  ],
+  "behavioral": {
+    "singletons": [],
+    "utilitarian_candidates": []
+  },
+  "leak": {
+    "junk_in_album": [
+      "Screenshot_20260818_142734_Family Link.jpg",
+      "Screenshot_20260818_144747_Family Link.jpg",
+      "Screenshot_20260822_075805_Chrome.jpg",
+      "Screenshot_20260822_075812_Chrome.jpg",
+      "Screenshot_20260823_104703_Gmail.jpg",
+      "20260821_105436.jpg"
+    ],
+    "junk_mean_score": 0.542,
+    "real_mean_score": 0.41
+  }
+}

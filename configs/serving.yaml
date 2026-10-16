@@ -1,0 +1,16 @@
+# Albumify serving config (spec-112). Where the pipeline runs is a setting, not a code path.
+#
+#   runner:    local      -> this machine, one child process per job
+#              modal_gpu  -> Modal L4 worker (sim_bench/serving/modal_app.py, curate_job)
+#              modal_cpu  -> Modal CPU worker (curate_job_cpu; slow, free tier)
+#   pipeline:  name in configs/pipeline.yaml (default | minimal | ...)
+#   device:    for the local runner only (Modal runners choose their own)
+#   jobs_root: local job store; every job's files land here whichever runner ran it
+#
+# Env overrides: ALBUMIFY_RUNNER, ALBUMIFY_PIPELINE, ALBUMIFY_DEVICE, ALBUMIFY_JOBS_ROOT.
+# The control DB is DATABASE_URL (unset -> ~/.sim_bench/control.db).
+
+runner: local
+pipeline: default
+device: cpu
+jobs_root: ~/.sim_bench/jobs

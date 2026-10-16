@@ -1,0 +1,115 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAM++ for defect detection — occlusion &amp; blur</title>
+<style>
+:root{--ground:#0E0D0C;--surface:#17130F;--surface2:#1E1913;--line:#2C2620;--ink:#F2EEE7;
+--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;--crit:#D98A6A;
+--sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;--mono:ui-monospace,"SF Mono",Consolas,monospace;}
+@media(prefers-color-scheme:light){:root{--ground:#F5F0E7;--surface:#FFF;--surface2:#FBF6EC;--line:#E4DACB;
+--ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;--crit:#B25B3C;}}
+*{box-sizing:border-box;}body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.55;}
+.wrap{max-width:1080px;margin:0 auto;padding:40px 24px 70px;}
+h1{font-size:clamp(24px,4vw,38px);letter-spacing:-.02em;margin:0;}
+h2{font-size:22px;margin:0;letter-spacing:-.01em;}
+.sub{color:var(--ink-dim);margin-top:12px;max-width:76ch;}.sub code{color:var(--accent);font-family:var(--mono);font-size:.9em;}
+section{margin-top:44px;padding-top:26px;border-top:1px solid var(--line);}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.auc{margin-top:22px;display:flex;flex-direction:column;gap:14px;max-width:680px;}
+.aucrow{display:grid;grid-template-columns:230px 1fr 54px;gap:14px;align-items:center;}
+.aucrow .lbl{font-size:13px;}.aucrow .lbl b{color:var(--ink);}
+.track{height:14px;border-radius:7px;background:var(--surface2);border:1px solid var(--line);overflow:hidden;}
+.track span{display:block;height:100%;}
+.aucrow .val{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700;text-align:right;}
+.scalenote{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;}
+.stats{display:flex;gap:26px;flex-wrap:wrap;margin-top:20px;}
+.stat .v{font-size:32px;font-weight:800;letter-spacing:-.02em;}.stat .v.crit{color:var(--crit);}
+.stat .l{color:var(--muted);font-size:12px;max-width:26ch;}
+.exrow{display:flex;gap:14px;flex-wrap:wrap;margin-top:22px;}
+.ex{width:200px;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--surface);}
+.ex img{width:100%;height:150px;object-fit:cover;display:block;background:var(--surface2);}
+.extags{font-size:11.5px;color:var(--ink-dim);padding:7px 9px 0;line-height:1.4;}
+.exmini{font-family:var(--mono);font-size:10px;color:var(--muted);padding:5px 9px 9px;}
+.callout{margin-top:24px;border-left:3px solid var(--accent);background:var(--surface2);border-radius:0 12px 12px 0;padding:16px 20px;}
+.callout .k{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);}
+.callout p{margin:8px 0 0;font-size:14px;color:var(--ink-dim);}
+.note{color:var(--muted);font-size:13px;margin-top:14px;}
+.foot{margin-top:34px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+</style></head><body><div class="wrap">
+<h1>Can RAM++ detect defects? Occlusion &amp; blur, measured</h1>
+<p class="sub">RAM++ is a <em>content</em> tagger. This tests, against labeled data, whether it can
+double as a <em>defect</em> detector — and compares it to the purpose-built models already in the
+pipeline. AUC bars are scaled 0.50 (chance) → 1.00 (perfect).</p>
+
+<section>
+  <div class="eyebrow">01 · Occlusion — vs the trained probe</div>
+  <h2>RAM++ barely beats chance; the dedicated probe dominates</h2>
+  <p class="note">167 images (84 occluded + balanced clean) from <code>D:\occlusion_dataset</code>.
+  RAM++ has no "occlusion/finger" tag; its only candidates are <code>hand</code> &amp; <code>lens flare</code>.
+  "Best-of-4,585" is a steelman: the single most label-correlated tag in its entire vocabulary.</p>
+  <div class="auc">
+    <div class="aucrow"><div class="lbl"><b>Trained probe</b> (B_clip_oof)</div><div class="track"><span style="width:96%;background:var(--good)"></span></div><div class="val">0.979</div></div>
+    <div class="aucrow"><div class="lbl">RAM++ <b>hand / lens flare</b></div><div class="track"><span style="width:2%;background:var(--crit)"></span></div><div class="val">0.384</div></div>
+    <div class="aucrow"><div class="lbl">RAM++ <b>best-of-4,585</b> (<code>cognac</code>)</div><div class="track"><span style="width:80%;background:var(--accent)"></span></div><div class="val">0.898</div></div>
+  </div>
+  <div class="scalenote">AUC = area under ROC; 0.50 = coin flip, 1.00 = perfect separation.</div>
+  <p class="note" style="margin-top:20px">What RAM++ actually reports on occluded photos — it describes residual content, not the obstruction:</p>
+  <div class="exrow">
+      <div class="ex"><img src="imgs/occl_occl__20260628_180637.jpg" loading="lazy">
+        <div class="extags">RAM++ saw: balustrade, floor, kitchen floor, stool, tile, tile flooring, tile wall</div>
+        <div class="exmini">hand 0.50 · lens flare 0.21</div></div>
+      <div class="ex"><img src="imgs/occl_occl__20260628_180659.jpg" loading="lazy">
+        <div class="extags">RAM++ saw: pillar, floor, kitchen floor, tile, tile flooring, tile wall</div>
+        <div class="exmini">hand 0.49 · lens flare 0.23</div></div>
+      <div class="ex"><img src="imgs/occl_occl__20260628_180701.jpg" loading="lazy">
+        <div class="extags">RAM++ saw: ceiling, pillar, floor, kitchen floor, tile, tile flooring, tile wall</div>
+        <div class="exmini">hand 0.51 · lens flare 0.30</div></div>
+      <div class="ex"><img src="imgs/occl_occl__20260628_182527.jpg" loading="lazy">
+        <div class="extags">RAM++ saw: car, curb, park, toy car, tree</div>
+        <div class="exmini">hand 0.45 · lens flare 0.23</div></div>
+      <div class="ex"><img src="imgs/occl_occl__20260628_182535.jpg" loading="lazy">
+        <div class="extags">RAM++ saw: car, crack, curb, curve, motorcycle, park, ramp, road</div>
+        <div class="exmini">hand 0.44 · lens flare 0.23</div></div>
+      <div class="ex"><img src="imgs/occl_occl__20260628_182539.jpg" loading="lazy">
+        <div class="extags">RAM++ saw: car, crack, curb, curve, highway, license plate, motorcycle, park, road</div>
+        <div class="exmini">hand 0.44 · lens flare 0.20</div></div></div>
+</section>
+
+<section>
+  <div class="eyebrow">02 · Blur — RAM++ is blur-invisible by design</div>
+  <h2>No blur tag exists, and tags barely change when a photo is blurred</h2>
+  
+    <div class="stats">
+      <div class="stat"><div class="v crit">NONE</div><div class="l">blur / focus / sharp tag in RAM++'s 4,585-tag vocabulary &mdash; nothing to threshold</div></div>
+      <div class="stat"><div class="v crit">never</div><div class="l">a blur-related tag fired across 20 scene pairs &rarr; no blur score exists</div></div>
+      <div class="stat"><div class="v">77%</div><div class="l">content-tag overlap blurred vs sharp &mdash; the shift is lost detail, not blur awareness</div></div>
+    </div>
+    <div class="exrow">
+      <div class="ex"><img src="imgs/blur_scene001__10.png" loading="lazy">
+        <div class="extags"><b>blurred:</b> appliance, bin, building, floor, grass, home appliance, office building, row, sit, tree</div>
+        <div class="extags"><b>sharp:</b> appliance, building, grass, home appliance, office building, row, sit, tree, yard</div>
+        <div class="exmini">tag overlap 73%</div></div>
+      <div class="ex"><img src="imgs/blur_scene001__20.png" loading="lazy">
+        <div class="extags"><b>blurred:</b> appliance, building, floor, grass, home appliance, office building, patch, row, sit, tree</div>
+        <div class="extags"><b>sharp:</b> appliance, bin, building, grass, home appliance, office building, patch, row, sit, tree</div>
+        <div class="exmini">tag overlap 82%</div></div>
+      <div class="ex"><img src="imgs/blur_scene001__3.png" loading="lazy">
+        <div class="extags"><b>blurred:</b> appliance, bin, building, floor, grass, home appliance, office building, patch, row, tree</div>
+        <div class="extags"><b>sharp:</b> appliance, bin, building, grass, home appliance, office building, row, sit, tree, yard</div>
+        <div class="exmini">tag overlap 67%</div></div>
+      <div class="ex"><img src="imgs/blur_scene002__10.png" loading="lazy">
+        <div class="extags"><b>blurred:</b> building, floor, grass, office building, patch, tree</div>
+        <div class="extags"><b>sharp:</b> building, grass, office building, patch, tree</div>
+        <div class="exmini">tag overlap 83%</div></div></div>
+</section>
+
+<div class="callout">
+  <div class="k">Conclusion</div>
+  <p>RAM++ is the wrong tool for both defects — confirmed on labeled data, not asserted. Occlusion: even
+  its best-correlated tag of 4,585 (AUC 0.90) trails the dedicated probe
+  (0.98); <code>hand</code>/<code>lens flare</code> are near chance
+  (0.38). Blur: no blur/focus/sharp tag exists and none ever fires, so there is no blur score to produce.
+  Keep occlusion on the trained probe and blur/quality on IQA/noise-aware sharpness; use RAM++ only
+  for the content axis.</p>
+</div>
+<div class="foot">Albumify · experiment · 2026-10-01 · scripts/experiment_ram_defect_detection.py</div>
+</div></body></html>

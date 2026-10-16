@@ -75,6 +75,28 @@ class StepD(BaseStep):
         pass
 
 
+class StepM(BaseStep):
+    """Sibling of StepZ — both depend only on step_a (same dependency level)."""
+    def __init__(self):
+        self._metadata = StepMetadata(
+            name="step_m", display_name="Step M", description="dep A", category="test",
+            requires={"output_a"}, produces={"output_m"}, depends_on=["step_a"])
+
+    def process(self, context: PipelineContext, config: dict) -> None:
+        pass
+
+
+class StepZ(BaseStep):
+    """Sibling of StepM — alphabetically after it, but may be declared first."""
+    def __init__(self):
+        self._metadata = StepMetadata(
+            name="step_z", display_name="Step Z", description="dep A", category="test",
+            requires={"output_a"}, produces={"output_z"}, depends_on=["step_a"])
+
+    def process(self, context: PipelineContext, config: dict) -> None:
+        pass
+
+
 @pytest.fixture
 def registry():
     """Create a registry with test steps."""
@@ -83,6 +105,8 @@ def registry():
     reg.register(StepB)
     reg.register(StepC)
     reg.register(StepD)
+    reg.register(StepM)
+    reg.register(StepZ)
     return reg
 
 
@@ -152,6 +176,21 @@ class TestTopologicalSort:
 
         assert names.index("step_a") < names.index("step_b")
         assert names.index("step_b") < names.index("step_c")
+
+    def test_independent_steps_keep_declared_order(self, builder):
+        """spec-107: among steps at the same dependency level, the author's declared
+        order wins over alphabetical — so pipeline.yaml order is meaningful (e.g. triage
+        before scoring). step_z is declared before step_m despite sorting after it."""
+        steps = builder.build(["step_a", "step_z", "step_m"], auto_resolve=True)
+        names = [s.metadata.name for s in steps]
+        assert names.index("step_z") < names.index("step_m")
+
+    def test_resolve_preserves_order_of_listed_steps(self, builder):
+        """Auto-resolve keeps listed steps in declared order (not set-arbitrary)."""
+        steps = builder.build(["step_z", "step_m"], auto_resolve=True)  # both auto-add step_a
+        names = [s.metadata.name for s in steps]
+        assert names[0] == "step_a"                      # dep first
+        assert names.index("step_z") < names.index("step_m")
 
     def test_complex_dag(self, builder):
         """Test with a more complex dependency graph."""

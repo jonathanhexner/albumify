@@ -4,10 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## On Init Checklist
 Upon starting a new session:
-1. Scan `TODO.md` for open tasks (`[ ]` or `[>]`)
-2. Scan `docs/project/FEATURE_REQUESTS.md` for open requests
-3. Check `docs/project/SIGHTINGS.md` for open/in-progress issues
-4. Review recent entries in `docs/project/LEARNINGS.md` (last 5-10) and skim `CHANGES_LOG.md` (last 2 weeks)
+1. **Read `ROADMAP.md`** — the single roadmap (stages, gates, current position, links to every spec). All work is placed against it.
+2. Scan `TODO.md` for open tasks (`[ ]` or `[>]`)
+3. Scan `docs/project/FEATURE_REQUESTS.md` for open requests
+4. Check `docs/project/SIGHTINGS.md` for open/in-progress issues
+5. Review recent entries in `docs/project/LEARNINGS.md` (last 5-10) and skim `CHANGES_LOG.md` (last 2 weeks)
+
+## Roadmap + readable docs (mandatory)
+- `ROADMAP.md` is the ONE roadmap. New specs get a row in its Specs table; stage/gate/decision changes are recorded there, not in per-spec plan files. Per-spec `plan.html`/`architecture.html` hold detail and link back.
+- **Every spec dir has `updates.md`** — a dated progress log, newest first, with a "How it was verified" table (claim → evidence: test file + count, report path, real-data result). Append an entry whenever a phase/task lands, a decision is made, a blocker appears, or the spec branches out. A spec cannot flip to `Implemented` without an updates.md entry that names the verification evidence.
+- **Markdown docs get a generated HTML view.** After editing `ROADMAP.md` or any `spec.md`/`tasks.md`/`updates.md`/`REVIEW.md`, run `.venv/Scripts/python scripts/md2html.py <file.md>` (pandoc). The `.html` is generated output — never hand-edit it. `--check` reports staleness. Render all spec docs at once with `scripts/md2html.py specs/*/{spec,tasks,updates,REVIEW}.md` (bash glob) — missing files are reported, not fatal.
 
 ## MANDATORY: Feature Development Workflow
 
@@ -90,7 +96,7 @@ Every exploration/experiment (model comparison, detector research, validation st
 ## Coding
 - Python 3.10+. Type hints. Full imports (no relative). Logging over prints.
 - `__init__.py` kept empty except `face_cluster/__init__.py`.
-- **Protobuf**: `protobuf>=3.20,<4` (MediaPipe).
+- **Protobuf**: `protobuf>=4.25,<5` with `mediapipe>=0.10.14`. Never pin protobuf 3.x again: it has no compiled wheel for Python 3.11, so `onnx.load` runs in pure Python and every InsightFace load costs ~60 s (SIGHTING-129, 2026-10-09).
 - **Metadata Storage**: Always save source path, timestamp, version when exporting.
 
 ## Testing

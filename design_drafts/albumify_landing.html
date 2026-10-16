@@ -1,0 +1,365 @@
+<title>Albumify — the photo editor that culls for you</title>
+<style>
+  :root {
+    --ground: #0E0D0C;
+    --surface: #17130F;
+    --surface-2: #1E1913;
+    --line: #2C2620;
+    --ink: #F2EEE7;
+    --ink-dim: #C8BFB2;
+    --muted: #948A7C;
+    --accent: #E8B04B;      /* pick-flag amber — the "keeper" signal */
+    --accent-ink: #1A1206;
+    --eng: #6FB3C9;         /* engineering / benchmark cool accent */
+    --good: #7FB682;
+    --shadow: 0 24px 60px -30px rgba(0,0,0,.8);
+    --maxw: 1120px;
+    --sans: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #F5F0E7;
+      --surface: #FFFFFF;
+      --surface-2: #FBF6EC;
+      --line: #E4DACB;
+      --ink: #1B1714;
+      --ink-dim: #4A4239;
+      --muted: #766B5C;
+      --accent: #A96E12;
+      --accent-ink: #FFF6E4;
+      --eng: #2A7288;
+      --good: #3E7A46;
+      --shadow: 0 24px 50px -30px rgba(60,45,20,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0E0D0C; --surface: #17130F; --surface-2: #1E1913; --line: #2C2620;
+    --ink: #F2EEE7; --ink-dim: #C8BFB2; --muted: #948A7C; --accent: #E8B04B;
+    --accent-ink: #1A1206; --eng: #6FB3C9; --good: #7FB682;
+    --shadow: 0 24px 60px -30px rgba(0,0,0,.8);
+  }
+  :root[data-theme="light"] {
+    --ground: #F5F0E7; --surface: #FFFFFF; --surface-2: #FBF6EC; --line: #E4DACB;
+    --ink: #1B1714; --ink-dim: #4A4239; --muted: #766B5C; --accent: #A96E12;
+    --accent-ink: #FFF6E4; --eng: #2A7288; --good: #3E7A46;
+    --shadow: 0 24px 50px -30px rgba(60,45,20,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); line-height: 1.5;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  a { color: inherit; text-decoration: none; }
+  h1, h2, h3 { margin: 0; text-wrap: balance; letter-spacing: -0.02em; font-weight: 800; }
+  p { margin: 0; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 18px;
+  }
+
+  /* ---- top bar ---- */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--ground) 82%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .brand { display: flex; align-items: center; gap: 11px; font-weight: 800; font-size: 18px; letter-spacing: -0.03em; }
+  .brand .flag {
+    width: 14px; height: 18px; background: var(--accent);
+    clip-path: polygon(0 0, 100% 0, 100% 72%, 50% 100%, 0 72%);
+    box-shadow: 0 0 16px -2px color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+  .nav { display: flex; align-items: center; gap: 26px; }
+  .nav a { color: var(--ink-dim); font-size: 14px; }
+  .nav a:hover { color: var(--ink); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+    font-family: var(--sans); font-size: 14px; font-weight: 700;
+    padding: 10px 18px; border-radius: 999px; border: 1px solid transparent;
+    background: var(--accent); color: var(--accent-ink);
+    transition: transform .15s ease, box-shadow .2s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 22px -10px color-mix(in srgb, var(--accent) 70%, transparent); }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn.ghost:hover { border-color: var(--muted); box-shadow: none; }
+  @media (max-width: 720px) { .nav a:not(.btn) { display: none; } }
+
+  /* ---- hero ---- */
+  .hero { padding: 76px 0 40px; }
+  .hero-grid { display: grid; grid-template-columns: 1.02fr 1fr; gap: 56px; align-items: center; }
+  @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; gap: 40px; } }
+  h1 { font-size: clamp(38px, 6vw, 66px); line-height: 0.98; }
+  h1 .amber { color: var(--accent); }
+  .lede { margin-top: 22px; font-size: clamp(16px, 2vw, 19px); color: var(--ink-dim); max-width: 34ch; }
+  .hero-cta { margin-top: 30px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .microcopy { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 16px; }
+
+  /* ---- contact sheet ---- */
+  .sheet-frame {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 16px; box-shadow: var(--shadow); position: relative;
+  }
+  .sheet-cap {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    letter-spacing: .06em; padding: 2px 4px 12px;
+  }
+  .sheet-cap b { color: var(--accent); font-weight: 700; }
+  .sheet { display: grid; grid-template-columns: repeat(8, 1fr); gap: 7px; }
+  @media (max-width: 520px) { .sheet { grid-template-columns: repeat(6, 1fr); } }
+  .cell {
+    position: relative; aspect-ratio: 1; border-radius: 4px; overflow: hidden;
+    filter: saturate(.5) brightness(.62); opacity: .78;
+    transition: filter .5s ease, opacity .5s ease, transform .35s ease, box-shadow .35s ease;
+  }
+  .cell.pick {
+    filter: saturate(1.05) brightness(1); opacity: 1;
+    box-shadow: 0 0 0 2px var(--accent), 0 10px 22px -10px color-mix(in srgb, var(--accent) 55%, transparent);
+    transform: translateY(-2px) scale(1.02); z-index: 2;
+  }
+  .cell.pick::after {
+    content: ""; position: absolute; top: 3px; right: 3px; width: 9px; height: 12px;
+    background: var(--accent); clip-path: polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);
+  }
+  .cell.dupe::before {
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(45deg, transparent 0 5px, color-mix(in srgb, var(--ground) 60%, transparent) 5px 6px);
+  }
+
+  /* ---- section scaffolding ---- */
+  section { padding: 60px 0; }
+  .sec-head { max-width: 62ch; margin-bottom: 40px; }
+  .sec-head h2 { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.05; }
+  .sec-head p { margin-top: 14px; color: var(--ink-dim); font-size: 17px; }
+  .rule { border: 0; border-top: 1px solid var(--line); margin: 0; }
+
+  /* ---- problem strip ---- */
+  .strip { background: var(--surface); border-block: 1px solid var(--line); }
+  .quote { font-family: var(--serif); font-style: italic; font-size: clamp(22px, 3.2vw, 32px);
+    line-height: 1.28; letter-spacing: -0.01em; max-width: 24ch; }
+  .quote .k { color: var(--accent); font-style: normal; font-family: var(--sans); font-weight: 800; }
+
+  /* ---- pipeline ---- */
+  .stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line);
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  @media (max-width: 860px) { .stages { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .stages { grid-template-columns: 1fr; } }
+  .stage { background: var(--surface); padding: 24px 22px; }
+  .stage .n { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: .1em; }
+  .stage h3 { font-size: 19px; margin: 14px 0 8px; letter-spacing: -0.02em; }
+  .stage p { color: var(--muted); font-size: 14px; }
+  .stage .tech { margin-top: 14px; font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+    padding-top: 12px; border-top: 1px dashed var(--line); }
+
+  /* ---- proof / metrics ---- */
+  .proof { background: var(--surface-2); border-block: 1px solid var(--line); }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
+  @media (max-width: 760px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+  .metric .v { font-size: clamp(34px, 5vw, 50px); font-weight: 800; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums; }
+  .metric .v.eng { color: var(--eng); }
+  .metric .l { margin-top: 6px; color: var(--muted); font-size: 14px; max-width: 22ch; }
+
+  /* ---- benchmark / engineering band ---- */
+  .bench { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface); }
+  .bench-top { padding: 26px 28px; border-bottom: 1px solid var(--line); display: flex; gap: 18px;
+    align-items: baseline; flex-wrap: wrap; }
+  .bench-top .tag { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--eng); border: 1px solid color-mix(in srgb, var(--eng) 45%, transparent); padding: 4px 9px; border-radius: 999px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 13px 28px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+  td { font-variant-numeric: tabular-nums; color: var(--ink-dim); }
+  tr:last-child td { border-bottom: 0; }
+  td.win { color: var(--ink); font-weight: 700; }
+  td.win::before { content: "▲ "; color: var(--good); font-size: 10px; }
+  .bench-note { padding: 16px 28px; font-family: var(--mono); font-size: 11px; color: var(--muted);
+    background: var(--surface-2); border-top: 1px solid var(--line); }
+
+  /* ---- cta ---- */
+  .cta { text-align: center; padding: 84px 0; }
+  .cta h2 { font-size: clamp(30px, 5vw, 50px); line-height: 1.02; }
+  .cta p { margin: 18px auto 0; color: var(--ink-dim); max-width: 46ch; font-size: 17px; }
+  .cta .hero-cta { justify-content: center; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0; }
+  .foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) { .cell { transition: none; } }
+</style>
+
+<header>
+  <div class="wrap bar">
+    <div class="brand"><span class="flag" aria-hidden="true"></span> Albumify</div>
+    <nav class="nav">
+      <a href="#how">How it works</a>
+      <a href="#proof">Results</a>
+      <a href="#bench">Benchmarks</a>
+      <a class="btn" href="#access">Request early access</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow">AI photo curation · from 800 shots to the album</p>
+        <h1>You took the trip.<br>Let it <span class="amber">cull the roll.</span></h1>
+        <p class="lede">Albumify reads every frame — sharpness, faces, duplicates, tilt, the moment — and hands back the keepers, in order, tagged by who's in them.</p>
+        <div class="hero-cta">
+          <a class="btn" href="#access">Request early access</a>
+          <a class="btn ghost" href="#how">See how it thinks →</a>
+        </div>
+        <p class="microcopy">// no more scrubbing 47 near-identical sunset shots</p>
+      </div>
+
+      <div class="sheet-frame" aria-label="A contact sheet culling itself: most frames dim, the keepers light up.">
+        <div class="sheet-cap"><span>budapest_2025 · 122 frames</span><span><b id="pickcount">20</b> picked</span></div>
+        <div class="sheet" id="sheet"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="strip">
+    <div class="wrap" style="padding-top:52px;padding-bottom:52px;">
+      <p class="quote">A camera roll is a shoebox. <span class="k">An album is an edit.</span> The hard part was never taking the photos — it's choosing.</p>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">The pipeline</p>
+        <h2>Four passes, the way an editor works a light table.</h2>
+        <p>Every frame runs a real computer-vision pipeline — not a vibe check. Here's what each pass decides.</p>
+      </div>
+      <div class="stages">
+        <div class="stage">
+          <span class="n">PASS 01</span>
+          <h3>Score the frame</h3>
+          <p>Noise-aware sharpness, exposure, aesthetics and occlusion — so a blurred or blocked shot never makes the cut.</p>
+          <div class="tech">AVA · IQA · CLIP occlusion · tilt / auto-straighten</div>
+        </div>
+        <div class="stage">
+          <span class="n">PASS 02</span>
+          <h3>Collapse the dupes</h3>
+          <p>Near-identical frames of the same moment are grouped; only the strongest survives the group.</p>
+          <div class="tech">DINOv2 scene embeddings · time + GPS fusion</div>
+        </div>
+        <div class="stage">
+          <span class="n">PASS 03</span>
+          <h3>Find the people</h3>
+          <p>Faces are detected, embedded and clustered — so the album knows who's in it, and no one gets left out.</p>
+          <div class="tech">InsightFace · kNN graph · conservative merge</div>
+        </div>
+        <div class="stage">
+          <span class="n">PASS 04</span>
+          <h3>Tell the story</h3>
+          <p>Keepers are ordered for coverage and chronology — a sequence that reads like a trip, not a pile.</p>
+          <div class="tech">coverage-first selection · story ordering</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="proof" id="proof">
+    <div class="wrap" style="padding-top:60px;padding-bottom:60px;">
+      <div class="sec-head" style="margin-bottom:34px;">
+        <p class="eyebrow">On a real 11-day trip</p>
+        <h2>Measured, not hand-waved.</h2>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="v">122→20</div><div class="l">frames narrowed to a finished album</div></div>
+        <div class="metric"><div class="v">340</div><div class="l">faces resolved into 15 distinct people</div></div>
+        <div class="metric"><div class="v eng">0.958</div><div class="l">mAP retrieval on UKBench (DINOv2 backbone)</div></div>
+        <div class="metric"><div class="v eng">0.25→0</div><div class="l">duplicate survival driven toward zero</div></div>
+      </div>
+    </div>
+  </div>
+
+  <section id="bench">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">The part most demos skip</p>
+        <h2>We put it head-to-head with a frontier VLM.</h2>
+        <p>Instead of trusting a single large model to "just pick good photos," Albumify runs a purpose-built pipeline — then we A/B'd its picks against GPT/Claude-class curation on the same trips, blind-rated.</p>
+      </div>
+      <div class="bench">
+        <div class="bench-top">
+          <span class="tag">Retrieval benchmark</span>
+          <span style="color:var(--muted);font-size:14px;">Mean average precision — higher is better. Classical baselines vs. the deep backbones behind Albumify.</span>
+        </div>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Method</th><th>Holidays mAP</th><th>UKBench mAP</th><th>Class</th></tr></thead>
+          <tbody>
+            <tr><td class="win">DINOv2</td><td class="win">0.893</td><td class="win">0.958</td><td>self-supervised ViT</td></tr>
+            <tr><td>OpenCLIP</td><td>0.869</td><td>0.946</td><td>vision-language</td></tr>
+            <tr><td>ResNet50</td><td>0.832</td><td>0.946</td><td>supervised CNN</td></tr>
+            <tr><td>SIFT BoVW</td><td>0.385</td><td>0.499</td><td>classical CV</td></tr>
+            <tr><td>EMD (color)</td><td>0.245</td><td>0.263</td><td>histogram baseline</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="bench-note">// blind A/B vs. frontier VLM on 3 trips: pipeline keeps duplicate-survival lower and defends its picks on cost — a VLM call per album is orders of magnitude pricier at scale.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta" id="access">
+    <div class="wrap">
+      <p class="eyebrow" style="text-align:center;">Launching soon</p>
+      <h2>Bring a trip. Leave with an album.</h2>
+      <p>Early access opens with the first hosted batch. Drop a folder, get back a curated, face-tagged, story-ordered set.</p>
+      <div class="hero-cta">
+        <a class="btn" href="#access">Request early access</a>
+        <a class="btn ghost" href="#how">Read the technical write-up →</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>Albumify — DINOv2 · InsightFace · FastAPI</span>
+    <span>built 0 → 100 · draft landing page</span>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var sheet = document.getElementById('sheet');
+    if (!sheet) return;
+    var N = 40;
+    // deterministic-ish hues so the sheet reads as varied "photos"
+    var hues = [28, 34, 20, 200, 190, 44, 12, 165, 210, 38];
+    var pickIndex = { 3:1, 7:1, 11:1, 18:1, 22:1, 27:1, 31:1, 36:1 };  // the keepers
+    var dupeIndex = { 4:1, 5:1, 12:1, 19:1, 23:1, 28:1, 32:1 };        // near-duplicates
+    var cells = [];
+    for (var i = 0; i < N; i++) {
+      var c = document.createElement('div');
+      c.className = 'cell' + (dupeIndex[i] ? ' dupe' : '');
+      var h = hues[i % hues.length];
+      var h2 = (h + 24) % 360;
+      c.style.background = 'linear-gradient(140deg, hsl(' + h + ' 42% 46%), hsl(' + h2 + ' 38% 30%))';
+      sheet.appendChild(c);
+      cells.push(c);
+    }
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var picks = Object.keys(pickIndex).map(Number);
+    function light(idx, i) {
+      setTimeout(function () { cells[idx].classList.add('pick'); }, reduce ? 0 : 700 + i * 190);
+    }
+    picks.forEach(light);
+  })();
+</script>

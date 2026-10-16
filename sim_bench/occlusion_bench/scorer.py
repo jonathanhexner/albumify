@@ -40,10 +40,11 @@ class OcclusionResult:
 
 
 class OcclusionScorer:
-    """CLIP global+tile-max logistic head; lazy CLIP load; CPU."""
+    """CLIP global+tile-max logistic head; lazy CLIP load; device configurable (default CPU)."""
 
-    def __init__(self, artifact_path: Optional[str] = None):
+    def __init__(self, artifact_path: Optional[str] = None, device: str = "cpu"):
         self._artifact_path = artifact_path or DEFAULT_ARTIFACT
+        self.device = device  # spec-109 P1: CLIP was hard-coded to CPU
         a = np.load(self._artifact_path, allow_pickle=True)
         self._mean = a["mean"].astype(np.float64)
         self._scale = a["scale"].astype(np.float64)
@@ -57,7 +58,7 @@ class OcclusionScorer:
     def _ensure_clip(self):
         if self._clip is None:
             import clip
-            self._clip, self._preprocess = clip.load("ViT-B/32", device="cpu")
+            self._clip, self._preprocess = clip.load("ViT-B/32", device=self.device)
             self._clip.eval()
 
     def embed(self, path: str) -> Optional[tuple]:
@@ -84,8 +85,8 @@ class OcclusionScorer:
                 crops.append(img.crop((tx * tw, ty * th, (tx + 1) * tw, (ty + 1) * th)))
         with torch.no_grad():
             e = self._clip.encode_image(
-                torch.stack([self._preprocess(c) for c in crops])).float()
-        e = (e / e.norm(dim=-1, keepdim=True)).numpy()
+                torch.stack([self._preprocess(c) for c in crops]).to(self.device)).float()
+        e = (e / e.norm(dim=-1, keepdim=True)).cpu().numpy()
         return e[0], e[1:]
 
     # -- head ---------------------------------------------------------------

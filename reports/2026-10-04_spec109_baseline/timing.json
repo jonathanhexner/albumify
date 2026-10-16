@@ -1,0 +1,205 @@
+{
+  "n_in": 75,
+  "n_scored": 57,
+  "wall_s": 512.0,
+  "total_s": 512.0,
+  "set_aside": 11,
+  "album_theme": "family trip \u2014 towns & nature",
+  "steps": [
+    {
+      "step": "triage_content",
+      "s": 170.5,
+      "ms_per_img": 2990.6
+    },
+    {
+      "step": "score_tilt",
+      "s": 147.7,
+      "ms_per_img": 2590.7
+    },
+    {
+      "step": "insightface_detect_faces",
+      "s": 65.0,
+      "ms_per_img": 1140.3
+    },
+    {
+      "step": "extract_face_embeddings",
+      "s": 52.5,
+      "ms_per_img": 920.7
+    },
+    {
+      "step": "score_occlusion",
+      "s": 30.7,
+      "ms_per_img": 538.2
+    },
+    {
+      "step": "extract_scene_embedding",
+      "s": 16.7,
+      "ms_per_img": 292.9
+    },
+    {
+      "step": "detect_persons",
+      "s": 10.0,
+      "ms_per_img": 175.7
+    },
+    {
+      "step": "score_ava",
+      "s": 6.3,
+      "ms_per_img": 110.5
+    },
+    {
+      "step": "select_best",
+      "s": 4.8,
+      "ms_per_img": 83.7
+    },
+    {
+      "step": "insightface_score_expression",
+      "s": 2.9,
+      "ms_per_img": 50.3
+    },
+    {
+      "step": "score_iqa",
+      "s": 2.5,
+      "ms_per_img": 43.5
+    },
+    {
+      "step": "insightface_score_eyes",
+      "s": 0.7,
+      "ms_per_img": 13.0
+    },
+    {
+      "step": "cluster_scenes",
+      "s": 0.7,
+      "ms_per_img": 11.9
+    },
+    {
+      "step": "triage_metadata",
+      "s": 0.5,
+      "ms_per_img": 8.8
+    },
+    {
+      "step": "align_faces",
+      "s": 0.3,
+      "ms_per_img": 5.5
+    },
+    {
+      "step": "quality_gate",
+      "s": 0.1,
+      "ms_per_img": 1.6
+    },
+    {
+      "step": "cluster_people",
+      "s": 0.1,
+      "ms_per_img": 1.1
+    },
+    {
+      "step": "discover_images",
+      "s": 0.0,
+      "ms_per_img": 0.3
+    },
+    {
+      "step": "derive_semantic_tags",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "infer_album_theme",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "extract_geo_metadata",
+      "s": 0.0,
+      "ms_per_img": 0.7
+    },
+    {
+      "step": "filter_faces",
+      "s": 0.0,
+      "ms_per_img": 0.8
+    },
+    {
+      "step": "score_face_frontal",
+      "s": 0.0,
+      "ms_per_img": 0.5
+    },
+    {
+      "step": "detect_face_orientation",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "insightface_score_pose",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "filter_quality",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "build_face_knn_graph",
+      "s": 0.0,
+      "ms_per_img": 0.8
+    },
+    {
+      "step": "cluster_face_components",
+      "s": 0.0,
+      "ms_per_img": 0.3
+    },
+    {
+      "step": "select_face_exemplars",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "merge_face_clusters",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "attach_holdout_faces",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "apply_diameter_cap",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "assign_people_clusters",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "face_cluster_analysis_export",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "straighten_images",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "caption_keepers",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "caption_album",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "identity_refinement",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    },
+    {
+      "step": "cluster_by_identity",
+      "s": 0.0,
+      "ms_per_img": 0.0
+    }
+  ]
+}

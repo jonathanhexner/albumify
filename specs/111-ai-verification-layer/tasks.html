@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-111--tasks-ai-verification-layer"
+id="toc-spec-111--tasks-ai-verification-layer">spec-111 — Tasks (AI
+Verification Layer)</a>
+<ul>
+<li><a
+href="#p0--shared-infrastructure-the-layers-spine-white_check_mark-done-2026-10-05"
+id="toc-p0--shared-infrastructure-the-layers-spine-white_check_mark-done-2026-10-05">P0
+— Shared infrastructure (the layer's spine) ✅ DONE 2026-10-05</a></li>
+<li><a href="#p1--checkpoint-1-verify_face_clusters-fold-in-spec-105"
+id="toc-p1--checkpoint-1-verify_face_clusters-fold-in-spec-105">P1 —
+Checkpoint #1: verify_face_clusters (fold in spec-105)</a></li>
+<li><a href="#p2--checkpoint-verify_selection-best-of-cluster--soft-k"
+id="toc-p2--checkpoint-verify_selection-best-of-cluster--soft-k">P2 —
+Checkpoint: verify_selection (best-of-cluster + soft-K)</a></li>
+<li><a href="#p3--remaining-checkpoints-each-behind-the-same-gate"
+id="toc-p3--remaining-checkpoints-each-behind-the-same-gate">P3 —
+Remaining checkpoints (each behind the same gate)</a></li>
+<li><a href="#p4--harden--ship" id="toc-p4--harden--ship">P4 — Harden +
+ship</a></li>
+<li><a href="#out-of-scope" id="toc-out-of-scope">Out of scope</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-111--tasks-ai-verification-layer">spec-111 — Tasks (AI
+Verification Layer)</h1>
+<p><strong>Status:</strong> Draft — no implementation until spec.md
+approved. Rationale: <code>spec.md</code>. <strong>Shape
+(decided):</strong> verifier <em>steps</em> after each decision
+(verify-early, correct-forward); thin steps +
+<code>sim_bench/verification/</code> domain module; VLM via the spec-108
+seam, grounded in our models; <strong>no meta-orchestrator, no
+loop</strong>. Each checkpoint ships only if it beats the deterministic
+baseline.</p>
+<h2
+id="p0--shared-infrastructure-the-layers-spine-white_check_mark-done-2026-10-05">P0
+— Shared infrastructure (the layer's spine) ✅ DONE 2026-10-05</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T0.1
+<code>sim_bench/verification/types.py</code>: <code>Correction</code>
+(kind/targets/reason/detail) + <code>VerifyResult</code> (checkpoint,
+n_reviewed, escalated, corrections) + correction kinds
+(merge/split/promote/demote/ unset_aside/reassign).
+<code>escalation.py</code>: <code>borderline(items, margin, band)</code>
+— the cost-bounding trigger (escalate only items within
+<code>band</code> of a decision fence; confident ones
+stand).</label></li>
+<li><label><input type="checkbox" checked="" />T0.2 Correction
+<em>vocabulary</em> + surfacing contract defined (Correction.reason
+shown + reversible, spec-107). Per-checkpoint forward-application lands
+with each checkpoint (P1+).</label></li>
+<li><label><input type="checkbox" checked="" />T0.3
+<strong>Baseline-eval harness</strong> <code>eval.py</code>:
+<code>evaluate(baseline, verified, truth)</code> →
+<code>EvalResult</code> with agreement-with-human for both + helped/hurt
+breakdown of changed items; <code>.improved</code> is the AC1 ship gate
+(raises agreement AND helped &gt;= hurt). 9 tests green.</label></li>
+</ul>
+<ul>
+<li><strong>Gate:</strong> ✅ the spine is in — every checkpoint plugs
+its margin-fn into <code>borderline</code>, returns a
+<code>VerifyResult</code>, and must pass
+<code>evaluate(...).improved</code> before it's enabled.</li>
+</ul>
+<h2 id="p1--checkpoint-1-verify_face_clusters-fold-in-spec-105">P1 —
+Checkpoint #1: verify_face_clusters (fold in spec-105)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T1.1
+<code>sim_bench/verification/face_clusters.py</code>: pure
+<code>merge_candidates</code> (pairs just above the merge threshold via
+<code>borderline</code>) + <code>split_candidates</code> (high internal
+spread) + <code>verify_face_clusters(...)</code> with an INJECTED
+adjudicator (VLM in prod, fake in tests) → MERGE/SPLIT
+<code>Correction</code>s. <code>cosine_distance</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T1.2 AC1 gate mechanism:
+<code>evaluate_clustering()</code> — pairwise reduction (co-clustered?
+vs same-person?) → reuses P0 <code>evaluate()</code>. 18 verification
+tests green (candidates, verify, gate helps/hurts).</label></li>
+<li><label><input type="checkbox" />T1.3 (needs VLM+data) real
+adjudicator wrapping the VLM seam on face crops; run the AC1 gate on
+<strong>Budapest 340→15</strong> ground truth — enable the checkpoint
+only if it beats baseline.</label></li>
+<li><label><input type="checkbox" />T1.4 (needs integration) thin
+pipeline step after <code>cluster_face_components</code> that applies
+MERGE/SPLIT forward into <code>context.face_clusters</code> + surfaces
+corrections.</label></li>
+<li><label><input type="checkbox" checked="" />T1.5 spec-105 superseded
+→ this is checkpoint #1.</label></li>
+</ul>
+<h2 id="p2--checkpoint-verify_selection-best-of-cluster--soft-k">P2 —
+Checkpoint: verify_selection (best-of-cluster + soft-K)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T2.1 best-of-cluster: when top-2
+composite within ε in a near-dup group, VLM picks, grounded in the
+<strong>PhotoTriage/siamese</strong> pairwise model; correct the pick
+forward.</label></li>
+<li><label><input type="checkbox" />T2.2 soft-K: K is a target, not a
+hard wall — promote a standout just past the cutoff / drop a weak one
+within it (bounded band). Resolves the global-K ambiguity (K = target +
+band).</label></li>
+<li><label><input type="checkbox" />T2.3 AC1 gate on the eval set; AC2
+cost cap.</label></li>
+</ul>
+<h2 id="p3--remaining-checkpoints-each-behind-the-same-gate">P3 —
+Remaining checkpoints (each behind the same gate)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T3.1 <code>verify_scenes</code>
+after <code>cluster_scenes</code> (borderline DINOv2
+distances).</label></li>
+<li><label><input type="checkbox" />T3.2 <code>verify_triage</code>
+after <code>triage_content</code> (borderline triage
+confidence).</label></li>
+<li><label><input type="checkbox" />Each: step + helper + fake-VLM test
++ AC1 baseline-eval gate; enable only if it beats baseline.</label></li>
+</ul>
+<h2 id="p4--harden--ship">P4 — Harden + ship</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T4.1 Per-album cost/latency measured
++ capped (AC2); corrections surfaced in album.json (AC3).</label></li>
+<li><label><input type="checkbox" />T4.2 Config: enable/disable +
+thresholds per checkpoint (like occlusion/tilt penalties).</label></li>
+<li><label><input type="checkbox" />T4.3 CHANGES_LOG +
+<code>/code-review</code> → REVIEW.md.</label></li>
+</ul>
+<h2 id="out-of-scope">Out of scope</h2>
+<p>A meta-orchestrator that loops/re-sequences the pipeline (rejected) ·
+re-reviewing confident decisions · per-image VLM on everything · silent
+overrides · shipping a checkpoint that doesn't beat baseline.</p>
+</div>
+</body>
+</html>

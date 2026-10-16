@@ -1,6 +1,9 @@
 # spec-105 — VLM Merge Arbiter (renumbered from 099 — collision with tilt spec) (adjudicate the `review` tier)
 
-**Created**: 2026-07-12 · **Status**: Draft — awaiting approval · **Priority**: P2
+**Created**: 2026-07-12 · **Status**: SUPERSEDED 2026-10-05 → folded into [[spec-111]] AI Verification
+Layer as **checkpoint #1 (`verify_face_clusters`)**. The merge-arbitration idea here is sound; it is now
+one checkpoint of the general verifier-steps family (verify-early, correct-forward, baseline-eval gated).
+Implement via spec-111 P1, not standalone. · **Priority**: P2
 **Depends on**: `face_cluster/merge.py` (`ConservativeMerger`, `group_merge_candidates`)
 already emits `auto_approve / review / auto_reject`. Related: `docs/PLAN_ML_CLUSTER_MERGING.md`
 (the logistic `MLMerger` this spec produces training data for).

@@ -32,6 +32,8 @@ class ScoreOcclusionStep(BaseStep):
             produces={"occlusion_scores", "occlusion_tiles"},
             depends_on=["discover_images"],
             config_schema={"type": "object", "properties": {
+                "device": {"type": "string", "enum": ["cpu", "cuda", "mps"], "default": "cpu",
+                           "description": "Torch device for the CLIP encoder"},
                 "artifact_path": {"type": "string",
                                   "description": "Override the probe artifact (models/occlusion/...)"},
             }},
@@ -41,7 +43,7 @@ class ScoreOcclusionStep(BaseStep):
     def _get_scorer(self, config: dict):
         if self._scorer is None:
             from sim_bench.occlusion_bench.scorer import OcclusionScorer
-            self._scorer = OcclusionScorer(config.get("artifact_path"))
+            self._scorer = OcclusionScorer(config.get("artifact_path"), device=config.get("device", "cpu"))
             logger.info("occlusion scorer loaded: %s", self._scorer.version)
         return self._scorer
 

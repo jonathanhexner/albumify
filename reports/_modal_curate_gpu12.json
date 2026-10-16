@@ -1,0 +1,219 @@
+{
+  "ok": true,
+  "selected": [
+    "/tmp/tmp388fkour/20260822_174227.jpg",
+    "/tmp/tmp388fkour/20260822_181233.jpg",
+    "/tmp/tmp388fkour/20260822_181213.jpg",
+    "/tmp/tmp388fkour/20260822_181558.jpg"
+  ],
+  "scene_clusters": {
+    "-1": [
+      "/tmp/tmp388fkour/20260822_174227.jpg"
+    ],
+    "1": [
+      "/tmp/tmp388fkour/20260822_181234.jpg",
+      "/tmp/tmp388fkour/20260822_181211.jpg",
+      "/tmp/tmp388fkour/20260822_181213.jpg",
+      "/tmp/tmp388fkour/20260822_181233.jpg",
+      "/tmp/tmp388fkour/20260822_181235.jpg"
+    ],
+    "0": [
+      "/tmp/tmp388fkour/20260822_181558.jpg",
+      "/tmp/tmp388fkour/20260822_181556.jpg",
+      "/tmp/tmp388fkour/20260822_181544.jpg",
+      "/tmp/tmp388fkour/20260822_181541.jpg",
+      "/tmp/tmp388fkour/20260822_181546.jpg",
+      "/tmp/tmp388fkour/20260822_181557.jpg"
+    ]
+  },
+  "set_aside": [],
+  "album_theme": {
+    "album_type": "mixed / general",
+    "facet_distribution": {},
+    "top_tags": [],
+    "motifs": [],
+    "source": "tags",
+    "caption": ""
+  },
+  "image_captions": {},
+  "timing": {
+    "total_ms": 202862,
+    "steps": [
+      {
+        "step": "discover_images",
+        "ms": 2
+      },
+      {
+        "step": "triage_metadata",
+        "ms": 12
+      },
+      {
+        "step": "triage_content",
+        "ms": 11439
+      },
+      {
+        "step": "derive_semantic_tags",
+        "ms": 0
+      },
+      {
+        "step": "infer_album_theme",
+        "ms": 0
+      },
+      {
+        "step": "extract_geo_metadata",
+        "ms": 8
+      },
+      {
+        "step": "score_iqa",
+        "ms": 606
+      },
+      {
+        "step": "score_ava",
+        "ms": 2348
+      },
+      {
+        "step": "score_occlusion",
+        "ms": 18103
+      },
+      {
+        "step": "score_tilt",
+        "ms": 55518
+      },
+      {
+        "step": "detect_persons",
+        "ms": 1670
+      },
+      {
+        "step": "insightface_detect_faces",
+        "ms": 53544
+      },
+      {
+        "step": "filter_faces",
+        "ms": 12
+      },
+      {
+        "step": "score_face_frontal",
+        "ms": 8
+      },
+      {
+        "step": "detect_face_orientation",
+        "ms": 0
+      },
+      {
+        "step": "align_faces",
+        "ms": 74
+      },
+      {
+        "step": "insightface_score_expression",
+        "ms": 1761
+      },
+      {
+        "step": "insightface_score_eyes",
+        "ms": 1097
+      },
+      {
+        "step": "insightface_score_pose",
+        "ms": 0
+      },
+      {
+        "step": "filter_quality",
+        "ms": 0
+      },
+      {
+        "step": "extract_scene_embedding",
+        "ms": 11226
+      },
+      {
+        "step": "cluster_scenes",
+        "ms": 91
+      },
+      {
+        "step": "extract_face_embeddings",
+        "ms": 43391
+      },
+      {
+        "step": "quality_gate",
+        "ms": 17
+      },
+      {
+        "step": "build_face_knn_graph",
+        "ms": 0
+      },
+      {
+        "step": "cluster_face_components",
+        "ms": 1
+      },
+      {
+        "step": "select_face_exemplars",
+        "ms": 0
+      },
+      {
+        "step": "merge_face_clusters",
+        "ms": 0
+      },
+      {
+        "step": "attach_holdout_faces",
+        "ms": 0
+      },
+      {
+        "step": "apply_diameter_cap",
+        "ms": 0
+      },
+      {
+        "step": "assign_people_clusters",
+        "ms": 0
+      },
+      {
+        "step": "face_cluster_analysis_export",
+        "ms": 0
+      },
+      {
+        "step": "select_best",
+        "ms": 1914
+      },
+      {
+        "step": "straighten_images",
+        "ms": 2
+      },
+      {
+        "step": "caption_keepers",
+        "ms": 0
+      },
+      {
+        "step": "caption_album",
+        "ms": 0
+      },
+      {
+        "step": "cluster_people",
+        "ms": 3
+      },
+      {
+        "step": "identity_refinement",
+        "ms": 0
+      },
+      {
+        "step": "cluster_by_identity",
+        "ms": 0
+      }
+    ]
+  },
+  "driver": {
+    "n_images": 12,
+    "wall_s": 228.3,
+    "mode": "gpu",
+    "inputs": [
+      "20260822_174227.jpg",
+      "20260822_181211.jpg",
+      "20260822_181213.jpg",
+      "20260822_181233.jpg",
+      "20260822_181234.jpg",
+      "20260822_181235.jpg",
+      "20260822_181541.jpg",
+      "20260822_181544.jpg",
+      "20260822_181546.jpg",
+      "20260822_181556.jpg",
+      "20260822_181557.jpg",
+      "20260822_181558.jpg"
+    ]
+  }
+}

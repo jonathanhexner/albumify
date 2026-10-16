@@ -1,0 +1,231 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAM++ vs fixed CLIP — content tagging</title>
+<style>
+:root{--ground:#0E0D0C;--surface:#17130F;--surface2:#1E1913;--line:#2C2620;--ink:#F2EEE7;
+--ink-dim:#C8BFB2;--muted:#948A7C;--accent:#E8B04B;--eng:#6FB3C9;--good:#7FB682;
+--sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;--mono:ui-monospace,"SF Mono",Consolas,monospace;}
+@media(prefers-color-scheme:light){:root{--ground:#F5F0E7;--surface:#FFF;--surface2:#FBF6EC;--line:#E4DACB;
+--ink:#1B1714;--ink-dim:#4A4239;--muted:#766B5C;--accent:#A96E12;--eng:#2A7288;--good:#3E7A46;}}
+*{box-sizing:border-box;}body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.5;}
+.wrap{max-width:1240px;margin:0 auto;padding:40px 24px 70px;}
+h1{font-size:clamp(24px,4vw,38px);letter-spacing:-.02em;margin:0;}
+.sub{color:var(--ink-dim);margin-top:12px;max-width:80ch;}
+.sub code{color:var(--accent);font-family:var(--mono);font-size:.9em;}
+.stats{display:flex;gap:26px;flex-wrap:wrap;margin:26px 0 6px;}
+.stat .v{font-size:30px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+.stat .v.ram{color:var(--accent);}.stat .v.clip{color:var(--eng);}
+.stat .l{color:var(--muted);font-size:12px;max-width:22ch;}
+.tscroll{overflow-x:auto;margin-top:24px;border:1px solid var(--line);border-radius:14px;}
+table{border-collapse:collapse;width:100%;min-width:900px;}
+th,td{text-align:left;padding:14px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface2);position:sticky;top:0;}
+thead th.ramh{color:var(--accent);}thead th.cliph{color:var(--eng);}
+td.idx{font-family:var(--mono);color:var(--muted);font-size:13px;width:52px;}
+td.idx .trip{font-size:10px;color:var(--eng);}
+td img{width:190px;height:140px;object-fit:cover;border-radius:8px;background:var(--surface2);display:block;}
+.fn{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px;}
+td.ramc{width:40%;}td.clipc{width:26%;}
+.chip{display:inline-block;font-size:12px;border-radius:999px;padding:3px 10px;margin:0 4px 5px 0;border:1px solid var(--line);}
+.chip.ram{background:color-mix(in srgb,var(--accent) 12%,var(--surface));border-color:color-mix(in srgb,var(--accent) 40%,transparent);}
+.chip.clip{background:color-mix(in srgb,var(--eng) 12%,var(--surface));border-color:color-mix(in srgb,var(--eng) 40%,transparent);}
+.none{color:var(--muted);}
+.conf{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:6px;}
+.foot{margin-top:26px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+</style></head><body><div class="wrap">
+<h1>RAM++ vs fixed-method CLIP — content tagging on 30 trip photos</h1>
+<p class="sub"><span style="color:var(--accent)">RAM++</span> = open-vocabulary tagger (swin_l/384, ~4.5k tags, ~2.8 GB).
+<span style="color:var(--eng)">CLIP</span> = <code>ViT-B/32 laion2b</code> read with the fixed method (per-category softmax over the 20 scene prompts + people gating) — a closed 20-class vocabulary.
+The question isn't quality (CLIP can't judge that) — it's whether RAM++'s larger open vocabulary earns a new model on the pipeline's memory floor.</p>
+<div class="stats">
+  <div class="stat"><div class="v ram">11.7</div><div class="l">RAM++ tags / image (avg)</div></div>
+  <div class="stat"><div class="v ram">210</div><div class="l">distinct RAM++ tags seen across 30 imgs</div></div>
+  <div class="stat"><div class="v clip">2.5</div><div class="l">CLIP tags / image (avg)</div></div>
+  <div class="stat"><div class="v clip">20</div><div class="l">CLIP closed vocabulary (fixed)</div></div>
+</div>
+<div class="tscroll"><table>
+<thead><tr><th>#</th><th>Photo</th><th class="ramh">RAM++ (open vocab)</th><th class="cliph">CLIP (fixed, 20-class)</th></tr></thead>
+<tbody>
+      <tr>
+        <td class="idx">1<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250822_112331.jpg" alt="20250822_112331.jpg" loading="lazy"><div class="fn">20250822_112331.jpg</div></td>
+        <td class="ramc"><span class="chip ram">boy</span><span class="chip ram">catch</span><span class="chip ram">child</span><span class="chip ram">cone</span><span class="chip ram">hand</span><span class="chip ram">girl</span><span class="chip ram">icecream</span><span class="chip ram">ice cream cone</span><span class="chip ram">jacket</span><span class="chip ram">pavement</span><span class="chip ram">sandal</span><span class="chip ram">sleepwear</span><span class="chip ram">smile</span><span class="chip ram">stand</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">a selfie</span><div class="conf">scene conf 100%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">2<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250822_123303.jpg" alt="20250822_123303.jpg" loading="lazy"><div class="fn">20250822_123303.jpg</div></td>
+        <td class="ramc"><span class="chip ram">pillar</span><span class="chip ram">hand</span><span class="chip ram">jeans</span><span class="chip ram">man</span><span class="chip ram">plaza</span><span class="chip ram">skate park</span><span class="chip ram">skateboarder</span><span class="chip ram">stand</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">a person standing</span><div class="conf">scene conf 100%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">3<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250822_123501.jpg" alt="20250822_123501.jpg" loading="lazy"><div class="fn">20250822_123501.jpg</div></td>
+        <td class="ramc"><span class="chip ram">bubble</span><span class="chip ram">catch</span><span class="chip ram">couple</span><span class="chip ram">hand</span><span class="chip ram">girl</span><span class="chip ram">person</span><span class="chip ram">man</span><span class="chip ram">plaza</span><span class="chip ram">pose</span><span class="chip ram">sky</span><span class="chip ram">stand</span><span class="chip ram">sweatshirt</span><span class="chip ram">woman</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">a portrait of two people</span><div class="conf">scene conf 99%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">4<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250822_192248.jpg" alt="20250822_192248.jpg" loading="lazy"><div class="fn">20250822_192248.jpg</div></td>
+        <td class="ramc"><span class="chip ram">lamp</span><span class="chip ram">canopy</span><span class="chip ram">ceiling</span><span class="chip ram">ceiling fan</span><span class="chip ram">child</span><span class="chip ram">girl</span><span class="chip ram">lamp shade</span><span class="chip ram">room</span><span class="chip ram">sandal</span><span class="chip ram">shirt</span><span class="chip ram">stand</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">a person standing</span><div class="conf">scene conf 95%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">5<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250822_193357.jpg" alt="20250822_193357.jpg" loading="lazy"><div class="fn">20250822_193357.jpg</div></td>
+        <td class="ramc"><span class="chip ram">canopy</span><span class="chip ram">cherry blossom</span><span class="chip ram">display</span><span class="chip ram">flower</span><span class="chip ram">girl</span><span class="chip ram">glass house</span><span class="chip ram">person</span><span class="chip ram">pink</span><span class="chip ram">plant</span><span class="chip ram">stand</span><span class="chip ram">tree</span><span class="chip ram">woman</span></td>
+        <td class="clipc"><span class="chip clip">group photo</span><span class="chip clip">crowd of people</span><span class="chip clip">daytime scene</span><span class="chip clip">a group of people</span><div class="conf">scene conf 46%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">6<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250822_194258.jpg" alt="20250822_194258.jpg" loading="lazy"><div class="fn">20250822_194258.jpg</div></td>
+        <td class="ramc"><span class="chip ram">building</span><span class="chip ram">hang</span><span class="chip ram">person</span><span class="chip ram">ledge</span><span class="chip ram">man</span><span class="chip ram">out</span><span class="chip ram">shirt</span><span class="chip ram">stand</span><span class="chip ram">window</span></td>
+        <td class="clipc"><span class="chip clip">landmark</span><span class="chip clip">person</span><span class="chip clip">house exterior</span><div class="conf">scene conf 55%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">7<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250822_194923.jpg" alt="20250822_194923.jpg" loading="lazy"><div class="fn">20250822_194923.jpg</div></td>
+        <td class="ramc"><span class="chip ram">boy</span><span class="chip ram">child</span><span class="chip ram">confetti</span><span class="chip ram">cosmetic</span><span class="chip ram">girl</span><span class="chip ram">laugh</span><span class="chip ram">lipstick</span><span class="chip ram">mouth</span><span class="chip ram">photo</span><span class="chip ram">pink</span><span class="chip ram">smile</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">product photo</span><span class="chip clip">a photo with multiple faces</span><div class="conf">scene conf 56%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">8<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250822_195500.jpg" alt="20250822_195500.jpg" loading="lazy"><div class="fn">20250822_195500.jpg</div></td>
+        <td class="ramc"><span class="chip ram">boy</span><span class="chip ram">chair</span><span class="chip ram">child</span><span class="chip ram">pillar</span><span class="chip ram">girl</span><span class="chip ram">red</span><span class="chip ram">room</span><span class="chip ram">sculpture</span><span class="chip ram">stand</span><span class="chip ram">stool</span><span class="chip ram">tile wall</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">a person standing</span><div class="conf">scene conf 90%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">9<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250824_154340.jpg" alt="20250824_154340.jpg" loading="lazy"><div class="fn">20250824_154340.jpg</div></td>
+        <td class="ramc"><span class="chip ram">bookcase</span><span class="chip ram">bookshelf</span><span class="chip ram">cape</span><span class="chip ram">child</span><span class="chip ram">cloak</span><span class="chip ram">costume</span><span class="chip ram">dress</span><span class="chip ram">girl</span><span class="chip ram">halloween</span><span class="chip ram">halloween costume</span><span class="chip ram">robe</span><span class="chip ram">sleepwear</span><span class="chip ram">stand</span><span class="chip ram">wear</span><span class="chip ram">witch</span><span class="chip ram">witch hat</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">a person standing</span><div class="conf">scene conf 82%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">10<br><span class="trip">budapest</span></td>
+        <td><img src="imgs/budapest_20250824_191343_01.jpg" alt="20250824_191343_01.jpg" loading="lazy"><div class="fn">20250824_191343_01.jpg</div></td>
+        <td class="ramc"><span class="chip ram">fountain</span><span class="chip ram">park</span><span class="chip ram">pool</span><span class="chip ram">spray</span><span class="chip ram">swimming pool</span><span class="chip ram">water</span><span class="chip ram">water feature</span><span class="chip ram">water park</span></td>
+        <td class="clipc"><span class="chip clip">daytime scene</span><span class="chip clip">landmark</span><div class="conf">scene conf 53%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">11<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_20230817_142056.jpg" alt="20230817_142056.jpg" loading="lazy"><div class="fn">20230817_142056.jpg</div></td>
+        <td class="ramc"><span class="chip ram">cane</span><span class="chip ram">car</span><span class="chip ram">parking lot</span><span class="chip ram">dirt field</span><span class="chip ram">dirt track</span><span class="chip ram">person</span><span class="chip ram">man</span><span class="chip ram">park</span><span class="chip ram">parking</span><span class="chip ram">push</span><span class="chip ram">shirt</span><span class="chip ram">vehicle</span><span class="chip ram">walk</span></td>
+        <td class="clipc"><span class="chip clip">vehicle</span><span class="chip clip">group photo</span><div class="conf">scene conf 79%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">12<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_20230818_200810.jpg" alt="20230818_200810.jpg" loading="lazy"><div class="fn">20230818_200810.jpg</div></td>
+        <td class="ramc"><span class="chip ram">animal</span><span class="chip ram">shed</span><span class="chip ram">bird cage</span><span class="chip ram">cage</span><span class="chip ram">chicken coop</span><span class="chip ram">child</span><span class="chip ram">dog house</span><span class="chip ram">enclosure</span><span class="chip ram">fence</span><span class="chip ram">girl</span><span class="chip ram">hen</span><span class="chip ram">pen</span><span class="chip ram">pet</span><span class="chip ram">stand</span></td>
+        <td class="clipc"><span class="chip clip">pet or animal</span><span class="chip clip">person</span><span class="chip clip">a selfie</span><div class="conf">scene conf 55%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">13<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_20230819_140940.jpg" alt="20230819_140940.jpg" loading="lazy"><div class="fn">20230819_140940.jpg</div></td>
+        <td class="ramc"><span class="chip ram">child</span><span class="chip ram">crayon</span><span class="chip ram">table</span><span class="chip ram">dinning table</span><span class="chip ram">draw</span><span class="chip ram">flower</span><span class="chip ram">girl</span><span class="chip ram">log cabin</span><span class="chip ram">mark</span><span class="chip ram">pen</span><span class="chip ram">pencil</span><span class="chip ram">sit</span><span class="chip ram">stationery</span><span class="chip ram">wood wall</span></td>
+        <td class="clipc"><span class="chip clip">drawing or painting</span><div class="conf">scene conf 94%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">14<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_20230820_124750.jpg" alt="20230820_124750.jpg" loading="lazy"><div class="fn">20230820_124750.jpg</div></td>
+        <td class="ramc"><span class="chip ram">bench</span><span class="chip ram">child</span><span class="chip ram">girl</span><span class="chip ram">grass</span><span class="chip ram">lake</span><span class="chip ram">park</span><span class="chip ram">park bench</span><span class="chip ram">picnic table</span><span class="chip ram">play</span><span class="chip ram">stand</span><span class="chip ram">stretch</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">a selfie</span><div class="conf">scene conf 95%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">15<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_20230821_115414.jpg" alt="20230821_115414.jpg" loading="lazy"><div class="fn">20230821_115414.jpg</div></td>
+        <td class="ramc"><span class="chip ram">daughter</span><span class="chip ram">girl</span><span class="chip ram">goggles</span><span class="chip ram">person</span><span class="chip ram">man</span><span class="chip ram">mountain</span><span class="chip ram">pose</span><span class="chip ram">smile</span><span class="chip ram">stand</span><span class="chip ram">sunglasses</span><span class="chip ram">woman</span></td>
+        <td class="clipc"><span class="chip clip">product photo</span><span class="chip clip">mountain landscape</span><span class="chip clip">person</span><div class="conf">scene conf 43%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">16<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_20230822_142348.jpg" alt="20230822_142348.jpg" loading="lazy"><div class="fn">20230822_142348.jpg</div></td>
+        <td class="ramc"><span class="chip ram">calm</span><span class="chip ram">duck</span><span class="chip ram">float</span><span class="chip ram">lake</span><span class="chip ram">mallard</span><span class="chip ram">mallard duck</span><span class="chip ram">mountain lake</span><span class="chip ram">pond</span><span class="chip ram">swim</span><span class="chip ram">water</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">daytime scene</span><span class="chip clip">landmark</span><span class="chip clip">a selfie</span><div class="conf">scene conf 59%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">17<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_20230823_130921.jpg" alt="20230823_130921.jpg" loading="lazy"><div class="fn">20230823_130921.jpg</div></td>
+        <td class="ramc"><span class="chip ram">beach</span><span class="chip ram">bend</span><span class="chip ram">creek</span><span class="chip ram">child</span><span class="chip ram">girl</span><span class="chip ram">person</span><span class="chip ram">sea</span><span class="chip ram">play</span><span class="chip ram">puddle</span><span class="chip ram">stone</span><span class="chip ram">sand</span><span class="chip ram">squat</span><span class="chip ram">water</span><span class="chip ram">woman</span></td>
+        <td class="clipc"><span class="chip clip">beach scene</span><div class="conf">scene conf 89%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">18<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_20230824_122156.jpg" alt="20230824_122156.jpg" loading="lazy"><div class="fn">20230824_122156.jpg</div></td>
+        <td class="ramc"><span class="chip ram">break</span><span class="chip ram">butterfly</span><span class="chip ram">floor</span><span class="chip ram">gravel</span><span class="chip ram">road</span><span class="chip ram">stone</span><span class="chip ram">rocky</span><span class="chip ram">sit</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">vehicle</span><span class="chip clip">a selfie</span><div class="conf">scene conf 56%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">19<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_20230824_154016_01.jpg" alt="20230824_154016_01.jpg" loading="lazy"><div class="fn">20230824_154016_01.jpg</div></td>
+        <td class="ramc"><span class="chip ram">bridge</span><span class="chip ram">couple</span><span class="chip ram">fjord</span><span class="chip ram">path</span><span class="chip ram">person</span><span class="chip ram">man</span><span class="chip ram">mountain</span><span class="chip ram">sea</span><span class="chip ram">pedestrian bridge</span><span class="chip ram">rail</span><span class="chip ram">walk</span><span class="chip ram">water</span></td>
+        <td class="clipc"><span class="chip clip">daytime scene</span><span class="chip clip">landmark</span><span class="chip clip">person</span><div class="conf">scene conf 35%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">20<br><span class="trip">austria</span></td>
+        <td><img src="imgs/austria_IMG_20200502_124915-COLLAGE.jpg" alt="IMG_20200502_124915-COLLAGE.jpg" loading="lazy"><div class="fn">IMG_20200502_124915-COLLAGE.jpg</div></td>
+        <td class="ramc"><span class="chip ram">baby</span><span class="chip ram">child</span><span class="chip ram">collage</span><span class="chip ram">family</span><span class="chip ram">family photo</span><span class="chip ram">person</span><span class="chip ram">image</span><span class="chip ram">mask</span><span class="chip ram">photo</span><span class="chip ram">picture</span></td>
+        <td class="clipc"><span class="chip clip">group photo</span><span class="chip clip">person</span><span class="chip clip">a photo with multiple faces</span><div class="conf">scene conf 78%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">21<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_20240816_080028.jpg" alt="20240816_080028.jpg" loading="lazy"><div class="fn">20240816_080028.jpg</div></td>
+        <td class="ramc"><span class="chip ram">bite</span><span class="chip ram">table</span><span class="chip ram">plate</span><span class="chip ram">eat</span><span class="chip ram">food</span><span class="chip ram">fork</span><span class="chip ram">girl</span><span class="chip ram">syrup</span><span class="chip ram">waffle</span></td>
+        <td class="clipc"><span class="chip clip">food</span><span class="chip clip">person</span><span class="chip clip">a selfie</span><div class="conf">scene conf 64%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">22<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_20240818_124425.jpg" alt="20240818_124425.jpg" loading="lazy"><div class="fn">20240818_124425.jpg</div></td>
+        <td class="ramc"><span class="chip ram">artifact</span><span class="chip ram">wand</span><span class="chip ram">lamp</span><span class="chip ram">case</span><span class="chip ram">display</span><span class="chip ram">glass box</span><span class="chip ram">glass table</span><span class="chip ram">gold</span><span class="chip ram">museum</span><span class="chip ram">pole</span><span class="chip ram">showcase</span><span class="chip ram">torch</span></td>
+        <td class="clipc"><span class="chip clip">landmark</span><span class="chip clip">vehicle</span><span class="chip clip">product photo</span><div class="conf">scene conf 31%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">23<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_20240819_162122.jpg" alt="20240819_162122.jpg" loading="lazy"><div class="fn">20240819_162122.jpg</div></td>
+        <td class="ramc"><span class="chip ram">amusement park</span><span class="chip ram">animal</span><span class="chip ram">boardwalk</span><span class="chip ram">child</span><span class="chip ram">water tank</span><span class="chip ram">enclosure</span><span class="chip ram">fair</span><span class="chip ram">person</span><span class="chip ram">park</span><span class="chip ram">silo</span><span class="chip ram">tank</span><span class="chip ram">walk</span><span class="chip ram">water tower</span></td>
+        <td class="clipc"><span class="chip clip">daytime scene</span><span class="chip clip">group photo</span><span class="chip clip">crowd of people</span><span class="chip clip">a selfie</span><div class="conf">scene conf 38%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">24<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_20240820_134435.jpg" alt="20240820_134435.jpg" loading="lazy"><div class="fn">20240820_134435.jpg</div></td>
+        <td class="ramc"><span class="chip ram">baby carriage</span><span class="chip ram">flower</span><span class="chip ram">flower bed</span><span class="chip ram">garden</span><span class="chip ram">house exterior</span><span class="chip ram">person</span><span class="chip ram">plant</span><span class="chip ram">tree</span></td>
+        <td class="clipc"><span class="chip clip">an outdoor landscape</span><div class="conf">scene conf 98%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">25<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_20240822_112131.jpg" alt="20240822_112131.jpg" loading="lazy"><div class="fn">20240822_112131.jpg</div></td>
+        <td class="ramc"><span class="chip ram">child</span><span class="chip ram">family</span><span class="chip ram">family photo</span><span class="chip ram">person</span><span class="chip ram">man</span><span class="chip ram">park</span><span class="chip ram">park bench</span><span class="chip ram">photo</span><span class="chip ram">picture</span><span class="chip ram">pose</span><span class="chip ram">rail</span><span class="chip ram">stand</span><span class="chip ram">woman</span></td>
+        <td class="clipc"><span class="chip clip">group photo</span><span class="chip clip">a photo with multiple faces</span><div class="conf">scene conf 93%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">26<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_20240825_104439.jpg" alt="20240825_104439.jpg" loading="lazy"><div class="fn">20240825_104439.jpg</div></td>
+        <td class="ramc"><span class="chip ram">creek</span><span class="chip ram">girl</span><span class="chip ram">log</span><span class="chip ram">lush</span><span class="chip ram">mountain</span><span class="chip ram">pink</span><span class="chip ram">stone</span><span class="chip ram">sit</span><span class="chip ram">stool</span><span class="chip ram">stream</span><span class="chip ram">stump</span><span class="chip ram">tree trunk</span><span class="chip ram">valley</span></td>
+        <td class="clipc"><span class="chip clip">person</span><span class="chip clip">a person sitting</span><div class="conf">scene conf 88%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">27<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_IMG_20240824_105940.jpg" alt="IMG_20240824_105940.jpg" loading="lazy"><div class="fn">IMG_20240824_105940.jpg</div></td>
+        <td class="ramc"><span class="chip ram">animal</span><span class="chip ram">green</span><span class="chip ram">hill</span><span class="chip ram">hillside</span><span class="chip ram">lush</span><span class="chip ram">moose</span><span class="chip ram">mountain</span><span class="chip ram">mountain path</span><span class="chip ram">pine</span><span class="chip ram">road</span><span class="chip ram">rural</span><span class="chip ram">stand</span><span class="chip ram">tree</span><span class="chip ram">walk</span></td>
+        <td class="clipc"><span class="chip clip">mountain landscape</span><span class="chip clip">an outdoor landscape</span><span class="chip clip">daytime scene</span><div class="conf">scene conf 40%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">28<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_IMG_20240825_105245.jpg" alt="IMG_20240825_105245.jpg" loading="lazy"><div class="fn">IMG_20240825_105245.jpg</div></td>
+        <td class="ramc"><span class="chip ram">beam</span><span class="chip ram">creek</span><span class="chip ram">flow</span><span class="chip ram">path</span><span class="chip ram">forest</span><span class="chip ram">lush</span><span class="chip ram">mountain stream</span><span class="chip ram">river</span><span class="chip ram">stone</span><span class="chip ram">run</span><span class="chip ram">shine</span><span class="chip ram">stream</span><span class="chip ram">sun</span><span class="chip ram">sunshine</span><span class="chip ram">trail</span><span class="chip ram">tree</span><span class="chip ram">water</span><span class="chip ram">wood</span></td>
+        <td class="clipc"><span class="chip clip">an outdoor landscape</span><span class="chip clip">daytime scene</span><div class="conf">scene conf 70%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">29<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_IMG_20240826_165637.jpg" alt="IMG_20240826_165637.jpg" loading="lazy"><div class="fn">IMG_20240826_165637.jpg</div></td>
+        <td class="ramc"><span class="chip ram">case</span><span class="chip ram">crystal</span><span class="chip ram">cup</span><span class="chip ram">display</span><span class="chip ram">glass box</span><span class="chip ram">glass table</span><span class="chip ram">glass vase</span><span class="chip ram">showcase</span></td>
+        <td class="clipc"><span class="chip clip">product photo</span><span class="chip clip">group photo</span><span class="chip clip">vehicle</span><span class="chip clip">a selfie</span><div class="conf">scene conf 37%</div></td>
+      </tr>
+      <tr>
+        <td class="idx">30<br><span class="trip">germany</span></td>
+        <td><img src="imgs/germany_IMG_20240827_182720.jpg" alt="IMG_20240827_182720.jpg" loading="lazy"><div class="fn">IMG_20240827_182720.jpg</div></td>
+        <td class="ramc"><span class="chip ram">bicycle helmet</span><span class="chip ram">path</span><span class="chip ram">goggles</span><span class="chip ram">helmet</span><span class="chip ram">person</span><span class="chip ram">man</span><span class="chip ram">park</span><span class="chip ram">park bench</span><span class="chip ram">ride</span><span class="chip ram">smile</span><span class="chip ram">walk</span><span class="chip ram">wear</span></td>
+        <td class="clipc"><span class="chip clip">group photo</span><span class="chip clip">person</span><span class="chip clip">a selfie</span><div class="conf">scene conf 84%</div></td>
+      </tr></tbody>
+</table></div>
+<div class="foot">Albumify · experiment · 2026-10-01 · scripts/experiment_ram_vs_clip_tagging.py</div>
+</div></body></html>

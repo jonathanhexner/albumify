@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>EXPERT_REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="EXPERT_REVIEW.md">EXPERT_REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#expert-reviews--spec-102-albumify-vs-vlm"
+id="toc-expert-reviews--spec-102-albumify-vs-vlm">Expert reviews — Spec
+102 (Albumify vs VLM)</a>
+<ul>
+<li><a href="#reviewer-a--senior-cv-researcher-measurement-validity"
+id="toc-reviewer-a--senior-cv-researcher-measurement-validity">Reviewer
+A — Senior CV Researcher (measurement validity)</a></li>
+<li><a href="#reviewer-b--senior-album-editor-craft-validity"
+id="toc-reviewer-b--senior-album-editor-craft-validity">Reviewer B —
+Senior Album Editor (craft validity)</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="expert-reviews--spec-102-albumify-vs-vlm">Expert reviews — Spec
+102 (Albumify vs VLM)</h1>
+<p>Two independent critiques of the draft experiment design
+(2026-07-17), preserved verbatim, each followed by how the point was
+addressed in <code>spec.md</code>.</p>
+<hr />
+<h2 id="reviewer-a--senior-cv-researcher-measurement-validity">Reviewer
+A — Senior CV Researcher (measurement validity)</h2>
+<h3 id="must-fix">Must-Fix</h3>
+<p><strong>1. N=1 blind A/B is not blind and has near-zero
+power.</strong> The project owner both built Albumify and judges the
+albums. Even with hidden labels and L/R randomization, the owner
+recognizes their own pipeline's stylistic fingerprint (crop tendencies,
+exposure profile, which faces it favors) — this is <em>self-recognition
+leakage</em>, not blindness. And a single rater gives you no way to
+separate "the album is better" from "this rater prefers this style."
+Fix: recruit &gt;=5 raters who have never seen either system's output;
+ideally include &gt;=1 rater per trip who was <em>on the trip</em> (they
+can judge coverage/person-completeness, which strangers cannot).
+Pre-register the decision rule. Report per-rater and inter-rater
+agreement (Cohen's kappa / Krippendorff's alpha); if alpha &lt; ~0.4 the
+"which won" verdict is uninterpretable regardless of N.</p>
+<p><strong>2. Batching is confounded with the model.</strong> The VLM
+never sees the full album — it sees 12-16-thumb contact sheets then a
+reduce pass, at 768px. Albumify scores globally at (presumably) higher
+res. So EXP-1 does not compare "pipeline vs VLM"; it compares "global
+high-res scorer vs windowed-low-res- thumbnail scorer." A loss could be
+entirely the harness. Fix: (a) run at least one ablation where the VLM
+sees all photos in one context (accept the cost on one trip) to bound
+the batching penalty; (b) feed Albumify the <em>same</em> 768px inputs
+so resolution is held constant; (c) log and report batch composition,
+since near-duplicates split across sheets can't be deduped in the map
+phase — that's a systematic handicap you must measure, not hide.</p>
+<p><strong>3. Same-K is necessary but not sufficient for
+fairness.</strong> Both pick K=20, good. But "best album" conflates two
+axes the brief itself lists: <em>selection quality</em> (are these good
+photos?) and <em>coverage</em> (every person/scene/day?). A single
+side-by-side forced choice lets one dominate unpredictably across
+raters. Fix: collect structured sub-ratings (5-pt: coverage, photo
+quality, redundancy, narrative) <em>plus</em> the overall pick. This
+also gives you something analyzable with N small.</p>
+<h3 id="should-fix--reproducibility-gaps">Should-Fix — Reproducibility
+gaps</h3>
+<ul>
+<li>VLM nondeterminism: temperature, seed, model snapshot date, and the
+fact that grid tiling order changes picks — none specified. Fix
+temperature=0, log model version, run &gt;=3 seeds/trip and report pick
+stability.</li>
+<li>"Best K default 20" but albums are 200-400 photos of differing
+content density — K should scale or be justified per trip.</li>
+<li>No stated randomization protocol, no rater instructions text, no
+tie-handling. Ship the exact prompt, the exact rater sheet, and the seed
+list.</li>
+</ul>
+<h3 id="exp-2-not-meaningful-as-designed">EXP-2: not meaningful as
+designed</h3>
+<p>Comparing two systems' within-cluster picks with no ground truth just
+tells you <em>whether they agree</em>, not who is <em>right</em> —
+agreement can be high and both wrong. Minimal rigorous version: sample
+~50 clusters, have 3 blind raters rank the shots in each cluster (or
+pick the best). That human "best" is your reference; report each
+system's top-1 accuracy and rank correlation (Kendall tau) against
+it.</p>
+<h3 id="statistical-power--honest-claim">Statistical power — honest
+claim</h3>
+<p>Three trips = n=3 experimental units (trips, not photos — photos
+within a trip are not independent). With 1 judge you can honestly claim
+<em>nothing inferential</em>; it is an anecdote/case study. Smallest
+change that materially helps: 5 blind raters x 3 trips lets you at least
+report a per-trip win-rate with a CI and rater agreement. To claim
+generality you need ~10-15 trips; short of that, frame the whole thing
+as a <em>pilot</em> and say so in the title.</p>
+<h3 id="metrics-to-add">Metrics to add</h3>
+<ol type="1">
+<li>Coverage precision/recall against a hand-labeled roster of persons
+and distinct scenes/days per trip.</li>
+<li>Duplicate rate: fraction of near-dup pairs both surviving in the
+chosen K (from Albumify's clusters).</li>
+<li>Defect rate: blur/occlusion/eyes-closed count in each chosen set,
+scored by existing detectors.</li>
+</ol>
+<p><strong>How addressed</strong>: &gt;=5 blind raters + on-trip rater
+(D6/EXP-1); Krippendorff alpha (A8, T4.3); same-768px inputs (D5/A1) +
+full-context ablation + logged batch/dup-split (A5/T3.1,T3.3);
+structured sub-ratings (EXP-1/T4.1); temp=0/seeds/version (A4/T3.2); K
+floats (spec objective); EXP-2 reframed to 3-rater truth</p>
+<ul>
+<li>top-1 acc + Kendall tau (D3/EXP-2/A7); pilot framing (D6/A8); three
+objective metrics (A6/T4.2).</li>
+</ul>
+<hr />
+<h2 id="reviewer-b--senior-album-editor-craft-validity">Reviewer B —
+Senior Album Editor (craft validity)</h2>
+<h3 id="1-what-a-real-editor-optimizes-that-the-criteria-list-misses">1.
+What a real editor optimizes that the criteria list misses</h3>
+<p>The list is a <em>quality-control checklist</em> masquerading as an
+<em>editorial brief</em>. QC is table stakes — how you <em>reject</em>
+frames, not how you <em>build</em> an album. Top 5 under-weighted:</p>
+<ol type="1">
+<li><strong>Narrative arc / story beats (must-have).</strong> An album
+is a sequence, not a set. Arrival -&gt; settling -&gt; set-pieces -&gt;
+a quiet in-between -&gt; emotional peak -&gt; wind-down. "Best 20" with
+no ordering is a real-estate-open-house slideshow.</li>
+<li><strong>Variety of scale — wide / medium / detail
+(must-have).</strong> Editors intercut establishing wide, human-scale
+medium, tight detail. "Best" collapses toward one scale (pretty
+medium-wide scenics).</li>
+<li><strong>Emotional peak over the "nice" (must-have).</strong> A
+slightly soft genuine-laughter frame beats a razor- sharp posed one. The
+criteria actively <em>punish</em> the peak (motion blur, closed eyes
+mid-laugh, flare). The single most dangerous bias in the list.</li>
+<li><strong>Opening and closing shots (high-leverage).</strong>
+Positional roles no per-image score assigns.</li>
+<li><strong>Connective tissue vs hero shots.</strong> ~15% heroes, ~85%
+"boring but necessary" glue. All-heroes is exhausting and flattens the
+peaks.</li>
+</ol>
+<h3 id="2-is-best-k-cover-everyone-no-duplicates-the-right-objective">2.
+Is "best K, cover everyone, no duplicates" the right objective?</h3>
+<p>No — technically-correct, soulless. "No near-duplicates" throws away
+intentional repetition (the kid on the swing across 4 frames <em>is</em>
+the story). "Cover everyone equally" is wrong — albums have
+protagonists. "K=20 flat" is arbitrary. Reframe to: <strong>"assemble an
+ordered N-image sequence that tells the trip's story, with QC as a
+filter not an objective"</strong> — target scale-distribution, required
+opener/closer, permission to keep intentional repetition,
+protagonist-weighting, K floats.</p>
+<h3 id="3-judging--what-decides-it-in-the-first-10-seconds">3. Judging —
+what decides it in the first 10 seconds</h3>
+<p>Not per-image re-inspection — <strong>flow and variety.</strong>
+Story or a pile? Rhythm (wide/tight/wide) or monotony? Inviting opener?
+One or two frames that make me <em>feel</em> something?
+Sharpness/exposure only noticed when <em>bad</em>. Change the "why"
+prompt to force the real reason: <em>"Which album would you actually
+want to show someone, and what's the one image or moment that made you
+pick it?"</em> + a <em>story vs slideshow</em> axis. And capture
+ordering — a great set in bad order loses to a good set in good order;
+unordered grids don't test the thing that matters most.</p>
+<h3 id="4-annotation--signal-vs-noise">4. Annotation — signal vs
+noise</h3>
+<p>Helpful (must-have): day/place segmentation with a human label ("Day
+3 — Buda Castle &amp; the funicular"); moment-type tags (meal / transit
+/ landmark / candid-goofing / golden-hour / the-one-where-X-happened);
+best-moment-per-group with a one-line <em>reason</em>. Noise (skip):
+literal captions ("a bridge over a river"), object-detection dumps,
+sentiment adjectives. Taxonomy missing the big ones:
+milestone/celebration, everyday/slice-of-life, pet, project/build,
+memorial, and <strong>mixed</strong> (most real folders); plus trip
+sub-types (city break / road trip / beach / hike) that imply different
+pacing.</p>
+<h3 id="5-the-one-thing-no-metric-will-ever-capture">5. The one thing no
+metric will ever capture</h3>
+<p><strong>Meaning that lives outside the frame.</strong> The blurry
+breakfast photo that's the last morning before Grandpa got sick. Albums
+are memory prosthetics; value is personal and contextual, not visual. Be
+honest: every pipeline optimizes photographic quality + coverage as a
+<em>proxy for personal meaning</em>, loosest exactly at the emotional
+peaks. Measure tools on <strong>"how good a first-pass draft"</strong> a
+human then reorders and rescues 3-5 frames into — bake a human-rescue
+step into the eval.</p>
+<p><strong>How addressed</strong>: objective reframed to story-sequence
++ QC-as-filter (spec Objective); ordered output required both arms (A2)
++ ordered A/B viewer (T4.1); "why" prompt + story-vs-slideshow +
+human-rescue on the rater sheet (T4.1); annotation schema = day/place
+labels + moment_type tags + best-moment reason, noise graded down
+(EXP-3/T6); album_type taxonomy expanded incl. mixed + trip_subtype
+(EXP-3); proxy-gap</p>
+<ul>
+<li>"grade the draft" stated in Threats to Validity; scale-variety /
+opener-closer / protagonist / intentional-repetition encoded in
+curation_v1 prompt (T1.3).</li>
+</ul>
+</div>
+</body>
+</html>

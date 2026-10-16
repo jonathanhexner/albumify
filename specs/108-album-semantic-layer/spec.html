@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-108--album-semantic-layer-theme--captions--semantic-scene-clustering"
+id="toc-spec-108--album-semantic-layer-theme--captions--semantic-scene-clustering">spec-108
+— Album Semantic Layer (theme · captions · semantic scene
+clustering)</a>
+<ul>
+<li><a href="#1-problem" id="toc-1-problem">1. Problem</a></li>
+<li><a href="#2-goal--non-goals" id="toc-2-goal--non-goals">2. Goal /
+non-goals</a></li>
+<li><a href="#3-scope" id="toc-3-scope">3. Scope</a></li>
+<li><a href="#4-approach-escalation-not-orchestration"
+id="toc-4-approach-escalation-not-orchestration">4. Approach
+(escalation, not orchestration)</a></li>
+<li><a href="#5-acceptance-criteria" id="toc-5-acceptance-criteria">5.
+Acceptance criteria</a></li>
+<li><a href="#6-dependencies--risks" id="toc-6-dependencies--risks">6.
+Dependencies &amp; risks</a></li>
+<li><a href="#7-definition-of-done" id="toc-7-definition-of-done">7.
+Definition of done</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-108--album-semantic-layer-theme--captions--semantic-scene-clustering">spec-108
+— Album Semantic Layer (theme · captions · semantic scene
+clustering)</h1>
+<p><strong>Status:</strong> In Progress — 2026-10-01. <strong>P0
+(semantic tags) DONE</strong> (reuses cached <code>ram_tags</code>, no
+second RAM++ pass → <code>context.semantic_tags</code>). <strong>VLM
+decision: MiniCPM-V 4.5 local</strong> (chosen 2026-10-01 for $0/token +
+privacy — strangers' photos never leave the box). <strong>P1 theme:
+tag-based baseline DONE</strong> (pure, reuses P0 facets, validated).
+<strong>VLM-backed tiers (richer theme, captions P2, relevance P3)
+blocked on env</strong>: MiniCPM-V needs <code>transformers==4.51</code>
+(env has 4.57) or an ollama/GGUF runtime (absent), and an 8B VLM on CPU
+is impractical — live VLM runs on the spec-109 GPU worker, in its own
+pinned env. The VLM provider abstraction (<code>sim_bench/vlm/</code>) +
+MiniCPM-V backend are built; live validation deferred to the worker (or
+a local <code>.venv-vlm</code>/ollama, pending user call).
+<strong>Owner:</strong> Jonathan / Claude <strong>Priority:</strong> P2
+(quality depth + the agentic-AI capability; v1.5 of the product)
+<strong>Relation:</strong> produces the interestingness signal consumed
+by [[spec-107]]; shares VLM infra with [[spec-105]] (VLM merge arbiter);
+builds on the model-to-task findings in
+<code>specs/106-albumify-web-showcase/agentic_layer_design.html</code>.</p>
+<h2 id="1-problem">1. Problem</h2>
+<p>Curation today judges <strong>individual photos technically</strong>
+(sharpness, aesthetics) but has no grasp of:</p>
+<ol type="1">
+<li><strong>The album's theme</strong> — is this a family trip, a hike,
+a city break? (album-level, not per-photo.)</li>
+<li><strong>A photo's interestingness / relevance to that theme</strong>
+— a sharp rental-car or store-product shot scores <em>high</em> on
+quality yet isn't a <em>moment</em>. Measured leaks on Slovakia26: a
+car+license-plate shot, a rack of CDs, a construction worker on a ladder
+all reached the top-14.</li>
+<li><strong>Human-readable captions</strong> — no album caption, no
+per-photo "what this is / why picked" text.</li>
+</ol>
+<p>Separately, scene clustering is <strong>purely visual</strong>
+(DINOv2); semantic tags could optionally improve it (thematic grouping
+across moments).</p>
+<p>These are one coherent gap: <strong>semantic, album-level
+understanding</strong> — the content axis that RAM++ (validated
+2026-10-01) and a VLM are the right tools for.</p>
+<h2 id="2-goal--non-goals">2. Goal / non-goals</h2>
+<p><strong>Goal:</strong> an album-level semantic layer that (a) infers
+the trip theme, (b) captions the album and the keeper photos, (c) scores
+each photo's theme-relevance/interestingness (feeding spec-107's
+set-aside), and (d) optionally augments scene clustering with semantic
+signal.</p>
+<p><strong>Non-goals:</strong> replacing visual dedup (DINOv2 stays the
+backbone — captions <em>over-merge</em> dedup, proven in the design
+note); running a VLM on every image (cost) — VLM only on a sample /
+survivors / ambiguous cases (the escalation pattern); auto-deleting
+"uninteresting" photos (always set-aside-for-review).</p>
+<h2 id="3-scope">3. Scope</h2>
+<ul>
+<li><strong>Theme inference</strong> — a VLM reads a representative
+sample of the roll → structured theme
+(<code>{type: family-trip, place: Slovakia, motifs: [kids, landscapes, towns]}</code>).</li>
+<li><strong>Captioning (the captioning request)</strong> — album-level
+caption + per-keeper captions (Tier-2, ~20 images, cheap); powers "why
+picked", scene labels ("Day 3 — Spiš Castle"), and search text.</li>
+<li><strong>Theme-relevance / interestingness score</strong> — per
+photo, relevance to the inferred theme → low-score utilitarian shots
+flow to spec-107's set-aside (review, not delete).</li>
+<li><strong>Optional semantic scene-clustering boost</strong> — cheap
+RAM++/CLIP tags (content axis) as an auxiliary signal to the visual
+clusterer; opt-in, measured against pure-visual dedup (must not
+regress).</li>
+</ul>
+<h2 id="4-approach-escalation-not-orchestration">4. Approach
+(escalation, not orchestration)</h2>
+<p>Cheap signals first: RAM++ content tags on all images (near the
+resident-model cost). A VLM (local open — Qwen3-VL / MiniCPM-V, or an
+API) runs only on: a sample (theme), the ~20 keepers (captions), and the
+ambiguous "real-but-maybe-utilitarian" subset (interestingness). Never
+per-image on the full roll. Human-in-the-loop for the subjective
+calls.</p>
+<h2 id="5-acceptance-criteria">5. Acceptance criteria</h2>
+<ul>
+<li><strong>AC1</strong> Theme inferred correctly on the 3 real trips (+
+Slovakia26), human-judged.</li>
+<li><strong>AC2</strong> Keeper captions are accurate and useful
+(spot-checked); album caption reads true.</li>
+<li><strong>AC3</strong> Theme-relevance flags ≥ the known utilitarian
+leaks (car/CDs/ladder) with low false-positive rate; output feeds
+spec-107 set-aside.</li>
+<li><strong>AC4</strong> Semantic scene-clustering boost is opt-in and
+<strong>does not regress</strong> duplicate-survival vs visual-only
+(measured).</li>
+<li><strong>AC5</strong> Token/compute cost is bounded (sample +
+survivors + ambiguous only); measured $/album.</li>
+</ul>
+<h2 id="6-dependencies--risks">6. Dependencies &amp; risks</h2>
+<ul>
+<li>RAM++ (content tags, validated); a VLM (local open preferred for
+cost/privacy — see agentic design); spec-107 consumes the relevance
+signal; spec-105 shares VLM infra.</li>
+<li>Risk: interestingness is <strong>subjective</strong> →
+set-aside-for-review, conservative, never auto-delete.</li>
+<li>Risk: VLM cost/latency → scoped to sample/survivors/ambiguous; local
+model to kill per-token cost.</li>
+<li>Risk: distillation trap (over-tuning to a VLM) → VLM is a
+reference/judge, not a training target (per agentic design
+§AI-as-reference).</li>
+</ul>
+<h2 id="7-definition-of-done">7. Definition of done</h2>
+<p>Theme + captions + relevance implemented behind flags; AC1–AC5 met on
+real trips; opt-in clustering boost measured; REVIEW.md; CHANGES_LOG.
+See <code>tasks.md</code>.</p>
+</div>
+</body>
+</html>
