@@ -42,7 +42,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install pytest hdbscan sqlalchemy alembic pillow-heif
+          # Same pins as requirements.txt: unpinned, CI got SQLAlchemy 2.1 and the alembic drift
+          # test failed on a Float/Double difference (SIGHTING-135).
+          pip install pytest hdbscan "sqlalchemy>=2.0.30,<2.1" "alembic>=1.13,<2" pillow-heif
 
       - name: Run fast test suite
         run: |
