@@ -160,7 +160,7 @@ When Producer (Albumify) ≠ Producer (FC App), you're looking at the duplicatio
   </tr></thead>
   <tbody>
     <tr><td><code>face_id</code> <span class="pill pk">PK</span><br>INTEGER · int unique</td>
-        <td>Step <i>cluster_people</i> → <b>face_cluster_bridge.faces_to_face_records</b> (assigns sequential idx)</td>
+        <td>Step <i>insightface_detect_faces</i> → <b>context.face_records</b> (sequential idx; spec-113 removed the old <i>cluster_people</i> bridge)</td>
         <td><b>face_cluster.embedding</b> module assigns idx when constructing <code>FaceRecord</code> from crop manifest</td>
         <td><b>RunExporter._write_faces_and_scores</b> emits <code>face.face_id</code></td>
         <td><span class="pill ok">BOTH</span></td></tr>
@@ -372,6 +372,25 @@ When Producer (Albumify) ≠ Producer (FC App), you're looking at the duplicatio
     <tr><td><code>n_merges, n_iterations</code></td><td>INTEGER</td><td>Merge stats.</td><td>Computed from <code>merge_log</code>.</td></tr>
     <tr><td><code>started_at, finished_at</code></td><td>TEXT (ISO 8601)</td><td>Wall-clock bounds.</td><td>Caller (input args).</td></tr>
     <tr><td><code>schema_version</code></td><td>INTEGER</td><td>Pinned to <code>SCHEMA_VERSION = 5</code>.</td><td>Constant from <code>sim_bench.run_db._schema.SCHEMA_VERSION</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="control-jobs" style="border-color:#0f766e;">Control DB: jobs<span class="src">spec-112 · ORM: sim_bench/control/models.py::Job · DB: <code>$DATABASE_URL</code> or <code>~/.sim_bench/control.db</code> · writer: <code>JobRepo</code> only</span></h2>
+<p>The Albumify job list (spec-112). Other control tables, one row set per job: <code>job_events</code>, <code>photos</code>,
+<code>faces</code>, <code>people</code>, <code>scenes</code>, <code>user_edits</code> (see the ORM module). Columns added after
+the first release are added to existing DBs by <code>ControlDB._add_missing_columns</code> (nullable only).</p>
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>VARCHAR(64)</td><td>Job id, also the job-store folder name.</td><td><code>JobService.create</code> (<code>new_job_id</code> or caller).</td></tr>
+    <tr><td><code>status</code></td><td>VARCHAR(16)</td><td>queued / staging / running / loading / succeeded / failed.</td><td><code>JobRepo.transition</code>; every change also appends a <code>job_events</code> row.</td></tr>
+    <tr><td><code>runner, pipeline</code></td><td>VARCHAR</td><td>Where and which pipeline ran it.</td><td><code>ServingConfig</code> or the request.</td></tr>
+    <tr><td><code>source</code></td><td>TEXT nullable</td><td>Input folder.</td><td>Request / regression <code>datasets.yaml</code>.</td></tr>
+    <tr><td><code>tag</code> <span class="pill">spec-114</span></td><td>VARCHAR(64) nullable</td><td><code>regression:&lt;album&gt;</code> for a regression check run, <code>regression:&lt;album&gt;:baseline</code> for the baseline; NULL = an owner's album. Jobs page hides tagged runs by default; Compare page groups by it.</td><td><code>scripts/albumify_regression.py</code> via <code>SubmitInputs.tag</code>; <code>mark_baseline</code> moves the baseline tag.</td></tr>
+    <tr><td><code>worker</code> <span class="pill">spec-114</span></td><td>VARCHAR(128) nullable</td><td><code>host:pid:start-time</code> of the process running the job. A live job whose worker is gone is failed as interrupted (SIGHTING-137).</td><td><code>JobService.run</code> / <code>load_existing</code> (<code>this_worker()</code>); read by <code>JobRepo.reap_orphans</code>.</td></tr>
+    <tr><td><code>n_inputs, error, failed_step</code></td><td>INTEGER / TEXT / VARCHAR</td><td>Photo count; failure text and step.</td><td><code>JobService</code>.</td></tr>
+    <tr><td><code>theme, album_created_at</code></td><td>JSON / VARCHAR</td><td>Album theme (spec-108), album timestamp.</td><td><code>ResultsLoader</code>.</td></tr>
+    <tr><td><code>created_at, started_at, finished_at</code></td><td>DATETIME (UTC)</td><td>Lifecycle times.</td><td><code>JobRepo</code>.</td></tr>
   </tbody>
 </table>
 

@@ -72,7 +72,7 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
 <div class="legend">
   <span><span class="swatch" style="border-color:#7a4ec0;"></span>UI layer</span>
   <span><span class="swatch" style="border-color:#444;"></span>sim_bench.pipeline (steps)</span>
-  <span><span class="swatch" style="border-color:#b58900;"></span>face_cluster_bridge (adapter)</span>
+  <span><span class="swatch" style="border-color:#b58900;"></span>config translation (FCParams)</span>
   <span><span class="swatch" style="border-color:#1f5fc7;"></span>face_cluster engine</span>
   <span><span class="swatch" style="border-color:#0e9466;"></span>storage (DB + npy + crops)</span>
 </div>
@@ -110,7 +110,7 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
     detect_persons (YOLOv8) → insightface_detect_faces (SCRFD) → filter_faces<br>
     score_iqa, score_ava, <b>score_occlusion</b> (spec-097), <b>score_tilt</b> (spec-099/100) → detect_persons → insightface_detect_faces<br>
     align_faces → insightface_score_{expression,eyes,pose} → … → select_best → <b>straighten_images</b> (spec-101 A, TERMINAL: straightens the winners)<br>
-    filter_quality → cluster_scenes → extract_face_embeddings → <b>cluster_people</b><br>
+    filter_quality → cluster_scenes → extract_face_embeddings → <b>quality_gate … assign_people_clusters</b> (8-step people-clustering chain, spec-079) → identity_refinement → cluster_by_identity → select_best<br>
     <span style="opacity:.8">scene distance (spec-103, OPT-IN, NOT in default_pipeline): <code>build_scene_distance</code>
     — inserted between <code>extract_scene_embedding</code> and <code>cluster_scenes</code>, fuses DINOv2
     visual distance with a one-sided SHORT-RANGE capture-time boost (Path A: <code>d = visual·(1−boost·exp(−dt/τ))</code>)
@@ -143,15 +143,14 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
 <div class="arrow">▼</div>
 
 <div class="stage bridge">
-  <div class="head"><span class="name">D · bridge (adapter)</span><span class="src">sim_bench/pipeline/steps/face_cluster_bridge.py</span></div>
+  <div class="head"><span class="name">D · people-clustering settings</span><span class="src">sim_bench/api/services/pipeline_service.py</span></div>
   <div class="body">
-    <code>run_face_cluster_knn(faces, emb_norm, config, context)</code><br>
-    → <code>build_fc_config(config)</code> → FCConfig (pose/det read from config)<br>
-    → <code>faces_to_face_records(faces, emb_norm, context=context)</code><br>
-    &nbsp;&nbsp;recovers <b>blur_score / pose / det_score / landmarks</b> from <code>context.insightface_faces[path]</code>
+    <code>configs/pipeline.yaml: people_clustering</code> (a settings block, not a step) →
+    <code>PipelineService._broadcast_clustering_config</code> → <code>FCParams</code> →
+    <code>FCParams.to_step_configs()</code> → the 8 chain steps.<br>
+    <code>context.face_records</code> (FaceRecord, built by <code>insightface_detect_faces</code>) feed <code>quality_gate</code> directly.
   </div>
-  <div class="pinned"><b>Pinned today (SIGHTING-061):</b> <code>blur_min = 0.0</code> regardless of config — no upstream blur producer.</div>
-  <div class="target"><b>Target (specs/036 + specs/037):</b> config-to-producer test enforces gate-has-producer; blur step lands; pin lifts.</div>
+  <div class="pinned"><b>spec-113 (2026-10-16):</b> the old <code>cluster_people</code> step and its <code>face_cluster_bridge</code> adapter were removed; settings saved under <code>cluster_people</code> are still read. The job path (<code>serving/pipeline_runner.SpecBuilder</code>) does not apply this block yet: SIGHTING-133.</div>
 </div>
 
 <div class="arrow">▼</div>
@@ -340,6 +339,25 @@ after success, overwrite on re-run); <code>JobStore</code> owes the layout and t
 which on a serverless container is scratch &mdash; every worker run is a cold-cache run, and the
 scratch copy's paths would miss the key anyway (SIGHTING-112). Cross-run feature reuse is spec-109 work.
 </p>
+
+<h2>spec-114 &mdash; compare two runs (regression results, CPU vs L4, before/after)</h2>
+
+<pre style="font-family: Consolas, monospace; font-size: 12px; background: #fafafa; border: 1px solid #ddd; padding: 10px;">  scripts/albumify_regression.py capture|check &lt;album&gt;
+        |  JobService.submit(SubmitInputs(tag="regression:&lt;album&gt;"))   same control DB + job store as the app
+        |  capture: mark_baseline -> tag "regression:&lt;album&gt;:baseline"; summary -> tests/regression/albumify/baselines/*.json
+        v
+  control DB: jobs (+ tag, worker), photos, faces, people, user_edits
+        |
+  app/streamlit/pages/compare.py  --GET /jobs/{B}/compare?with={A}-->  sim_bench/api/routers/jobs.py
+        |                                                                  |
+        |                                         JobComparer.calc   &lt;-- sim_bench/control/compare.py
+        |                                           AlbumBuilder x2 (edits applied) -> AlbumSummarizer
+        |                                           AlbumComparator -> checks + PickDiff (same/swapped/missing/extra/also_kept)
+        |                                           + every photo's decision in A and B, people + one face crop each
+        v
+  verdict + metrics | checks table | Missing / Extra / Swapped / More from a group / People
+  photo button -> dialog: A's and B's decision for that photo
+  (GET /jobs and GET /jobs/{id} first fail live jobs whose worker process is gone: JobRepo.reap_orphans)</pre>
 
 <h2>Related documents</h2>
 <ul>

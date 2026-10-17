@@ -67,6 +67,7 @@ def _render_navigation(on_page_change: Optional[Callable[[str], None]] = None) -
         ("Explore", "explore", ""),
         ("Export", "export", ""),
         ("Jobs", "jobs", ""),
+        ("Compare runs", "compare", ""),
     ]
 
     current_page = st.session_state.get("current_page", "home")

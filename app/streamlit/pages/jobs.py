@@ -1,6 +1,7 @@
 """Jobs page (spec-112 TA5.3): a job's album as the control DB holds it.
 
-Picks, every dropped photo with its reason, photos removed before the album saw them, and people.
+Picks, every dropped photo with its reason, photos a filter removed before the album saw them, and
+people.
 Promote / demote / rename write user edits through the API; the album is rebuilt from the rows on
 every view. Clickable actions are real st.button grids (never dataframe row-select).
 """
@@ -33,7 +34,15 @@ def render_jobs_page() -> None:
         st.info("No jobs yet. Submit one with POST /jobs or load an existing job's files.")
         return
 
+    if not st.toggle("Show regression runs", key="jobs_show_regression",
+                     help="Runs of scripts/albumify_regression.py (tag regression:<album>). "
+                          "Compare them on the Compare runs page."):
+        jobs = [j for j in jobs if not (j.get("tag") or "").startswith("regression:")]
+        if not jobs:
+            st.info("No albums of your own yet; switch on 'Show regression runs' to see the test runs.")
+            return
     labels = {j["id"]: f"{j['id']}  -  {j['status']}  ({j['runner']}, {j['n_inputs']} photos)"
+                       + (f"  [{j['tag']}]" if j.get("tag") else "")
               for j in jobs}
     job_id = st.selectbox("Job", list(labels), format_func=labels.get, key="jobs_selected")
     job = client.get_job(job_id)
@@ -46,7 +55,7 @@ def render_jobs_page() -> None:
     _render_header(album, photos)
     removed = [p for p in photos if not p["in_album"]]
     tabs = st.tabs([f"Picks ({len(album['picks'])})", f"Dropped ({len(album['dropped'])})",
-                    f"Removed before scoring ({len(removed)})", f"People ({len(album['people'])})"])
+                    f"Removed by filters ({len(removed)})", f"People ({len(album['people'])})"])
     with tabs[0]:
         _render_picks(client, job_id, album)
     with tabs[1]:
@@ -142,8 +151,9 @@ def _render_removed(client, job_id: str, removed: List[Dict]) -> None:
     if not removed:
         st.success("Every photo reached the album.")
         return
-    st.caption("Removed by a filter before scene clustering, so they are not in the album "
-               "(SIGHTING-128). The pipeline's own reason is shown.")
+    st.caption("Scored, then removed by a filter (e.g. the sharpness gate) before scene "
+               "clustering, so they are not in the album (SIGHTING-128). The filter's own reason "
+               "is shown.")
     shown = _paged(removed, f"removed_page_{job_id}")
     for row in range(0, len(shown), COLS):
         cols = st.columns(COLS)
@@ -151,12 +161,13 @@ def _render_removed(client, job_id: str, removed: List[Dict]) -> None:
             with col:
                 st.image(client.job_photo_url(job_id, p["photo_id"]), use_container_width=True)
                 why = "; ".join(f"{d['step']}: {d['reason']}" for d in p["decisions"]
-                                if d.get("decision") != "passed") or "no recorded reason"
+                                if d.get("decision") == "rejected") or "no recorded reason"
                 st.caption(f"{p['photo_id']}: {why}")
 
 
 def _render_people(client, job_id: str, album: Dict) -> None:
-    for person in album["people"]:
+    # largest first: the people the owner most wants to name are the ones with the most faces
+    for person in sorted(album["people"], key=lambda p: (-p["face_count"], p["id"])):
         cluster = person["id"].rsplit("_", 1)[-1]
         name = person["label"] or person["id"]
         with st.expander(f"{name}  ({person['face_count']} faces)"):
