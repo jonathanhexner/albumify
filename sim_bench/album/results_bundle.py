@@ -128,20 +128,26 @@ class ResultsBundler:
     @staticmethod
     def _faces(ctx, stem):
         records = list(getattr(ctx, "face_records", []) or [])
-        person_of: Dict[int, int] = {}
+        # people_clusters members are FaceRecords (assign_people_clusters); the removed
+        # cluster_people step (SIGHTING-132, spec-113) produced face objects with original_path +
+        # face_index and no face_id. Matching by (photo id, face index) works for both shapes.
+        person_of: Dict[tuple, int] = {}
         for pid, members in (getattr(ctx, "people_clusters", {}) or {}).items():
-            for rec in members or []:
-                fid = getattr(rec, "face_id", None)
-                if fid is not None:
-                    person_of[int(fid)] = int(pid)
+            for m in members or []:
+                path = getattr(m, "image_path", None) or getattr(m, "original_path", None)
+                idx = getattr(m, "face_index", None)
+                if path is not None and idx is not None:
+                    person_of[(stem(path), int(idx))] = int(pid)
 
         faces, vecs, emb_ids, crops = [], [], [], {}
         for rec in records:
             fid = int(rec.face_id)
             path = getattr(rec, "image_path", None) or getattr(rec, "image_id", "")
             pose = getattr(rec, "pose", None)
+            idx = getattr(rec, "face_index", None)
             faces.append({
                 "face_id": fid,
+                "face_index": int(idx) if idx is not None else None,
                 "photo_id": stem(path),
                 "bbox": [float(v) for v in rec.bbox],
                 "det_score": _num(getattr(rec, "det_score", None)),
@@ -149,7 +155,7 @@ class ResultsBundler:
                 "pose": [float(v) for v in pose] if pose is not None else None,
                 "is_core": bool(getattr(rec, "is_core", False)),
                 "rejection_reason": getattr(rec, "rejection_reason", None),
-                "person_id": person_of.get(fid),
+                "person_id": person_of.get((stem(path), int(idx))) if idx is not None else None,
             })
             emb = getattr(rec, "embedding_normalized", None)
             if emb is None:
