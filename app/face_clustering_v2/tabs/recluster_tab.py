@@ -1,6 +1,6 @@
 """spec-063 — v2 Recluster tab orchestrator.
 
-Pure orchestration. Layout: prior-run picker -> params editor -> button.
+Pure orchestration. Layout: prior-run picker -> profile Load/Save -> params editor -> button.
 SIGHTING-079 lesson: sync compute + ``st.spinner``, never background polling.
 """
 from __future__ import annotations
@@ -9,6 +9,7 @@ import logging
 
 import streamlit as st
 
+from app.face_clustering_v2._profile_bar import render_profile_bar
 from app.face_clustering_v2._telemetry import tab_done, tab_skipped, tab_start
 from app.face_clustering_v2.components.run_picker import render_run_picker
 from app.face_clustering_v2.ui_spec import UI_SPEC, fields_by_group
@@ -51,6 +52,7 @@ def render_recluster_tab() -> None:
         )
         return
 
+    render_profile_bar(key_prefix=_KEY_PREFIX)
     for group in _GROUP_ORDER:
         names = fields_by_group().get(group, [])
         if not names:

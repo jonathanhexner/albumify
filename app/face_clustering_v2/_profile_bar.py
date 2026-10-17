@@ -35,7 +35,9 @@ from face_cluster.fc_params import FCParams
 PROFILE_DIR = Path.home() / ".sim_bench" / "profiles_v2"
 
 
-def render_profile_bar() -> None:
+def render_profile_bar(*, key_prefix: str = "") -> None:
+    """Profile Load / Save. ``key_prefix`` namespaces both the bar's own widgets and the knob
+    widgets it fills, so the Recluster tab (prefix ``recluster_``) loads into its own knobs."""
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     profiles = sorted(p.name for p in PROFILE_DIR.glob("*.json"))
 
@@ -45,13 +47,13 @@ def render_profile_bar() -> None:
             options = ["(none)"] + profiles
             selected = st.selectbox(
                 "Load profile", options=options, index=0,
-                key="v2_profile_select",
+                key=f"{key_prefix}v2_profile_select",
                 help=f"Profiles directory: {PROFILE_DIR}",
             )
         with c2:
             st.write("")
             st.write("")
-            if st.button("Load", key="v2_profile_load_btn",
+            if st.button("Load", key=f"{key_prefix}v2_profile_load_btn",
                          disabled=(selected == "(none)")):
                 path = PROFILE_DIR / selected
                 try:
@@ -59,8 +61,8 @@ def render_profile_bar() -> None:
                 except (ValidationError, OSError) as e:
                     st.error(f"Could not load profile: {e}")
                 else:
-                    load_params_into_state(params)
-                    st.session_state["v2_profile_last_loaded"] = selected
+                    load_params_into_state(params, key_prefix=key_prefix)
+                    st.session_state[f"{key_prefix}v2_profile_last_loaded"] = selected
                     st.success(f"Loaded `{selected}` — widgets updated.")
                     st.rerun()
 
@@ -70,15 +72,15 @@ def render_profile_bar() -> None:
                 "Save current settings as",
                 value="",
                 placeholder="my_profile.json (or just my_profile)",
-                key="v2_profile_save_name",
+                key=f"{key_prefix}v2_profile_save_name",
                 help="Saved to the profiles directory above. .json extension auto-added.",
             )
         with c4:
             st.write("")
             st.write("")
-            if st.button("Save", key="v2_profile_save_btn",
+            if st.button("Save", key=f"{key_prefix}v2_profile_save_btn",
                          disabled=(not new_name.strip())):
-                params = build_params_from_state()
+                params = build_params_from_state(key_prefix=key_prefix)
                 if params is not None:
                     name = new_name.strip()
                     if not name.endswith(".json"):

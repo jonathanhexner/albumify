@@ -12,8 +12,10 @@ A footnote below the dropdown summarises the orphan count so the user
 knows the cleanup script (``scripts/cleanup_orphan_action_log.py``) is
 worth running.
 
-Default-selects the first non-orphan entry, falling back to the entry
-matching ``st.session_state.v2_last_run_dir`` when present.
+Default-selects the run the user is looking at (``resolve_run_dir``: the
+History "Load" key, else the last fresh run), else the newest loadable run.
+The loaded run is listed even when it is older than the newest ``limit``
+(SIGHTING-136: Recluster used to preselect the newest run instead).
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ from typing import List, Optional, Tuple
 
 import streamlit as st
 
+from app.face_clustering_v2._run_context import resolve_run_dir
 from face_cluster.repositories import (
     RunHistoryCriteria,
     RunHistoryRepoConfig,
@@ -100,6 +103,24 @@ def _format_label(e: RunPickerEntry) -> str:
     return f"{prefix}{when}  ·  {e.album}  ·  {counts}  ·  {e.status}  ({e.run_id[:8]})"
 
 
+def _with_loaded_run(
+    ordered: List[RunPickerEntry], loaded: Optional[Path], *, db_path: Optional[Path] = None,
+) -> List[RunPickerEntry]:
+    """Put the loaded run first when it is older than the newest ``limit`` runs."""
+    if loaded is None or any(e.output_dir == loaded for e in ordered):
+        return ordered
+    older = [e for e in _all_entries_from_repo(limit=10_000, db_path=db_path) if e.output_dir == loaded]
+    return older[:1] + ordered
+
+
+def _default_index(ordered: List[RunPickerEntry], loaded: Optional[Path]) -> int:
+    """Index of the loaded run; else 0 (the newest loadable run: orphans sort last)."""
+    for i, e in enumerate(ordered):
+        if loaded is not None and e.output_dir == loaded:
+            return i
+    return 0
+
+
 def render_run_picker(
     *,
     label: str = "Pick a run",
@@ -116,19 +137,9 @@ def render_run_picker(
 
     loadable, orphan = _partition_entries(all_entries)
     ordered = loadable + orphan  # loadable first; orphans visible but ranked last
-
-    # Default to the entry that matches the last Run's output_dir, else the
-    # first non-orphan entry, else index 0.
-    last_dir = st.session_state.get("v2_last_run_dir", "")
-    default_index = 0
-    for i, e in enumerate(ordered):
-        if str(e.output_dir) == last_dir:
-            default_index = i
-            break
-    else:
-        # No match — prefer the first loadable entry over an orphan.
-        if loadable:
-            default_index = 0  # loadable[0] is already at index 0 of ordered
+    loaded = resolve_run_dir()
+    ordered = _with_loaded_run(ordered, loaded, db_path=db_path)
+    default_index = _default_index(ordered, loaded)
 
     options = list(range(len(ordered)))
     chosen_index = st.selectbox(
