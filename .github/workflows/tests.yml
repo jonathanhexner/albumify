@@ -38,6 +38,9 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      - name: Photo guard (no photos, notebook outputs or inlined images in git)
+        run: python scripts/check_no_photos.py
+
       - name: Install light deps (no torch/insightface/mediapipe)
         run: |
           python -m pip install --upgrade pip

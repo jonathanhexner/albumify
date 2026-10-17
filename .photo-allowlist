@@ -1,0 +1,4 @@
+# Image files allowed in git: charts and diagrams only, never photos or app screenshots.
+# Adding a path here also needs a matching "!" line in .gitignore.
+reports/2026-07-10_augmented_retrain/roc_curves.png
+reports/2026-07-10_resnet_finetune/roc_overlay.png
