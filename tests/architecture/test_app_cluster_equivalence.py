@@ -4,7 +4,7 @@ This is the ONE test that runs the SAME profile through BOTH app entrypoints and
 asserts they produce IDENTICAL identity-cluster sizes:
 
     FC v2     (run_pipeline -> producer chain + 8 unified clustering steps)
-    Albumify  (PipelineService -> cluster_people step -> bridge)
+    Albumify  (PipelineService -> FCParams broadcast -> same 8 unified steps)
                                 |
                           assert sizes EQUAL
 

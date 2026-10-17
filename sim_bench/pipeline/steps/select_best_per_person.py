@@ -25,11 +25,9 @@ class SelectBestPerPersonStep(BaseStep):
             category="selection",
             requires={"people_clusters"},
             produces={"people_thumbnails", "people_best_images"},
-            # spec-079 / SIGHTING-100: also depend on assign_people_clusters (the
-            # unified cluster producer) so this is ordered AFTER clustering;
-            # cluster_people kept for legacy pipelines. The dangling cluster_people
-            # dep alone let it run before people_clusters existed.
-            depends_on=["cluster_people", "assign_people_clusters"],
+            # Runs after the people-clustering chain (spec-079). It once also named
+            # the old `cluster_people`, which the builder auto-added (SIGHTING-132; removed by spec-113).
+            depends_on=["assign_people_clusters"],
             config_schema={
                 "type": "object",
                 "properties": {

@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="REVIEW.md">REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<header id="title-block-header">
+<h1 class="title">spec-113 REVIEW - remove cluster_people + Albumify
+regression suite</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-113-review--remove-cluster_people--albumify-regression-suite"
+id="toc-spec-113-review--remove-cluster_people--albumify-regression-suite">spec-113
+REVIEW — remove <code>cluster_people</code> + Albumify regression
+suite</a>
+<ul>
+<li><a href="#part-1--how-it-works" id="toc-part-1--how-it-works">Part 1
+— How it works</a></li>
+<li><a href="#part-2--findings" id="toc-part-2--findings">Part 2 —
+Findings</a></li>
+<li><a href="#part-3--verdict-per-area-and-follow-ups"
+id="toc-part-3--verdict-per-area-and-follow-ups">Part 3 — Verdict per
+area and follow-ups</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-113-review--remove-cluster_people--albumify-regression-suite">spec-113
+REVIEW — remove <code>cluster_people</code> + Albumify regression
+suite</h1>
+<p><em>2026-10-16. Reviewer: Claude (against
+<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>). Scope: the
+uncommitted change set on <code>spec/106-albumify-web-showcase</code>
+(73 files, +1,597 / −2,879), i.e. spec-113 plus the related SIGHTING-132
+fix, the LocalRunner encoding fix and the photo guard.</em></p>
+<p><strong>Verdict: ACCEPT with follow-ups.</strong> 0
+<code>fail</code>, 7 <code>pass-with-followup</code> (all ticketed). One
+gate still open before <code>Implemented</code>: the V2 Budapest suite
+(CLAUDE.md, binding, because
+<code>app/face_clustering/tabs/run_tab.py</code> changed).</p>
+<h2 id="part-1--how-it-works">Part 1 — How it works</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Module</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ordering</td>
+<td><code>sim_bench/pipeline/steps/{identity_refinement,cluster_by_identity,select_best_per_person}.py</code></td>
+<td><code>depends_on</code> no longer names <code>cluster_people</code>
+(SIGHTING-132)</td>
+</tr>
+<tr>
+<td>Removal</td>
+<td><code>steps/cluster_people.py</code>,
+<code>steps/configs/cluster_people.py</code>,
+<code>steps/face_cluster_bridge.py</code>, 2 yaml, 4 tests</td>
+<td>Deleted; unregistered in <code>all_steps.py</code>,
+<code>configs/__init__.py</code></td>
+</tr>
+<tr>
+<td>Settings</td>
+<td><code>configs/pipeline.yaml</code> <code>people_clustering:</code>;
+<code>PipelineService._broadcast_clustering_config</code>;
+<code>pipeline_runner.py</code>; <code>config_diff.py</code></td>
+<td>Renamed source block; old key read and wins over yaml defaults
+(O1)</td>
+</tr>
+<tr>
+<td>Regression (new)</td>
+<td><code>sim_bench/album/regression.py</code>
+(<code>AlbumSummarizer</code>, <code>AlbumComparator</code>,
+<code>Tolerances</code>); <code>scripts/albumify_regression.py</code>;
+<code>tests/regression/albumify/</code></td>
+<td>Real-album baselines + tolerant comparison through
+<code>JobService</code></td>
+</tr>
+<tr>
+<td>Serving</td>
+<td><code>sim_bench/serving/runners.py</code>
+<code>LocalRunner.run</code></td>
+<td>Child output read as UTF-8</td>
+</tr>
+<tr>
+<td>Repo hygiene</td>
+<td><code>scripts/check_no_photos.py</code>, <code>.gitignore</code>,
+<code>.gitattributes</code> (nbstripout), <code>.photo-allowlist</code>,
+CI step</td>
+<td>Photos never in git</td>
+</tr>
+</tbody>
+</table>
+<pre><code>UI / profile  --people_clustering--&gt;  PipelineService._broadcast_clustering_config
+                                         FCParams(**block) -&gt; to_step_configs() -&gt; 8 chain steps
+default_pipeline: ... quality_gate .. assign_people_clusters -&gt; identity_refinement -&gt; cluster_by_identity -&gt; select_best
+regression:  JobService(local) -&gt; album.json -&gt; AlbumSummarizer -&gt; AlbumComparator(baseline) -&gt; PASS/FAIL</code></pre>
+<p>Dependency direction: <code>scripts/</code> -&gt;
+<code>sim_bench.album.regression</code> -&gt; stdlib only;
+<code>sim_bench.album.regression</code> imports nothing from
+serving/pipeline. No reverse imports (grep: <code>regression.py</code>
+imports <code>dataclasses</code>, <code>typing</code>).</p>
+<h2 id="part-2--findings">Part 2 — Findings</h2>
+<h3 id="1-structure--pass-with-followup">§1 Structure —
+pass-with-followup</h3>
+<ul>
+<li>New modules are small with one responsibility:
+<code>regression.py</code> 115 LOC, <code>albumify_regression.py</code>
+130, <code>check_no_photos.py</code> 116.</li>
+<li>Large files touched are pre-existing
+(<code>pipeline_service.py</code> 602, <code>explore.py</code> 563,
+<code>pipeline_runner.py</code> 561 — the latter shrank by 63 lines).
+Not introduced here.</li>
+<li><strong>F1 (low)</strong> dead parameter:
+<code>app/streamlit/pages/explore.py:448</code>
+<code>_render_face_clustering_tab(all_decisions, …)</code> no longer
+uses <code>all_decisions</code> after the dead face-decision block was
+removed. -&gt; TODO.</li>
+<li>Max 4 params everywhere new. No orphan files (removed a failed-clone
+folder <code>sim-bench-backup-2026-10-16.git/</code> from the repo
+root).</li>
+</ul>
+<h3 id="2-code-quality--pass-with-followup">§2 Code quality —
+pass-with-followup</h3>
+<ul>
+<li><code>regression.py</code>: no try/except; comparisons explicit
+(<code>_close</code> with relative band + absolute floor).</li>
+<li><code>albumify_regression.py:63</code> <code>except Exception</code>
+in <code>_git_sha</code> -&gt; "unknown": metadata only,
+acceptable.</li>
+<li><strong>F2 (medium)</strong>
+<code>scripts/check_no_photos.py:85</code> skips a text/notebook file
+when <code>git show :path</code> fails
+(<code>except (OSError, CalledProcessError): continue</code>). A guard
+should not pass silently on an unreadable file; image files are
+unaffected (caught by extension first). -&gt; TODO: report it as a
+problem instead.</li>
+<li><strong>F3 (low)</strong> <code>albumify_regression.py</code> prints
+results via buffered stdout: with output redirected, PASS/FAIL lines
+appear only at the end of a multi-hour run (seen today). -&gt; TODO:
+<code>flush=True</code> / log through <code>logging</code>.</li>
+</ul>
+<h3 id="3-naming-and-package-structure--pass">§3 Naming and package
+structure — pass</h3>
+<ul>
+<li><code>people_clustering</code> names what the block is (a settings
+source, not a step). <code>regression.py</code> declares
+<code>__all__</code>.</li>
+<li>Scripts follow the existing <code>scripts/</code> convention (no
+<code>__all__</code>).</li>
+</ul>
+<h3 id="4-layering-and-coupling--pass-with-followup">§4 Layering and
+coupling — pass-with-followup</h3>
+<ul>
+<li>Single writer: <code>context.people_clusters</code> now has one
+producer in the default run (<code>assign_people_clusters</code>) — the
+core of SIGHTING-132.
+<code>TestRealRegistry::test_every_dependency_names_a_registered_step</code>
+guards stale deps.</li>
+<li>Old-key fallback is implemented twice with the same rule
+(<code>pipeline_service.py</code>, <code>pipeline_runner.py</code>, plus
+<code>config_diff.py</code>). Small, documented; acceptable.</li>
+<li><strong>F4 (medium, existing SIGHTING-133)</strong> two config
+interpreters still exist: the job path
+(<code>serving/pipeline_runner.SpecBuilder</code>) does not apply
+<code>people_clustering</code> at all. Ticketed; owner decision.</li>
+</ul>
+<h3 id="5-testability--pass-with-followup">§5 Testability —
+pass-with-followup</h3>
+<p>Test inventory (new or changed by this change set):</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Tests</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unit</td>
+<td><code>tests/album/test_regression.py</code></td>
+<td>7</td>
+</tr>
+<tr>
+<td>Unit</td>
+<td><code>tests/pipeline/test_fc_analysis_export.py</code> (+2),
+<code>tests/architecture/test_config_parity.py</code> (+1),
+<code>tests/control/test_job_service.py</code> (+1, real child
+process)</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Registry / build</td>
+<td><code>tests/pipeline/test_builder.py::TestRealRegistry</code> (real
+registry + real yaml)</td>
+<td>2</td>
+</tr>
+<tr>
+<td>E2E real data</td>
+<td><code>tests/regression/albumify/test_albumify_regression.py</code>
+-&gt; <code>albumify_regression.py check</code> on 4 real albums (48 /
+122 / 474 / 715 photos)</td>
+<td>4 datasets, all PASS</td>
+</tr>
+<tr>
+<td>Removed</td>
+<td>4 old-vs-new / bridge tests; 1 bridge source-inspection test</td>
+<td>−5</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Real E2E: yes — 4 albums through the product path, baselines on
+pre-removal code, checks on post-removal code.</li>
+<li>Full suite: <strong>1,584 passed, 2 skipped, 0 failed</strong>
+(11:47).</li>
+<li>Failure-mode walk-through: | Bug class | Test that fails if it
+recurs | |---|---| | Deprecated step pulled back in via a stale
+<code>depends_on</code> (SIGHTING-132) |
+<code>test_every_dependency_names_a_registered_step</code> | | People
+steps scheduled after <code>select_best</code> (E3) |
+<code>test_people_steps_run_after_clustering_and_before_selection</code>
+| | People settings not reaching the chain after the rename |
+<code>test_settings_reach_the_unified_steps_and_source_key_is_dropped</code>
+| | Old saved profiles silently ignored |
+<code>test_pre_spec113_key_overrides_yaml_defaults</code>,
+<code>test_pre_spec113_key_is_still_read</code> | | Album drift on real
+data | <code>albumify_regression.py check all</code> | | Child error
+lost on non-UTF-8 locale |
+<code>test_local_runner_keeps_the_error_tail_when_output_is_not_in_the_locale_code_page</code>
+(fails without fix) | | Photo committed / notebook outputs / inlined
+image | manual probe 2026-10-16 (guard + hook blocked); <strong>no
+automated test</strong> -&gt; F5 |</li>
+<li><strong>F5 (medium)</strong> <code>check_no_photos.py</code> has no
+unit test; verified only by a manual probe. -&gt; TODO.</li>
+<li><strong>F6 (low)</strong>
+<code>test_people_steps_run_after_clustering_and_before_selection</code>
+reads <code>configs/pipeline.yaml</code> relative to the working
+directory; it breaks if pytest runs from elsewhere. -&gt; TODO (resolve
+from the repo root).</li>
+<li>Mocks: none in the new tests except the existing
+<code>monkeypatch</code> of <code>LocalRunner.command</code> (needed to
+run a controlled child process).</li>
+<li><strong>F7 (low, existing SIGHTING-134)</strong>
+<code>tests/pipeline/test_face_pipeline_e2e.py</code> (opt-in) was
+ported but cannot run (pre-existing fixture faults). Ticketed.</li>
+</ul>
+<h3 id="6-boundary-contracts--pass">§6 Boundary contracts — pass</h3>
+<ul>
+<li><code>people_clustering</code> -&gt; <code>FCParams</code>
+(Pydantic): unknown keys are dropped with an INFO log (pre-existing
+behaviour, unchanged); every key the UI writes is an
+<code>FCParams</code> field.</li>
+<li>Config knob -&gt; producer: <code>export_for_analysis</code> is
+routed to <code>face_cluster_analysis_export</code> (tested); every
+<code>people_clustering</code> field is consumed by a chain step via
+<code>to_step_configs()</code>.</li>
+<li><code>Tolerances</code> is a frozen dataclass; baseline JSON carries
+<code>summary_version</code>.</li>
+</ul>
+<h3 id="7-documentation-deliverables--pass">§7 Documentation
+deliverables — pass</h3>
+<ul>
+<li><code>spec.md</code>, <code>tasks.md</code>, <code>updates.md</code>
+(with verification table), this <code>REVIEW.md</code>.</li>
+<li>Architecture HTMLs updated: <code>classes.html</code> (removed
+<code>ClusterPeopleConfig</code>, <code>face_cluster_bridge</code>;
+added <code>AlbumSummarizer</code>/<code>AlbumComparator</code>),
+<code>data_flow.html</code> (stage D rewritten),
+<code>db_schemas.html</code>, <code>db_global.html</code>,
+<code>system_onboarding.html</code>. No new architecture doc -&gt;
+<code>index.html</code> unchanged.</li>
+<li>CHANGES_LOG: entries for SIGHTING-132 fix, spec-113, LocalRunner
+fix, photo purge, CI pin. LEARNINGS: SIGHTING-132 and photo-purge
+entries. MEMORY: <code>feedback_no_photos_in_git</code>,
+<code>reference_github_repos</code>, model-cache note.</li>
+</ul>
+<h3 id="8-risk-register--pass-with-followup">§8 Risk register —
+pass-with-followup</h3>
+<ul>
+<li><strong>Backwards compatibility:</strong>
+<ul>
+<li>Saved profiles under <code>cluster_people</code>: still read
+(tested). Legacy-method keys (<code>method</code>,
+<code>min_samples</code>, <code>pca_components</code>, …) are ignored
+(they had no effect since spec-079).</li>
+<li>A pipeline list or API request naming <code>cluster_people</code> as
+a <strong>step</strong> now fails validation ("Unknown step"). No
+shipped config does; documented here.</li>
+<li>Old run dirs with a <code>cluster_people</code> block:
+<code>config_diff</code> still reads them.</li>
+</ul></li>
+<li><strong>Behaviour change from the SIGHTING-132 fix (not from the
+removal):</strong> Slovakia 118 -&gt; 79 people, 147 -&gt; 247 picks
+(per-person sub-groups now reach <code>select_best</code>). <strong>F8
+(owner decision)</strong>: is the larger album wanted? -&gt; TODO
+(owner).</li>
+<li>Hot path: no new per-image work (removal only); regression suite is
+opt-in (<code>albumify_regression</code> marker).</li>
+<li>Workarounds: the old-key fallback should be removable later -&gt;
+covered by the two O1 tests; remove them together.</li>
+</ul>
+<h2 id="part-3--verdict-per-area-and-follow-ups">Part 3 — Verdict per
+area and follow-ups</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>§1 Structure</td>
+<td>pass-with-followup (F1)</td>
+</tr>
+<tr>
+<td>§2 Code quality</td>
+<td>pass-with-followup (F2, F3)</td>
+</tr>
+<tr>
+<td>§3 Naming</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>§4 Layering</td>
+<td>pass-with-followup (F4 = SIGHTING-133)</td>
+</tr>
+<tr>
+<td>§5 Testability</td>
+<td>pass-with-followup (F5, F6, F7 = SIGHTING-134)</td>
+</tr>
+<tr>
+<td>§6 Boundary contracts</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>§7 Documentation</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>§8 Risk register</td>
+<td>pass-with-followup (F8)</td>
+</tr>
+</tbody>
+</table>
+<p>Tickets:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Ticket</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1</td>
+<td>Drop unused <code>all_decisions</code> param of
+<code>_render_face_clustering_tab</code></td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F2</td>
+<td><code>check_no_photos.py</code>: report unreadable files instead of
+skipping</td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F3</td>
+<td><code>albumify_regression.py</code>: unbuffered progress output</td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>One config interpreter for API and job paths</td>
+<td>SIGHTING-133 (existing)</td>
+</tr>
+<tr>
+<td>F5</td>
+<td>Unit tests for <code>check_no_photos.py</code> (image, notebook,
+inlined image, allowlist)</td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F6</td>
+<td><code>test_builder.py</code> reads the yaml from the repo root</td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F7</td>
+<td>Fix or delete <code>test_face_pipeline_e2e.py</code></td>
+<td>SIGHTING-134 (existing)</td>
+</tr>
+<tr>
+<td>F8</td>
+<td>Owner: accept larger albums from per-person selection, or tune
+<code>max_images_per_cluster</code></td>
+<td>TODO.md (owner)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Remaining gate before <code>Implemented</code>:</strong> run
+<code>pytest -m budapest tests/face_clustering/e2e_budapest/</code> (V2
+baseline gate; <code>run_tab.py</code> help text changed).</p>
+</div>
+</body>
+</html>

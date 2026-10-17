@@ -257,7 +257,7 @@ class TestClustering:
         norms[norms == 0] = 1
         embeddings_normalized = embeddings / norms
 
-        # Same settings as cluster_people.py
+        # Same settings as the removed cluster_people step (spec-113)
         clusterer = hdbscan.HDBSCAN(
             min_cluster_size=2,
             min_samples=2,

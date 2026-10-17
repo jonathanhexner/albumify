@@ -559,7 +559,7 @@
     <div class="label">Key Design Decisions</div>
     <ul style="margin-top:0.3rem;padding-left:1.2rem;font-size:0.85rem;">
       <li><strong>Two separate pipelines:</strong> <code>sim_bench/pipeline/</code> is a YAML-driven plugin system with topological sort. <code>face_cluster/pipeline.py</code> is a simpler fixed-sequence executor for standalone use.</li>
-      <li><strong>Bridge pattern:</strong> <code>cluster_people.py</code> step delegates to <code>face_cluster_bridge.py</code> which converts between the two pipeline's data types.</li>
+      <li><strong>One people-clustering path:</strong> the 8 steps <code>quality_gate</code> … <code>assign_people_clusters</code> (spec-079) run the face_cluster library on <code>context.face_records</code>; the old <code>cluster_people</code> step + bridge were removed by spec-113.</li>
       <li><strong>App deep-link:</strong> Albumify exports artifacts to a run directory, then the FC app loads them via <code>?load_run=&lt;path&gt;</code>.</li>
       <li><strong>UniversalCache:</strong> ML model outputs (embeddings, detections, IQA scores) are cached with mtime-based invalidation. Shared across pipeline runs.</li>
     </ul>
@@ -931,7 +931,7 @@
       <tr><td>Scoring</td><td><code>iqa_scores</code>, <code>ava_scores</code>, <code>face_pose_scores</code>, <code>face_eyes_scores</code>, <code>face_smile_scores</code></td><td>score_iqa, score_ava, score_face_*</td></tr>
       <tr><td>Embedding</td><td><code>scene_embeddings</code>, <code>face_embeddings</code></td><td>extract_scene_embedding, extract_face_embeddings</td></tr>
       <tr><td>Filtering</td><td><code>quality_passed</code>, <code>portrait_passed</code>, <code>active_images</code></td><td>filter_quality, filter_portraits</td></tr>
-      <tr><td>Clustering</td><td><code>scene_clusters</code>, <code>people_clusters</code>, <code>face_clusters</code></td><td>cluster_scenes, cluster_people, cluster_by_identity</td></tr>
+      <tr><td>Clustering</td><td><code>scene_clusters</code>, <code>people_clusters</code>, <code>face_clusters</code></td><td>cluster_scenes, assign_people_clusters, cluster_by_identity</td></tr>
       <tr><td>Refinement</td><td><code>refined_people_clusters</code>, <code>cluster_exemplars</code>, <code>attachment_decisions</code></td><td>identity_refinement</td></tr>
       <tr><td>Selection</td><td><code>selected_images</code>, <code>composite_scores</code></td><td>select_best</td></tr>
       <tr><td>Observability</td><td><code>step_decisions</code> (list of <code>StepDecision</code>)</td><td>All steps that make pass/reject decisions</td></tr>
@@ -961,7 +961,7 @@
           <tr><td>14</td><td><code>extract_face_embeddings</code></td><td>Embedding</td><td>ArcFace 512-dim face embeddings</td></tr>
           <tr><td>15</td><td><code>extract_scene_embedding</code></td><td>Embedding</td><td>DINOv2 scene embeddings</td></tr>
           <tr><td>16</td><td><code>cluster_scenes</code></td><td>Clustering</td><td>HDBSCAN scene clustering</td></tr>
-          <tr><td>17</td><td><code>cluster_people</code></td><td>Clustering</td><td>Global face identity clustering (delegates to face_cluster lib)</td></tr>
+          <tr><td>17</td><td><code>quality_gate … assign_people_clusters</code></td><td>Clustering</td><td>Global face identity clustering, 8 steps (spec-079)</td></tr>
           <tr><td>18</td><td><code>identity_refinement</code></td><td>Refinement</td><td>Exemplar-based holdout attachment</td></tr>
           <tr><td>19</td><td><code>cluster_by_identity</code></td><td>Clustering</td><td>Sub-cluster scenes by face identity</td></tr>
           <tr><td>20</td><td><code>filter_portraits</code></td><td>Filter</td><td>Portrait detection and filtering</td></tr>
@@ -1081,17 +1081,14 @@
     </tbody>
   </table>
 
-  <h3>Bridge: Main Pipeline &harr; Face Cluster Library</h3>
+  <h3>Main Pipeline &harr; Face Cluster Library</h3>
   <div class="callout">
-    <div class="label">cluster_people.py &rarr; face_cluster_bridge.py &rarr; face_cluster/</div>
-    The main pipeline's <code>cluster_people</code> step delegates to the standalone face_cluster library via a bridge module that:
-    <ol style="margin-top:0.3rem;padding-left:1.2rem;font-size:0.85rem;">
-      <li>Converts <code>PipelineContext</code> face data into <code>FaceRecord</code> objects</li>
-      <li>Builds a <code>face_cluster.PipelineConfig</code> (force-disabling quality gates already applied by main pipeline)</li>
-      <li>Runs the face_cluster pipeline (stages: cluster &rarr; exemplars &rarr; merge)</li>
-      <li>Returns (labels, face_records, base_cr, merged_cr, core_indices, merge_log, merge_metadata, fc_cfg)</li>
-    </ol>
-    Then <code>face_cluster_export.py</code> writes crops + CSVs + face_clustering.db for the standalone FC app.
+    <div class="label">quality_gate &rarr; &hellip; &rarr; assign_people_clusters (spec-079)</div>
+    The main pipeline runs the face_cluster library as 8 named steps on <code>context.face_records</code>.
+    Their settings come from the <code>people_clustering</code> block in <code>configs/pipeline.yaml</code>,
+    translated through <code>FCParams.to_step_configs()</code>. The old <code>cluster_people</code> step and its
+    <code>face_cluster_bridge</code> adapter were removed by spec-113.
+    <code>face_cluster_analysis_export</code> writes crops + CSVs + face_clustering.db for the standalone FC app.
   </div>
 
   <h3>Index Mapping (Critical Concept)</h3>

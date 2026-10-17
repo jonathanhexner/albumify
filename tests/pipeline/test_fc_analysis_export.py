@@ -26,7 +26,7 @@ class ut_ExportFlagRouting:
     def test_flag_on_routes_to_step_with_params(self):
         svc = PipelineService(None)
         out = svc._broadcast_clustering_config(
-            _UNIFIED, {"cluster_people": {"K": 7, "export_for_analysis": True}}
+            _UNIFIED, {"people_clustering": {"K": 7, "export_for_analysis": True}}
         )
         cfg = out["face_cluster_analysis_export"]
         assert cfg["export_for_analysis"] is True
@@ -35,9 +35,24 @@ class ut_ExportFlagRouting:
     def test_flag_off_does_not_route(self):
         svc = PipelineService(None)
         out = svc._broadcast_clustering_config(
-            _UNIFIED, {"cluster_people": {"K": 7, "export_for_analysis": False}}
+            _UNIFIED, {"people_clustering": {"K": 7, "export_for_analysis": False}}
         )
         assert "face_cluster_analysis_export" not in out
+
+    def test_settings_reach_the_unified_steps_and_source_key_is_dropped(self):
+        """spec-113 AC3: a people setting reaches the chain; the source block is not a step."""
+        svc = PipelineService(None)
+        out = svc._broadcast_clustering_config(_UNIFIED, {"people_clustering": {"K": 11}})
+        assert out["build_face_knn_graph"]["K"] == 11
+        assert "people_clustering" not in out and "cluster_people" not in out
+
+    def test_pre_spec113_key_overrides_yaml_defaults(self):
+        """O1: an old saved profile (`cluster_people`) still wins over the yaml defaults."""
+        svc = PipelineService(None)
+        out = svc._broadcast_clustering_config(
+            _UNIFIED, {"people_clustering": {"K": 5}, "cluster_people": {"K": 9}})
+        assert out["build_face_knn_graph"]["K"] == 9
+        assert "cluster_people" not in out
 
 
 class ut_ExportStep:
