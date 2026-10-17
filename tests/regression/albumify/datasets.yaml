@@ -1,0 +1,16 @@
+# Albumify regression datasets (spec-113 R1). Real albums on the data drive; not in the repo or CI.
+# Each run stages the photos exactly as production does (768 px, EXIF kept) and runs the default pipeline.
+#   quick     -- first 48 photos of Slovakia26: minutes on CPU, the pre-commit check
+#   budapest  -- small album with many repeated people
+#   austria   -- mid-size album
+#   slovakia  -- the largest album (715 photos)
+quick:
+  source: D:/Slovakia26
+  start: 0
+  n: 48
+budapest:
+  source: D:/Budapest2025_Google
+austria:
+  source: D:/Austria_24
+slovakia:
+  source: D:/Slovakia26

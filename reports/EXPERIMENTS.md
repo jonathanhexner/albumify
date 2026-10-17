@@ -84,3 +84,6 @@ Entries below predate the convention; their reports live at the linked legacy lo
 
 - **2026-07-17 spec-101 auto-straighten before/after** — real subject-aware gate (YOLO persons) on the 10 confident tilted Budapest photos: 7 straightened, 3 declined (portraits below the 70% area floor).
   Median retained area on straightened = 79% → fov penalty 0.086 at fov_weight=0.4 (validates the default). Report: `reports/2026-07-17_auto_straighten/report.html`.
+
+- **2026-10-17 SIGHTING-136 Budapest gate decisions** — face-level evidence for why the V2 gate is red: May reference 15 people vs today's 8 (same faces/embeddings; pose + sharpness filters now work), Recluster defaults vs profile_4, recluster sharpness bug, Load/Run race.
+  Mostly junk/extreme-angle mini-groups disappear; defaults over-split people (22 vs 15); the bug re-admits close-up junk. Report: `reports/2026-10-17_sighting136_budapest_gate/report.html` (crops local only).

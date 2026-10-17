@@ -67,16 +67,17 @@ def effective_config_from_fc_config(cfg) -> Dict[str, Any]:
 def effective_config_from_albumify(step_configs: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     """Return the same canonical shape from an Albumify step_configs nested dict.
 
-    Reads the ``cluster_people`` slice (where face_cluster_knn parameters
-    live) and constructs a PipelineConfig — defaults from the dataclass fill
+    Reads the ``people_clustering`` slice (spec-113; ``cluster_people`` in runs saved
+    before it) and constructs a PipelineConfig — defaults from the dataclass fill
     in for missing keys. Aligns with the FC App side so ``compute(...)``
     against two effective configs is meaningful.
     """
     from face_cluster.config import PipelineConfig
 
-    cluster_people = step_configs.get("cluster_people", {}) or {}
+    people = {**(step_configs.get("people_clustering") or {}),
+              **(step_configs.get("cluster_people") or {})}
     known = {f.name for f in dataclasses.fields(PipelineConfig)}
-    overrides = {k: v for k, v in cluster_people.items() if k in known}
+    overrides = {k: v for k, v in people.items() if k in known}
     cfg = PipelineConfig(**overrides)
     return effective_config_from_fc_config(cfg)
 
@@ -90,10 +91,11 @@ def _load_effective_from_run_dir(run_dir: Path) -> Dict[str, Any]:
         raise FileNotFoundError(f"No pipeline_run.json in {run_dir}")
     data = json.loads(run_json.read_text(encoding="utf-8"))
     cfg = data.get("config") or {}
-    # Heuristic: if the config dict has a "cluster_people" sub-key it's an
+    # Heuristic: a "people_clustering" (or pre-spec-113 "cluster_people") sub-key means an
     # Albumify-shaped step_configs payload; otherwise treat it as a flat
     # PipelineConfig serialization.
-    if isinstance(cfg, dict) and isinstance(cfg.get("cluster_people"), dict):
+    if isinstance(cfg, dict) and (isinstance(cfg.get("people_clustering"), dict)
+                                  or isinstance(cfg.get("cluster_people"), dict)):
         return effective_config_from_albumify(cfg)
     known = {f.name for f in dataclasses.fields(PipelineConfig)}
     overrides = {k: v for k, v in (cfg or {}).items() if k in known}

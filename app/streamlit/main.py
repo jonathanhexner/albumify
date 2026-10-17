@@ -26,6 +26,7 @@ from app.streamlit.pages.people_faces import render_people_faces_page
 from app.streamlit.pages.explore import render_explore_page
 from app.streamlit.pages.export_page import render_export_page
 from app.streamlit.pages.jobs import render_jobs_page
+from app.streamlit.pages.compare import render_compare_page
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -119,6 +120,7 @@ def render_app() -> None:
         "explore": render_explore_page,
         "export": render_export_page,
         "jobs": render_jobs_page,
+        "compare": render_compare_page,
     }
     pages.get(page, render_home_page)()
 

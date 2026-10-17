@@ -120,8 +120,6 @@ ALLOW_LIST: dict[str, str] = {
         "operates on people_clusters output",
     "sim_bench/pipeline/steps/cluster_by_identity.py":
         "operates on face_clusters output",
-    "sim_bench/pipeline/steps/cluster_people.py":
-        "operates on face_embeddings (filter_faces output)",
     "sim_bench/pipeline/steps/cluster_scenes.py":
         "operates on scene_embeddings",
     "sim_bench/pipeline/steps/cluster_connected_components.py":
@@ -144,8 +142,6 @@ ALLOW_LIST: dict[str, str] = {
         "selection step (post-filter)",
     "sim_bench/pipeline/steps/select_exemplars.py":
         "exemplar selection (post-filter)",
-    "sim_bench/pipeline/steps/face_cluster_bridge.py":
-        "bridge from Albumify to face_cluster — operates on filtered list",
     "sim_bench/pipeline/steps/face_cluster_export.py":
         "exporter (post-pipeline)",
     "face_cluster/pipeline.py":

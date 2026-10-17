@@ -103,3 +103,36 @@ class ut_JobsRouter:
         r = client.post("/jobs/trip/load", json={"runner": "modal_gpu"})
         assert r.status_code == 200 and r.json()["status"] == "succeeded"
         assert client.post("/jobs/none/load", json={}).status_code == 404
+
+
+class ut_CompareRouter:
+    """spec-114: GET /jobs/{b}/compare?with={a}."""
+
+    def test_compare_two_runs_with_each_photos_decision(self, client):
+        _submit(client)
+        _submit(client, job_id="trip2")
+        client.post("/jobs/trip2/edits", json={"kind": "demote", "payload": {"photo_id": "a"}})
+        r = client.get("/jobs/trip2/compare", params={"with": "trip"})
+        assert r.status_code == 200, r.text
+        out = r.json()
+        assert (out["a"], out["b"]) == ("trip", "trip2") and out["picks"]["missing"] == ["a"]
+        assert out["decisions"]["trip"]["a"]["state"] == "pick"
+        assert out["decisions"]["trip2"]["a"]["state"] != "pick"
+        assert {c["name"] for c in out["checks"]} >= {"kept", "people", "person #1 faces"}
+
+    def test_compare_refuses_unknown_unfinished_and_missing_reference(self, client):
+        _submit(client)
+        assert client.get("/jobs/trip/compare", params={"with": "nope"}).status_code == 404
+        assert client.get("/jobs/trip/compare").status_code == 422          # `with` is required
+        client.svc._factory = lambda *a: FailingRunner()
+        _submit(client, job_id="bad")
+        assert client.get("/jobs/bad/compare", params={"with": "trip"}).status_code == 409
+
+    def test_tag_is_listed_and_a_dead_jobs_status_is_corrected(self, client):
+        client.svc.repo.create("tagged", runner="local", tag="regression:quick")
+        client.svc.repo.transition("tagged", "staging", worker="this-host-is-gone:1:1")
+        client.svc.repo.create("orphan", runner="local")
+        client.svc.repo.transition("orphan", "running")              # no worker recorded
+        jobs = {j["id"]: j for j in client.get("/jobs").json()}
+        assert jobs["tagged"]["tag"] == "regression:quick"
+        assert jobs["orphan"]["status"] == "failed" and "interrupted" in jobs["orphan"]["error"]

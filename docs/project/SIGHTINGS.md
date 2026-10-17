@@ -4,6 +4,199 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-138: Photos with no scene (scene -1) form one giant "near-duplicate" group
+**Status**: OPEN (filed 2026-10-17)
+**Severity**: Medium (album explanations wrong for unclustered photos; regression pick matching too lenient there)
+**Persona**: Curation / album
+
+**Problem**: in the album, every pick in scene -1 (the scene clusterer's "no scene" label) lists the same
+`beat` set: all the other scene -1 photos that were not kept.
+- Slovakia (`slovakia-20261016-174613`): 24 picks in scene -1, each "beat 88 near-duplicates" (the same 88).
+- Austria (`austria-20261016-161948`): 20 picks, each beat the same 71. Budapest: 5 picks in scene -1, largest beat list 8.
+**Effects**: (1) the Jobs/Compare pages tell the owner a photo lost to 88 unrelated photos; (2) the regression
+check (spec-113 R1) matches picks through `beat`, so any scene -1 pick matches any other: drift inside scene -1
+cannot fail the check.
+**Suspect**: the album normalizer (spec-106 P0, drop-reason derivation) builds near-duplicate groups per scene
+label, and -1 is noise, not a scene. Not yet checked whether *selection* also treats scene -1 as one group, or only
+the explanation.
+**Reproduction**: `GET /jobs/slovakia-20261016-174613/album`, picks with `scene_cluster == -1`, compare `beat`.
+
+---
+
+### SIGHTING-137: A job whose process is killed stays "running" forever
+**Status**: FIXED 2026-10-17 (spec-114 T1.4)
+**Severity**: Medium (Jobs page shows a dead job as live; it can never be re-run: running -> queued is refused)
+**Persona**: Control plane
+
+**Problem**: `slovakia-20261016-125223` (regression run killed for low memory, 2026-10-16) stayed `running`.
+**Root cause**: `JobService.run` fails a job on any exception, but a killed process runs no code, so nothing
+records the failure. The DB did not know which process owned a job.
+**Fix**: `jobs.worker` = `host:pid:start-time` of the process running the job; `JobRepo.reap_orphans` fails live
+jobs whose worker is gone ("interrupted: …"), called when the API lists or reads jobs. The start time catches a
+reused pid; a worker on another host is assumed alive.
+**Tests**: `tests/control/test_jobs.py::ut_OrphanJobs` (4), `tests/api/test_jobs_router.py::ut_CompareRouter::test_tag_is_listed_and_a_dead_jobs_status_is_corrected`.
+
+---
+
+### SIGHTING-139: 8 v2/legacy app browser tests are stale (expect every tab to render at once)
+**Status**: OPEN (found 2026-10-18 while checking SIGHTING-136 changes)
+**Severity**: Medium (opt-in `e2e` tests, excluded from the default run, so they rotted unnoticed; no product bug seen)
+**Persona**: QA / face-clustering app
+**Problem**: `test_v2_app_smoke.py` (2), `test_v2_tab_telemetry.py` (2), `test_v2_run_picker_e2e.py` (1),
+`test_streamlit_e2e.py` (3) fail identically on `d7c6ffa` and on the working tree. The v2 ones look for widgets of
+other tabs on the first page (e.g. "Run picker did not surface 'Budapest'. Selectboxes: [Load profile]"): since the
+spec-080 nav rework only the selected page renders. Suspect the same for the legacy `test_streamlit_e2e.py`.
+**Reproduction**: `.venv/Scripts/python -m pytest -m "not budapest" tests/face_clustering/test_v2_app_smoke.py
+tests/face_clustering/test_v2_tab_telemetry.py tests/face_clustering/test_v2_run_picker_e2e.py
+tests/face_clustering/test_streamlit_e2e.py`
+**Proposed**: navigate to the page under test first (as `e2e_budapest/conftest.goto_page` does); delete tests whose
+tab no longer exists.
+
+---
+
+### SIGHTING-136: V2 Budapest gate red: scenarios A, C, F fail on main (before spec-113)
+**Status**: FIXED 2026-10-18 (Budapest suite 11/11 green)
+**Severity**: High for process (the binding V2 gate cannot go green, so no V2 change can be marked Implemented); product impact unknown
+**Persona**: QA / face-clustering app
+
+**Problem**: `pytest -m budapest tests/face_clustering/e2e_budapest/` -> 8 passed, 3 failed (4 min 21 s).
+The same 3 fail identically on the last commit `d7c6ffa` (worktree run, `PYTHONPATH` at the worktree), so they are not
+caused by the uncommitted spec-113 changes (whose only V2-tab edit is help text in `run_tab.py`).
+- **A** `test_scenario_a_fresh_run`: `get_by_label("Load profile", exact=True)` times out after opening the "Profiles"
+  expander. The selectbox is defined in `app/face_clustering/_profile_bar.py:29`. Suspect: the expander click no longer
+  opens it, or the label is not exposed as an accessible name in the current Streamlit.
+- **C** `test_scenario_c_recluster`: the recluster ran, but its `parent_run_id` is `25a1529e...` (a 2026-06-20 run), not
+  the reference `6437d335...`. Suspect: the History-row click or the recluster input picks a different run than the
+  one the test loaded (now that history holds many runs).
+- **F** `test_scenario_f_quality`: metric strip renders, but no `.js-plotly-plot` within 15 s. Suspect: the per-gate
+  chart falls back to `st.info` (empty input) or a Plotly/Streamlit rendering change.
+**Side effect**: each scenario-C run leaves a new run dir under `~/.sim_bench/runs/` (e.g. `617ece20...`, `37948a85...`).
+**Reproduction**: run the three test files with `-m budapest`; logs in the 2026-10-16 session scratchpad.
+**Last known green**: unknown (README baseline verified 2026-05-30).
+**Findings (2026-10-17, backend-only runs vs UI runs; scratch in the session scratchpad `s136/`)**:
+Not a cache problem: a fresh run has the same 340 detections (boxes, scores identical) and the same embeddings
+(cosine 1.00000 on all 337 non-zero faces) as the May reference.
+- **A** had 3 causes. (1) Test: Streamlit 1.51 names the box "Selected (none). Load profile" -> exact label never
+  matches (SIGHTING-101, open since June). Fixed: `get_by_role("combobox", name="Load profile")`. (2) Test/UI race:
+  clicking Run right after Load sends the browser's old widget values, so the run used the defaults
+  (K=5, blur_min 50, merge off; reproduced 2/2, and the decisions record `threshold: 50.0`) -> 13 clusters. Fixed in
+  the test: wait for the K slider to show 51. A user who clicks fast hits the same race. (3) Expected 15 is stale:
+  with profile_4 a fresh run now gives **8** clusters [29,19,13,7,3,2,2,2] because the pose and blur gates now work
+  (May: no pose data, blur gate bypassed). Fresh faces with those gates off -> exactly the reference 15.
+- **C** had 2 causes. (1) App bug: the Recluster picker preselected the newest v2 run (`25a1529e`) and ignored the
+  run loaded from History. Fixed in `run_picker.py` (preselect `resolve_run_dir()`, list it even if older than the
+  newest 20); 2 unit tests. (2) The tab starts from FCParams defaults, not profile_4: defaults -> 22 clusters
+  (backend reproduces 22), outside the 12-18 band. Backend recluster with profile_4 -> 15, same sizes, right parent.
+- **F** = SIGHTING-092 (open since June): the reference run has 0 `filter_decisions`. A fresh v2 run has 1,514
+  (226 faces rejected, inside F's 220-240 band).
+- **Also found**: (a) recluster zeroes every stored blur score (`QualityGater.compute_blur_scores`,
+  `face_cluster/quality.py:167`, no pixels in memory) so the blur gate is silently bypassed: recluster of a fresh run
+  gives 10 clusters, not its 8. Keeping the stored score reproduces 8 exactly and leaves the reference at 15.
+  (b) v2 runs record only the profile name, not the settings used, so a run cannot be audited afterwards.
+**Fixed 2026-10-18 (owner: "fix the blur bug, and add profile load to recluster")**:
+- Blur: `QualityGater.compute_blur_scores` keeps the stored score when a face has no pixels. Test
+  `test_quality_gate_step.py::test_blur_gate_uses_stored_scores_when_faces_have_no_pixels` (fails without the fix).
+  Real data: recluster of today's fresh run -> 8 [29,19,13,7,3,2,2,2] (= the run; was 10); May reference -> 15 (unchanged).
+- Recluster tab: profile Load/Save bar (`render_profile_bar(key_prefix="recluster_")` fills the tab's own knobs).
+  Tests `test_v2_profile_bar.py` (2). Scenario C loads profile_4 there and waits for K=51 before Run.
+- Budapest suite: **9 passed, 2 failed** (A: UI run gives 8, = backend, test expects 15; F: no filter_decisions).
+  Evidence report: `reports/2026-10-17_sighting136_budapest_gate/report.html` (local only).
+**Resolved 2026-10-18**: owner reviewed the face-by-face before/after (`before_after.html`, local only): "looks
+okay". New fresh reference run `fab3caa272ec460c993a75ed92955683` (profile_4, 8 clusters [29,19,13,7,3,2,2,2],
+1,514 filter_decisions) for A and F; the May run stays the reference for B-E, G-K. F's band was for faces but the
+strip counts rejecting decisions (by design: pass rate = 1 - rejected/decisions): band now 315-340 (actual 328).
+G turned out flaky (2 of 5 failed): the test clicked the nav radio right after "Open in Cluster Analysis", which
+already navigates; the second click dropped the button press. Removed; 10/10 pass. Suite: **11 passed** (5 min 55 s).
+Root cause class (3 of the 5 test bugs): a click sent before the previous click's rerun finished.
+
+---
+
+### SIGHTING-135: CI fast lane installs unpinned SQLAlchemy 2.1 -> alembic drift test fails on main
+**Status**: FIXED 2026-10-16 (`bcaf67e` on main: fast lane installs with the requirements.txt pins; CI green, 145 passed). Moving to SQLAlchemy 2.1 deliberately remains option (2).
+**Severity**: Medium (main shows red CI on the public repo; no product bug)
+**Persona**: DevOps / CI
+
+**Problem**: `tests/architecture/test_orm_models_in_sync_with_alembic.py` fails in CI only: "Detected type change
+from FLOAT() to Double() on 'action_log.duration_s'". Locally (SQLAlchemy 2.0.46, alembic 1.18.4) it passes.
+**Root cause**: `requirements.txt` pins `sqlalchemy>=2.0.30,<2.1`, but the fast lane runs
+`pip install pytest hdbscan sqlalchemy alembic pillow-heif` with no pins, so it gets SQLAlchemy 2.1.4 + alembic 1.20,
+whose autogenerate compares `Float` and `Double` differently.
+**Options**: (1) install with the pins in CI (`"sqlalchemy>=2.0.30,<2.1" "alembic>=1.13,<2"`, or `-c requirements.txt`);
+(2) move to SQLAlchemy 2.1 deliberately and add a migration for the column type. Rec: (1) now, (2) later as its own change.
+**Reproduction**: `pip install "sqlalchemy==2.1.4" "alembic==1.20.0"` then run the test.
+
+---
+
+### SIGHTING-134: `tests/pipeline/test_face_pipeline_e2e.py` cannot run (stale detector keys, no alignment step)
+**Status**: OPEN (found 2026-10-16 while porting it off `cluster_people` for spec-113)
+**Severity**: Low (opt-in `slow` + `needs_data` test; superseded in coverage by the Budapest gate and the spec-113 regression suite)
+**Persona**: QA / Pipeline
+
+**Problem**: the test's fixtures error before reaching clustering. (1) It passed `det_size` / `det_thresh` to
+`insightface_detect_faces`, whose typed config only accepts `detection_threshold` (fixed: one line). (2) It then
+runs `extract_face_embeddings` without `align_faces`, which that step needs since the aligned-face change, so it
+gets 0 embeddings and divides by zero in its own log line. Broken before spec-113; nobody saw it because the
+default run deselects `slow` and `needs_data`.
+**Options**: add `detect_face_orientation` + `align_faces` to the fixture chain, or delete the test (its
+clustering check is covered by the Budapest gate). Rec: delete; owner's call.
+**Reproduction**: `pytest tests/pipeline/test_face_pipeline_e2e.py -m "slow or needs_data"`
+
+---
+
+### SIGHTING-133: Jobs (local / Modal) and the API run people clustering with different settings
+**Status**: OPEN (found 2026-10-16, spec-113)
+**Severity**: Medium (same photos, two code paths, possibly different people)
+**Persona**: Pipeline / Serving
+
+**Problem**: the `people_clustering` block in `configs/pipeline.yaml` (formerly `cluster_people`) only reaches the
+8 people-clustering steps through `PipelineService._broadcast_clustering_config` (the API / Streamlit path). The job
+path (`sim_bench/serving/pipeline_runner.SpecBuilder`, used by `JobService`, the local runner and Modal) builds
+step configs as `doc.get(step_name)` for each listed step, so the 8 steps run with `FCParams` defaults. The one
+setting that differs today: `merge_enabled` is `true` in the yaml, `false` by default. So Slovakia on Modal ran
+without the merge stage, while the same album through the API would merge.
+**Options**: make `SpecBuilder` apply the same broadcast (move it out of `PipelineService` into one helper both
+call). Changes job results (merge on), so the spec-113 regression baselines must be re-captured afterwards.
+**Reproduction**: `SpecBuilder().calc(SpecInputs()).step_configs["merge_face_clusters"]` has no `merge_enabled`
+key; `FCParams().merge_enabled` is `False`.
+
+---
+
+### SIGHTING-132: Deprecated `cluster_people` is auto-added and overwrites the spec-079 people clusters
+**Status**: FIXED 2026-10-16 (code + tests); real-data check pending the Slovakia26 re-run. Removal of the step: spec-113
+**Severity**: High for people quality (the album's people come from the clusterer spec-079 replaced), none for picks
+**Reported**: 2026-10-11 (spec-112 TA6, Slovakia26 on the L4)
+**Persona**: ML Engineer / Pipeline
+
+**Problem**: `configs/pipeline.yaml` (default) lists the spec-079 unified chain ending in
+`assign_people_clusters` and does NOT list `cluster_people`. The real run's plan still contains
+`cluster_people` (step 37, after `select_best`). Log: `assign_people_clusters: 80 clusters / 484 assigned
+faces`, then `cluster_people: HDBSCAN: 118 clusters`, which replaces `context.people_clusters`. The album's
+118 people (and the 121 of the 2026-10-09 run) are the deprecated clusterer's output.
+
+**Root cause**: `identity_refinement` declares `depends_on=["cluster_people", "assign_people_clusters"]`
+with a comment that "the builder ignores a dependency that isn't present in the run". It does not:
+`PipelineBuilder.build(..., auto_resolve=True)` ADDS every registered missing dependency
+(`builder.py:_resolve_dependencies`), so the deprecated step is pulled back in on every default run.
+
+**Options**: (1) drop `"cluster_people"` from `identity_refinement.depends_on` (legacy pipelines that list
+it still order correctly via `requires={"people_clusters"}`); (2) give the builder an "order-after-if-present"
+kind of dependency that never auto-adds; (3) both, plus a builder test that a step's ordering-only deps are not
+added. Rec: (3). Then re-run Slovakia26 and compare people counts (expect far fewer than 118) before trusting it.
+
+**Reproduction**: `PipelineBuilder().build(<default steps>, auto_resolve=True)` -> names include
+
+**Resolution (2026-10-16)**: removed `"cluster_people"` from `depends_on` in `identity_refinement.py`,
+`cluster_by_identity.py`, `select_best_per_person.py`. Second effect found while tracing: because the
+auto-added step was ranked last, `identity_refinement` and `cluster_by_identity` ran AFTER `select_best`, so
+`select_best` never received the per-person sub-groups (`context.face_clusters`). Both fixed by the same change.
+Also: `pipeline_service.py:192` drops the `cluster_people` settings when the step is not listed, so the
+auto-added step ran with its defaults (HDBSCAN). Tests: `tests/pipeline/test_builder.py::TestDefaultPipelinePeopleClustering`
+(3; fail before, pass after). **Expect** people and picks to change on the next run. Explainer:
+`docs/project/SIGHTING-132_flow.html`.
+`cluster_people`; or grep a worker log for `cluster_people:` after `assign_people_clusters:`.
+
+---
+
 ### SIGHTING-131: Dev box commit charge pinned at its limit -> every local model load fails
 **Status**: OPEN, intermittent — cleared on its own 2026-10-10 ~23:40 without a reboot (commit 31.1 / 67.9 GB; the page file had shrunk); `tests/pipeline` then 183 passed. Cause unknown; capture evidence next time.
 **Severity**: High for local work (no model can load: no local pipeline run, model tests crash), none for the Modal worker
@@ -1076,7 +1269,7 @@ was added to the step. Regression test:
 ---
 
 ### SIGHTING-101: e2e_budapest Scenario A selectors are stale (app healthy, gate blocked)
-**Status**: OPEN
+**Status**: FIXED 2026-10-18 via SIGHTING-136 (combobox selector + wait for the loaded profile; A green)
 **Severity**: Medium
 **Reported**: 2026-06-20
 **Persona**: QA / Test Engineer
@@ -1427,7 +1620,7 @@ require_pose=False).
 **Findings**: (see INVESTIGATION.md)
 
 ### SIGHTING-092: Budapest e2e Scenario F (Quality) has no quality data in the reference run
-**Status**: OPEN (resolution in progress: spec-069 `specs/069-excluded-faces-tab/` — splits gate-rejected vs unassigned into a unified Excluded Faces funnel; F's test deferred to a human-validated golden baseline)
+**Status**: FIXED 2026-10-18 via SIGHTING-136 (option a: F reads the new fresh reference run, which has filter_decisions)
 **Severity**: Medium
 **Reported**: 2026-06-05
 **Persona**: Senior SW Engineer

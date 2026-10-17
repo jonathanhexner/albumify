@@ -12,7 +12,6 @@ text — eliminating the label-vs-reality drift class that motivated spec-033 P-
 """
 from sim_bench.pipeline.steps.configs.align_faces import AlignFacesConfig
 from sim_bench.pipeline.steps.configs.build_scene_distance import BuildSceneDistanceConfig
-from sim_bench.pipeline.steps.configs.cluster_people import ClusterPeopleConfig
 from sim_bench.pipeline.steps.configs.cluster_scenes import ClusterScenesConfig
 from sim_bench.pipeline.steps.configs.detect_face_orientation import DetectFaceOrientationConfig
 from sim_bench.pipeline.steps.configs.detect_persons import DetectPersonsConfig
@@ -31,8 +30,7 @@ from sim_bench.pipeline.steps.configs.score_iqa import ScoreIQAConfig
 # Registry: step_name → config model.  Used by the architecture test and by
 # any tooling that wants to introspect "what config does step X take?".
 STEP_CONFIG_MODELS = {
-    # Original 5 (spec-033 P-G):
-    "cluster_people":               ClusterPeopleConfig,
+    # Original 5 (spec-033 P-G; cluster_people removed by spec-113):
     "extract_face_embeddings":      ExtractFaceEmbeddingsConfig,
     "filter_faces":                 FilterFacesConfig,
     "filter_quality":               FilterQualityConfig,
@@ -55,7 +53,6 @@ STEP_CONFIG_MODELS = {
 __all__ = [
     "AlignFacesConfig",
     "BuildSceneDistanceConfig",
-    "ClusterPeopleConfig",
     "ClusterScenesConfig",
     "DetectFaceOrientationConfig",
     "DetectPersonsConfig",

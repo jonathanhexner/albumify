@@ -68,7 +68,6 @@ from sim_bench.pipeline.steps.build_scene_distance import BuildSceneDistanceStep
 from sim_bench.pipeline.steps.cluster_scenes import ClusterScenesStep
 
 # People Clustering
-from sim_bench.pipeline.steps.cluster_people import ClusterPeopleStep
 from sim_bench.pipeline.steps.identity_refinement import IdentityRefinementStep
 from sim_bench.pipeline.steps.cluster_by_identity import ClusterByIdentityStep
 
@@ -144,7 +143,6 @@ __all__ = [
     "BuildSceneDistanceStep",
     "ClusterScenesStep",
     # People Clustering
-    "ClusterPeopleStep",
     "IdentityRefinementStep",
     "ClusterByIdentityStep",
     # Face Clustering (consolidated quality_gate per spec-053)

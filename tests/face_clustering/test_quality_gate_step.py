@@ -140,3 +140,22 @@ def test_validate_rejects_when_both_input_shapes_missing() -> None:
     step = get_registry().get("quality_gate")
     errors = step.validate(ctx)
     assert errors and "quality_gate requires" in errors[0]
+
+
+def test_blur_gate_uses_stored_scores_when_faces_have_no_pixels() -> None:
+    """SIGHTING-136: recluster reads faces back from a run (no aligned_face). Their stored blur
+    scores must survive, or the gate sees "all 0" and bypasses itself."""
+    ctx = _FakeCtx()
+    ctx.face_records = [_face(i, None) for i in range(6)]
+    for f, score in zip(ctx.face_records, [20.0, 30.0, 40.0, 200.0, 300.0, 400.0]):
+        f.blur_score = score
+
+    step = get_registry().get("quality_gate")
+    step.process(ctx, {
+        "K": 2, "distance_threshold": 0.9, "min_cluster_size": 1, "blur_min": 100.0,
+        "yaw_max": 999.0, "pitch_max": 999.0, "roll_max": 999.0, "max_faces_per_image_core": 50,
+    })
+
+    assert [f.blur_score for f in ctx.face_records] == [20.0, 30.0, 40.0, 200.0, 300.0, 400.0]
+    assert set(ctx.holdout_indices) >= {0, 1, 2} and set(ctx.core_indices) >= {3, 4, 5}, (
+        f"holdout={ctx.holdout_indices} core={ctx.core_indices}")

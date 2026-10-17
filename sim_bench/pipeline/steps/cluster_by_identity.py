@@ -27,7 +27,7 @@ def _build_face_to_person_lookup(people_clusters: dict) -> Dict[Tuple[str, int],
     """
     Build a lookup from (image_path, face_index) -> person_id.
 
-    Uses the global people_clusters from cluster_people step.
+    Uses the global people_clusters from the people-clustering chain (assign_people_clusters).
     Normalizes paths to forward slashes for consistent lookups.
     """
     lookup = {}
@@ -62,11 +62,9 @@ class ClusterByIdentityStep(BaseStep):
             category="clustering",
             requires={"scene_clusters"},  # faces is optional - handles images without faces
             produces={"face_subclusters"},
-            # spec-079 / SIGHTING-100: also depend on the unified cluster
-            # producer (assign_people_clusters) so the executor orders this AFTER
-            # clustering in the unified pipeline; the dangling cluster_people dep
-            # alone let it run too early. cluster_people kept for legacy configs.
-            depends_on=["cluster_scenes", "cluster_people", "assign_people_clusters"],  # Uses global person IDs
+            # Runs after the people-clustering chain (spec-079). It once also named
+            # the old `cluster_people`, which the builder auto-added (SIGHTING-132; removed by spec-113).
+            depends_on=["cluster_scenes", "assign_people_clusters"],  # Uses global person IDs
             config_schema={
                 "type": "object",
                 "properties": {

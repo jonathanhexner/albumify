@@ -37,6 +37,8 @@ class Job(ControlBase):
     error: Mapped[Optional[str]] = mapped_column(Text)
     failed_step: Mapped[Optional[str]] = mapped_column(String(64))
     theme: Mapped[Optional[dict]] = mapped_column(JSON)          # album_theme (spec-108)
+    tag: Mapped[Optional[str]] = mapped_column(String(64))       # e.g. regression:slovakia (spec-114)
+    worker: Mapped[Optional[str]] = mapped_column(String(128))   # host:pid:start of the process running it
     album_created_at: Mapped[Optional[str]] = mapped_column(String(40))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

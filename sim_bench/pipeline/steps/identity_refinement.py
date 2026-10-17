@@ -36,7 +36,7 @@ class RefinementStats:
 class IdentityRefinementStep(BaseStep):
     """Refine face clustering with exemplar-based attachment.
 
-    This step runs after cluster_people and:
+    This step runs after the people-clustering chain (assign_people_clusters) and:
     1. Separates core clusters from noise (cluster_id=-1)
     2. Selects high-quality exemplars per cluster
     3. Attempts to attach noise faces to clusters using configurable strategies
@@ -51,15 +51,10 @@ class IdentityRefinementStep(BaseStep):
             category="people",
             requires={"people_clusters", "face_embeddings"},
             produces={"refined_people_clusters", "unassigned_faces"},
-            # spec-079 / SIGHTING-100: must run AFTER the cluster producer. The
-            # unification replaced the monolithic `cluster_people` with the 8-step
-            # chain ending in `assign_people_clusters`; depending only on the
-            # (now-removed) `cluster_people` let the executor schedule this step
-            # BEFORE clustering finished -> it refined a raw pre-assignment blob.
-            # Both names are listed so legacy pipelines (that still have
-            # cluster_people) and the unified pipeline both order correctly; the
-            # builder ignores a dependency that isn't present in the run.
-            depends_on=["cluster_people", "assign_people_clusters"],
+            # Runs after the people-clustering chain (spec-079), which ends in
+            # assign_people_clusters. It once also named the old `cluster_people`
+            # step, which PipelineBuilder then auto-added to every run (SIGHTING-132; removed by spec-113).
+            depends_on=["assign_people_clusters"],
             config_schema={
                 "type": "object",
                 "properties": {

@@ -171,8 +171,6 @@ datasets/
 
 # Allow sample images (small representative files)
 !samples/
-!samples/**/*.jpg
-!samples/**/*.png
 
 # Output directories
 outputs/
@@ -279,3 +277,32 @@ reports/*/data/variants/
 
 # spec-108 isolated VLM env (MiniCPM-V, transformers 4.51)
 .venv-vlm/
+
+# --- Photos never go in git (2026-10-16 photo purge; scripts/check_no_photos.py enforces) ---
+# Images stay on disk, untracked. Charts: list in .photo-allowlist AND add a "!" line below.
+*.jpg
+*.JPG
+*.jpeg
+*.JPEG
+*.png
+*.PNG
+*.heic
+*.HEIC
+*.heif
+*.webp
+*.gif
+*.bmp
+*.tif
+*.tiff
+!reports/2026-07-10_augmented_retrain/roc_curves.png
+!reports/2026-07-10_resnet_finetune/roc_overlay.png
+# HTML pages with inlined photos, removed from history in the 2026-10-16 purge (kept on disk only)
+distance_report.html
+test_data/ground_truth_test/distance_report.html
+specs/033-data-integrity/_archive/diagnostic_report.html
+docs/image_similarity/methods_comparison_updated.html
+docs/methods_comparison_updated.html
+sim_bench/analysis/reports/test_methods_comparison_20260515_095756.pdf
+
+# Local job outputs (photos + per-run JSON); never committed
+reports/_local_jobs/

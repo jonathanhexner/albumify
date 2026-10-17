@@ -1,15 +1,15 @@
 """Scenario C — recluster the reference run from the Recluster tab.
 
 Loads the reference run (`6437d335de914755bc3edb825c9591c0`) via the
-History tab, switches to the Recluster tab, leaves the default params
-in place, and clicks "Run recluster". Verifies a new snapshot run dir
+History tab, switches to the Recluster tab, loads profile_4 there, and
+clicks "Run recluster". Verifies a new snapshot run dir
 is written with the right parent_run_id and a cluster count within
 the expected band.
 
 Click sequence (per spec-063 §"E2E contract"):
   1. Reference run loaded via the ``page_with_reference_run_loaded`` fixture
      (spec-067: query-param seed replaces the canvas dataframe row-pick).
-  2. Recluster tab → leave default params → "Run recluster" → wait for spinner
+  2. Recluster tab → Profiles → load profile_4 → "Run recluster" → wait for spinner
 
 Assertions (per spec-063 §"E2E contract"):
   1. "Recluster complete" message visible
@@ -20,6 +20,8 @@ Assertions (per spec-063 §"E2E contract"):
 
 What this catches:
   - Recluster wiring corrupting the input face_records
+  - Recluster tab not preselecting the loaded run, or profile Load not reaching
+    its knobs (SIGHTING-136: the built-in defaults give 22 clusters)
   - Producer chain being invoked accidentally (would take ~10 min instead of ~15 s)
   - parent_run_id lineage broken (History tab loses the parent linkage)
   - SIGHTING-079 class regression on the Recluster tab (tab stuck on spinner)
@@ -38,6 +40,8 @@ import pytest
 from tests.face_clustering.e2e_budapest.conftest import (
     goto_page,
     EXPECTED_RECLUSTER_BAND,
+    PROFILE_NAME,
+    PROFILES_V2_DIR,
     REFERENCE_RUN_ID,
 )
 
@@ -56,12 +60,20 @@ def test_scenario_c_recluster_reference_run(page_with_reference_run_loaded):
     pre_existing = {p.name for p in runs_base.iterdir() if p.is_dir()} if runs_base.exists() else set()
 
     # 1. Reference run already seeded by the fixture (spec-067).
-    # 2. Recluster tab → leave defaults → Run recluster.
+    if not (PROFILES_V2_DIR / PROFILE_NAME).exists():
+        pytest.skip(f"Profile missing: {PROFILES_V2_DIR / PROFILE_NAME}")
+    # 2. Recluster tab → load profile_4 → Run recluster.
     goto_page(page, "Recluster")
     page.wait_for_selector("h2:has-text('Recluster')", state="visible")
 
-    # Wait for the picker to populate, then click Run.
+    # Wait for the picker to populate (it preselects the loaded run).
     page.wait_for_selector("text=/Prior run/i", state="visible", timeout=10_000)
+    page.get_by_text("Profiles", exact=True).click()
+    page.get_by_role("combobox", name="Load profile").click()
+    page.get_by_role("option", name="profile_4").first.click()
+    page.get_by_role("button", name="Load", exact=True).click()
+    # Clicking Run before the loaded values reach the browser would send the defaults.
+    page.locator('[role=slider][aria-label="K (kNN neighbours)"][aria-valuenow="51"]').wait_for()
     page.get_by_role("button", name="Run recluster").click()
 
     # Recluster on the Budapest reference takes ~5-15 s on the test box.

@@ -74,8 +74,8 @@ Spec lifecycle: `Draft` → `In Progress` → `Code Review` → `Implemented`.
 
   - Source: `D:\Budapest2025_Google`
   - Profile: `profile_4.json`
-  - Expected: `n_clusters == 15`, `n_faces == 340`, cluster sizes `[35, 24, 14, 7, 4, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2]`
-  - Reference run id (Scenario B): `6437d335de914755bc3edb825c9591c0`
+  - Fresh run (Scenario A) expected: `n_clusters == 8`, `n_faces == 340`, sizes `[29, 19, 13, 7, 3, 2, 2, 2]` (fresh reference `fab3caa272ec460c993a75ed92955683`, also used by F)
+  - May reference run id (Scenarios B-E, G-K): `6437d335de914755bc3edb825c9591c0` (15 clusters, made before the pose/blur gates worked; see the suite README)
   - Run: `.venv/Scripts/python -m pytest -m budapest tests/face_clustering/e2e_budapest/ -v`
 
 **When adding a new tab**: (1) add one row to the README matrix, (2) add one `test_scenario_<letter>_<short_desc>.py` file in that dir, (3) list concrete assertions beyond "no exception." Specs 063-066 own scenarios C-H respectively.
@@ -92,6 +92,11 @@ Every exploration/experiment (model comparison, detector research, validation st
 3. Append a **2-line entry** to `reports/EXPERIMENTS.md` (the index): line 1 = name + goal, line 2 = outcome + link.
 - Transient artifacts (e.g. generated blur variants) must NOT be score-and-delete: save at least a sample set into the report folder so results can be eyeballed later.
 - Large image sets stay on the data drive (e.g. `D:\occlusion_dataset\...`); the report links to them.
+- **Photos never go in git** (2026-10-16 photo purge; the repo is public). Report sample images stay in the report
+  folder on disk but are untracked (`.gitignore` covers every image type). Never inline photos as base64 in HTML/MD,
+  never commit notebooks with outputs (`nbstripout` clears them). Charts/diagrams only: list them in
+  `.photo-allowlist` + a `!` line in `.gitignore`. `scripts/check_no_photos.py` runs as the pre-commit hook and in CI.
+  The same applies to app screenshots that show photos (Playwright evidence stays on disk).
 
 ## Coding
 - Python 3.10+. Type hints. Full imports (no relative). Logging over prints.

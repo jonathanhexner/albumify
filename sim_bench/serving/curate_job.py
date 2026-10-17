@@ -152,9 +152,14 @@ class JobCurator:
             context=context, input_ids=[p.stem for p in sources], album_ids=album_ids))
         crops = {fid: data for fid, data in
                  ((fid, _encode_crop(arr)) for fid, arr in bundle.crops.items()) if data}
-        if len(crops) < len(bundle.faces):
-            logger.warning("job %s: %d of %d faces have no aligned crop",
-                           job_id, len(bundle.faces) - len(crops), len(bundle.faces))
+        uncropped = [f for f in bundle.faces if f["face_id"] not in crops]
+        if uncropped:
+            # align_faces skips gate-rejected faces, so those have no crop by design; only a
+            # face that reached a person without a crop is worth a warning
+            in_person = sum(f["person_id"] is not None for f in uncropped)
+            log = logger.warning if in_person else logger.info
+            log("job %s: %d of %d faces have no aligned crop (%d of them assigned to a person)",
+                job_id, len(uncropped), len(bundle.faces), in_person)
         return self._store.write_results(job_id, bundle.manifest(), bundle.embeddings,
                                          bundle.embedding_face_ids, crops)
 

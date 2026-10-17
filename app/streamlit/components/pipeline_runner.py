@@ -52,7 +52,7 @@ STEP_DISPLAY_NAMES = {
     "extract_scene_embedding": "Extract Scene Features",
     "cluster_scenes": "Cluster Similar Scenes",
     "extract_face_embeddings": "Extract Face Features",
-    "cluster_people": "Identify People",
+    "assign_people_clusters": "Identify People",
     "cluster_by_identity": "Cluster by Person",
     "select_best": "Select Best Photos",
 }
@@ -128,16 +128,7 @@ _WIDGET_FROM_CONFIG: dict = {
     "config_min_iqa": ("filter_quality", "min_iqa_score"),
     "config_min_sharpness": ("filter_quality", "min_sharpness"),
     "config_embedding_backend": ("extract_face_embeddings", "backend"),
-    "config_people_method": ("cluster_people", "method"),
-    "config_fc_export": ("cluster_people", "export_for_analysis"),
-    "config_people_min_cluster": ("cluster_people", "min_cluster_size"),
-    "config_people_min_cluster_pca": ("cluster_people", "min_cluster_size"),
-    "config_cluster_epsilon": ("cluster_people", "cluster_selection_epsilon"),
-    "config_cluster_epsilon_pca": ("cluster_people", "cluster_selection_epsilon"),
-    "config_pca_components": ("cluster_people", "pca_components"),
-    "config_knn_k": ("cluster_people", "k"),
-    "config_knn_sim_threshold": ("cluster_people", "similarity_threshold"),
-    "config_people_dist": ("cluster_people", "distance_threshold"),
+    "config_fc_export": ("people_clustering", "export_for_analysis"),
     "config_max_per_cluster": ("select_best", "max_images_per_cluster"),
     "config_min_score": ("select_best", "min_score_threshold"),
     "config_dup_thresh": ("select_best", "dissimilarity_threshold"),
@@ -246,14 +237,14 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
     saved_select = saved_config.get("select_best", {})
     saved_detect = saved_config.get("detect_persons", {})
     saved_insightface = saved_config.get("insightface_detect_faces", {})
-    saved_cluster_people = saved_config.get("cluster_people", {})
+    # spec-113: people settings live under `people_clustering`; profiles saved before it use
+    # the old step name `cluster_people`, whose values win (same rule as PipelineService).
+    saved_people = {**(saved_config.get("people_clustering") or {}),
+                    **(saved_config.get("cluster_people") or {})}
     saved_embedding = saved_config.get("extract_face_embeddings", {})
 
     # --- Profile bar (full-width, above config grid) ---
-    # Show profile bar when face_cluster_knn is selected (check session state for live value)
-    current_method = st.session_state.get("config_people_method", saved_cluster_people.get("method", "face_cluster_knn"))
-    if current_method == "face_cluster_knn":
-        _render_profile_bar()
+    _render_profile_bar()
 
     # --- FLAT CONFIG GRID (3 columns, always visible) ---
 
@@ -279,7 +270,7 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
             help=(
                 "Pixels. Writes to insightface_detect_faces.min_face_size and the 3 "
                 "insightface_score_* steps (expression/eyes/pose). "
-                "DOES NOT reach the cluster_people face filter — "
+                "DOES NOT reach the people-clustering face gate (quality_gate) — "
                 "see 'Min Face Bbox Ratio' below for the actual face-size rejector."
             ),
         )
@@ -327,83 +318,42 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
     # Column 2: Face Clustering
     with col_cluster:
         st.markdown("**Face Clustering**")
-        clustering_methods = ["face_cluster_knn", "hdbscan", "hdbscan_pca", "mutual_knn", "agglomerative"]
-        saved_method = saved_cluster_people.get("method", "face_cluster_knn")
-        method_index = clustering_methods.index(saved_method) if saved_method in clustering_methods else 0
-
-        people_method = st.selectbox(
-            "Method", options=clustering_methods, index=method_index,
-            key="config_people_method",
+        fc_K = st.slider(
+            "K (neighbors)", 1, 100, value=int(saved_people.get("K", 5)),
+            key="rc_K",
+            help="people_clustering.K. Mutual kNN neighbours. Higher = denser graph.",
+        )
+        fc_dist_threshold = st.slider(
+            "Distance Threshold", 0.01, 1.0,
+            value=float(saved_people.get("distance_threshold", 0.35)),
+            step=0.01, key="rc_dist",
             help=(
-                "cluster_people.method. 'face_cluster_knn' is the FC App "
-                "algorithm (mutual kNN graph + connected components); others "
-                "are legacy."
+                "people_clustering.distance_threshold. Max cosine distance for kNN edge. "
+                "Lower = stricter (more clusters, more noise)."
             ),
         )
-
-        # Defaults (overridden by method-specific widgets)
-        people_min_cluster_size = 2
-        people_distance_threshold = 0.5
-        cluster_merge_epsilon = 0.3
-        pca_components = 128
-        knn_k = 10
-        knn_similarity_threshold = 0.70
-        fc_K = 5
-        fc_dist_threshold = 0.35
-        fc_min_cluster = 2
-        fc_merge_enabled = False
-        fc_attach_enabled = False
-        fc_export = True
+        fc_min_cluster = st.slider(
+            "Min Cluster Size", 1, 20,
+            value=int(saved_people.get("min_cluster_size", 2)),
+            key="rc_min_cluster",
+            help="people_clustering.min_cluster_size. Components smaller than this become noise.",
+        )
+        fc_merge_enabled = st.checkbox(
+            "Merge", value=bool(saved_people.get("merge_enabled", False)),
+            key="rc_merge",
+            help="people_clustering.merge_enabled. Run conservative cluster merge after base clustering.",
+        )
+        fc_attach_enabled = st.checkbox(
+            "Attach holdouts", value=bool(saved_people.get("attach_enabled", False)),
+            key="rc_attach",
+            help="people_clustering.attach_enabled. Try to attach quality-failed faces to existing clusters.",
+        )
+        fc_export = st.checkbox(
+            "Export for analysis", value=bool(saved_people.get("export_for_analysis", True)),
+            key="config_fc_export",
+            help="people_clustering.export_for_analysis. Write FC App artifacts (faces.csv, etc.) to the run dir.",
+        )
         fc_merge_params = {}
-
-        if people_method == "face_cluster_knn":
-            fc_K = st.slider(
-                "K (neighbors)", 1, 100, value=int(saved_cluster_people.get("K", 5)),
-                key="rc_K",
-                help="cluster_people.K. Mutual kNN neighbours. Higher = denser graph.",
-            )
-            fc_dist_threshold = st.slider(
-                "Distance Threshold", 0.01, 1.0,
-                value=float(saved_cluster_people.get("distance_threshold", 0.35)),
-                step=0.01, key="rc_dist",
-                help=(
-                    "cluster_people.distance_threshold. Max cosine distance for kNN edge. "
-                    "Lower = stricter (more clusters, more noise)."
-                ),
-            )
-            fc_min_cluster = st.slider(
-                "Min Cluster Size", 1, 20,
-                value=int(saved_cluster_people.get("min_cluster_size", 2)),
-                key="rc_min_cluster",
-                help="cluster_people.min_cluster_size. Components smaller than this become noise.",
-            )
-            fc_merge_enabled = st.checkbox(
-                "Merge", value=bool(saved_cluster_people.get("merge_enabled", False)),
-                key="rc_merge",
-                help="cluster_people.merge_enabled. Run conservative cluster merge after base clustering.",
-            )
-            fc_attach_enabled = st.checkbox(
-                "Attach holdouts", value=bool(saved_cluster_people.get("attach_enabled", False)),
-                key="rc_attach",
-                help="cluster_people.attach_enabled. Try to attach quality-failed faces to existing clusters.",
-            )
-            fc_export = st.checkbox(
-                "Export for analysis", value=bool(saved_cluster_people.get("export_for_analysis", True)),
-                key="config_fc_export",
-                help="cluster_people.export_for_analysis. Write FC App artifacts (faces.csv, etc.) to the run dir.",
-            )
-        elif people_method == "hdbscan":
-            people_min_cluster_size = st.slider("Min Faces/Person", 1, 5, value=int(saved_cluster_people.get("min_cluster_size", 2)), key="config_people_min_cluster")
-            cluster_merge_epsilon = st.slider("Merge Distance", 0.0, 0.8, value=float(saved_cluster_people.get("cluster_selection_epsilon", 0.3)), step=0.05, key="config_cluster_epsilon")
-        elif people_method == "hdbscan_pca":
-            people_min_cluster_size = st.slider("Min Faces/Person", 1, 5, value=int(saved_cluster_people.get("min_cluster_size", 2)), key="config_people_min_cluster_pca")
-            pca_components = st.selectbox("PCA Dims", options=[64, 128, 256], index=[64, 128, 256].index(saved_cluster_people.get("pca_components", 128)) if saved_cluster_people.get("pca_components", 128) in [64, 128, 256] else 1, key="config_pca_components")
-            cluster_merge_epsilon = st.slider("Merge Distance", 0.0, 0.8, value=float(saved_cluster_people.get("cluster_selection_epsilon", 0.3)), step=0.05, key="config_cluster_epsilon_pca")
-        elif people_method == "mutual_knn":
-            knn_k = st.slider("KNN Neighbors", 3, 20, value=int(saved_cluster_people.get("k", 10)), key="config_knn_k")
-            knn_similarity_threshold = st.slider("Similarity Thresh", 0.50, 0.90, value=float(saved_cluster_people.get("similarity_threshold", 0.70)), step=0.05, key="config_knn_sim_threshold")
-        elif people_method == "agglomerative":
-            people_distance_threshold = st.slider("Distance Threshold", 0.3, 0.9, value=float(saved_cluster_people.get("distance_threshold", 0.5)), step=0.05, key="config_people_dist")
 
     # Column 3: Selection
     with col_select:
@@ -435,7 +385,7 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
         )
 
     # --- Merge Parameters (full-width, visible when merge enabled, NOT an expander) ---
-    if people_method == "face_cluster_knn" and fc_merge_enabled:
+    if fc_merge_enabled:
         st.divider()
         st.markdown("**Merge Parameters**")
         fc_merge_params = _render_merge_params(key_prefix="rc_")
@@ -467,34 +417,21 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
             "device": "cpu",
             "model_name": "buffalo_l",
         },
-        # People clustering config — only include params relevant to selected method
-        "cluster_people": {
-            "method": people_method,
-            **(
-                # face_cluster_knn params
-                {
-                    "K": fc_K,
-                    "distance_threshold": fc_dist_threshold,
-                    "min_cluster_size": fc_min_cluster,
-                    "merge_enabled": fc_merge_enabled,
-                    "attach_enabled": fc_attach_enabled,
-                    "export_for_analysis": fc_export,
-                    **fc_merge_params,
-                } if people_method == "face_cluster_knn"
-                else {
-                    # Legacy method params
-                    "min_cluster_size": people_min_cluster_size,
-                    "min_samples": people_min_cluster_size,
-                    "distance_threshold": people_distance_threshold,
-                    **({"cluster_selection_epsilon": cluster_merge_epsilon} if people_method in ("hdbscan", "hdbscan_pca") else {}),
-                    **({"pca_components": pca_components} if people_method == "hdbscan_pca" else {}),
-                    **({"k": knn_k, "similarity_threshold": knn_similarity_threshold} if people_method == "mutual_knn" else {}),
-                }
-            ),
+        # People clustering settings (spec-079 chain; translated through FCParams by
+        # PipelineService). A config source, not a step.
+        "people_clustering": {
+            "K": fc_K,
+            "distance_threshold": fc_dist_threshold,
+            "min_cluster_size": fc_min_cluster,
+            "merge_enabled": fc_merge_enabled,
+            "attach_enabled": fc_attach_enabled,
+            "export_for_analysis": fc_export,
+            **fc_merge_params,
         },
         # Identity sub-clustering config (within scene clusters)
         "cluster_by_identity": {
-            "distance_threshold": people_distance_threshold,
+            "distance_threshold": float(
+                saved_config.get("cluster_by_identity", {}).get("distance_threshold", 0.5)),
         },
         # Select best config (new composite scoring)
         "select_best": {

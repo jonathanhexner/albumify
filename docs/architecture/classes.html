@@ -161,7 +161,6 @@ introduces the change.
   <tbody>
     <tr><td><code>FilterQualityConfig</code></td><td>filter_quality</td><td>2 (min_iqa_score, min_sharpness)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
     <tr><td><code>FilterFacesConfig</code></td><td>filter_faces</td><td>4 (min_confidence, min_bbox_ratio, min_relative_size, min_eye_ratio)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
-    <tr><td><code>ClusterPeopleConfig</code></td><td>cluster_people</td><td>~40 (method + all face_cluster_knn + legacy method params)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
     <tr><td><code>ExtractFaceEmbeddingsConfig</code></td><td>extract_face_embeddings</td><td>4 (backend, checkpoint_path, device, model_name)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
     <tr><td><code>InsightFaceDetectFacesConfig</code></td><td>insightface_detect_faces</td><td>5 (model_name, detection_threshold, min_face_size, device, associate_to_person)</td><td><span class="pill stat-ok">CURRENT</span></td></tr>
     <tr><td><code>InsightFaceScoreBlurConfig</code></td><td>insightface_score_blur</td><td>1 (min_face_size)</td><td><span class="pill stat-tgt">TARGET</span> · specs/037</td></tr>
@@ -267,9 +266,15 @@ introduces the change.
     <tr><td><code>BaseStep</code></td><td>sim_bench/pipeline/base.py</td>
         <td>Template-method base for all pipeline steps. P-G: <code>process()</code> calls <code>validate_step_config()</code> at top.</td>
         <td><code>process(context, config)</code>, <code>_process_with_cache(...)</code>, <code>validate(context)</code></td></tr>
-    <tr><td><code>face_cluster_bridge</code> <span class="pill plain">module</span></td><td>sim_bench/pipeline/steps/face_cluster_bridge.py</td>
-        <td>Adapter: Albumify <code>FaceForClustering</code> → <code>FaceRecord</code> + builds FCConfig.</td>
-        <td><code>faces_to_face_records(faces, emb_norm, context)</code>, <code>build_fc_config(config)</code> [pins blur_min=0 per SIGHTING-061], <code>run_face_cluster_knn(...)</code></td></tr>
+    <tr><td><code>AlbumSummarizer</code> / <code>AlbumComparator</code></td><td>sim_bench/album/regression.py</td>
+        <td>spec-113 R1: reduce an album.json to counts + people sizes + picks; compare with a baseline within <code>Tolerances</code>.</td>
+        <td><code>calc(album) -&gt; dict</code>, <code>calc(CompareInputs) -&gt; CompareResult</code> (with per-check <code>Check</code> rows and a <code>PickDiff</code>)</td></tr>
+    <tr><td><code>JobComparer</code></td><td>sim_bench/control/compare.py</td>
+        <td>spec-114: two finished jobs on the same photos. Builds both albums from the control DB (owner edits applied), runs <code>AlbumComparator</code>, adds every photo's decision in each job and each job's people with one face crop. Raises <code>DifferentPhotos</code> on different photo sets. Served by <code>GET /jobs/{b}/compare?with={a}</code>; shown by <code>app/streamlit/pages/compare.py</code>.</td>
+        <td><code>calc(CompareJobsInputs) -&gt; CompareJobsResult</code></td></tr>
+    <tr><td><code>JobRepo</code></td><td>sim_bench/control/jobs.py</td>
+        <td>spec-112: the only writer of <code>jobs</code> / <code>job_events</code>; status transitions. spec-114: <code>tag</code>, <code>worker</code>, <code>reap_orphans</code> (fails a live job whose process is gone).</td>
+        <td><code>create</code>, <code>transition</code>, <code>fail</code>, <code>set_tag</code>, <code>reap_orphans</code>, <code>list</code>, <code>events</code></td></tr>
     <tr><td><code>config_diff</code> <span class="pill plain">module</span></td><td>face_cluster/config_diff.py</td>
         <td>spec-033 P-F: canonical effective-config + diff CLI.</td>
         <td><code>compute(parent, child)</code>, <code>effective_config_from_fc_config(cfg)</code>, <code>effective_config_from_albumify(step_configs)</code>, <code>main(argv)</code></td></tr>
@@ -365,7 +370,7 @@ other downloading buffalo_l into container scratch.</p>
   <thead><tr><th>Producer</th><th>Consumer</th><th>Carrier</th><th>Contract</th></tr></thead>
   <tbody>
     <tr><td>UI widget</td><td>BaseStep.process</td><td>step_configs dict</td><td>Pydantic step model (P-G); typo raises ValidationError.</td></tr>
-    <tr><td>face_cluster_bridge</td><td>QualityGater</td><td>List[FaceRecord]</td><td>Pydantic FaceRecord (P-C C-2); extra=forbid.</td></tr>
+    <tr><td>insightface_detect_faces</td><td>QualityGater (quality_gate step)</td><td>List[FaceRecord]</td><td>Pydantic FaceRecord (P-C C-2); extra=forbid.</td></tr>
     <tr><td>RunExporter</td><td>SQLite</td><td>tuples → DataFrame</td><td>Pandera FACES_SCHEMA / FACE_SCORES_SCHEMA (P-H); validate before INSERT.</td></tr>
     <tr><td>RunStore.image_detail</td><td>UI / analysis</td><td>ImageDetail</td><td>Pydantic ImageDetail / FaceDetail (P-D).</td></tr>
     <tr><td>filter steps</td><td>FilterContext</td><td>FilterDecision</td><td>spec-032; KNOWN_FILTERS registry gates filter names.</td></tr>
@@ -379,7 +384,6 @@ other downloading buffalo_l into container scratch.</p>
 <table>
   <thead><tr><th>Today</th><th>Target</th><th>Lands in</th></tr></thead>
   <tbody>
-    <tr><td><code>face_cluster_bridge.build_fc_config</code> pins <code>blur_min=0.0</code></td><td>Honors <code>blur_min</code> from config; producer step exists.</td><td><span class="pill stat-tgt">specs/037</span></td></tr>
     <tr><td>Pose data not plumbed (no 3-tuple producer)</td><td>Yaw / pitch / roll populated on every face.</td><td><span class="pill stat-tgt">future</span></td></tr>
     <tr><td>5 face-clustering step configs typed</td><td>Every face-clustering step has a Pydantic model; CI enforces.</td><td><span class="pill stat-tgt">specs/039</span></td></tr>
     <tr><td><code>RunExporter.export(...)</code> = 14 kwargs</td><td><code>RunExporter.export(request: ExportRequest)</code></td><td><span class="pill stat-tgt">specs/038</span></td></tr>

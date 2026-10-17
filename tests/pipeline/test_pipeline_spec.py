@@ -46,13 +46,13 @@ def ut_UnknownStep_IsReported():
 
 
 def ut_InvalidStepParam_IsReported():
-    # cluster_people has a typed schema (ClusterPeopleConfig, extra=forbid).
+    # insightface_detect_faces has a typed schema (extra=forbid).
     spec = PipelineSpec(
-        steps=["discover_images", "cluster_people"],
-        step_configs={"cluster_people": {"definitely_not_a_real_knob": 1}},
+        steps=["discover_images", "insightface_detect_faces"],
+        step_configs={"insightface_detect_faces": {"definitely_not_a_real_knob": 1}},
     )
     problems = validate_spec(spec)
-    assert any("cluster_people" in p for p in problems), problems
+    assert any("insightface_detect_faces" in p for p in problems), problems
 
 
 def ut_ValidateOrRaise_RaisesOnProblems():

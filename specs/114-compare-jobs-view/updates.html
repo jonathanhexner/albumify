@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>updates</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="updates.md">updates.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<header id="title-block-header">
+<h1 class="title">spec-114 updates - Compare two jobs in the app</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-114-updates" id="toc-spec-114-updates">spec-114
+updates</a>
+<ul>
+<li><a
+href="#2026-10-17--code-review-accept-with-follow-ups---implemented"
+id="toc-2026-10-17--code-review-accept-with-follow-ups---implemented">2026-10-17
+— Code review: ACCEPT with follow-ups -&gt; Implemented</a></li>
+<li><a
+href="#2026-10-17--built-compare-runs-page-regression-runs-in-the-apps-job-list"
+id="toc-2026-10-17--built-compare-runs-page-regression-runs-in-the-apps-job-list">2026-10-17
+— Built: Compare runs page, regression runs in the app's job
+list</a></li>
+<li><a href="#2026-10-16--drafted"
+id="toc-2026-10-16--drafted">2026-10-16 — Drafted</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-114-updates">spec-114 updates</h1>
+<p><strong>Status:</strong> Implemented (2026-10-17)</p>
+<h2
+id="2026-10-17--code-review-accept-with-follow-ups---implemented">2026-10-17
+— Code review: ACCEPT with follow-ups -&gt; Implemented</h2>
+<p><code>REVIEW.md</code>: 0 fails; F1–F6 ticketed in TODO.md (small
+code/test hygiene; F6 = stale cached comparison after an edit), F7 =
+SIGHTING-138. Verification evidence: the 2026-10-17 entry below.</p>
+<h2
+id="2026-10-17--built-compare-runs-page-regression-runs-in-the-apps-job-list">2026-10-17
+— Built: Compare runs page, regression runs in the app's job list</h2>
+<p>Owner: "go with your recommendations, implement spec-114" (O1 a, O2
+a, O3 b, O4 a).</p>
+<ul>
+<li><code>jobs.tag</code>, <code>jobs.worker</code>;
+<code>ControlDB</code> adds missing nullable columns to an existing DB
+(the live <code>control.db</code> got both on first open). Deviation
+from the draft: no Alembic for the control DB (Alembic here targets
+<code>sim_bench.db</code> only); the additive-column rule is explicit
+and refuses anything else.</li>
+<li><code>JobComparer</code> +
+<code>GET /jobs/{b}/compare?with={a}</code>; per-photo decisions travel
+in the same response (no extra endpoint).</li>
+<li><strong>Compare runs</strong> page; Jobs page hides
+<code>regression:*</code> runs behind a toggle.</li>
+<li><code>albumify_regression.py</code> uses the app's job list, tags
+runs, <code>capture</code> marks the baseline job. HTML report removed
+(O3).</li>
+<li>O4: the 8 finished regression jobs moved from
+<code>~/.sim_bench/regression/jobs</code> to
+<code>~/.sim_bench/jobs</code> and loaded with their tags (4 baselines,
+4 checks). The killed Slovakia run (no album) and the old
+<code>regression/control.db</code> were left in place, unused.</li>
+<li>Found: SIGHTING-138 (scene -1 photos form one giant near-duplicate
+group; also makes the regression pick match lenient inside scene -1).
+Not fixed here.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dead job failed as interrupted, live/queued/finished untouched, pid
+reuse caught</td>
+<td><code>tests/control/test_jobs.py::ut_OrphanJobs</code> 4 passed</td>
+</tr>
+<tr>
+<td>Older DB gains <code>tag</code>/<code>worker</code> without losing
+rows</td>
+<td><code>tests/control/test_jobs.py::ut_ControlDB::test_older_db_gets_the_new_nullable_columns</code></td>
+</tr>
+<tr>
+<td>Comparison: match, owner edit shows as moved pick, every photo
+decided in both, people, refusal</td>
+<td><code>tests/control/test_compare.py</code> 6 passed</td>
+</tr>
+<tr>
+<td>API: compare, 404/409/422 refusals, tag listed, dead job corrected
+on list</td>
+<td><code>tests/api/test_jobs_router.py::ut_CompareRouter</code> 3
+passed</td>
+</tr>
+<tr>
+<td>API numbers == script numbers on the 4 real albums (AC2)</td>
+<td>script check 2026-10-17: quick, budapest, austria, slovakia all
+<code>api==script: True</code></td>
+</tr>
+<tr>
+<td>Page on real data: verdict + baseline preselected, Swapped dialog
+with both decisions, People with faces, different photos refused, Jobs
+page hides regression runs (AC1–AC5)</td>
+<td><code>tests/test_compare_page_e2e.py</code> 5 passed (real API + app
++ jobs); screenshots in <code>%TEMP%/albumify_compare_e2e/</code> (not
+git)</td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td>full suite 1,600 passed, 2 skipped, 0 failed (10 min)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2026-10-16--drafted">2026-10-16 — Drafted</h2>
+<p>Owner, after the spec-113 R1.5 HTML report: "hard to tell without the
+app … we need to figure out how to use the app to view the results", and
+asked for a comparison view to keep going forward. Checked first: the
+Jobs page works when pointed at the regression job list (9 jobs, 604/604
+thumbnails loaded on the Slovakia album). Found on the way: a killed job
+stays "running"; one Slovakia pick "beats 88 near-duplicates" (photos
+without a scene look grouped as one burst). Both to be filed as
+sightings.</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Jobs page shows regression albums when pointed at their DB</td>
+<td>Playwright, <code>DATABASE_URL</code> +
+<code>ALBUMIFY_JOBS_ROOT</code> set; screenshot on disk</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>

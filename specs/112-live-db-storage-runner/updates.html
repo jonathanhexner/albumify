@@ -246,6 +246,11 @@ id="toc-spec-112--progress--verification-updates">spec-112 — Progress
 &amp; verification updates</a>
 <ul>
 <li><a
+href="#2026-10-11--real-data-proof-slovakia26-715-photos-through-jobservice-on-the-l4"
+id="toc-2026-10-11--real-data-proof-slovakia26-715-photos-through-jobservice-on-the-l4">2026-10-11
+— Real-data proof: Slovakia26 (715 photos) through JobService on the
+L4</a></li>
+<li><a
 href="#2026-10-10--phase-a-a1a5-built-offline-real-data-proof-pending"
 id="toc-2026-10-10--phase-a-a1a5-built-offline-real-data-proof-pending">2026-10-10
 — Phase A A1–A5 built (offline); real-data proof pending</a></li>
@@ -262,8 +267,115 @@ id="toc-2026-10-10--spec-drafted">2026-10-10 — Spec drafted</a></li>
 <p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
-<p><strong>Status:</strong> In Progress — Phase A built (A1–A5);
-real-data proof (A6) pending a Modal re-run of Slovakia26.</p>
+<p><strong>Status:</strong> In Progress — Phase A proven on Slovakia26
+via Modal for AC1–AC4 (AC5 by tests); faces → people mapping fixed after
+the run, needs one re-run once SIGHTING-132 is decided.</p>
+<h2
+id="2026-10-11--real-data-proof-slovakia26-715-photos-through-jobservice-on-the-l4">2026-10-11
+— Real-data proof: Slovakia26 (715 photos) through JobService on the
+L4</h2>
+<p><code>JobService.submit(source=D:/Slovakia26, job_id=slovakia26, runner=modal_gpu)</code>:
+one call, same code path as <code>runner=local</code>. Job
+<code>succeeded</code>; history
+<code>queued → staging → running → loading → succeeded</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>staging (768 px, local)</td>
+<td>1.6 min</td>
+</tr>
+<tr>
+<td>upload + GPU container + pipeline (411 s = 0.57 s/img)</td>
+<td>≈ 10 min</td>
+</tr>
+<tr>
+<td><strong>copy-back: 993 files, one <code>Volume.read_file</code>
+each</strong></td>
+<td><strong>19.4 min</strong></td>
+</tr>
+<tr>
+<td>load into the DB</td>
+<td>0.3 s</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Found by looking at the page, not the counts</strong></p>
+<ul>
+<li><strong>Face → person mapping was empty on real data</strong> (all
+987 faces <code>person_id = null</code>). The bundler matched by
+<code>face_id</code>; the real <code>people_clusters</code> comes from
+the deprecated <code>cluster_people</code>, whose members have
+<code>original_path</code> + <code>face_index</code> and no
+<code>face_id</code>. Fixed: match by (photo id, face index), which both
+shapes carry; <code>face_index</code> added to the bundle; regression
+test with the legacy shape. Needs a re-run to repopulate.</li>
+<li><strong>SIGHTING-132 (new, pre-existing):</strong> that deprecated
+clusterer is in every default run. <code>identity_refinement</code>
+lists it in <code>depends_on</code>, and the builder's auto-resolve adds
+it, so it overwrites the spec-079 chain's people (80 → 118). Owner's
+call before the re-run.</li>
+<li><strong>"Removed before scoring" was mislabeled.</strong> All 89
+were scored, then removed by <code>filter_quality</code> ("Sharpness
+0.08 &lt; threshold 0.2"). The viewer showed the first non-"passed"
+decision (a person <em>detection</em>); it now shows only
+<code>rejected</code> decisions, and the tab is "Removed by
+filters".</li>
+<li><strong>145 faces without a crop</strong> are all gate-rejected
+faces (79 blur, 66 per-photo cap), none in a person; the worker now logs
+that at INFO unless a face in a person lacks a crop.</li>
+<li><strong>Copy-back dominates wall time.</strong> Proposed: one Modal
+call that returns the job's output as a single archive (Phase B's R2
+path removes the issue too).</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>How it was verified</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC1 visible in the viewer: picks, dropped by reason, removed with
+reason, people</td>
+<td><code>reports/2026-10-11_spec112_jobs_page/{1_picks,2_dropped,3_removed,4_people}.png</code>
+(Playwright, all job images loaded, no page errors). People thumbnails
+missing → the mapping bug above</td>
+</tr>
+<tr>
+<td>AC2 every photo and face is a row; re-load idempotent</td>
+<td>715 photos (626 in album: 147 pick / 423 near_dup / 56 set_aside; 89
+removed), 987 faces, 118 people, 96 scenes == bundle + album; re-load:
+identical counts, 0 warnings</td>
+</tr>
+<tr>
+<td>AC3 album from tables == worker album</td>
+<td><code>GET /jobs/slovakia26/album</code> == <code>album.json</code>
+(created_at excluded): <strong>True</strong></td>
+</tr>
+<tr>
+<td>AC4 failures end <code>failed</code></td>
+<td>tests only (<code>tests/control/test_job_service.py</code>); no real
+failure occurred</td>
+</tr>
+<tr>
+<td>AC5 edits</td>
+<td>tests only (fixtures + API); not exercised on the real job, to leave
+the owner's album untouched</td>
+</tr>
+<tr>
+<td>Mapping fix</td>
+<td><code>tests/album/test_results_bundle.py::test_people_from_the_legacy_clusterer_are_matched_by_photo_and_face_index</code>;
+114 passed (album, serving, control, jobs API)</td>
+</tr>
+</tbody>
+</table>
 <h2
 id="2026-10-10--phase-a-a1a5-built-offline-real-data-proof-pending">2026-10-10
 — Phase A A1–A5 built (offline); real-data proof pending</h2>

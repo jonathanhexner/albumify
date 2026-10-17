@@ -14,6 +14,7 @@ so the control plane loads results the same way whichever runner ran. Runners ne
 from __future__ import annotations
 
 import json
+import os
 import logging
 import subprocess
 import sys
@@ -71,8 +72,11 @@ class LocalRunner:
             run_path.unlink()   # a stale record from an earlier run must not read as this one's
         logger.info("job %s: local child process (%s, %s)", job_id, self._pipeline, self._device)
         try:
+            # UTF-8 both ways: with the Windows locale code page (e.g. cp1255) one undecodable
+            # byte killed the reader thread and lost the child's output, error tail included.
             proc = subprocess.run(self.command(job_id), capture_output=True, text=True,
-                                  timeout=self._timeout)
+                                  encoding="utf-8", errors="replace", timeout=self._timeout,
+                                  env={**os.environ, "PYTHONIOENCODING": "utf-8"})
         except subprocess.TimeoutExpired:
             return RunOutcome(ok=False, error=f"local run exceeded {self._timeout}s")
         tail = (proc.stderr or "").strip().splitlines()[-5:]

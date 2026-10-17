@@ -54,12 +54,19 @@ EXPECTED_MERGE_DECISIONS_MIN_ROWS = 1
 # the global action_log, so the per-album chart must include this bar.
 EXPECTED_REFERENCE_ALBUM = "Budapest2025_Google_5"
 
-# spec-065 Scenario F (Quality): faces total - assigned = 233 rejections,
-# ±7 to absorb minor gate-counting variations across pipeline iterations.
-EXPECTED_REJECTED_BAND = (
-    EXPECTED_N_FACES_TOTAL - EXPECTED_N_FACES_ASSIGNED - 13,  # 220
-    EXPECTED_N_FACES_TOTAL - EXPECTED_N_FACES_ASSIGNED + 7,   # 240
-)
+# SIGHTING-136 (2026-10-18): today's pipeline with profile_4 on Budapest. Same 340 faces and embeddings as the
+# May reference, but the head-turn / head-tilt / sharpness gates now work (in May they were inert), so 7 small
+# May groups (mostly close-ups and side profiles) drop out. Owner reviewed the before/after and accepted it
+# (reports/2026-10-17_sighting136_budapest_gate/before_after.html, local only). Scenario A must reproduce this
+# run; Scenario F reads its filter_decisions (the May run predates them, SIGHTING-092).
+FRESH_REFERENCE_RUN_ID = "fab3caa272ec460c993a75ed92955683"
+FRESH_REFERENCE_RUN_DIR = Path.home() / ".sim_bench" / "runs" / FRESH_REFERENCE_RUN_ID
+EXPECTED_FRESH_N_CLUSTERS = 8                 # sizes 29, 19, 13, 7, 3, 2, 2, 2
+
+# Scenario F: the Quality strip's "Rejected" counts rejecting filter decisions, not faces (a face can fail several
+# gates; pass rate = 1 - rejected / decisions). Fresh reference: 328 of 1,514 decisions (226 distinct faces).
+# Band absorbs minor gate-counting changes.
+EXPECTED_REJECTED_BAND = (315, 340)
 
 PORT = 8889
 APP_URL = f"http://localhost:{PORT}"
@@ -199,6 +206,16 @@ def page_with_reference_run_loaded(page):
         pytest.skip(f"Reference run missing: {REFERENCE_RUN_DIR}")
     seeded = f"{APP_URL}?current_run_dir={urllib.parse.quote(str(REFERENCE_RUN_DIR))}"
     page.goto(seeded)
+    page.wait_for_selector("h1", state="visible", timeout=PAGE_TIMEOUT_MS)
+    return page
+
+
+@pytest.fixture
+def page_with_fresh_reference_loaded(page):
+    """``page`` with the 2026-10-18 fresh reference run seeded (SIGHTING-136); skips when it is missing."""
+    if not FRESH_REFERENCE_RUN_DIR.exists():
+        pytest.skip(f"Fresh reference run missing: {FRESH_REFERENCE_RUN_DIR}")
+    page.goto(f"{APP_URL}?current_run_dir={urllib.parse.quote(str(FRESH_REFERENCE_RUN_DIR))}")
     page.wait_for_selector("h1", state="visible", timeout=PAGE_TIMEOUT_MS)
     return page
 

@@ -10,15 +10,16 @@ import logging
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 
 from sim_bench.api.schemas.jobs import (
-    AlbumOut, EditIn, EditOut, FaceOut, JobAccepted, JobDetail, JobEventOut, JobLoad, JobOut,
-    JobSubmit, PhotoOut,
+    AlbumOut, CompareOut, EditIn, EditOut, FaceOut, JobAccepted, JobDetail, JobEventOut, JobLoad,
+    JobOut, JobSubmit, PhotoOut,
 )
 from sim_bench.control.album_builder import AlbumBuilder, BuildInputs, EditError, record_edit
+from sim_bench.control.compare import CompareJobsInputs, DifferentPhotos, JobComparer
 from sim_bench.control.db import ControlDB
 from sim_bench.control.jobs import SUCCEEDED, InvalidTransition
 from sim_bench.control.models import Face, Photo
@@ -78,11 +79,13 @@ def load_job_files(job_id: str, body: JobLoad, svc: JobService = Depends(get_job
 
 @router.get("", response_model=list[JobOut])
 def list_jobs(limit: int = 100, svc: JobService = Depends(get_job_service)):
+    svc.repo.reap_orphans()     # a killed worker cannot fail its own job (spec-114 AC6)
     return [_job_out(j) for j in svc.repo.list(limit)]
 
 
 @router.get("/{job_id}", response_model=JobDetail)
 def get_job(job_id: str, svc: JobService = Depends(get_job_service)):
+    svc.repo.reap_orphans()
     job = _job_or_404(svc, job_id)
     events = [JobEventOut(ts=e.ts, kind=e.kind, message=e.message) for e in svc.repo.events(job_id)]
     return JobDetail(**_job_out(job), events=events)
@@ -94,6 +97,20 @@ def get_album(job_id: str, svc: JobService = Depends(get_job_service)):
     if job.status != SUCCEEDED:
         raise HTTPException(409, f"job {job_id!r} is {job.status}; the album exists once it succeeds")
     return AlbumBuilder(svc.db).calc(BuildInputs(job_id)).to_dict()
+
+
+@router.get("/{job_id}/compare", response_model=CompareOut)
+def compare_jobs(job_id: str, with_: str = Query(..., alias="with", description="reference job (A)"),
+                 svc: JobService = Depends(get_job_service)):
+    """spec-114: this job (B) against a reference job (A) on the same photos."""
+    for jid in (job_id, with_):
+        job = _job_or_404(svc, jid)
+        if job.status != SUCCEEDED:
+            raise HTTPException(409, f"job {jid!r} is {job.status}; compare finished jobs")
+    try:
+        return JobComparer(svc.db).calc(CompareJobsInputs(a=with_, b=job_id)).to_dict()
+    except DifferentPhotos as e:
+        raise HTTPException(422, str(e))
 
 
 @router.get("/{job_id}/photos", response_model=list[PhotoOut])
