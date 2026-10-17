@@ -13,7 +13,26 @@
 - [ ] Owner (Phase B only): P0 setup — Neon project, R2 bucket + scoped token, local `.env`, `modal secret create albumify-r2`. | 2026-10-10 | Jonathan
 - [x] spec-112 Phase A A1-A5: results bundle, control DB, loader/builder, JobService + runners, /jobs API, Jobs page (63 tests). | 2026-10-10 | Claude
 - [x] SIGHTING-131 dev-box commit charge at limit: cleared without a reboot; `tests/pipeline` 183 passed. Intermittent, watch for recurrence. | 2026-10-10 | Claude
-- [ ] **Owner (approve spend):** Slovakia26 Modal run through `JobService` (`runner=modal_gpu`) so the bundle exists -> spec-112 TA6.1/AC1. | 2026-10-10 | Jonathan
+- [x] Slovakia26 Modal run through `JobService` (`runner=modal_gpu`): succeeded, AC2/AC3 hold on real data. | 2026-10-11 | Claude
+- [x] SIGHTING-132 fixed: `cluster_people` removed from three `depends_on` lists + builder tests. | 2026-10-16 | Claude
+- [ ] spec-113 F1: drop unused `all_decisions` param of `explore._render_face_clustering_tab`. | 2026-10-16 | Claude
+- [ ] spec-113 F2: `scripts/check_no_photos.py` reports unreadable files instead of skipping them. | 2026-10-16 | Claude
+- [x] spec-113 F3: `scripts/albumify_regression.py` prints progress unbuffered (PASS/FAIL appeared only at the end). | 2026-10-16 | Claude | done 2026-10-17 in spec-114 (`flush=True`)
+- [ ] spec-113 F5: unit tests for `scripts/check_no_photos.py` (image, notebook outputs, inlined image, allowlist). | 2026-10-16 | Claude
+- [ ] spec-113 F6: `tests/pipeline/test_builder.py::TestRealRegistry` reads `configs/pipeline.yaml` from the repo root, not the CWD. | 2026-10-16 | Claude
+- [ ] spec-113 T4.1 (deferred, optional): `people_clustering` group expanded by `PipelineBuilder` (O2). | 2026-10-18 | Claude
+- [ ] SIGHTING-139: 8 stale app browser tests (`test_v2_app_smoke`, `test_v2_tab_telemetry`, `test_v2_run_picker_e2e`, `test_streamlit_e2e`) - open the page under test first. | 2026-10-18 | Claude
+- [ ] spec-114 F1: `albumify_regression.check` takes one `source` argument instead of `album_path` + `job_id` (5 params). | 2026-10-17 | Claude
+- [ ] spec-114 F2: `control.jobs.worker_alive` treats an unparsable worker string as dead instead of raising. | 2026-10-17 | Claude
+- [ ] spec-114 F3: `JobRepo.set_tag` raises `KeyError` on an unknown job (like `transition`). | 2026-10-17 | Claude
+- [ ] spec-114 F4: one baseline reference: `capture --album` refuses, or `check` reads the baseline job from the DB. | 2026-10-17 | Claude
+- [ ] spec-114 F5: `tests/test_compare_page_e2e.py` picks jobs by tag, not the 2026-10-16 ids. | 2026-10-17 | Claude
+- [ ] spec-114 F6: Compare page drops its cached comparison after edits to either job (or a Refresh button). | 2026-10-17 | Claude
+- [ ] (owner) delete `~/.sim_bench/regression/` leftovers (old control.db, killed Slovakia run, 95 MB). | 2026-10-17 | Jonathan
+- [ ] **Owner (spec-113 F8):** Slovakia picks 147 -> 247 after SIGHTING-132 (per-person sub-groups reach `select_best`). Accept the larger album or tune `select_best.max_images_per_cluster`. | 2026-10-16 | Jonathan
+- [x] **Owner decision:** spec-113 (remove `cluster_people`) O1–O3. | 2026-10-16 | Jonathan | decided 2026-10-16 (recommendations); Implemented 2026-10-18
+- [ ] Re-run Slovakia26 after SIGHTING-132 so faces carry their person (mapping fixed after the run). | 2026-10-11 | Claude
+- [ ] spec-112: single-archive copy-back from Modal (993 files took 19.4 min one by one). | 2026-10-11 | Claude
 - [ ] spec-112 TA6 proof (AC1-AC5 on real data, Playwright screenshots) + architecture HTMLs (data_flow, classes, db_schemas). | 2026-10-10 | Claude
 
 ## spec-110 serving worker — storage-reference curate (2026-10-09)
