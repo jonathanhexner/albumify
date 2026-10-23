@@ -4,6 +4,31 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-140: Nightly full-test lane red since the photo purge (41 tests read photos that left the repo)
+**Status**: FIXED 2026-10-23 (tests marked `needs_data`)
+**Severity**: Medium (the nightly lane was red 6 nights running, hiding any new failure; no product bug)
+**Reported**: 2026-10-23 (owner noticed the red nightly runs while PR 2 was open)
+**Persona**: QA / CI
+
+**Problem**: every scheduled `full-tests` run on `main` failed from 2026-10-17, the first night after the
+2026-10-16 photo purge. 41 tests (31 errors at fixture setup, 10 failures) read photos that now exist only on the
+owner's disk: `test_data/face_clustering/person_*/` ("No supported images found"), `samples/ukbench/` ("source_directory
+does not exist") and `test_data/face_crops_ground_truth/` (FileNotFoundError). The purge checked the fast lane only;
+the full lane runs nightly or by hand.
+
+**Fix**: mark the photo-dependent tests `needs_data` (the marker both CI lanes already exclude): module-level in
+`test_pipeline_e2e`, `test_pipeline_remerge`, `test_pipeline_history_hook`, `test_face_embeddings_ground_truth`;
+classes `ut_MergeStageE2E`, `ut_ReclusterE2E`, `TestFullPipeline`, `TestAutoResolve`; 8 tests in
+`tests/pipeline/test_steps.py`. 50 tests in all: the 41 failing ones plus 9 in the same classes that passed on CI
+only because they found zero photos (e.g. "every image got a score" over no images). Putting the photos back is
+ruled out (public repo). Locally with the photos: the 50 pass (`pytest -m needs_data`), the 13 left in these files
+pass without them.
+
+**Note**: these 50 now also drop out of the default local run (`addopts` excludes `needs_data`); run
+`pytest -m needs_data` locally before a merge that touches the face pipeline.
+
+---
+
 ### SIGHTING-131: Dev box commit charge pinned at its limit -> every local model load fails
 **Status**: OPEN, intermittent — cleared on its own 2026-10-10 ~23:40 without a reboot (commit 31.1 / 67.9 GB; the page file had shrunk); `tests/pipeline` then 183 passed. Cause unknown; capture evidence next time.
 **Severity**: High for local work (no model can load: no local pipeline run, model tests crash), none for the Modal worker

@@ -27,6 +27,7 @@ def context():
     return PipelineContext(source_directory=SAMPLES_DIR)
 
 
+@pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
 class TestFullPipeline:
     """Tests for the complete pipeline execution."""
 
@@ -216,6 +217,7 @@ class TestPipelineErrorHandling:
         assert "image_paths" in errors[0]
 
 
+@pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
 class TestAutoResolve:
     """Tests for automatic dependency resolution in executor."""
 

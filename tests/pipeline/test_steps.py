@@ -39,12 +39,14 @@ class TestDiscoverImagesStep:
         errors = step.validate(context_empty)
         assert len(errors) > 0
 
+    @pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
     def test_validate_passes_with_source(self, registry, context_with_source):
         """Validate should pass with valid source directory."""
         step = registry.get("discover_images")
         errors = step.validate(context_with_source)
         assert len(errors) == 0
 
+    @pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
     def test_process_finds_images(self, registry, context_with_source):
         """Process should find images in the samples directory."""
         step = registry.get("discover_images")
@@ -54,6 +56,7 @@ class TestDiscoverImagesStep:
         assert all(p.suffix.lower() in [".jpg", ".jpeg", ".png"]
                    for p in context_with_source.image_paths)
 
+    @pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
     def test_process_populates_active_images(self, registry, context_with_source):
         """Process should also populate active_images set."""
         step = registry.get("discover_images")
@@ -76,6 +79,7 @@ class TestScoreIQAStep:
         errors = step.validate(context_empty)
         assert errors == []
 
+    @pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
     def test_validate_passes_with_images(self, registry, context_with_source):
         """Validate should pass if image_paths is populated."""
         # First discover images
@@ -86,6 +90,7 @@ class TestScoreIQAStep:
         errors = step.validate(context_with_source)
         assert len(errors) == 0
 
+    @pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
     def test_process_scores_all_images(self, registry, context_with_source):
         """Process should score all images."""
         # First discover images
@@ -98,6 +103,7 @@ class TestScoreIQAStep:
         assert len(context_with_source.iqa_scores) == len(context_with_source.image_paths)
         assert len(context_with_source.sharpness_scores) == len(context_with_source.image_paths)
 
+    @pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
     def test_scores_are_valid_range(self, registry, context_with_source):
         """Scores should be in valid range (0-1)."""
         discover = registry.get("discover_images")
@@ -126,6 +132,7 @@ class TestFilterQualityStep:
         errors = step.validate(context_empty)
         assert errors == []
 
+    @pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
     def test_filter_removes_low_quality(self, registry, context_with_source):
         """Filter should remove images below threshold."""
         # Setup: discover and score
@@ -142,6 +149,7 @@ class TestFilterQualityStep:
         # Should have filtered some (or possibly all) images
         assert len(context_with_source.quality_passed) <= len(context_with_source.image_paths)
 
+    @pytest.mark.needs_data  # needs samples/ukbench photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
     def test_filter_with_low_threshold_passes_all(self, registry, context_with_source):
         """Filter with threshold 0 should pass all images."""
         discover = registry.get("discover_images")
