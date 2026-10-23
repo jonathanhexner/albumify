@@ -16,5 +16,6 @@ markers = [
     "slow: opt-in tests (~5+ min). Run with `pytest -m slow`. Excluded from default run.",
     "budapest: v2 baseline e2e — Playwright + real Budapest album + profile_4. The contract every new v2 tab/feature must keep green. Run with `pytest -m budapest`. ~5-10 min.",
     "albumify_regression: spec-113 R1 -- run the default pipeline on real albums (tests/regression/albumify/datasets.yaml) and compare with the saved baselines within tolerances. Run with `pytest -m albumify_regression`; quick set ~minutes, all sets ~hours on CPU.",
+    "private_data: needs the owner's small test photo set (private repo jonathanhexner/albumify-test-data, same paths). In place locally; the full CI lane checks it out. Skipped when missing, failed when ALBUMIFY_REQUIRE_PRIVATE_DATA=1 (SIGHTING-140).",
     "needs_data: requires a private dataset not in the repo or CI (e.g. D:/ trip albums, SIDD, CASIA WebFace, test_data/budapest_2025). Excluded from every CI lane; run locally with the data present via `pytest -m needs_data`.",
 ]

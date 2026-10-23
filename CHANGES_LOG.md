@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-23 [TEST] SIGHTING-140 — nightly full lane tests the real photos again, from a private test-data repo
+**Files**: `.github/workflows/tests.yml`, `tests/conftest.py`, `pyproject.toml` (marker), `tests/face_clustering/{test_merge_stage,test_pipeline_e2e,test_pipeline_history_hook,test_pipeline_remerge}.py`, `tests/pipeline/{test_integration,test_steps}.py`, `tests/test_face_embeddings_ground_truth.py`, `docs/project/{SIGHTINGS,LEARNINGS}.md`. Outside the repo: new private repo `jonathanhexner/albumify-test-data`, a read-only deploy key on it, secret `TEST_DATA_DEPLOY_KEY` on albumify.
+**Change**: the full lane checks out the private photos (same paths) and requires them; 50 photo tests get `private_data` (skip locally when missing, fail in CI). The fast lane excludes them.
+**Verification**: locally 63/63 in these files pass; with `samples/ukbench` hidden: 8 skipped, and 8 errors with `ALBUMIFY_REQUIRE_PRIVATE_DATA=1`. Full lane dispatched on the branch (see PR #3).
+**Reason**: owner: marking them CI-excluded "is just hiding the problem"; chose the private repo (option A).
+
 ### 2026-10-18 [TEST] Budapest V2 gate green: fresh reference run for A and F, G race fixed (SIGHTING-136)
 **Files**: `tests/face_clustering/e2e_budapest/{conftest.py,test_scenario_a_fresh_run.py,test_scenario_f_quality.py,test_scenario_g_gallery.py,README.md}`, `CLAUDE.md` (gate expectations), `docs/project/SIGHTINGS.md` (136, 092, 101 fixed), `ROADMAP.md`, `specs/113-remove-cluster-people/updates.md`.
 **Change**: new reference run `fab3caa2` (today's pipeline, profile_4: 8 clusters) for A and F; F's band counts rejecting decisions (315-340); G no longer clicks the nav after Open.

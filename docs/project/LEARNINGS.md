@@ -6,6 +6,15 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-10-23: SIGHTING-140 — a data purge was checked on the fast CI lane only; the nightly lane went red for 6 days
+**What happened**: the 2026-10-16 photo purge took the test photos out of the repo. The PR's fast lane passed (it
+already skips model tests), so it merged; the nightly full lane then failed every night on 41 tests that read those
+photos, and nobody looked until the owner saw it on 10-23. 9 more tests in the same classes "passed" on zero photos.
+**Lesson**: (1) a change that removes repo data must run the full lane by hand (`workflow_dispatch`) before merge;
+(2) a test that reads a fixture folder should fail on an empty folder, not pass over nothing; (3) data that
+cannot be public goes to the private `albumify-test-data` repo with a `private_data` mark, not out of CI —
+skipping it in CI just hides the test (owner, 2026-10-23).
+
 ### 2026-10-18: Streamlit AppTest leaves `sys.modules['__main__']` pointing at its temporary script
 After an `AppTest.from_function` test, every later test that starts a child process (spawn re-imports `__main__`)
 crashed with exitcode 1: 6 `test_step_isolation` failures that only appeared in the full run. Restore `__main__`
