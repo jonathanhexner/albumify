@@ -4,6 +4,31 @@
 
 **Status:** In Progress — Phase A proven on Slovakia26 via Modal for AC1–AC4 (AC5 by tests); SIGHTING-132 fixed by spec-113, the re-run is folded into Phase A2's proof. Phase A2 (album workbench) approved 2026-10-23 (O3 = 7 days, O4 = pipeline name only); W1 in progress.
 
+## 2026-10-23 — W1 done: inputs staged once, job runs use the feature cache
+
+Owner approved Phase A2 (O3 = 7 days, O4 = pipeline name only). W1 built:
+- **`InputStore`** (`sim_bench/serving/input_store.py`): each photo is resized once to
+  `<jobs_root>/_inputs/<sha16>/<name>.jpg` (hash of the original + staging version). A job's `input/` now
+  holds only `manifest.json`; older jobs with `input/*.jpg` keep working. The API's image route resolves
+  keys inside the job folder or the store only.
+- **The pipeline gets the job's paths explicitly** (`discover_images` accepts given images), so the same
+  photo has the same path in every job. The per-run temp copy is gone (it existed for straighten
+  derivatives, which now go to their own cache folder).
+- **Found: job runs never had a feature cache.** `run_pipeline` built its context with no cache handler,
+  so every local and L4 job recomputed everything, even with stable paths. Now attached
+  (`ALBUMIFY_FEATURE_CACHE`, default `~/.sim_bench/sim_bench.db`).
+- TW1.1: the model-version check existed (spec-079) but was untested; test added.
+
+| Claim | Evidence |
+|---|---|
+| Stale-version rows are misses; same version hits; unversioned steps unchanged | `tests/pipeline/test_cache_model_version.py` 4 passed |
+| Content keys, no rewrite (mtime fixed), bad keys refused, manifest, resolve stays inside | `tests/serving/test_input_store.py` 13 passed |
+| Second job stages 0 photos, same paths, same mtimes | `tests/control/test_job_service.py` (`..._stages_nothing_new`) |
+| Pipeline gets exactly the job's inputs, same paths across jobs; older jobs still run | `tests/serving/test_curate_job.py` (+3) |
+| Given images used as-is; a folder is still scanned otherwise | `tests/pipeline/test_discover_given_images.py` 3 passed |
+| Real: the cache carries across jobs | 12 Budapest photos, `minimal`, two local jobs, fresh cache DB: job 2 staged 0 new; score_iqa 1017->26 ms, score_ava 1980->0, extract_scene_embedding 7719->10; identical picks |
+| Nothing else broke | full local suite 1,627 passed, 2 skipped, 0 failed (10.7 min) |
+
 ## 2026-10-23 — Phase A2 drafted: album workbench (run, watch, re-run, examine; no pictures back from Modal)
 
 Owner: a stable app to run and examine albums, locally or on cloud GPUs, comes before Gate 1. Asked

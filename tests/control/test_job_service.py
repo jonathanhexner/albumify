@@ -89,6 +89,17 @@ class ut_JobService:
         assert [p.name for p in staged] == list(NAMES)
         assert max(Image.open(staged[0]).size) == 768
 
+    def test_a_second_job_on_the_same_photos_stages_nothing_new(self, tmp_path, src):
+        """spec-112 TW1.2/TW1.3: photos are staged once; both jobs see the same paths (cache key)."""
+        svc = _service(tmp_path, _in_process)
+        svc.submit(SubmitInputs(source=src, job_id="first"))
+        mtimes = {p: p.stat().st_mtime_ns for p in svc.store.input_images("first")}
+        svc.submit(SubmitInputs(source=src, job_id="second"))
+        assert svc.store.input_images("second") == svc.store.input_images("first")
+        assert {p: p.stat().st_mtime_ns for p in svc.store.input_images("second")} == mtimes
+        staged = [e.message for e in svc.repo.events("second") if e.message.startswith("staged")]
+        assert staged == ["staged 6 photos (0 new, 6 already staged)"]
+
     def test_runner_failure_ends_failed_with_error(self, tmp_path, src):
         svc = _service(tmp_path, lambda *a: FailingRunner())
         res = svc.submit(SubmitInputs(source=src, job_id="trip"))

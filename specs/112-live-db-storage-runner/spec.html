@@ -455,13 +455,14 @@ form with its source, range and pipeline; the new job is a separate job
 finishes.</li>
 <li><strong>Content-addressed inputs.</strong> Staging writes
 <code>inputs/&lt;sha256&gt;.jpg</code> (hash of the original file bytes
-+ the staging version, 768 px q85), and the job keeps a manifest
-<code>photo_id -&gt; sha</code>. Locally under
-<code>~/.sim_bench/inputs/</code>; on Modal on a Volume
-<code>albumify-inputs</code>. The runner uploads only hashes the Volume
-lacks. Because the pipeline cache keys images by path, a stable path per
-photo is what lets a re-run hit the cache (true locally too: today every
-new job id is a new path).</li>
++ the staging version, 768 px q85), stored as
+<code>&lt;sha16&gt;/&lt;original name&gt;.jpg</code> so the photo id is
+unchanged; the job keeps <code>input/manifest.json</code> listing its
+keys. Locally under <code>&lt;jobs_root&gt;/_inputs/</code>; on Modal on
+a Volume <code>albumify-inputs</code>. The runner uploads only hashes
+the Volume lacks. Because the pipeline cache keys images by path, a
+stable path per photo is what lets a re-run hit the cache (true locally
+too: today every new job id is a new path).</li>
 <li><strong>Worker feature cache on a Volume</strong>
 (<code>albumify-cache</code>): the worker's <code>sim_bench.db</code>
 feature cache (faces, embeddings, quality, scene features) lives on a
@@ -561,11 +562,18 @@ spec-106; nothing anonymous is uploaded before then.</p></li>
 </ul>
 <h2 id="7-dependencies--risks">7. Dependencies &amp; risks</h2>
 <ul>
-<li><p><strong>Phase A2 — stale cache:</strong> the cache stores
-<code>model_version</code> but lookups have ignored it before (spec-079:
-stale detections without pose). A persistent L4 cache makes that worse,
-so A2 makes the lookup include the model version, with a test, before
-the cache Volume goes live.</p></li>
+<li><p><strong>Phase A2 — stale cache:</strong> spec-079 already treats
+a row with another <code>model_version</code> as a miss, for steps that
+declare one (TW1.1 found it untested and added the test). Steps that
+declare none (<code>score_iqa</code>, <code>detect_persons</code>, scene
+embedding, face scorers) rely on a <code>model_name</code> bump when
+their output changes (as spec-098 did); a persistent L4 cache makes
+forgetting that costlier.</p></li>
+<li><p><strong>Found in TW1.3 (2026-10-23): job runs had no feature
+cache at all.</strong> <code>run_pipeline</code> built a context without
+a cache handler and ran over a fresh temp copy of the inputs, so every
+local and L4 job recomputed everything. Fixed in W1 (cache attached;
+stable input paths).</p></li>
 <li><p><strong>Phase A2 — one writer:</strong> a SQLite cache on a Modal
 Volume is safe for one job at a time. v1 runs L4 jobs one at a time (the
 API queues the second); parallel L4 jobs need a different cache

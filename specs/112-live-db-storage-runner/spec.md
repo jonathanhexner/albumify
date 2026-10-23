@@ -126,8 +126,9 @@ locally or on the L4, without moving pictures back and forth.
 12. **Re-run:** a button on any finished job refills the form with its source, range and pipeline; the new
     job is a separate job (old results stay), and Compare runs opens on the pair when it finishes.
 13. **Content-addressed inputs.** Staging writes `inputs/<sha256>.jpg` (hash of the original file bytes +
-    the staging version, 768 px q85), and the job keeps a manifest `photo_id -> sha`. Locally under
-    `~/.sim_bench/inputs/`; on Modal on a Volume `albumify-inputs`. The runner uploads only hashes the
+    the staging version, 768 px q85), stored as `<sha16>/<original name>.jpg` so the photo id is unchanged;
+    the job keeps `input/manifest.json` listing its keys. Locally under `<jobs_root>/_inputs/`; on Modal on a
+    Volume `albumify-inputs`. The runner uploads only hashes the
     Volume lacks. Because the pipeline cache keys images by path, a stable path per photo is what lets
     a re-run hit the cache (true locally too: today every new job id is a new path).
 14. **Worker feature cache on a Volume** (`albumify-cache`): the worker's `sim_bench.db` feature cache
@@ -197,9 +198,13 @@ locally or on the L4, without moving pictures back and forth.
 
 ## 7. Dependencies & risks
 
-- **Phase A2 — stale cache:** the cache stores `model_version` but lookups have ignored it before
-  (spec-079: stale detections without pose). A persistent L4 cache makes that worse, so A2 makes the
-  lookup include the model version, with a test, before the cache Volume goes live.
+- **Phase A2 — stale cache:** spec-079 already treats a row with another `model_version` as a miss, for
+  steps that declare one (TW1.1 found it untested and added the test). Steps that declare none
+  (`score_iqa`, `detect_persons`, scene embedding, face scorers) rely on a `model_name` bump when their
+  output changes (as spec-098 did); a persistent L4 cache makes forgetting that costlier.
+- **Found in TW1.3 (2026-10-23): job runs had no feature cache at all.** `run_pipeline` built a context
+  without a cache handler and ran over a fresh temp copy of the inputs, so every local and L4 job
+  recomputed everything. Fixed in W1 (cache attached; stable input paths).
 - **Phase A2 — one writer:** a SQLite cache on a Modal Volume is safe for one job at a time. v1 runs L4
   jobs one at a time (the API queues the second); parallel L4 jobs need a different cache store.
 - **Phase A2 — Phase B overlap:** `albumify-inputs` is a Volume in Phase A2; Phase B moves inputs to R2

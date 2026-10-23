@@ -1,8 +1,8 @@
 """spec-110 T2.1/AC3/AC4 - JobCurator: storage in, normalized album.json out, idempotent.
 
 The real pipeline is replaced by an injected runner (what is under test is the orchestration and the
-storage contract, not the models). One fake writes a straighten-style derivative into the work dir,
-which is how the "staged inputs stay pristine" guarantee is checked.
+storage contract, not the models). The runner is handed the job's input paths; spec-112 A2 makes those
+the shared input store's, identical across jobs, which is what lets the feature cache carry over.
 """
 from __future__ import annotations
 
@@ -18,11 +18,11 @@ from sim_bench.serving.job_store import JobStore
 from sim_bench.serving.pipeline_runner import SpecBuilder
 
 
-def _context(work: Path):
+def _context(images):
     """A finished-looking PipelineContext: 2 scenes, 2 picks, 1 near-dup, 1 screenshot set aside."""
-    img = {n: str(work / n) for n in ("a.jpg", "b.jpg", "c.jpg", "s.jpg")}
+    img = {Path(p).name: str(p) for p in images}
     return SimpleNamespace(
-        source_directory=work,
+        source_directory=None,
         selected_images=[img["a.jpg"], img["c.jpg"]],
         scene_cluster_labels={img["a.jpg"]: 0, img["b.jpg"]: 0, img["c.jpg"]: 1},
         set_aside=[{"image": img["s.jpg"], "reason": "screenshot (filename)"}],
@@ -42,26 +42,33 @@ def _ok_result():
                                                          duration_ms=12.0)])
 
 
-def fake_runner(work: Path, plan):
-    return _context(work), _ok_result()
+def fake_runner(images, plan):
+    return _context(images), _ok_result()
 
 
-def derivative_runner(work: Path, plan):
-    """Mimics the straighten step: writes a new image beside its inputs."""
-    (work / "a_straightened.jpg").write_bytes(b"derived")
-    return _context(work), _ok_result()
-
-
-def failing_runner(work: Path, plan):
-    return _context(work), SimpleNamespace(success=False, failed_step="score_ava",
+def failing_runner(images, plan):
+    return _context(images), SimpleNamespace(success=False, failed_step="score_ava",
                                            error_message="boom", total_duration_ms=9.0,
                                            step_results=[])
+
+
+NAMES = ("a.jpg", "b.jpg", "c.jpg", "s.jpg")
+
+
+def _stage_shared(s: JobStore, job_id: str) -> list:
+    """Stage NAMES through the shared input store (fixed fake hashes) and point ``job_id`` at them."""
+    keys = [f"{i:016x}/{n}" for i, n in enumerate(NAMES)]
+    for key in keys:
+        if not s.inputs.has(key):
+            s.inputs.put_bytes(key, b"jpeg-bytes")
+    s.write_input_manifest(job_id, keys)
+    return keys
 
 
 @pytest.fixture
 def store(tmp_path):
     s = JobStore(tmp_path)
-    s.stage_inputs("trip1", [(n, b"jpeg-bytes") for n in ("a.jpg", "b.jpg", "c.jpg", "s.jpg")])
+    _stage_shared(s, "trip1")
     return s
 
 
@@ -129,27 +136,38 @@ class ut_JobCurator:
         assert stable_album(first.album) == stable_album(second.album)   # AC4
         assert stable_album(store.read_album("trip1")) == stable_album(second.album)
 
-    def test_a_run_never_mutates_the_staged_inputs(self, store):
-        before = [p.name for p in store.input_images("trip1")]
-        runner = derivative_runner
-        _curator(store, runner=runner).calc(CurateJobInputs(job_id="trip1", pipeline="minimal"))
-        assert [p.name for p in store.input_images("trip1")] == before
-        # ... which is what keeps a second run from seeing N + derivatives
-        res = _curator(store, runner=runner).calc(CurateJobInputs(job_id="trip1", pipeline="minimal"))
-        assert res.n_inputs == len(before)
-
-    def test_the_runner_sees_a_scratch_copy_of_every_input(self, store):
+    def test_the_runner_gets_the_shared_store_paths_and_nothing_else(self, store):
         seen = {}
 
-        def spy(work: Path, plan):
-            seen["names"] = sorted(p.name for p in work.iterdir())
-            seen["root"] = work
-            return fake_runner(work, plan)
+        def spy(images, plan):
+            seen["images"] = list(images)
+            return fake_runner(images, plan)
 
+        # a stray file in the store must not reach the pipeline: it gets exactly the job's inputs
+        store.inputs.put_bytes("ffffffffffffffff/stray.jpg", b"x")
         _curator(store, runner=spy).calc(CurateJobInputs(job_id="trip1", pipeline="minimal"))
-        assert seen["names"] == ["a.jpg", "b.jpg", "c.jpg", "s.jpg"]
-        assert seen["root"] != store.paths("trip1").input_dir
-        assert not seen["root"].exists()        # scratch is cleaned up after the run
+        assert [p.name for p in seen["images"]] == list(NAMES)
+        assert all(store.inputs.root in p.parents for p in seen["images"])
+
+    def test_two_jobs_of_the_same_photos_hand_the_pipeline_the_same_paths(self, store):
+        """spec-112 TW1.3: the feature cache is keyed by path, so this is what makes job 2 a cache hit."""
+        _stage_shared(store, "trip2")
+        seen = []
+
+        def spy(images, plan):
+            seen.append([str(p) for p in images])
+            return fake_runner(images, plan)
+
+        for job in ("trip1", "trip2"):
+            _curator(store, runner=spy).calc(CurateJobInputs(job_id=job, pipeline="minimal"))
+        assert seen[0] == seen[1]
+
+    def test_an_older_job_with_images_in_input_still_runs(self, tmp_path):
+        store = JobStore(tmp_path)
+        store.stage_inputs("old", [(n, b"jpeg-bytes") for n in NAMES])
+        res = _curator(store).calc(CurateJobInputs(job_id="old", pipeline="minimal"))
+        assert res.ok and res.n_inputs == 4
+        assert [p["id"] for p in res.album["picks"]] == ["a", "c"]
 
     def test_a_job_with_no_staged_inputs_fails_with_the_path_it_looked_in(self, tmp_path):
         store = JobStore(tmp_path)

@@ -6,8 +6,9 @@ copy, normalizes the finished context into the Album contract (spec-106) and wri
 next to the inputs.
 
 Two deliberate choices make a re-run reproduce its result (AC4):
-  * the run happens in a **scratch copy** of ``input/``, because the pipeline writes straighten
-    derivatives beside its inputs -- a second run must see the same N images, not N + derivatives;
+  * the pipeline is handed the job's input paths **explicitly** (no folder scan), so it sees exactly
+    the staged N images whatever else sits beside them. Those paths are the shared input store's
+    (spec-112 A2), the same in every job, so the path-keyed feature cache carries across jobs;
   * ``album.json`` / ``display/`` are **overwritten**, so a re-run cannot accumulate stale picks.
 
 ``created_at`` is wall-clock and therefore differs between runs by design; compare two runs with
@@ -16,8 +17,7 @@ Two deliberate choices make a re-run reproduce its result (AC4):
 from __future__ import annotations
 
 import logging
-import shutil
-import tempfile
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,20 +28,52 @@ from sim_bench.serving.pipeline_runner import SpecBuilder, SpecInputs, SpecResul
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["CurateJobInputs", "CurateJobResult", "JobCurator", "run_pipeline", "stable_album"]
+__all__ = ["CurateJobInputs", "CurateJobResult", "JobCurator", "run_pipeline", "stable_album",
+           "feature_cache_path", "FEATURE_CACHE_ENV"]
 
-# (work_dir, plan) -> (finished PipelineContext, PipelineResult). Injectable so the orchestration
+# (image paths, plan) -> (finished PipelineContext, PipelineResult). Injectable so the orchestration
 # above can be tested without the real models.
-PipelineRunner = Callable[[Path, SpecResult], Tuple[object, object]]
+PipelineRunner = Callable[[List[Path], SpecResult], Tuple[object, object]]
 
 
-def run_pipeline(work_dir: Path, plan: SpecResult) -> Tuple[object, object]:
-    """The production runner: execute the resolved plan over ``work_dir``."""
+# The worker's feature cache (faces, embeddings, quality, scene features). Default: the PC's
+# ~/.sim_bench/sim_bench.db, shared with the app. The L4 worker points this at a Modal Volume.
+FEATURE_CACHE_ENV = "ALBUMIFY_FEATURE_CACHE"
+
+
+def feature_cache_path() -> Path:
+    env = os.environ.get(FEATURE_CACHE_ENV)
+    if env:
+        return Path(env)
+    from sim_bench.api.database.session import get_database_path
+    return get_database_path()
+
+
+def run_pipeline(images: List[Path], plan: SpecResult) -> Tuple[object, object]:
+    """The production runner: execute the resolved plan over exactly ``images``, with the feature
+    cache attached (spec-112 TW1.3: job runs had none, so every job recomputed everything)."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from sim_bench.api.database.models import UniversalCache
+    from sim_bench.pipeline.cache_handler import UniversalCacheHandler
     from sim_bench.pipeline.context import PipelineContext
     from sim_bench.pipeline.run import execute_spec
 
-    context = PipelineContext(source_directory=work_dir)
-    return context, execute_spec(plan.as_pipeline_spec(), context, fail_fast=True)
+    cache_db = feature_cache_path()
+    cache_db.parent.mkdir(parents=True, exist_ok=True)
+    engine = create_engine(f"sqlite:///{cache_db.as_posix()}",
+                           connect_args={"check_same_thread": False, "timeout": 60})
+    UniversalCache.__table__.create(engine, checkfirst=True)
+    session = sessionmaker(bind=engine)()
+    logger.info("feature cache: %s", cache_db)
+    try:
+        context = PipelineContext(image_paths=list(images),
+                                  cache_handler=UniversalCacheHandler(session))
+        return context, execute_spec(plan.as_pipeline_spec(), context, fail_fast=True)
+    finally:
+        session.close()
+        engine.dispose()
 
 
 def stable_album(album: Optional[Dict]) -> Optional[Dict]:
@@ -104,13 +136,7 @@ class JobCurator:
         logger.info("job %s: %d inputs, pipeline=%s device=%s (%d steps)",
                     job_id, len(sources), inputs.pipeline, inputs.device, len(plan.steps))
 
-        scratch = Path(tempfile.mkdtemp(prefix=f"curate_{job_id}_"))
-        try:
-            for src in sources:
-                shutil.copyfile(src, scratch / src.name)
-            context, result = self._runner(scratch, plan)
-        finally:
-            shutil.rmtree(scratch, ignore_errors=True)
+        context, result = self._runner(sources, plan)
 
         timing = _timing(result)
         base = dict(job_id=job_id, n_inputs=len(sources), device=inputs.device,

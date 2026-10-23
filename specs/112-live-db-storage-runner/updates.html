@@ -246,6 +246,10 @@ id="toc-spec-112--progress--verification-updates">spec-112 — Progress
 &amp; verification updates</a>
 <ul>
 <li><a
+href="#2026-10-23--w1-done-inputs-staged-once-job-runs-use-the-feature-cache"
+id="toc-2026-10-23--w1-done-inputs-staged-once-job-runs-use-the-feature-cache">2026-10-23
+— W1 done: inputs staged once, job runs use the feature cache</a></li>
+<li><a
 href="#2026-10-23--phase-a2-drafted-album-workbench-run-watch-re-run-examine-no-pictures-back-from-modal"
 id="toc-2026-10-23--phase-a2-drafted-album-workbench-run-watch-re-run-examine-no-pictures-back-from-modal">2026-10-23
 — Phase A2 drafted: album workbench (run, watch, re-run, examine; no
@@ -277,6 +281,79 @@ via Modal for AC1–AC4 (AC5 by tests); SIGHTING-132 fixed by spec-113,
 the re-run is folded into Phase A2's proof. Phase A2 (album workbench)
 approved 2026-10-23 (O3 = 7 days, O4 = pipeline name only); W1 in
 progress.</p>
+<h2
+id="2026-10-23--w1-done-inputs-staged-once-job-runs-use-the-feature-cache">2026-10-23
+— W1 done: inputs staged once, job runs use the feature cache</h2>
+<p>Owner approved Phase A2 (O3 = 7 days, O4 = pipeline name only). W1
+built:</p>
+<ul>
+<li><strong><code>InputStore</code></strong>
+(<code>sim_bench/serving/input_store.py</code>): each photo is resized
+once to
+<code>&lt;jobs_root&gt;/_inputs/&lt;sha16&gt;/&lt;name&gt;.jpg</code>
+(hash of the original + staging version). A job's <code>input/</code>
+now holds only <code>manifest.json</code>; older jobs with
+<code>input/*.jpg</code> keep working. The API's image route resolves
+keys inside the job folder or the store only.</li>
+<li><strong>The pipeline gets the job's paths explicitly</strong>
+(<code>discover_images</code> accepts given images), so the same photo
+has the same path in every job. The per-run temp copy is gone (it
+existed for straighten derivatives, which now go to their own cache
+folder).</li>
+<li><strong>Found: job runs never had a feature cache.</strong>
+<code>run_pipeline</code> built its context with no cache handler, so
+every local and L4 job recomputed everything, even with stable paths.
+Now attached (<code>ALBUMIFY_FEATURE_CACHE</code>, default
+<code>~/.sim_bench/sim_bench.db</code>).</li>
+<li>TW1.1: the model-version check existed (spec-079) but was untested;
+test added.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stale-version rows are misses; same version hits; unversioned steps
+unchanged</td>
+<td><code>tests/pipeline/test_cache_model_version.py</code> 4
+passed</td>
+</tr>
+<tr>
+<td>Content keys, no rewrite (mtime fixed), bad keys refused, manifest,
+resolve stays inside</td>
+<td><code>tests/serving/test_input_store.py</code> 13 passed</td>
+</tr>
+<tr>
+<td>Second job stages 0 photos, same paths, same mtimes</td>
+<td><code>tests/control/test_job_service.py</code>
+(<code>..._stages_nothing_new</code>)</td>
+</tr>
+<tr>
+<td>Pipeline gets exactly the job's inputs, same paths across jobs;
+older jobs still run</td>
+<td><code>tests/serving/test_curate_job.py</code> (+3)</td>
+</tr>
+<tr>
+<td>Given images used as-is; a folder is still scanned otherwise</td>
+<td><code>tests/pipeline/test_discover_given_images.py</code> 3
+passed</td>
+</tr>
+<tr>
+<td>Real: the cache carries across jobs</td>
+<td>12 Budapest photos, <code>minimal</code>, two local jobs, fresh
+cache DB: job 2 staged 0 new; score_iqa 1017-&gt;26 ms, score_ava
+1980-&gt;0, extract_scene_embedding 7719-&gt;10; identical picks</td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td>full local suite 1,627 passed, 2 skipped, 0 failed (10.7 min)</td>
+</tr>
+</tbody>
+</table>
 <h2
 id="2026-10-23--phase-a2-drafted-album-workbench-run-watch-re-run-examine-no-pictures-back-from-modal">2026-10-23
 — Phase A2 drafted: album workbench (run, watch, re-run, examine; no

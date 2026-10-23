@@ -104,7 +104,7 @@ class ResultsLoader:
 
     def _photo_rows(self, job_id: str, album: Dict, bundle: Dict, warnings: List[str]) -> List[Photo]:
         paths = self._store.paths(job_id)
-        files = {p.stem: p.name for p in self._store.input_images(job_id)}
+        files = self._store.input_file_keys(job_id)
         displays = {p.stem: p.name for p in paths.display_dir.iterdir()} \
             if paths.display_dir.is_dir() else {}
         brows = {p["photo_id"]: p for p in bundle.get("photos", [])}
@@ -134,7 +134,7 @@ class ResultsLoader:
             score = (pick or {}).get("score", {})
             rows.append(Photo(
                 job_id=job_id, photo_id=sid,
-                input_key=f"input/{files[sid]}" if sid in files else None,
+                input_key=files.get(sid),
                 display_key=f"display/{displays[sid]}" if sid in displays else None,
                 taken_at=b.get("taken_at"), lat=b.get("lat"), lon=b.get("lon"),
                 in_album=bool(pick or drop),

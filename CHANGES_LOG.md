@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-23 [FEATURE][PERF] spec-112 A2 W1 — inputs staged once by content; job runs use the feature cache
+**Files**: new `sim_bench/serving/input_store.py`; `sim_bench/serving/{job_store,job_service,curate_job,staging}.py`, `sim_bench/control/loader.py`, `sim_bench/api/routers/jobs.py` (`_file` -> `JobStore.resolve`), `sim_bench/pipeline/steps/discover_images.py`; tests `tests/serving/test_input_store.py`, `tests/pipeline/{test_cache_model_version,test_discover_given_images}.py` (new), `tests/serving/test_curate_job.py`, `tests/control/{fakes,test_job_service}.py`; spec-112 spec/tasks/updates; LEARNINGS.
+**Change**: photos are resized once into `<jobs_root>/_inputs/<sha16>/<name>.jpg`; a job's `input/` holds `manifest.json`. The pipeline is handed those paths (no temp copy, no folder scan), and `run_pipeline` now attaches the feature cache (`ALBUMIFY_FEATURE_CACHE`, default `~/.sim_bench/sim_bench.db`); job runs had none. Older jobs with `input/*.jpg` still load and serve.
+**Verification**: affected tests 129 passed; real 12-photo Budapest pair of local jobs: job 2 staged 0, cached steps ~0 ms, same picks; full local suite 1,627 passed, 0 failed.
+**Reason**: spec-112 Phase A2 W1 (owner: re-runs must reuse what was computed).
+
 ### 2026-10-23 [DOCS] spec-112 Phase A2 drafted — album workbench
 **Files**: `specs/112-live-db-storage-runner/{spec,tasks,updates}.md` (+ `.html`), `ROADMAP.md` (+`.html`).
 **Change**: new Phase A2 (spec §4 items 10–17, AC9–AC15, tasks W1–W5): run/watch/cancel/re-run albums from the Jobs page on local or L4; content-addressed inputs (upload once); worker feature cache on a Modal Volume; results-only copy-back with display images and face crops built on the PC; run settings in `run.json`; input retention on Modal. Phase A's remaining Slovakia re-run folds into A2's proof. Roadmap: A2 is next, before Gate 1.

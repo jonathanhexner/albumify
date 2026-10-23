@@ -22,7 +22,7 @@ from sim_bench.control.loader import LoadInputs, ResultsLoader
 from sim_bench.serving.job_store import JobStore
 from sim_bench.serving.runners import Runner, make_runner
 from sim_bench.serving.serving_config import ServingConfig
-from sim_bench.serving.staging import collect_images
+from sim_bench.serving.staging import downsample, select_images
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,24 @@ class JobService:
                          source=str(inputs.source) if inputs.source else None, tag=inputs.tag)
         return job_id
 
+    def _stage(self, job_id: str, source: Path, start: int, n: Optional[int]) -> None:
+        """Put the folder's photos in the shared input store (only new ones are resized) and point
+        the job at them (spec-112 A2)."""
+        keys, fresh = [], 0
+        for photo in select_images(source, start, n):
+            try:
+                key = self.store.inputs.key_for(photo)
+                if not self.store.inputs.has(key):
+                    self.store.inputs.put_bytes(key, downsample(photo))
+                    fresh += 1
+                keys.append(key)
+            except Exception as e:   # one unreadable file must not sink the job; it is logged
+                logger.warning("skipping unreadable image %s: %s", photo, e)
+        if not keys:
+            raise ValueError(f"no readable images in {source}")
+        self.store.write_input_manifest(job_id, keys)
+        self.repo.log(job_id, f"staged {len(keys)} photos ({fresh} new, {len(keys) - fresh} already staged)")
+
     def run(self, job_id: str, inputs: SubmitInputs) -> SubmitResult:
         """Stage -> run -> load. Never leaves the job in a live status (AC4)."""
         cfg = self.config.with_runner(inputs.runner)
@@ -88,10 +106,7 @@ class JobService:
         try:
             self.repo.transition(job_id, STAGING, worker=this_worker())
             if inputs.source is not None:
-                images = collect_images(Path(inputs.source), inputs.start, inputs.n)
-                if not images:
-                    raise ValueError(f"no readable images in {inputs.source}")
-                self.store.stage_inputs(job_id, images)
+                self._stage(job_id, Path(inputs.source), inputs.start, inputs.n)
             n = len(self.store.input_images(job_id))
             if n == 0:
                 raise ValueError(f"job {job_id!r} has no staged inputs")

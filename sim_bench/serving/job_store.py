@@ -4,16 +4,19 @@ A job *is* a directory. Nothing here knows about Modal: on Modal the root is a m
 (``/jobs``), locally it is any directory -- which is exactly what makes the storage-reference path
 testable off Modal.
 
-    <root>/<job_id>/input/       staged analysis-tier images (768 px long edge) -- the INPUT, never written by a run
+    <root>/<job_id>/input/       the INPUT, never written by a run: either input/manifest.json naming
+                                 photos in the shared input store (spec-112 A2), or (older jobs) the
+                                 staged 768 px images themselves
+    <root>/_inputs/<sha16>/<stem>.jpg   shared, content-addressed input store (:mod:`input_store`)
     <root>/<job_id>/album.json   normalized Album (spec-106 contract) -- the RESULT the front end reads
     <root>/<job_id>/display/     display copies of the picks, for the front end
     <root>/<job_id>/run.json     run record: device, timing, step placement (debug trail, not a contract)
     <root>/<job_id>/results/     per-photo / per-face rows + embeddings (spec-112 results bundle)
     <root>/<job_id>/faces/       one JPEG crop per detected face, named <face_id>.jpg
 
-The input dir staying read-only during a run is what makes a re-run idempotent: the pipeline writes
-straighten derivatives next to its inputs, so a run works on a scratch copy (see
-:mod:`sim_bench.serving.curate_job`) and never mutates the job's inputs.
+A run never writes beside its inputs (straightened copies go to their own cache), and the pipeline is
+handed the input paths explicitly, so the same photo has the same path in every job and the
+path-keyed feature cache is shared across jobs (spec-112 A2).
 """
 from __future__ import annotations
 
@@ -27,13 +30,17 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["JobPaths", "JobStore", "INPUT_SUFFIXES"]
+__all__ = ["JobPaths", "JobStore", "INPUT_SUFFIXES", "INPUTS_PREFIX"]
 
 INPUT_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif")
 
 # A job id becomes a directory name, so it is validated rather than trusted: no separators, no
 # traversal, no leading dot. The control plane (spec-106) generates these; the worker is remote.
 _JOB_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+
+# A file key that starts with this names the shared input store, not the job's own folder.
+INPUTS_PREFIX = "inputs/"
+_MANIFEST = "manifest.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,8 +64,12 @@ class JobPaths:
 class JobStore:
     """Job directories under one root (a Modal Volume mount in production)."""
 
-    def __init__(self, root: Path | str):
+    def __init__(self, root: Path | str, inputs_root: Path | str | None = None):
+        from sim_bench.serving.input_store import InputStore   # lazy: input_store -> staging -> here
+
         self.root = Path(root)
+        # "_inputs" cannot collide with a job: job ids start alphanumeric
+        self.inputs = InputStore(inputs_root if inputs_root is not None else self.root / "_inputs")
 
     # --- layout ---------------------------------------------------------------
 
@@ -100,13 +111,59 @@ class JobStore:
                     sum(len(d) for _, d in images) / 1e6)
         return written
 
+    def write_input_manifest(self, job_id: str, keys: Sequence[str]) -> Path:
+        """Point the job at photos in the shared input store (replaces any previous inputs)."""
+        paths = self.paths(job_id)
+        if paths.input_dir.exists():
+            shutil.rmtree(paths.input_dir)
+        paths.input_dir.mkdir(parents=True, exist_ok=True)
+        for key in keys:
+            self.inputs.path(key)   # validates every key before the manifest is written
+        names = [Path(k).name for k in keys]
+        if len(set(names)) != len(names):
+            raise ValueError(f"job {job_id}: two inputs share a file name")
+        manifest = paths.input_dir / _MANIFEST
+        manifest.write_text(json.dumps({"inputs": list(keys)}, indent=2), encoding="utf-8")
+        logger.info("job %s: %d inputs in the shared store", job_id, len(keys))
+        return manifest
+
+    def input_keys(self, job_id: str) -> Optional[List[str]]:
+        """The job's input-store keys, or None for an older job whose images sit in ``input/``."""
+        manifest = self.paths(job_id).input_dir / _MANIFEST
+        if not manifest.is_file():
+            return None
+        return list(json.loads(manifest.read_text(encoding="utf-8"))["inputs"])
+
     def input_images(self, job_id: str) -> List[Path]:
         """The job's staged images, sorted by name (stable order -> stable album order)."""
+        keys = self.input_keys(job_id)
+        if keys is not None:
+            return sorted((self.inputs.path(k) for k in keys), key=lambda p: p.name)
         input_dir = self.paths(job_id).input_dir
         if not input_dir.is_dir():
             return []
         return sorted(p for p in input_dir.iterdir()
                       if p.is_file() and p.suffix.lower() in INPUT_SUFFIXES)
+
+    def input_file_keys(self, job_id: str) -> Dict[str, str]:
+        """photo id (file stem) -> file key for :meth:`resolve`, for every input of the job."""
+        keys = self.input_keys(job_id)
+        if keys is not None:
+            return {Path(k).stem: INPUTS_PREFIX + k for k in keys}
+        return {p.stem: f"input/{p.name}" for p in self.input_images(job_id)}
+
+    def resolve(self, job_id: str, key: str) -> Optional[Path]:
+        """A stored file key -> an existing file inside the job folder or the input store, else None."""
+        if not key:
+            return None
+        if key.startswith(INPUTS_PREFIX):
+            base, rel = self.inputs.root.resolve(), key[len(INPUTS_PREFIX):]
+        else:
+            base, rel = self.paths(job_id).root.resolve(), key
+        path = (base / rel).resolve()
+        if base not in path.parents or not path.is_file():
+            return None
+        return path
 
     # --- result ---------------------------------------------------------------
 

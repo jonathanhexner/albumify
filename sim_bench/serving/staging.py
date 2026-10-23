@@ -16,7 +16,7 @@ from sim_bench.serving.job_store import INPUT_SUFFIXES
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["downsample", "collect_images", "ANALYSIS_EDGE"]
+__all__ = ["downsample", "select_images", "collect_images", "ANALYSIS_EDGE"]
 
 ANALYSIS_EDGE = 768
 
@@ -37,16 +37,20 @@ def downsample(path: Path, max_edge: int = ANALYSIS_EDGE) -> bytes:
     return buf.getvalue()
 
 
+def select_images(src: Path, start: int = 0, n: Optional[int] = None) -> List[Path]:
+    """Sorted images of ``src`` (non-recursive), sliced ``[start:start+n]``."""
+    files = sorted(p for p in Path(src).iterdir()
+                   if p.is_file() and p.suffix.lower() in INPUT_SUFFIXES)
+    return files[start:start + n] if n is not None else files[start:]
+
+
 def collect_images(src: Path, start: int = 0, n: Optional[int] = None) -> List[Tuple[str, bytes]]:
-    """Sorted images of ``src`` (non-recursive), sliced ``[start:start+n]``, downsampled.
+    """:func:`select_images`, downsampled into memory.
 
     Output names keep the stem and become ``.jpg`` (the bytes are JPEG whatever the source was).
     """
-    files = sorted(p for p in Path(src).iterdir()
-                   if p.is_file() and p.suffix.lower() in INPUT_SUFFIXES)
-    files = files[start:start + n] if n is not None else files[start:]
     out = []
-    for p in files:
+    for p in select_images(src, start, n):
         try:
             out.append((f"{p.stem}.jpg", downsample(p)))
         except Exception as e:   # one unreadable file must not sink the job; it is logged

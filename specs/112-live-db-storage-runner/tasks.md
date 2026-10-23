@@ -69,14 +69,20 @@
 Order: the cache and input changes first (they change what a job folder contains), the app last.
 
 ## W1 — Stable inputs and a safe cache
-- [ ] TW1.1 Feature-cache lookup includes `model_version`; test: a cached entry from another model
-      version is a miss. (risk: stale cache)
-- [ ] TW1.2 Content store `InputStore`: `put(original) -> sha` (hash of original bytes + staging
+- [x] TW1.1 Feature-cache lookup includes `model_version`; test: a cached entry from another model
+      version is a miss. (risk: stale cache) | 2026-10-23 the check already existed (spec-079, opt-in per
+      step) but had no test: `tests/pipeline/test_cache_model_version.py` (4)
+- [x] TW1.2 Content store `InputStore`: `put(original) -> sha` (hash of original bytes + staging
       version), `path(sha)`, `has(sha)`; local root `~/.sim_bench/inputs/`. Staging writes there and the
-      job gets `input/manifest.json` (`photo_id -> sha`) instead of copies.
-- [ ] TW1.3 `JobCurator` reads inputs through the manifest; the pipeline sees the stable
+      job gets `input/manifest.json` (`photo_id -> sha`) instead of copies. | 2026-10-23
+      `sim_bench/serving/input_store.py`; keys `<sha16>/<name>.jpg` under `<jobs_root>/_inputs`; `JobStore`
+      manifest + `resolve()` (API file route); older jobs with `input/*.jpg` still work.
+      `tests/serving/test_input_store.py` (13)
+- [x] TW1.3 `JobCurator` reads inputs through the manifest; the pipeline sees the stable
       `inputs/<sha>.jpg` paths. Test: a second local job on the same photos hits the cache (no
-      recompute of a cached step).
+      recompute of a cached step). | 2026-10-23 no temp copy; `discover_images` takes given paths;
+      **`run_pipeline` now attaches the feature cache** (it had none). Tests +5. Real: 12 Budapest photos,
+      two local jobs: job 2 staged 0; IQA 1017->26 ms, AVA 1980->0, scene embedding 7719->10; same picks
 
 ## W2 — Results-only copy-back, display and crops on the PC
 - [ ] TW2.1 Worker stops writing `display/` and `faces/` (flag kept for the local debug path only if

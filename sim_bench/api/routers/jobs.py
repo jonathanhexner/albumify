@@ -142,11 +142,8 @@ def list_faces(job_id: str, person_id: int | None = None,
 
 
 def _file(svc: JobService, job_id: str, key: str | None) -> FileResponse:
-    if not key:
-        raise HTTPException(404, "no file")
-    root = svc.store.paths(job_id).root.resolve()
-    path = (root / key).resolve()
-    if root not in path.parents or not path.is_file():
+    path = svc.store.resolve(job_id, key or "")   # job folder or shared input store; never outside
+    if path is None:
         raise HTTPException(404, "no file")
     return FileResponse(path, media_type="image/jpeg")
 

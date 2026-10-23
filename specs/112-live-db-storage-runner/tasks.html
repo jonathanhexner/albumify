@@ -459,20 +459,32 @@ folder contains), the app last.</p>
 <h2 id="w1--stable-inputs-and-a-safe-cache">W1 — Stable inputs and a
 safe cache</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />TW1.1 Feature-cache lookup includes
-<code>model_version</code>; test: a cached entry from another model
-version is a miss. (risk: stale cache)</label></li>
-<li><label><input type="checkbox" />TW1.2 Content store
+<li><label><input type="checkbox" checked="" />TW1.1 Feature-cache
+lookup includes <code>model_version</code>; test: a cached entry from
+another model version is a miss. (risk: stale cache) | 2026-10-23 the
+check already existed (spec-079, opt-in per step) but had no test:
+<code>tests/pipeline/test_cache_model_version.py</code> (4)</label></li>
+<li><label><input type="checkbox" checked="" />TW1.2 Content store
 <code>InputStore</code>: <code>put(original) -&gt; sha</code> (hash of
 original bytes + staging version), <code>path(sha)</code>,
 <code>has(sha)</code>; local root <code>~/.sim_bench/inputs/</code>.
 Staging writes there and the job gets <code>input/manifest.json</code>
-(<code>photo_id -&gt; sha</code>) instead of copies.</label></li>
-<li><label><input type="checkbox" />TW1.3 <code>JobCurator</code> reads
-inputs through the manifest; the pipeline sees the stable
-<code>inputs/&lt;sha&gt;.jpg</code> paths. Test: a second local job on
-the same photos hits the cache (no recompute of a cached
-step).</label></li>
+(<code>photo_id -&gt; sha</code>) instead of copies. | 2026-10-23
+<code>sim_bench/serving/input_store.py</code>; keys
+<code>&lt;sha16&gt;/&lt;name&gt;.jpg</code> under
+<code>&lt;jobs_root&gt;/_inputs</code>; <code>JobStore</code> manifest +
+<code>resolve()</code> (API file route); older jobs with
+<code>input/*.jpg</code> still work.
+<code>tests/serving/test_input_store.py</code> (13)</label></li>
+<li><label><input type="checkbox" checked="" />TW1.3
+<code>JobCurator</code> reads inputs through the manifest; the pipeline
+sees the stable <code>inputs/&lt;sha&gt;.jpg</code> paths. Test: a
+second local job on the same photos hits the cache (no recompute of a
+cached step). | 2026-10-23 no temp copy; <code>discover_images</code>
+takes given paths; <strong><code>run_pipeline</code> now attaches the
+feature cache</strong> (it had none). Tests +5. Real: 12 Budapest
+photos, two local jobs: job 2 staged 0; IQA 1017-&gt;26 ms, AVA
+1980-&gt;0, scene embedding 7719-&gt;10; same picks</label></li>
 </ul>
 <h2 id="w2--results-only-copy-back-display-and-crops-on-the-pc">W2 —
 Results-only copy-back, display and crops on the PC</h2>
