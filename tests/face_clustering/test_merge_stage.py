@@ -175,7 +175,7 @@ def merged_pipeline_result(tmp_path_factory):
     )
 
 
-@pytest.mark.needs_data  # needs test_data/face_clustering photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
+@pytest.mark.private_data  # needs test_data/face_clustering photos (private test-data repo, SIGHTING-140)
 class ut_MergeStageE2E:
     """E2E tests: merge stage in full pipeline."""
 
@@ -356,7 +356,7 @@ class ut_MergeStageE2E:
         assert loaded.merge_log is not None
 
 
-@pytest.mark.needs_data  # needs test_data/face_clustering photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
+@pytest.mark.private_data  # needs test_data/face_clustering photos (private test-data repo, SIGHTING-140)
 class ut_ReclusterE2E:
     """E2E tests: recluster() from an existing run directory."""
 

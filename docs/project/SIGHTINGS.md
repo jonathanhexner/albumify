@@ -5,7 +5,7 @@ This file tracks issues that need investigation and resolution.
 ---
 
 ### SIGHTING-140: Nightly full-test lane red since the photo purge (41 tests read photos that left the repo)
-**Status**: FIXED 2026-10-23 (tests marked `needs_data`)
+**Status**: FIXED 2026-10-23 (photos in a private test-data repo the full lane checks out)
 **Severity**: Medium (the nightly lane was red 6 nights running, hiding any new failure; no product bug)
 **Reported**: 2026-10-23 (owner noticed the red nightly runs while PR 2 was open)
 **Persona**: QA / CI
@@ -16,16 +16,14 @@ owner's disk: `test_data/face_clustering/person_*/` ("No supported images found"
 does not exist") and `test_data/face_crops_ground_truth/` (FileNotFoundError). The purge checked the fast lane only;
 the full lane runs nightly or by hand.
 
-**Fix**: mark the photo-dependent tests `needs_data` (the marker both CI lanes already exclude): module-level in
-`test_pipeline_e2e`, `test_pipeline_remerge`, `test_pipeline_history_hook`, `test_face_embeddings_ground_truth`;
-classes `ut_MergeStageE2E`, `ut_ReclusterE2E`, `TestFullPipeline`, `TestAutoResolve`; 8 tests in
-`tests/pipeline/test_steps.py`. 50 tests in all: the 41 failing ones plus 9 in the same classes that passed on CI
-only because they found zero photos (e.g. "every image got a score" over no images). Putting the photos back is
-ruled out (public repo). Locally with the photos: the 50 pass (`pytest -m needs_data`), the 13 left in these files
-pass without them.
-
-**Note**: these 50 now also drop out of the default local run (`addopts` excludes `needs_data`); run
-`pytest -m needs_data` locally before a merge that touches the face pipeline.
+**Fix** (owner chose a private repo over public replacement photos): the 3 folders (9 photos, 15 crops,
+10 UKBench images; 52 MB) are in the private repo `jonathanhexner/albumify-test-data`, same paths. The full lane
+checks it out with a read-only deploy key (secret `TEST_DATA_DEPLOY_KEY`), copies it over the checkout and sets
+`ALBUMIFY_REQUIRE_PRIVATE_DATA=1`. The 50 tests that read the photos carry a new `private_data` marker (the 41
+failing ones plus 9 in the same classes that had passed on zero photos); `tests/conftest.py` skips them when a
+folder is missing, or fails them when that variable is set, so CI can never pass them silently. The fast lane
+excludes `private_data`. Locally the photos are in place, so they stay in the default run. A first attempt marked
+them `needs_data` (CI-excluded) — the owner rejected that as hiding the problem.
 
 ---
 

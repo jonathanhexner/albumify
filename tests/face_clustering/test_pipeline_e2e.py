@@ -15,7 +15,7 @@ from tests.conftest import get_test_data_dir
 
 TEST_DATA_DIR = get_test_data_dir() / "face_clustering"
 
-pytestmark = pytest.mark.needs_data  # needs test_data/face_clustering photos (local only since the 2026-10-16 photo purge, SIGHTING-140)
+pytestmark = pytest.mark.private_data  # needs test_data/face_clustering photos (private test-data repo, SIGHTING-140)
 
 GROUND_TRUTH_CSV = TEST_DATA_DIR / "ground_truth.csv"
 

@@ -1,6 +1,7 @@
 """Shared test utilities and fixtures."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,35 @@ collect_ignore = [
 def get_test_data_dir() -> Path:
     """Return the absolute path to the test_data/ directory at the project root."""
     return Path(__file__).parent.parent / "test_data"
+
+
+# ---------------------------------------------------------------------------
+# SIGHTING-140 — the owner's test photos are not in this (public) repo
+# ---------------------------------------------------------------------------
+# They live in the private repo jonathanhexner/albumify-test-data, laid out with the same paths.
+# Locally they are already in place; the full CI lane checks the repo out and sets
+# ALBUMIFY_REQUIRE_PRIVATE_DATA=1, so a missing folder there is a failure, never a silent skip.
+
+PRIVATE_DATA_DIRS = (
+    "test_data/face_clustering/person_1",
+    "test_data/face_clustering/person_2",
+    "test_data/face_clustering/person_3",
+    "test_data/face_crops_ground_truth",
+    "samples/ukbench",
+)
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    if item.get_closest_marker("private_data") is None:
+        return
+    root = Path(__file__).parent.parent
+    missing = [d for d in PRIVATE_DATA_DIRS if not (root / d).is_dir() or not any((root / d).iterdir())]
+    if not missing:
+        return
+    message = f"private test photos missing: {', '.join(missing)} (from jonathanhexner/albumify-test-data)"
+    if os.environ.get("ALBUMIFY_REQUIRE_PRIVATE_DATA") == "1":
+        pytest.fail(message)
+    pytest.skip(message)
 
 
 # ---------------------------------------------------------------------------

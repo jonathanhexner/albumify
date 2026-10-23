@@ -14,7 +14,7 @@ from PIL import Image
 
 from face_cluster import InsightFaceEmbedder
 
-pytestmark = pytest.mark.needs_data  # needs test_data/face_crops_ground_truth crops (local only since the 2026-10-16 photo purge, SIGHTING-140)
+pytestmark = pytest.mark.private_data  # needs test_data/face_crops_ground_truth crops (private test-data repo, SIGHTING-140)
 
 
 # Ground truth labels (user-verified)
