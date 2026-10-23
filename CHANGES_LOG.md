@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-23 [DOCS] spec-112 Phase A2 drafted — album workbench
+**Files**: `specs/112-live-db-storage-runner/{spec,tasks,updates}.md` (+ `.html`), `ROADMAP.md` (+`.html`).
+**Change**: new Phase A2 (spec §4 items 10–17, AC9–AC15, tasks W1–W5): run/watch/cancel/re-run albums from the Jobs page on local or L4; content-addressed inputs (upload once); worker feature cache on a Modal Volume; results-only copy-back with display images and face crops built on the PC; run settings in `run.json`; input retention on Modal. Phase A's remaining Slovakia re-run folds into A2's proof. Roadmap: A2 is next, before Gate 1.
+**Reason**: owner: a stable way to run and examine albums (cloud or local) is required before moving on; no pictures should travel back, and the L4 should keep its cache.
+
 ### 2026-10-23 [TEST] SIGHTING-140 — nightly full lane tests the real photos again, from a private test-data repo
 **Files**: `.github/workflows/tests.yml`, `tests/conftest.py`, `pyproject.toml` (marker), `tests/face_clustering/{test_merge_stage,test_pipeline_e2e,test_pipeline_history_hook,test_pipeline_remerge}.py`, `tests/pipeline/{test_integration,test_steps}.py`, `tests/test_face_embeddings_ground_truth.py`, `docs/project/{SIGHTINGS,LEARNINGS}.md`. Outside the repo: new private repo `jonathanhexner/albumify-test-data`, a read-only deploy key on it, secret `TEST_DATA_DEPLOY_KEY` on albumify.
 **Change**: the full lane checks out the private photos (same paths) and requires them; 50 photo tests get `private_data` (skip locally when missing, fail in CI). The fast lane excludes them.

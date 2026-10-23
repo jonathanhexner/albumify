@@ -246,6 +246,11 @@ id="toc-spec-112--progress--verification-updates">spec-112 — Progress
 &amp; verification updates</a>
 <ul>
 <li><a
+href="#2026-10-23--phase-a2-drafted-album-workbench-run-watch-re-run-examine-no-pictures-back-from-modal"
+id="toc-2026-10-23--phase-a2-drafted-album-workbench-run-watch-re-run-examine-no-pictures-back-from-modal">2026-10-23
+— Phase A2 drafted: album workbench (run, watch, re-run, examine; no
+pictures back from Modal)</a></li>
+<li><a
 href="#2026-10-11--real-data-proof-slovakia26-715-photos-through-jobservice-on-the-l4"
 id="toc-2026-10-11--real-data-proof-slovakia26-715-photos-through-jobservice-on-the-l4">2026-10-11
 — Real-data proof: Slovakia26 (715 photos) through JobService on the
@@ -268,8 +273,61 @@ id="toc-2026-10-10--spec-drafted">2026-10-10 — Spec drafted</a></li>
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
 <p><strong>Status:</strong> In Progress — Phase A proven on Slovakia26
-via Modal for AC1–AC4 (AC5 by tests); faces → people mapping fixed after
-the run, needs one re-run once SIGHTING-132 is decided.</p>
+via Modal for AC1–AC4 (AC5 by tests); SIGHTING-132 fixed by spec-113,
+the re-run is folded into Phase A2's proof. Phase A2 (album workbench)
+approved 2026-10-23 (O3 = 7 days, O4 = pipeline name only); W1 in
+progress.</p>
+<h2
+id="2026-10-23--phase-a2-drafted-album-workbench-run-watch-re-run-examine-no-pictures-back-from-modal">2026-10-23
+— Phase A2 drafted: album workbench (run, watch, re-run, examine; no
+pictures back from Modal)</h2>
+<p>Owner: a stable app to run and examine albums, locally or on cloud
+GPUs, comes before Gate 1. Asked whether pictures travel back and forth
+and whether the cache stays on the L4. Checked in the code:</p>
+<ul>
+<li><strong>Pictures go both ways today.</strong> Up: 715 resized copies
+per run (unavoidable once; the L4 needs pixels). Down: 993 files, of
+which 147 display copies and 842 face crops (19.4 of ~31 min); only
+<code>album.json</code>, <code>run.json</code> and <code>results/</code>
+(3 files) carry information the PC lacks.</li>
+<li><strong>The L4 keeps only model weights.</strong> The feature cache
+(<code>sim_bench.db</code>) lives in the container and is lost at exit,
+so every L4 re-run recomputes everything. Locally too, a new job id
+means new input paths and the path-keyed cache misses.</li>
+<li>The app never reads from Modal (local files + control DB only).
+Uploaded inputs stay on the <code>albumify-jobs</code> Volume after the
+job.</li>
+</ul>
+<p>Plan: spec §4 items 10–17, AC9–AC15, tasks W1–W5. Earlier 3–4 day
+estimate was inflated by bundling hardening (jobs outside the API
+process); that is out of A2. Open: O3 (input retention, rec 7 days), O4
+(re-run settings: pipeline name only in v1).</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Download is mostly pictures</td>
+<td><code>~/.sim_bench/jobs/slovakia26</code>: display 147, faces 842,
+results 3, album.json, run.json</td>
+</tr>
+<tr>
+<td>Worker cache not persistent</td>
+<td><code>sim_bench/serving/modal_app.py</code>: Volumes only for models
++ HF cache; <code>sim_bench.db</code> under the container's home</td>
+</tr>
+<tr>
+<td>Cache keyed by path</td>
+<td><code>sim_bench/api/database/models.py</code>
+<code>universal_cache</code> unique (<code>image_path</code>,
+<code>feature_type</code>, <code>model_name</code>)</td>
+</tr>
+</tbody>
+</table>
 <h2
 id="2026-10-11--real-data-proof-slovakia26-715-photos-through-jobservice-on-the-l4">2026-10-11
 — Real-data proof: Slovakia26 (715 photos) through JobService on the

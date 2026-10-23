@@ -2,7 +2,30 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** In Progress — Phase A proven on Slovakia26 via Modal for AC1–AC4 (AC5 by tests); faces → people mapping fixed after the run, needs one re-run once SIGHTING-132 is decided.
+**Status:** In Progress — Phase A proven on Slovakia26 via Modal for AC1–AC4 (AC5 by tests); SIGHTING-132 fixed by spec-113, the re-run is folded into Phase A2's proof. Phase A2 (album workbench) approved 2026-10-23 (O3 = 7 days, O4 = pipeline name only); W1 in progress.
+
+## 2026-10-23 — Phase A2 drafted: album workbench (run, watch, re-run, examine; no pictures back from Modal)
+
+Owner: a stable app to run and examine albums, locally or on cloud GPUs, comes before Gate 1. Asked
+whether pictures travel back and forth and whether the cache stays on the L4. Checked in the code:
+- **Pictures go both ways today.** Up: 715 resized copies per run (unavoidable once; the L4 needs pixels).
+  Down: 993 files, of which 147 display copies and 842 face crops (19.4 of ~31 min); only
+  `album.json`, `run.json` and `results/` (3 files) carry information the PC lacks.
+- **The L4 keeps only model weights.** The feature cache (`sim_bench.db`) lives in the container and is
+  lost at exit, so every L4 re-run recomputes everything. Locally too, a new job id means new input
+  paths and the path-keyed cache misses.
+- The app never reads from Modal (local files + control DB only). Uploaded inputs stay on the
+  `albumify-jobs` Volume after the job.
+
+Plan: spec §4 items 10–17, AC9–AC15, tasks W1–W5. Earlier 3–4 day estimate was inflated by bundling
+hardening (jobs outside the API process); that is out of A2. Open: O3 (input retention, rec 7 days), O4
+(re-run settings: pipeline name only in v1).
+
+| Claim | Evidence |
+|---|---|
+| Download is mostly pictures | `~/.sim_bench/jobs/slovakia26`: display 147, faces 842, results 3, album.json, run.json |
+| Worker cache not persistent | `sim_bench/serving/modal_app.py`: Volumes only for models + HF cache; `sim_bench.db` under the container's home |
+| Cache keyed by path | `sim_bench/api/database/models.py` `universal_cache` unique (`image_path`, `feature_type`, `model_name`) |
 
 ## 2026-10-11 — Real-data proof: Slovakia26 (715 photos) through JobService on the L4
 
