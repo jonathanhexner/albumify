@@ -22,6 +22,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CSS_PATH = REPO_ROOT / "docs" / "assets" / "md.css"
 PANDOC_FALLBACKS = [Path("C:/Program Files/Pandoc/pandoc.exe")]
 
+# Mermaid diagrams (```mermaid blocks; required in specs since 2026-10-23, see WORKFLOW.md). pandoc emits
+# <pre class="mermaid"><code>...</code></pre>; mermaid wants the bare diagram text, so unwrap it first.
+MERMAID = """<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+document.querySelectorAll("pre.mermaid").forEach(function (pre) {
+  var div = document.createElement("div");
+  div.className = "mermaid";
+  div.textContent = pre.textContent;
+  pre.replaceWith(div);
+});
+mermaid.initialize({startOnLoad: false, securityLevel: "loose"});
+mermaid.run({querySelector: "div.mermaid"});
+</script>"""
+
 BANNER = (
     '<div class="md-banner">Generated from <a href="{md}">{md}</a> by '
     "scripts/md2html.py &middot; do not edit this HTML by hand</div>"
@@ -44,7 +58,7 @@ def render(md_path: Path, pandoc: str) -> Path:
     css = CSS_PATH.read_text(encoding="utf-8")
     header = f"<style>\n{css}\n</style>"
     before = BANNER.format(md=md_path.name) + '<div class="md-wrap">'
-    after = "</div>"
+    after = "</div>" + (MERMAID if "```mermaid" in md_path.read_text(encoding="utf-8") else "")
     cmd = [
         pandoc,
         str(md_path),
