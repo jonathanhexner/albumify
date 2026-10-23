@@ -6,6 +6,14 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-10-23: SIGHTING-141 — a unit test that asserted the bug
+**What happened**: every face crop since spec-091 had red and blue swapped. `_crop_from_aligned` assumed `align_faces`
+returns BGR and flipped it; `align_faces` warps the RGB `image_cache` array. Its unit test fed a hand-made "BGR"
+array and asserted the swap, so the test passed while the real chain was wrong. Found by comparing PC-cut crops
+with worker crops (spec-115 T2.1), not by any test.
+**Lesson**: a colour/format contract between two steps must be tested through both steps (real producer -> real
+consumer), not with a hand-made input that encodes the consumer's assumption.
+
 ### 2026-10-23: spec-112 A2 — the job runner never used the feature cache (for two reasons)
 **What happened**: every job run (local child process and L4) recomputed every feature. `run_pipeline`
 built its `PipelineContext` without a `cache_handler` (only the older API pipeline service attached

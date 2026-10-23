@@ -15,14 +15,31 @@ from face_cluster.types import FaceRecord
 
 class ut_CropFromAligned:
 
-    def test_bgr_array_becomes_112_rgb(self):
+    def test_rgb_array_keeps_its_colours(self):
         aligned = np.zeros((256, 256, 3), dtype=np.uint8)
-        aligned[:, :, 0] = 255  # all-blue in BGR -> should map to RGB blue channel
+        aligned[:, :, 0] = 255  # pure red, RGB (align_faces output is RGB)
         img = _crop_from_aligned(aligned)
         assert img is not None
         assert img.size == (112, 112)
         assert img.mode == "RGB"
-        assert img.getpixel((0, 0)) == (0, 0, 255)  # BGR->RGB swap applied
+        assert img.getpixel((0, 0)) == (255, 0, 0)
+
+    def test_a_real_alignment_of_a_red_photo_gives_a_red_crop(self, tmp_path):
+        """SIGHTING-141: run the real chain (image_cache read -> align_faces -> crop) so the two ends of the colour
+        contract are tested together; the old test asserted a swap and passed while every crop came out swapped."""
+        from PIL import Image as PILImage
+
+        from sim_bench.pipeline.steps.align_faces import align_face_with_orientation
+        from sim_bench.pipeline.utils.image_cache import ImageCache
+
+        photo = tmp_path / "red.jpg"
+        PILImage.new("RGB", (400, 400), (220, 30, 30)).save(photo, quality=95)
+        img = ImageCache(tmp_path / "cache").get(photo)          # how align_faces reads photos
+        landmarks = [[170, 180], [230, 180], [200, 210], [175, 240], [225, 240]]
+        aligned = align_face_with_orientation(img, landmarks, 0, bbox={"x": 150, "y": 150, "w": 100, "h": 120})
+        assert aligned is not None
+        r, g, b = _crop_from_aligned(aligned).getpixel((56, 56))
+        assert r > 150 and b < 80, f"crop colour {(r, g, b)} is not red"
 
     def test_none_and_bad_shape_return_none(self):
         assert _crop_from_aligned(None) is None

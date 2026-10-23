@@ -201,12 +201,14 @@ def _generate_crops_from_bboxes(face_records, output_dir) -> Dict:
 
 def _crop_from_aligned(aligned):
     """spec-091: build a 112x112 RGB JPEG-ready crop from an in-memory aligned face
-    (BGR uint8 HxWx3 from align_faces). Returns a PIL Image, or None if unusable."""
+    (RGB uint8 HxWx3 from align_faces). Returns a PIL Image, or None if unusable.
+
+    align_faces warps the image_cache array, which is RGB (PIL); cv2.warpAffine keeps the channel order.
+    SIGHTING-141: this used to flip to "BGR -> RGB", so every exported/job crop had red and blue swapped."""
     if aligned is None or not hasattr(aligned, "ndim") or aligned.ndim != 3 or aligned.shape[2] != 3:
         return None
     try:
-        rgb = aligned[:, :, ::-1]  # align_faces uses cv2 (BGR) -> RGB for PIL
-        img = Image.fromarray(rgb).convert("RGB")
+        img = Image.fromarray(aligned).convert("RGB")
         if img.size != (112, 112):
             img = img.resize((112, 112), Image.Resampling.LANCZOS)
         return img

@@ -272,9 +272,11 @@ href="#w1--stable-inputs-and-a-safe-cache-done-2026-10-23-commit-de83348"
 id="toc-w1--stable-inputs-and-a-safe-cache-done-2026-10-23-commit-de83348">W1
 — Stable inputs and a safe cache (done 2026-10-23, commit
 de83348)</a></li>
-<li><a href="#w2--results-only-display-images-and-crops-made-on-the-pc"
-id="toc-w2--results-only-display-images-and-crops-made-on-the-pc">W2 —
-Results-only; display images and crops made on the PC</a></li>
+<li><a
+href="#w2--results-only-display-images-and-crops-made-on-the-pc-done-2026-10-23"
+id="toc-w2--results-only-display-images-and-crops-made-on-the-pc-done-2026-10-23">W2
+— Results-only; display images and crops made on the PC (done
+2026-10-23)</a></li>
 <li><a href="#w2b--file-serving-per-job-r7"
 id="toc-w2b--file-serving-per-job-r7">W2b — File serving per job
 (R7)</a></li>
@@ -293,8 +295,8 @@ Prove on real data (owner approval before each L4 run)</a></li>
 </nav>
 <h1 id="spec-115--tasks-album-workbench">spec-115 — Tasks (Album
 workbench)</h1>
-<p><strong>Status:</strong> In Progress — W1 done 2026-10-23; W2 next.
-<strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
+<p><strong>Status:</strong> In Progress — W1, W2 done 2026-10-23; W3
+next. <strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="updates.html">updates</a> · roadmap stage <strong>C</strong> · <a
 href="../../ROADMAP.html">ROADMAP.md</a></p>
 <p>Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file
@@ -314,28 +316,34 @@ API file route uses it. <code>tests/serving/test_input_store.py</code>
 job's paths explicitly; <code>run_pipeline</code> attaches the feature
 cache. Tests +5; real 12-photo pair. (R6)</label></li>
 </ul>
-<h2 id="w2--results-only-display-images-and-crops-made-on-the-pc">W2 —
-Results-only; display images and crops made on the PC</h2>
+<h2
+id="w2--results-only-display-images-and-crops-made-on-the-pc-done-2026-10-23">W2
+— Results-only; display images and crops made on the PC (done
+2026-10-23)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T2.1 Orientation gate first (R10):
-on the real <code>slovakia26</code> job, crop 20 faces from the PC's
-input copy with the bundle boxes; pass = IoU ≥ 0.5 with the worker's
-crop on ≥ 19 of 20 (report on disk, not in git). On a fail the worker
-keeps sending crops and W2 renders only the display images.</label></li>
-<li><label><input type="checkbox" />T2.2 <code>LocalRenders.calc</code>:
-<code>display/</code> for picks, <code>faces/&lt;id&gt;.jpg</code> for
-every face with a box; skips files that exist.</label></li>
-<li><label><input type="checkbox" />T2.3 <code>ResultsLoader</code> runs
-<code>LocalRenders</code> before loading; <code>JobCurator</code> stops
-writing <code>display/</code>
+<li><label><input type="checkbox" checked="" />T2.1 Orientation gate
+first (R10): on the real <code>slovakia26</code> job, crop 20 faces from
+the PC's input copy with the bundle boxes; pass = IoU ≥ 0.5 with the
+worker's crop on ≥ 19 of 20 (report on disk, not in git). On a fail the
+worker keeps sending crops and W2 renders only the display images. |
+2026-10-23: 18/20 by ArcFace, all 20 right face on inspection, rotation
+proven by a no-rotate control; owner accepted. Found SIGHTING-141
+(worker crops colour-swapped; fixed).</label></li>
+<li><label><input type="checkbox" checked="" />T2.2
+<code>LocalRenders.calc</code>: <code>display/</code> for picks,
+<code>faces/&lt;id&gt;.jpg</code> for every face with a box; skips files
+that exist.</label></li>
+<li><label><input type="checkbox" checked="" />T2.3
+<code>ResultsLoader</code> runs <code>LocalRenders</code> before
+loading; <code>JobCurator</code> stops writing <code>display/</code>
 (<code>CurateJobInputs.write_displays</code> default False) and crops
 (<code>_write_bundle</code> passes no crops; the bundle keeps
 boxes).</label></li>
-<li><label><input type="checkbox" />T2.4
+<li><label><input type="checkbox" checked="" />T2.4
 <code>JobStore.results_files(job_id)</code>: the files a worker returns
 (<code>album.json</code>, <code>run.json</code>,
 <code>results/*</code>).</label></li>
-<li><label><input type="checkbox" />T2.5 Tests:
+<li><label><input type="checkbox" checked="" />T2.5 Tests:
 <code>tests/control/test_local_renders.py</code>; job folder identical
 for local and fake-Modal; old jobs keep their files. (R10,
 R14)</label></li>
@@ -343,9 +351,9 @@ R14)</label></li>
 <h2 id="w2b--file-serving-per-job-r7">W2b — File serving per job
 (R7)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T2.6 <code>JobStore.resolve</code>
-takes the job's manifest into account: an <code>inputs/</code> key is
-served only if that job lists it. Test
+<li><label><input type="checkbox" checked="" />T2.6
+<code>JobStore.resolve</code> takes the job's manifest into account: an
+<code>inputs/</code> key is served only if that job lists it. Test
 <code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code>.</label></li>
 </ul>
 <h2

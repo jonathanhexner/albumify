@@ -373,13 +373,13 @@ side in R9</td>
 </tr>
 <tr>
 <td>R7</td>
-<td>◐</td>
+<td>●</td>
 <td><strong>File serving is per job:</strong> a job's image routes serve
 only that job's own files and the photos in its manifest; another job's
 photo, a path outside the store, or a made-up key → 404</td>
 <td>●
 <code>tests/serving/test_input_store.py::..._resolve_stays_inside</code>;
-○
+●
 <code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code></td>
 </tr>
 <tr>
@@ -399,15 +399,19 @@ worker log, GPU time well below the first run</td>
 </tr>
 <tr>
 <td>R10</td>
-<td>○</td>
+<td>◐</td>
 <td>Display images and face crops are made on the PC from its own copies
 + the face boxes; local and L4 jobs leave the same files.
-<strong>Orientation gate (T2.1):</strong> PC crops overlap the worker's
-crops (IoU ≥ 0.5) on ≥ 19 of 20 real faces, else the worker keeps
-sending crops</td>
-<td>T2.1 check on <code>slovakia26</code> (report on disk);
-<code>tests/control/test_local_renders.py</code> (same file set local vs
-fake-Modal; crop inside its box)</td>
+<strong>Orientation gate (T2.1):</strong> on 20 real faces (5 per camera
+rotation) the PC crop is the worker's face, rotation proven by a
+no-rotate control; <strong>accepted by the owner 2026-10-23</strong>
+(ArcFace 18/20 ≥ 0.3: misses were a tilted head and an 11 px face)</td>
+<td>● T2.1
+<code>reports/2026-10-23_spec115_crop_orientation/report.html</code>; ●
+<code>tests/control/test_local_renders.py</code> (6),
+<code>test_job_service.py::..._leave_the_same_files</code>; ● real: 147
+displays + 987 crops from slovakia26 results in 5 s; ○ real L4 job
+(W5)</td>
 </tr>
 <tr>
 <td>R11</td>
@@ -436,11 +440,12 @@ purge, shared photos kept); real button, then a Volume listing</td>
 </tr>
 <tr>
 <td>R14</td>
-<td>◐ inputs</td>
+<td>●</td>
 <td>Older jobs (images in <code>input/</code>, display/crops from the
 worker) still open and show</td>
 <td>● <code>tests/serving/test_curate_job.py::..._older_job_...</code>;
-○ <code>test_local_renders.py::test_old_job_files_untouched</code></td>
+●
+<code>test_local_renders.py::test_existing_files_of_an_older_job_are_kept</code></td>
 </tr>
 </tbody>
 </table>
@@ -454,8 +459,8 @@ check that closes it.</p>
 <pre class="mermaid"><code>flowchart TD
   W1[&quot;&lt;b&gt;● W1 Stable inputs + cache&lt;/b&gt; (done)&lt;br/&gt;&lt;i&gt;input_store.py (new), job_store.py, job_service.py,&lt;br/&gt;curate_job.py, discover_images.py, loader.py, routers/jobs.py&lt;/i&gt;&quot;]
   C1{{&quot;● checked R6 R7 R14 (part)&lt;br/&gt;21 tests · real 12-photo pair · full suite 1,627 passed&quot;}}
-  W2[&quot;&lt;b&gt;○ W2 Results-only, renders on the PC&lt;/b&gt;&lt;br/&gt;worker stops writing display/ and faces/;&lt;br/&gt;LocalRenders makes them from inputs + boxes ·&lt;br/&gt;file routes serve only the job&#39;s own files&lt;br/&gt;&lt;i&gt;local_renders.py (new), curate_job.py, loader.py, job_store.py&lt;/i&gt;&quot;]
-  C2{{&quot;check R7 R10 R14&lt;br/&gt;orientation gate ≥ 19/20 · same files local vs fake-Modal · crop inside its box&quot;}}
+  W2[&quot;&lt;b&gt;● W2 Results-only, renders on the PC&lt;/b&gt; (done)&lt;br/&gt;worker stops writing display/ and faces/;&lt;br/&gt;LocalRenders makes them from inputs + boxes ·&lt;br/&gt;file routes serve only the job&#39;s own files&lt;br/&gt;&lt;i&gt;local_renders.py (new), curate_job.py, loader.py, job_store.py&lt;/i&gt;&quot;]
+  C2{{&quot;● checked R7 R10 (part) R14&lt;br/&gt;gate accepted · 6 render tests · same files local vs fake-Modal · real slovakia26 render&quot;}}
   W3[&quot;&lt;b&gt;○ W3 Modal: inputs + cache Volumes, retention&lt;/b&gt;&lt;br/&gt;upload only missing photos · cache on a Volume ·&lt;br/&gt;results-only download · 7-day purge + delete button&lt;br/&gt;&lt;i&gt;modal_app.py, runners.py, curate_job.py, routers/jobs.py&lt;/i&gt;&quot;]
   C3{{&quot;check R8 R9 R13 with a fake Volume&lt;br/&gt;2nd stage uploads 0 · download lists results only&quot;}}
   W4[&quot;&lt;b&gt;○ W4 The app&lt;/b&gt;&lt;br/&gt;run form + estimate/confirm · live status · Cancel · Re-run ·&lt;br/&gt;run settings + Compare diff&lt;br/&gt;&lt;i&gt;run_settings.py (new), pages/jobs.py, pages/compare.py,&lt;br/&gt;api_client.py, routers/jobs.py, job_service.py, runners.py&lt;/i&gt;&quot;]
@@ -466,8 +471,8 @@ check that closes it.</p>
   classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
   classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
   classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
-  class W1,C1 done
-  class W2,W3,W4,W5 todo
+  class W1,C1,W2,C2 done
+  class W3,W4,W5 todo
   class C2,C3,C4,C5 check</code></pre>
 <h2 id="4-class-diagram">4. Class diagram</h2>
 <p>Green = new class, amber = changed class. ✚ new member · ✎ changed ·
@@ -616,7 +621,7 @@ inputs and <code>results/bundle.json</code>; same for every runner</td>
 <td><code>calc</code>, <code>render_display</code>,
 <code>render_crop</code></td>
 <td><code>margin</code>, <code>crop_size</code></td>
-<td>○ W2</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/run_settings.py</code></td>
@@ -650,9 +655,10 @@ commit, runner, device, key library versions</td>
 <td><code>JobStore</code></td>
 <td>job's photos copied into <code>input/</code></td>
 <td><code>input/manifest.json</code> → shared store;
-<code>resolve()</code>; W2: <code>results_files()</code></td>
+<code>resolve()</code>; <code>results_files()</code>;
+<code>resolve</code> per job (R7)</td>
 <td>R6 R7 R10</td>
-<td>● W1 · ○ W2</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/job_service.py</code></td>
@@ -672,7 +678,7 @@ display/ + crops</td>
 <td>explicit paths + cache attached; W2: no display/ or crops; W4:
 <code>RunSettings</code> in run.json</td>
 <td>R6 R8 R12</td>
-<td>● W1 · ○ W2 · ○ W4</td>
+<td>● W1 · ● W2 · ○ W4</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/runners.py</code></td>
@@ -703,7 +709,7 @@ cache committed after each job; daily purge of photos unused 7 days</td>
 <td>input keys from the manifest; W2: runs <code>LocalRenders</code>
 first</td>
 <td>R10 R14</td>
-<td>● W1 · ○ W2</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/api/routers/jobs.py</code>,

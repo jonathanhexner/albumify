@@ -73,6 +73,21 @@ class ut_JobsRouter:
         faces = client.get("/jobs/trip/faces", params={"person_id": 3}).json()
         assert [f["face_id"] for f in faces] == [0, 1]
 
+    def test_other_jobs_photo_is_404(self, client, tmp_path):
+        """spec-115 R7: photos live in a shared store, but a job only serves the ones its manifest lists."""
+        _submit(client)
+        other = tmp_path / "other"
+        other.mkdir()
+        Image.new("RGB", (900, 600), "red").save(other / "x.jpg")
+        assert client.post("/jobs", json={"source": str(other), "job_id": "other"}).status_code == 202
+        foreign = "inputs/" + client.svc.store.input_keys("other")[0]
+        from sim_bench.control.models import Photo
+        with client.svc.db.session() as s:
+            row = s.get(Photo, ("trip", "b"))
+            row.input_key, row.display_key = foreign, None
+        assert client.get("/jobs/trip/photos/b/image").status_code == 404
+        assert client.get("/jobs/other/photos/x/image").status_code == 200
+
     def test_edit_round_trip(self, client):
         """AC5 over the API."""
         _submit(client)

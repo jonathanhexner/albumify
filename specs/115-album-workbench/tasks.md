@@ -1,6 +1,6 @@
 # spec-115 — Tasks (Album workbench)
 
-**Status:** In Progress — W1 done 2026-10-23; W2 next.
+**Status:** In Progress — W1, W2 done 2026-10-23; W3 next.
 **Spec:** [spec.md](spec.html) · [updates](updates.html) · roadmap stage **C** · [ROADMAP.md](../../ROADMAP.html)
 
 Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). This file orders the work.
@@ -10,18 +10,19 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
 - [x] T1.2 `InputStore` + job manifest + `JobStore.resolve`; API file route uses it. `tests/serving/test_input_store.py` (13). (R6, R14)
 - [x] T1.3 Pipeline gets the job's paths explicitly; `run_pipeline` attaches the feature cache. Tests +5; real 12-photo pair. (R6)
 
-## W2 — Results-only; display images and crops made on the PC
-- [ ] T2.1 Orientation gate first (R10): on the real `slovakia26` job, crop 20 faces from the PC's input copy with the
+## W2 — Results-only; display images and crops made on the PC (done 2026-10-23)
+- [x] T2.1 Orientation gate first (R10): on the real `slovakia26` job, crop 20 faces from the PC's input copy with the
       bundle boxes; pass = IoU ≥ 0.5 with the worker's crop on ≥ 19 of 20 (report on disk, not in git). On a fail the
-      worker keeps sending crops and W2 renders only the display images.
-- [ ] T2.2 `LocalRenders.calc`: `display/` for picks, `faces/<id>.jpg` for every face with a box; skips files that exist.
-- [ ] T2.3 `ResultsLoader` runs `LocalRenders` before loading; `JobCurator` stops writing `display/`
+      worker keeps sending crops and W2 renders only the display images. | 2026-10-23: 18/20 by ArcFace, all 20 right face on
+      inspection, rotation proven by a no-rotate control; owner accepted. Found SIGHTING-141 (worker crops colour-swapped; fixed).
+- [x] T2.2 `LocalRenders.calc`: `display/` for picks, `faces/<id>.jpg` for every face with a box; skips files that exist.
+- [x] T2.3 `ResultsLoader` runs `LocalRenders` before loading; `JobCurator` stops writing `display/`
       (`CurateJobInputs.write_displays` default False) and crops (`_write_bundle` passes no crops; the bundle keeps boxes).
-- [ ] T2.4 `JobStore.results_files(job_id)`: the files a worker returns (`album.json`, `run.json`, `results/*`).
-- [ ] T2.5 Tests: `tests/control/test_local_renders.py`; job folder identical for local and fake-Modal; old jobs keep their files. (R10, R14)
+- [x] T2.4 `JobStore.results_files(job_id)`: the files a worker returns (`album.json`, `run.json`, `results/*`).
+- [x] T2.5 Tests: `tests/control/test_local_renders.py`; job folder identical for local and fake-Modal; old jobs keep their files. (R10, R14)
 
 ## W2b — File serving per job (R7)
-- [ ] T2.6 `JobStore.resolve` takes the job's manifest into account: an `inputs/` key is served only if that job lists it.
+- [x] T2.6 `JobStore.resolve` takes the job's manifest into account: an `inputs/` key is served only if that job lists it.
       Test `tests/api/test_jobs_router.py::test_other_jobs_photo_is_404`.
 
 ## W3 — Modal: inputs and cache Volumes, results-only download, retention

@@ -36,6 +36,25 @@ class InProcessRunner:
         return RunOutcome(ok=res.ok, error=res.error, wall_s=1.0)
 
 
+class ResultsOnlyRunner:
+    """A Modal stand-in: curates in its own store (the worker's Volume), then copies back only
+    ``results_files`` (spec-115 R8), exactly what the real Modal download will do."""
+
+    def __init__(self, name, store, worker_root):
+        self.name, self.store, self.worker = name, store, JobStore(worker_root)
+
+    def run(self, job_id):
+        self.worker.write_input_manifest(job_id, self.store.input_keys(job_id))
+        self.worker.inputs = self.store.inputs              # the worker's own copy of the same photos
+        res = JobCurator(self.worker, spec_builder=SpecBuilder(), runner=fake_pipeline).calc(
+            CurateJobInputs(job_id=job_id, pipeline="minimal"))
+        for rel in self.worker.results_files(job_id):
+            dest = self.store.paths(job_id).root / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes((self.worker.paths(job_id).root / rel).read_bytes())
+        return RunOutcome(ok=res.ok, error=res.error, wall_s=1.0)
+
+
 class FailingRunner:
     name = "local"
 
@@ -99,6 +118,22 @@ class ut_JobService:
         assert {p: p.stat().st_mtime_ns for p in svc.store.input_images("second")} == mtimes
         staged = [e.message for e in svc.repo.events("second") if e.message.startswith("staged")]
         assert staged == ["staged 6 photos (0 new, 6 already staged)"]
+
+    def test_local_and_results_only_jobs_leave_the_same_files(self, tmp_path, src):
+        """spec-115 R10: the worker returns results only; the server renders the rest, so both runners
+        leave identical job folders."""
+        svc = _service(tmp_path, lambda name, store, *a: InProcessRunner(name, store) if name == "local"
+                       else ResultsOnlyRunner(name, store, tmp_path / "modal_volume"))
+        svc.submit(SubmitInputs(source=src, job_id="here", runner="local"))
+        svc.submit(SubmitInputs(source=src, job_id="there", runner="modal_gpu"))
+
+        def files(job):
+            root = svc.store.paths(job).root
+            return sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+        assert svc.repo.get("there").status == SUCCEEDED
+        assert files("here") == files("there")
+        assert any(f.startswith("faces/") for f in files("there"))
+        assert any(f.startswith("display/") for f in files("there"))
 
     def test_runner_failure_ends_failed_with_error(self, tmp_path, src):
         svc = _service(tmp_path, lambda *a: FailingRunner())

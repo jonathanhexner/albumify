@@ -268,6 +268,11 @@ id="toc-spec-115--progress--verification-updates">spec-115 — Progress
 &amp; verification updates</a>
 <ul>
 <li><a
+href="#2026-10-23--w2-done-the-worker-returns-results-only-the-server-renders-displays-and-crops"
+id="toc-2026-10-23--w2-done-the-worker-returns-results-only-the-server-renders-displays-and-crops">2026-10-23
+— W2 done: the worker returns results only; the server renders displays
+and crops</a></li>
+<li><a
 href="#2026-10-23--content-fixes-from-the-prd-review-requirements-renumbered"
 id="toc-2026-10-23--content-fixes-from-the-prd-review-requirements-renumbered">2026-10-23
 — Content fixes from the PRD review; requirements renumbered</a></li>
@@ -288,8 +293,80 @@ de83348)</a></li>
 <p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
-<p><strong>Status:</strong> In Progress — W1 done 2026-10-23; W2
+<p><strong>Status:</strong> In Progress — W1, W2 done 2026-10-23; W3
 next.</p>
+<h2
+id="2026-10-23--w2-done-the-worker-returns-results-only-the-server-renders-displays-and-crops">2026-10-23
+— W2 done: the worker returns results only; the server renders displays
+and crops</h2>
+<ul>
+<li><strong>T2.1 orientation gate</strong> on 20 real slovakia26 faces
+(5 per EXIF rotation): every PC crop is the right face; ArcFace scored
+18/20 against the pre-set 19/20 (a tilted head, an 11 px face); cut
+without the rotation, rotated photos score ~0. <strong>Owner
+accepted.</strong> Found <strong>SIGHTING-141</strong>: the worker's
+crops had red/blue swapped (<code>_crop_from_aligned</code> flipped RGB
+it took for BGR). Fixed (one line + a real-chain test); Budapest suite
+11/11.</li>
+<li><strong><code>LocalRenders</code></strong>
+(<code>sim_bench/control/local_renders.py</code>): <code>display/</code>
+for picks and <code>faces/&lt;id&gt;.jpg</code> (box + 25% margin, read
+EXIF-upright like the detector) from the server's own copies; existing
+files kept (older jobs); unreadable photos skipped and reported.
+<code>ResultsLoader</code> runs it before loading rows.</li>
+<li><code>JobCurator</code> writes no displays or crops by default
+(<code>write_renders=False</code>);
+<code>JobStore.results_files()</code> lists what a worker returns (5
+files for slovakia26); <code>JobStore.resolve</code> serves an
+<code>inputs/</code> key only if the job's manifest lists it (R7).</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PC crops are the right faces, incl. rotated photos (R10)</td>
+<td><code>reports/2026-10-23_spec115_crop_orientation/report.html</code>
+(crops local only); owner accepted</td>
+</tr>
+<tr>
+<td>Crops cut from the box, upright on EXIF-rotated photos; displays for
+picks only; old files kept; unreadable skipped (R10, R14)</td>
+<td><code>tests/control/test_local_renders.py</code> 6 passed (the
+rotation test fails without the transpose)</td>
+</tr>
+<tr>
+<td>Worker returns no pictures; <code>results_files</code> = album.json,
+run.json, results/* (R8 part)</td>
+<td><code>tests/serving/test_curate_job.py::test_by_default_the_worker_returns_no_pictures</code></td>
+</tr>
+<tr>
+<td>Local and results-only (Modal-style) jobs leave identical folders
+(R10)</td>
+<td><code>tests/control/test_job_service.py::..._leave_the_same_files</code></td>
+</tr>
+<tr>
+<td>Another job's photo is 404 through this job's route (R7)</td>
+<td><code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code></td>
+</tr>
+<tr>
+<td>Real: render from results only</td>
+<td>slovakia26 results without worker pictures: 147 displays, 987 crops
+(worker made 842; gate-rejected faces now get one too) in 5.1 s; sheet
+across all 4 rotations upright, natural colour</td>
+</tr>
+<tr>
+<td>SIGHTING-141 fixed, no V2 regression</td>
+<td><code>tests/pipeline/test_export_crop_reuse.py::test_a_real_alignment_of_a_red_photo_gives_a_red_crop</code>
+(fails on the old code: red photo -&gt; blue crop); Budapest suite 11
+passed; fresh run crops natural skin tones</td>
+</tr>
+</tbody>
+</table>
 <h2
 id="2026-10-23--content-fixes-from-the-prd-review-requirements-renumbered">2026-10-23
 — Content fixes from the PRD review; requirements renumbered</h2>

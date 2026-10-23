@@ -110,15 +110,18 @@ class ut_JobCurator:
                                                                     pipeline="minimal"))
         assert store.read_results("trip1") is None
 
-    def test_displays_are_written_for_the_picks_only(self, store):
+    def test_by_default_the_worker_returns_no_pictures(self, store):
+        """spec-115 R8: displays and face crops are made by the server (LocalRenders), not the worker."""
         _curator(store).calc(CurateJobInputs(job_id="trip1", pipeline="minimal"))
+        paths = store.paths("trip1")
+        assert not paths.display_dir.exists()
+        assert list(paths.faces_dir.iterdir()) == []
+        assert store.results_files("trip1") == ["album.json", "run.json", "results/bundle.json"]
+
+    def test_worker_renders_can_be_asked_for(self, store):
+        _curator(store).calc(CurateJobInputs(job_id="trip1", pipeline="minimal", write_renders=True))
         display_dir = store.paths("trip1").display_dir
         assert sorted(p.name for p in display_dir.iterdir()) == ["a.jpg", "c.jpg"]
-
-    def test_displays_can_be_switched_off(self, store):
-        _curator(store).calc(CurateJobInputs(job_id="trip1", pipeline="minimal",
-                                             write_displays=False))
-        assert not store.paths("trip1").display_dir.exists()
 
     def test_run_record_names_the_device_and_the_flipped_steps(self, store):
         res = _curator(store).calc(CurateJobInputs(job_id="trip1", pipeline="minimal", device="cuda"))

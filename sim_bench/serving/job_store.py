@@ -152,11 +152,23 @@ class JobStore:
             return {Path(k).stem: INPUTS_PREFIX + k for k in keys}
         return {p.stem: f"input/{p.name}" for p in self.input_images(job_id)}
 
+    def results_files(self, job_id: str) -> List[str]:
+        """What a worker returns (spec-115 R8): ``album.json``, ``run.json`` and ``results/*``, relative to the job
+        folder. Pictures are never among them; the server renders its own (``LocalRenders``)."""
+        paths = self.paths(job_id)
+        files = [p for p in (paths.album_path, paths.run_path) if p.is_file()]
+        if paths.results_dir.is_dir():
+            files += sorted(p for p in paths.results_dir.rglob("*") if p.is_file())
+        return [p.relative_to(paths.root).as_posix() for p in files]
+
     def resolve(self, job_id: str, key: str) -> Optional[Path]:
-        """A stored file key -> an existing file inside the job folder or the input store, else None."""
+        """A stored file key -> an existing file of THIS job: inside its folder, or a photo its manifest lists
+        (spec-115 R7: another job's photo is not served through this job, even with the right key). Else None."""
         if not key:
             return None
         if key.startswith(INPUTS_PREFIX):
+            if key[len(INPUTS_PREFIX):] not in (self.input_keys(job_id) or []):
+                return None
             base, rel = self.inputs.root.resolve(), key[len(INPUTS_PREFIX):]
         else:
             base, rel = self.paths(job_id).root.resolve(), key

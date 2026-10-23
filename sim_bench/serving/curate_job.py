@@ -90,7 +90,9 @@ class CurateJobInputs:
     job_id: str
     pipeline: str = "default"
     device: str = "cpu"
-    write_displays: bool = True
+    # spec-115 W2: the server makes display images and face crops from its own copies (LocalRenders), so the
+    # worker returns results only. True keeps the old worker-side renders (debug / comparison only).
+    write_renders: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,10 +154,10 @@ class JobCurator:
         album = normalize(context, job_id=job_id, created_at=self._clock()).to_dict()
         album_path = store.write_album(job_id, album)
 
-        bundle_path = self._write_bundle(job_id, context, sources, album)
+        bundle_path = self._write_bundle(job_id, context, sources, album, inputs.write_renders)
 
         displays: List[Path] = []
-        if inputs.write_displays:
+        if inputs.write_renders:
             by_stem = {p.stem: p for p in sources}
             picked = [by_stem[p["id"]] for p in album["picks"] if p["id"] in by_stem]
             displays = store.write_displays(job_id, picked)
@@ -169,13 +171,17 @@ class JobCurator:
         return out
 
 
-    def _write_bundle(self, job_id: str, context, sources: List[Path], album: Dict) -> Path:
-        """Per-photo / per-face rows + embeddings + face crops beside the album (spec-112 TA1.2)."""
+    def _write_bundle(self, job_id: str, context, sources: List[Path], album: Dict,
+                      write_crops: bool = False) -> Path:
+        """Per-photo / per-face rows + embeddings (+ worker face crops only if asked) beside the album."""
         from sim_bench.album.results_bundle import BundleInputs, ResultsBundler
 
         album_ids = [p["id"] for p in album["picks"]] + [d["id"] for d in album["dropped"]]
         bundle = ResultsBundler().calc(BundleInputs(
             context=context, input_ids=[p.stem for p in sources], album_ids=album_ids))
+        if not write_crops:
+            return self._store.write_results(job_id, bundle.manifest(), bundle.embeddings,
+                                             bundle.embedding_face_ids, {})
         crops = {fid: data for fid, data in
                  ((fid, _encode_crop(arr)) for fid, arr in bundle.crops.items()) if data}
         uncropped = [f for f in bundle.faces if f["face_id"] not in crops]
@@ -191,7 +197,7 @@ class JobCurator:
 
 
 def _encode_crop(aligned) -> Optional[bytes]:
-    """BGR aligned face (align_faces) -> 112x112 JPEG bytes, or None if unusable."""
+    """RGB aligned face (align_faces) -> 112x112 JPEG bytes, or None if unusable."""
     import io
 
     from sim_bench.pipeline.steps.face_cluster_export import _crop_from_aligned

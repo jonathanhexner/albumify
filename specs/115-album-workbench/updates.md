@@ -2,7 +2,29 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** In Progress — W1 done 2026-10-23; W2 next.
+**Status:** In Progress — W1, W2 done 2026-10-23; W3 next.
+
+## 2026-10-23 — W2 done: the worker returns results only; the server renders displays and crops
+
+- **T2.1 orientation gate** on 20 real slovakia26 faces (5 per EXIF rotation): every PC crop is the right face;
+  ArcFace scored 18/20 against the pre-set 19/20 (a tilted head, an 11 px face); cut without the rotation, rotated
+  photos score ~0. **Owner accepted.** Found **SIGHTING-141**: the worker's crops had red/blue swapped
+  (`_crop_from_aligned` flipped RGB it took for BGR). Fixed (one line + a real-chain test); Budapest suite 11/11.
+- **`LocalRenders`** (`sim_bench/control/local_renders.py`): `display/` for picks and `faces/<id>.jpg` (box + 25%
+  margin, read EXIF-upright like the detector) from the server's own copies; existing files kept (older jobs);
+  unreadable photos skipped and reported. `ResultsLoader` runs it before loading rows.
+- `JobCurator` writes no displays or crops by default (`write_renders=False`); `JobStore.results_files()` lists what a
+  worker returns (5 files for slovakia26); `JobStore.resolve` serves an `inputs/` key only if the job's manifest lists it (R7).
+
+| Claim | Evidence |
+|---|---|
+| PC crops are the right faces, incl. rotated photos (R10) | `reports/2026-10-23_spec115_crop_orientation/report.html` (crops local only); owner accepted |
+| Crops cut from the box, upright on EXIF-rotated photos; displays for picks only; old files kept; unreadable skipped (R10, R14) | `tests/control/test_local_renders.py` 6 passed (the rotation test fails without the transpose) |
+| Worker returns no pictures; `results_files` = album.json, run.json, results/* (R8 part) | `tests/serving/test_curate_job.py::test_by_default_the_worker_returns_no_pictures` |
+| Local and results-only (Modal-style) jobs leave identical folders (R10) | `tests/control/test_job_service.py::..._leave_the_same_files` |
+| Another job's photo is 404 through this job's route (R7) | `tests/api/test_jobs_router.py::test_other_jobs_photo_is_404` |
+| Real: render from results only | slovakia26 results without worker pictures: 147 displays, 987 crops (worker made 842; gate-rejected faces now get one too) in 5.1 s; sheet across all 4 rotations upright, natural colour |
+| SIGHTING-141 fixed, no V2 regression | `tests/pipeline/test_export_crop_reuse.py::test_a_real_alignment_of_a_red_photo_gives_a_red_crop` (fails on the old code: red photo -> blue crop); Budapest suite 11 passed; fresh run crops natural skin tones |
 
 ## 2026-10-23 — Content fixes from the PRD review; requirements renumbered
 
