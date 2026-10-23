@@ -4,6 +4,29 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-140: Nightly full-test lane red since the photo purge (41 tests read photos that left the repo)
+**Status**: FIXED 2026-10-23 (photos in a private test-data repo the full lane checks out)
+**Severity**: Medium (the nightly lane was red 6 nights running, hiding any new failure; no product bug)
+**Reported**: 2026-10-23 (owner noticed the red nightly runs while PR 2 was open)
+**Persona**: QA / CI
+
+**Problem**: every scheduled `full-tests` run on `main` failed from 2026-10-17, the first night after the
+2026-10-16 photo purge. 41 tests (31 errors at fixture setup, 10 failures) read photos that now exist only on the
+owner's disk: `test_data/face_clustering/person_*/` ("No supported images found"), `samples/ukbench/` ("source_directory
+does not exist") and `test_data/face_crops_ground_truth/` (FileNotFoundError). The purge checked the fast lane only;
+the full lane runs nightly or by hand.
+
+**Fix** (owner chose a private repo over public replacement photos): the 3 folders (9 photos, 15 crops,
+10 UKBench images; 52 MB) are in the private repo `jonathanhexner/albumify-test-data`, same paths. The full lane
+checks it out with a read-only deploy key (secret `TEST_DATA_DEPLOY_KEY`), copies it over the checkout and sets
+`ALBUMIFY_REQUIRE_PRIVATE_DATA=1`. The 50 tests that read the photos carry a new `private_data` marker (the 41
+failing ones plus 9 in the same classes that had passed on zero photos); `tests/conftest.py` skips them when a
+folder is missing, or fails them when that variable is set, so CI can never pass them silently. The fast lane
+excludes `private_data`. Locally the photos are in place, so they stay in the default run. A first attempt marked
+them `needs_data` (CI-excluded) — the owner rejected that as hiding the problem.
+
+---
+
 ### SIGHTING-131: Dev box commit charge pinned at its limit -> every local model load fails
 **Status**: OPEN, intermittent — cleared on its own 2026-10-10 ~23:40 without a reboot (commit 31.1 / 67.9 GB; the page file had shrunk); `tests/pipeline` then 183 passed. Cause unknown; capture evidence next time.
 **Severity**: High for local work (no model can load: no local pipeline run, model tests crash), none for the Modal worker
