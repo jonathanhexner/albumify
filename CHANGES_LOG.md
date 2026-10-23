@@ -2,6 +2,27 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-23 [FEATURE][DOCS] `/prd` skill + `scripts/prd_lint.py`; spec-115 content fixes
+**Files**: new `.claude/skills/prd/SKILL.md`, `scripts/prd_lint.py`, `tests/test_prd_lint.py`; `WORKFLOW.md` (+`.html`), `CLAUDE.md`, `specs/115-album-workbench/{spec,tasks,updates}.md` (+`.html`), `docs/guides/prd_format_review_2026-10-23.md` (+`.html`).
+**Change**: `/prd` drafts specs in the mandated format after grounding them in the code, renders, and must pass `prd_lint.py --render`: section order + legend, objective <= 3 lines, <= 15 requirements, status glyphs, every check names a test or a real-data result, every requirement closed in the plan, new/modified files vs the disk, class-diagram members marked changed/removed/unchanged must exist (Python AST), every diagram draws, page height warning. spec-115: R6 merges the three guarantees, new R7 per-job file serving (found: `resolve` serves any job's photo if the key is known; T2.6), cancel end state (R4), L4 spend cap (R2), orientation pass gate (R10), old Modal photo copies purged (R13), definition of done.
+**Verification**: `tests/test_prd_lint.py` 11 passed (incl. the review's "changed method that does not exist" case); spec-115 lint: 0 errors, 2 warnings (R11 is a real-data proof with no file; page 7,900 px).
+**Reason**: owner: apply the review's content fixes, build the /prd skill, commit.
+
+### 2026-10-23 [DOCS] PRD change colour-coding + review of spec-115's HTML
+**Files**: `WORKFLOW.md` (+`.html`: legend, colour and progress rules, template diagrams), `docs/assets/md.css` (theme-aware NEW/CHANGED/EXISTING/REMOVED badges, wide tables, diagram cards), `specs/115-album-workbench/{spec,tasks}.md` (+`.html`), new `docs/guides/prd_format_review_2026-10-23.md` (+`.html`).
+**Change**: colour = type of change only (green new, amber changed, grey existing, red removed), the same in tables and class diagrams; progress = ● / ◐ / ○ and plan-node borders; modified files as Today -> After. spec-115 recoloured and corrected (two "changed" methods did not exist yet). Reviewed with the impeccable critique method (21/40 before fixes; detector 33 findings -> 0) and a senior-engineer review; recommendations in the review doc.
+**Reason**: owner: colour-code new vs changed and highlight changes in every PRD; review the HTML for clarity, size, focus and readability; recommend PRD-rule improvements.
+
+### 2026-10-23 [DOCS] spec-115 Album workbench — split from spec-112 Phase A2, first spec in the new PRD format
+**Files**: new `specs/115-album-workbench/{spec,tasks,updates}.md` (+ `.html`); `specs/112-live-db-storage-runner/{spec,tasks,updates}.md` (+ `.html`, A2 replaced by links); `ROADMAP.md` (+`.html`).
+**Change**: objective (3 lines), 15 requirements each with its check (R6, R7, R15 done in W1), plan flowchart W1-W5 with modules and checks, class diagram (new/changed classes), new-files and modified-files tables. spec-112 keeps Phase A and Phase B.
+**Reason**: owner: write the album workbench as spec-115 in the new format.
+
+### 2026-10-23 [DOCS][CONFIG] New PRD format: objective, requirements table, plan flowchart, class diagram, file tables
+**Files**: `WORKFLOW.md` (spec.md template + rules), `CLAUDE.md` (Roadmap + readable docs), `scripts/md2html.py` (mermaid rendering).
+**Change**: `spec.md` now has six sections in order: objective (max 3 lines); requirements (max 15 rows, each with its check); plan flowchart (steps, modules, closing check); class diagram (new/changed marked); new-files table (file, class, responsibility, methods, attributes); modified-files table. `md2html.py` loads mermaid 10.9.1 when a doc has a mermaid block and renders the diagrams (verified with Playwright: 2 of 2 diagrams drawn). Older specs keep their format until re-planned.
+**Reason**: owner: the md -> html PRDs are not readable enough; more flowcharts, a short objective, a requirements table, a class diagram and per-file design tables.
+
 ### 2026-10-23 [FEATURE][PERF] spec-112 A2 W1 — inputs staged once by content; job runs use the feature cache
 **Files**: new `sim_bench/serving/input_store.py`; `sim_bench/serving/{job_store,job_service,curate_job,staging}.py`, `sim_bench/control/loader.py`, `sim_bench/api/routers/jobs.py` (`_file` -> `JobStore.resolve`), `sim_bench/pipeline/steps/discover_images.py`; tests `tests/serving/test_input_store.py`, `tests/pipeline/{test_cache_model_version,test_discover_given_images}.py` (new), `tests/serving/test_curate_job.py`, `tests/control/{fakes,test_job_service}.py`; spec-112 spec/tasks/updates; LEARNINGS.
 **Change**: photos are resized once into `<jobs_root>/_inputs/<sha16>/<name>.jpg`; a job's `input/` holds `manifest.json`. The pipeline is handed those paths (no temp copy, no folder scan), and `run_pipeline` now attaches the feature cache (`ALBUMIFY_FEATURE_CACHE`, default `~/.sim_bench/sim_bench.db`); job runs had none. Older jobs with `input/*.jpg` still load and serve.

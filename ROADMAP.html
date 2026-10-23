@@ -234,6 +234,28 @@
   nav#TOC li{font-size:14px;margin:3px 0;}
   img{max-width:100%;}
   strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
 
   </style>
 </head>
@@ -343,13 +365,14 @@ technical write-up</td>
 </table>
 <h2 id="current-position">Current position</h2>
 <ul>
-<li><strong>2026-10-23 — next: spec-112 Phase A2, the album
-workbench</strong> (owner: a stable way to run and examine albums,
-locally or on the L4, comes before Gate 1; Gate 1 is then judged in that
-app). Run from the app, live status, re-run + compare, results-only
-copy-back (no pictures back from Modal), feature cache kept on a Modal
-Volume, input retention. Approved 2026-10-23 (inputs kept 7 days on
-Modal; re-run by pipeline name); W1 started.</li>
+<li><strong>2026-10-23 — next: <a
+href="specs/115-album-workbench/spec.html">spec-115</a>, the album
+workbench</strong> (was spec-112 Phase A2) (owner: a stable way to run
+and examine albums, locally or on the L4, comes before Gate 1; Gate 1 is
+then judged in that app). Run from the app, live status, re-run +
+compare, results-only copy-back (no pictures back from Modal), feature
+cache kept on a Modal Volume, input retention. Approved 2026-10-23
+(inputs kept 7 days on Modal; re-run by pipeline name); W1 started.</li>
 <li>Last commit 2026-10-09: roadmap and rendered documentation. Latest
 worker fixes and run artifacts are still uncommitted.</li>
 <li>The last week worked Stages B and C (and the v1.5 agentic layer)
@@ -524,13 +547,20 @@ open</td>
 href="specs/110-containerized-worker-modal-cpu/updates.html">updates</a></td>
 </tr>
 <tr>
+<td><a href="specs/115-album-workbench/spec.html">115</a></td>
+<td>Album workbench: run, re-run and examine albums, local or L4</td>
+<td>C (next, before Gate 1)</td>
+<td>In Progress — W1 done 2026-10-23 (inputs staged once; job runs use
+the feature cache); W2 next</td>
+<td><a href="specs/115-album-workbench/updates.html">updates</a> · <a
+href="specs/115-album-workbench/tasks.html">tasks</a></td>
+</tr>
+<tr>
 <td><a href="specs/112-live-db-storage-runner/spec.html">112</a></td>
 <td>Live DB + storage, runner as config (Neon + R2)</td>
 <td>C</td>
-<td>In Progress — Phase A built and proven on Slovakia26 (L4);
-<strong>Phase A2 "album workbench" drafted 2026-10-23 (next; before Gate
-1)</strong>: run/watch/re-run from the app, no pictures back from Modal,
-L4 cache kept across runs</td>
+<td>In Progress — Phase A built and proven on Slovakia26 (L4); Phase A2
+moved to spec-115; Phase B (Neon + R2) open</td>
 <td><a href="specs/112-live-db-storage-runner/updates.html">updates</a>
 · <a href="specs/112-live-db-storage-runner/tasks.html">tasks</a></td>
 </tr>

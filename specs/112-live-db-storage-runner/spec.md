@@ -1,6 +1,6 @@
 # spec-112 — Live DB + storage, runner as config
 
-**Status:** In Progress (Phase A; Phase A2 "album workbench" approved 2026-10-23, W1 in progress)
+**Status:** In Progress (Phase A built; Phase A2 "album workbench" moved to [spec-115](../115-album-workbench/spec.html) on 2026-10-23; Phase B open)
 **Owner:** Jonathan / Claude
 **Priority:** P1 (Stage C critical path — every later product piece reads from here)
 **Roadmap:** Stage C · see [ROADMAP.md](../../ROADMAP.html)
@@ -18,12 +18,7 @@ and the Next.js front end.
   fields inside `album.json`.
 - Face embeddings stay in the worker's results file in storage (not DB columns) for v1.
 
-**Decisions (owner, 2026-10-23) — Phase A2:**
-- A stable way to run and examine albums, locally or on the L4, comes before Gate 1: the picks are
-  judged in this app.
-- Cloud and local must behave the same: only where the computation runs differs. No pictures come back
-  from the worker; the app shows the PC's own copies.
-- Re-runs on the L4 must reuse what was already computed (the feature cache stays with the worker).
+**Phase A2 (album workbench) moved to [spec-115](../115-album-workbench/spec.html)** (owner, 2026-10-23), written in the new PRD format.
 
 ## 1. Problem
 
@@ -102,46 +97,8 @@ remains as a debug artifact and for byte-comparison in spec-110 AC4).
 7. **Viewer (O1):** thin read-only Streamlit page over the API: job list → picks, dropped with reasons,
    people.
 
-**Phase A2 — album workbench (owner, 2026-10-23):** run, watch, re-run and examine albums from the app,
-locally or on the L4, without moving pictures back and forth.
-
-```
- today                                            Phase A2
- -----                                            --------
- stage: resize to 768 px into jobs/<id>/input/    stage into a content store: inputs/<sha>.jpg
- upload all 715 again for every run               upload only photos the worker has not seen
- L4 cache inside the container: lost at exit      L4 cache on a Modal Volume: kept across runs
- download 993 files one by one (19 min)           download ~5 files (album.json, run.json, results/)
- display/ + face crops come back from Modal       made on the PC from its own 768 px copies + bboxes
- start a job: API / scripts only                  "Run album" form, live status, Re-run, Cancel
- uploaded photos stay on the Volume forever       deleted after N days or on demand (O3)
-```
-
-10. **Run from the app.** Jobs page form: folder, photo range (start, n), runner (local / L4 / Modal CPU),
-    pipeline. Calls the existing `POST /jobs`. The L4 path shows an estimate (photos to upload,
-    estimated GPU minutes) and asks for confirmation; a per-job photo limit (config) refuses larger jobs.
-11. **Live status:** the page refreshes itself while a job is queued/staging/running/loading and shows the
-    stage, the latest event and elapsed time. **Cancel** stops a queued or running job (local: kill the
-    child; Modal: cancel the function call); the job ends `failed` with "cancelled by owner".
-12. **Re-run:** a button on any finished job refills the form with its source, range and pipeline; the new
-    job is a separate job (old results stay), and Compare runs opens on the pair when it finishes.
-13. **Content-addressed inputs.** Staging writes `inputs/<sha256>.jpg` (hash of the original file bytes +
-    the staging version, 768 px q85), stored as `<sha16>/<original name>.jpg` so the photo id is unchanged;
-    the job keeps `input/manifest.json` listing its keys. Locally under `<jobs_root>/_inputs/`; on Modal on a
-    Volume `albumify-inputs`. The runner uploads only hashes the
-    Volume lacks. Because the pipeline cache keys images by path, a stable path per photo is what lets
-    a re-run hit the cache (true locally too: today every new job id is a new path).
-14. **Worker feature cache on a Volume** (`albumify-cache`): the worker's `sim_bench.db` feature cache
-    (faces, embeddings, quality, scene features) lives on a Volume and is committed after each job, so a
-    re-run recomputes only steps whose inputs or settings changed.
-15. **Results-only copy-back.** The worker writes only `album.json`, `run.json` and `results/` (`bundle.json`,
-    embeddings); no `display/`, no `faces/` crops. The PC builds display images and face crops from its
-    own 768 px copy plus the bundle's bboxes (simple bbox crop with margin, not the worker's aligned crop).
-    Local runs use the same code path, so both runners leave identical job folders.
-16. **Run settings recorded.** `run.json` gains the pipeline config as run, the code commit, the runner and
-    device, and the model names/versions; the Jobs page shows them, and Compare runs shows what differs.
-17. **Input retention on Modal:** `albumify-inputs` entries not used for N days are deleted (scheduled
-    Modal function); a "Delete my photos from Modal" button removes them now (O3).
+**Phase A2 — album workbench:** see [spec-115](../115-album-workbench/spec.html) (run/re-run/examine from the app, inputs staged once, cache kept
+on the L4, results-only copy-back).
 
 **Phase B — cloud, configuration only:**
 8. R2 backend for the object store (`boto3`, S3 protocol); short-lived download URLs.
@@ -163,20 +120,7 @@ locally or on the L4, without moving pictures back and forth.
 - **AC5** A promote / rename edit through the API is stored in `user_edits` and reflected in the
   next `GET /jobs/{id}/album`.
 
-**Phase A2**
-- **AC9** From the app alone (no script, no curl), a Slovakia26 job is started on the L4, its status
-  updates without a manual refresh, and the album opens when it finishes.
-- **AC10** No picture is downloaded from Modal: the job's copy-back is at most 10 files, and the Jobs page
-  still shows every pick, dropped photo and face crop. Copy-back for Slovakia26 takes under 1 minute
-  (was 19.4).
-- **AC11** A re-run of the same photos on the L4 uploads 0 photos and reuses the cache: face detection and
-  embedding are not recomputed (cache hits in the worker log; GPU time well below the first run).
-- **AC12** A local job and an L4 job on the same photos leave the same set of files in their job folders;
-  Compare runs on the pair reports the same picks (spec-110 CPU/GPU parity).
-- **AC13** Cancel ends a running job `failed` ("cancelled by owner") within 30 s, on both runners.
-- **AC14** `run.json` names the pipeline config, commit, runner/device and model versions; Compare runs
-  shows the differing settings of the two jobs.
-- **AC15** "Delete my photos from Modal" leaves no file of that job's photos on `albumify-inputs`.
+**Phase A2:** acceptance moved to [spec-115](../115-album-workbench/spec.html) (R1-R15).
 
 **Phase B**
 - **AC6** Switching only `DATABASE_URL` and the storage root to Neon + R2, the same job runs with
@@ -187,31 +131,11 @@ locally or on the L4, without moving pictures back and forth.
 
 ## 6. Open decisions
 
-- **O3 — decided (owner, 2026-10-23): 7 days.** Inputs on Modal unused for 7 days are deleted; the cache
-  Volume holds derived features, not photos, and is kept.
-- **O4 — decided (owner, 2026-10-23): pipeline name only** in v1; per-parameter overrides come later with
-  the profile work.
-
-- **O2** R2 lifecycle (auto-delete) rule: set now (e.g. delete `jobs/*` after 30 days, showcase trips
-  under `seed/` never expire) or with spec-106 TTL work. Rec: with spec-106; nothing anonymous is
-  uploaded before then.
+- O3/O4 (Phase A2) decided 2026-10-23, recorded in [spec-115](../115-album-workbench/spec.html).
 
 ## 7. Dependencies & risks
 
-- **Phase A2 — stale cache:** spec-079 already treats a row with another `model_version` as a miss, for
-  steps that declare one (TW1.1 found it untested and added the test). Steps that declare none
-  (`score_iqa`, `detect_persons`, scene embedding, face scorers) rely on a `model_name` bump when their
-  output changes (as spec-098 did); a persistent L4 cache makes forgetting that costlier.
-- **Found in TW1.3 (2026-10-23): job runs had no feature cache at all.** `run_pipeline` built a context
-  without a cache handler and ran over a fresh temp copy of the inputs, so every local and L4 job
-  recomputed everything. Fixed in W1 (cache attached; stable input paths).
-- **Phase A2 — one writer:** a SQLite cache on a Modal Volume is safe for one job at a time. v1 runs L4
-  jobs one at a time (the API queues the second); parallel L4 jobs need a different cache store.
-- **Phase A2 — Phase B overlap:** `albumify-inputs` is a Volume in Phase A2; Phase B moves inputs to R2
-  with the same content keys, so nothing is designed twice.
-- **Phase A2 spend:** the proof needs two L4 runs of Slovakia26 (first run, then the re-run for AC11), about
-  10 GPU-minutes for the first, less for the second. Owner approval before each.
-
+- Phase A2 risks: see [spec-115](../115-album-workbench/spec.html).
 - **Phase B owner setup:** Neon project + connection string; Cloudflare account, R2 bucket, scoped
   token; local `.env`; `modal secret create`. Claude cannot create accounts.
 - **Local default-pipeline runs are blocked** by SIGHTING-127 (RAM++ segfault). Phase A proves the
@@ -227,7 +151,6 @@ locally or on the L4, without moving pictures back and forth.
 
 ## 8. Definition of done
 
-AC1–AC8 verified (Phase A on local, Phase B on real Neon + R2 + Modal), and AC9–AC15 for Phase A2
-(real Slovakia26 L4 runs from the app, Playwright on the Jobs page); `updates.md` names the
+AC1–AC8 verified (Phase A on local, Phase B on real Neon + R2 + Modal); `updates.md` names the
 evidence; `docs/architecture/{data_flow,classes,db_schemas}.html` updated; CHANGES_LOG;
 `/code-review` → REVIEW.md with no High findings. See `tasks.md`.

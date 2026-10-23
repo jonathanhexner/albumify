@@ -234,6 +234,28 @@
   nav#TOC li{font-size:14px;margin:3px 0;}
   img{max-width:100%;}
   strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
 
   </style>
 </head>
@@ -262,19 +284,21 @@ Definition of done</a></li>
 </nav>
 <h1 id="spec-112--live-db--storage-runner-as-config">spec-112 — Live DB
 + storage, runner as config</h1>
-<p><strong>Status:</strong> In Progress (Phase A; Phase A2 "album
-workbench" approved 2026-10-23, W1 in progress) <strong>Owner:</strong>
-Jonathan / Claude <strong>Priority:</strong> P1 (Stage C critical path —
-every later product piece reads from here) <strong>Roadmap:</strong>
-Stage C · see <a href="../../ROADMAP.html">ROADMAP.md</a>
-<strong>Relation:</strong> takes over [[spec-106]] T2.1 (object store)
-and the DB half of T3.1 (<code>jobs</code> / <code>job_events</code>);
-builds on the [[spec-110]] job layout (<code>input/</code>,
-<code>album.json</code>, <code>display/</code>, <code>run.json</code>)
-and reuses the normalized per-run schema written by
-<code>sim_bench/run_db/exporter.py</code> (<code>RunExporter</code>).
-spec-106 keeps presigned browser upload (T2.2), the state-machine logic,
-the browser-facing API, and the Next.js front end.</p>
+<p><strong>Status:</strong> In Progress (Phase A built; Phase A2 "album
+workbench" moved to <a
+href="../115-album-workbench/spec.html">spec-115</a> on 2026-10-23;
+Phase B open) <strong>Owner:</strong> Jonathan / Claude
+<strong>Priority:</strong> P1 (Stage C critical path — every later
+product piece reads from here) <strong>Roadmap:</strong> Stage C · see
+<a href="../../ROADMAP.html">ROADMAP.md</a> <strong>Relation:</strong>
+takes over [[spec-106]] T2.1 (object store) and the DB half of T3.1
+(<code>jobs</code> / <code>job_events</code>); builds on the
+[[spec-110]] job layout (<code>input/</code>, <code>album.json</code>,
+<code>display/</code>, <code>run.json</code>) and reuses the normalized
+per-run schema written by <code>sim_bench/run_db/exporter.py</code>
+(<code>RunExporter</code>). spec-106 keeps presigned browser upload
+(T2.2), the state-machine logic, the browser-facing API, and the Next.js
+front end.</p>
 <p><strong>Decisions (owner, 2026-10-10):</strong></p>
 <ul>
 <li>Neon Postgres (free plan) for the DB, Cloudflare R2 for
@@ -287,16 +311,9 @@ are DB rows, not only fields inside <code>album.json</code>.</li>
 <li>Face embeddings stay in the worker's results file in storage (not DB
 columns) for v1.</li>
 </ul>
-<p><strong>Decisions (owner, 2026-10-23) — Phase A2:</strong></p>
-<ul>
-<li>A stable way to run and examine albums, locally or on the L4, comes
-before Gate 1: the picks are judged in this app.</li>
-<li>Cloud and local must behave the same: only where the computation
-runs differs. No pictures come back from the worker; the app shows the
-PC's own copies.</li>
-<li>Re-runs on the L4 must reuse what was already computed (the feature
-cache stays with the worker).</li>
-</ul>
+<p><strong>Phase A2 (album workbench) moved to <a
+href="../115-album-workbench/spec.html">spec-115</a></strong> (owner,
+2026-10-23), written in the new PRD format.</p>
 <h2 id="1-problem">1. Problem</h2>
 <p>The same pipeline (<code>execute_spec</code>) runs in two places that
 never share results:</p>
@@ -426,64 +443,10 @@ folder), <code>GET /jobs/{id}</code> (status + events),
 <li><strong>Viewer (O1):</strong> thin read-only Streamlit page over the
 API: job list → picks, dropped with reasons, people.</li>
 </ol>
-<p><strong>Phase A2 — album workbench (owner, 2026-10-23):</strong> run,
-watch, re-run and examine albums from the app, locally or on the L4,
-without moving pictures back and forth.</p>
-<pre><code> today                                            Phase A2
- -----                                            --------
- stage: resize to 768 px into jobs/&lt;id&gt;/input/    stage into a content store: inputs/&lt;sha&gt;.jpg
- upload all 715 again for every run               upload only photos the worker has not seen
- L4 cache inside the container: lost at exit      L4 cache on a Modal Volume: kept across runs
- download 993 files one by one (19 min)           download ~5 files (album.json, run.json, results/)
- display/ + face crops come back from Modal       made on the PC from its own 768 px copies + bboxes
- start a job: API / scripts only                  &quot;Run album&quot; form, live status, Re-run, Cancel
- uploaded photos stay on the Volume forever       deleted after N days or on demand (O3)</code></pre>
-<ol start="10" type="1">
-<li><strong>Run from the app.</strong> Jobs page form: folder, photo
-range (start, n), runner (local / L4 / Modal CPU), pipeline. Calls the
-existing <code>POST /jobs</code>. The L4 path shows an estimate (photos
-to upload, estimated GPU minutes) and asks for confirmation; a per-job
-photo limit (config) refuses larger jobs.</li>
-<li><strong>Live status:</strong> the page refreshes itself while a job
-is queued/staging/running/loading and shows the stage, the latest event
-and elapsed time. <strong>Cancel</strong> stops a queued or running job
-(local: kill the child; Modal: cancel the function call); the job ends
-<code>failed</code> with "cancelled by owner".</li>
-<li><strong>Re-run:</strong> a button on any finished job refills the
-form with its source, range and pipeline; the new job is a separate job
-(old results stay), and Compare runs opens on the pair when it
-finishes.</li>
-<li><strong>Content-addressed inputs.</strong> Staging writes
-<code>inputs/&lt;sha256&gt;.jpg</code> (hash of the original file bytes
-+ the staging version, 768 px q85), stored as
-<code>&lt;sha16&gt;/&lt;original name&gt;.jpg</code> so the photo id is
-unchanged; the job keeps <code>input/manifest.json</code> listing its
-keys. Locally under <code>&lt;jobs_root&gt;/_inputs/</code>; on Modal on
-a Volume <code>albumify-inputs</code>. The runner uploads only hashes
-the Volume lacks. Because the pipeline cache keys images by path, a
-stable path per photo is what lets a re-run hit the cache (true locally
-too: today every new job id is a new path).</li>
-<li><strong>Worker feature cache on a Volume</strong>
-(<code>albumify-cache</code>): the worker's <code>sim_bench.db</code>
-feature cache (faces, embeddings, quality, scene features) lives on a
-Volume and is committed after each job, so a re-run recomputes only
-steps whose inputs or settings changed.</li>
-<li><strong>Results-only copy-back.</strong> The worker writes only
-<code>album.json</code>, <code>run.json</code> and <code>results/</code>
-(<code>bundle.json</code>, embeddings); no <code>display/</code>, no
-<code>faces/</code> crops. The PC builds display images and face crops
-from its own 768 px copy plus the bundle's bboxes (simple bbox crop with
-margin, not the worker's aligned crop). Local runs use the same code
-path, so both runners leave identical job folders.</li>
-<li><strong>Run settings recorded.</strong> <code>run.json</code> gains
-the pipeline config as run, the code commit, the runner and device, and
-the model names/versions; the Jobs page shows them, and Compare runs
-shows what differs.</li>
-<li><strong>Input retention on Modal:</strong>
-<code>albumify-inputs</code> entries not used for N days are deleted
-(scheduled Modal function); a "Delete my photos from Modal" button
-removes them now (O3).</li>
-</ol>
+<p><strong>Phase A2 — album workbench:</strong> see <a
+href="../115-album-workbench/spec.html">spec-115</a> (run/re-run/examine
+from the app, inputs staged once, cache kept on the L4, results-only
+copy-back).</p>
 <p><strong>Phase B — cloud, configuration only:</strong> 8. R2 backend
 for the object store (<code>boto3</code>, S3 protocol); short-lived
 download URLs. 9. <code>DATABASE_URL</code> → Neon; the worker
@@ -511,30 +474,8 @@ stuck in <code>running</code>.</li>
 stored in <code>user_edits</code> and reflected in the next
 <code>GET /jobs/{id}/album</code>.</li>
 </ul>
-<p><strong>Phase A2</strong></p>
-<ul>
-<li><strong>AC9</strong> From the app alone (no script, no curl), a
-Slovakia26 job is started on the L4, its status updates without a manual
-refresh, and the album opens when it finishes.</li>
-<li><strong>AC10</strong> No picture is downloaded from Modal: the job's
-copy-back is at most 10 files, and the Jobs page still shows every pick,
-dropped photo and face crop. Copy-back for Slovakia26 takes under 1
-minute (was 19.4).</li>
-<li><strong>AC11</strong> A re-run of the same photos on the L4 uploads
-0 photos and reuses the cache: face detection and embedding are not
-recomputed (cache hits in the worker log; GPU time well below the first
-run).</li>
-<li><strong>AC12</strong> A local job and an L4 job on the same photos
-leave the same set of files in their job folders; Compare runs on the
-pair reports the same picks (spec-110 CPU/GPU parity).</li>
-<li><strong>AC13</strong> Cancel ends a running job <code>failed</code>
-("cancelled by owner") within 30 s, on both runners.</li>
-<li><strong>AC14</strong> <code>run.json</code> names the pipeline
-config, commit, runner/device and model versions; Compare runs shows the
-differing settings of the two jobs.</li>
-<li><strong>AC15</strong> "Delete my photos from Modal" leaves no file
-of that job's photos on <code>albumify-inputs</code>.</li>
-</ul>
+<p><strong>Phase A2:</strong> acceptance moved to <a
+href="../115-album-workbench/spec.html">spec-115</a> (R1-R15).</p>
 <p><strong>Phase B</strong></p>
 <ul>
 <li><strong>AC6</strong> Switching only <code>DATABASE_URL</code> and
@@ -549,70 +490,38 @@ fully on local SQLite + local folder.</li>
 </ul>
 <h2 id="6-open-decisions">6. Open decisions</h2>
 <ul>
-<li><p><strong>O3 — decided (owner, 2026-10-23): 7 days.</strong> Inputs
-on Modal unused for 7 days are deleted; the cache Volume holds derived
-features, not photos, and is kept.</p></li>
-<li><p><strong>O4 — decided (owner, 2026-10-23): pipeline name
-only</strong> in v1; per-parameter overrides come later with the profile
-work.</p></li>
-<li><p><strong>O2</strong> R2 lifecycle (auto-delete) rule: set now
-(e.g. delete <code>jobs/*</code> after 30 days, showcase trips under
-<code>seed/</code> never expire) or with spec-106 TTL work. Rec: with
-spec-106; nothing anonymous is uploaded before then.</p></li>
+<li>O3/O4 (Phase A2) decided 2026-10-23, recorded in <a
+href="../115-album-workbench/spec.html">spec-115</a>.</li>
 </ul>
 <h2 id="7-dependencies--risks">7. Dependencies &amp; risks</h2>
 <ul>
-<li><p><strong>Phase A2 — stale cache:</strong> spec-079 already treats
-a row with another <code>model_version</code> as a miss, for steps that
-declare one (TW1.1 found it untested and added the test). Steps that
-declare none (<code>score_iqa</code>, <code>detect_persons</code>, scene
-embedding, face scorers) rely on a <code>model_name</code> bump when
-their output changes (as spec-098 did); a persistent L4 cache makes
-forgetting that costlier.</p></li>
-<li><p><strong>Found in TW1.3 (2026-10-23): job runs had no feature
-cache at all.</strong> <code>run_pipeline</code> built a context without
-a cache handler and ran over a fresh temp copy of the inputs, so every
-local and L4 job recomputed everything. Fixed in W1 (cache attached;
-stable input paths).</p></li>
-<li><p><strong>Phase A2 — one writer:</strong> a SQLite cache on a Modal
-Volume is safe for one job at a time. v1 runs L4 jobs one at a time (the
-API queues the second); parallel L4 jobs need a different cache
-store.</p></li>
-<li><p><strong>Phase A2 — Phase B overlap:</strong>
-<code>albumify-inputs</code> is a Volume in Phase A2; Phase B moves
-inputs to R2 with the same content keys, so nothing is designed
-twice.</p></li>
-<li><p><strong>Phase A2 spend:</strong> the proof needs two L4 runs of
-Slovakia26 (first run, then the re-run for AC11), about 10 GPU-minutes
-for the first, less for the second. Owner approval before each.</p></li>
-<li><p><strong>Phase B owner setup:</strong> Neon project + connection
+<li>Phase A2 risks: see <a
+href="../115-album-workbench/spec.html">spec-115</a>.</li>
+<li><strong>Phase B owner setup:</strong> Neon project + connection
 string; Cloudflare account, R2 bucket, scoped token; local
 <code>.env</code>; <code>modal secret create</code>. Claude cannot
-create accounts.</p></li>
-<li><p><strong>Local default-pipeline runs are blocked</strong> by
+create accounts.</li>
+<li><strong>Local default-pipeline runs are blocked</strong> by
 SIGHTING-127 (RAM++ segfault). Phase A proves the local runner with
 <code>minimal_pipeline</code>; full-pipeline evidence comes from Modal
-runs.</p></li>
-<li><p><strong>Slovakia re-run needed:</strong> the 2026-10-09 run
-predates the results bundle, so AC1 needs one new Modal run of the trip
-(about 6 min on the L4).</p></li>
-<li><p><strong>Schema rekey:</strong> <code>RunExporter</code> keys
-images by file path; the DB keys by <code>(job_id, photo_id)</code>. The
-loader translates; the exporter itself is not changed for the
-face-clustering app.</p></li>
-<li><p><strong>SQLite → Postgres portability:</strong> booleans stored
-as INTEGER and timestamps as TEXT in the run schema; the control DB uses
-portable SQLAlchemy types and Phase B runs the same tests on
-Neon.</p></li>
-<li><p>Neon free plan sleeps after 5 min idle (about 1 s wake) and
-suspends at the monthly compute cap. R2 free plan: 10 GB; one trip at
-768 px plus crops is about 0.1–0.2 GB.</p></li>
+runs.</li>
+<li><strong>Slovakia re-run needed:</strong> the 2026-10-09 run predates
+the results bundle, so AC1 needs one new Modal run of the trip (about 6
+min on the L4).</li>
+<li><strong>Schema rekey:</strong> <code>RunExporter</code> keys images
+by file path; the DB keys by <code>(job_id, photo_id)</code>. The loader
+translates; the exporter itself is not changed for the face-clustering
+app.</li>
+<li><strong>SQLite → Postgres portability:</strong> booleans stored as
+INTEGER and timestamps as TEXT in the run schema; the control DB uses
+portable SQLAlchemy types and Phase B runs the same tests on Neon.</li>
+<li>Neon free plan sleeps after 5 min idle (about 1 s wake) and suspends
+at the monthly compute cap. R2 free plan: 10 GB; one trip at 768 px plus
+crops is about 0.1–0.2 GB.</li>
 </ul>
 <h2 id="8-definition-of-done">8. Definition of done</h2>
 <p>AC1–AC8 verified (Phase A on local, Phase B on real Neon + R2 +
-Modal), and AC9–AC15 for Phase A2 (real Slovakia26 L4 runs from the app,
-Playwright on the Jobs page); <code>updates.md</code> names the
-evidence;
+Modal); <code>updates.md</code> names the evidence;
 <code>docs/architecture/{data_flow,classes,db_schemas}.html</code>
 updated; CHANGES_LOG; <code>/code-review</code> → REVIEW.md with no High
 findings. See <code>tasks.md</code>.</p>

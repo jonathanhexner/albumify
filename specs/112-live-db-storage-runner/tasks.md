@@ -1,6 +1,6 @@
 # spec-112 — Tasks (Live DB + storage, runner as config)
 
-**Status:** In Progress — Phase A A1–A5 built 2026-10-10 (63 new tests); A6 real-data proof folded into Phase A2's proof (W5). Phase A2 (album workbench) approved 2026-10-23 (O3 = 7 days, O4 = pipeline name only); W1 in progress.
+**Status:** In Progress — Phase A A1–A5 built 2026-10-10 (63 new tests); A6 real-data proof closes with spec-115 W5. Phase A2 moved to spec-115.
 **Spec:** [spec.md](spec.html) · [updates](updates.html) · roadmap stage **C** · [ROADMAP.md](../../ROADMAP.html)
 
 ## Design notes
@@ -61,68 +61,12 @@
 ## A6 — Prove Phase A
 - [x] TA6.1 Slovakia26 via `JobService` on `modal_gpu`; loaded (715 photos, 987 faces). (AC1, AC2) | 2026-10-11. Re-run needed after SIGHTING-132 + the face→person fix.
 - [x] TA6.2 Compare `GET /jobs/{id}/album` with the worker's `album.json`. (AC3) | 2026-10-11 identical
-- [ ] TA6.3 Forced failure; promote + rename edit round-trip. (AC4, AC5) → done in TW5.4
-- [>] TA6.4 Playwright screenshots of the viewer on the Slovakia job; updates.md entry. | 2026-10-11 four tabs captured; People thumbnails pending the re-run → TW5.1
+- [ ] TA6.3 Forced failure; promote + rename edit round-trip. (AC4, AC5) → spec-115 T5.5
+- [>] TA6.4 Playwright screenshots of the viewer on the Slovakia job; updates.md entry. | 2026-10-11 four tabs captured; People thumbnails pending the re-run → spec-115 T5.5
 
-# Phase A2 — album workbench (spec §4 items 10–17, AC9–AC15)
+# Phase A2 — moved to [spec-115](../115-album-workbench/tasks.html)
 
-Order: the cache and input changes first (they change what a job folder contains), the app last.
-
-## W1 — Stable inputs and a safe cache
-- [x] TW1.1 Feature-cache lookup includes `model_version`; test: a cached entry from another model
-      version is a miss. (risk: stale cache) | 2026-10-23 the check already existed (spec-079, opt-in per
-      step) but had no test: `tests/pipeline/test_cache_model_version.py` (4)
-- [x] TW1.2 Content store `InputStore`: `put(original) -> sha` (hash of original bytes + staging
-      version), `path(sha)`, `has(sha)`; local root `~/.sim_bench/inputs/`. Staging writes there and the
-      job gets `input/manifest.json` (`photo_id -> sha`) instead of copies. | 2026-10-23
-      `sim_bench/serving/input_store.py`; keys `<sha16>/<name>.jpg` under `<jobs_root>/_inputs`; `JobStore`
-      manifest + `resolve()` (API file route); older jobs with `input/*.jpg` still work.
-      `tests/serving/test_input_store.py` (13)
-- [x] TW1.3 `JobCurator` reads inputs through the manifest; the pipeline sees the stable
-      `inputs/<sha>.jpg` paths. Test: a second local job on the same photos hits the cache (no
-      recompute of a cached step). | 2026-10-23 no temp copy; `discover_images` takes given paths;
-      **`run_pipeline` now attaches the feature cache** (it had none). Tests +5. Real: 12 Budapest photos,
-      two local jobs: job 2 staged 0; IQA 1017->26 ms, AVA 1980->0, scene embedding 7719->10; same picks
-
-## W2 — Results-only copy-back, display and crops on the PC
-- [ ] TW2.1 Worker stops writing `display/` and `faces/` (flag kept for the local debug path only if
-      needed); writes `album.json`, `run.json`, `results/`.
-- [ ] TW2.2 Loader step `LocalRenders`: display images from the job's inputs, face crops from bbox +
-      margin; written into the job folder before the DB load. Same code for every runner. (AC10, AC12)
-- [ ] TW2.3 `ModalVolumeRemote.download` copies `album.json`, `run.json`, `results/*` only.
-- [ ] TW2.4 Tests: job folder file set identical for local and fake-Modal runners; crops match bboxes.
-
-## W3 — Modal: inputs Volume, cache Volume, retention
-- [ ] TW3.1 Volume `albumify-inputs` (content-addressed); `stage` uploads only missing hashes
-      (one listing, then batch upload). (AC11)
-- [ ] TW3.2 Volume `albumify-cache`; the worker points its `sim_bench.db` there, `reload()` before,
-      `commit()` after each job. L4 jobs run one at a time (the API queues). (AC11)
-- [ ] TW3.3 Retention: scheduled Modal function deletes inputs unused for 7 days (O3); API
-      `DELETE /jobs/{id}/remote-inputs` + button "Delete my photos from Modal". (AC15)
-- [ ] TW3.4 Tests with the fake remote: second stage uploads 0; delete removes only that job's hashes
-      not used by another job.
-
-## W4 — The app
-- [ ] TW4.1 Jobs page "Run album" form (folder, start, n, runner, pipeline) → `POST /jobs`; L4 path:
-      estimate (photos to upload, GPU minutes from the last runs' rate) + confirm; photo limit from
-      `configs/serving.yaml`. (AC9)
-- [ ] TW4.2 Auto-refresh while the job is live (`st.fragment(run_every=...)`): stage, latest event,
-      elapsed. (AC9)
-- [ ] TW4.3 Cancel: `POST /jobs/{id}/cancel`; `LocalRunner` kills the child, `ModalRunner` cancels the
-      function call; job → `failed` "cancelled by owner". (AC13)
-- [ ] TW4.4 Re-run button refills the form; on success, a link opens Compare runs on the pair. (AC12)
-- [ ] TW4.5 `run.json` records pipeline config, commit, runner/device, model versions; Jobs page shows
-      them; Compare runs lists differing settings. (AC14)
-- [ ] TW4.6 Playwright (real API + app): start a local `minimal_pipeline` job from the form, watch it
-      finish, cancel a second one, re-run → Compare opens. Screenshots stay on disk.
-
-## W5 — Prove Phase A2 (owner approval before each L4 run)
-- [ ] TW5.1 Slovakia26 from the form on `modal_gpu`: AC9, AC10 (copy-back time and file count), plus
-      Phase A's AC1–AC3 again (closes TA6.1/TA6.4 with the post-SIGHTING-132 pipeline).
-- [ ] TW5.2 Same photos re-run on the L4: AC11 (0 uploads, cache hits, GPU time).
-- [ ] TW5.3 Local vs L4 on a 48-photo slice: AC12 via Compare runs.
-- [ ] TW5.4 Forced failure + promote/rename round-trip (TA6.3) and Cancel on both runners (AC4, AC5, AC13).
-- [ ] TW5.5 Budapest gate not affected (no v2 tab change) — state it; full suite; `updates.md` entry.
+W1 (done 2026-10-23) and W2-W5 are tracked there. TA6.1/TA6.3/TA6.4 close with its W5.
 
 # Phase B — cloud, configuration only
 

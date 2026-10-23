@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-115--album-workbench-run-re-run-and-examine-albums-locally-or-on-the-l4"
+id="toc-spec-115--album-workbench-run-re-run-and-examine-albums-locally-or-on-the-l4">spec-115
+— Album workbench: run, re-run and examine albums, locally or on the
+L4</a>
+<ul>
+<li><a href="#1-objective" id="toc-1-objective">1. Objective</a></li>
+<li><a href="#2-requirements" id="toc-2-requirements">2.
+Requirements</a></li>
+<li><a href="#3-plan" id="toc-3-plan">3. Plan</a></li>
+<li><a href="#4-class-diagram" id="toc-4-class-diagram">4. Class
+diagram</a></li>
+<li><a href="#5-new-files" id="toc-5-new-files">5. New files</a></li>
+<li><a href="#6-modified-files" id="toc-6-modified-files">6. Modified
+files</a></li>
+<li><a href="#open-decisions--risks--non-goals"
+id="toc-open-decisions--risks--non-goals">Open decisions / risks /
+non-goals</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-115--album-workbench-run-re-run-and-examine-albums-locally-or-on-the-l4">spec-115
+— Album workbench: run, re-run and examine albums, locally or on the
+L4</h1>
+<p><strong>Status:</strong> In Progress (W1 done 2026-10-23) ·
+<strong>Created:</strong> 2026-10-23 · <strong>Roadmap:</strong> Stage
+C, next, before Gate 1 · <strong>Split from:</strong> <a
+href="../112-live-db-storage-runner/spec.html">spec-112</a> Phase A2</p>
+<p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
+
+<h2 id="1-objective">1. Objective</h2>
+<p>Start, watch, cancel and re-run album jobs from the Albumify app, on
+this PC or the Modal L4, and examine the results the same way either
+way. Photos go up once and never come back; re-runs reuse what was
+already computed. Gate 1 (judging the picks) is done in this app.</p>
+<h2 id="2-requirements">2. Requirements</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Status</th>
+<th>Requirement</th>
+<th>How we know it works</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1</td>
+<td>○</td>
+<td>Start a job from the Jobs page: folder, photo range, runner (local /
+L4 / Modal CPU), pipeline name</td>
+<td><code>tests/test_jobs_page_run_e2e.py::test_run_from_form</code>
+(local <code>minimal</code> job ends <code>succeeded</code>, its album
+opens); real L4 run of Slovakia26 from the form</td>
+</tr>
+<tr>
+<td>R2</td>
+<td>○</td>
+<td>L4 jobs show an estimate (photos to upload, GPU minutes, cost) and
+need a confirm. <strong>Spend cap:</strong> a job over
+<code>max_photos_l4</code> (default 1,000) or
+<code>max_gpu_minutes</code> (default 30, about $0.40 on the L4) is
+refused</td>
+<td><code>tests/control/test_job_service.py::ut_Estimate</code>
+(estimate, both limits → 422);
+<code>test_jobs_page_run_e2e.py::test_l4_needs_confirm</code></td>
+</tr>
+<tr>
+<td>R3</td>
+<td>○</td>
+<td>Status updates without a manual refresh: stage, latest event,
+elapsed time</td>
+<td><code>test_jobs_page_run_e2e.py::test_status_updates_without_reload</code>
+(status reaches <code>succeeded</code>, no page reload)</td>
+</tr>
+<tr>
+<td>R4</td>
+<td>○</td>
+<td>Cancel, local or L4, within 30 s. <strong>End state:</strong> job
+<code>failed</code>, error "cancelled by owner"; its results are not
+loaded and any partial <code>results/</code> is deleted; staged photos
+stay (they are shared); the L4 queue slot is freed at once; cache rows
+already written stay (they are valid), an L4 job's uncommitted cache
+writes are lost</td>
+<td><code>tests/control/test_job_service.py::ut_Cancel</code> (fake
+runners: end state, queue freed); real cancel on both runners</td>
+</tr>
+<tr>
+<td>R5</td>
+<td>○</td>
+<td>Re-run refills the form from a finished job; when the new job
+finishes, Compare runs opens on the pair</td>
+<td><code>test_jobs_page_run_e2e.py::test_rerun_opens_compare</code></td>
+</tr>
+<tr>
+<td>R6</td>
+<td>◐ local</td>
+<td><strong>Guarantees:</strong> each photo is resized and stored once,
+by content; job runs use the feature cache, so a re-run recomputes no
+cached step; a cached result from another model version is never
+reused</td>
+<td>● <code>tests/serving/test_input_store.py</code>,
+<code>test_job_service.py</code>,
+<code>tests/pipeline/test_cache_model_version.py</code>; ● real pair: 0
+new photos, IQA 1017→26 ms, scene embedding 7719→10 ms, same picks; ○ L4
+side in R9</td>
+</tr>
+<tr>
+<td>R7</td>
+<td>◐</td>
+<td><strong>File serving is per job:</strong> a job's image routes serve
+only that job's own files and the photos in its manifest; another job's
+photo, a path outside the store, or a made-up key → 404</td>
+<td>●
+<code>tests/serving/test_input_store.py::..._resolve_stays_inside</code>;
+○
+<code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code></td>
+</tr>
+<tr>
+<td>R8</td>
+<td>○</td>
+<td>No picture comes back from Modal: copy-back is at most 10 files and
+under 1 min for Slovakia26 (was 993 files, 19.4 min)</td>
+<td>real L4 run: file count + time in the job events</td>
+</tr>
+<tr>
+<td>R9</td>
+<td>○</td>
+<td>An L4 re-run uploads 0 photos and is served by the cache on a Modal
+Volume</td>
+<td>real L4 re-run: <code>0 new</code> in staging, cache hits in the
+worker log, GPU time well below the first run</td>
+</tr>
+<tr>
+<td>R10</td>
+<td>○</td>
+<td>Display images and face crops are made on the PC from its own copies
++ the face boxes; local and L4 jobs leave the same files.
+<strong>Orientation gate (T2.1):</strong> PC crops overlap the worker's
+crops (IoU ≥ 0.5) on ≥ 19 of 20 real faces, else the worker keeps
+sending crops</td>
+<td>T2.1 check on <code>slovakia26</code> (report on disk);
+<code>tests/control/test_local_renders.py</code> (same file set local vs
+fake-Modal; crop inside its box)</td>
+</tr>
+<tr>
+<td>R11</td>
+<td>○</td>
+<td>Local and L4 runs of the same photos give the same picks</td>
+<td>real 48-photo slice run locally and on the L4 → Compare runs: 0
+moved picks</td>
+</tr>
+<tr>
+<td>R12</td>
+<td>○</td>
+<td>Every run records its settings (pipeline steps + parameters, code
+commit, runner, device, key library versions); Compare runs shows what
+differs</td>
+<td><code>tests/serving/test_run_settings.py</code>;
+<code>test_jobs_page_run_e2e.py::test_compare_shows_settings_diff</code></td>
+</tr>
+<tr>
+<td>R13</td>
+<td>○</td>
+<td>Photos on Modal unused for 7 days are deleted, including the per-job
+photo copies left on <code>albumify-jobs</code> by earlier runs; a
+button deletes a job's photos now</td>
+<td><code>tests/serving/test_modal_staging.py</code> (fake Volume:
+purge, shared photos kept); real button, then a Volume listing</td>
+</tr>
+<tr>
+<td>R14</td>
+<td>◐ inputs</td>
+<td>Older jobs (images in <code>input/</code>, display/crops from the
+worker) still open and show</td>
+<td>● <code>tests/serving/test_curate_job.py::..._older_job_...</code>;
+○ <code>test_local_renders.py::test_old_job_files_untouched</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Definition of done:</strong> every row ● with its evidence in
+<a href="updates.html">updates.md</a>; full suite green;
+<code>/code-review</code> → REVIEW.md with no high findings;
+<code>scripts/prd_lint.py</code> passes.</p>
+<h2 id="3-plan">3. Plan</h2>
+<p>Thick border ● = done; dashed ○ = planned. Each step ends on the
+check that closes it.</p>
+<pre class="mermaid"><code>flowchart TD
+  W1[&quot;&lt;b&gt;● W1 Stable inputs + cache&lt;/b&gt; (done)&lt;br/&gt;&lt;i&gt;input_store.py (new), job_store.py, job_service.py,&lt;br/&gt;curate_job.py, discover_images.py, loader.py, routers/jobs.py&lt;/i&gt;&quot;]
+  C1{{&quot;● checked R6 R7 R14 (part)&lt;br/&gt;21 tests · real 12-photo pair · full suite 1,627 passed&quot;}}
+  W2[&quot;&lt;b&gt;○ W2 Results-only, renders on the PC&lt;/b&gt;&lt;br/&gt;worker stops writing display/ and faces/;&lt;br/&gt;LocalRenders makes them from inputs + boxes ·&lt;br/&gt;file routes serve only the job&#39;s own files&lt;br/&gt;&lt;i&gt;local_renders.py (new), curate_job.py, loader.py, job_store.py&lt;/i&gt;&quot;]
+  C2{{&quot;check R7 R10 R14&lt;br/&gt;orientation gate ≥ 19/20 · same files local vs fake-Modal · crop inside its box&quot;}}
+  W3[&quot;&lt;b&gt;○ W3 Modal: inputs + cache Volumes, retention&lt;/b&gt;&lt;br/&gt;upload only missing photos · cache on a Volume ·&lt;br/&gt;results-only download · 7-day purge + delete button&lt;br/&gt;&lt;i&gt;modal_app.py, runners.py, curate_job.py, routers/jobs.py&lt;/i&gt;&quot;]
+  C3{{&quot;check R8 R9 R13 with a fake Volume&lt;br/&gt;2nd stage uploads 0 · download lists results only&quot;}}
+  W4[&quot;&lt;b&gt;○ W4 The app&lt;/b&gt;&lt;br/&gt;run form + estimate/confirm · live status · Cancel · Re-run ·&lt;br/&gt;run settings + Compare diff&lt;br/&gt;&lt;i&gt;run_settings.py (new), pages/jobs.py, pages/compare.py,&lt;br/&gt;api_client.py, routers/jobs.py, job_service.py, runners.py&lt;/i&gt;&quot;]
+  C4{{&quot;check R1-R5 R12&lt;br/&gt;Playwright on the real app, local minimal jobs&quot;}}
+  W5[&quot;&lt;b&gt;○ W5 Prove on real data&lt;/b&gt;&lt;br/&gt;owner OK before each L4 run&lt;br/&gt;Slovakia26 on the L4 from the form, then the re-run ·&lt;br/&gt;local vs L4 on 48 photos · cancel on both runners&quot;]
+  C5{{&quot;check R1 R4 R8 R9 R11 R13&lt;br/&gt;updates.md evidence · full suite · /code-review&quot;}}
+  W1 --&gt; C1 --&gt; W2 --&gt; C2 --&gt; W3 --&gt; C3 --&gt; W4 --&gt; C4 --&gt; W5 --&gt; C5
+  classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
+  classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
+  classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
+  class W1,C1 done
+  class W2,W3,W4,W5 todo
+  class C2,C3,C4,C5 check</code></pre>
+<h2 id="4-class-diagram">4. Class diagram</h2>
+<p>Green = new class, amber = changed class. ✚ new member · ✎ changed ·
+✖ removed · unmarked = unchanged.</p>
+<pre class="mermaid"><code>classDiagram
+  direction TB
+  class JobsPage {
+    &lt;&lt;page&gt;&gt;
+    ✚ run form + estimate/confirm
+    ✚ live status
+    ✚ cancel / re-run
+    picks · dropped · people
+  }
+  class JobsRouter {
+    &lt;&lt;API&gt;&gt;
+    POST /jobs
+    ✚ GET /jobs/estimate
+    ✚ POST /jobs/id/cancel
+    ✚ DELETE /jobs/id/remote-inputs
+    ✎ GET /jobs/id (+settings)
+  }
+  class JobService {
+    +create(SubmitInputs) str
+    ✎ run(job_id, SubmitInputs)
+    ✚ _stage(job_id, source, start, n)
+    ✚ estimate(EstimateInputs) Estimate
+    ✚ cancel(job_id)
+  }
+  class ResultsLoader {
+    ✎ calc(LoadInputs) LoadResult
+  }
+  class LocalRenders {
+    ✚ calc(LocalRendersInputs) LocalRendersResult
+    ✚ render_display(src, dest)
+    ✚ render_crop(src, box, dest)
+  }
+  class JobStore {
+    +root: Path
+    ✚ inputs: InputStore
+    ✚ write_input_manifest(job_id, keys)
+    ✎ input_images(job_id) List~Path~
+    ✚ input_file_keys(job_id) Dict
+    ✚ resolve(job_id, key) Path
+    ✚ results_files(job_id) List~str~
+  }
+  class InputStore {
+    ✚ root: Path
+    ✚ key_for(original) str
+    ✚ path(key) Path
+    ✚ has(key) bool
+    ✚ put(original) str
+    ✚ put_bytes(key, data) Path
+  }
+  class Runner {
+    &lt;&lt;protocol&gt;&gt;
+    +run(job_id) RunOutcome
+    ✚ cancel(job_id)
+  }
+  class LocalRunner {
+    ✎ run(job_id) keeps child handle
+    ✚ cancel(job_id)
+  }
+  class ModalRunner {
+    ✎ run(job_id) upload missing, spawn, results only
+    ✚ cancel(job_id)
+  }
+  class ModalVolumeRemote {
+    ✖ stage(job_id, images)
+    ✖ curate(job_id, pipeline)
+    ✖ download(job_id, store)
+    ✚ missing(keys) List~str~
+    ✚ upload(keys, store)
+    ✚ spawn(job_id, keys, pipeline) str
+    ✚ cancel(call_id)
+    ✚ download_results(job_id, store) int
+    ✚ delete_inputs(keys)
+  }
+  class JobCurator {
+    ✎ calc(CurateJobInputs) CurateJobResult
+  }
+  class RunSettings {
+    ✚ pipeline, steps, commit
+    ✚ runner, device, packages
+    ✚ collect(plan, runner, device)$
+    ✚ diff(other) Dict
+  }
+  JobsPage --&gt; JobsRouter : api_client
+  JobsRouter --&gt; JobService
+  JobService --&gt; JobStore
+  JobService --&gt; Runner
+  JobService --&gt; ResultsLoader
+  ResultsLoader --&gt; LocalRenders
+  LocalRenders --&gt; JobStore
+  JobStore --&gt; InputStore
+  Runner &lt;|.. LocalRunner
+  Runner &lt;|.. ModalRunner
+  ModalRunner --&gt; ModalVolumeRemote
+  LocalRunner ..&gt; JobCurator : child process
+  ModalVolumeRemote ..&gt; JobCurator : on the L4
+  JobCurator --&gt; RunSettings
+  style InputStore fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style LocalRenders fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style RunSettings fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style JobsPage fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobsRouter fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ResultsLoader fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobStore fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style Runner fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style LocalRunner fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ModalRunner fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ModalVolumeRemote fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobCurator fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px</code></pre>
+<h2 id="5-new-files">5. New files</h2>
+<p>All <span class="tag new">NEW</span>. Test files are listed per task
+in <a href="tasks.html">tasks.md</a>.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class</th>
+<th>Responsibility</th>
+<th>Methods</th>
+<th>Attributes</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/serving/input_store.py</code></td>
+<td><code>InputStore</code></td>
+<td>Content-addressed staged photos
+<code>&lt;sha16&gt;/&lt;name&gt;.jpg</code>, written once</td>
+<td><code>key_for</code>, <code>path</code>, <code>has</code>,
+<code>put</code>, <code>put_bytes</code></td>
+<td><code>root</code>; module <code>STAGING_VERSION</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/local_renders.py</code></td>
+<td><code>LocalRenders</code> (+ <code>Inputs</code>,
+<code>Result</code>)</td>
+<td>Make <code>display/</code> (picks) and
+<code>faces/&lt;id&gt;.jpg</code> (box + margin) from the job's own
+inputs and <code>results/bundle.json</code>; same for every runner</td>
+<td><code>calc</code>, <code>render_display</code>,
+<code>render_crop</code></td>
+<td><code>margin</code>, <code>crop_size</code></td>
+<td>○ W2</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/run_settings.py</code></td>
+<td><code>RunSettings</code> (dataclass)</td>
+<td>What a run ran with: pipeline, resolved steps + parameters, code
+commit, runner, device, key library versions</td>
+<td><code>collect</code> (classmethod), <code>to_dict</code>,
+<code>diff</code></td>
+<td><code>pipeline</code>, <code>steps</code>, <code>commit</code>,
+<code>runner</code>, <code>device</code>, <code>packages</code></td>
+<td>○ W4</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-modified-files">6. Modified files</h2>
+<p>All <span class="tag chg">CHANGED</span>.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class / function</th>
+<th>Today</th>
+<th>After this spec</th>
+<th>Req</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/serving/job_store.py</code></td>
+<td><code>JobStore</code></td>
+<td>job's photos copied into <code>input/</code></td>
+<td><code>input/manifest.json</code> → shared store;
+<code>resolve()</code>; W2: <code>results_files()</code></td>
+<td>R6 R7 R10</td>
+<td>● W1 · ○ W2</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/job_service.py</code></td>
+<td><code>JobService</code></td>
+<td>stages copies; no estimate, no cancel</td>
+<td>stages via the store (only new photos resized); W4:
+<code>estimate</code>, <code>cancel</code>, one L4 job at a time, photo
+limit</td>
+<td>R2 R4 R6</td>
+<td>● W1 · ○ W4</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/curate_job.py</code></td>
+<td><code>JobCurator</code>, <code>run_pipeline</code></td>
+<td>temp copy of inputs; <strong>no feature cache</strong>; writes
+display/ + crops</td>
+<td>explicit paths + cache attached; W2: no display/ or crops; W4:
+<code>RunSettings</code> in run.json</td>
+<td>R6 R8 R12</td>
+<td>● W1 · ○ W2 · ○ W4</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/runners.py</code></td>
+<td><code>Runner</code>, <code>LocalRunner</code>,
+<code>ModalRunner</code>, <code>ModalVolumeRemote</code></td>
+<td>uploads all photos each run; downloads 993 files one by one; no
+cancel</td>
+<td>upload only missing photos; <code>spawn</code> (cancellable);
+download results only; <code>cancel</code>;
+<code>delete_inputs</code></td>
+<td>R4 R8 R9 R13</td>
+<td>○ W3 · W4</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/modal_app.py</code></td>
+<td><code>curate_job</code>, <code>purge_inputs</code> (new)</td>
+<td>photos per job on <code>albumify-jobs</code>, kept forever; cache
+lost at exit</td>
+<td><code>albumify-inputs</code> + <code>albumify-cache</code> Volumes;
+cache committed after each job; daily purge of photos unused 7 days</td>
+<td>R9 R13</td>
+<td>○ W3</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/loader.py</code></td>
+<td><code>ResultsLoader</code></td>
+<td>reads <code>input/</code> names; display/crops from the worker</td>
+<td>input keys from the manifest; W2: runs <code>LocalRenders</code>
+first</td>
+<td>R10 R14</td>
+<td>● W1 · ○ W2</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/routers/jobs.py</code>,
+<code>sim_bench/api/schemas/jobs.py</code></td>
+<td>routes, <code>JobDetail</code></td>
+<td>files only from the job folder</td>
+<td>files via <code>resolve</code>, limited to the job's own files (R7);
+W4: <code>/jobs/estimate</code>, <code>/jobs/{id}/cancel</code>,
+<code>DELETE /jobs/{id}/remote-inputs</code>, <code>settings</code></td>
+<td>R2 R4 R7 R12 R13</td>
+<td>● W1 · ○ W4</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/discover_images.py</code></td>
+<td><code>DiscoverImagesStep</code></td>
+<td>always scans a folder</td>
+<td>uses given image paths when handed them</td>
+<td>R6</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>app/streamlit/pages/jobs.py</code></td>
+<td>page functions</td>
+<td>view only; "Refresh to update"</td>
+<td>run form + estimate/confirm, live status, Cancel, Re-run</td>
+<td>R1-R5</td>
+<td>○ W4</td>
+</tr>
+<tr>
+<td><code>app/streamlit/pages/compare.py</code></td>
+<td>page functions</td>
+<td>picks and people only</td>
+<td>"Settings that differ" section</td>
+<td>R12</td>
+<td>○ W4</td>
+</tr>
+<tr>
+<td><code>app/streamlit/api_client.py</code></td>
+<td><code>ApiClient</code></td>
+<td>no job submit</td>
+<td><code>submit_job</code>, <code>estimate_job</code>,
+<code>cancel_job</code>, <code>delete_remote_inputs</code></td>
+<td>R1-R4 R13</td>
+<td>○ W4</td>
+</tr>
+<tr>
+<td><code>configs/serving.yaml</code></td>
+<td></td>
+<td>runner, pipeline, device</td>
+<td><code>max_photos_l4</code>, <code>l4_seconds_per_photo</code></td>
+<td>R2</td>
+<td>○ W4</td>
+</tr>
+<tr>
+<td><code>docs/architecture/{classes,data_flow}.html</code></td>
+<td></td>
+<td></td>
+<td>new classes; the job data flow</td>
+<td>doc rule</td>
+<td>● W1 · ○ close-out</td>
+</tr>
+</tbody>
+</table>
+<h2 id="open-decisions--risks--non-goals">Open decisions / risks /
+non-goals</h2>
+<ul>
+<li><strong>Decided (owner, 2026-10-23):</strong> photos kept on Modal 7
+days after last use; re-run chooses the pipeline by name only.</li>
+<li><strong>Risk: crop orientation.</strong> Face boxes come from the
+worker's detector; the PC crop must read the photo the same way (EXIF
+orientation, rotated-face detection). Gate in R10: checked on a real job
+before the worker stops sending crops.</li>
+<li><strong>Risk: one cache writer.</strong> A SQLite cache on a Modal
+Volume is safe for one job at a time, so L4 jobs queue.</li>
+<li><strong>Risk: steps without a model version</strong> in their cache
+key rely on a <code>model_name</code> bump when their output changes; a
+cache that persists on the L4 makes forgetting that costlier.</li>
+<li><strong>Non-goals:</strong> moving old Modal job outputs (album
+files stay on <code>albumify-jobs</code> until spec-112 Phase B), jobs
+surviving an API restart, cloud DB/storage (spec-112 Phase B), user
+accounts, the public site.</li>
+</ul>
+</div><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+document.querySelectorAll("pre.mermaid").forEach(function (pre) {
+  var div = document.createElement("div");
+  div.className = "mermaid";
+  div.textContent = pre.textContent;
+  pre.replaceWith(div);
+});
+mermaid.initialize({startOnLoad: false, securityLevel: "loose"});
+mermaid.run({querySelector: "div.mermaid"});
+</script>
+</body>
+</html>

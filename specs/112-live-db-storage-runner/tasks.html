@@ -234,6 +234,28 @@
   nav#TOC li{font-size:14px;margin:3px 0;}
   img{max-width:100%;}
   strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
 
   </style>
 </head>
@@ -264,24 +286,9 @@ viewer</a></li>
 <li><a href="#a6--prove-phase-a" id="toc-a6--prove-phase-a">A6 — Prove
 Phase A</a></li>
 </ul></li>
-<li><a href="#phase-a2--album-workbench-spec-4-items-1017-ac9ac15"
-id="toc-phase-a2--album-workbench-spec-4-items-1017-ac9ac15">Phase A2 —
-album workbench (spec §4 items 10–17, AC9–AC15)</a>
-<ul>
-<li><a href="#w1--stable-inputs-and-a-safe-cache"
-id="toc-w1--stable-inputs-and-a-safe-cache">W1 — Stable inputs and a
-safe cache</a></li>
-<li><a href="#w2--results-only-copy-back-display-and-crops-on-the-pc"
-id="toc-w2--results-only-copy-back-display-and-crops-on-the-pc">W2 —
-Results-only copy-back, display and crops on the PC</a></li>
-<li><a href="#w3--modal-inputs-volume-cache-volume-retention"
-id="toc-w3--modal-inputs-volume-cache-volume-retention">W3 — Modal:
-inputs Volume, cache Volume, retention</a></li>
-<li><a href="#w4--the-app" id="toc-w4--the-app">W4 — The app</a></li>
-<li><a href="#w5--prove-phase-a2-owner-approval-before-each-l4-run"
-id="toc-w5--prove-phase-a2-owner-approval-before-each-l4-run">W5 — Prove
-Phase A2 (owner approval before each L4 run)</a></li>
-</ul></li>
+<li><a href="#phase-a2--moved-to-spec-115"
+id="toc-phase-a2--moved-to-spec-115">Phase A2 — moved to
+spec-115</a></li>
 <li><a href="#phase-b--cloud-configuration-only"
 id="toc-phase-b--cloud-configuration-only">Phase B — cloud,
 configuration only</a>
@@ -300,9 +307,8 @@ Phase B</a></li>
 <h1 id="spec-112--tasks-live-db--storage-runner-as-config">spec-112 —
 Tasks (Live DB + storage, runner as config)</h1>
 <p><strong>Status:</strong> In Progress — Phase A A1–A5 built 2026-10-10
-(63 new tests); A6 real-data proof folded into Phase A2's proof (W5).
-Phase A2 (album workbench) approved 2026-10-23 (O3 = 7 days, O4 =
-pipeline name only); W1 in progress. <strong>Spec:</strong> <a
+(63 new tests); A6 real-data proof closes with spec-115 W5. Phase A2
+moved to spec-115. <strong>Spec:</strong> <a
 href="spec.html">spec.md</a> · <a href="updates.html">updates</a> ·
 roadmap stage <strong>C</strong> · <a
 href="../../ROADMAP.html">ROADMAP.md</a></p>
@@ -445,128 +451,17 @@ the face→person fix.</label></li>
 <code>GET /jobs/{id}/album</code> with the worker's
 <code>album.json</code>. (AC3) | 2026-10-11 identical</label></li>
 <li><label><input type="checkbox" />TA6.3 Forced failure; promote +
-rename edit round-trip. (AC4, AC5) → done in TW5.4</label></li>
+rename edit round-trip. (AC4, AC5) → spec-115 T5.5</label></li>
 </ul>
 <ul>
 <li>[&gt;] TA6.4 Playwright screenshots of the viewer on the Slovakia
 job; updates.md entry. | 2026-10-11 four tabs captured; People
-thumbnails pending the re-run → TW5.1</li>
+thumbnails pending the re-run → spec-115 T5.5</li>
 </ul>
-<h1 id="phase-a2--album-workbench-spec-4-items-1017-ac9ac15">Phase A2 —
-album workbench (spec §4 items 10–17, AC9–AC15)</h1>
-<p>Order: the cache and input changes first (they change what a job
-folder contains), the app last.</p>
-<h2 id="w1--stable-inputs-and-a-safe-cache">W1 — Stable inputs and a
-safe cache</h2>
-<ul class="task-list">
-<li><label><input type="checkbox" checked="" />TW1.1 Feature-cache
-lookup includes <code>model_version</code>; test: a cached entry from
-another model version is a miss. (risk: stale cache) | 2026-10-23 the
-check already existed (spec-079, opt-in per step) but had no test:
-<code>tests/pipeline/test_cache_model_version.py</code> (4)</label></li>
-<li><label><input type="checkbox" checked="" />TW1.2 Content store
-<code>InputStore</code>: <code>put(original) -&gt; sha</code> (hash of
-original bytes + staging version), <code>path(sha)</code>,
-<code>has(sha)</code>; local root <code>~/.sim_bench/inputs/</code>.
-Staging writes there and the job gets <code>input/manifest.json</code>
-(<code>photo_id -&gt; sha</code>) instead of copies. | 2026-10-23
-<code>sim_bench/serving/input_store.py</code>; keys
-<code>&lt;sha16&gt;/&lt;name&gt;.jpg</code> under
-<code>&lt;jobs_root&gt;/_inputs</code>; <code>JobStore</code> manifest +
-<code>resolve()</code> (API file route); older jobs with
-<code>input/*.jpg</code> still work.
-<code>tests/serving/test_input_store.py</code> (13)</label></li>
-<li><label><input type="checkbox" checked="" />TW1.3
-<code>JobCurator</code> reads inputs through the manifest; the pipeline
-sees the stable <code>inputs/&lt;sha&gt;.jpg</code> paths. Test: a
-second local job on the same photos hits the cache (no recompute of a
-cached step). | 2026-10-23 no temp copy; <code>discover_images</code>
-takes given paths; <strong><code>run_pipeline</code> now attaches the
-feature cache</strong> (it had none). Tests +5. Real: 12 Budapest
-photos, two local jobs: job 2 staged 0; IQA 1017-&gt;26 ms, AVA
-1980-&gt;0, scene embedding 7719-&gt;10; same picks</label></li>
-</ul>
-<h2 id="w2--results-only-copy-back-display-and-crops-on-the-pc">W2 —
-Results-only copy-back, display and crops on the PC</h2>
-<ul class="task-list">
-<li><label><input type="checkbox" />TW2.1 Worker stops writing
-<code>display/</code> and <code>faces/</code> (flag kept for the local
-debug path only if needed); writes <code>album.json</code>,
-<code>run.json</code>, <code>results/</code>.</label></li>
-<li><label><input type="checkbox" />TW2.2 Loader step
-<code>LocalRenders</code>: display images from the job's inputs, face
-crops from bbox + margin; written into the job folder before the DB
-load. Same code for every runner. (AC10, AC12)</label></li>
-<li><label><input type="checkbox" />TW2.3
-<code>ModalVolumeRemote.download</code> copies <code>album.json</code>,
-<code>run.json</code>, <code>results/*</code> only.</label></li>
-<li><label><input type="checkbox" />TW2.4 Tests: job folder file set
-identical for local and fake-Modal runners; crops match
-bboxes.</label></li>
-</ul>
-<h2 id="w3--modal-inputs-volume-cache-volume-retention">W3 — Modal:
-inputs Volume, cache Volume, retention</h2>
-<ul class="task-list">
-<li><label><input type="checkbox" />TW3.1 Volume
-<code>albumify-inputs</code> (content-addressed); <code>stage</code>
-uploads only missing hashes (one listing, then batch upload).
-(AC11)</label></li>
-<li><label><input type="checkbox" />TW3.2 Volume
-<code>albumify-cache</code>; the worker points its
-<code>sim_bench.db</code> there, <code>reload()</code> before,
-<code>commit()</code> after each job. L4 jobs run one at a time (the API
-queues). (AC11)</label></li>
-<li><label><input type="checkbox" />TW3.3 Retention: scheduled Modal
-function deletes inputs unused for 7 days (O3); API
-<code>DELETE /jobs/{id}/remote-inputs</code> + button "Delete my photos
-from Modal". (AC15)</label></li>
-<li><label><input type="checkbox" />TW3.4 Tests with the fake remote:
-second stage uploads 0; delete removes only that job's hashes not used
-by another job.</label></li>
-</ul>
-<h2 id="w4--the-app">W4 — The app</h2>
-<ul class="task-list">
-<li><label><input type="checkbox" />TW4.1 Jobs page "Run album" form
-(folder, start, n, runner, pipeline) → <code>POST /jobs</code>; L4 path:
-estimate (photos to upload, GPU minutes from the last runs' rate) +
-confirm; photo limit from <code>configs/serving.yaml</code>.
-(AC9)</label></li>
-<li><label><input type="checkbox" />TW4.2 Auto-refresh while the job is
-live (<code>st.fragment(run_every=...)</code>): stage, latest event,
-elapsed. (AC9)</label></li>
-<li><label><input type="checkbox" />TW4.3 Cancel:
-<code>POST /jobs/{id}/cancel</code>; <code>LocalRunner</code> kills the
-child, <code>ModalRunner</code> cancels the function call; job →
-<code>failed</code> "cancelled by owner". (AC13)</label></li>
-<li><label><input type="checkbox" />TW4.4 Re-run button refills the
-form; on success, a link opens Compare runs on the pair.
-(AC12)</label></li>
-<li><label><input type="checkbox" />TW4.5 <code>run.json</code> records
-pipeline config, commit, runner/device, model versions; Jobs page shows
-them; Compare runs lists differing settings. (AC14)</label></li>
-<li><label><input type="checkbox" />TW4.6 Playwright (real API + app):
-start a local <code>minimal_pipeline</code> job from the form, watch it
-finish, cancel a second one, re-run → Compare opens. Screenshots stay on
-disk.</label></li>
-</ul>
-<h2 id="w5--prove-phase-a2-owner-approval-before-each-l4-run">W5 — Prove
-Phase A2 (owner approval before each L4 run)</h2>
-<ul class="task-list">
-<li><label><input type="checkbox" />TW5.1 Slovakia26 from the form on
-<code>modal_gpu</code>: AC9, AC10 (copy-back time and file count), plus
-Phase A's AC1–AC3 again (closes TA6.1/TA6.4 with the post-SIGHTING-132
-pipeline).</label></li>
-<li><label><input type="checkbox" />TW5.2 Same photos re-run on the L4:
-AC11 (0 uploads, cache hits, GPU time).</label></li>
-<li><label><input type="checkbox" />TW5.3 Local vs L4 on a 48-photo
-slice: AC12 via Compare runs.</label></li>
-<li><label><input type="checkbox" />TW5.4 Forced failure +
-promote/rename round-trip (TA6.3) and Cancel on both runners (AC4, AC5,
-AC13).</label></li>
-<li><label><input type="checkbox" />TW5.5 Budapest gate not affected (no
-v2 tab change) — state it; full suite; <code>updates.md</code>
-entry.</label></li>
-</ul>
+<h1 id="phase-a2--moved-to-spec-115">Phase A2 — moved to <a
+href="../115-album-workbench/tasks.html">spec-115</a></h1>
+<p>W1 (done 2026-10-23) and W2-W5 are tracked there. TA6.1/TA6.3/TA6.4
+close with its W5.</p>
 <h1 id="phase-b--cloud-configuration-only">Phase B — cloud,
 configuration only</h1>
 <h2 id="b0--accounts-and-secrets-owner">B0 — Accounts and secrets

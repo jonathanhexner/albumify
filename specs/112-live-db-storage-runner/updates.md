@@ -2,7 +2,12 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** In Progress — Phase A proven on Slovakia26 via Modal for AC1–AC4 (AC5 by tests); SIGHTING-132 fixed by spec-113, the re-run is folded into Phase A2's proof. Phase A2 (album workbench) approved 2026-10-23 (O3 = 7 days, O4 = pipeline name only); W1 in progress.
+**Status:** In Progress — Phase A proven on Slovakia26 via Modal for AC1–AC4 (AC5 by tests); SIGHTING-132 fixed by spec-113, the re-run is folded into Phase A2's proof. Phase A2 (album workbench) moved to [spec-115](../115-album-workbench/spec.html) on 2026-10-23.
+
+## 2026-10-23 — Phase A2 moved to its own spec
+
+Owner asked for the album workbench as its own PRD in the new format: [spec-115](../115-album-workbench/spec.html). The two A2 entries below
+(drafted; W1 done) are kept as history; new progress is logged there.
 
 ## 2026-10-23 — W1 done: inputs staged once, job runs use the feature cache
 
