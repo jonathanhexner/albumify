@@ -14,6 +14,7 @@ are kept, so an older job's worker-made displays and crops are left as they are.
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,6 +43,7 @@ class LocalRendersResult:
     n_kept: int = 0                       # files already there (older jobs), left untouched
     missing_photos: List[str] = field(default_factory=list)
     unreadable_photos: List[str] = field(default_factory=list)
+    bad_boxes: List[int] = field(default_factory=list)          # face ids whose box could not be cut
 
 
 class LocalRenders:
@@ -90,8 +92,13 @@ class LocalRenders:
                 logger.warning("job %s: cannot read %s for face crops: %s", inputs.job_id, src.name, e)
                 continue
             for f in todo:
-                self.render_crop(upright, f["bbox"], paths.faces_dir / f"{int(f['face_id'])}.jpg")
-                res.n_crops += 1
+                try:
+                    self.render_crop(upright, f["bbox"], paths.faces_dir / f"{int(f['face_id'])}.jpg")
+                    res.n_crops += 1
+                except (ValueError, OSError) as e:      # one bad box must not sink the load (review M6)
+                    res.bad_boxes.append(int(f["face_id"]))
+                    logger.warning("job %s: face %s box %s not rendered: %s", inputs.job_id, f["face_id"],
+                                   f["bbox"], e)
 
         if res.missing_photos:
             logger.warning("job %s: %d photo(s) named in the results are not staged: %s", inputs.job_id,
@@ -101,13 +108,20 @@ class LocalRenders:
         return res
 
     def render_display(self, src: Path, dest: Path) -> None:
-        shutil.copyfile(src, dest)
+        tmp = dest.with_name(dest.name + ".part")
+        shutil.copyfile(src, tmp)
+        os.replace(tmp, dest)                 # never a half-written file that "exists" (review M6)
 
     def render_crop(self, upright: Image.Image, box: Sequence[float], dest: Path) -> None:
         """``box`` is ``[x1, y1, x2, y2]`` in the upright image's pixels."""
         x1, y1, x2, y2 = (float(v) for v in box)
         mx, my = (x2 - x1) * self.margin, (y2 - y1) * self.margin
-        crop = upright.crop((max(0, round(x1 - mx)), max(0, round(y1 - my)),
-                             min(upright.width, round(x2 + mx)), min(upright.height, round(y2 + my))))
+        left, top = max(0, round(x1 - mx)), max(0, round(y1 - my))
+        right, bottom = min(upright.width, round(x2 + mx)), min(upright.height, round(y2 + my))
+        if right <= left or bottom <= top:
+            raise ValueError("box is empty or outside the photo")
+        crop = upright.crop((left, top, right, bottom))
         crop.thumbnail((self.crop_size, self.crop_size))
-        crop.save(dest, "JPEG", quality=self.quality)
+        tmp = dest.with_name(dest.name + ".part")
+        crop.save(tmp, "JPEG", quality=self.quality)
+        os.replace(tmp, dest)

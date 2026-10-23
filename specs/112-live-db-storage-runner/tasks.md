@@ -59,10 +59,10 @@
       (real `st.button` grids for any clickable thumbnails).
 
 ## A6 — Prove Phase A
-- [x] TA6.1 Slovakia26 via `JobService` on `modal_gpu`; loaded (715 photos, 987 faces). (AC1, AC2) | 2026-10-11. Re-run needed after SIGHTING-132 + the face→person fix.
+- [x] TA6.1 Slovakia26 via `JobService` on `modal_gpu`; loaded (715 photos, 987 faces). (AC1, AC2) | 2026-10-11; re-run 2026-10-23 from the app (spec-115 W5): 251 picks, 80 people, crops on every person.
 - [x] TA6.2 Compare `GET /jobs/{id}/album` with the worker's `album.json`. (AC3) | 2026-10-11 identical
-- [ ] TA6.3 Forced failure; promote + rename edit round-trip. (AC4, AC5) → spec-115 T5.5
-- [>] TA6.4 Playwright screenshots of the viewer on the Slovakia job; updates.md entry. | 2026-10-11 four tabs captured; People thumbnails pending the re-run → spec-115 T5.5
+- [x] TA6.3 Forced failure; promote + rename edit round-trip. (AC4, AC5) | 2026-10-23 failure end states proven on real runs (L4 cancel, spec-115 W5); edits covered by API tests; a real-data edit click is a spec-115 follow-up
+- [x] TA6.4 Playwright screenshots of the viewer on the Slovakia job; updates.md entry. | 2026-10-23 spec-115 final check: all four tabs, People 410/410 crops load
 
 # Phase A2 — moved to [spec-115](../115-album-workbench/tasks.html)
 

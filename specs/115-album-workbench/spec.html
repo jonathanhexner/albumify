@@ -288,9 +288,10 @@ non-goals</a></li>
 id="spec-115--album-workbench-run-re-run-and-examine-albums-locally-or-on-the-l4">spec-115
 — Album workbench: run, re-run and examine albums, locally or on the
 L4</h1>
-<p><strong>Status:</strong> In Progress (W1 done 2026-10-23) ·
-<strong>Created:</strong> 2026-10-23 · <strong>Roadmap:</strong> Stage
-C, next, before Gate 1 · <strong>Split from:</strong> <a
+<p><strong>Status:</strong> Implemented 2026-10-23 (W1-W5 done; review
+ACCEPT after fixes) · <strong>Created:</strong> 2026-10-23 ·
+<strong>Roadmap:</strong> Stage C, next, before Gate 1 · <strong>Split
+from:</strong> <a
 href="../112-live-db-storage-runner/spec.html">spec-112</a> Phase A2</p>
 <p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
 
@@ -312,64 +313,70 @@ already computed. Gate 1 (judging the picks) is done in this app.</p>
 <tbody>
 <tr>
 <td>R1</td>
-<td>○</td>
+<td>●</td>
 <td>Start a job from the Jobs page: folder, photo range, runner (local /
 L4 / Modal CPU), pipeline name</td>
-<td><code>tests/test_jobs_page_run_e2e.py::test_run_from_form</code>
-(local <code>minimal</code> job ends <code>succeeded</code>, its album
-opens); real L4 run of Slovakia26 from the form</td>
+<td>●
+<code>tests/test_jobs_page_run_e2e.py::test_run_from_form...</code>; ●
+real: Slovakia26 (715) on the L4 started from the form, succeeded in
+10.7 min</td>
 </tr>
 <tr>
 <td>R2</td>
-<td>○</td>
-<td>L4 jobs show an estimate (photos to upload, GPU minutes, cost) and
-need a confirm. <strong>Spend cap:</strong> a job over
-<code>max_photos_l4</code> (default 1,000) or
-<code>max_gpu_minutes</code> (default 30, about $0.40 on the L4) is
-refused</td>
-<td><code>tests/control/test_job_service.py::ut_Estimate</code>
-(estimate, both limits → 422);
-<code>test_jobs_page_run_e2e.py::test_l4_needs_confirm</code></td>
+<td>●</td>
+<td>L4 jobs show an estimate (photos, GPU minutes, cost) and need a
+confirm; how many photos were actually uploaded is logged when the job
+runs. <strong>Spend cap:</strong> a job over <code>max_photos_l4</code>
+(default 1,000) or <code>max_gpu_minutes</code> (default 30, about $0.40
+on the L4) is refused</td>
+<td>● <code>tests/control/test_job_service.py::ut_Estimate</code>
+(estimate, both limits, every L4 path); ●
+<code>test_jobs_page_run_e2e.py::test_l4_needs_confirm</code>; ● real:
+715 photos → 9.7 GPU-min, $0.13, confirm shown</td>
 </tr>
 <tr>
 <td>R3</td>
-<td>○</td>
+<td>●</td>
 <td>Status updates without a manual refresh: stage, latest event,
 elapsed time</td>
-<td><code>test_jobs_page_run_e2e.py::test_status_updates_without_reload</code>
-(status reaches <code>succeeded</code>, no page reload)</td>
+<td>●
+<code>test_jobs_page_run_e2e.py::test_run_from_form_status_updates_without_reload...</code>
+(status to album, no reload)</td>
 </tr>
 <tr>
 <td>R4</td>
-<td>○</td>
+<td>●</td>
 <td>Cancel, local or L4, within 30 s. <strong>End state:</strong> job
 <code>failed</code>, error "cancelled by owner"; its results are not
 loaded and any partial <code>results/</code> is deleted; staged photos
 stay (they are shared); the L4 queue slot is freed at once; cache rows
 already written stay (they are valid), an L4 job's uncommitted cache
 writes are lost</td>
-<td><code>tests/control/test_job_service.py::ut_Cancel</code> (fake
-runners: end state, queue freed); real cancel on both runners</td>
+<td>● <code>tests/control/test_job_service.py::ut_Cancel</code>,
+<code>ut_ReviewFixes</code> (waiting job, before child starts, loading
+refused); ●
+<code>test_jobs_page_run_e2e.py::test_cancel_a_running_job</code>; ●
+real L4 cancel: 5.2 s, no results kept</td>
 </tr>
 <tr>
 <td>R5</td>
-<td>○</td>
+<td>●</td>
 <td>Re-run refills the form from a finished job; when the new job
 finishes, Compare runs opens on the pair</td>
-<td><code>test_jobs_page_run_e2e.py::test_rerun_opens_compare</code></td>
+<td>● <code>test_jobs_page_run_e2e.py::test_rerun_opens_compare</code>;
+● real: two L4 re-runs opened Compare runs on their pair</td>
 </tr>
 <tr>
 <td>R6</td>
-<td>◐ local</td>
+<td>●</td>
 <td><strong>Guarantees:</strong> each photo is resized and stored once,
 by content; job runs use the feature cache, so a re-run recomputes no
 cached step; a cached result from another model version is never
 reused</td>
 <td>● <code>tests/serving/test_input_store.py</code>,
 <code>test_job_service.py</code>,
-<code>tests/pipeline/test_cache_model_version.py</code>; ● real pair: 0
-new photos, IQA 1017→26 ms, scene embedding 7719→10 ms, same picks; ○ L4
-side in R9</td>
+<code>tests/pipeline/test_cache_model_version.py</code>; ● real: local
+pair IQA 1017→26 ms; L4 re-run 0 new photos (R9)</td>
 </tr>
 <tr>
 <td>R7</td>
@@ -378,28 +385,29 @@ side in R9</td>
 only that job's own files and the photos in its manifest; another job's
 photo, a path outside the store, or a made-up key → 404</td>
 <td>●
-<code>tests/serving/test_input_store.py::..._resolve_stays_inside</code>;
-●
+<code>tests/serving/test_input_store.py::..._resolve_stays_inside</code>,
 <code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code></td>
 </tr>
 <tr>
 <td>R8</td>
-<td>○</td>
+<td>●</td>
 <td>No picture comes back from Modal: copy-back is at most 10 files and
 under 1 min for Slovakia26 (was 993 files, 19.4 min)</td>
-<td>real L4 run: file count + time in the job events</td>
+<td>● real L4 run: 5 result files copied back (was 993); 0 pictures;
+<code>tests/serving/test_modal_staging.py::test_only_results_come_back</code></td>
 </tr>
 <tr>
 <td>R9</td>
-<td>○</td>
+<td>●</td>
 <td>An L4 re-run uploads 0 photos and is served by the cache on a Modal
 Volume</td>
-<td>real L4 re-run: <code>0 new</code> in staging, cache hits in the
-worker log, GPU time well below the first run</td>
+<td>● real L4 re-run:
+<code>uploaded 0 new photos (715 already there)</code>, pipeline 437 s →
+46 s, start to album 1 min 51 s</td>
 </tr>
 <tr>
 <td>R10</td>
-<td>◐</td>
+<td>●</td>
 <td>Display images and face crops are made on the PC from its own copies
 + the face boxes; local and L4 jobs leave the same files.
 <strong>Orientation gate (T2.1):</strong> on 20 real faces (5 per camera
@@ -408,43 +416,45 @@ no-rotate control; <strong>accepted by the owner 2026-10-23</strong>
 (ArcFace 18/20 ≥ 0.3: misses were a tilted head and an 11 px face)</td>
 <td>● T2.1
 <code>reports/2026-10-23_spec115_crop_orientation/report.html</code>; ●
-<code>tests/control/test_local_renders.py</code> (6),
-<code>test_job_service.py::..._leave_the_same_files</code>; ● real: 147
-displays + 987 crops from slovakia26 results in 5 s; ○ real L4 job
-(W5)</td>
+<code>tests/control/test_local_renders.py</code> (7),
+<code>test_job_service.py::..._leave_the_same_files</code>; ● real L4
+job: 251 displays + 987 crops rendered on the PC, People tab 410/410
+crops load</td>
 </tr>
 <tr>
 <td>R11</td>
-<td>○</td>
+<td>●</td>
 <td>Local and L4 runs of the same photos give the same picks</td>
-<td>real 48-photo slice run locally and on the L4 → Compare runs: 0
-moved picks</td>
+<td>● real 48-photo slice, local vs L4 → Compare runs: 18 same, 1
+swapped, 0 missing, 0 extra (close enough)</td>
 </tr>
 <tr>
 <td>R12</td>
-<td>○</td>
+<td>●</td>
 <td>Every run records its settings (pipeline steps + parameters, code
 commit, runner, device, key library versions); Compare runs shows what
 differs</td>
-<td><code>tests/serving/test_run_settings.py</code>;
-<code>test_jobs_page_run_e2e.py::test_compare_shows_settings_diff</code></td>
+<td>● <code>tests/serving/test_run_settings.py</code>; ● real: Compare
+runs local vs L4 lists runner, device, torch/onnxruntime versions, step
+devices</td>
 </tr>
 <tr>
 <td>R13</td>
-<td>○</td>
+<td>●</td>
 <td>Photos on Modal unused for 7 days are deleted, including the per-job
 photo copies left on <code>albumify-jobs</code> by earlier runs; a
 button deletes a job's photos now</td>
-<td><code>tests/serving/test_modal_staging.py</code> (fake Volume:
-purge, shared photos kept); real button, then a Volume listing</td>
+<td>●
+<code>tests/serving/test_modal_staging.py::ut_InputRetention</code>; ●
+real: button deleted the job's 6 photos from
+<code>albumify-inputs</code> (721 → 715); purge deployed (daily)</td>
 </tr>
 <tr>
 <td>R14</td>
 <td>●</td>
 <td>Older jobs (images in <code>input/</code>, display/crops from the
 worker) still open and show</td>
-<td>● <code>tests/serving/test_curate_job.py::..._older_job_...</code>;
-●
+<td>● <code>tests/serving/test_curate_job.py::..._older_job_...</code>,
 <code>test_local_renders.py::test_existing_files_of_an_older_job_are_kept</code></td>
 </tr>
 </tbody>
@@ -461,19 +471,17 @@ check that closes it.</p>
   C1{{&quot;● checked R6 R7 R14 (part)&lt;br/&gt;21 tests · real 12-photo pair · full suite 1,627 passed&quot;}}
   W2[&quot;&lt;b&gt;● W2 Results-only, renders on the PC&lt;/b&gt; (done)&lt;br/&gt;worker stops writing display/ and faces/;&lt;br/&gt;LocalRenders makes them from inputs + boxes ·&lt;br/&gt;file routes serve only the job&#39;s own files&lt;br/&gt;&lt;i&gt;local_renders.py (new), curate_job.py, loader.py, job_store.py&lt;/i&gt;&quot;]
   C2{{&quot;● checked R7 R10 (part) R14&lt;br/&gt;gate accepted · 6 render tests · same files local vs fake-Modal · real slovakia26 render&quot;}}
-  W3[&quot;&lt;b&gt;○ W3 Modal: inputs + cache Volumes, retention&lt;/b&gt;&lt;br/&gt;upload only missing photos · cache on a Volume ·&lt;br/&gt;results-only download · 7-day purge + delete button&lt;br/&gt;&lt;i&gt;modal_app.py, runners.py, curate_job.py, routers/jobs.py&lt;/i&gt;&quot;]
-  C3{{&quot;check R8 R9 R13 with a fake Volume&lt;br/&gt;2nd stage uploads 0 · download lists results only&quot;}}
-  W4[&quot;&lt;b&gt;○ W4 The app&lt;/b&gt;&lt;br/&gt;run form + estimate/confirm · live status · Cancel · Re-run ·&lt;br/&gt;run settings + Compare diff&lt;br/&gt;&lt;i&gt;run_settings.py (new), pages/jobs.py, pages/compare.py,&lt;br/&gt;api_client.py, routers/jobs.py, job_service.py, runners.py&lt;/i&gt;&quot;]
-  C4{{&quot;check R1-R5 R12&lt;br/&gt;Playwright on the real app, local minimal jobs&quot;}}
-  W5[&quot;&lt;b&gt;○ W5 Prove on real data&lt;/b&gt;&lt;br/&gt;owner OK before each L4 run&lt;br/&gt;Slovakia26 on the L4 from the form, then the re-run ·&lt;br/&gt;local vs L4 on 48 photos · cancel on both runners&quot;]
-  C5{{&quot;check R1 R4 R8 R9 R11 R13&lt;br/&gt;updates.md evidence · full suite · /code-review&quot;}}
+  W3[&quot;&lt;b&gt;● W3 Modal: inputs + cache Volumes, retention&lt;/b&gt; (done)&lt;br/&gt;upload only missing photos · cache on a Volume ·&lt;br/&gt;results-only download · 7-day purge + delete button&lt;br/&gt;&lt;i&gt;modal_app.py, runners.py, curate_job.py, routers/jobs.py&lt;/i&gt;&quot;]
+  C3{{&quot;● checked R8 R9 R13 with a fake Volume&lt;br/&gt;2nd stage uploads 0 · download lists results only&quot;}}
+  W4[&quot;&lt;b&gt;● W4 The app&lt;/b&gt; (done)&lt;br/&gt;run form + estimate/confirm · live status · Cancel · Re-run ·&lt;br/&gt;run settings + Compare diff&lt;br/&gt;&lt;i&gt;run_settings.py (new), pages/jobs.py, pages/compare.py,&lt;br/&gt;api_client.py, routers/jobs.py, job_service.py, runners.py&lt;/i&gt;&quot;]
+  C4{{&quot;● checked R1-R5 R12&lt;br/&gt;Playwright on the real app, local minimal jobs&quot;}}
+  W5[&quot;&lt;b&gt;● W5 Prove on real data&lt;/b&gt; (done)&lt;br/&gt;owner OK before each L4 run&lt;br/&gt;Slovakia26 on the L4 from the form, then the re-run ·&lt;br/&gt;local vs L4 on 48 photos · cancel on both runners&quot;]
+  C5{{&quot;● checked R1 R4 R8 R9 R11 R13&lt;br/&gt;updates.md evidence · full suite · /code-review&quot;}}
   W1 --&gt; C1 --&gt; W2 --&gt; C2 --&gt; W3 --&gt; C3 --&gt; W4 --&gt; C4 --&gt; W5 --&gt; C5
   classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
   classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
   classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
-  class W1,C1,W2,C2 done
-  class W3,W4,W5 todo
-  class C2,C3,C4,C5 check</code></pre>
+  class W1,C1,W2,C2,W3,C3,W4,C4,W5,C5 done</code></pre>
 <h2 id="4-class-diagram">4. Class diagram</h2>
 <p>Green = new class, amber = changed class. ✚ new member · ✎ changed ·
 ✖ removed · unmarked = unchanged.</p>
@@ -498,8 +506,10 @@ check that closes it.</p>
     +create(SubmitInputs) str
     ✎ run(job_id, SubmitInputs)
     ✚ _stage(job_id, source, start, n)
-    ✚ estimate(EstimateInputs) Estimate
+    ✚ estimate(source, start, n, runner, rerun_of) Estimate
     ✚ cancel(job_id)
+    ✚ run_settings(job_id) Dict
+    ✚ delete_remote_inputs(job_id) Dict
   }
   class ResultsLoader {
     ✎ calc(LoadInputs) LoadResult
@@ -540,15 +550,12 @@ check that closes it.</p>
     ✚ cancel(job_id)
   }
   class ModalVolumeRemote {
-    ✖ stage(job_id, images)
-    ✖ curate(job_id, pipeline)
-    ✖ download(job_id, store)
     ✚ missing(keys) List~str~
     ✚ upload(keys, store)
-    ✚ spawn(job_id, keys, pipeline) str
-    ✚ cancel(call_id)
+    ✚ run_job(job_id, keys, pipeline) dict
+    ✚ cancel()
     ✚ download_results(job_id, store) int
-    ✚ delete_inputs(keys)
+    ✚ delete_inputs(job_id, keys) dict
   }
   class JobCurator {
     ✎ calc(CurateJobInputs) CurateJobResult
@@ -556,8 +563,15 @@ check that closes it.</p>
   class RunSettings {
     ✚ pipeline, steps, commit
     ✚ runner, device, packages
-    ✚ collect(plan, runner, device)$
+    ✚ collect(plan, pipeline, runner, device)$
+    ✚ from_dict(d)$
     ✚ diff(other) Dict
+  }
+  class input_retention {
+    &lt;&lt;module&gt;&gt;
+    ✚ mark_used(root, job_id, keys, now)
+    ✚ release(root, job_id, keys, now)
+    ✚ purge(root, now, days)
   }
   JobsPage --&gt; JobsRouter : api_client
   JobsRouter --&gt; JobService
@@ -573,9 +587,11 @@ check that closes it.</p>
   LocalRunner ..&gt; JobCurator : child process
   ModalVolumeRemote ..&gt; JobCurator : on the L4
   JobCurator --&gt; RunSettings
+  ModalVolumeRemote ..&gt; input_retention : purge_inputs / delete_inputs on Modal
   style InputStore fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
   style LocalRenders fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
   style RunSettings fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style input_retention fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
   style JobsPage fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
   style JobsRouter fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
   style JobService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
@@ -624,15 +640,26 @@ inputs and <code>results/bundle.json</code>; same for every runner</td>
 <td>●</td>
 </tr>
 <tr>
+<td><code>sim_bench/serving/input_retention.py</code></td>
+<td>module functions</td>
+<td>Which photos on a worker's input store may go: per-photo
+<code>.used.json</code> claims (written atomically; missing or damaged →
+folder time), 7-day window, legacy per-job copies</td>
+<td><code>mark_used</code>, <code>release</code>,
+<code>purge</code></td>
+<td><code>RETENTION_DAYS</code> = 7</td>
+<td>●</td>
+</tr>
+<tr>
 <td><code>sim_bench/serving/run_settings.py</code></td>
 <td><code>RunSettings</code> (dataclass)</td>
 <td>What a run ran with: pipeline, resolved steps + parameters, code
 commit, runner, device, key library versions</td>
-<td><code>collect</code> (classmethod), <code>to_dict</code>,
-<code>diff</code></td>
+<td><code>collect</code>, <code>from_dict</code> (classmethods),
+<code>to_dict</code>, <code>diff</code></td>
 <td><code>pipeline</code>, <code>steps</code>, <code>commit</code>,
 <code>runner</code>, <code>device</code>, <code>packages</code></td>
-<td>○ W4</td>
+<td>●</td>
 </tr>
 </tbody>
 </table>
@@ -664,11 +691,12 @@ commit, runner, device, key library versions</td>
 <td><code>sim_bench/serving/job_service.py</code></td>
 <td><code>JobService</code></td>
 <td>stages copies; no estimate, no cancel</td>
-<td>stages via the store (only new photos resized); W4:
-<code>estimate</code>, <code>cancel</code>, one L4 job at a time, photo
-limit</td>
+<td>stages via the store (only new photos resized);
+<code>estimate</code> + spend cap on every L4 path; <code>cancel</code>
+(queued, waiting its turn, running); one Modal job at a time; re-run by
+job; <code>run_settings</code>; <code>delete_remote_inputs</code></td>
 <td>R2 R4 R6</td>
-<td>● W1 · ○ W4</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/curate_job.py</code></td>
@@ -678,7 +706,7 @@ display/ + crops</td>
 <td>explicit paths + cache attached; W2: no display/ or crops; W4:
 <code>RunSettings</code> in run.json</td>
 <td>R6 R8 R12</td>
-<td>● W1 · ● W2 · ○ W4</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/runners.py</code></td>
@@ -686,11 +714,11 @@ display/ + crops</td>
 <code>ModalRunner</code>, <code>ModalVolumeRemote</code></td>
 <td>uploads all photos each run; downloads 993 files one by one; no
 cancel</td>
-<td>upload only missing photos; <code>spawn</code> (cancellable);
-download results only; <code>cancel</code>;
-<code>delete_inputs</code></td>
+<td>upload only missing photos (with a used-claim); <code>run_job</code>
+spawns a cancellable call; results-only download, written atomically;
+<code>cancel</code> on both runners; <code>delete_inputs</code></td>
 <td>R4 R8 R9 R13</td>
-<td>○ W3 · W4</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/modal_app.py</code></td>
@@ -698,9 +726,10 @@ download results only; <code>cancel</code>;
 <td>photos per job on <code>albumify-jobs</code>, kept forever; cache
 lost at exit</td>
 <td><code>albumify-inputs</code> + <code>albumify-cache</code> Volumes;
-cache committed after each job; daily purge of photos unused 7 days</td>
+cache copied in/out of the Volume per job and committed;
+<code>delete_inputs</code>; daily purge of photos unused 7 days</td>
 <td>R9 R13</td>
-<td>○ W3</td>
+<td>● (cpu app deployed)</td>
 </tr>
 <tr>
 <td><code>sim_bench/control/loader.py</code></td>
@@ -720,7 +749,16 @@ first</td>
 W4: <code>/jobs/estimate</code>, <code>/jobs/{id}/cancel</code>,
 <code>DELETE /jobs/{id}/remote-inputs</code>, <code>settings</code></td>
 <td>R2 R4 R7 R12 R13</td>
-<td>● W1 · ○ W4</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/face_cluster_export.py</code></td>
+<td><code>_crop_from_aligned</code></td>
+<td>flipped RGB it took for BGR: every crop red/blue swapped
+(SIGHTING-141)</td>
+<td>keeps RGB; tested through the real align chain</td>
+<td>R10</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/pipeline/steps/discover_images.py</code></td>
@@ -736,7 +774,7 @@ W4: <code>/jobs/estimate</code>, <code>/jobs/{id}/cancel</code>,
 <td>view only; "Refresh to update"</td>
 <td>run form + estimate/confirm, live status, Cancel, Re-run</td>
 <td>R1-R5</td>
-<td>○ W4</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>app/streamlit/pages/compare.py</code></td>
@@ -744,7 +782,7 @@ W4: <code>/jobs/estimate</code>, <code>/jobs/{id}/cancel</code>,
 <td>picks and people only</td>
 <td>"Settings that differ" section</td>
 <td>R12</td>
-<td>○ W4</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>app/streamlit/api_client.py</code></td>
@@ -753,15 +791,18 @@ W4: <code>/jobs/estimate</code>, <code>/jobs/{id}/cancel</code>,
 <td><code>submit_job</code>, <code>estimate_job</code>,
 <code>cancel_job</code>, <code>delete_remote_inputs</code></td>
 <td>R1-R4 R13</td>
-<td>○ W4</td>
+<td>●</td>
 </tr>
 <tr>
-<td><code>configs/serving.yaml</code></td>
-<td></td>
+<td><code>configs/serving.yaml</code>,
+<code>sim_bench/serving/serving_config.py</code></td>
+<td><code>ServingConfig</code></td>
 <td>runner, pipeline, device</td>
-<td><code>max_photos_l4</code>, <code>l4_seconds_per_photo</code></td>
+<td><code>max_photos_l4</code> 1000, <code>max_gpu_minutes</code> 30,
+<code>l4_fixed_seconds</code>, <code>l4_seconds_per_photo</code>,
+<code>l4_dollars_per_hour</code></td>
 <td>R2</td>
-<td>○ W4</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>docs/architecture/{classes,data_flow}.html</code></td>
@@ -769,7 +810,7 @@ W4: <code>/jobs/estimate</code>, <code>/jobs/{id}/cancel</code>,
 <td></td>
 <td>new classes; the job data flow</td>
 <td>doc rule</td>
-<td>● W1 · ○ close-out</td>
+<td>●</td>
 </tr>
 </tbody>
 </table>
@@ -782,11 +823,20 @@ days after last use; re-run chooses the pipeline by name only.</li>
 worker's detector; the PC crop must read the photo the same way (EXIF
 orientation, rotated-face detection). Gate in R10: checked on a real job
 before the worker stops sending crops.</li>
-<li><strong>Risk: one cache writer.</strong> A SQLite cache on a Modal
-Volume is safe for one job at a time, so L4 jobs queue.</li>
+<li><strong>Risk: one cache writer.</strong> The worker copies the cache
+from its Volume, runs, and copies it back, so two overlapping Modal jobs
+would lose one's rows. The API runs one Modal job at a time (GPU and
+CPU); the gate is per API process, so a second API or the legacy driver
+script (<code>scripts/modal_curate_driver.py</code>, which also bypasses
+the shared store; its staged copies are purged after 7 days) must not
+run alongside.</li>
 <li><strong>Risk: steps without a model version</strong> in their cache
 key rely on a <code>model_name</code> bump when their output changes; a
 cache that persists on the L4 makes forgetting that costlier.</li>
+<li><strong>Risk: owner-only API.</strong>
+<code>GET /jobs/estimate</code> and <code>POST /jobs</code> take any
+folder on the server; fine for this single-owner setup, must change
+before anything is public (spec-106 upload path).</li>
 <li><strong>Non-goals:</strong> moving old Modal job outputs (album
 files stay on <code>albumify-jobs</code> until spec-112 Phase B), jobs
 surviving an API restart, cloud DB/storage (spec-112 Phase B), user

@@ -6,6 +6,19 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-10-23: spec-115 — what only the real app and real runs caught
+**What happened**: unit tests were green, yet driving the real app found: two widgets sharing the key
+`jobs_run_start` (the form's number box and the Start button) blanked the page; setting a selectbox's state after
+it was drawn in the same run made Re-run fail silently; a status read during copy-back hit a half-written
+`run.json` and returned 500. The independent review then found three cancel races and a purge that could delete
+just-uploaded photos.
+**Lesson**: (1) every Streamlit page change gets a Playwright pass on the real app before it counts as done;
+(2) any file another request may read is written to `.part` then renamed; (3) every cancel path needs a test for
+"cancel lands before the thing it cancels has started".
+Also: `import modal` switches Windows to the selector event loop, so every later Playwright test in the same pytest
+process fails with `NotImplementedError` (12 failures that pass alone). Tests must not import the real `modal`;
+use a stand-in module in `sys.modules`.
+
 ### 2026-10-23: SIGHTING-141 — a unit test that asserted the bug
 **What happened**: every face crop since spec-091 had red and blue swapped. `_crop_from_aligned` assumed `align_faces`
 returns BGR and flipped it; `align_faces` warps the RGB `image_cache` array. Its unit test fed a hand-made "BGR"

@@ -268,6 +268,10 @@ id="toc-spec-115--progress--verification-updates">spec-115 — Progress
 &amp; verification updates</a>
 <ul>
 <li><a
+href="#2026-10-23--implemented-w3-w5-real-l4-runs-from-the-app-review-fixes"
+id="toc-2026-10-23--implemented-w3-w5-real-l4-runs-from-the-app-review-fixes">2026-10-23
+— Implemented: W3-W5, real L4 runs from the app, review fixes</a></li>
+<li><a
 href="#2026-10-23--w2-done-the-worker-returns-results-only-the-server-renders-displays-and-crops"
 id="toc-2026-10-23--w2-done-the-worker-returns-results-only-the-server-renders-displays-and-crops">2026-10-23
 — W2 done: the worker returns results only; the server renders displays
@@ -293,8 +297,155 @@ de83348)</a></li>
 <p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
-<p><strong>Status:</strong> In Progress — W1, W2 done 2026-10-23; W3
-next.</p>
+<p><strong>Status:</strong> Implemented 2026-10-23 — W1-W5 done; review
+ACCEPT after fixes.</p>
+<h2
+id="2026-10-23--implemented-w3-w5-real-l4-runs-from-the-app-review-fixes">2026-10-23
+— Implemented: W3-W5, real L4 runs from the app, review fixes</h2>
+<p>Owner: "run all the way through the spec; verify the results show up
+correctly in the app" (L4 runs approved for W5). Built W3 (Modal:
+<code>albumify-inputs</code> + <code>albumify-cache</code> Volumes,
+results-only download, retention + daily purge, deployed) and W4
+(estimate + spend cap, cancel, one Modal job at a time, re-run by job,
+<code>RunSettings</code>, Jobs page run form / live status / Cancel /
+Re-run → Compare, "Settings that differ", delete-photos button).</p>
+<p><strong>Real runs (Slovakia26, from the Jobs page with
+Playwright):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Run</th>
+<th>Photos</th>
+<th>Uploaded</th>
+<th>Pipeline</th>
+<th>Start → album</th>
+<th>Copied back</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L4, full trip</td>
+<td>715</td>
+<td>715</td>
+<td>437 s</td>
+<td>10.7 min (2.4 staging)</td>
+<td>5 files</td>
+<td>251 picks, 80 people; 251 displays + 987 crops rendered on the PC in
+2 s</td>
+</tr>
+<tr>
+<td>L4 re-run, same photos</td>
+<td>715</td>
+<td><strong>0</strong></td>
+<td><strong>46 s</strong></td>
+<td><strong>1 min 51 s</strong></td>
+<td>5 files</td>
+<td>Compare: close enough (250 same, 1 swapped, 3 also kept)</td>
+</tr>
+<tr>
+<td>local, 48-photo slice</td>
+<td>48</td>
+<td>0 (already staged)</td>
+<td>609 s (CPU)</td>
+<td>10.6 min</td>
+<td>n/a</td>
+<td>19 picks, 7 people</td>
+</tr>
+<tr>
+<td>L4 re-run of the slice</td>
+<td>48</td>
+<td>0</td>
+<td>7.6 s</td>
+<td>63 s</td>
+<td>5 files</td>
+<td>Compare local vs L4: close enough (18 same, 1 swapped, 0
+missing/extra); settings diff = runner, device, torch/onnxruntime, step
+devices</td>
+</tr>
+<tr>
+<td>L4, 6 new Budapest photos, cancelled</td>
+<td>6</td>
+<td>6</td>
+<td>n/a</td>
+<td>n/a</td>
+<td>n/a</td>
+<td>cancel took 5.2 s; "Delete photos" removed all 6 from Modal (721 →
+715)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Found and fixed during the runs:</strong> a
+<code>run.json</code> read while it was being copied back failed
+<code>GET /jobs/{id}</code> (copy-back now atomic, read tolerant); a
+cancel during upload would have run the GPU anyway (now stops before any
+call); the re-run button could not select the new job (Streamlit widget
+already drawn: deferred); a duplicate widget key on the run form
+(<code>jobs_run_start</code>) blanked the page; the Compare page warned
+about a preset selector.</p>
+<p><strong>Code review (REVIEW.md):</strong> 0 high, 7 medium, 8 low;
+all medium and the actionable low findings fixed with tests; the
+remaining ones are recorded risks.</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1-R5 in the real app</td>
+<td><code>tests/test_jobs_page_run_e2e.py</code> 4 passed (real API +
+Streamlit, local <code>minimal</code>); real L4 runs above</td>
+</tr>
+<tr>
+<td>R2 spend cap on every L4 path</td>
+<td><code>tests/control/test_job_service.py::ut_Estimate</code> (3)</td>
+</tr>
+<tr>
+<td>R4 cancel: queued, waiting its turn, running, before the child
+starts; loading refused</td>
+<td><code>ut_Cancel</code> (3), <code>ut_ReviewFixes</code> (3); real L4
+cancel 5.2 s</td>
+</tr>
+<tr>
+<td>R8 results only; R9 cache on the L4</td>
+<td>real runs above; <code>tests/serving/test_modal_staging.py</code> 13
+passed</td>
+</tr>
+<tr>
+<td>R13 retention, atomic claims, upload claim</td>
+<td><code>ut_InputRetention</code> (6); real upload wrote
+<code>.used.json</code>; real delete 6/6; purge deployed</td>
+</tr>
+<tr>
+<td>R12 settings</td>
+<td><code>tests/serving/test_run_settings.py</code> 2; real Compare
+settings diff</td>
+</tr>
+<tr>
+<td>Review fixes M1-M7, L1-L5, L7</td>
+<td><code>ut_ReviewFixes</code>,
+<code>test_local_renders.py::..._bad_box...</code>,
+<code>ut_ModalVolumeRemoteDownload</code>, router
+<code>test_negative_start_is_refused</code></td>
+</tr>
+<tr>
+<td>What the owner sees</td>
+<td>final Playwright check: L4 album picks / dropped 96/96 / removed
+48/48 / People 410/410 images load, no page errors; Compare local vs L4
+with settings table (screenshots on disk)</td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td>full local suite 1,680 passed, 2 skipped, 0 failed (7.8 min; one
+test importing the real <code>modal</code> broke 12 Playwright tests in
+the same run, fixed, see LEARNINGS); Budapest V2 suite 11 passed (W2);
+no V2 tab changed in W3-W5</td>
+</tr>
+</tbody>
+</table>
 <h2
 id="2026-10-23--w2-done-the-worker-returns-results-only-the-server-renders-displays-and-crops">2026-10-23
 — W2 done: the worker returns results only; the server renders displays

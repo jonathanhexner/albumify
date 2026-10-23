@@ -2,7 +2,44 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** In Progress — W1, W2 done 2026-10-23; W3 next.
+**Status:** Implemented 2026-10-23 — W1-W5 done; review ACCEPT after fixes.
+
+## 2026-10-23 — Implemented: W3-W5, real L4 runs from the app, review fixes
+
+Owner: "run all the way through the spec; verify the results show up correctly in the app" (L4 runs approved
+for W5). Built W3 (Modal: `albumify-inputs` + `albumify-cache` Volumes, results-only download, retention + daily
+purge, deployed) and W4 (estimate + spend cap, cancel, one Modal job at a time, re-run by job, `RunSettings`,
+Jobs page run form / live status / Cancel / Re-run → Compare, "Settings that differ", delete-photos button).
+
+**Real runs (Slovakia26, from the Jobs page with Playwright):**
+
+| Run | Photos | Uploaded | Pipeline | Start → album | Copied back | Result |
+|---|---|---|---|---|---|---|
+| L4, full trip | 715 | 715 | 437 s | 10.7 min (2.4 staging) | 5 files | 251 picks, 80 people; 251 displays + 987 crops rendered on the PC in 2 s |
+| L4 re-run, same photos | 715 | **0** | **46 s** | **1 min 51 s** | 5 files | Compare: close enough (250 same, 1 swapped, 3 also kept) |
+| local, 48-photo slice | 48 | 0 (already staged) | 609 s (CPU) | 10.6 min | n/a | 19 picks, 7 people |
+| L4 re-run of the slice | 48 | 0 | 7.6 s | 63 s | 5 files | Compare local vs L4: close enough (18 same, 1 swapped, 0 missing/extra); settings diff = runner, device, torch/onnxruntime, step devices |
+| L4, 6 new Budapest photos, cancelled | 6 | 6 | n/a | n/a | n/a | cancel took 5.2 s; "Delete photos" removed all 6 from Modal (721 → 715) |
+
+**Found and fixed during the runs:** a `run.json` read while it was being copied back failed `GET /jobs/{id}` (copy-back
+now atomic, read tolerant); a cancel during upload would have run the GPU anyway (now stops before any call); the
+re-run button could not select the new job (Streamlit widget already drawn: deferred); a duplicate widget key on the
+run form (`jobs_run_start`) blanked the page; the Compare page warned about a preset selector.
+
+**Code review (REVIEW.md):** 0 high, 7 medium, 8 low; all medium and the actionable low findings fixed with tests;
+the remaining ones are recorded risks.
+
+| Claim | Evidence |
+|---|---|
+| R1-R5 in the real app | `tests/test_jobs_page_run_e2e.py` 4 passed (real API + Streamlit, local `minimal`); real L4 runs above |
+| R2 spend cap on every L4 path | `tests/control/test_job_service.py::ut_Estimate` (3) |
+| R4 cancel: queued, waiting its turn, running, before the child starts; loading refused | `ut_Cancel` (3), `ut_ReviewFixes` (3); real L4 cancel 5.2 s |
+| R8 results only; R9 cache on the L4 | real runs above; `tests/serving/test_modal_staging.py` 13 passed |
+| R13 retention, atomic claims, upload claim | `ut_InputRetention` (6); real upload wrote `.used.json`; real delete 6/6; purge deployed |
+| R12 settings | `tests/serving/test_run_settings.py` 2; real Compare settings diff |
+| Review fixes M1-M7, L1-L5, L7 | `ut_ReviewFixes`, `test_local_renders.py::..._bad_box...`, `ut_ModalVolumeRemoteDownload`, router `test_negative_start_is_refused` |
+| What the owner sees | final Playwright check: L4 album picks / dropped 96/96 / removed 48/48 / People 410/410 images load, no page errors; Compare local vs L4 with settings table (screenshots on disk) |
+| Nothing else broke | full local suite 1,680 passed, 2 skipped, 0 failed (7.8 min; one test importing the real `modal` broke 12 Playwright tests in the same run, fixed, see LEARNINGS); Budapest V2 suite 11 passed (W2); no V2 tab changed in W3-W5 |
 
 ## 2026-10-23 — W2 done: the worker returns results only; the server renders displays and crops
 

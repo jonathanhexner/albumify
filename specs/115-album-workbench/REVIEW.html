@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="REVIEW.md">REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<header id="title-block-header">
+<h1 class="title">spec-115 REVIEW - Album workbench</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-115-review--album-workbench"
+id="toc-spec-115-review--album-workbench">spec-115 REVIEW — Album
+workbench</a>
+<ul>
+<li><a href="#part-1--how-it-works" id="toc-part-1--how-it-works">Part 1
+— How it works</a></li>
+<li><a href="#part-2--findings-by-section"
+id="toc-part-2--findings-by-section">Part 2 — Findings by
+section</a></li>
+<li><a href="#part-3--follow-ups-todomd"
+id="toc-part-3--follow-ups-todomd">Part 3 — Follow-ups
+(TODO.md)</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-115-review--album-workbench">spec-115 REVIEW — Album
+workbench</h1>
+<p><em>2026-10-23. Independent reviewer (subagent) against
+<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>, all 8 sections; fixes
+by the implementer, verified by tests and real runs. Scope: branch
+<code>spec/112-a2-workbench</code> since <code>main</code>.</em></p>
+<p><strong>Verdict: ACCEPT</strong> after fixes. 0 high. 7 medium: all
+fixed with tests. 8 low: 6 fixed, 2 recorded as risks.</p>
+<h2 id="part-1--how-it-works">Part 1 — How it works</h2>
+<p>See the spec's plan and class diagram and
+<code>docs/architecture/data_flow.html</code> ("spec-115"). In short:
+photos are resized once into a content-addressed store; a job is a
+manifest of keys; the runner (local child or Modal L4) returns results
+only; the server renders displays and crops itself; one Modal job runs
+at a time so the feature cache on its Volume has one writer.</p>
+<h2 id="part-2--findings-by-section">Part 2 — Findings by section</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Section</th>
+<th>Verdict</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Structure</td>
+<td>pass-with-followup</td>
+<td><code>modal_app.py</code> (≈370) and <code>pages/jobs.py</code>
+(≈330) exceed 300 lines → TODO split</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Code quality</td>
+<td>pass</td>
+<td>try/except only at real failure points (unreadable photo, bad box,
+Modal I/O)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Naming / packages</td>
+<td>pass</td>
+<td><code>__all__</code> everywhere; names match contents</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Layering</td>
+<td>pass-with-followup</td>
+<td>Compare page imports <code>sim_bench.serving.run_settings</code>
+(pure, no heavy deps) → TODO move diff behind the API</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Testability</td>
+<td>pass</td>
+<td>behaviour tests incl. real child processes, threads, fake Volume;
+real-run evidence for the Modal paths</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Boundary contracts</td>
+<td>pass</td>
+<td><code>extra="forbid"</code>; <code>start &gt;= 0</code>;
+404/409/422/502 mapped; spend cap on every L4 path</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Docs</td>
+<td>pass</td>
+<td><code>classes.html</code>, <code>data_flow.html</code>,
+spec/tasks/updates, CHANGES_LOG, LEARNINGS updated</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Risk register</td>
+<td>pass-with-followup</td>
+<td>risks below are in the spec</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Id</th>
+<th>Severity</th>
+<th>Finding</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M1</td>
+<td>medium</td>
+<td>cancel of a job waiting for the L4 lock ignored until the lock
+frees</td>
+<td><code>_wait_for_modal</code> polls cancel;
+<code>ut_ReviewFixes::test_cancel_of_a_job_waiting...</code></td>
+</tr>
+<tr>
+<td>M2</td>
+<td>medium</td>
+<td>purge could delete just-uploaded / unrecorded / damaged-record
+photos; non-atomic record</td>
+<td>upload writes a <code>.used.json</code> claim; missing/damaged →
+folder time; atomic writes; <code>ut_InputRetention</code> + real upload
+check</td>
+</tr>
+<tr>
+<td>M3</td>
+<td>medium</td>
+<td>cancel just before spawn / before the child starts still ran</td>
+<td>re-check after spawn and after Popen; tests</td>
+</tr>
+<tr>
+<td>M4</td>
+<td>medium</td>
+<td>concurrent Modal jobs lose cache rows (copy back = last writer
+wins)</td>
+<td>every Modal runner under the gate; per-process limit recorded as a
+risk</td>
+</tr>
+<tr>
+<td>M5</td>
+<td>medium</td>
+<td>missing results folder hid the real run error</td>
+<td>caught; <code>ut_ModalVolumeRemoteDownload</code></td>
+</tr>
+<tr>
+<td>M6</td>
+<td>medium</td>
+<td>one bad box failed the load; half-written crop kept forever</td>
+<td>per-face skip (<code>bad_boxes</code>), atomic writes; test</td>
+</tr>
+<tr>
+<td>M7</td>
+<td>medium</td>
+<td>delete-photos allowed on a live job; Modal errors → 500</td>
+<td>409 unless finished; <code>RemoteError</code> → 502; test</td>
+</tr>
+<tr>
+<td>L1</td>
+<td>low</td>
+<td>cancel during LOADING accepted then ignored</td>
+<td>refused (409); test</td>
+</tr>
+<tr>
+<td>L2</td>
+<td>low</td>
+<td>negative <code>start</code>; job-id-only L4 path skipped the
+cap</td>
+<td><code>ge=0</code>; cap on every L4 path; tests</td>
+</tr>
+<tr>
+<td>L3</td>
+<td>low</td>
+<td>queued-cancel race could fail an already-failed job</td>
+<td>guarded; <code>_cancel_requested</code> cleared</td>
+</tr>
+<tr>
+<td>L4</td>
+<td>low</td>
+<td>job ids collide within a second</td>
+<td>random suffix; test</td>
+</tr>
+<tr>
+<td>L5</td>
+<td>low</td>
+<td>warm containers keep the previous call's env</td>
+<td>reset per call</td>
+</tr>
+<tr>
+<td>L6</td>
+<td>low</td>
+<td>estimate / submit reveal server folders</td>
+<td>risk: owner-only API, before anything is public (spec-106)</td>
+</tr>
+<tr>
+<td>L7</td>
+<td>low</td>
+<td>E2E tests depended on order; cancel could race the job</td>
+<td>own finished job per test; 60-photo cancel input; 4/4 pass</td>
+</tr>
+<tr>
+<td>L8</td>
+<td>low</td>
+<td><code>scripts/modal_curate_driver.py</code> bypasses the shared
+store and the gate</td>
+<td>risk recorded; its staged copies are purged after 7 days</td>
+</tr>
+</tbody>
+</table>
+<h2 id="part-3--follow-ups-todomd">Part 3 — Follow-ups (TODO.md)</h2>
+<ul>
+<li>Split <code>modal_app.py</code> (worker functions vs retention) and
+<code>pages/jobs.py</code> (run tools vs album view).</li>
+<li>Serve the settings diff from the API instead of importing
+<code>run_settings</code> in the page.</li>
+<li>Retire or port <code>scripts/modal_curate_driver.py</code> to the
+shared store.</li>
+<li>spec-112 TA6.3 promote/rename round-trip on the new jobs (the API
+tests cover it; no real-data click yet).</li>
+</ul>
+</div>
+</body>
+</html>

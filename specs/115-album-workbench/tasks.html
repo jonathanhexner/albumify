@@ -277,27 +277,33 @@ href="#w2--results-only-display-images-and-crops-made-on-the-pc-done-2026-10-23"
 id="toc-w2--results-only-display-images-and-crops-made-on-the-pc-done-2026-10-23">W2
 — Results-only; display images and crops made on the PC (done
 2026-10-23)</a></li>
-<li><a href="#w2b--file-serving-per-job-r7"
-id="toc-w2b--file-serving-per-job-r7">W2b — File serving per job
-(R7)</a></li>
+<li><a href="#w2b--file-serving-per-job-r7-done-2026-10-23"
+id="toc-w2b--file-serving-per-job-r7-done-2026-10-23">W2b — File serving
+per job (R7) (done 2026-10-23)</a></li>
 <li><a
-href="#w3--modal-inputs-and-cache-volumes-results-only-download-retention"
-id="toc-w3--modal-inputs-and-cache-volumes-results-only-download-retention">W3
-— Modal: inputs and cache Volumes, results-only download,
-retention</a></li>
-<li><a href="#w4--the-app" id="toc-w4--the-app">W4 — The app</a></li>
-<li><a href="#w5--prove-on-real-data-owner-approval-before-each-l4-run"
-id="toc-w5--prove-on-real-data-owner-approval-before-each-l4-run">W5 —
-Prove on real data (owner approval before each L4 run)</a></li>
-<li><a href="#close-out" id="toc-close-out">Close out</a></li>
+href="#w3--modal-inputs-and-cache-volumes-results-only-download-retention-done-2026-10-23"
+id="toc-w3--modal-inputs-and-cache-volumes-results-only-download-retention-done-2026-10-23">W3
+— Modal: inputs and cache Volumes, results-only download, retention
+(done 2026-10-23)</a></li>
+<li><a href="#w4--the-app-done-2026-10-23"
+id="toc-w4--the-app-done-2026-10-23">W4 — The app (done
+2026-10-23)</a></li>
+<li><a
+href="#w5--prove-on-real-data-owner-approval-before-each-l4-run-done-2026-10-23"
+id="toc-w5--prove-on-real-data-owner-approval-before-each-l4-run-done-2026-10-23">W5
+— Prove on real data (owner approval before each L4 run) (done
+2026-10-23)</a></li>
+<li><a href="#close-out-done-2026-10-23"
+id="toc-close-out-done-2026-10-23">Close out (done 2026-10-23)</a></li>
 </ul></li>
 </ul>
 </nav>
 <h1 id="spec-115--tasks-album-workbench">spec-115 — Tasks (Album
 workbench)</h1>
-<p><strong>Status:</strong> In Progress — W1, W2 done 2026-10-23; W3
-next. <strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
-href="updates.html">updates</a> · roadmap stage <strong>C</strong> · <a
+<p><strong>Status:</strong> Implemented 2026-10-23 — W1-W5 done; review
+ACCEPT after fixes (REVIEW.md). <strong>Spec:</strong> <a
+href="spec.html">spec.md</a> · <a href="updates.html">updates</a> ·
+roadmap stage <strong>C</strong> · <a
 href="../../ROADMAP.html">ROADMAP.md</a></p>
 <p>Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file
 tables). This file orders the work.</p>
@@ -348,8 +354,8 @@ boxes).</label></li>
 for local and fake-Modal; old jobs keep their files. (R10,
 R14)</label></li>
 </ul>
-<h2 id="w2b--file-serving-per-job-r7">W2b — File serving per job
-(R7)</h2>
+<h2 id="w2b--file-serving-per-job-r7-done-2026-10-23">W2b — File serving
+per job (R7) (done 2026-10-23)</h2>
 <ul class="task-list">
 <li><label><input type="checkbox" checked="" />T2.6
 <code>JobStore.resolve</code> takes the job's manifest into account: an
@@ -357,79 +363,84 @@ R14)</label></li>
 <code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code>.</label></li>
 </ul>
 <h2
-id="w3--modal-inputs-and-cache-volumes-results-only-download-retention">W3
-— Modal: inputs and cache Volumes, results-only download, retention</h2>
+id="w3--modal-inputs-and-cache-volumes-results-only-download-retention-done-2026-10-23">W3
+— Modal: inputs and cache Volumes, results-only download, retention
+(done 2026-10-23)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T3.1 <code>modal_app</code>: Volumes
-<code>albumify-inputs</code> (<code>/inputs</code>) and
-<code>albumify-cache</code>;
+<li><label><input type="checkbox" checked="" />T3.1
+<code>modal_app</code>: Volumes <code>albumify-inputs</code>
+(<code>/inputs</code>) and <code>albumify-cache</code>;
 <code>curate_job(job_id, keys, pipeline)</code> reads
 <code>/inputs/&lt;key&gt;</code>; <code>ALBUMIFY_FEATURE_CACHE</code> on
 the cache Volume, <code>reload()</code> before and <code>commit()</code>
 after.</label></li>
-<li><label><input type="checkbox" />T3.2
+<li><label><input type="checkbox" checked="" />T3.2
 <code>ModalVolumeRemote.missing/upload</code>: list the hashes once,
 <code>batch_upload</code> only the missing photos. (R9)</label></li>
-<li><label><input type="checkbox" />T3.3 <code>download_results</code>:
-only <code>JobStore.results_files</code>. (R8)</label></li>
-<li><label><input type="checkbox" />T3.4 Mark photos used per job;
-<code>purge_inputs</code> (daily) deletes photos unused 7 days and the
-old per-job <code>input/</code> copies on <code>albumify-jobs</code>;
-<code>delete_inputs(keys)</code> for the button, keeping photos another
-job used in the last 7 days. (R13)</label></li>
-<li><label><input type="checkbox" />T3.5
+<li><label><input type="checkbox" checked="" />T3.3
+<code>download_results</code>: only <code>JobStore.results_files</code>.
+(R8)</label></li>
+<li><label><input type="checkbox" checked="" />T3.4 Mark photos used per
+job; <code>purge_inputs</code> (daily) deletes photos unused 7 days and
+the old per-job <code>input/</code> copies on
+<code>albumify-jobs</code>; <code>delete_inputs(keys)</code> for the
+button, keeping photos another job used in the last 7 days.
+(R13)</label></li>
+<li><label><input type="checkbox" checked="" />T3.5
 <code>tests/serving/test_modal_staging.py</code> with a fake
 Volume.</label></li>
 </ul>
-<h2 id="w4--the-app">W4 — The app</h2>
+<h2 id="w4--the-app-done-2026-10-23">W4 — The app (done 2026-10-23)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T4.1
+<li><label><input type="checkbox" checked="" />T4.1
 <code>RunSettings.collect</code> into <code>run.json</code>;
 <code>JobDetail.settings</code>; Compare runs "Settings that differ".
 (R12)</label></li>
-<li><label><input type="checkbox" />T4.2
+<li><label><input type="checkbox" checked="" />T4.2
 <code>JobService.estimate</code> + <code>GET /jobs/estimate</code>;
 <code>configs/serving.yaml</code> <code>max_photos_l4</code> (1,000),
 <code>max_gpu_minutes</code> (30), <code>l4_seconds_per_photo</code>,
 <code>l4_dollars_per_hour</code>; over a limit → 422. Tests
 <code>ut_Estimate</code>. (R2)</label></li>
-<li><label><input type="checkbox" />T4.3 <code>Runner.cancel</code>
-(local: kill the child; Modal: cancel the spawned call) +
-<code>POST /jobs/{id}/cancel</code>; L4 jobs one at a time; end state
-per R4 (partial <code>results/</code> deleted, queue slot freed). Tests
-<code>ut_Cancel</code>. (R4)</label></li>
-<li><label><input type="checkbox" />T4.4 Jobs page: run form, estimate +
-confirm for L4, live status fragment, Cancel, Re-run → Compare.
-(R1-R5)</label></li>
-<li><label><input type="checkbox" />T4.5
+<li><label><input type="checkbox" checked="" />T4.3
+<code>Runner.cancel</code> (local: kill the child; Modal: cancel the
+spawned call) + <code>POST /jobs/{id}/cancel</code>; L4 jobs one at a
+time; end state per R4 (partial <code>results/</code> deleted, queue
+slot freed). Tests <code>ut_Cancel</code>. (R4)</label></li>
+<li><label><input type="checkbox" checked="" />T4.4 Jobs page: run form,
+estimate + confirm for L4, live status fragment, Cancel, Re-run →
+Compare. (R1-R5)</label></li>
+<li><label><input type="checkbox" checked="" />T4.5
 <code>DELETE /jobs/{id}/remote-inputs</code> + button.
 (R13)</label></li>
-<li><label><input type="checkbox" />T4.6
+<li><label><input type="checkbox" checked="" />T4.6
 <code>tests/test_jobs_page_run_e2e.py</code> (Playwright, real API +
 app, local <code>minimal</code>); screenshots stay on disk.</label></li>
 </ul>
-<h2 id="w5--prove-on-real-data-owner-approval-before-each-l4-run">W5 —
-Prove on real data (owner approval before each L4 run)</h2>
+<h2
+id="w5--prove-on-real-data-owner-approval-before-each-l4-run-done-2026-10-23">W5
+— Prove on real data (owner approval before each L4 run) (done
+2026-10-23)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T5.1 Slovakia26 from the form on the
-L4: R1, R8 (file count, copy-back time), album opens with crops
-(R10).</label></li>
-<li><label><input type="checkbox" />T5.2 Same photos again on the L4: R9
-(0 uploads, cache hits, GPU time).</label></li>
-<li><label><input type="checkbox" />T5.3 48-photo slice local vs L4 →
-Compare runs: R11.</label></li>
-<li><label><input type="checkbox" />T5.4 Cancel on both runners (R4);
-delete-photos button + Volume listing (R13).</label></li>
-<li><label><input type="checkbox" />T5.5 Closes spec-112
+<li><label><input type="checkbox" checked="" />T5.1 Slovakia26 from the
+form on the L4: R1, R8 (file count, copy-back time), album opens with
+crops (R10).</label></li>
+<li><label><input type="checkbox" checked="" />T5.2 Same photos again on
+the L4: R9 (0 uploads, cache hits, GPU time).</label></li>
+<li><label><input type="checkbox" checked="" />T5.3 48-photo slice local
+vs L4 → Compare runs: R11.</label></li>
+<li><label><input type="checkbox" checked="" />T5.4 Cancel on both
+runners (R4); delete-photos button + Volume listing (R13).</label></li>
+<li><label><input type="checkbox" checked="" />T5.5 Closes spec-112
 TA6.1/TA6.3/TA6.4 (post-SIGHTING-132 Slovakia run, edit round-trip,
 viewer screenshots).</label></li>
 </ul>
-<h2 id="close-out">Close out</h2>
+<h2 id="close-out-done-2026-10-23">Close out (done 2026-10-23)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />TC.1
+<li><label><input type="checkbox" checked="" />TC.1
 <code>docs/architecture/{classes,data_flow}.html</code>; CHANGES_LOG;
 <code>updates.md</code> with evidence.</label></li>
-<li><label><input type="checkbox" />TC.2 Full suite;
+<li><label><input type="checkbox" checked="" />TC.2 Full suite;
 <code>/code-review</code> → REVIEW.md; Budapest gate not affected (no v2
 tab change), stated in REVIEW.</label></li>
 </ul>

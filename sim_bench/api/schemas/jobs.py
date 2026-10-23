@@ -12,11 +12,12 @@ class _Strict(BaseModel):
 
 
 class JobSubmit(_Strict):
-    source: str = Field(..., description="Local folder of photos (Phase A: local runs only)")
+    source: Optional[str] = Field(None, description="Local folder of photos (Phase A: local runs only)")
+    rerun_of: Optional[str] = Field(None, description="re-run the same photos as this job (spec-115 R5)")
     runner: Optional[str] = Field(None, description="local | modal_gpu | modal_cpu; default from configs/serving.yaml")
     pipeline: Optional[str] = None
     job_id: Optional[str] = None
-    start: int = 0
+    start: int = Field(0, ge=0)
     n: Optional[int] = Field(None, ge=1)
 
 
@@ -53,6 +54,21 @@ class JobOut(_Strict):
 
 class JobDetail(JobOut):
     events: List[JobEventOut] = []
+    settings: Optional[Dict[str, Any]] = None      # what the run ran with (spec-115 R12)
+
+
+class EstimateOut(_Strict):
+    runner: str
+    n_photos: int
+    gpu_minutes: Optional[float] = None
+    dollars: Optional[float] = None
+    allowed: bool = True
+    reason: Optional[str] = None
+
+
+class DeleteInputsOut(_Strict):
+    deleted: int
+    kept: int
 
 
 class ScoreOut(_Strict):

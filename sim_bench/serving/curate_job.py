@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 from sim_bench.serving.job_store import JobStore
+from sim_bench.serving.run_settings import RunSettings
 from sim_bench.serving.pipeline_runner import SpecBuilder, SpecInputs, SpecResult
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ class CurateJobInputs:
     job_id: str
     pipeline: str = "default"
     device: str = "cpu"
+    runner: str = "local"            # recorded in run.json settings (spec-115 R12)
     # spec-115 W2: the server makes display images and face crops from its own copies (LocalRenders), so the
     # worker returns results only. True keeps the old worker-side renders (debug / comparison only).
     write_renders: bool = False
@@ -112,6 +114,7 @@ class CurateJobResult:
     timing: Dict = field(default_factory=dict)
     failed_step: Optional[str] = None
     error: Optional[str] = None
+    settings: Dict = field(default_factory=dict)   # RunSettings (spec-115 R12)
 
 
 class JobCurator:
@@ -141,8 +144,10 @@ class JobCurator:
         context, result = self._runner(sources, plan)
 
         timing = _timing(result)
+        settings = RunSettings.collect(plan, pipeline=inputs.pipeline, runner=inputs.runner,
+                                       device=inputs.device).to_dict()
         base = dict(job_id=job_id, n_inputs=len(sources), device=inputs.device,
-                    flipped=list(plan.flipped), refused=list(plan.refused), timing=timing)
+                    flipped=list(plan.flipped), refused=list(plan.refused), timing=timing, settings=settings)
         if not getattr(result, "success", False):
             failed = CurateJobResult(ok=False, failed_step=getattr(result, "failed_step", None),
                                      error=getattr(result, "error_message", None), **base)
@@ -232,4 +237,5 @@ def _run_record(result: CurateJobResult, inputs: CurateJobInputs) -> Dict:
         "timing": result.timing,
         "failed_step": result.failed_step,
         "error": result.error,
+        "settings": result.settings,
     }

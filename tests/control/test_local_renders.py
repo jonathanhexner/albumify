@@ -89,3 +89,12 @@ class ut_LocalRenders:
         assert (paths.faces_dir / "0.jpg").read_bytes() == b"worker crop"
         assert (paths.display_dir / "a.jpg").read_bytes() == b"worker display"
         assert res.n_kept == 2
+
+    def test_a_bad_box_is_skipped_not_fatal_and_files_are_written_whole(self, store):
+        """review M6."""
+        bundle = {"faces": [{"face_id": 0, "photo_id": "a", "bbox": BOX},
+                            {"face_id": 5, "photo_id": "a", "bbox": [500, 500, 400, 400]}]}
+        res = LocalRenders(store).calc(LocalRendersInputs("j", ALBUM, bundle))
+        faces = store.paths("j").faces_dir
+        assert res.bad_boxes == [5] and (faces / "0.jpg").is_file() and not (faces / "5.jpg").exists()
+        assert not list(faces.glob("*.part")) and not list(store.paths("j").display_dir.glob("*.part"))

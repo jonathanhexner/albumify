@@ -14,3 +14,11 @@ runner: local
 pipeline: default
 device: cpu
 jobs_root: ~/.sim_bench/jobs
+
+# L4 estimate + spend cap (spec-115 R2). A job over either limit is refused before it starts.
+# Rate from the 2026-10-11 / 2026-10-23 Slovakia26 runs (~0.6 s/photo + container start and model load).
+max_photos_l4: 1000
+max_gpu_minutes: 30
+l4_fixed_seconds: 150
+l4_seconds_per_photo: 0.6
+l4_dollars_per_hour: 0.80

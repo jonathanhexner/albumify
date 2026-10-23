@@ -15,15 +15,15 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 
 from sim_bench.api.schemas.jobs import (
-    AlbumOut, CompareOut, EditIn, EditOut, FaceOut, JobAccepted, JobDetail, JobEventOut, JobLoad,
-    JobOut, JobSubmit, PhotoOut,
+    AlbumOut, CompareOut, DeleteInputsOut, EditIn, EditOut, EstimateOut, FaceOut, JobAccepted, JobDetail,
+    JobEventOut, JobLoad, JobOut, JobSubmit, PhotoOut,
 )
 from sim_bench.control.album_builder import AlbumBuilder, BuildInputs, EditError, record_edit
 from sim_bench.control.compare import CompareJobsInputs, DifferentPhotos, JobComparer
 from sim_bench.control.db import ControlDB
 from sim_bench.control.jobs import SUCCEEDED, InvalidTransition
 from sim_bench.control.models import Face, Photo
-from sim_bench.serving.job_service import JobService, SubmitInputs
+from sim_bench.serving.job_service import JobService, RemoteError, SubmitInputs
 from sim_bench.serving.serving_config import RUNNERS, load_serving_config
 
 logger = logging.getLogger(__name__)
@@ -53,8 +53,11 @@ def submit_job(body: JobSubmit, background: BackgroundTasks,
                svc: JobService = Depends(get_job_service)):
     if body.runner and body.runner not in RUNNERS:
         raise HTTPException(422, f"runner must be one of {RUNNERS}")
-    inputs = SubmitInputs(source=Path(body.source), job_id=body.job_id, runner=body.runner,
-                          pipeline=body.pipeline, start=body.start, n=body.n)
+    if not body.source and not body.rerun_of:
+        raise HTTPException(422, "give a source folder or a job to re-run")
+    inputs = SubmitInputs(source=Path(body.source) if body.source else None, job_id=body.job_id,
+                          runner=body.runner, pipeline=body.pipeline, start=body.start, n=body.n,
+                          rerun_of=body.rerun_of)
     try:
         job_id = svc.create(inputs)
     except InvalidTransition as e:
@@ -63,6 +66,44 @@ def submit_job(body: JobSubmit, background: BackgroundTasks,
         raise HTTPException(422, str(e))
     background.add_task(svc.run, job_id, inputs)
     return JobAccepted(job_id=job_id, status="queued")
+
+
+@router.get("/estimate", response_model=EstimateOut)
+def estimate_job(source: str | None = None, start: int = Query(0, ge=0), n: int | None = Query(None, ge=1),
+                 runner: str | None = None, rerun_of: str | None = None,
+                 svc: JobService = Depends(get_job_service)):
+    """spec-115 R2: photo count, and for the L4 GPU minutes, dollars and whether the spend cap allows it."""
+    if runner and runner not in RUNNERS:
+        raise HTTPException(422, f"runner must be one of {RUNNERS}")
+    try:
+        est = svc.estimate(Path(source) if source else None, start, n, runner, rerun_of=rerun_of)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    return EstimateOut(**{k: getattr(est, k) for k in EstimateOut.model_fields})
+
+
+@router.post("/{job_id}/cancel", response_model=JobAccepted)
+def cancel_job(job_id: str, svc: JobService = Depends(get_job_service)):
+    """spec-115 R4: the job ends failed / "cancelled by owner" (immediately if queued, within seconds if running)."""
+    _job_or_404(svc, job_id)
+    try:
+        svc.cancel(job_id)
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    return JobAccepted(job_id=job_id, status=svc.repo.get(job_id).status)
+
+
+@router.delete("/{job_id}/remote-inputs", response_model=DeleteInputsOut)
+def delete_remote_inputs(job_id: str, svc: JobService = Depends(get_job_service)):
+    """spec-115 R13: delete this job's photos from Modal (photos another job used in 7 days stay)."""
+    _job_or_404(svc, job_id)
+    try:
+        res = svc.delete_remote_inputs(job_id)
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    except RemoteError as e:
+        raise HTTPException(502, str(e))
+    return DeleteInputsOut(deleted=len(res.get("deleted", [])), kept=int(res.get("kept", 0)))
 
 
 @router.post("/{job_id}/load", response_model=JobAccepted)
@@ -88,7 +129,7 @@ def get_job(job_id: str, svc: JobService = Depends(get_job_service)):
     svc.repo.reap_orphans()
     job = _job_or_404(svc, job_id)
     events = [JobEventOut(ts=e.ts, kind=e.kind, message=e.message) for e in svc.repo.events(job_id)]
-    return JobDetail(**_job_out(job), events=events)
+    return JobDetail(**_job_out(job), events=events, settings=svc.run_settings(job_id))
 
 
 @router.get("/{job_id}/album", response_model=AlbumOut)

@@ -8,6 +8,13 @@
 - `[x]` DONE - Completed
 - `[!]` BLOCKED - Waiting on something
 
+## spec-115 album workbench — REVIEW.md follow-ups (2026-10-23)
+- [ ] spec-115 F1: split `sim_bench/serving/modal_app.py` (worker functions vs retention) and `app/streamlit/pages/jobs.py` (run tools vs album view); both > 300 lines. | 2026-10-23 | Claude
+- [ ] spec-115 F2: serve the settings diff from the API (`GET /jobs/{b}/compare` or a settings route) instead of importing `run_settings` in the Compare page. | 2026-10-23 | Claude
+- [ ] spec-115 F3: retire or port `scripts/modal_curate_driver.py` to the shared input store + one-Modal-job gate. | 2026-10-23 | Claude
+- [ ] spec-115 F4: real-data promote/rename click on an L4 job (spec-112 TA6.3 edits; API tests cover it). | 2026-10-23 | Claude
+- [ ] SIGHTING-141 detector suspicion: measure RGB vs BGR input to InsightFace detection on a real album before changing anything. | 2026-10-23 | Claude
+
 ## spec-112 live DB + storage (2026-10-10)
 
 - [ ] Owner (Phase B only): P0 setup — Neon project, R2 bucket + scoped token, local `.env`, `modal secret create albumify-r2`. | 2026-10-10 | Jonathan
