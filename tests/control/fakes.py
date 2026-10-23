@@ -14,7 +14,7 @@ NAMES = ("a.jpg", "b.jpg", "c.jpg", "d.jpg", "q.jpg", "s.jpg")
 
 
 def _face(fid, path, person):
-    return SimpleNamespace(face_id=fid, image_path=path, bbox=(0, 0, 10, 10), det_score=0.9,
+    return SimpleNamespace(face_id=fid, face_index=0, image_path=path, bbox=(0, 0, 10, 10), det_score=0.9,
                            blur_score=50.0, pose=(0.0, 0.0, 0.0), is_core=True,
                            rejection_reason=None, embedding_normalized=np.ones(4) * fid,
                            aligned_face=np.full((112, 112, 3), 128, np.uint8), _person=person)

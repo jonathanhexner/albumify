@@ -111,12 +111,6 @@ def render_run_tab():
         _render_embed_cache_status(output_dir_str)
         st.divider()
         st.markdown("**Stage 3 · Quality Gate**")
-        st.caption(
-            ":warning: Quality gates below run on **FC App standalone**. "
-            "When this profile is loaded in Albumify, these knobs are "
-            "force-disabled by `face_cluster_bridge.py:66-71` (SIGHTING-059). "
-            "Spec-033 P-C unblocks them."
-        )
         c1, c2, c3 = st.columns(3)
         with c1:
             blur_min = st.slider(
@@ -124,7 +118,7 @@ def render_run_tab():
                 key="run_blur_min",
                 help=(
                     "PipelineConfig.blur_min. Min Laplacian variance for core set. "
-                    "Filter: face_blur. NO EFFECT on Albumify runs (bridge force-disables)."
+                    "Filter: face_blur."
                 ),
             )
         with c2:
@@ -142,10 +136,7 @@ def render_run_tab():
                 min_value=0, value=0, step=500,
                 key="run_min_face_area",
                 help=(
-                    "PipelineConfig.min_face_area. UNIT on FC App standalone: PIXELS. "
-                    "Filter: face_area. WARNING: when this profile runs via Albumify, "
-                    "the bridge computes face.area as fraction² (~0.001-0.45) not "
-                    "pixels — SIGHTING-060 unit drift. Spec-033 P-C / P-F resolves."
+                    "PipelineConfig.min_face_area. Unit: pixels. Filter: face_area."
                 ),
             )
         c4 = st.columns(1)[0]
@@ -156,9 +147,7 @@ def render_run_tab():
                 key="run_det_score_min",
                 help=(
                     "PipelineConfig.det_score_min. Min InsightFace detection confidence (0-1). "
-                    "Filter: face_confidence. Recommended: 0.7. "
-                    "NO EFFECT on Albumify runs (bridge force-disables; "
-                    "Albumify uses config_det_conf instead)."
+                    "Filter: face_confidence. Recommended: 0.7."
                 ),
             )
         st.markdown("*Pose filter*")
@@ -167,32 +156,28 @@ def render_run_tab():
             yaw_max = st.slider(
                 "yaw_max °", 5.0, 90.0, 30.0, 1.0, key="run_yaw_max",
                 help=(
-                    "PipelineConfig.yaw_max. degrees. Filter: face_pose_yaw. "
-                    "NO EFFECT on Albumify runs (bridge force-disables)."
+                    "PipelineConfig.yaw_max. degrees. Filter: face_pose_yaw."
                 ),
             )
         with c2:
             pitch_max = st.slider(
                 "pitch_max °", 5.0, 90.0, 25.0, 1.0, key="run_pitch_max",
                 help=(
-                    "PipelineConfig.pitch_max. degrees. Filter: face_pose_pitch. "
-                    "NO EFFECT on Albumify runs (bridge force-disables)."
+                    "PipelineConfig.pitch_max. degrees. Filter: face_pose_pitch."
                 ),
             )
         with c3:
             roll_max = st.slider(
                 "roll_max °", 5.0, 90.0, 25.0, 1.0, key="run_roll_max",
                 help=(
-                    "PipelineConfig.roll_max. degrees. Filter: face_pose_roll. "
-                    "NO EFFECT on Albumify runs (bridge force-disables)."
+                    "PipelineConfig.roll_max. degrees. Filter: face_pose_roll."
                 ),
             )
         with c4:
             require_pose = st.checkbox(
                 "require_pose", key="run_require_pose",
                 help=(
-                    "PipelineConfig.require_pose. If on, faces without pose data go to holdout. "
-                    "NO EFFECT on Albumify runs (bridge does not extract pose)."
+                    "PipelineConfig.require_pose. If on, faces without pose data go to holdout."
                 ),
             )
         st.divider()

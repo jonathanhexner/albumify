@@ -712,8 +712,8 @@ class ApiClient:
 
 
     # Jobs (spec-112): control-plane jobs, albums built from DB rows
-    def list_jobs(self) -> List[Dict[str, Any]]:
-        return self._get("/jobs")
+    def list_jobs(self, limit: int = 100) -> List[Dict[str, Any]]:
+        return self._get("/jobs", params={"limit": limit})
 
     def get_job(self, job_id: str) -> Dict[str, Any]:
         return self._get(f"/jobs/{job_id}")
@@ -730,6 +730,10 @@ class ApiClient:
 
     def add_job_edit(self, job_id: str, kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._post(f"/jobs/{job_id}/edits", json={"kind": kind, "payload": payload})
+
+    def compare_jobs(self, job_id: str, reference_id: str) -> Dict[str, Any]:
+        """spec-114: ``job_id`` (B, new) against ``reference_id`` (A) on the same photos."""
+        return self._get(f"/jobs/{job_id}/compare", params={"with": reference_id})
 
     def job_photo_url(self, job_id: str, photo_id: str) -> str:
         return self._url(f"/jobs/{job_id}/photos/{photo_id}/image")

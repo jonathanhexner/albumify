@@ -101,7 +101,7 @@ For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html
     <tr><td><a href="#albums">albums</a></td><td><code>AlbumService</code></td><td>On album ingest / rescan.</td></tr>
     <tr><td><a href="#pipeline_runs">pipeline_runs</a></td><td><code>PipelineService.start_pipeline / execute_pipeline</code></td><td>Inserted at start; updated as steps complete.</td></tr>
     <tr><td><a href="#pipeline_results">pipeline_results</a></td><td><code>ResultService</code> (via PipelineService)</td><td>At run completion.</td></tr>
-    <tr><td><a href="#people">people</a></td><td><code>PeopleService</code></td><td>At end of cluster_people / identity_refinement; updated on user actions.</td></tr>
+    <tr><td><a href="#people">people</a></td><td><code>PeopleService</code></td><td>At end of assign_people_clusters / identity_refinement; updated on user actions.</td></tr>
     <tr><td><a href="#image_metric_rows">image_metric_rows</a> + <a href="#face_metric_rows">face_metric_rows</a></td><td><code>PipelineService._write_metric_tables</code> (spec-086)</td><td>Dual-write next to the image_metrics blob, after people creation. Read by <code>ImageRepository</code>.</td></tr>
     <tr><td><a href="#config_profiles">config_profiles</a></td><td><code>ConfigService</code></td><td>System default loaded from yaml at startup; user profiles on save.</td></tr>
     <tr><td><a href="#universal_cache">universal_cache</a></td><td><code>UniversalCacheHandler.store_to_cache</code></td><td>Inside any cacheable <code>BaseStep</code>.</td></tr>
@@ -198,7 +198,7 @@ For comparison: the <b>per-run</b> DB (<a href="db_schemas.html">db_schemas.html
     <tr><td><code>id</code> <span class="pill pk">PK</span></td><td>String</td><td>no</td><td>Person identifier (UUID).</td></tr>
     <tr><td><code>album_id</code> <span class="pill fk">FK</span></td><td>String</td><td>no</td><td>The album this person was discovered in.</td></tr>
     <tr><td><code>run_id</code> <span class="pill fk">FK</span></td><td>String</td><td>no</td><td>The run that produced this person.</td></tr>
-    <tr><td><code>person_index</code></td><td>Integer</td><td class="nullable">yes</td><td>Cluster id from <code>cluster_people</code> (0, 1, 2…).</td></tr>
+    <tr><td><code>person_index</code></td><td>Integer</td><td class="nullable">yes</td><td>Cluster id from <code>assign_people_clusters</code> (0, 1, 2…).</td></tr>
     <tr><td><code>name</code></td><td>String</td><td class="nullable">yes</td><td>User-assigned label.</td></tr>
     <tr><td><code>thumbnail_image_path, thumbnail_face_index, thumbnail_bbox</code></td><td>String/Int/JSON</td><td class="nullable">yes</td><td>Pointer to the best-face crop for this person.</td></tr>
     <tr><td><code>face_count, image_count</code></td><td>Integer</td><td>default 0</td><td>Stats.</td></tr>

@@ -465,16 +465,6 @@ def _render_face_clustering_tab(all_decisions, job_id, result, album):
                  "Faces": p.face_count, "Images": p.image_count} for p in people]
         st.dataframe(pd.DataFrame(rows).sort_values("Faces", ascending=False), use_container_width=True)
 
-    face_decisions = [d for d in all_decisions if d.get("step") == "cluster_people"]
-    if face_decisions:
-        st.divider()
-        counts = {}
-        for d in face_decisions:
-            counts[d.get("decision", "?")] = counts.get(d.get("decision", "?"), 0) + 1
-        cols = st.columns(min(len(counts), 6))
-        for i, (dec, count) in enumerate(sorted(counts.items())):
-            if i < len(cols):
-                cols[i].metric(dec.replace("_", " ").title(), count)
 
 
 def _render_face_distance_tab(job_id: str, images: list) -> None:

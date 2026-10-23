@@ -142,6 +142,17 @@ class ut_Runners:
         out = LocalRunner(JobStore(tmp_path)).run("j1")
         assert not out.ok and "exited 3" in out.error and "MemoryError" in out.error
 
+    def test_local_runner_keeps_the_error_tail_when_output_is_not_in_the_locale_code_page(
+            self, tmp_path, monkeypatch):
+        """A real child writing non-cp1255 text: the error tail must survive (Windows, Hebrew locale)."""
+        import sys
+        # 0x81 is undefined in cp1255; the child writes raw bytes so its own encoding is irrelevant
+        script = ("import sys; sys.stdout.buffer.write(bytes([0x81, 10])); sys.stdout.flush(); "
+                  "sys.stderr.buffer.write(b'boom ' + bytes([0x81, 10])); sys.exit(4)")
+        monkeypatch.setattr(LocalRunner, "command", lambda self, job_id: [sys.executable, "-c", script])
+        out = LocalRunner(JobStore(tmp_path)).run("j1")
+        assert not out.ok and "exited 4" in out.error and "boom" in out.error
+
     def test_modal_runner_stages_curates_and_copies_back(self, tmp_path):
         store = JobStore(tmp_path)
         store.stage_inputs("j1", [(n, b"x") for n in NAMES])

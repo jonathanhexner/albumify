@@ -10,8 +10,8 @@ references upstream field nobody computes" bugs.
 The test runs the production ``default_pipeline`` from
 ``configs/pipeline.yaml`` on a 5-image fixture and asserts:
 
-* ``context.people_clusters`` is non-empty after ``cluster_people``.
-* ``context.all_faces`` is non-empty after ``cluster_people``.
+* ``context.people_clusters`` is non-empty after ``assign_people_clusters``.
+* ``context.all_faces`` is non-empty after the people-clustering chain.
 * No step raises.
 
 The fixture is sourced from ``test_data/face_clustering_100/`` (the same
@@ -115,7 +115,7 @@ def test_pipeline_completes_successfully(albumify_run):
 
     A failure here means a regression in any of detect_persons,
     insightface_detect_faces, filter_faces, align_faces, the scoring steps,
-    extract_face_embeddings, cluster_people, identity_refinement, or
+    extract_face_embeddings, the people-clustering chain, identity_refinement, or
     select_best. The error message names the step.
     """
     _, result = albumify_run

@@ -13,8 +13,9 @@ import numpy as np
 from sim_bench.album.results_bundle import BUNDLE_VERSION, BundleInputs, ResultsBundler
 
 
-def _face(fid, path, emb=None, aligned=None):
-    return SimpleNamespace(face_id=fid, image_path=path, image_id=path.rsplit("/", 1)[-1],
+def _face(fid, path, emb=None, aligned=None, idx=0):
+    return SimpleNamespace(face_id=fid, face_index=idx, image_path=path,
+                           image_id=path.rsplit("/", 1)[-1],
                            bbox=(1.0, 2.0, 11.0, 12.0), det_score=0.9, blur_score=40.0,
                            pose=(1.0, 2.0, 3.0), is_core=True, rejection_reason=None,
                            embedding_normalized=emb, aligned_face=aligned)
@@ -23,7 +24,7 @@ def _face(fid, path, emb=None, aligned=None):
 def _context():
     w = "/scratch"
     faces = [_face(0, f"{w}/a.jpg", np.ones(4), np.zeros((112, 112, 3), np.uint8)),
-             _face(1, f"{w}/a.jpg", np.full(4, 2.0)),
+             _face(1, f"{w}/a.jpg", np.full(4, 2.0), idx=1),
              _face(2, f"{w}/c.jpg")]
     return SimpleNamespace(
         straightened_from={f"{w}/c_straight.jpg": f"{w}/c.jpg"},
@@ -101,3 +102,12 @@ def test_manifest_counts():
 def test_empty_context_gives_photo_rows_only():
     res = ResultsBundler().calc(BundleInputs(context=SimpleNamespace(), input_ids=["x"]))
     assert len(res.photos) == 1 and res.faces == [] and res.embeddings is None
+
+
+def test_people_from_the_legacy_clusterer_are_matched_by_photo_and_face_index():
+    """SIGHTING-132: cluster_people members carry original_path + face_index, no face_id."""
+    ctx = _context()
+    legacy = lambda path, idx: SimpleNamespace(original_path=path, face_index=idx, cluster_id=9)
+    ctx.people_clusters = {9: [legacy("/scratch/a.jpg", 1)], 4: [legacy("/scratch/c.jpg", 0)]}
+    faces = ResultsBundler().calc(BundleInputs(context=ctx, input_ids=["a", "c"])).faces
+    assert [(f["face_id"], f["person_id"]) for f in faces] == [(0, None), (1, 9), (2, 4)]

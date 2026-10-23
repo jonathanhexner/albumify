@@ -42,6 +42,7 @@ class JobOut(_Strict):
     runner: str
     pipeline: str
     source: Optional[str] = None
+    tag: Optional[str] = None
     n_inputs: int
     error: Optional[str] = None
     failed_step: Optional[str] = None
@@ -137,3 +138,46 @@ class EditOut(_Strict):
     id: int
     kind: str
     payload: Dict[str, Any]
+
+
+class CheckOut(_Strict):
+    name: str
+    baseline: int
+    current: int
+    allowed: int
+    ok: bool
+
+
+class PickDiffOut(_Strict):
+    same: List[str]
+    swapped: List[List[str]]          # [A pick, B pick from the same near-duplicate group]
+    missing: List[str]
+    extra: List[str]
+    also_kept: List[str]
+
+
+class PhotoDecisionOut(_Strict):
+    state: str                        # pick | near_dup | not_selected | set_aside | removed
+    detail: str
+    scene: Optional[int] = None
+    score: Optional[float] = None
+
+
+class ComparePersonOut(_Strict):
+    id: str
+    label: str
+    face_count: int
+    face_id: Optional[int] = None     # one face crop to show
+
+
+class CompareOut(_Strict):
+    """spec-114: job ``b`` (new) against job ``a`` (reference) on the same photos."""
+    a: str
+    b: str
+    ok: bool
+    failures: List[str]
+    metrics: Dict[str, float]
+    checks: List[CheckOut]
+    picks: PickDiffOut
+    decisions: Dict[str, Dict[str, PhotoDecisionOut]]
+    people: Dict[str, List[ComparePersonOut]]

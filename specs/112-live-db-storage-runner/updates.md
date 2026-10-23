@@ -2,7 +2,44 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** In Progress — Phase A built (A1–A5); real-data proof (A6) pending a Modal re-run of Slovakia26.
+**Status:** In Progress — Phase A proven on Slovakia26 via Modal for AC1–AC4 (AC5 by tests); faces → people mapping fixed after the run, needs one re-run once SIGHTING-132 is decided.
+
+## 2026-10-11 — Real-data proof: Slovakia26 (715 photos) through JobService on the L4
+
+`JobService.submit(source=D:/Slovakia26, job_id=slovakia26, runner=modal_gpu)`: one call, same code path as
+`runner=local`. Job `succeeded`; history `queued → staging → running → loading → succeeded`.
+
+| Phase | Time |
+|---|---|
+| staging (768 px, local) | 1.6 min |
+| upload + GPU container + pipeline (411 s = 0.57 s/img) | ≈ 10 min |
+| **copy-back: 993 files, one `Volume.read_file` each** | **19.4 min** |
+| load into the DB | 0.3 s |
+
+**Found by looking at the page, not the counts**
+- **Face → person mapping was empty on real data** (all 987 faces `person_id = null`). The bundler matched by
+  `face_id`; the real `people_clusters` comes from the deprecated `cluster_people`, whose members have
+  `original_path` + `face_index` and no `face_id`. Fixed: match by (photo id, face index), which both shapes
+  carry; `face_index` added to the bundle; regression test with the legacy shape. Needs a re-run to repopulate.
+- **SIGHTING-132 (new, pre-existing):** that deprecated clusterer is in every default run. `identity_refinement`
+  lists it in `depends_on`, and the builder's auto-resolve adds it, so it overwrites the spec-079 chain's
+  people (80 → 118). Owner's call before the re-run.
+- **"Removed before scoring" was mislabeled.** All 89 were scored, then removed by `filter_quality`
+  ("Sharpness 0.08 < threshold 0.2"). The viewer showed the first non-"passed" decision (a person
+  *detection*); it now shows only `rejected` decisions, and the tab is "Removed by filters".
+- **145 faces without a crop** are all gate-rejected faces (79 blur, 66 per-photo cap), none in a person;
+  the worker now logs that at INFO unless a face in a person lacks a crop.
+- **Copy-back dominates wall time.** Proposed: one Modal call that returns the job's output as a single
+  archive (Phase B's R2 path removes the issue too).
+
+| How it was verified | Evidence |
+|---|---|
+| AC1 visible in the viewer: picks, dropped by reason, removed with reason, people | `reports/2026-10-11_spec112_jobs_page/{1_picks,2_dropped,3_removed,4_people}.png` (Playwright, all job images loaded, no page errors). People thumbnails missing → the mapping bug above |
+| AC2 every photo and face is a row; re-load idempotent | 715 photos (626 in album: 147 pick / 423 near_dup / 56 set_aside; 89 removed), 987 faces, 118 people, 96 scenes == bundle + album; re-load: identical counts, 0 warnings |
+| AC3 album from tables == worker album | `GET /jobs/slovakia26/album` == `album.json` (created_at excluded): **True** |
+| AC4 failures end `failed` | tests only (`tests/control/test_job_service.py`); no real failure occurred |
+| AC5 edits | tests only (fixtures + API); not exercised on the real job, to leave the owner's album untouched |
+| Mapping fix | `tests/album/test_results_bundle.py::test_people_from_the_legacy_clusterer_are_matched_by_photo_and_face_index`; 114 passed (album, serving, control, jobs API) |
 
 ## 2026-10-10 — Phase A A1–A5 built (offline); real-data proof pending
 

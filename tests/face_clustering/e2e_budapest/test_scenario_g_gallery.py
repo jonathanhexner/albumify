@@ -57,7 +57,9 @@ def test_scenario_g_gallery(page_with_reference_run_loaded):
     open_btn.wait_for(state="visible", timeout=30_000)
     open_btn.click()
 
-    goto_page(page, "Cluster Analysis")
+    # Open switches the view itself (navigate_to). Do NOT also click the nav radio: a second click
+    # while Open's rerun is in flight drops the button press, so the picker stays on cluster 0
+    # (flaky 2 of 5, SIGHTING-136).
     page.wait_for_selector("h2:has-text('Cluster Analysis')", state="visible", timeout=60_000)
     # The picker's selectbox should now read "Cluster 1 (...)".
     page.wait_for_selector("text=/Cluster 1 \\(/", state="visible", timeout=60_000)

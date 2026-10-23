@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="REVIEW.md">REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<header id="title-block-header">
+<h1 class="title">spec-114 REVIEW - Compare two jobs in the app</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-114-review--compare-two-jobs-in-the-app"
+id="toc-spec-114-review--compare-two-jobs-in-the-app">spec-114 REVIEW —
+Compare two jobs in the app</a>
+<ul>
+<li><a href="#part-1--how-it-works" id="toc-part-1--how-it-works">Part 1
+— How it works</a></li>
+<li><a href="#part-2--findings" id="toc-part-2--findings">Part 2 —
+Findings</a></li>
+<li><a href="#part-3--verdict-and-follow-ups"
+id="toc-part-3--verdict-and-follow-ups">Part 3 — Verdict and
+follow-ups</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-114-review--compare-two-jobs-in-the-app">spec-114 REVIEW —
+Compare two jobs in the app</h1>
+<p><em>2026-10-17. Reviewer: Claude (against
+<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>). Scope: the
+uncommitted spec-114 change set on
+<code>spec/106-albumify-web-showcase</code> (control DB columns +
+reaper, <code>JobComparer</code>, compare endpoint, Compare runs page,
+Jobs page filter, regression script on the main job list, HTML report
+removal).</em></p>
+<p><strong>Verdict: ACCEPT with follow-ups.</strong> 0
+<code>fail</code>, 5 <code>pass-with-followup</code> (all ticketed). No
+V2 (face-clustering app) tab changed, so the Budapest gate does not
+apply to this spec.</p>
+<h2 id="part-1--how-it-works">Part 1 — How it works</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Module</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Schema</td>
+<td><code>sim_bench/control/models.py</code></td>
+<td><code>Job.tag</code>, <code>Job.worker</code> (nullable)</td>
+</tr>
+<tr>
+<td>Schema upgrade</td>
+<td><code>sim_bench/control/db.py</code>
+<code>_add_missing_columns</code></td>
+<td>adds missing nullable model columns to an existing DB; refuses NOT
+NULL</td>
+</tr>
+<tr>
+<td>Dead jobs</td>
+<td><code>sim_bench/control/jobs.py</code> <code>this_worker</code>,
+<code>worker_alive</code>, <code>JobRepo.reap_orphans</code>,
+<code>set_tag</code></td>
+<td><code>host:pid:start-time</code>; fail live jobs whose worker is
+gone</td>
+</tr>
+<tr>
+<td>Job flow</td>
+<td><code>sim_bench/serving/job_service.py</code></td>
+<td><code>SubmitInputs.tag</code>; worker recorded at STAGING /
+load</td>
+</tr>
+<tr>
+<td>Comparison</td>
+<td><code>sim_bench/control/compare.py</code>
+<code>JobComparer</code></td>
+<td>both albums via <code>AlbumBuilder</code> (edits applied) -&gt;
+<code>AlbumComparator</code>; per-photo decisions; people + face
+crop</td>
+</tr>
+<tr>
+<td>API</td>
+<td><code>sim_bench/api/routers/jobs.py</code>
+<code>GET /jobs/{b}/compare?with={a}</code>;
+<code>schemas/jobs.py</code> <code>CompareOut</code> (+4 models)</td>
+<td>404 / 409 / 422 refusals; reaper on list/read</td>
+</tr>
+<tr>
+<td>App</td>
+<td><code>app/streamlit/pages/compare.py</code> (new),
+<code>pages/jobs.py</code>, <code>api_client.py</code>,
+<code>main.py</code>, <code>components/sidebar.py</code></td>
+<td>Compare runs page; regression runs hidden on Jobs page</td>
+</tr>
+<tr>
+<td>Regression</td>
+<td><code>scripts/albumify_regression.py</code></td>
+<td>main job list, tags, <code>mark_baseline</code>; report removed</td>
+</tr>
+</tbody>
+</table>
+<pre><code>compare.py (page) -&gt; api_client -&gt; GET /jobs/{b}/compare -&gt; JobComparer -&gt; AlbumBuilder (control DB)
+                                                                       -&gt; AlbumComparator (sim_bench.album.regression, pure)
+albumify_regression.py -&gt; JobService(tag) -&gt; JobRepo -&gt; control DB &lt;- reap_orphans (on GET /jobs, /jobs/{id})</code></pre>
+<p>Dependency direction: <code>sim_bench.control.compare</code> -&gt;
+<code>sim_bench.album.regression</code> (pure, stdlib only) and
+<code>sim_bench.control.*</code>; the router -&gt;
+<code>sim_bench.control.compare</code>; the page -&gt;
+<code>api_client</code> only. No reverse imports (grep). The Modal
+worker and the LocalRunner child do not import
+<code>sim_bench.control</code>, so the new <code>psutil</code> import
+stays on the control-plane side; the CI fast lane does not import it
+either.</p>
+<h2 id="part-2--findings">Part 2 — Findings</h2>
+<h3 id="1-structure--pass-with-followup">§1 Structure —
+pass-with-followup</h3>
+<ul>
+<li>Sizes: <code>compare.py</code> (control) 109, <code>jobs.py</code>
+159, <code>db.py</code> 102, page <code>compare.py</code> 210, router
+182, script 164 LOC.</li>
+<li>Removed: <code>sim_bench/album/regression_report.py</code> and its
+test (O3); no orphan references (grep).</li>
+<li><strong>F1 (low)</strong>
+<code>scripts/albumify_regression.py</code>
+<code>check(name, ds, runner, album_path, job_id)</code> has 5
+parameters (limit 4): <code>album_path</code> / <code>job_id</code> are
+two ways to give an existing run. -&gt; TODO: one <code>source</code>
+argument.</li>
+</ul>
+<h3 id="2-code-quality--pass-with-followup">§2 Code quality —
+pass-with-followup</h3>
+<ul>
+<li>New try/except only around process lookup (<code>psutil</code>), a
+legitimate failure point.</li>
+<li><strong>F2 (low)</strong> <code>sim_bench/control/jobs.py</code>
+<code>worker_alive</code>: <code>worker.rsplit(":", 2)</code> unpacks
+outside the <code>try</code>; a malformed <code>worker</code> string
+would raise and break <code>GET /jobs</code>. Only this code writes the
+column, so not reachable today. -&gt; TODO: treat unparsable as
+dead.</li>
+<li><strong>F3 (low)</strong> <code>JobRepo.set_tag</code> on an unknown
+id raises <code>AttributeError</code> instead of <code>KeyError</code>
+like <code>transition</code>. -&gt; TODO.</li>
+</ul>
+<h3 id="3-naming-and-package-structure--pass">§3 Naming and package
+structure — pass</h3>
+<ul>
+<li><code>compare.py</code> in <code>sim_bench/control/</code> (jobs
+live there) and <code>pages/compare.py</code> in the app: names match
+contents.</li>
+<li><code>__all__</code> declared in
+<code>sim_bench/control/compare.py</code> and extended in
+<code>jobs.py</code>. Pages follow the app convention (none).</li>
+</ul>
+<h3 id="4-layering-and-coupling--pass-with-followup">§4 Layering and
+coupling — pass-with-followup</h3>
+<ul>
+<li>No duplicated logic: the page and the script share
+<code>AlbumComparator</code>; the API result equals the script result on
+all 4 real albums (verified 2026-10-17).</li>
+<li>Single writer: <code>jobs.tag</code> and <code>jobs.worker</code>
+written only through <code>JobRepo</code> (<code>create</code>,
+<code>transition</code>, <code>set_tag</code>).</li>
+<li><strong>F4 (medium)</strong> two baseline references: the script's
+<code>check</code> compares with
+<code>baselines/&lt;name&gt;.json</code>; the page preselects the job
+tagged <code>:baseline</code>. <code>capture</code> sets both, so they
+agree, except after <code>capture --album</code> (no job to tag). -&gt;
+TODO: <code>capture --album</code> refuses, or the script reads the
+baseline job from the DB.</li>
+</ul>
+<h3 id="5-testability--pass-with-followup">§5 Testability —
+pass-with-followup</h3>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Tests</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unit</td>
+<td><code>tests/control/test_jobs.py</code> <code>ut_OrphanJobs</code>
+(4),
+<code>ut_ControlDB::test_older_db_gets_the_new_nullable_columns</code>
+(1)</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Unit (real DB + fake pipeline runner)</td>
+<td><code>tests/control/test_compare.py</code></td>
+<td>6</td>
+</tr>
+<tr>
+<td>API (real router + DB)</td>
+<td><code>tests/api/test_jobs_router.py::ut_CompareRouter</code></td>
+<td>3</td>
+</tr>
+<tr>
+<td>E2E real data</td>
+<td><code>tests/test_compare_page_e2e.py</code> (real API + Streamlit +
+the 8 regression jobs, Playwright)</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Real-data cross-check</td>
+<td>API vs script on 4 albums, all equal</td>
+<td>script</td>
+</tr>
+<tr>
+<td>Removed</td>
+<td><code>test_report_shows_status_failures_and_moved_picks_without_embedding_photos</code>
+(report gone)</td>
+<td>−1</td>
+</tr>
+</tbody>
+</table>
+<p>Full suite: <strong>1,600 passed, 2 skipped, 0 failed</strong>.</p>
+<ul>
+<li>Mocks: <code>reap_orphans(alive=lambda w: False)</code> in one test
+injects the liveness check, so "process gone" is deterministic;
+<code>worker_alive</code> itself is tested against real processes (this
+one, a non-existent pid, a reused pid). The fake pipeline runner is the
+existing spec-112 fixture (no models in unit tests).</li>
+<li><strong>F5 (low)</strong>
+<code>tests/test_compare_page_e2e.py</code> names the 2026-10-16 job
+ids; a re-captured baseline makes it skip (ids gone) or fail
+(<code>[baseline]</code> moved). -&gt; TODO: pick the jobs by tag.</li>
+</ul>
+<p>Failure-mode walk-through:</p>
+<table>
+<thead>
+<tr>
+<th>Bug class</th>
+<th>Test that fails if it recurs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Killed job stays <code>running</code> (SIGHTING-137)</td>
+<td><code>ut_OrphanJobs::test_job_of_a_dead_worker_is_failed_as_interrupted</code>,
+<code>ut_CompareRouter::test_tag_is_listed_and_a_dead_jobs_status_is_corrected</code></td>
+</tr>
+<tr>
+<td>Reused pid taken for the old worker</td>
+<td><code>ut_OrphanJobs::test_worker_alive_rules</code></td>
+</tr>
+<tr>
+<td>New column breaks an existing <code>control.db</code></td>
+<td><code>ut_ControlDB::test_older_db_gets_the_new_nullable_columns</code></td>
+</tr>
+<tr>
+<td>Page numbers differ from the regression check</td>
+<td>real-data cross-check (4 albums); <code>test_compare.py</code> uses
+the same comparator</td>
+</tr>
+<tr>
+<td>Owner edits ignored by the comparison</td>
+<td><code>test_an_owner_edit_in_b_shows_as_a_moved_pick</code></td>
+</tr>
+<tr>
+<td>Comparing runs on different photos</td>
+<td><code>test_jobs_on_different_photos_are_refused</code> (unit), e2e
+<code>..._refused_with_a_message</code></td>
+</tr>
+<tr>
+<td>Clickable photos regress to dataframe row-select</td>
+<td>e2e <code>test_swapped_pair_opens_both_runs_decisions</code> clicks
+a real button</td>
+</tr>
+<tr>
+<td>Regression runs clutter the owner's job list</td>
+<td>e2e
+<code>test_jobs_page_hides_regression_runs_by_default</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="6-boundary-contracts--pass">§6 Boundary contracts — pass</h3>
+<ul>
+<li><code>CompareOut</code>, <code>CheckOut</code>,
+<code>PickDiffOut</code>, <code>PhotoDecisionOut</code>,
+<code>ComparePersonOut</code>: <code>extra="forbid"</code> (the
+<code>_Strict</code> base); FastAPI validates every response against
+<code>response_model</code>.</li>
+<li><code>with</code> query parameter required (422 when missing,
+tested); unfinished jobs 409, unknown 404, different photos 422.</li>
+<li>Schema upgrade enforces its own rule (NOT NULL missing -&gt;
+RuntimeError), not just documentation.</li>
+</ul>
+<h3 id="7-documentation--pass">§7 Documentation — pass</h3>
+<ul>
+<li><code>spec.md</code>, <code>tasks.md</code>, <code>updates.md</code>
+(verification table), this <code>REVIEW.md</code>.</li>
+<li><code>db_schemas.html</code>: new control-DB <code>jobs</code>
+section (the control DB was missing from the docs; added with
+<code>tag</code>/<code>worker</code>).</li>
+<li><code>classes.html</code>: <code>JobComparer</code>,
+<code>JobRepo</code> rows; <code>RegressionReport</code> row removed.
+<code>data_flow.html</code>: spec-114 flow.</li>
+<li>CHANGES_LOG (2 entries), LEARNINGS (SIGHTING-137), SIGHTINGS 137
+(fixed) / 138 (open), ROADMAP row.</li>
+</ul>
+<h3 id="8-risk-register--pass-with-followup">§8 Risk register —
+pass-with-followup</h3>
+<ul>
+<li>Backwards compatibility: existing <code>control.db</code> gains two
+NULL columns on first open (done live, 2026-10-17); jobs with
+<code>worker = NULL</code> in a live status are failed as interrupted
+(intended: nothing can be running them). A worker on another host is
+assumed alive (no false kills; its dead jobs need a manual fail).</li>
+<li>Hot path: <code>reap_orphans</code> runs on every
+<code>GET /jobs</code> and <code>GET /jobs/{id}</code>: one
+indexed-status query + one <code>psutil</code> lookup per live job
+(normally 0–1). Compare response: 304 KB for Slovakia (715 photos), 0.2
+s.</li>
+<li><strong>F6 (medium)</strong> the page caches each comparison in the
+session; an edit made on the Jobs page after a comparison is not
+reflected until the browser session restarts. -&gt; TODO: drop the
+cached pair when either job's edits change (or a Refresh button).</li>
+<li><strong>F7 (medium, existing SIGHTING-138)</strong> scene -1 photos
+share one giant <code>beat</code> list, so pick matching inside scene -1
+is lenient: drift there cannot show as Missing/Extra. Ticketed.</li>
+<li>Leftovers: <code>~/.sim_bench/regression/</code> (old control.db,
+the killed Slovakia run, 95 MB). -&gt; TODO (owner: delete).</li>
+</ul>
+<h2 id="part-3--verdict-and-follow-ups">Part 3 — Verdict and
+follow-ups</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>§1 Structure</td>
+<td>pass-with-followup (F1)</td>
+</tr>
+<tr>
+<td>§2 Code quality</td>
+<td>pass-with-followup (F2, F3)</td>
+</tr>
+<tr>
+<td>§3 Naming</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>§4 Layering</td>
+<td>pass-with-followup (F4)</td>
+</tr>
+<tr>
+<td>§5 Testability</td>
+<td>pass-with-followup (F5)</td>
+</tr>
+<tr>
+<td>§6 Boundary contracts</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>§7 Documentation</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>§8 Risk register</td>
+<td>pass-with-followup (F6, F7)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Ticket</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1</td>
+<td><code>albumify_regression.check</code>: one <code>source</code>
+argument instead of <code>album_path</code> + <code>job_id</code></td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F2</td>
+<td><code>worker_alive</code>: unparsable worker string = dead, not an
+exception</td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F3</td>
+<td><code>JobRepo.set_tag</code>: <code>KeyError</code> on unknown
+job</td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>One baseline reference (refuse <code>capture --album</code>, or read
+the baseline job from the DB)</td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F5</td>
+<td>Compare e2e test: choose jobs by tag, not fixed ids</td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F6</td>
+<td>Compare page: invalidate the cached comparison after edits (or
+Refresh button)</td>
+<td>TODO.md</td>
+</tr>
+<tr>
+<td>F7</td>
+<td>Scene -1 giant near-duplicate group</td>
+<td>SIGHTING-138 (existing)</td>
+</tr>
+<tr>
+<td>—</td>
+<td>Delete <code>~/.sim_bench/regression/</code> leftovers</td>
+<td>TODO.md (owner)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>

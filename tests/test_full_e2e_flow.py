@@ -82,8 +82,7 @@ try:
 
     # Build config with merge enabled
     config = {
-        "cluster_people": {
-            "method": "face_cluster_knn",
+        "people_clustering": {
             "K": profile_params.get("rc_K", 5),
             "distance_threshold": profile_params.get("rc_dist", 0.35),
             "min_cluster_size": profile_params.get("rc_min_cluster", 2),

@@ -409,25 +409,28 @@ verified read-only on the real <code>slovakia48</code> job (15 files). |
 <code>/photos/{id}/image</code></label></li>
 <li><label><input type="checkbox" checked="" />TA5.2 API tests (SQLite +
 local store + fake runner).</label></li>
-</ul>
-<ul>
-<li>[&gt;] TA5.3 Streamlit page (built:
-<code>app/streamlit/pages/jobs.py</code>, with promote / remove / rename
-buttons; Playwright check in TA6.4) —: job list → picks, dropped with
-reasons, people (real <code>st.button</code> grids for any clickable
-thumbnails).</li>
+<li><label><input type="checkbox" checked="" />TA5.3 Streamlit page
+(built: <code>app/streamlit/pages/jobs.py</code>, with promote / remove
+/ rename buttons; Playwright check in TA6.4) —: job list → picks,
+dropped with reasons, people (real <code>st.button</code> grids for any
+clickable thumbnails).</label></li>
 </ul>
 <h2 id="a6--prove-phase-a">A6 — Prove Phase A</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />TA6.1 Owner: re-run Slovakia26 on
-Modal with the results bundle; load it locally. (AC1, AC2)</label></li>
-<li><label><input type="checkbox" />TA6.2 Compare
+<li><label><input type="checkbox" checked="" />TA6.1 Slovakia26 via
+<code>JobService</code> on <code>modal_gpu</code>; loaded (715 photos,
+987 faces). (AC1, AC2) | 2026-10-11. Re-run needed after SIGHTING-132 +
+the face→person fix.</label></li>
+<li><label><input type="checkbox" checked="" />TA6.2 Compare
 <code>GET /jobs/{id}/album</code> with the worker's
-<code>album.json</code>. (AC3)</label></li>
+<code>album.json</code>. (AC3) | 2026-10-11 identical</label></li>
 <li><label><input type="checkbox" />TA6.3 Forced failure; promote +
 rename edit round-trip. (AC4, AC5)</label></li>
-<li><label><input type="checkbox" />TA6.4 Playwright screenshots of the
-viewer on the Slovakia job; updates.md entry.</label></li>
+</ul>
+<ul>
+<li>[&gt;] TA6.4 Playwright screenshots of the viewer on the Slovakia
+job; updates.md entry. | 2026-10-11 four tabs captured; People
+thumbnails pending the re-run</li>
 </ul>
 <h1 id="phase-b--cloud-configuration-only">Phase B — cloud,
 configuration only</h1>

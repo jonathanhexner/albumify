@@ -19,7 +19,8 @@ from PIL import Image, ImageOps
 from sim_bench.pipeline.context import PipelineContext
 from sim_bench.pipeline.steps.insightface_detect_faces import InsightFaceDetectFacesStep
 from sim_bench.pipeline.steps.extract_face_embeddings import ExtractFaceEmbeddingsStep
-from sim_bench.pipeline.steps.cluster_people import ClusterPeopleStep
+from face_cluster.fc_app_runner import FCAppRunner
+from face_cluster.fc_params import FCParams
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -27,6 +28,11 @@ logger = logging.getLogger(__name__)
 # SIGHTING-118: needs InsightFace models + local Budapest test data (D:\...). Not runnable in a clean
 # CI runner; excluded from the default (fast) suite. Run explicitly with `pytest -m slow`.
 pytestmark = [pytest.mark.slow, pytest.mark.needs_data]
+
+
+def _face_path(face):
+    """FaceRecord (people-clustering chain) carries image_path; older face objects original_path."""
+    return getattr(face, "original_path", None) or face.image_path
 
 TEST_DATA_DIR = Path(r"D:\sim-bench\test_data\budapest_2025")
 OUTPUT_DIR = Path(r"D:\sim-bench\test_data\budapest_2025_output")
@@ -69,8 +75,7 @@ class TestFacePipelineE2E:
         step = InsightFaceDetectFacesStep()
         config = {
             "model_name": "buffalo_l",
-            "det_size": 640,
-            "det_thresh": 0.5,
+            "detection_threshold": 0.5,
         }
 
         logger.info("Running InsightFace face detection...")
@@ -116,17 +121,9 @@ class TestFacePipelineE2E:
 
     @pytest.fixture(scope="class")
     def context_with_clusters(self, context_with_embeddings) -> PipelineContext:
-        """Run clustering step."""
-        step = ClusterPeopleStep()
-        config = {
-            "method": "hdbscan",
-            "min_cluster_size": 2,
-            "min_samples": 2,
-            "cluster_selection_epsilon": 0.3,
-        }
-
+        """Run the people-clustering chain (spec-079; production default params)."""
         logger.info("Running people clustering...")
-        step.process(context_with_embeddings, config)
+        FCAppRunner().run(context_with_embeddings, FCParams().to_step_configs())
 
         # Log clustering results
         num_clusters = len(context_with_embeddings.people_clusters)
@@ -177,7 +174,7 @@ class TestFacePipelineE2E:
 
             person_counts = {}
             for face in faces:
-                img_path = str(face.original_path)
+                img_path = str(_face_path(face))
                 true_person = ground_truth.get(img_path, "unknown")
                 person_counts[true_person] = person_counts.get(true_person, 0) + 1
 
@@ -196,7 +193,7 @@ class TestFacePipelineE2E:
             expected_person = cluster_to_person.get(cluster_id)
             for face in faces:
                 total += 1
-                img_path = str(face.original_path)
+                img_path = str(_face_path(face))
                 true_person = ground_truth.get(img_path)
                 if true_person == expected_person:
                     correct += 1
@@ -228,7 +225,7 @@ class TestFacePipelineE2E:
             cluster_dir.mkdir(exist_ok=True)
 
             for face in faces:
-                img_path = face.original_path
+                img_path = _face_path(face)
                 face_index = face.face_index
                 true_person = ground_truth.get(str(img_path), "unknown")
 

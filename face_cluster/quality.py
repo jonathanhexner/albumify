@@ -164,8 +164,10 @@ class QualityGater:
         """
         for face in faces:
             if face.aligned_face is None:
-                logger.warning(f"No aligned face for face_id {face.face_id}")
-                face.blur_score = 0.0
+                # No pixels (e.g. recluster reads faces back from a run): keep the stored
+                # score. Zeroing it made the blur gate bypass itself (SIGHTING-136).
+                if not face.blur_score:
+                    logger.warning(f"No aligned face for face_id {face.face_id}")
                 continue
 
             # Resize to 112x112 if not already

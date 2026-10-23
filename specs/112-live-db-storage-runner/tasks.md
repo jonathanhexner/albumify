@@ -55,14 +55,14 @@
       `GET /jobs/{id}/photos/{photo_id}/display`, `POST /jobs/{id}/edits`. Typed Pydantic responses.
       | 2026-10-10 also `GET /jobs`, `/photos`, `/faces`, `/faces/{id}/crop`, `POST /jobs/{id}/load`; image route is `/photos/{id}/image`
 - [x] TA5.2 API tests (SQLite + local store + fake runner).
-- [>] TA5.3 Streamlit page (built: `app/streamlit/pages/jobs.py`, with promote / remove / rename buttons; Playwright check in TA6.4) —: job list → picks, dropped with reasons, people
+- [x] TA5.3 Streamlit page (built: `app/streamlit/pages/jobs.py`, with promote / remove / rename buttons; Playwright check in TA6.4) —: job list → picks, dropped with reasons, people
       (real `st.button` grids for any clickable thumbnails).
 
 ## A6 — Prove Phase A
-- [ ] TA6.1 Owner: re-run Slovakia26 on Modal with the results bundle; load it locally. (AC1, AC2)
-- [ ] TA6.2 Compare `GET /jobs/{id}/album` with the worker's `album.json`. (AC3)
+- [x] TA6.1 Slovakia26 via `JobService` on `modal_gpu`; loaded (715 photos, 987 faces). (AC1, AC2) | 2026-10-11. Re-run needed after SIGHTING-132 + the face→person fix.
+- [x] TA6.2 Compare `GET /jobs/{id}/album` with the worker's `album.json`. (AC3) | 2026-10-11 identical
 - [ ] TA6.3 Forced failure; promote + rename edit round-trip. (AC4, AC5)
-- [ ] TA6.4 Playwright screenshots of the viewer on the Slovakia job; updates.md entry.
+- [>] TA6.4 Playwright screenshots of the viewer on the Slovakia job; updates.md entry. | 2026-10-11 four tabs captured; People thumbnails pending the re-run
 
 # Phase B — cloud, configuration only
 

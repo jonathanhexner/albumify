@@ -237,3 +237,32 @@ class TestExecutionPlan:
         assert plan[1]["name"] == "step_b"
         assert plan[2]["order"] == 3
         assert plan[2]["name"] == "step_c"
+
+
+class TestRealRegistry:
+    """Checks on the real step registry and the default pipeline (SIGHTING-132, spec-113)."""
+
+    @pytest.fixture
+    def registry(self):
+        import sim_bench.pipeline.steps.all_steps  # noqa: F401  registers every step
+        from sim_bench.pipeline.registry import get_registry
+        return get_registry()
+
+    def test_every_dependency_names_a_registered_step(self, registry):
+        """The builder silently skips an unknown dependency, so a stale name (a removed step)
+        would order nothing. SIGHTING-132 was the opposite case: the stale step still existed
+        and the builder pulled it into every run."""
+        stale = {n: [d for d in registry.get_metadata(n).depends_on if not registry.has_step(d)]
+                 for n in registry.list_step_names()}
+        assert {n: d for n, d in stale.items() if d} == {}
+
+    def test_people_steps_run_after_clustering_and_before_selection(self, registry):
+        from pathlib import Path
+
+        import yaml
+
+        cfg = yaml.safe_load(Path("configs/pipeline.yaml").read_text(encoding="utf-8"))
+        order = PipelineBuilder(registry).get_execution_order(cfg["default_pipeline"])
+        pos = {name: i for i, name in enumerate(order)}
+        assert pos["assign_people_clusters"] < pos["identity_refinement"] < pos["cluster_by_identity"]
+        assert pos["cluster_by_identity"] < pos["select_best"]

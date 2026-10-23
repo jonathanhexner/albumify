@@ -37,8 +37,8 @@ default_pipeline:
   - cluster_scenes
   - extract_face_embeddings     # Uses pre-aligned faces from align_faces step
   # spec-079: identity clustering now runs App A's shared 8-step unified chain
-  # (was the monolithic `cluster_people` -> deprecated face_cluster_bridge, which
-  # dropped pose/blur and over-split). Same output key (people_clusters), so the
+  # (was the monolithic `cluster_people`, removed by spec-113, which dropped pose/blur and
+  # over-split). Same output key (people_clusters), so the
   # downstream steps below are unchanged. Config is fed via FCParams.to_step_configs()
   # in PipelineService._broadcast_clustering_config (the single config interpreter).
   - quality_gate                # turn/blur/area/det gating + core-set selection
@@ -48,7 +48,7 @@ default_pipeline:
   - merge_face_clusters
   - attach_holdout_faces
   - apply_diameter_cap
-  - assign_people_clusters      # produces context.people_clusters (== old cluster_people output)
+  - assign_people_clusters      # produces context.people_clusters
   - face_cluster_analysis_export # spec-088: write FC-app export when "Export for analysis" is on (read-only)
   - identity_refinement         # Refine clusters with exemplar-based attachment
   - cluster_by_identity         # Sub-cluster scenes by identity
@@ -197,14 +197,14 @@ extract_face_embeddings:
   #   - Better rotation invariance
   #   - Trained on 600K+ identities
 
-# People Clustering (cluster_people) - Global identity clustering for People tab
-cluster_people:
-  method: face_cluster_knn     # Options: face_cluster_knn, hybrid_hdbscan_knn, hdbscan, hdbscan_pca, mutual_knn, agglomerative
-  # --- face_cluster_knn parameters (used when method=face_cluster_knn) ---
+# People Clustering settings (spec-079 8-step chain: quality_gate .. assign_people_clusters).
+# A config SOURCE, not a step: PipelineService translates it through face_cluster.fc_params.FCParams
+# and broadcasts it to the 8 steps (spec-113 renamed it from the removed `cluster_people` step).
+people_clustering:
   K: 5                          # kNN neighbours for mutual graph
   distance_threshold: 0.35      # Max cosine distance for edge creation
-  # min_cluster_size: 2         # shared with legacy methods below
-  # Quality gating (face_cluster_knn only)
+  min_cluster_size: 2
+  # Quality gating
   yaw_max: 30.0
   pitch_max: 25.0
   blur_min: 50.0
@@ -219,18 +219,8 @@ cluster_people:
   merge_support_min: 2
   merge_margin: 0.05
   merge_diameter_expansion_factor: 1.5
-  # Export artifacts for standalone Face Clustering App analysis
+  # Export artifacts for standalone Face Clustering App analysis (routed to face_cluster_analysis_export)
   export_for_analysis: true
-  # --- Legacy method parameters (used by hdbscan/hybrid/mutual_knn/agglomerative) ---
-  min_cluster_size: 2
-  min_samples: 2
-  cluster_selection_epsilon: 0.045  # Cosine distance space
-  knn_k: 3                     # Neighbours used for d3 threshold estimation
-  threshold_floor: 0.125       # Min per-cluster merge/attach threshold
-  threshold_ceiling: 0.405     # Max per-cluster merge/attach threshold
-  max_exemplars: 10            # Exemplars selected per cluster
-  attach_min_exemplars: 2      # Min exemplar matches to attach a noise point
-  merge_min_pairs: 3           # Min cross-exemplar pairs to trigger merge
 
 # Identity Refinement (identity_refinement) - Post-clustering refinement
 identity_refinement:

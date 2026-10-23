@@ -165,7 +165,7 @@ class ut_PipelineRunnerUI:
             "Config was not captured — _start_pipeline was not called"
         )
         captured = at.session_state["_captured_config"]
-        cluster_config = captured.get("cluster_people", {})
+        cluster_config = captured.get("people_clustering", {})
         actual_K = cluster_config.get("K")
         assert actual_K == 15, (
             f"fc_K overwrite bug! Config dict has K={actual_K}, expected 15. "

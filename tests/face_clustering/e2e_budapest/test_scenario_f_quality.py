@@ -1,11 +1,12 @@
 """Scenario F — Quality tab summary + per-gate chart over the reference run.
 
-Loads the reference run via the History tab and opens the Quality tab.
+Loads the fresh reference run (2026-10-18; the May run has no filter_decisions, SIGHTING-092) and
+opens the Quality tab.
 Verifies the summary strip + per-gate stacked bar chart render with the
 expected reject count band.
 
 Click sequence (per spec-065 §"E2E contract"):
-  1. Reference run loaded via the ``page_with_reference_run_loaded`` fixture
+  1. Fresh reference run loaded via the ``page_with_fresh_reference_loaded`` fixture
      (spec-067: query-param seed replaces the canvas dataframe row-pick).
   2. Quality tab
 
@@ -14,7 +15,7 @@ Assertions:
   2. Summary strip has >= 4 metric widgets
   3. Per-gate Plotly chart rendered (>= 1 trace / 1 bar)
   4. "Rejected" metric value within EXPECTED_REJECTED_BAND
-     (220..240 = 340 total faces - 107 assigned ± 7)
+     (rejecting decisions: 328 of 1,514 on the fresh reference)
 
 What this catches:
   - QualityService → QualitySummary aggregation regressions
@@ -36,8 +37,8 @@ from tests.face_clustering.e2e_budapest.conftest import (
 pytestmark = pytest.mark.budapest
 
 
-def test_scenario_f_quality_summary_and_chart(page_with_reference_run_loaded):
-    page = page_with_reference_run_loaded
+def test_scenario_f_quality_summary_and_chart(page_with_fresh_reference_loaded):
+    page = page_with_fresh_reference_loaded
 
     # 1. Reference run already seeded by the fixture (spec-067).
     # 2. Quality tab.

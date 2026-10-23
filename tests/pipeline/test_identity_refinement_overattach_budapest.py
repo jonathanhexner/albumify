@@ -66,10 +66,9 @@ def refinement_run():
     doc = yaml.safe_load(PIPELINE_YAML.read_text(encoding="utf-8"))
     steps = list(doc.get("default_pipeline", []))
     step_configs = {name: (doc.get(name) or {}) for name in steps}
-    cp = dict(doc.get("cluster_people", {}))
+    cp = dict(doc.get("people_clustering", {}))
     cp.update(params.model_dump())
-    cp["method"] = "face_cluster_knn"
-    step_configs["cluster_people"] = cp
+    step_configs["people_clustering"] = cp
 
     session = get_session_direct()
     svc = PipelineService(session)

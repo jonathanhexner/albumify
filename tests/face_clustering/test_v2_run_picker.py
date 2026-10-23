@@ -150,3 +150,32 @@ def test_format_label_marks_orphans(tmp_path: Path) -> None:
     assert _format_label(orphan).startswith("[missing] ")
     assert "A" in _format_label(loadable)
     assert "B" in _format_label(orphan)
+
+
+# ---------------------------------------------------------------------------
+# SIGHTING-136 — the picker preselects the run the user loaded, not the newest
+# ---------------------------------------------------------------------------
+
+def _entry(name: str) -> "RunPickerEntry":
+    from app.face_clustering_v2.components.run_picker import RunPickerEntry
+    return RunPickerEntry(run_id=name, output_dir=Path(f"/runs/{name}"), album=name,
+                          started_at="", n_faces=1, n_clusters=1, status="complete")
+
+
+def test_default_is_the_loaded_run_not_the_newest() -> None:
+    from app.face_clustering_v2.components.run_picker import _default_index
+    ordered = [_entry("newest"), _entry("loaded"), _entry("oldest")]
+    assert _default_index(ordered, Path("/runs/loaded")) == 1
+    assert _default_index(ordered, None) == 0
+    assert _default_index(ordered, Path("/runs/not_listed")) == 0
+
+
+def test_loaded_run_older_than_the_newest_limit_is_listed_first(tmp_path: Path) -> None:
+    from app.face_clustering_v2.components.run_picker import _all_entries_from_repo, _with_loaded_run
+    db = tmp_path / "isolated.db"
+    _seed_runs(db)                                   # album_1 is the oldest
+    newest_two = _all_entries_from_repo(limit=3, db_path=db)   # 3 rows: the newest has no folder
+    oldest = Path("/runs/v2run" + f"{1:028d}")
+    ordered = _with_loaded_run(newest_two, oldest, db_path=db)
+    assert [e.album for e in ordered] == ["album_1", "album_3", "album_2"]
+    assert _with_loaded_run(newest_two, None, db_path=db) == newest_two

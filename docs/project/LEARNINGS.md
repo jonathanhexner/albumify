@@ -15,6 +15,47 @@ photos, and nobody looked until the owner saw it on 10-23. 9 more tests in the s
 cannot be public goes to the private `albumify-test-data` repo with a `private_data` mark, not out of CI —
 skipping it in CI just hides the test (owner, 2026-10-23).
 
+### 2026-10-18: Streamlit AppTest leaves `sys.modules['__main__']` pointing at its temporary script
+After an `AppTest.from_function` test, every later test that starts a child process (spawn re-imports `__main__`)
+crashed with exitcode 1: 6 `test_step_isolation` failures that only appeared in the full run. Restore `__main__`
+(and any module attribute the app function patches) in a fixture. Order-dependent failures: run the new test file
+right before the failing one to confirm.
+
+### 2026-10-18: a stale test baseline can hide behind a test that never reaches its assert (SIGHTING-136)
+Budapest scenario A failed on a selector for 4 months, so nobody saw that its expected 15 clusters had gone stale
+(the pose and blur gates started working; today's correct answer is 8). Fixing the click path exposed two more layers:
+a Load-then-Run race that silently ran the defaults, and a recluster that zeroed blur scores. Compare a backend-only
+run with the UI run on the same settings: if they differ, the UI or the test is wrong, not the pipeline.
+
+### 2026-10-17: a killed process cannot record its own failure (SIGHTING-137)
+`JobService.run` catches every exception and fails the job, so "never stuck in running" looked guaranteed. A process
+killed for low memory runs no code at all: the job stayed `running` forever and could not be re-run. Any status that
+means "a process is working on this" needs the process identity stored next to it (`host:pid:start-time`, the start
+time catching a reused pid) and a check by someone else (`reap_orphans` on list/read). Tests cover try/except paths;
+the kill path needs its own test.
+
+### 2026-10-16: photos in a public repo -- three leak forms, and a guard for each
+The public repo carried ~3,400 personal photos: image files (report samples, test_data face crops, app
+screenshots), notebook outputs, and HTML with base64-inlined pictures. Counting image files alone missed the last two;
+the first rewrite also missed notebooks because the `nbformat` key sits at the END of the file. Rule: photos never in
+git; `scripts/check_no_photos.py` (pre-commit + CI) checks all three forms. Verify a history rewrite by scanning
+the rewritten objects for every form, not just file extensions.
+
+### 2026-10-16: SIGHTING-132 -- a "replaced" step that is still registered is not replaced
+spec-079 removed `cluster_people` from the yaml but left it registered, and three steps kept it in `depends_on`
+with a comment saying the builder ignores absent dependencies. `PipelineBuilder` auto-adds them, so the old step
+ran in every default run, overwrote the new people, and (ranked last) pushed two steps after `select_best`.
+Rule: when a step is replaced, delete it (spec-113) or test that the built default plan does not contain it;
+never trust a comment about builder behavior without a test of the built plan.
+
+### 2026-10-11: spec-112 -- a fake that is shaped like the docs, not like the producer, hides the bug
+Unit tests built `people_clusters` from FaceRecord-like fakes with `face_id`, so mapping faces to people
+by `face_id` passed. The real run's `people_clusters` came from the deprecated `cluster_people` (legacy face
+objects: `original_path` + `face_index`, no `face_id`) and every face loaded with no person. Rule: before
+mapping a context field, read which step *actually* produced it in a real run log (`executor: X -> out[...]`),
+and give fakes the producer's shape. The People tab showing empty crops was the only signal -- the counts
+(987 faces, 118 people) all looked right. That same look exposed SIGHTING-132.
+
 ### 2026-10-09: spec-109 — "the GPU is slow" was a pure-Python protobuf parser (and the dev box paid it too)
 **What happened**: the first L4 run of the pipeline was no faster than CPU. Device fixes (six places
 ignoring `device=cuda`) made per-image cost 0.88 s but left ~175 s of fixed cost per run, 134 s of it in

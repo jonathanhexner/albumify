@@ -2,7 +2,7 @@
 
 Runs the Albumify pipeline (via its own API services, in-process) on
 ``D:\\Budapest2025_Google`` with profile_4's clustering knobs overlaid onto the
-``cluster_people`` step, keeping Albumify's other params (scene clustering,
+``people_clustering`` settings block (spec-113; was the ``cluster_people`` step), keeping Albumify's other params (scene clustering,
 identity_refinement, selection). Snapshots the resulting ``people`` table +
 scene/result summary to ``tests/_fixtures/budapest_golden/`` and prints the
 identity count against the FC v2 anchor.
@@ -25,7 +25,6 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from face_cluster.fc_params import FCParams  # noqa: E402
-from sim_bench.pipeline.steps.configs.cluster_people import ClusterPeopleConfig  # noqa: E402
 from sim_bench.api.database.session import get_session_direct  # noqa: E402
 from sim_bench.api.database.models import Person  # noqa: E402
 from sim_bench.api.services.album_service import AlbumService  # noqa: E402
@@ -42,19 +41,17 @@ PIPELINE_YAML = REPO / "configs" / "pipeline.yaml"
 
 def build_step_configs(profile_path=None) -> dict:
     """Albumify's per-step config. spec-079: clustering knobs are supplied as the
-    FULL typed FCParams under the 'cluster_people' block (no longer the
-    ClusterPeopleConfig subset). PipelineService._broadcast_clustering_config
+    FULL typed FCParams under the 'people_clustering' block. PipelineService._broadcast_clustering_config
     translates them through FCParams.to_step_configs() to App A's unified steps."""
     yaml_doc = yaml.safe_load(PIPELINE_YAML.read_text(encoding="utf-8"))
     steps = yaml_doc.get("default_pipeline", [])
     step_configs = {name: (yaml_doc.get(name) or {}) for name in steps}
 
     profile = FCParams.load(profile_path or anchor.PROFILE_PATH).model_dump()
-    cp = dict(yaml_doc.get("cluster_people", {}))
+    cp = dict(yaml_doc.get("people_clustering", {}))
     cp.update(profile)                      # full FCParams = the typed contract
-    cp["method"] = "face_cluster_knn"
     cp["export_for_analysis"] = True
-    step_configs["cluster_people"] = cp
+    step_configs["people_clustering"] = cp
     print(f"[capture] clustering config = full FCParams ({len(profile)} fields)")
     return step_configs
 
@@ -79,8 +76,8 @@ def main() -> int:
     print(f"[capture] album {album.id} ({album.image_count} images)")
 
     step_configs = build_step_configs()
-    print(f"[capture] cluster_people K={step_configs['cluster_people'].get('K')} "
-          f"blur_min={step_configs['cluster_people'].get('blur_min')}")
+    print(f"[capture] people_clustering K={step_configs['people_clustering'].get('K')} "
+          f"blur_min={step_configs['people_clustering'].get('blur_min')}")
 
     job_id = pipeline.start_pipeline(
         album_id=album.id, steps=pipeline_steps(), step_configs=step_configs, fail_fast=True,

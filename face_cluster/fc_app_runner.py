@@ -13,7 +13,7 @@ Usage:
         source_dir=Path("test_data/album"),
         output_dir=Path("runs/fc_v2_001"),
         step_configs={
-            "cluster_people": {"K": 5, "distance_threshold": 0.35, ...},
+            "people_clustering": {"K": 5, "distance_threshold": 0.35, ...},
             # ... etc
         },
     )

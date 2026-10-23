@@ -3,9 +3,10 @@
 ``DATABASE_URL`` picks the backend: unset -> a local SQLite file (Phase A, offline, tests, CI);
 a Postgres URL -> Neon (Phase B). Nothing else changes between the two.
 
-Schema creation is ``create_all`` for v1: these are new tables in a new DB. Alembic in this repo
-targets ``sim_bench.db`` only (alembic/env.py); migrations for this DB come when a released schema
-has to change under real data.
+Schema creation is ``create_all``, plus ``_add_missing_columns`` for columns added later (spec-114:
+``jobs.tag``, ``jobs.worker``). Only additive, nullable columns are allowed that way; anything else (a
+rename, a type change, a NOT NULL column) needs a real migration. Alembic in this repo targets
+``sim_bench.db`` only (alembic/env.py).
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator, Optional
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -60,6 +61,7 @@ class ControlDB:
         self._sessions = sessionmaker(bind=self.engine, expire_on_commit=False)
         if create:
             ControlBase.metadata.create_all(self.engine)
+            _add_missing_columns(self.engine)
         logger.info("control DB: %s", _redact(self.url))
 
     @contextmanager
@@ -74,6 +76,23 @@ class ControlDB:
             raise
         finally:
             s.close()
+
+
+def _add_missing_columns(engine: Engine) -> None:
+    """Add model columns an older DB lacks. Additive + nullable only; anything else raises."""
+    insp = inspect(engine)
+    for table in ControlBase.metadata.sorted_tables:
+        existing = {c["name"] for c in insp.get_columns(table.name)}
+        for col in table.columns:
+            if col.name in existing:
+                continue
+            if not col.nullable:
+                raise RuntimeError(f"control DB: {table.name}.{col.name} is NOT NULL and missing; "
+                                   "needs a real migration")
+            ddl = col.type.compile(dialect=engine.dialect)
+            with engine.begin() as conn:
+                conn.execute(text(f'ALTER TABLE {table.name} ADD COLUMN "{col.name}" {ddl}'))
+            logger.info("control DB: added column %s.%s", table.name, col.name)
 
 
 def _sqlite_fk_on(dbapi_conn, _record) -> None:

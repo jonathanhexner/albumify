@@ -8,10 +8,9 @@ Click sequence:
   5. Click the "Run pipeline" button.
   6. Wait up to 10 min for the success message ("Run complete — N clusters …").
 
-Assertions (from baseline — must match the legacy reference run):
+Assertions (must reproduce the fresh reference run):
   - success message appears (pipeline completed)
-  - n_clusters == 15
-  - parsed n_clusters_from_message == EXPECTED_N_CLUSTERS
+  - parsed n_clusters == EXPECTED_FRESH_N_CLUSTERS (8: the 2026-10-18 fresh reference, SIGHTING-136)
 
 What this catches:
   - Pipeline regression (any commit that changes clustering output on this profile)
@@ -30,7 +29,7 @@ import pytest
 
 from tests.face_clustering.e2e_budapest.conftest import (
     goto_page,
-    EXPECTED_N_CLUSTERS, PIPELINE_TIMEOUT_S, PROFILES_V2_DIR, PROFILE_NAME, SOURCE_DIR,
+    EXPECTED_FRESH_N_CLUSTERS, PIPELINE_TIMEOUT_S, PROFILES_V2_DIR, PROFILE_NAME, SOURCE_DIR,
 )
 
 pytestmark = pytest.mark.budapest
@@ -57,10 +56,16 @@ def test_scenario_a_fresh_run_produces_baseline_cluster_count(page):
     # `st.expander("Profiles", expanded=False)` — open the expander first.
     # spec-079: the expander header renders as a <details><summary>, not a
     # button role in the current Streamlit, so address it by text (SIGHTING-101).
+    # Streamlit 1.51 names the selectbox "Selected (none). Load profile", so an
+    # exact label match finds nothing (SIGHTING-136); match the combobox role.
     page.get_by_text("Profiles", exact=True).click()
-    page.get_by_label("Load profile", exact=True).click()
+    page.get_by_role("combobox", name="Load profile").click()
     page.get_by_role("option", name="profile_4").first.click()
     page.get_by_role("button", name="Load", exact=True).click()
+    # Wait until the loaded values reach the browser: clicking Run before the
+    # Load rerun lands sends the old widget values (the defaults) and they
+    # overwrite the profile (SIGHTING-136: ran K=5 / blur 50 / no merge).
+    page.locator('[role=slider][aria-label="K (kNN neighbours)"][aria-valuenow="51"]').wait_for()
 
     # 5. Run — the Run-tab button is labelled "Run" (run_tab.py), not
     # "Run pipeline" (SIGHTING-101: stale-UI drift fixed).
@@ -79,7 +84,7 @@ def test_scenario_a_fresh_run_produces_baseline_cluster_count(page):
     m = re.search(r"(\d+)\s+clusters", msg)
     assert m, f"Could not parse n_clusters from success message: {msg!r}"
     n_clusters = int(m.group(1))
-    assert n_clusters == EXPECTED_N_CLUSTERS, (
+    assert n_clusters == EXPECTED_FRESH_N_CLUSTERS, (
         f"Baseline regression: profile_4 against Budapest produced {n_clusters} "
-        f"clusters; expected {EXPECTED_N_CLUSTERS}. See README.md §'Reference run'."
+        f"clusters; expected {EXPECTED_FRESH_N_CLUSTERS}. See README.md §'Reference baseline'."
     )

@@ -153,8 +153,8 @@ class PipelineService:
     ) -> dict[str, dict]:
         """spec-079 — the ONE config interpreter for identity clustering.
 
-        Albumify keeps a single user-facing clustering config block (still keyed
-        ``cluster_people`` for UI/profile back-compat). When the pipeline runs
+        Albumify keeps a single user-facing clustering config block, ``people_clustering``
+        (spec-113; profiles saved earlier use ``cluster_people``, still read). When the pipeline runs
         App A's unified clustering chain, we translate that block through
         ``FCParams`` (the shared, typed config) and broadcast it to the unified
         steps via ``FCParams.to_step_configs()`` — the SAME interpretation App A
@@ -165,7 +165,14 @@ class PipelineService:
         if not any(s in steps for s in UNIFIED_CLUSTERING_STEPS):
             return step_configs
 
-        raw = dict(step_configs.get("cluster_people") or {})
+        raw = dict(step_configs.get("people_clustering") or {})
+        legacy = step_configs.get("cluster_people") or {}
+        if legacy:
+            # Saved profiles / user overrides from before spec-113: their values win over the
+            # yaml defaults, exactly as they did under the old key.
+            self._logger.warning("clustering config: reading the pre-spec-113 key 'cluster_people'; "
+                                 "re-save the profile to store it as 'people_clustering'")
+            raw.update(legacy)
         allowed = set(FCParams.model_fields)
         fcp = FCParams(**{k: v for k, v in raw.items() if k in allowed})
         dropped = sorted(set(raw) - allowed)
@@ -186,11 +193,10 @@ class PipelineService:
                 "export_for_analysis": True,
                 **fcp.model_dump(),
             }
-        # The clustering block was a CONFIG SOURCE, not a step. Remove it so the
-        # spec validator doesn't reject it against ClusterPeopleConfig (extra=forbid)
-        # — the full FCParams legitimately carries knobs that subset doesn't have.
-        if "cluster_people" not in steps:
-            step_configs.pop("cluster_people", None)
+        # The clustering block is a CONFIG SOURCE, not a step: drop it (and the old key) so the
+        # spec validator does not look for a step of that name.
+        step_configs.pop("people_clustering", None)
+        step_configs.pop("cluster_people", None)
         self._logger.info(
             "clustering config: broadcast FCParams to %d unified steps "
             "(K=%s yaw_max=%s blur_min=%s merge_enabled=%s)",

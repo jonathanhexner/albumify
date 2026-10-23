@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from sim_bench.control.db import ControlDB
-from sim_bench.control.jobs import FAILED, LOADING, RUNNING, STAGING, SUCCEEDED, JobRepo
+from sim_bench.control.jobs import FAILED, LOADING, RUNNING, STAGING, SUCCEEDED, JobRepo, this_worker
 from sim_bench.control.loader import LoadInputs, ResultsLoader
 from sim_bench.serving.job_store import JobStore
 from sim_bench.serving.runners import Runner, make_runner
@@ -42,6 +42,7 @@ class SubmitInputs:
     pipeline: Optional[str] = None
     start: int = 0
     n: Optional[int] = None
+    tag: Optional[str] = None          # e.g. regression:slovakia (spec-114); None = an owner's album
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +78,7 @@ class JobService:
         job_id = inputs.job_id or new_job_id(inputs.source)
         self.store.paths(job_id)   # validates the id before anything is written
         self.repo.create(job_id, runner=cfg.runner, pipeline=inputs.pipeline or cfg.pipeline,
-                         source=str(inputs.source) if inputs.source else None)
+                         source=str(inputs.source) if inputs.source else None, tag=inputs.tag)
         return job_id
 
     def run(self, job_id: str, inputs: SubmitInputs) -> SubmitResult:
@@ -85,7 +86,7 @@ class JobService:
         cfg = self.config.with_runner(inputs.runner)
         pipeline = inputs.pipeline or cfg.pipeline
         try:
-            self.repo.transition(job_id, STAGING)
+            self.repo.transition(job_id, STAGING, worker=this_worker())
             if inputs.source is not None:
                 images = collect_images(Path(inputs.source), inputs.start, inputs.n)
                 if not images:
@@ -121,11 +122,13 @@ class JobService:
     def submit(self, inputs: SubmitInputs) -> SubmitResult:
         return self.run(self.create(inputs), inputs)
 
-    def load_existing(self, job_id: str, *, runner: str, source: Optional[str] = None) -> SubmitResult:
+    def load_existing(self, job_id: str, *, runner: str, source: Optional[str] = None,
+                      tag: Optional[str] = None) -> SubmitResult:
         """Record + load a job whose files are already in the store (e.g. an earlier Modal run)."""
-        self.repo.create(job_id, runner=runner, source=source)
+        self.repo.create(job_id, runner=runner, source=source, tag=tag)
         try:
-            self.repo.transition(job_id, RUNNING, "files already present; not re-run")
+            self.repo.transition(job_id, RUNNING, "files already present; not re-run",
+                                 worker=this_worker())
             self.repo.transition(job_id, LOADING)
             res = ResultsLoader(self.db, self.store).calc(LoadInputs(job_id))
             self.repo.transition(job_id, SUCCEEDED, f"{res.n_picks} picks of {res.n_photos} photos",

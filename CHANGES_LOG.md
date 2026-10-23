@@ -8,6 +8,79 @@
 **Verification**: locally 63/63 in these files pass; with `samples/ukbench` hidden: 8 skipped, and 8 errors with `ALBUMIFY_REQUIRE_PRIVATE_DATA=1`. Full lane dispatched on the branch (see PR #3).
 **Reason**: owner: marking them CI-excluded "is just hiding the problem"; chose the private repo (option A).
 
+### 2026-10-18 [TEST] Budapest V2 gate green: fresh reference run for A and F, G race fixed (SIGHTING-136)
+**Files**: `tests/face_clustering/e2e_budapest/{conftest.py,test_scenario_a_fresh_run.py,test_scenario_f_quality.py,test_scenario_g_gallery.py,README.md}`, `CLAUDE.md` (gate expectations), `docs/project/SIGHTINGS.md` (136, 092, 101 fixed), `ROADMAP.md`, `specs/113-remove-cluster-people/updates.md`.
+**Change**: new reference run `fab3caa2` (today's pipeline, profile_4: 8 clusters) for A and F; F's band counts rejecting decisions (315-340); G no longer clicks the nav after Open.
+**Reason**: owner accepted 8 clusters after the before/after review. Suite 11/11 (was 8/11).
+
+### 2026-10-18 [BUGFIX][FEATURE] Recluster keeps blur scores; profile Load in the v2 Recluster tab (SIGHTING-136)
+**Files**: `face_cluster/quality.py`, `app/face_clustering_v2/_profile_bar.py`, `app/face_clustering_v2/tabs/recluster_tab.py`, `tests/face_clustering/test_quality_gate_step.py` (+1), `tests/face_clustering/test_v2_profile_bar.py` (new, 2), `tests/face_clustering/e2e_budapest/test_scenario_c_recluster.py`, `docs/project/SIGHTINGS.md` (136 updated, 139 new), `reports/2026-10-17_sighting136_budapest_gate/`, `reports/EXPERIMENTS.md`.
+**Change**: faces without pixels keep their stored blur score (recluster no longer bypasses the blur gate); the profile bar takes a `key_prefix` and is shown in Recluster; scenario C reclusters with profile_4.
+**Reason**: recluster gave 10 clusters for an 8-cluster run with the same profile; the Recluster tab could only use built-in defaults (22 clusters on the reference). Owner: "fix the blur bug, and add profile load to recluster".
+
+### 2026-10-17 [BUGFIX][TEST] SIGHTING-136: Budapest gate diagnosed; Recluster preselects the loaded run
+**Files**: `app/face_clustering_v2/components/run_picker.py`, `tests/face_clustering/test_v2_run_picker.py` (+2), `tests/face_clustering/e2e_budapest/test_scenario_a_fresh_run.py`, `docs/project/SIGHTINGS.md`.
+**Change**: Recluster picker defaults to the run loaded in History (was: newest run). Scenario A: combobox selector for Streamlit 1.51; waits for the loaded profile before Run.
+**Reason**: A and C failed on a stale selector, a Load/Run race and a wrong preselected run. Expected numbers (A 15, C band, F) are stale; owner decision pending (SIGHTING-136 findings).
+
+### 2026-10-17 [FEATURE] Compare runs page + regression runs in the app's job list (spec-114)
+**Files**: `sim_bench/control/{models,db,jobs,compare}.py`, `sim_bench/serving/job_service.py`, `sim_bench/api/{routers,schemas}/jobs.py`, `app/streamlit/pages/{compare,jobs}.py`, `app/streamlit/{main.py,api_client.py,components/sidebar.py}`, `scripts/albumify_regression.py`, `requirements.txt` (psutil); removed `sim_bench/album/regression_report.py`; tests `tests/control/{test_compare,test_jobs}.py`, `tests/api/test_jobs_router.py`, `tests/album/test_regression.py`, `tests/test_compare_page_e2e.py`; docs `docs/architecture/{classes,data_flow,db_schemas}.html`.
+**Change**: `jobs.tag` + `jobs.worker` (added to existing DBs by `ControlDB`); `JobComparer` + `GET /jobs/{b}/compare?with={a}`; new **Compare runs** page (verdict, checks, Missing / Extra / Swapped / More from a group / People, photo dialog with both runs' decisions); Jobs page hides regression runs by default; regression script writes to the main job list with tags and marks the baseline job; today's 8 regression jobs imported (moved from `~/.sim_bench/regression/jobs`). Dead jobs are failed as interrupted (SIGHTING-137).
+**Reason**: owner could not read regression results without the app ("we need to figure out how to use the app to view the results").
+
+### 2026-10-17 [DOCS] SIGHTING-137 (fixed), SIGHTING-138 (scene -1 giant near-duplicate group)
+**Files**: `docs/project/SIGHTINGS.md`, `docs/project/LEARNINGS.md`.
+
+### 2026-10-16 [FEATURE] Albumify regression: HTML comparison report (spec-113 R1.5)
+**Files**: `sim_bench/album/regression.py` (`Check`, `PickDiff`, `CompareResult.checks/picks`), `sim_bench/album/regression_report.py` (new), `scripts/albumify_regression.py` (report + `--job`), `tests/album/test_regression.py` (+3), `docs/architecture/classes.html`, spec-113 docs.
+**Change**: every `check` writes `~/.sim_bench/regression/reports/<time>_<dataset>_<PASS|FAIL>.html` and an index: counts and top-5 people with the allowed difference, pick recall/precision, and each moved pick with thumbnails. `check <name> --job <id>` re-reports a finished job without re-running.
+**Reason**: owner wanted to see the comparison, not only PASS/FAIL. Reports stay outside the repo because they show photos.
+
+### 2026-10-16 [DOCS] SIGHTING-136: Budapest V2 gate scenarios A, C, F fail on main
+**Files**: `docs/project/SIGHTINGS.md`.
+**Change**: filed; same failures on `d7c6ffa` as with spec-113's changes.
+**Reason**: binding gate for V2 changes; blocks spec-113 Implemented.
+
+### 2026-10-16 [CONFIG] CI fast lane pins SQLAlchemy/alembic (SIGHTING-135)
+**Files**: `.github/workflows/tests.yml` (committed to main as `bcaf67e`; same edit on spec/106), `scripts/check_no_photos.py` (hook works from any worktree).
+**Change**: the fast lane installs `sqlalchemy>=2.0.30,<2.1` and `alembic>=1.13,<2`, as requirements.txt does. The pre-commit hook now finds the venv of the main checkout and skips branches that predate the guard script.
+**Reason**: unpinned, CI got SQLAlchemy 2.1.4 + alembic 1.20 and the alembic drift test failed (Float vs Double on `action_log.duration_s`); main had been red nightly since at least 2026-10-13. After the fix: CI green, 145 passed.
+
+### 2026-10-16 [CONFIG] Public repo moved to jonathanhexner/albumify
+**Files**: `.gitignore` (purged PDF + HTML pages), git remotes.
+**Change**: dropped the one LFS PDF from history (could not confirm it was photo-free); created `jonathanhexner/albumify`, pushed the 6 cleaned branches (265 commits, 3 LFS model files), verified a fresh clone (0 image/PDF files, 0 embedded pictures, 2 charts), made it public. Remotes: `origin` -> albumify, `sim-bench-archive` -> the old repo, kept PRIVATE (its PR refs still hold the old commits). Local branches re-pointed; unpushed local commits stay local.
+**Reason**: GitHub keeps merged PRs' old commits in read-only refs, so the old repo could not be cleaned in place; owner chose a new name and to keep the old one private.
+
+### 2026-10-16 [CONFIG] Photo purge: personal photos removed from git history; guards added
+**Files**: `.gitignore`, `.gitattributes` (nbstripout), `.photo-allowlist`, `scripts/check_no_photos.py`, `.github/workflows/tests.yml` (photo guard step), `CLAUDE.md` (report rule), `docs/project/photo_purge_list.{md,html}`.
+**Change**: repo made private; full local mirror backup; `git-filter-repo` removed every photo/screenshot (3,459 files on main; all jpg/jpeg/heic/webp anywhere), 5 HTML pages with inlined images, and cleared outputs of every notebook in every commit; the 2 ROC charts kept. Force-pushed the 6 GitHub branches (their own rewritten tips; unpushed local commits stay local). Local branches moved onto the rewritten history; working tree unchanged. Pre-commit hook + CI step block image files, notebooks with outputs, and base64 pages; nbstripout clears outputs on commit.
+**Reason**: owner wants the repo public without their photos. All commit IDs changed: re-clone any other copy.
+
+### 2026-10-16 [BUGFIX] LocalRunner lost the child's output on non-UTF-8 locales
+**Files**: `sim_bench/serving/runners.py`, `tests/control/test_job_service.py` (+1)
+**Change**: the child process is read as UTF-8 (`errors="replace"`, `PYTHONIOENCODING=utf-8`) instead of the Windows code page.
+**Reason**: during the spec-113 Budapest baseline, a byte undefined in cp1255 killed the output reader thread (`UnicodeDecodeError`); the job still succeeded, but on a failed job the error tail would have been lost. New test fails without the fix, passes with it.
+
+### 2026-10-16 [REFACTOR] spec-113 -- remove the deprecated cluster_people step; Albumify regression suite
+**Files**: deleted `sim_bench/pipeline/steps/{cluster_people,face_cluster_bridge}.py`, `sim_bench/pipeline/steps/configs/cluster_people.py`, `configs/{face_clustering_export,pipeline_custom_arcface}.yaml`, 4 tests (`test_cluster_faces_knn_method`, `test_bridge_pose_plumbing`, `test_legacy_vs_v2_equivalence`, `test_face_cluster_knn_bridge`); moved 4 spec-079 scripts to `scripts/archive/`. Changed: `configs/pipeline.yaml` (`cluster_people:` -> `people_clustering:`, legacy-method knobs dropped), `sim_bench/api/services/pipeline_service.py`, `app/streamlit/components/pipeline_runner.py` (method picker and legacy methods removed), `app/streamlit/pages/explore.py` (dead face-decision block removed), `app/face_clustering/tabs/run_tab.py` (stale bridge caveats), `face_cluster/{config_diff,fc_app_runner}.py`, `scripts/capture_albumify_baseline.py`, step registrations, 10 tests, `docs/architecture/{data_flow,classes,db_schemas,db_global,system_onboarding}.html`. New: `sim_bench/album/regression.py`, `scripts/albumify_regression.py`, `tests/album/test_regression.py` (7), `tests/regression/albumify/` (datasets, baselines, pytest wrapper; marker `albumify_regression`), `tests/pipeline/test_builder.py::TestRealRegistry`.
+**Change**: one people-clustering path (the spec-079 chain). Settings key renamed; values saved under the old key still win over yaml defaults (O1). Regression suite compares a real album with a baseline within tolerances (counts, largest people, picks with near-duplicate groups).
+**Reason**: SIGHTING-132 -- the deprecated step was still registered and pulled into every run. Owner approved 2026-10-16. Found on the way: SIGHTING-133 (job path ignores the people settings), SIGHTING-134 (a broken opt-in test).
+
+### 2026-10-16 [BUGFIX] SIGHTING-132 -- deprecated cluster_people no longer auto-added
+**Files**: `sim_bench/pipeline/steps/{identity_refinement,cluster_by_identity,select_best_per_person}.py`, `tests/pipeline/test_builder.py` (+3), `docs/project/{SIGHTINGS,LEARNINGS}.md`, `docs/project/SIGHTING-132_flow.{md,html}`, `specs/113-remove-cluster-people/*` (new, Draft), `ROADMAP.md`, `TODO.md`.
+**Change**: Removed `"cluster_people"` from three `depends_on` lists. The default run now uses only the spec-079 people chain, and `identity_refinement` + `cluster_by_identity` run before `select_best` again (yaml order), so selection gets the per-person sub-groups. Drafted spec-113 to delete the step.
+**Reason**: `PipelineBuilder` auto-added the deprecated step, which overwrote the spec-079 people (80 -> 118 on Slovakia26). Owner approved 2026-10-16. 430 + 12 tests pass.
+
+### 2026-10-16 [DOCS] SIGHTING-132 flowchart
+**Files**: `docs/project/SIGHTING-132_flow.{md,html}`
+**Change**: Flowchart of how `PipelineBuilder` auto-adds the deprecated `cluster_people` (three `depends_on` lists), the resulting step order, and the `PipelineContext` data flow. Found a second effect: `select_best` runs before `cluster_by_identity`, so per-person sub-groups are never used.
+**Reason**: Owner asked for a flowchart before deciding on SIGHTING-132.
+
+### 2026-10-11 [BUGFIX] spec-112 TA6 — Slovakia26 through JobService on the L4; face→person mapping; SIGHTING-132
+**Files**: `sim_bench/album/results_bundle.py` (match people by photo id + face index; `face_index` in bundle), `sim_bench/serving/curate_job.py` (crop warning only for faces in a person), `app/streamlit/pages/jobs.py` ("Removed by filters", show only `rejected` decisions, people largest first), `tests/album/test_results_bundle.py` (+1), `tests/control/fakes.py`, `docs/project/{SIGHTINGS,LEARNINGS}.md`, spec-112 tasks/updates, `reports/2026-10-11_spec112_jobs_page/*.png`.
+**Change**: first real job through the new control plane: 715 photos, `runner=modal_gpu`, succeeded; 411 s pipeline, 19.4 min copy-back (993 files one by one). AC2/AC3 hold on real data (rows == files; API album == album.json). The viewer showed every face without a person: the real `people_clusters` comes from the deprecated `cluster_people` (no `face_id`), so the bundler now matches by (photo, face index). That exposed SIGHTING-132: `identity_refinement.depends_on` + builder auto-resolve re-add `cluster_people` to every default run, overwriting the spec-079 people (80 -> 118).
+**Reason**: spec-112 TA6 real-data proof (owner approved the Modal run).
+
 ### 2026-10-10 [FEATURE] spec-112 Phase A — control DB, results bundle, runner config, jobs API + viewer
 **Files**: new `sim_bench/control/{__init__,db,models,jobs,loader,album_builder}.py`, `sim_bench/album/results_bundle.py`, `sim_bench/serving/{job_service,runners,staging,serving_config}.py`, `configs/serving.yaml`, `sim_bench/api/{routers,schemas}/jobs.py`, `app/streamlit/pages/jobs.py`; changed `sim_bench/serving/{curate_job,job_store}.py` (bundle + `results/`, `faces/`), `sim_bench/album/{schema,normalizer}.py` (`Person.label`; public `canonical_scene_ids`, `chrono_key`), `sim_bench/api/main.py` (router), `app/streamlit/{main,api_client}.py` + `components/sidebar.py` (Jobs page), `scripts/modal_curate_driver.py` (shared `downsample`); tests `tests/album/test_results_bundle.py`, `tests/control/{fakes,test_jobs,test_loader_builder,test_job_service}.py`, `tests/api/test_jobs_router.py`, +4 in `tests/serving`; `docs/project/SIGHTINGS.md` (131); spec-112 spec/tasks/updates; ROADMAP; TODO.
 **Change**: the worker now writes a results bundle (every staged photo with time/GPS/scores/pipeline decisions, every face with its person, embeddings, face crops) beside album.json. A separate control DB (`DATABASE_URL`, default `~/.sim_bench/control.db`) holds jobs, job events, photos, faces, people, scenes and user edits; `ResultsLoader` fills it idempotently from a job's files, `AlbumBuilder` rebuilds the album from rows + edits (equal to the worker album when there are no edits). `JobService` runs one flow for every runner (`local` child process; `modal_gpu`/`modal_cpu` stage → curate → copy-back), chosen in `configs/serving.yaml`. FastAPI `/jobs` endpoints and a Streamlit Jobs page (picks, dropped by reason, removed-before-scoring with the pipeline's reason, people; promote/remove/rename).
@@ -2672,6 +2745,7 @@ absorbed nodes entered the exemplar pool. Four unit tests added in `ut_MergeTwoC
 **Reason**: Design doc for replacing gate-based merge heuristics with a trained classifier. Includes literature review, comprehensive feature catalog (~50 features in 9 groups), collection spec, and classifier design.
 
 ---
+
 
 ## Format Guidelines
 

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-113--remove-the-deprecated-cluster_people-step"
+id="toc-spec-113--remove-the-deprecated-cluster_people-step">spec-113 —
+Remove the deprecated <code>cluster_people</code> step</a>
+<ul>
+<li><a href="#1-problem" id="toc-1-problem">1. Problem</a></li>
+<li><a href="#2-where-it-is-today" id="toc-2-where-it-is-today">2. Where
+it is today</a></li>
+<li><a href="#3-goal" id="toc-3-goal">3. Goal</a></li>
+<li><a href="#4-scope" id="toc-4-scope">4. Scope</a></li>
+<li><a href="#5-acceptance-criteria" id="toc-5-acceptance-criteria">5.
+Acceptance criteria</a></li>
+<li><a href="#6-open-decisions-owner" id="toc-6-open-decisions-owner">6.
+Open decisions (owner)</a></li>
+<li><a href="#7-albumify-regression-suite-r1"
+id="toc-7-albumify-regression-suite-r1">7. Albumify regression suite
+(R1)</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-113--remove-the-deprecated-cluster_people-step">spec-113 —
+Remove the deprecated <code>cluster_people</code> step</h1>
+<p><strong>Status:</strong> Implemented (2026-10-18) — owner approved
+scope + regression suite; O1–O3 per recommendations. Evidence:
+updates.md 2026-10-18 <strong>Owner:</strong> Jonathan / Claude
+<strong>Priority:</strong> P1 (dead code that already caused one silent
+quality bug: SIGHTING-132; no test pins Albumify's results)
+<strong>Relation:</strong> follows [[spec-079]] (replaced
+<code>cluster_people</code> with the 8-step chain); closes the clean-up
+left by SIGHTING-132.</p>
+<h2 id="1-problem">1. Problem</h2>
+<p>spec-079 replaced <code>ClusterPeopleStep</code> with an 8-step
+people-clustering chain ending in <code>assign_people_clusters</code>.
+The old step stayed in the repo, registered and runnable. Three steps
+still named it as a dependency, so <code>PipelineBuilder</code> added it
+to every default run and it overwrote the new chain's people
+(SIGHTING-132, fixed 2026-10-16 by removing those three dependencies).
+As long as the step exists, it can come back the same way. Its name also
+survives as the settings key the UI uses for people clustering, which
+hides what actually runs.</p>
+<h2 id="2-where-it-is-today">2. Where it is today</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Item</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Step</td>
+<td><code>sim_bench/pipeline/steps/cluster_people.py</code>
+(<code>ClusterPeopleStep</code>)</td>
+<td>Registered via <code>all_steps.py</code></td>
+</tr>
+<tr>
+<td>Step config</td>
+<td><code>sim_bench/pipeline/steps/configs/cluster_people.py</code>
+(<code>ClusterPeopleConfig</code>)</td>
+<td>Registered in <code>configs/__init__.py</code></td>
+</tr>
+<tr>
+<td>Helper</td>
+<td><code>sim_bench/pipeline/steps/face_cluster_bridge.py</code></td>
+<td>Only <code>cluster_people</code> and tests</td>
+</tr>
+<tr>
+<td>Config</td>
+<td><code>configs/pipeline.yaml</code> section
+<code>cluster_people:</code></td>
+<td>Read as the UI's people settings</td>
+</tr>
+<tr>
+<td>Config</td>
+<td><code>configs/face_clustering_export.yaml</code>,
+<code>configs/pipeline_custom_arcface.yaml</code></td>
+<td>Not loaded by any code</td>
+</tr>
+<tr>
+<td>Service</td>
+<td><code>sim_bench/api/services/pipeline_service.py:157-193</code></td>
+<td>Translates the <code>cluster_people</code> settings into the 8
+steps' configs</td>
+</tr>
+<tr>
+<td>UI</td>
+<td><code>app/streamlit/components/pipeline_runner.py</code></td>
+<td>People settings stored under <code>cluster_people</code></td>
+</tr>
+<tr>
+<td>UI</td>
+<td><code>app/streamlit/pages/explore.py:468</code></td>
+<td>Shows face decisions where <code>step == "cluster_people"</code>:
+always empty now</td>
+</tr>
+<tr>
+<td>Other</td>
+<td><code>face_cluster/config_diff.py</code>,
+<code>face_cluster/fc_app_runner.py</code>,
+<code>app/face_clustering/tabs/run_tab.py</code></td>
+<td>Settings key and comments</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td>~12 files (legacy-vs-new comparisons, bridge tests)</td>
+<td></td>
+</tr>
+<tr>
+<td>Scripts</td>
+<td><code>capture_albumify_baseline</code>, <code>diff_fcconfig</code>,
+<code>experiment_clustering_ab</code>, <code>localize_gap</code>,
+<code>prove_albumify_unified</code></td>
+<td>spec-079 investigation tools</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-goal">3. Goal</h2>
+<ol type="1">
+<li>One people-clustering path in the code: the spec-079 chain. Nothing
+named <code>cluster_people</code> that can run.</li>
+<li>A regression suite that fails when the Albumify album on a real
+dataset drifts (R1). Nothing pinned it: the Budapest gate tests the
+face-clustering app, and the Albumify e2e test only checks "people
+non-empty", so SIGHTING-132 went unnoticed since spec-079.</li>
+</ol>
+<h2 id="4-scope">4. Scope</h2>
+<ol type="1">
+<li><p>Delete the step, its config class,
+<code>face_cluster_bridge.py</code>, and the two unused yaml
+files.</p></li>
+<li><p>Rename the settings key <code>cluster_people</code> to
+<code>people_clustering</code> in <code>pipeline.yaml</code>,
+<code>pipeline_service</code>, the Albumify settings UI, and the
+face-clustering app.</p></li>
+<li><p>Fix <code>explore.py</code> to show the new chain's face
+decisions (<code>quality_gate</code>, <code>attach_holdout_faces</code>,
+...).</p></li>
+<li><p>Tests: delete those that only test the old step; update the rest
+to the new key.</p></li>
+<li><p>Scripts: move the spec-079 investigation scripts to
+<code>scripts/archive/</code> (see O3).</p></li>
+<li><p>Optional (O2): a named group <code>people_clustering</code> in a
+pipeline list that the builder expands into the 8 steps.</p></li>
+<li><p>Albumify regression suite (R1), section 7.</p></li>
+</ol>
+<p>Out of scope: changing how the 8-step chain clusters.</p>
+<h2 id="5-acceptance-criteria">5. Acceptance criteria</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Criterion</th>
+<th>Check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC1</td>
+<td>No step, config class or yaml section named
+<code>cluster_people</code></td>
+<td><code>grep</code> outside <code>docs/archive</code>,
+<code>CHANGES_LOG.md</code>, specs: no code hits</td>
+</tr>
+<tr>
+<td>AC2</td>
+<td>Default pipeline results unchanged by the removal</td>
+<td>Budapest gate
+(<code>pytest -m budapest tests/face_clustering/e2e_budapest/</code>):
+15 clusters, 340 faces, same sizes</td>
+</tr>
+<tr>
+<td>AC3</td>
+<td>A people setting changed in the Albumify UI still reaches the 8-step
+chain</td>
+<td>Test: changed value appears in the step configs
+<code>pipeline_service</code> builds</td>
+</tr>
+<tr>
+<td>AC4</td>
+<td>Explore page no longer depends on the removed step (amended
+2026-10-16: no current step records per-face decisions, so the block was
+dead and is removed)</td>
+<td>Code + page loads without error</td>
+</tr>
+<tr>
+<td>AC5</td>
+<td>Full test suite green</td>
+<td><code>pytest tests/</code></td>
+</tr>
+<tr>
+<td>AC6</td>
+<td>Regression suite: baselines for <code>quick</code> + 3 real albums
+captured BEFORE the removal; all pass AFTER it</td>
+<td><code>scripts/albumify_regression.py check all</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-open-decisions-owner">6. Open decisions (owner)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Recommendation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>O1</td>
+<td>Saved profiles and old job configs store people settings under
+<code>cluster_people</code>.</td>
+<td>Read the old key when the new one is missing, with a one-line
+warning; no data migration</td>
+</tr>
+<tr>
+<td>O2</td>
+<td>Add the <code>people_clustering</code> group to pipeline lists?</td>
+<td>Yes, but as a separate small task after the removal</td>
+</tr>
+<tr>
+<td>O3</td>
+<td>Delete or archive the spec-079 investigation scripts?</td>
+<td>Archive (<code>scripts/archive/</code>); delete the tests that only
+compare old vs new</td>
+</tr>
+</tbody>
+</table>
+<p>All three decided 2026-10-16 as recommended (O2 stays a follow-up,
+T4).</p>
+<h2 id="7-albumify-regression-suite-r1">7. Albumify regression suite
+(R1)</h2>
+<p>Runs the product path (<code>JobService</code>: stage 768 px →
+default pipeline → load) on real albums and compares the album with a
+saved baseline. "Close enough", not identical: a near-duplicate burst
+may keep a sibling frame, a person may gain or lose a face.</p>
+<table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>Source</th>
+<th>Photos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>quick</code></td>
+<td><code>D:/Slovakia26</code>, first 48</td>
+<td>48 (pre-commit check)</td>
+</tr>
+<tr>
+<td><code>budapest</code></td>
+<td><code>D:/Budapest2025_Google</code></td>
+<td>122</td>
+</tr>
+<tr>
+<td><code>austria</code></td>
+<td><code>D:/Austria_24</code></td>
+<td>474</td>
+</tr>
+<tr>
+<td><code>slovakia</code></td>
+<td><code>D:/Slovakia26</code></td>
+<td>715</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Compared</th>
+<th>Pass when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Counts: in album, picks, scenes, people, set aside</td>
+<td>within 3% / 10% / 10% / 15% / 15% (differences of ≤ 2 always
+pass)</td>
+</tr>
+<tr>
+<td>Largest 5 people's face counts</td>
+<td>each within 20%</td>
+</tr>
+<tr>
+<td>Picks</td>
+<td>≥ 85% of baseline picks matched, and ≥ 85% of new picks matched. A
+pick matches if the other album kept it or a shot from its
+near-duplicate group</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Summary + comparison (pure)</td>
+<td><code>sim_bench/album/regression.py</code>
+(<code>AlbumSummarizer</code>, <code>AlbumComparator</code>,
+<code>Tolerances</code>)</td>
+</tr>
+<tr>
+<td>Runner (capture / check)</td>
+<td><code>scripts/albumify_regression.py</code></td>
+</tr>
+<tr>
+<td>Datasets, baselines</td>
+<td><code>tests/regression/albumify/{datasets.yaml,baselines/*.json}</code></td>
+</tr>
+<tr>
+<td>Pytest entry</td>
+<td><code>tests/regression/albumify/test_albumify_regression.py</code>,
+marker <code>albumify_regression</code> (opt-in)</td>
+</tr>
+<tr>
+<td>Reading results</td>
+<td>Albumify app, <strong>Compare runs</strong> page (spec-114). The
+R1.5 HTML report was removed in spec-114 (decision O3); runs are tagged
+<code>regression:&lt;dataset&gt;</code> in the app's job list</td>
+</tr>
+</tbody>
+</table>
+<p>Re-baselining is a deliberate act
+(<code>capture &lt;dataset&gt;</code>), recorded in updates.md with the
+reason.</p>
+</div>
+</body>
+</html>
