@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>prd_format_review_2026-10-23</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="prd_format_review_2026-10-23.md">prd_format_review_2026-10-23.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#prd-format-review--spec-115-2026-10-23"
+id="toc-prd-format-review--spec-115-2026-10-23">PRD format review —
+spec-115, 2026-10-23</a>
+<ul>
+<li><a href="#scores-before-fixes" id="toc-scores-before-fixes">Scores
+(before fixes)</a></li>
+<li><a href="#fixed-on-2026-10-23-in-this-round"
+id="toc-fixed-on-2026-10-23-in-this-round">Fixed on 2026-10-23 (in this
+round)</a></li>
+<li><a
+href="#open-spec-115-content-engineer-review-needs-owner-decision"
+id="toc-open-spec-115-content-engineer-review-needs-owner-decision">Open:
+spec-115 content (engineer review, needs owner decision)</a></li>
+<li><a href="#recommendations-for-the-prd-rule-workflowmd-and-a-skill"
+id="toc-recommendations-for-the-prd-rule-workflowmd-and-a-skill">Recommendations
+for the PRD rule (WORKFLOW.md) and a skill</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="prd-format-review--spec-115-2026-10-23">PRD format review —
+spec-115, 2026-10-23</h1>
+<p>Two independent reviews of
+<code>specs/115-album-workbench/spec.html</code> (neither saw the
+other), plus the impeccable detector:</p>
+<ul>
+<li><strong>A. Design critique (impeccable method):</strong> Nielsen's
+10 heuristics adapted to a reading document, cognitive-load
+checklist.</li>
+<li><strong>B. Senior engineer + UI review:</strong> clarity, size,
+focus, readability, accuracy against the code, recommendations for the
+PRD rule.</li>
+<li><strong>Detector</strong> (<code>npx impeccable --json</code>): 33
+findings before fixes (27 dark-mode contrast, 6 cramped highlights),
+<strong>0 after</strong>.</li>
+</ul>
+<h2 id="scores-before-fixes">Scores (before fixes)</h2>
+<table>
+<thead>
+<tr>
+<th>Review</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Design health (Nielsen, /40)</td>
+<td><strong>21/40, "acceptable"</strong>: navigation 2, consistency 1,
+phone 1 were the lows</td>
+</tr>
+<tr>
+<td>Cognitive load (8 checks)</td>
+<td><strong>4 failures, "critical"</strong>: no chunking of 15 + 13
+rows, banner and TOC above the title, R/W codes to remember, no
+progressive disclosure</td>
+</tr>
+<tr>
+<td>Engineer: clarity</td>
+<td>a new engineer could mostly start W2; would still ask about crop
+orientation pass criteria, box coordinate frame, real flag names</td>
+</tr>
+<tr>
+<td>Engineer: accuracy</td>
+<td>2 methods marked "changed" did not exist (<code>spawn</code>,
+<code>download_results</code>); a wrong signature; members missing</td>
+</tr>
+</tbody>
+</table>
+<p>Both reviews praised: the <strong>Today → After</strong> columns, the
+<strong>plan flowchart</strong> (each step closes on its check), and the
+concrete <strong>"How we know it works"</strong> column.</p>
+<h2 id="fixed-on-2026-10-23-in-this-round">Fixed on 2026-10-23 (in this
+round)</h2>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Green meant both NEW and DONE</td>
+<td>Hue = type of change only (green NEW, amber CHANGED, grey EXISTING,
+red REMOVED); progress = ● done · ◐ partly · ○ planned; plan steps:
+thick border done, dashed planned</td>
+</tr>
+<tr>
+<td>Dark mode: badges 2.4-3:1 contrast, white diagram slabs</td>
+<td>Badge colours are theme tokens with dark variants; diagrams sit on a
+paper card</td>
+</tr>
+<tr>
+<td>Whole cells highlighted (no signal)</td>
+<td><code>&lt;mark&gt;</code> removed from tables; rule: only for a
+single changed word in prose</td>
+</tr>
+<tr>
+<td>"R / 1" wraps, paths break mid-word</td>
+<td>ID column nowrap; tables and diagrams widen to 1,240 px; status
+cells are a glyph</td>
+</tr>
+<tr>
+<td>Wrong diagram markers</td>
+<td><code>spawn</code> / <code>download_results</code> now ✚,
+<code>stage</code> / <code>curate</code> / <code>download</code> ✖, real
+<code>_stage</code> signature, <code>path</code> added; no ✓ after
+members (mermaid shows it as a return type)</td>
+</tr>
+<tr>
+<td>Redundant Type column, test rows in §5</td>
+<td>Removed; tests live in tasks.md per task. Phone page 18,000 → 10,400
+px</td>
+</tr>
+<tr>
+<td>Wrong flag name in tasks.md</td>
+<td><code>write_displays</code> + <code>_write_bundle</code> crops</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="open-spec-115-content-engineer-review-needs-owner-decision">Open:
+spec-115 content (engineer review, needs owner decision)</h2>
+<table>
+<thead>
+<tr>
+<th>Sev</th>
+<th>Finding</th>
+<th>Proposed fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>high</td>
+<td>Cancel is underspecified: no <code>cancelled</code> status; partial
+files, cache commit, L4 queue slot</td>
+<td>R4 states the end state of each</td>
+</tr>
+<tr>
+<td>high</td>
+<td>No requirement for file-serving security (shared
+<code>_inputs/</code> served through a job's route)</td>
+<td>new requirement: route serves only files listed in that job's
+manifest/results; traversal 404 (tests exist)</td>
+</tr>
+<tr>
+<td>med</td>
+<td>No spend cap</td>
+<td>R2 names the default <code>max_photos_l4</code> and a per-run
+ceiling</td>
+</tr>
+<tr>
+<td>med</td>
+<td>Old Modal jobs on <code>albumify-jobs</code> (kept forever)</td>
+<td>migrate, purge, or a stated non-goal</td>
+</tr>
+<tr>
+<td>med</td>
+<td>No single definition of done</td>
+<td>one line under §2</td>
+</tr>
+<tr>
+<td>med</td>
+<td>Crop orientation has no pass criterion</td>
+<td>T2.1 pass = PC crop overlaps worker crop on ≥ 19/20 faces, else keep
+worker crops</td>
+</tr>
+<tr>
+<td>low</td>
+<td>Vague checks (R3, R5, R11, R12 say "Playwright"/"tests")</td>
+<td>name the test file and assertion</td>
+</tr>
+<tr>
+<td>low</td>
+<td>R6 / R15 are engineering guarantees, not outcomes</td>
+<td>group under "Guarantees"</td>
+</tr>
+</tbody>
+</table>
+<p>Adding rows would exceed 15; merging R6+R7 and R14+R15 keeps it at
+15.</p>
+<h2
+id="recommendations-for-the-prd-rule-workflowmd-and-a-skill">Recommendations
+for the PRD rule (WORKFLOW.md) and a skill</h2>
+<p><strong>Done 2026-10-23 (owner: apply content fixes, build
+/prd):</strong> content fixes applied to spec-115 (14 requirements); 1 =
+<code>/prd</code> skill (<code>.claude/skills/prd/SKILL.md</code>); 2 =
+<code>scripts/prd_lint.py</code> (all checks above except "NEW files do
+not exist" is refined to "unless marked ●"; desktop height is a
+warning); 4 = definition of done + the errors/security/cost/migration
+coverage rule are in the skill. <strong>Still open:</strong> 3 (generate
+colours and status), 5 (progress strip, TOC position), 6 (plan as a
+table), 7 (phone layout).</p>
+<ol type="1">
+<li><strong>Make it a <code>/prd</code> skill</strong> (a packaged
+instruction set): draft from the template, then a <strong>code-grounding
+pass</strong> that checks every ✎ / ✖ member exists in the named class
+(Python AST) and every ✚ does not, before asking for approval. This
+would have caught the <code>spawn</code> / <code>download_results</code>
+error. Plus <code>/prd-check</code> for an existing spec.</li>
+<li><strong>Lint in <code>md2html.py --check</code></strong> (fail the
+render): objective ≤ 3 lines; ≤ 15 requirements; every requirement has a
+check that names a file, test, or real-data result (bare "tests" fails);
+every R appears in a plan check node and in a §6 Req cell; CHANGED files
+exist, NEW files do not yet; warn when the desktop page is over 6,000
+px.</li>
+<li><strong>Generate, don't hand-write:</strong> class colours from
+<code>&lt;&lt;new&gt;&gt;</code> / <code>&lt;&lt;changed&gt;&gt;</code>
+markers (today: 13 hand-written <code>style</code> lines that can
+drift); status glyphs from tasks.md checkboxes (one source of truth); a
+requirement → task → evidence matrix from tasks.md "(Rn)" and updates.md
+tables.</li>
+<li><strong>Template additions:</strong> a one-line <strong>Definition
+of done</strong>; a fixed <strong>Errors · Security · Cost ·
+Migration</strong> row set in §2 (each answered or "N/A because…");
+REMOVED rows in §6.</li>
+<li><strong>First screen:</strong> a progress strip under the title
+(W1-W5 ●/○, "4/15 requirements proven"); TOC after the title (or
+sticky); short H1 ("spec-115 · Album workbench") with the subtitle as a
+lede.</li>
+<li><strong>Size:</strong> plan as a 5-row table (step · modules · check
+· status) or <code>flowchart LR</code> saves ~1,000 px; drop
+context-only boxes from the class diagram.</li>
+<li><strong>Phone:</strong> decide whether it matters for a single-owner
+doc. If yes, tables become stacked cards under 700 px; if no, say so and
+scroll tables sideways.</li>
+</ol>
+</div>
+</body>
+</html>

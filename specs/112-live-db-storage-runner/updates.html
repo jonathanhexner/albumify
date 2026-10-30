@@ -234,6 +234,28 @@
   nav#TOC li{font-size:14px;margin:3px 0;}
   img{max-width:100%;}
   strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
 
   </style>
 </head>
@@ -245,6 +267,18 @@
 id="toc-spec-112--progress--verification-updates">spec-112 — Progress
 &amp; verification updates</a>
 <ul>
+<li><a href="#2026-10-23--phase-a2-moved-to-its-own-spec"
+id="toc-2026-10-23--phase-a2-moved-to-its-own-spec">2026-10-23 — Phase
+A2 moved to its own spec</a></li>
+<li><a
+href="#2026-10-23--w1-done-inputs-staged-once-job-runs-use-the-feature-cache"
+id="toc-2026-10-23--w1-done-inputs-staged-once-job-runs-use-the-feature-cache">2026-10-23
+— W1 done: inputs staged once, job runs use the feature cache</a></li>
+<li><a
+href="#2026-10-23--phase-a2-drafted-album-workbench-run-watch-re-run-examine-no-pictures-back-from-modal"
+id="toc-2026-10-23--phase-a2-drafted-album-workbench-run-watch-re-run-examine-no-pictures-back-from-modal">2026-10-23
+— Phase A2 drafted: album workbench (run, watch, re-run, examine; no
+pictures back from Modal)</a></li>
 <li><a
 href="#2026-10-11--real-data-proof-slovakia26-715-photos-through-jobservice-on-the-l4"
 id="toc-2026-10-11--real-data-proof-slovakia26-715-photos-through-jobservice-on-the-l4">2026-10-11
@@ -268,8 +302,140 @@ id="toc-2026-10-10--spec-drafted">2026-10-10 — Spec drafted</a></li>
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
 <p><strong>Status:</strong> In Progress — Phase A proven on Slovakia26
-via Modal for AC1–AC4 (AC5 by tests); faces → people mapping fixed after
-the run, needs one re-run once SIGHTING-132 is decided.</p>
+via Modal for AC1–AC4 (AC5 by tests); SIGHTING-132 fixed by spec-113,
+the re-run is folded into Phase A2's proof. Phase A2 (album workbench)
+moved to <a href="../115-album-workbench/spec.html">spec-115</a> on
+2026-10-23.</p>
+<h2 id="2026-10-23--phase-a2-moved-to-its-own-spec">2026-10-23 — Phase
+A2 moved to its own spec</h2>
+<p>Owner asked for the album workbench as its own PRD in the new format:
+<a href="../115-album-workbench/spec.html">spec-115</a>. The two A2
+entries below (drafted; W1 done) are kept as history; new progress is
+logged there.</p>
+<h2
+id="2026-10-23--w1-done-inputs-staged-once-job-runs-use-the-feature-cache">2026-10-23
+— W1 done: inputs staged once, job runs use the feature cache</h2>
+<p>Owner approved Phase A2 (O3 = 7 days, O4 = pipeline name only). W1
+built:</p>
+<ul>
+<li><strong><code>InputStore</code></strong>
+(<code>sim_bench/serving/input_store.py</code>): each photo is resized
+once to
+<code>&lt;jobs_root&gt;/_inputs/&lt;sha16&gt;/&lt;name&gt;.jpg</code>
+(hash of the original + staging version). A job's <code>input/</code>
+now holds only <code>manifest.json</code>; older jobs with
+<code>input/*.jpg</code> keep working. The API's image route resolves
+keys inside the job folder or the store only.</li>
+<li><strong>The pipeline gets the job's paths explicitly</strong>
+(<code>discover_images</code> accepts given images), so the same photo
+has the same path in every job. The per-run temp copy is gone (it
+existed for straighten derivatives, which now go to their own cache
+folder).</li>
+<li><strong>Found: job runs never had a feature cache.</strong>
+<code>run_pipeline</code> built its context with no cache handler, so
+every local and L4 job recomputed everything, even with stable paths.
+Now attached (<code>ALBUMIFY_FEATURE_CACHE</code>, default
+<code>~/.sim_bench/sim_bench.db</code>).</li>
+<li>TW1.1: the model-version check existed (spec-079) but was untested;
+test added.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stale-version rows are misses; same version hits; unversioned steps
+unchanged</td>
+<td><code>tests/pipeline/test_cache_model_version.py</code> 4
+passed</td>
+</tr>
+<tr>
+<td>Content keys, no rewrite (mtime fixed), bad keys refused, manifest,
+resolve stays inside</td>
+<td><code>tests/serving/test_input_store.py</code> 13 passed</td>
+</tr>
+<tr>
+<td>Second job stages 0 photos, same paths, same mtimes</td>
+<td><code>tests/control/test_job_service.py</code>
+(<code>..._stages_nothing_new</code>)</td>
+</tr>
+<tr>
+<td>Pipeline gets exactly the job's inputs, same paths across jobs;
+older jobs still run</td>
+<td><code>tests/serving/test_curate_job.py</code> (+3)</td>
+</tr>
+<tr>
+<td>Given images used as-is; a folder is still scanned otherwise</td>
+<td><code>tests/pipeline/test_discover_given_images.py</code> 3
+passed</td>
+</tr>
+<tr>
+<td>Real: the cache carries across jobs</td>
+<td>12 Budapest photos, <code>minimal</code>, two local jobs, fresh
+cache DB: job 2 staged 0 new; score_iqa 1017-&gt;26 ms, score_ava
+1980-&gt;0, extract_scene_embedding 7719-&gt;10; identical picks</td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td>full local suite 1,627 passed, 2 skipped, 0 failed (10.7 min)</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="2026-10-23--phase-a2-drafted-album-workbench-run-watch-re-run-examine-no-pictures-back-from-modal">2026-10-23
+— Phase A2 drafted: album workbench (run, watch, re-run, examine; no
+pictures back from Modal)</h2>
+<p>Owner: a stable app to run and examine albums, locally or on cloud
+GPUs, comes before Gate 1. Asked whether pictures travel back and forth
+and whether the cache stays on the L4. Checked in the code:</p>
+<ul>
+<li><strong>Pictures go both ways today.</strong> Up: 715 resized copies
+per run (unavoidable once; the L4 needs pixels). Down: 993 files, of
+which 147 display copies and 842 face crops (19.4 of ~31 min); only
+<code>album.json</code>, <code>run.json</code> and <code>results/</code>
+(3 files) carry information the PC lacks.</li>
+<li><strong>The L4 keeps only model weights.</strong> The feature cache
+(<code>sim_bench.db</code>) lives in the container and is lost at exit,
+so every L4 re-run recomputes everything. Locally too, a new job id
+means new input paths and the path-keyed cache misses.</li>
+<li>The app never reads from Modal (local files + control DB only).
+Uploaded inputs stay on the <code>albumify-jobs</code> Volume after the
+job.</li>
+</ul>
+<p>Plan: spec §4 items 10–17, AC9–AC15, tasks W1–W5. Earlier 3–4 day
+estimate was inflated by bundling hardening (jobs outside the API
+process); that is out of A2. Open: O3 (input retention, rec 7 days), O4
+(re-run settings: pipeline name only in v1).</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Download is mostly pictures</td>
+<td><code>~/.sim_bench/jobs/slovakia26</code>: display 147, faces 842,
+results 3, album.json, run.json</td>
+</tr>
+<tr>
+<td>Worker cache not persistent</td>
+<td><code>sim_bench/serving/modal_app.py</code>: Volumes only for models
++ HF cache; <code>sim_bench.db</code> under the container's home</td>
+</tr>
+<tr>
+<td>Cache keyed by path</td>
+<td><code>sim_bench/api/database/models.py</code>
+<code>universal_cache</code> unique (<code>image_path</code>,
+<code>feature_type</code>, <code>model_name</code>)</td>
+</tr>
+</tbody>
+</table>
 <h2
 id="2026-10-11--real-data-proof-slovakia26-715-photos-through-jobservice-on-the-l4">2026-10-11
 — Real-data proof: Slovakia26 (715 photos) through JobService on the

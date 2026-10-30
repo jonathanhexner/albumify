@@ -1,6 +1,6 @@
 # spec-112 — Live DB + storage, runner as config
 
-**Status:** In Progress (Phase A)
+**Status:** In Progress (Phase A built; Phase A2 "album workbench" moved to [spec-115](../115-album-workbench/spec.html) on 2026-10-23; Phase B open)
 **Owner:** Jonathan / Claude
 **Priority:** P1 (Stage C critical path — every later product piece reads from here)
 **Roadmap:** Stage C · see [ROADMAP.md](../../ROADMAP.html)
@@ -18,6 +18,8 @@ and the Next.js front end.
   fields inside `album.json`.
 - Face embeddings stay in the worker's results file in storage (not DB columns) for v1.
 
+**Phase A2 (album workbench) moved to [spec-115](../115-album-workbench/spec.html)** (owner, 2026-10-23), written in the new PRD format.
+
 ## 1. Problem
 
 The same pipeline (`execute_spec`) runs in two places that never share results:
@@ -34,8 +36,8 @@ to the app, nothing is queryable across jobs, and "where it runs" is baked into 
 
 ## 2. Goal
 
-**One rule: rows go in the DB, bytes go in storage, compute cache stays local.**
-Where the pipeline runs is a setting.
+**One rule: rows go in the DB, bytes go in storage, the compute cache stays with the compute** (on the
+PC for local runs, on a Modal Volume for L4 runs; Phase A2). Where the pipeline runs is a setting.
 
 ```
             API (control plane) --- writes ---> DB   (SQLite file in Phase A, Neon in Phase B)
@@ -95,6 +97,9 @@ remains as a debug artifact and for byte-comparison in spec-110 AC4).
 7. **Viewer (O1):** thin read-only Streamlit page over the API: job list → picks, dropped with reasons,
    people.
 
+**Phase A2 — album workbench:** see [spec-115](../115-album-workbench/spec.html) (run/re-run/examine from the app, inputs staged once, cache kept
+on the L4, results-only copy-back).
+
 **Phase B — cloud, configuration only:**
 8. R2 backend for the object store (`boto3`, S3 protocol); short-lived download URLs.
 9. `DATABASE_URL` → Neon; the worker reads/writes R2 (Volume retired for job data); `modal deploy`
@@ -115,6 +120,8 @@ remains as a debug artifact and for byte-comparison in spec-110 AC4).
 - **AC5** A promote / rename edit through the API is stored in `user_edits` and reflected in the
   next `GET /jobs/{id}/album`.
 
+**Phase A2:** acceptance moved to [spec-115](../115-album-workbench/spec.html) (R1-R15).
+
 **Phase B**
 - **AC6** Switching only `DATABASE_URL` and the storage root to Neon + R2, the same job runs with
   `runner=modal_gpu` and passes AC1–AC3 against the cloud DB and bucket.
@@ -124,12 +131,11 @@ remains as a debug artifact and for byte-comparison in spec-110 AC4).
 
 ## 6. Open decisions
 
-- **O2** R2 lifecycle (auto-delete) rule: set now (e.g. delete `jobs/*` after 30 days, showcase trips
-  under `seed/` never expire) or with spec-106 TTL work. Rec: with spec-106; nothing anonymous is
-  uploaded before then.
+- O3/O4 (Phase A2) decided 2026-10-23, recorded in [spec-115](../115-album-workbench/spec.html).
 
 ## 7. Dependencies & risks
 
+- Phase A2 risks: see [spec-115](../115-album-workbench/spec.html).
 - **Phase B owner setup:** Neon project + connection string; Cloudflare account, R2 bucket, scoped
   token; local `.env`; `modal secret create`. Claude cannot create accounts.
 - **Local default-pipeline runs are blocked** by SIGHTING-127 (RAM++ segfault). Phase A proves the

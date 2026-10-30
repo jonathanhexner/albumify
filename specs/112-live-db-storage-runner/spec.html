@@ -234,6 +234,28 @@
   nav#TOC li{font-size:14px;margin:3px 0;}
   img{max-width:100%;}
   strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
 
   </style>
 </head>
@@ -262,11 +284,13 @@ Definition of done</a></li>
 </nav>
 <h1 id="spec-112--live-db--storage-runner-as-config">spec-112 — Live DB
 + storage, runner as config</h1>
-<p><strong>Status:</strong> In Progress (Phase A)
-<strong>Owner:</strong> Jonathan / Claude <strong>Priority:</strong> P1
-(Stage C critical path — every later product piece reads from here)
-<strong>Roadmap:</strong> Stage C · see <a
-href="../../ROADMAP.html">ROADMAP.md</a> <strong>Relation:</strong>
+<p><strong>Status:</strong> In Progress (Phase A built; Phase A2 "album
+workbench" moved to <a
+href="../115-album-workbench/spec.html">spec-115</a> on 2026-10-23;
+Phase B open) <strong>Owner:</strong> Jonathan / Claude
+<strong>Priority:</strong> P1 (Stage C critical path — every later
+product piece reads from here) <strong>Roadmap:</strong> Stage C · see
+<a href="../../ROADMAP.html">ROADMAP.md</a> <strong>Relation:</strong>
 takes over [[spec-106]] T2.1 (object store) and the DB half of T3.1
 (<code>jobs</code> / <code>job_events</code>); builds on the
 [[spec-110]] job layout (<code>input/</code>, <code>album.json</code>,
@@ -287,6 +311,9 @@ are DB rows, not only fields inside <code>album.json</code>.</li>
 <li>Face embeddings stay in the worker's results file in storage (not DB
 columns) for v1.</li>
 </ul>
+<p><strong>Phase A2 (album workbench) moved to <a
+href="../115-album-workbench/spec.html">spec-115</a></strong> (owner,
+2026-10-23), written in the new PRD format.</p>
 <h2 id="1-problem">1. Problem</h2>
 <p>The same pipeline (<code>execute_spec</code>) runs in two places that
 never share results:</p>
@@ -300,8 +327,10 @@ result, in no DB). So the 715-photo Slovakia26 GPU run is invisible to
 the app, nothing is queryable across jobs, and "where it runs" is baked
 into each path.</p>
 <h2 id="2-goal">2. Goal</h2>
-<p><strong>One rule: rows go in the DB, bytes go in storage, compute
-cache stays local.</strong> Where the pipeline runs is a setting.</p>
+<p><strong>One rule: rows go in the DB, bytes go in storage, the compute
+cache stays with the compute</strong> (on the PC for local runs, on a
+Modal Volume for L4 runs; Phase A2). Where the pipeline runs is a
+setting.</p>
 <pre><code>            API (control plane) --- writes ---&gt; DB   (SQLite file in Phase A, Neon in Phase B)
                     |
                     |  runner: local | modal_gpu | modal_cpu        &lt;- config
@@ -414,6 +443,10 @@ folder), <code>GET /jobs/{id}</code> (status + events),
 <li><strong>Viewer (O1):</strong> thin read-only Streamlit page over the
 API: job list → picks, dropped with reasons, people.</li>
 </ol>
+<p><strong>Phase A2 — album workbench:</strong> see <a
+href="../115-album-workbench/spec.html">spec-115</a> (run/re-run/examine
+from the app, inputs staged once, cache kept on the L4, results-only
+copy-back).</p>
 <p><strong>Phase B — cloud, configuration only:</strong> 8. R2 backend
 for the object store (<code>boto3</code>, S3 protocol); short-lived
 download URLs. 9. <code>DATABASE_URL</code> → Neon; the worker
@@ -441,6 +474,8 @@ stuck in <code>running</code>.</li>
 stored in <code>user_edits</code> and reflected in the next
 <code>GET /jobs/{id}/album</code>.</li>
 </ul>
+<p><strong>Phase A2:</strong> acceptance moved to <a
+href="../115-album-workbench/spec.html">spec-115</a> (R1-R15).</p>
 <p><strong>Phase B</strong></p>
 <ul>
 <li><strong>AC6</strong> Switching only <code>DATABASE_URL</code> and
@@ -455,13 +490,13 @@ fully on local SQLite + local folder.</li>
 </ul>
 <h2 id="6-open-decisions">6. Open decisions</h2>
 <ul>
-<li><strong>O2</strong> R2 lifecycle (auto-delete) rule: set now (e.g.
-delete <code>jobs/*</code> after 30 days, showcase trips under
-<code>seed/</code> never expire) or with spec-106 TTL work. Rec: with
-spec-106; nothing anonymous is uploaded before then.</li>
+<li>O3/O4 (Phase A2) decided 2026-10-23, recorded in <a
+href="../115-album-workbench/spec.html">spec-115</a>.</li>
 </ul>
 <h2 id="7-dependencies--risks">7. Dependencies &amp; risks</h2>
 <ul>
+<li>Phase A2 risks: see <a
+href="../115-album-workbench/spec.html">spec-115</a>.</li>
 <li><strong>Phase B owner setup:</strong> Neon project + connection
 string; Cloudflare account, R2 bucket, scoped token; local
 <code>.env</code>; <code>modal secret create</code>. Claude cannot

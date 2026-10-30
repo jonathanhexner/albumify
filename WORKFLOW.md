@@ -8,7 +8,7 @@ Structured workflow that turns a feature request into a spec, tasks, implementat
 Feature idea
   |
   v
-spec.md    -->  WHAT to build (problem, user stories, acceptance criteria)        [Status: Draft]
+spec.md    -->  the PRD: objective, requirements + checks, plan flowchart, class diagram, file tables [Status: Draft]
   |
   v
 tasks.md   -->  HOW to build it (design notes at top, ordered task checklist)     [Status: In Progress]
@@ -65,40 +65,91 @@ The Code Review gate (§7 of `docs/guides/CODE_REVIEW_CHECKLIST.md`) blocks hand
 
 ## Required Artifacts (2 files)
 
-### 1. `spec.md` — Define WHAT to build
+### 1. `spec.md` — the PRD: what, how we know it works, and what the code will look like
 
-**Focus**: Problem, user value, acceptance criteria. No implementation details.
+**Owner rule (2026-10-23):** a PRD must be readable at a glance: diagrams over prose. Six sections, in
+this order, nothing before them except the header. Diagrams are mermaid blocks (` ```mermaid `);
+`scripts/md2html.py` renders them in the HTML view.
 
 **Structure**:
-```markdown
-# Feature Specification: <Name>
-**Created**: YYYY-MM-DD
-**Status**: Draft
-**Resolves**: SIGHTING-NNN (if applicable)
+````markdown
+# spec-NNN — <Name>
+**Status:** Draft · **Created:** YYYY-MM-DD · **Roadmap:** Stage X · **Resolves:** SIGHTING-NNN (if any)
 
-## Problem Statement
-Why this feature exists. What pain point it addresses.
+<p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
 
-## User Stories
-### US1 — <Title> (Priority: P1/P2/P3)
-Description of what the user wants and why.
-**Acceptance Criteria**:
-- Given X, When Y, Then Z
-- ...
+## 1. Objective
+At most 3 lines: what changes for the user, and why now.
 
-## Edge Cases
-- Bullet list of boundary conditions
+## 2. Requirements
+10-15 rows at most. Each row is one requirement as we understand it, and the check that proves it.
+| # | Status | Requirement | How we know it works |
+|---|---|---|---|
+| R1 | ○ planned | ... | named test file / real-data result / named Playwright test |
 
-## Requirements (brief)
-- FR-001: One-line requirement
-- ...
+## 3. Plan
+One flowchart: what we build, in what order, which modules each step touches, and the check that
+closes each step (the same checks as §2).
+```mermaid
+flowchart TD
+  S1["<b>○ Step 1: ...</b><br/><i>a.py (new), b.py</i>"] --> C1{{"check R1 R2"}}
+  C1 --> S2["<b>○ Step 2: ...</b>"]
+  classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
+  classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
+  classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
+  class S1,S2 todo
+  class C1 check
 ```
 
+## 4. Class diagram
+The classes as they will look after the change: new ones, changed ones, and the existing classes they
+talk to. Colour the class (green new, amber changed, grey existing) and mark each member: ✚ new, ✎ changed,
+✖ removed, unmarked = unchanged. Put the marker *before* the member (after it, mermaid shows it as a return type).
+```mermaid
+classDiagram
+  direction TB
+  class InputStore {
+    ✚ root: Path
+    ✚ put(original) str
+  }
+  class JobStore {
+    +root: Path
+    ✎ input_images(job_id) List~Path~
+    ✖ copy_inputs(job_id)
+  }
+  JobStore --> InputStore
+  style InputStore fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style JobStore fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+```
+
+## 5. New files   (all NEW; test files go in tasks.md, per task)
+| File | Class | Responsibility | Methods | Attributes | Status |
+|---|---|---|---|---|---|
+
+## 6. Modified files   (all CHANGED; REMOVED files get their own rows with <span class="tag del">REMOVED</span>)
+| File | Class / function | Today | After this spec | Req | Status |
+|---|---|---|---|---|---|
+
+## Open decisions / risks / non-goals   (optional, short bullets)
+````
+
 **Rules**:
-- User stories prioritized P1/P2/P3, each independently testable
-- Acceptance criteria are concrete and verifiable
-- No technology choices, no file paths, no function signatures
-- Mark unresolved questions as `[NEEDS CLARIFICATION]` — resolve before tasks
+- Objective: 3 lines maximum. Requirements: 15 rows maximum. If it needs more, the spec is two specs.
+- Every requirement has a concrete check (test file, real-data result, or Playwright on the real app).
+- **Colour means type of change only** (green NEW, amber CHANGED, grey EXISTING, red REMOVED), the same in
+  tables and diagrams. **Progress never uses colour:** ● done, ◐ partly done, ○ planned (tables and plan nodes;
+  done plan steps get a thick border, planned ones dashed).
+- Modified files show the change as a **Today → After this spec** pair. Use `<mark>` only for a single changed
+  word or value inside prose, never for whole cells.
+- Mark class members in diagrams by what actually exists in the code today (✎ only for members that exist).
+- The plan flowchart names the modules each step touches and ends each step on its check.
+- The class diagram and the file tables are the design; `tasks.md` only orders the work.
+- Mark unresolved questions as `[NEEDS CLARIFICATION]` and resolve them before code.
+- Older specs keep their format; a spec gets the new format when it is next drafted or re-planned.
+- **Write PRDs with the `/prd` skill** (`.claude/skills/prd/SKILL.md`): it grounds the design in the code, renders,
+  and runs `scripts/prd_lint.py <spec.md> --render`, which must report 0 errors before the owner sees the spec.
+  The lint enforces the limits above, named checks, plan coverage, file tables vs the disk, class-diagram members
+  vs the code (AST), and that every diagram draws. Example: `specs/115-album-workbench/spec.md`.
 
 ### 2. `tasks.md` — Define HOW to build it
 
@@ -125,7 +176,7 @@ Brief technical decisions that inform the tasks below.
 ```
 
 **Rules**:
-- Design notes replace the old `plan.md` / `research.md` / `data-model.md` / `contracts/` — put it all here
+- Design lives in spec.md (§3-§6: plan flowchart, class diagram, file tables); tasks.md orders the work and records short design notes
 - Tasks include exact file paths
 - `[P]` marks tasks that can run in parallel
 - Each phase ends with a checkpoint (usually a test command)

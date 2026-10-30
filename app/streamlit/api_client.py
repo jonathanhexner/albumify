@@ -731,6 +731,26 @@ class ApiClient:
     def add_job_edit(self, job_id: str, kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._post(f"/jobs/{job_id}/edits", json={"kind": kind, "payload": payload})
 
+    # spec-115: run, watch, cancel and re-run jobs from the app
+    def estimate_job(self, *, source: Optional[str] = None, start: int = 0, n: Optional[int] = None,
+                     runner: Optional[str] = None, rerun_of: Optional[str] = None) -> Dict[str, Any]:
+        params = {k: v for k, v in {"source": source, "start": start, "n": n, "runner": runner,
+                                    "rerun_of": rerun_of}.items() if v is not None}
+        return self._get("/jobs/estimate", params=params)
+
+    def submit_job(self, *, source: Optional[str] = None, start: int = 0, n: Optional[int] = None,
+                   runner: Optional[str] = None, pipeline: Optional[str] = None,
+                   rerun_of: Optional[str] = None) -> Dict[str, Any]:
+        body = {k: v for k, v in {"source": source, "start": start, "n": n, "runner": runner,
+                                  "pipeline": pipeline, "rerun_of": rerun_of}.items() if v is not None}
+        return self._post("/jobs", json=body)
+
+    def cancel_job(self, job_id: str) -> Dict[str, Any]:
+        return self._post(f"/jobs/{job_id}/cancel")
+
+    def delete_remote_inputs(self, job_id: str) -> Dict[str, Any]:
+        return self._delete(f"/jobs/{job_id}/remote-inputs")
+
     def compare_jobs(self, job_id: str, reference_id: str) -> Dict[str, Any]:
         """spec-114: ``job_id`` (B, new) against ``reference_id`` (A) on the same photos."""
         return self._get(f"/jobs/{job_id}/compare", params={"with": reference_id})

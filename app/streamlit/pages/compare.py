@@ -40,6 +40,7 @@ def render_compare_page() -> None:
         st.error(str(e))
         return
     _render_verdict(cmp)
+    _render_settings_diff(client, a, b)
     _render_checks(cmp)
     _render_sections(client, cmp)
     photo_ids = st.session_state.get("compare_photo")
@@ -76,8 +77,11 @@ def _choose_pair(jobs: List[Dict]) -> Optional[Tuple[str, str]]:
     c1, c2 = st.columns(2)
     a = c1.selectbox("A - reference", ids, index=0, format_func=labels.get, key=f"compare_a_{choice}")
     rest = [i for i in ids if i != a]
-    b = c2.selectbox("B - new run", rest, index=rest.index(newest) if newest in rest else len(rest) - 1,
-                     format_func=labels.get, key=f"compare_b_{choice}")
+    key_b = f"compare_b_{choice}"
+    # a re-run preselects B through session state (spec-115 R5); a default index as well makes Streamlit warn
+    default_b = {} if st.session_state.get(key_b) in rest else {
+        "index": rest.index(newest) if newest in rest else len(rest) - 1}
+    b = c2.selectbox("B - new run", rest, format_func=labels.get, key=key_b, **default_b)
     return a, b
 
 
@@ -87,6 +91,23 @@ def _compare(client, a: str, b: str) -> Dict:
     if (a, b) not in cache:
         cache[(a, b)] = client.compare_jobs(b, a)
     return cache[(a, b)]
+
+
+def _render_settings_diff(client, a: str, b: str) -> None:
+    """spec-115 R12: what the two runs ran with, where it differs."""
+    from sim_bench.serving.run_settings import RunSettings
+
+    sa = RunSettings.from_dict(client.get_job(a).get("settings"))
+    sb = RunSettings.from_dict(client.get_job(b).get("settings"))
+    with st.expander("Settings that differ", expanded=False):
+        if sa is None or sb is None:
+            st.caption("One of these runs predates recorded settings (spec-115).")
+            return
+        diff = sa.diff(sb)
+        if not diff:
+            st.caption("Same pipeline, parameters, runner, device, code and libraries.")
+            return
+        st.table([{"setting": k, "A - reference": str(v[0]), "B - new run": str(v[1])} for k, v in diff.items()])
 
 
 def _render_verdict(cmp: Dict) -> None:

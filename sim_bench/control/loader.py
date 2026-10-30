@@ -23,6 +23,7 @@ from sqlalchemy import delete
 from sim_bench.album.normalizer import canonical_scene_ids, chrono_key
 from sim_bench.album.schema import PICK
 from sim_bench.control.db import ControlDB
+from sim_bench.control.local_renders import LocalRenders, LocalRendersInputs
 from sim_bench.control.models import Face, Job, Person, Photo, Scene
 from sim_bench.serving.job_store import JobStore
 
@@ -55,8 +56,9 @@ class LoadResult:
 class ResultsLoader:
     """Files of one job (in a JobStore) -> rows (in the control DB)."""
 
-    def __init__(self, db: ControlDB, store: JobStore):
+    def __init__(self, db: ControlDB, store: JobStore, renders: Optional[LocalRenders] = None):
         self._db = db
+        self._renders = renders or LocalRenders(store)
         self._store = store
 
     def calc(self, inputs: LoadInputs) -> LoadResult:
@@ -67,6 +69,10 @@ class ResultsLoader:
             missing = [n for n, v in (("album.json", album), ("results/bundle.json", bundle)) if v is None]
             raise MissingResults(f"job {job_id!r}: missing {', '.join(missing)} under "
                                  f"{self._store.paths(job_id).root}")
+
+        # spec-115 W2: display images + face crops are made here from the server's copies, before the rows
+        # record which files exist
+        self._renders.calc(LocalRendersInputs(job_id=job_id, album=album, bundle=bundle))
 
         warnings: List[str] = []
         photos = self._photo_rows(job_id, album, bundle, warnings)
@@ -104,7 +110,7 @@ class ResultsLoader:
 
     def _photo_rows(self, job_id: str, album: Dict, bundle: Dict, warnings: List[str]) -> List[Photo]:
         paths = self._store.paths(job_id)
-        files = {p.stem: p.name for p in self._store.input_images(job_id)}
+        files = self._store.input_file_keys(job_id)
         displays = {p.stem: p.name for p in paths.display_dir.iterdir()} \
             if paths.display_dir.is_dir() else {}
         brows = {p["photo_id"]: p for p in bundle.get("photos", [])}
@@ -134,7 +140,7 @@ class ResultsLoader:
             score = (pick or {}).get("score", {})
             rows.append(Photo(
                 job_id=job_id, photo_id=sid,
-                input_key=f"input/{files[sid]}" if sid in files else None,
+                input_key=files.get(sid),
                 display_key=f"display/{displays[sid]}" if sid in displays else None,
                 taken_at=b.get("taken_at"), lat=b.get("lat"), lon=b.get("lon"),
                 in_album=bool(pick or drop),

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-115--tasks-album-workbench"
+id="toc-spec-115--tasks-album-workbench">spec-115 — Tasks (Album
+workbench)</a>
+<ul>
+<li><a
+href="#w1--stable-inputs-and-a-safe-cache-done-2026-10-23-commit-de83348"
+id="toc-w1--stable-inputs-and-a-safe-cache-done-2026-10-23-commit-de83348">W1
+— Stable inputs and a safe cache (done 2026-10-23, commit
+de83348)</a></li>
+<li><a
+href="#w2--results-only-display-images-and-crops-made-on-the-pc-done-2026-10-23"
+id="toc-w2--results-only-display-images-and-crops-made-on-the-pc-done-2026-10-23">W2
+— Results-only; display images and crops made on the PC (done
+2026-10-23)</a></li>
+<li><a href="#w2b--file-serving-per-job-r7-done-2026-10-23"
+id="toc-w2b--file-serving-per-job-r7-done-2026-10-23">W2b — File serving
+per job (R7) (done 2026-10-23)</a></li>
+<li><a
+href="#w3--modal-inputs-and-cache-volumes-results-only-download-retention-done-2026-10-23"
+id="toc-w3--modal-inputs-and-cache-volumes-results-only-download-retention-done-2026-10-23">W3
+— Modal: inputs and cache Volumes, results-only download, retention
+(done 2026-10-23)</a></li>
+<li><a href="#w4--the-app-done-2026-10-23"
+id="toc-w4--the-app-done-2026-10-23">W4 — The app (done
+2026-10-23)</a></li>
+<li><a
+href="#w5--prove-on-real-data-owner-approval-before-each-l4-run-done-2026-10-23"
+id="toc-w5--prove-on-real-data-owner-approval-before-each-l4-run-done-2026-10-23">W5
+— Prove on real data (owner approval before each L4 run) (done
+2026-10-23)</a></li>
+<li><a href="#close-out-done-2026-10-23"
+id="toc-close-out-done-2026-10-23">Close out (done 2026-10-23)</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-115--tasks-album-workbench">spec-115 — Tasks (Album
+workbench)</h1>
+<p><strong>Status:</strong> Implemented 2026-10-23 — W1-W5 done; review
+ACCEPT after fixes (REVIEW.md). <strong>Spec:</strong> <a
+href="spec.html">spec.md</a> · <a href="updates.html">updates</a> ·
+roadmap stage <strong>C</strong> · <a
+href="../../ROADMAP.html">ROADMAP.md</a></p>
+<p>Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file
+tables). This file orders the work.</p>
+<h2
+id="w1--stable-inputs-and-a-safe-cache-done-2026-10-23-commit-de83348">W1
+— Stable inputs and a safe cache (done 2026-10-23, commit de83348)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T1.1 Cache version check
+tested: <code>tests/pipeline/test_cache_model_version.py</code> (4).
+(R6)</label></li>
+<li><label><input type="checkbox" checked="" />T1.2
+<code>InputStore</code> + job manifest + <code>JobStore.resolve</code>;
+API file route uses it. <code>tests/serving/test_input_store.py</code>
+(13). (R6, R14)</label></li>
+<li><label><input type="checkbox" checked="" />T1.3 Pipeline gets the
+job's paths explicitly; <code>run_pipeline</code> attaches the feature
+cache. Tests +5; real 12-photo pair. (R6)</label></li>
+</ul>
+<h2
+id="w2--results-only-display-images-and-crops-made-on-the-pc-done-2026-10-23">W2
+— Results-only; display images and crops made on the PC (done
+2026-10-23)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T2.1 Orientation gate
+first (R10): on the real <code>slovakia26</code> job, crop 20 faces from
+the PC's input copy with the bundle boxes; pass = IoU ≥ 0.5 with the
+worker's crop on ≥ 19 of 20 (report on disk, not in git). On a fail the
+worker keeps sending crops and W2 renders only the display images. |
+2026-10-23: 18/20 by ArcFace, all 20 right face on inspection, rotation
+proven by a no-rotate control; owner accepted. Found SIGHTING-141
+(worker crops colour-swapped; fixed).</label></li>
+<li><label><input type="checkbox" checked="" />T2.2
+<code>LocalRenders.calc</code>: <code>display/</code> for picks,
+<code>faces/&lt;id&gt;.jpg</code> for every face with a box; skips files
+that exist.</label></li>
+<li><label><input type="checkbox" checked="" />T2.3
+<code>ResultsLoader</code> runs <code>LocalRenders</code> before
+loading; <code>JobCurator</code> stops writing <code>display/</code>
+(<code>CurateJobInputs.write_displays</code> default False) and crops
+(<code>_write_bundle</code> passes no crops; the bundle keeps
+boxes).</label></li>
+<li><label><input type="checkbox" checked="" />T2.4
+<code>JobStore.results_files(job_id)</code>: the files a worker returns
+(<code>album.json</code>, <code>run.json</code>,
+<code>results/*</code>).</label></li>
+<li><label><input type="checkbox" checked="" />T2.5 Tests:
+<code>tests/control/test_local_renders.py</code>; job folder identical
+for local and fake-Modal; old jobs keep their files. (R10,
+R14)</label></li>
+</ul>
+<h2 id="w2b--file-serving-per-job-r7-done-2026-10-23">W2b — File serving
+per job (R7) (done 2026-10-23)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T2.6
+<code>JobStore.resolve</code> takes the job's manifest into account: an
+<code>inputs/</code> key is served only if that job lists it. Test
+<code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code>.</label></li>
+</ul>
+<h2
+id="w3--modal-inputs-and-cache-volumes-results-only-download-retention-done-2026-10-23">W3
+— Modal: inputs and cache Volumes, results-only download, retention
+(done 2026-10-23)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T3.1
+<code>modal_app</code>: Volumes <code>albumify-inputs</code>
+(<code>/inputs</code>) and <code>albumify-cache</code>;
+<code>curate_job(job_id, keys, pipeline)</code> reads
+<code>/inputs/&lt;key&gt;</code>; <code>ALBUMIFY_FEATURE_CACHE</code> on
+the cache Volume, <code>reload()</code> before and <code>commit()</code>
+after.</label></li>
+<li><label><input type="checkbox" checked="" />T3.2
+<code>ModalVolumeRemote.missing/upload</code>: list the hashes once,
+<code>batch_upload</code> only the missing photos. (R9)</label></li>
+<li><label><input type="checkbox" checked="" />T3.3
+<code>download_results</code>: only <code>JobStore.results_files</code>.
+(R8)</label></li>
+<li><label><input type="checkbox" checked="" />T3.4 Mark photos used per
+job; <code>purge_inputs</code> (daily) deletes photos unused 7 days and
+the old per-job <code>input/</code> copies on
+<code>albumify-jobs</code>; <code>delete_inputs(keys)</code> for the
+button, keeping photos another job used in the last 7 days.
+(R13)</label></li>
+<li><label><input type="checkbox" checked="" />T3.5
+<code>tests/serving/test_modal_staging.py</code> with a fake
+Volume.</label></li>
+</ul>
+<h2 id="w4--the-app-done-2026-10-23">W4 — The app (done 2026-10-23)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T4.1
+<code>RunSettings.collect</code> into <code>run.json</code>;
+<code>JobDetail.settings</code>; Compare runs "Settings that differ".
+(R12)</label></li>
+<li><label><input type="checkbox" checked="" />T4.2
+<code>JobService.estimate</code> + <code>GET /jobs/estimate</code>;
+<code>configs/serving.yaml</code> <code>max_photos_l4</code> (1,000),
+<code>max_gpu_minutes</code> (30), <code>l4_seconds_per_photo</code>,
+<code>l4_dollars_per_hour</code>; over a limit → 422. Tests
+<code>ut_Estimate</code>. (R2)</label></li>
+<li><label><input type="checkbox" checked="" />T4.3
+<code>Runner.cancel</code> (local: kill the child; Modal: cancel the
+spawned call) + <code>POST /jobs/{id}/cancel</code>; L4 jobs one at a
+time; end state per R4 (partial <code>results/</code> deleted, queue
+slot freed). Tests <code>ut_Cancel</code>. (R4)</label></li>
+<li><label><input type="checkbox" checked="" />T4.4 Jobs page: run form,
+estimate + confirm for L4, live status fragment, Cancel, Re-run →
+Compare. (R1-R5)</label></li>
+<li><label><input type="checkbox" checked="" />T4.5
+<code>DELETE /jobs/{id}/remote-inputs</code> + button.
+(R13)</label></li>
+<li><label><input type="checkbox" checked="" />T4.6
+<code>tests/test_jobs_page_run_e2e.py</code> (Playwright, real API +
+app, local <code>minimal</code>); screenshots stay on disk.</label></li>
+</ul>
+<h2
+id="w5--prove-on-real-data-owner-approval-before-each-l4-run-done-2026-10-23">W5
+— Prove on real data (owner approval before each L4 run) (done
+2026-10-23)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T5.1 Slovakia26 from the
+form on the L4: R1, R8 (file count, copy-back time), album opens with
+crops (R10).</label></li>
+<li><label><input type="checkbox" checked="" />T5.2 Same photos again on
+the L4: R9 (0 uploads, cache hits, GPU time).</label></li>
+<li><label><input type="checkbox" checked="" />T5.3 48-photo slice local
+vs L4 → Compare runs: R11.</label></li>
+<li><label><input type="checkbox" checked="" />T5.4 Cancel on both
+runners (R4); delete-photos button + Volume listing (R13).</label></li>
+<li><label><input type="checkbox" checked="" />T5.5 Closes spec-112
+TA6.1/TA6.3/TA6.4 (post-SIGHTING-132 Slovakia run, edit round-trip,
+viewer screenshots).</label></li>
+</ul>
+<h2 id="close-out-done-2026-10-23">Close out (done 2026-10-23)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />TC.1
+<code>docs/architecture/{classes,data_flow}.html</code>; CHANGES_LOG;
+<code>updates.md</code> with evidence.</label></li>
+<li><label><input type="checkbox" checked="" />TC.2 Full suite;
+<code>/code-review</code> → REVIEW.md; Budapest gate not affected (no v2
+tab change), stated in REVIEW.</label></li>
+</ul>
+</div>
+</body>
+</html>

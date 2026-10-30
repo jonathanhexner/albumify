@@ -87,3 +87,6 @@ Entries below predate the convention; their reports live at the linked legacy lo
 
 - **2026-10-17 SIGHTING-136 Budapest gate decisions** — face-level evidence for why the V2 gate is red: May reference 15 people vs today's 8 (same faces/embeddings; pose + sharpness filters now work), Recluster defaults vs profile_4, recluster sharpness bug, Load/Run race.
   Mostly junk/extreme-angle mini-groups disappear; defaults over-split people (22 vs 15); the bug re-admits close-up junk. Report: `reports/2026-10-17_sighting136_budapest_gate/report.html` (crops local only).
+
+- **2026-10-23 spec-115 T2.1 crop orientation gate** — can the PC cut the worker's face crops from its own 768 px copies using the bundle's boxes (20 slovakia26 faces, 5 per EXIF rotation)?
+  18/20 above the pre-set ArcFace bar (needed 19): rotation handled right (no-rotate control ~0), misses = a tilted head + a tiny face; found SIGHTING-141 (worker crops have red/blue swapped). Report: `reports/2026-10-23_spec115_crop_orientation/report.html` (crops local only).

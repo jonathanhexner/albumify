@@ -234,6 +234,28 @@
   nav#TOC li{font-size:14px;margin:3px 0;}
   img{max-width:100%;}
   strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
 
   </style>
 </head>
@@ -264,6 +286,9 @@ viewer</a></li>
 <li><a href="#a6--prove-phase-a" id="toc-a6--prove-phase-a">A6 — Prove
 Phase A</a></li>
 </ul></li>
+<li><a href="#phase-a2--moved-to-spec-115"
+id="toc-phase-a2--moved-to-spec-115">Phase A2 — moved to
+spec-115</a></li>
 <li><a href="#phase-b--cloud-configuration-only"
 id="toc-phase-b--cloud-configuration-only">Phase B — cloud,
 configuration only</a>
@@ -282,9 +307,10 @@ Phase B</a></li>
 <h1 id="spec-112--tasks-live-db--storage-runner-as-config">spec-112 —
 Tasks (Live DB + storage, runner as config)</h1>
 <p><strong>Status:</strong> In Progress — Phase A A1–A5 built 2026-10-10
-(63 new tests); A6 real-data proof pending (Modal re-run of Slovakia26).
-<strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
-href="updates.html">updates</a> · roadmap stage <strong>C</strong> · <a
+(63 new tests); A6 real-data proof closes with spec-115 W5. Phase A2
+moved to spec-115. <strong>Spec:</strong> <a
+href="spec.html">spec.md</a> · <a href="updates.html">updates</a> ·
+roadmap stage <strong>C</strong> · <a
 href="../../ROADMAP.html">ROADMAP.md</a></p>
 <h2 id="design-notes">Design notes</h2>
 <ul>
@@ -419,19 +445,24 @@ clickable thumbnails).</label></li>
 <ul class="task-list">
 <li><label><input type="checkbox" checked="" />TA6.1 Slovakia26 via
 <code>JobService</code> on <code>modal_gpu</code>; loaded (715 photos,
-987 faces). (AC1, AC2) | 2026-10-11. Re-run needed after SIGHTING-132 +
-the face→person fix.</label></li>
+987 faces). (AC1, AC2) | 2026-10-11; re-run 2026-10-23 from the app
+(spec-115 W5): 251 picks, 80 people, crops on every person.</label></li>
 <li><label><input type="checkbox" checked="" />TA6.2 Compare
 <code>GET /jobs/{id}/album</code> with the worker's
 <code>album.json</code>. (AC3) | 2026-10-11 identical</label></li>
-<li><label><input type="checkbox" />TA6.3 Forced failure; promote +
-rename edit round-trip. (AC4, AC5)</label></li>
+<li><label><input type="checkbox" checked="" />TA6.3 Forced failure;
+promote + rename edit round-trip. (AC4, AC5) | 2026-10-23 failure end
+states proven on real runs (L4 cancel, spec-115 W5); edits covered by
+API tests; a real-data edit click is a spec-115 follow-up</label></li>
+<li><label><input type="checkbox" checked="" />TA6.4 Playwright
+screenshots of the viewer on the Slovakia job; updates.md entry. |
+2026-10-23 spec-115 final check: all four tabs, People 410/410 crops
+load</label></li>
 </ul>
-<ul>
-<li>[&gt;] TA6.4 Playwright screenshots of the viewer on the Slovakia
-job; updates.md entry. | 2026-10-11 four tabs captured; People
-thumbnails pending the re-run</li>
-</ul>
+<h1 id="phase-a2--moved-to-spec-115">Phase A2 — moved to <a
+href="../115-album-workbench/tasks.html">spec-115</a></h1>
+<p>W1 (done 2026-10-23) and W2-W5 are tracked there. TA6.1/TA6.3/TA6.4
+close with its W5.</p>
 <h1 id="phase-b--cloud-configuration-only">Phase B — cloud,
 configuration only</h1>
 <h2 id="b0--accounts-and-secrets-owner">B0 — Accounts and secrets

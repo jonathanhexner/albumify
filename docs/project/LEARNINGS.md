@@ -6,6 +6,35 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-10-23: spec-115 — what only the real app and real runs caught
+**What happened**: unit tests were green, yet driving the real app found: two widgets sharing the key
+`jobs_run_start` (the form's number box and the Start button) blanked the page; setting a selectbox's state after
+it was drawn in the same run made Re-run fail silently; a status read during copy-back hit a half-written
+`run.json` and returned 500. The independent review then found three cancel races and a purge that could delete
+just-uploaded photos.
+**Lesson**: (1) every Streamlit page change gets a Playwright pass on the real app before it counts as done;
+(2) any file another request may read is written to `.part` then renamed; (3) every cancel path needs a test for
+"cancel lands before the thing it cancels has started".
+Also: `import modal` switches Windows to the selector event loop, so every later Playwright test in the same pytest
+process fails with `NotImplementedError` (12 failures that pass alone). Tests must not import the real `modal`;
+use a stand-in module in `sys.modules`.
+
+### 2026-10-23: SIGHTING-141 — a unit test that asserted the bug
+**What happened**: every face crop since spec-091 had red and blue swapped. `_crop_from_aligned` assumed `align_faces`
+returns BGR and flipped it; `align_faces` warps the RGB `image_cache` array. Its unit test fed a hand-made "BGR"
+array and asserted the swap, so the test passed while the real chain was wrong. Found by comparing PC-cut crops
+with worker crops (spec-115 T2.1), not by any test.
+**Lesson**: a colour/format contract between two steps must be tested through both steps (real producer -> real
+consumer), not with a hand-made input that encodes the consumer's assumption.
+
+### 2026-10-23: spec-112 A2 — the job runner never used the feature cache (for two reasons)
+**What happened**: every job run (local child process and L4) recomputed every feature. `run_pipeline`
+built its `PipelineContext` without a `cache_handler` (only the older API pipeline service attached
+one), and each run worked on a fresh temp copy of its inputs while the cache is keyed by image path.
+Found only because a "the second run should be faster" check came out flat.
+**Lesson**: (1) check that every entry point actually attaches a cache, with a timing or hit-count check,
+not by reading the step code; (2) a temp copy of inputs silently changes every path-keyed thing downstream.
+
 ### 2026-10-23: SIGHTING-140 — a data purge was checked on the fast CI lane only; the nightly lane went red for 6 days
 **What happened**: the 2026-10-16 photo purge took the test photos out of the repo. The PR's fast lane passed (it
 already skips model tests), so it merged; the nightly full lane then failed every night on 41 tests that read those

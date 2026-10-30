@@ -2,6 +2,50 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-10-23 [FEATURE] spec-115 W3-W5 Implemented — run albums from the app on this PC or the L4; results only come back
+**Files**: new `sim_bench/serving/{input_retention,run_settings}.py`, `tests/serving/{test_modal_staging,test_run_settings}.py`, `tests/test_jobs_page_run_e2e.py`, `specs/115-album-workbench/REVIEW.md`; `sim_bench/serving/{runners,modal_app,job_service,curate_job,serving_config}.py`, `sim_bench/control/local_renders.py`, `sim_bench/api/{routers,schemas}/jobs.py`, `app/streamlit/{api_client.py,pages/jobs.py,pages/compare.py}`, `configs/serving.yaml`; tests `tests/control/{test_job_service,test_local_renders}.py`, `tests/api/test_jobs_router.py`; `docs/architecture/{classes,data_flow}.html`; spec-115/112 docs; ROADMAP; LEARNINGS.
+**Change**: Modal side: `albumify-inputs` (photos once, by content) + `albumify-cache` (feature cache kept across runs) Volumes; results-only atomic download; daily `purge_inputs` (7 days) + `delete_inputs` (cpu app deployed). App: Jobs page run form with L4 estimate + confirm + spend cap, live status, Cancel, Re-run → Compare runs, run settings + "Settings that differ", delete-photos button. Service: estimate, cancel (queued / waiting / running), one Modal job at a time, re-run by job. Review: 7 medium + 6 low findings fixed.
+**Verification**: affected suites 163 passed; E2E 4 passed; real L4 from the app: Slovakia26 715 photos 10.7 min, 5 files back (was 993); re-run 0 uploads, pipeline 46 s (was 437 s); local vs L4 48 photos close enough; L4 cancel 5.2 s; delete 6/6 photos on Modal; full local suite 1,680 passed, 0 failed.
+**Reason**: spec-115 (owner: run all the way through the spec; verify results in the app).
+
+### 2026-10-23 [FEATURE][BUGFIX] spec-115 W2 — server renders displays + face crops; worker returns results only; SIGHTING-141 fixed
+**Files**: new `sim_bench/control/local_renders.py`, `tests/control/test_local_renders.py`; `sim_bench/control/loader.py`, `sim_bench/serving/{curate_job,job_store}.py`, `sim_bench/pipeline/steps/face_cluster_export.py` (`_crop_from_aligned`); tests `tests/serving/test_curate_job.py`, `tests/control/{test_job_service,test_loader_builder}.py`, `tests/api/test_jobs_router.py`, `tests/pipeline/test_export_crop_reuse.py`; `reports/2026-10-23_spec115_crop_orientation/` (+ EXPERIMENTS.md); spec-115 docs; SIGHTINGS (141); LEARNINGS; `docs/architecture/classes.html`.
+**Change**: `LocalRenders` makes `display/` and `faces/<id>.jpg` from the server's own 768 px copies + bundle boxes (EXIF-upright, like the detector); the loader runs it; `JobCurator` no longer writes displays/crops (`write_renders=False`); `JobStore.results_files()`; `JobStore.resolve` serves an `inputs/` photo only to a job whose manifest lists it. SIGHTING-141: removed the wrong BGR->RGB flip in `_crop_from_aligned` (every crop since spec-091 had red/blue swapped).
+**Verification**: affected suites 140+ passed; Budapest V2 suite 11 passed; real slovakia26 render from results only: 147 displays, 987 crops in 5 s, upright and natural colour; full suite: see spec-115 updates.md.
+**Reason**: spec-115 W2 (owner: accept the crop check, continue W2; fix the colour bug).
+
+### 2026-10-23 [FEATURE][DOCS] `/prd` skill + `scripts/prd_lint.py`; spec-115 content fixes
+**Files**: new `.claude/skills/prd/SKILL.md`, `scripts/prd_lint.py`, `tests/test_prd_lint.py`; `WORKFLOW.md` (+`.html`), `CLAUDE.md`, `specs/115-album-workbench/{spec,tasks,updates}.md` (+`.html`), `docs/guides/prd_format_review_2026-10-23.md` (+`.html`).
+**Change**: `/prd` drafts specs in the mandated format after grounding them in the code, renders, and must pass `prd_lint.py --render`: section order + legend, objective <= 3 lines, <= 15 requirements, status glyphs, every check names a test or a real-data result, every requirement closed in the plan, new/modified files vs the disk, class-diagram members marked changed/removed/unchanged must exist (Python AST), every diagram draws, page height warning. spec-115: R6 merges the three guarantees, new R7 per-job file serving (found: `resolve` serves any job's photo if the key is known; T2.6), cancel end state (R4), L4 spend cap (R2), orientation pass gate (R10), old Modal photo copies purged (R13), definition of done.
+**Verification**: `tests/test_prd_lint.py` 11 passed (incl. the review's "changed method that does not exist" case); spec-115 lint: 0 errors, 2 warnings (R11 is a real-data proof with no file; page 7,900 px).
+**Reason**: owner: apply the review's content fixes, build the /prd skill, commit.
+
+### 2026-10-23 [DOCS] PRD change colour-coding + review of spec-115's HTML
+**Files**: `WORKFLOW.md` (+`.html`: legend, colour and progress rules, template diagrams), `docs/assets/md.css` (theme-aware NEW/CHANGED/EXISTING/REMOVED badges, wide tables, diagram cards), `specs/115-album-workbench/{spec,tasks}.md` (+`.html`), new `docs/guides/prd_format_review_2026-10-23.md` (+`.html`).
+**Change**: colour = type of change only (green new, amber changed, grey existing, red removed), the same in tables and class diagrams; progress = ● / ◐ / ○ and plan-node borders; modified files as Today -> After. spec-115 recoloured and corrected (two "changed" methods did not exist yet). Reviewed with the impeccable critique method (21/40 before fixes; detector 33 findings -> 0) and a senior-engineer review; recommendations in the review doc.
+**Reason**: owner: colour-code new vs changed and highlight changes in every PRD; review the HTML for clarity, size, focus and readability; recommend PRD-rule improvements.
+
+### 2026-10-23 [DOCS] spec-115 Album workbench — split from spec-112 Phase A2, first spec in the new PRD format
+**Files**: new `specs/115-album-workbench/{spec,tasks,updates}.md` (+ `.html`); `specs/112-live-db-storage-runner/{spec,tasks,updates}.md` (+ `.html`, A2 replaced by links); `ROADMAP.md` (+`.html`).
+**Change**: objective (3 lines), 15 requirements each with its check (R6, R7, R15 done in W1), plan flowchart W1-W5 with modules and checks, class diagram (new/changed classes), new-files and modified-files tables. spec-112 keeps Phase A and Phase B.
+**Reason**: owner: write the album workbench as spec-115 in the new format.
+
+### 2026-10-23 [DOCS][CONFIG] New PRD format: objective, requirements table, plan flowchart, class diagram, file tables
+**Files**: `WORKFLOW.md` (spec.md template + rules), `CLAUDE.md` (Roadmap + readable docs), `scripts/md2html.py` (mermaid rendering).
+**Change**: `spec.md` now has six sections in order: objective (max 3 lines); requirements (max 15 rows, each with its check); plan flowchart (steps, modules, closing check); class diagram (new/changed marked); new-files table (file, class, responsibility, methods, attributes); modified-files table. `md2html.py` loads mermaid 10.9.1 when a doc has a mermaid block and renders the diagrams (verified with Playwright: 2 of 2 diagrams drawn). Older specs keep their format until re-planned.
+**Reason**: owner: the md -> html PRDs are not readable enough; more flowcharts, a short objective, a requirements table, a class diagram and per-file design tables.
+
+### 2026-10-23 [FEATURE][PERF] spec-112 A2 W1 — inputs staged once by content; job runs use the feature cache
+**Files**: new `sim_bench/serving/input_store.py`; `sim_bench/serving/{job_store,job_service,curate_job,staging}.py`, `sim_bench/control/loader.py`, `sim_bench/api/routers/jobs.py` (`_file` -> `JobStore.resolve`), `sim_bench/pipeline/steps/discover_images.py`; tests `tests/serving/test_input_store.py`, `tests/pipeline/{test_cache_model_version,test_discover_given_images}.py` (new), `tests/serving/test_curate_job.py`, `tests/control/{fakes,test_job_service}.py`; spec-112 spec/tasks/updates; LEARNINGS.
+**Change**: photos are resized once into `<jobs_root>/_inputs/<sha16>/<name>.jpg`; a job's `input/` holds `manifest.json`. The pipeline is handed those paths (no temp copy, no folder scan), and `run_pipeline` now attaches the feature cache (`ALBUMIFY_FEATURE_CACHE`, default `~/.sim_bench/sim_bench.db`); job runs had none. Older jobs with `input/*.jpg` still load and serve.
+**Verification**: affected tests 129 passed; real 12-photo Budapest pair of local jobs: job 2 staged 0, cached steps ~0 ms, same picks; full local suite 1,627 passed, 0 failed.
+**Reason**: spec-112 Phase A2 W1 (owner: re-runs must reuse what was computed).
+
+### 2026-10-23 [DOCS] spec-112 Phase A2 drafted — album workbench
+**Files**: `specs/112-live-db-storage-runner/{spec,tasks,updates}.md` (+ `.html`), `ROADMAP.md` (+`.html`).
+**Change**: new Phase A2 (spec §4 items 10–17, AC9–AC15, tasks W1–W5): run/watch/cancel/re-run albums from the Jobs page on local or L4; content-addressed inputs (upload once); worker feature cache on a Modal Volume; results-only copy-back with display images and face crops built on the PC; run settings in `run.json`; input retention on Modal. Phase A's remaining Slovakia re-run folds into A2's proof. Roadmap: A2 is next, before Gate 1.
+**Reason**: owner: a stable way to run and examine albums (cloud or local) is required before moving on; no pictures should travel back, and the L4 should keep its cache.
+
 ### 2026-10-23 [TEST] SIGHTING-140 — nightly full lane tests the real photos again, from a private test-data repo
 **Files**: `.github/workflows/tests.yml`, `tests/conftest.py`, `pyproject.toml` (marker), `tests/face_clustering/{test_merge_stage,test_pipeline_e2e,test_pipeline_history_hook,test_pipeline_remerge}.py`, `tests/pipeline/{test_integration,test_steps}.py`, `tests/test_face_embeddings_ground_truth.py`, `docs/project/{SIGHTINGS,LEARNINGS}.md`. Outside the repo: new private repo `jonathanhexner/albumify-test-data`, a read-only deploy key on it, secret `TEST_DATA_DEPLOY_KEY` on albumify.
 **Change**: the full lane checks out the private photos (same paths) and requires them; 50 photo tests get `private_data` (skip locally when missing, fail in CI). The fast lane excludes them.

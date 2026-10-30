@@ -2,7 +2,60 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** In Progress — Phase A proven on Slovakia26 via Modal for AC1–AC4 (AC5 by tests); faces → people mapping fixed after the run, needs one re-run once SIGHTING-132 is decided.
+**Status:** In Progress — Phase A proven on Slovakia26 via Modal for AC1–AC4 (AC5 by tests); SIGHTING-132 fixed by spec-113, the re-run is folded into Phase A2's proof. Phase A2 (album workbench) moved to [spec-115](../115-album-workbench/spec.html) on 2026-10-23.
+
+## 2026-10-23 — Phase A2 moved to its own spec
+
+Owner asked for the album workbench as its own PRD in the new format: [spec-115](../115-album-workbench/spec.html). The two A2 entries below
+(drafted; W1 done) are kept as history; new progress is logged there.
+
+## 2026-10-23 — W1 done: inputs staged once, job runs use the feature cache
+
+Owner approved Phase A2 (O3 = 7 days, O4 = pipeline name only). W1 built:
+- **`InputStore`** (`sim_bench/serving/input_store.py`): each photo is resized once to
+  `<jobs_root>/_inputs/<sha16>/<name>.jpg` (hash of the original + staging version). A job's `input/` now
+  holds only `manifest.json`; older jobs with `input/*.jpg` keep working. The API's image route resolves
+  keys inside the job folder or the store only.
+- **The pipeline gets the job's paths explicitly** (`discover_images` accepts given images), so the same
+  photo has the same path in every job. The per-run temp copy is gone (it existed for straighten
+  derivatives, which now go to their own cache folder).
+- **Found: job runs never had a feature cache.** `run_pipeline` built its context with no cache handler,
+  so every local and L4 job recomputed everything, even with stable paths. Now attached
+  (`ALBUMIFY_FEATURE_CACHE`, default `~/.sim_bench/sim_bench.db`).
+- TW1.1: the model-version check existed (spec-079) but was untested; test added.
+
+| Claim | Evidence |
+|---|---|
+| Stale-version rows are misses; same version hits; unversioned steps unchanged | `tests/pipeline/test_cache_model_version.py` 4 passed |
+| Content keys, no rewrite (mtime fixed), bad keys refused, manifest, resolve stays inside | `tests/serving/test_input_store.py` 13 passed |
+| Second job stages 0 photos, same paths, same mtimes | `tests/control/test_job_service.py` (`..._stages_nothing_new`) |
+| Pipeline gets exactly the job's inputs, same paths across jobs; older jobs still run | `tests/serving/test_curate_job.py` (+3) |
+| Given images used as-is; a folder is still scanned otherwise | `tests/pipeline/test_discover_given_images.py` 3 passed |
+| Real: the cache carries across jobs | 12 Budapest photos, `minimal`, two local jobs, fresh cache DB: job 2 staged 0 new; score_iqa 1017->26 ms, score_ava 1980->0, extract_scene_embedding 7719->10; identical picks |
+| Nothing else broke | full local suite 1,627 passed, 2 skipped, 0 failed (10.7 min) |
+
+## 2026-10-23 — Phase A2 drafted: album workbench (run, watch, re-run, examine; no pictures back from Modal)
+
+Owner: a stable app to run and examine albums, locally or on cloud GPUs, comes before Gate 1. Asked
+whether pictures travel back and forth and whether the cache stays on the L4. Checked in the code:
+- **Pictures go both ways today.** Up: 715 resized copies per run (unavoidable once; the L4 needs pixels).
+  Down: 993 files, of which 147 display copies and 842 face crops (19.4 of ~31 min); only
+  `album.json`, `run.json` and `results/` (3 files) carry information the PC lacks.
+- **The L4 keeps only model weights.** The feature cache (`sim_bench.db`) lives in the container and is
+  lost at exit, so every L4 re-run recomputes everything. Locally too, a new job id means new input
+  paths and the path-keyed cache misses.
+- The app never reads from Modal (local files + control DB only). Uploaded inputs stay on the
+  `albumify-jobs` Volume after the job.
+
+Plan: spec §4 items 10–17, AC9–AC15, tasks W1–W5. Earlier 3–4 day estimate was inflated by bundling
+hardening (jobs outside the API process); that is out of A2. Open: O3 (input retention, rec 7 days), O4
+(re-run settings: pipeline name only in v1).
+
+| Claim | Evidence |
+|---|---|
+| Download is mostly pictures | `~/.sim_bench/jobs/slovakia26`: display 147, faces 842, results 3, album.json, run.json |
+| Worker cache not persistent | `sim_bench/serving/modal_app.py`: Volumes only for models + HF cache; `sim_bench.db` under the container's home |
+| Cache keyed by path | `sim_bench/api/database/models.py` `universal_cache` unique (`image_path`, `feature_type`, `model_name`) |
 
 ## 2026-10-11 — Real-data proof: Slovakia26 (715 photos) through JobService on the L4
 

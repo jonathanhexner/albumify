@@ -32,6 +32,10 @@ cpu_app = modal.App(APP_NAME + "-cpu")
 models_vol = modal.Volume.from_name("albumify-models", create_if_missing=True)
 hf_cache_vol = modal.Volume.from_name("albumify-hf-cache", create_if_missing=True)
 jobs_vol = modal.Volume.from_name("albumify-jobs", create_if_missing=True)
+# spec-115 W3: photos stored once by content key (shared by every job, purged after 7 days unused) and
+# the pipeline's feature cache, kept across runs so a re-run recomputes only what changed.
+inputs_vol = modal.Volume.from_name("albumify-inputs", create_if_missing=True)
+cache_vol = modal.Volume.from_name("albumify-cache", create_if_missing=True)
 
 # --- light image: just enough to prove the GPU path (smoke) ---
 smoke_image = modal.Image.debian_slim(python_version="3.11").pip_install(
@@ -86,6 +90,8 @@ HF_CACHE = "/cache/hf"          # transformers / RAM++ weights
 TORCH_CACHE = "/cache/torch"    # torch.hub (DINOv2) + torchvision/pyiqa checkpoints
 INSIGHTFACE_HOME = MODELS_DIR + "/insightface"  # buffalo_l lands in <home>/models/<name>
 JOBS_DIR = "/jobs"              # job store root (see sim_bench/serving/job_store.py)
+INPUTS_DIR = "/inputs"          # shared input store (see sim_bench/serving/input_store.py)
+FCACHE_DIR = "/fcache"          # feature cache Volume: holds sim_bench.db between runs
 
 
 def _prepare_caches() -> None:
@@ -167,9 +173,10 @@ def _curate(images: list[tuple[str, bytes]], pipeline: str, device: str) -> dict
 
 
 _VOLUMES = {MODELS_DIR: models_vol, "/cache": hf_cache_vol}
-# The job functions additionally mount the job store; inline-bytes curate() does not need it.
-_JOB_VOLUMES = {**_VOLUMES, JOBS_DIR: jobs_vol}
+# The job functions additionally mount the job store, the input store and the feature cache.
+_JOB_VOLUMES = {**_VOLUMES, JOBS_DIR: jobs_vol, INPUTS_DIR: inputs_vol, FCACHE_DIR: cache_vol}
 _STAGE_VOLUMES = {JOBS_DIR: jobs_vol}
+_INPUT_VOLUMES = {INPUTS_DIR: inputs_vol, JOBS_DIR: jobs_vol}
 
 
 @app.function(image=full_image, gpu=GPU_TYPE, timeout=1800, cpu=4.0, memory=16384, volumes=_VOLUMES)
@@ -221,45 +228,114 @@ def stage_job(job_id: str, images: list[tuple[str, bytes]], replace: bool = True
             "input_dir": str(store.paths(job_id).input_dir)}
 
 
-def _curate_job(job_id: str, pipeline: str, device: str) -> dict:
-    """Shared body of curate_job (GPU) / curate_job_cpu — see sim_bench/serving/curate_job.py."""
+def _curate_job(job_id: str, pipeline: str, device: str, keys: list[str] | None = None,
+                commit: str | None = None) -> dict:
+    """Shared body of curate_job (GPU) / curate_job_cpu — see sim_bench/serving/curate_job.py.
+
+    ``keys`` (spec-115 W3): the job's photos in the shared input store, uploaded once by the control
+    plane. The feature cache is copied from its Volume to local disk for the run (SQLite on a network
+    Volume is not safe to write in place) and copied back only when the run finishes: a cancelled run's
+    cache writes are lost, never half-written (R4)."""
     import dataclasses
+    import os
+    import shutil
+    import time
+    from pathlib import Path
 
     import torch  # noqa: F401  (import before onnxruntime; see _curate)
     logging.basicConfig(level=logging.INFO)
     _prepare_caches()
     _deterministic_torch()
 
-    from sim_bench.serving.curate_job import CurateJobInputs, JobCurator
+    from sim_bench.serving.curate_job import FEATURE_CACHE_ENV, CurateJobInputs, JobCurator
+    from sim_bench.serving.input_retention import mark_used
     from sim_bench.serving.job_store import JobStore
+    from sim_bench.serving.run_settings import COMMIT_ENV
 
+    os.environ.pop(FEATURE_CACHE_ENV, None)   # warm containers keep env between calls (review L5)
+    os.environ[COMMIT_ENV] = commit or ""     # no git checkout in the container
     jobs_vol.reload()  # see inputs committed by stage_job after this container started
-    curator = JobCurator(JobStore(JOBS_DIR))
-    result = curator.calc(CurateJobInputs(job_id=job_id, pipeline=pipeline, device=device))
+    store = JobStore(JOBS_DIR, inputs_root=INPUTS_DIR)
+    local_cache = Path("/tmp/feature_cache.db")
+    if keys is not None:
+        inputs_vol.reload()
+        cache_vol.reload()
+        store.write_input_manifest(job_id, keys)
+        mark_used(Path(INPUTS_DIR), job_id, keys, time.time())
+        shared = Path(FCACHE_DIR) / "sim_bench.db"
+        if shared.is_file():
+            shutil.copyfile(shared, local_cache)
+        os.environ[FEATURE_CACHE_ENV] = str(local_cache)
+    runner = "modal_gpu" if device == "cuda" else "modal_cpu"
+    result = JobCurator(store).calc(CurateJobInputs(job_id=job_id, pipeline=pipeline, device=device,
+                                                    runner=runner))
+    if keys is not None and local_cache.is_file():
+        tmp = Path(FCACHE_DIR) / "sim_bench.db.part"
+        shutil.copyfile(local_cache, tmp)
+        os.replace(tmp, Path(FCACHE_DIR) / "sim_bench.db")
     return dataclasses.asdict(result)
+
+
+def _commit_job_volumes() -> None:
+    jobs_vol.commit()      # persist album.json / run.json / results/
+    inputs_vol.commit()    # "used" marks
+    cache_vol.commit()     # feature cache
+    hf_cache_vol.commit()  # persist weights downloaded on first run
+    models_vol.commit()    # ... including buffalo_l under INSIGHTFACE_HOME (AC5)
 
 
 @app.function(image=full_image, gpu=GPU_TYPE, timeout=1800, cpu=4.0, memory=16384,
               volumes=_JOB_VOLUMES)
-def curate_job(job_id: str, pipeline: str = "default") -> dict:
-    """Curate a staged job on GPU -> album.json in the job store (spec-110 AC3)."""
+def curate_job(job_id: str, pipeline: str = "default", keys: list[str] | None = None,
+               commit: str | None = None) -> dict:
+    """Curate a job on GPU -> album.json + results in the job store (spec-110 AC3, spec-115 W3)."""
     try:
-        return _curate_job(job_id, pipeline, device="cuda")
+        return _curate_job(job_id, pipeline, device="cuda", keys=keys, commit=commit)
     finally:
-        jobs_vol.commit()      # persist album.json / display/ / run.json
-        hf_cache_vol.commit()  # persist weights downloaded on first run
-        models_vol.commit()    # ... including buffalo_l under INSIGHTFACE_HOME (AC5)
+        _commit_job_volumes()
 
 
 @cpu_app.function(image=full_image, timeout=3600, cpu=4.0, memory=16384, volumes=_JOB_VOLUMES)
-def curate_job_cpu(job_id: str, pipeline: str = "default") -> dict:
+def curate_job_cpu(job_id: str, pipeline: str = "default", keys: list[str] | None = None,
+                   commit: str | None = None) -> dict:
     """Same, on a CPU container: the free-tier correctness proof. Slow (~9 s/img)."""
     try:
-        return _curate_job(job_id, pipeline, device="cpu")
+        return _curate_job(job_id, pipeline, device="cpu", keys=keys, commit=commit)
     finally:
-        jobs_vol.commit()
-        hf_cache_vol.commit()
-        models_vol.commit()
+        _commit_job_volumes()
+
+
+@cpu_app.function(image=stage_image, timeout=900, volumes=_INPUT_VOLUMES, schedule=modal.Period(days=1))
+def purge_inputs() -> dict:
+    """Daily (spec-115 R13, owner O3): delete photos no job used in 7 days, and the per-job photo
+    copies older jobs left on albumify-jobs. Runs only once the cpu app is deployed."""
+    import time
+    from pathlib import Path
+
+    from sim_bench.serving.input_retention import purge
+
+    logging.basicConfig(level=logging.INFO)
+    inputs_vol.reload()
+    jobs_vol.reload()
+    res = purge(Path(INPUTS_DIR), time.time(), legacy_jobs_root=Path(JOBS_DIR))
+    inputs_vol.commit()
+    jobs_vol.commit()
+    return {"deleted": res.deleted, "kept": res.kept}
+
+
+@cpu_app.function(image=stage_image, timeout=300, volumes=_INPUT_VOLUMES)
+def delete_inputs(job_id: str, keys: list[str]) -> dict:
+    """The owner's "delete my photos from Modal" (R13): drop this job's claim on its photos and delete
+    every photo no other job used in the last 7 days."""
+    import time
+    from pathlib import Path
+
+    from sim_bench.serving.input_retention import release
+
+    inputs_vol.reload()
+    res = release(Path(INPUTS_DIR), job_id, keys, time.time())
+    inputs_vol.commit()
+    return {"deleted": res.deleted, "kept": res.kept}
 
 
 @cpu_app.function(image=stage_image, timeout=300, volumes=_STAGE_VOLUMES)

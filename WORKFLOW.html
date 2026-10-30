@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>WORKFLOW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="WORKFLOW.md">WORKFLOW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#feature-development-workflow"
+id="toc-feature-development-workflow">Feature Development Workflow</a>
+<ul>
+<li><a href="#quick-reference" id="toc-quick-reference">Quick
+Reference</a></li>
+<li><a href="#branch--merge-policy-locked"
+id="toc-branch--merge-policy-locked">Branch &amp; merge policy
+(locked)</a></li>
+<li><a href="#spec-lifecycle-locked" id="toc-spec-lifecycle-locked">Spec
+lifecycle (locked)</a></li>
+<li><a href="#documentation-update-mandate"
+id="toc-documentation-update-mandate">Documentation update
+mandate</a></li>
+<li><a href="#required-artifacts-2-files"
+id="toc-required-artifacts-2-files">Required Artifacts (2
+files)</a></li>
+<li><a href="#optional-artifacts" id="toc-optional-artifacts">Optional
+Artifacts</a></li>
+<li><a href="#exemptions-no-spec-required"
+id="toc-exemptions-no-spec-required">Exemptions (no spec
+required)</a></li>
+<li><a href="#integration-with-project-trackers"
+id="toc-integration-with-project-trackers">Integration with Project
+Trackers</a></li>
+<li><a href="#directory-layout" id="toc-directory-layout">Directory
+Layout</a></li>
+<li><a href="#legacy-specs" id="toc-legacy-specs">Legacy Specs</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="feature-development-workflow">Feature Development Workflow</h1>
+<p>Structured workflow that turns a feature request into a spec, tasks,
+implementation, and a reviewed handoff. All artifacts live under
+<code>specs/&lt;NNN&gt;-&lt;feature-name&gt;/</code>.</p>
+<h2 id="quick-reference">Quick Reference</h2>
+<pre><code>Feature idea
+  |
+  v
+spec.md    --&gt;  the PRD: objective, requirements + checks, plan flowchart, class diagram, file tables [Status: Draft]
+  |
+  v
+tasks.md   --&gt;  HOW to build it (design notes at top, ordered task checklist)     [Status: In Progress]
+  |
+  v
+implement  --&gt;  execute tasks phase-by-phase
+  |
+  v
+/code-review --&gt; REVIEW.md per docs/guides/CODE_REVIEW_CHECKLIST.md               [Status: Code Review]
+  |               ^^^ MANDATORY GATE — no spec flips to Implemented without this
+  v
+hand off   --&gt;  CHANGES_LOG.md entry; high-severity findings resolved or waived   [Status: Implemented]</code></pre>
+<h2 id="branch--merge-policy-locked">Branch &amp; merge policy
+(locked)</h2>
+<p><code>main</code> is protected. Nothing lands on <code>main</code>
+except through a Pull Request whose checks are green.</p>
+<p><strong>One branch per effort, named for it:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Effort</th>
+<th>Branch name</th>
+<th>Gate to create</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feature (has a spec/PRD)</td>
+<td><code>spec/&lt;NNN&gt;-&lt;slug&gt;</code></td>
+<td><code>specs/&lt;NNN&gt;-&lt;name&gt;/spec.md</code> exists (Draft
+counts)</td>
+</tr>
+<tr>
+<td>Bug fix</td>
+<td><code>fix/&lt;slug&gt;</code></td>
+<td>a sighting filed in <code>docs/project/SIGHTINGS.md</code></td>
+</tr>
+<tr>
+<td>Housekeeping / docs</td>
+<td><code>chore/&lt;slug&gt;</code></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rules:</strong></p>
+<ul>
+<li><strong>No direct pushes to <code>main</code>.</strong> Branch → PR
+→ merge. (Enforced by GitHub branch protection.)</li>
+<li><strong>Required check: <code>fast-tests</code> must be
+green</strong> before a PR merges (the model-free CI suite).</li>
+<li><strong>PR body links the spec dir</strong>
+(<code>specs/&lt;NNN&gt;-*/</code>) and stays scoped to one effort — no
+catch-all branches (the <code>specs/093-095-analysis-studios</code>
+sprawl is the anti-pattern this rule exists to prevent).</li>
+<li><strong>The Code Review gate still governs
+<code>Implemented</code></strong>: the PR that flips a spec to
+<code>Implemented</code> must include <code>REVIEW.md</code>;
+High-severity findings block the merge (see below).</li>
+<li><strong>Delete the branch after merge.</strong> One live branch per
+active effort.</li>
+</ul>
+<h2 id="spec-lifecycle-locked">Spec lifecycle (locked)</h2>
+<p><code>Draft → In Progress → Code Review → Implemented</code></p>
+<p>No skipping <code>Code Review</code>. The <code>/code-review</code>
+slash command produces
+<code>specs/&lt;NNN&gt;-&lt;name&gt;/REVIEW.md</code> against
+<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>. Any High-severity
+finding blocks the move to <code>Implemented</code> until resolved or
+explicitly waived (waiver recorded in REVIEW.md).</p>
+<p><strong>Why this gate exists</strong>: SIGHTING-061 shipped a
+100%-face-rejection regression in spec-033 because the architecture
+tests checked code shape, not whether the contracts were actually
+exercised on real data. The Code Review gate forces an explicit "what
+test would catch the failure modes this feature was supposed to
+prevent?" walk-through before handoff.</p>
+<h2 id="documentation-update-mandate">Documentation update mandate</h2>
+<p>Any spec that changes a class, Pydantic model, Pandera schema, DB
+column, pipeline step, or boundary contract <strong>must</strong> update
+the corresponding HTML in <code>docs/architecture/</code> in the same
+PR:</p>
+<table>
+<thead>
+<tr>
+<th>Changed</th>
+<th>Update</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DB column</td>
+<td><code>docs/architecture/db_schemas.html</code></td>
+</tr>
+<tr>
+<td>Class / Pydantic / Pandera / dataclass field</td>
+<td><code>docs/architecture/classes.html</code></td>
+</tr>
+<tr>
+<td>Pipeline step / bridge / exporter / read side</td>
+<td><code>docs/architecture/data_flow.html</code></td>
+</tr>
+<tr>
+<td>New architecture doc added</td>
+<td><code>docs/architecture/index.html</code> (the entry-point
+list)</td>
+</tr>
+</tbody>
+</table>
+<p>The Code Review gate (§7 of
+<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code>) blocks handoff on
+stale docs.</p>
+<h2 id="required-artifacts-2-files">Required Artifacts (2 files)</h2>
+<h3
+id="1-specmd--the-prd-what-how-we-know-it-works-and-what-the-code-will-look-like">1.
+<code>spec.md</code> — the PRD: what, how we know it works, and what the
+code will look like</h3>
+<p><strong>Owner rule (2026-10-23):</strong> a PRD must be readable at a
+glance: diagrams over prose. Six sections, in this order, nothing before
+them except the header. Diagrams are mermaid blocks
+(<code>```mermaid</code>); <code>scripts/md2html.py</code> renders them
+in the HTML view.</p>
+<p><strong>Structure</strong>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu"># spec-NNN — &lt;Name&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>**Status:** Draft · **Created:** YYYY-MM-DD · **Roadmap:** Stage X · **Resolves:** SIGHTING-NNN (if any)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">p</span><span class="ot"> class</span><span class="op">=</span><span class="st">&quot;legend&quot;</span><span class="dt">&gt;</span>Colour = type of change: <span class="dt">&lt;</span><span class="kw">span</span><span class="ot"> class</span><span class="op">=</span><span class="st">&quot;tag new&quot;</span><span class="dt">&gt;</span>NEW<span class="dt">&lt;/</span><span class="kw">span</span><span class="dt">&gt;</span> <span class="dt">&lt;</span><span class="kw">span</span><span class="ot"> class</span><span class="op">=</span><span class="st">&quot;tag chg&quot;</span><span class="dt">&gt;</span>CHANGED<span class="dt">&lt;/</span><span class="kw">span</span><span class="dt">&gt;</span> <span class="dt">&lt;</span><span class="kw">span</span><span class="ot"> class</span><span class="op">=</span><span class="st">&quot;tag del&quot;</span><span class="dt">&gt;</span>REMOVED<span class="dt">&lt;/</span><span class="kw">span</span><span class="dt">&gt;</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.<span class="dt">&lt;/</span><span class="kw">p</span><span class="dt">&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1. Objective</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>At most 3 lines: what changes for the user, and why now.</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2. Requirements</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>10-15 rows at most. Each row is one requirement as we understand it, and the check that proves it.</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> # <span class="pp">|</span> Status <span class="pp">|</span> Requirement <span class="pp">|</span> How we know it works <span class="pp">|</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> R1 <span class="pp">|</span> ○ planned <span class="pp">|</span> ... <span class="pp">|</span> named test file / real-data result / named Playwright test <span class="pp">|</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3. Plan</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>One flowchart: what we build, in what order, which modules each step touches, and the check that</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>closes each step (the same checks as §2).</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="in">```mermaid</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="in">flowchart TD</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="in">  S1[&quot;&lt;b&gt;○ Step 1: ...&lt;/b&gt;&lt;br/&gt;&lt;i&gt;a.py (new), b.py&lt;/i&gt;&quot;] --&gt; C1{{&quot;check R1 R2&quot;}}</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="in">  C1 --&gt; S2[&quot;&lt;b&gt;○ Step 2: ...&lt;/b&gt;&quot;]</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="in">  classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="in">  classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="in">  classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="in">  class S1,S2 todo</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="in">  class C1 check</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="fu">## 4. Class diagram</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>The classes as they will look after the change: new ones, changed ones, and the existing classes they</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>talk to. Colour the class (green new, amber changed, grey existing) and mark each member: ✚ new, ✎ changed,</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>✖ removed, unmarked = unchanged. Put the marker *before* the member (after it, mermaid shows it as a return type).</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="in">```mermaid</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="in">classDiagram</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="in">  direction TB</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="in">  class InputStore {</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="in">    ✚ root: Path</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="in">    ✚ put(original) str</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="in">  }</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="in">  class JobStore {</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="in">    +root: Path</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="in">    ✎ input_images(job_id) List~Path~</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="in">    ✖ copy_inputs(job_id)</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="in">  }</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="in">  JobStore --&gt; InputStore</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="in">  style InputStore fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="in">  style JobStore fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="fu">## 5. New files   (all NEW; test files go in tasks.md, per task)</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> File <span class="pp">|</span> Class <span class="pp">|</span> Responsibility <span class="pp">|</span> Methods <span class="pp">|</span> Attributes <span class="pp">|</span> Status <span class="pp">|</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|---|---|</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a><span class="fu">## 6. Modified files   (all CHANGED; REMOVED files get their own rows with &lt;span class=&quot;tag del&quot;&gt;REMOVED&lt;/span&gt;)</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> File <span class="pp">|</span> Class / function <span class="pp">|</span> Today <span class="pp">|</span> After this spec <span class="pp">|</span> Req <span class="pp">|</span> Status <span class="pp">|</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|---|---|---|---|</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a><span class="fu">## Open decisions / risks / non-goals   (optional, short bullets)</span></span></code></pre></div>
+<p><strong>Rules</strong>:</p>
+<ul>
+<li>Objective: 3 lines maximum. Requirements: 15 rows maximum. If it
+needs more, the spec is two specs.</li>
+<li>Every requirement has a concrete check (test file, real-data result,
+or Playwright on the real app).</li>
+<li><strong>Colour means type of change only</strong> (green NEW, amber
+CHANGED, grey EXISTING, red REMOVED), the same in tables and diagrams.
+<strong>Progress never uses colour:</strong> ● done, ◐ partly done, ○
+planned (tables and plan nodes; done plan steps get a thick border,
+planned ones dashed).</li>
+<li>Modified files show the change as a <strong>Today → After this
+spec</strong> pair. Use <code>&lt;mark&gt;</code> only for a single
+changed word or value inside prose, never for whole cells.</li>
+<li>Mark class members in diagrams by what actually exists in the code
+today (✎ only for members that exist).</li>
+<li>The plan flowchart names the modules each step touches and ends each
+step on its check.</li>
+<li>The class diagram and the file tables are the design;
+<code>tasks.md</code> only orders the work.</li>
+<li>Mark unresolved questions as <code>[NEEDS CLARIFICATION]</code> and
+resolve them before code.</li>
+<li>Older specs keep their format; a spec gets the new format when it is
+next drafted or re-planned.</li>
+<li><strong>Write PRDs with the <code>/prd</code> skill</strong>
+(<code>.claude/skills/prd/SKILL.md</code>): it grounds the design in the
+code, renders, and runs
+<code>scripts/prd_lint.py &lt;spec.md&gt; --render</code>, which must
+report 0 errors before the owner sees the spec. The lint enforces the
+limits above, named checks, plan coverage, file tables vs the disk,
+class-diagram members vs the code (AST), and that every diagram draws.
+Example: <code>specs/115-album-workbench/spec.md</code>.</li>
+</ul>
+<h3 id="2-tasksmd--define-how-to-build-it">2. <code>tasks.md</code> —
+Define HOW to build it</h3>
+<p><strong>Focus</strong>: Design decisions, then ordered implementation
+tasks.</p>
+<p><strong>Structure</strong>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu"># Tasks: &lt;Feature Name&gt; (NNN)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">## Design Notes</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>Brief technical decisions that inform the tasks below.</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**D1**: <span class="dt">&lt;</span><span class="kw">decision</span><span class="ot"> and rationale</span><span class="dt">&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**D2**: <span class="dt">&lt;</span><span class="kw">decision</span><span class="ot"> and rationale</span><span class="dt">&gt;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="fu">## Phase 1: &lt;Name&gt;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="va">[ ]</span> T001 Description with file path <span class="in">`face_cluster/foo.py`</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="va">[ ]</span> T002 <span class="co">[</span><span class="ot">P</span><span class="co">]</span> Description (parallelizable)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="va">[ ]</span> T003 Write tests for T001-T002 in <span class="in">`tests/face_clustering/test_foo.py`</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>**Checkpoint**: How to verify this phase works.</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="fu">## Phase 2: &lt;Name&gt;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>...</span></code></pre></div>
+<p><strong>Rules</strong>:</p>
+<ul>
+<li>Design lives in spec.md (§3-§6: plan flowchart, class diagram, file
+tables); tasks.md orders the work and records short design notes</li>
+<li>Tasks include exact file paths</li>
+<li><code>[P]</code> marks tasks that can run in parallel</li>
+<li>Each phase ends with a checkpoint (usually a test command)</li>
+<li>Mark tasks done as <code>[x]</code> during implementation</li>
+</ul>
+<h3
+id="3-updatesmd--progress--verification-log-required-once-work-starts">3.
+<code>updates.md</code> — Progress &amp; verification log (required once
+work starts)</h3>
+<p>Dated entries, newest first. Each entry: what landed + <strong>how it
+was verified</strong> (test file and count, report path, real-data
+outcome). Also records decisions, blockers, and branch-outs to other
+specs. Header links back to <code>ROADMAP.md</code> and names the
+roadmap stage. Flipping to <code>Implemented</code> requires an entry
+naming the verification evidence. Render with
+<code>scripts/md2html.py</code> after each edit.</p>
+<h2 id="optional-artifacts">Optional Artifacts</h2>
+<p>Create these only when they earn their keep:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>When to create</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>research.md</code></td>
+<td>Genuinely unresolved technical questions requiring investigation
+before you can write tasks</td>
+</tr>
+<tr>
+<td><code>data-model.md</code></td>
+<td>Complex schema changes touching 3+ modules (new DB tables, new CSV
+columns across writer/reader pairs)</td>
+</tr>
+<tr>
+<td><code>contracts/&lt;name&gt;.md</code></td>
+<td>Public API surface shared across packages (rare in this repo)</td>
+</tr>
+<tr>
+<td><code>checklists/&lt;domain&gt;.md</code></td>
+<td>Regulated domains, security-sensitive features</td>
+</tr>
+</tbody>
+</table>
+<p><strong>If you're unsure whether to create an optional file</strong>:
+don't. Put the content in the Design Notes section of
+<code>tasks.md</code> instead.</p>
+<h2 id="exemptions-no-spec-required">Exemptions (no spec required)</h2>
+<table>
+<thead>
+<tr>
+<th>Change type</th>
+<th>What to do instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bug fix</td>
+<td>File sighting in <code>docs/SIGHTINGS.md</code>, fix, log
+learning</td>
+</tr>
+<tr>
+<td>Isolated refactor (no behavior change)</td>
+<td>Implement directly, update <code>CHANGES_LOG.md</code></td>
+</tr>
+<tr>
+<td>Doc-only change</td>
+<td>Edit docs directly</td>
+</tr>
+</tbody>
+</table>
+<h2 id="integration-with-project-trackers">Integration with Project
+Trackers</h2>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Tracker</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>spec.md</code> created</td>
+<td><code>docs/FEATURE_REQUESTS.md</code></td>
+<td>Add feature entry</td>
+</tr>
+<tr>
+<td><code>tasks.md</code> generated</td>
+<td><code>TODO.md</code></td>
+<td>Copy key tasks</td>
+</tr>
+<tr>
+<td>Implementation complete</td>
+<td><code>CHANGES_LOG.md</code></td>
+<td>Append entry</td>
+</tr>
+<tr>
+<td>Bug found during impl</td>
+<td><code>docs/SIGHTINGS.md</code></td>
+<td>File sighting</td>
+</tr>
+<tr>
+<td>Lesson learned</td>
+<td><code>docs/LEARNINGS.md</code></td>
+<td>Append (&lt;=5 lines)</td>
+</tr>
+<tr>
+<td>Architecture changed</td>
+<td><code>docs/architecture.md</code></td>
+<td>Update</td>
+</tr>
+</tbody>
+</table>
+<h2 id="directory-layout">Directory Layout</h2>
+<pre><code>specs/
+  NNN-feature-name/
+    spec.md          # Required: what to build
+    tasks.md         # Required: how to build it
+    research.md      # Optional: unresolved questions
+    data-model.md    # Optional: complex schema changes
+    contracts/       # Optional: shared API surfaces
+    checklists/      # Optional: domain-specific quality gates
+
+.specify/
+  feature.json       # Active feature pointer (auto-managed)</code></pre>
+<h2 id="legacy-specs">Legacy Specs</h2>
+<p>Specs 001–012 were created under the previous 7-file workflow. They
+remain valid — the extra files (<code>plan.md</code>,
+<code>research.md</code>, <code>data-model.md</code>,
+<code>contracts/</code>, <code>checklists/</code>) just aren't required
+for new specs going forward.</p>
+</div><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+document.querySelectorAll("pre.mermaid").forEach(function (pre) {
+  var div = document.createElement("div");
+  div.className = "mermaid";
+  div.textContent = pre.textContent;
+  pre.replaceWith(div);
+});
+mermaid.initialize({startOnLoad: false, securityLevel: "loose"});
+mermaid.run({querySelector: "div.mermaid"});
+</script>
+</body>
+</html>

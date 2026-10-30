@@ -6,9 +6,12 @@ finished context, so the loader is tested against exactly what the worker writes
 """
 from __future__ import annotations
 
+import io
+
 from types import SimpleNamespace
 
 import pytest
+from PIL import Image
 
 from sim_bench.control.album_builder import (
     DEMOTED_DETAIL, AlbumBuilder, BuildInputs, EditError, record_edit,
@@ -24,10 +27,16 @@ from sim_bench.serving.pipeline_runner import SpecBuilder
 from tests.control.fakes import NAMES, fake_pipeline as _runner
 
 
+def _jpeg() -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 48), (200, 120, 90)).save(buf, "JPEG")
+    return buf.getvalue()
+
+
 @pytest.fixture
 def env(tmp_path):
     store = JobStore(tmp_path / "jobs")
-    store.stage_inputs("trip", [(n, b"jpeg") for n in NAMES])
+    store.stage_inputs("trip", [(n, _jpeg()) for n in NAMES])   # real images: the loader cuts face crops
     JobCurator(store, spec_builder=SpecBuilder(), runner=_runner,
                clock=lambda: "2026-10-10T00:00:00+00:00").calc(
         CurateJobInputs(job_id="trip", pipeline="minimal"))

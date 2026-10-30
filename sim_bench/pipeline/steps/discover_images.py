@@ -38,6 +38,14 @@ class DiscoverImagesStep(BaseStep):
         )
 
     def process(self, context: PipelineContext, config: dict) -> None:
+        if context.source_directory is None and context.image_paths:
+            # The caller handed over the exact images (spec-112 A2: a job's inputs live at stable
+            # paths in a shared store, not in one folder). Use them as given; never scan.
+            images = sorted(Path(p) for p in context.image_paths)
+            context.image_paths = images
+            context.active_images = {str(p) for p in images}
+            context.report_progress("discover_images", 1.0, f"Using {len(images)} given images")
+            return
         extensions = config.get("extensions", [".jpg", ".jpeg", ".png", ".heic", ".raw"])
 
         images = []
@@ -56,6 +64,8 @@ class DiscoverImagesStep(BaseStep):
 
     def validate(self, context: PipelineContext) -> list[str]:
         errors = []
+        if context.source_directory is None and context.image_paths:
+            return errors
         if context.source_directory is None:
             errors.append("source_directory is not set")
         elif not context.source_directory.exists():

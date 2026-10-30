@@ -6,6 +6,7 @@ Six photos: a, c picks (c shot before a); b near-dup of a; d not selected; q rem
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -20,12 +21,14 @@ def _face(fid, path, person):
                            aligned_face=np.full((112, 112, 3), 128, np.uint8), _person=person)
 
 
-def _context(work):
-    img = {n: str(work / n) for n in NAMES}
+def _context(images):
+    """``images``: the paths the curator hands the pipeline (spec-112 A2: shared input store)."""
+    given = {Path(p).name: str(p) for p in images}
+    img = {n: given.get(n, f"/not-staged/{n}") for n in NAMES}
     t = lambda h: SimpleNamespace(timestamp=datetime(2026, 8, 22, h, 0), lat=48.0, lon=17.0)
     faces = [_face(0, img["a.jpg"], 3), _face(1, img["c.jpg"], 3), _face(2, img["d.jpg"], 5)]
     return SimpleNamespace(
-        source_directory=work,
+        source_directory=None,
         # c is shot before a, so chronological order != id order
         geo_metadata={img["a.jpg"]: t(12), img["b.jpg"]: t(13), img["c.jpg"]: t(9),
                       img["d.jpg"]: t(15)},
@@ -46,8 +49,8 @@ def _context(work):
     )
 
 
-def fake_pipeline(work, plan):
-    return _context(work), SimpleNamespace(success=True, total_duration_ms=1.0, failed_step=None,
+def fake_pipeline(images, plan):
+    return _context(images), SimpleNamespace(success=True, total_duration_ms=1.0, failed_step=None,
                                            error_message=None, step_results=[])
 
 

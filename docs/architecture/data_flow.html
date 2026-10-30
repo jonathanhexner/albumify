@@ -359,6 +359,28 @@ scratch copy's paths would miss the key anyway (SIGHTING-112). Cross-run feature
   photo button -> dialog: A's and B's decision for that photo
   (GET /jobs and GET /jobs/{id} first fail live jobs whose worker process is gone: JobRepo.reap_orphans)</pre>
 
+<h2>spec-115 &mdash; album workbench: run on this PC or the L4, results only come back</h2>
+
+<pre style="font-family: Consolas, monospace; font-size: 12px; background: #fafafa; border: 1px solid #ddd; padding: 10px;">  Jobs page (run form | re-run | cancel | delete photos)  --POST /jobs, GET /jobs/estimate, POST /jobs/{id}/cancel-->  API
+        |
+  JobService.create  -- L4: estimate + spend cap (configs/serving.yaml max_photos_l4 / max_gpu_minutes)
+  JobService.run
+        |  stage: each photo resized ONCE -> &lt;jobs_root&gt;/_inputs/&lt;sha16&gt;/&lt;name&gt;.jpg (InputStore); job input/manifest.json
+        |  (re-run: copy the earlier job's manifest)
+        |  one Modal job at a time (cache has one writer); a waiting job can be cancelled
+        v
+  Runner.run(job_id)
+     LocalRunner: child process -> JobCurator over the manifest paths, feature cache ~/.sim_bench/sim_bench.db
+     ModalRunner: upload photos albumify-inputs lacks (+ .used.json claim) -> spawn curate_job(job_id, pipeline, keys, commit)
+                  worker: cache albumify-cache -> /tmp -> run -> copy back + commit; mark photos used
+                  download results only: album.json, run.json, results/* (atomic)          [was: 993 files]
+        |
+  ResultsLoader.calc -> LocalRenders (display/ for picks, faces/&lt;id&gt;.jpg from the PC's own copies + bundle boxes)
+                     -> control DB rows -> job SUCCEEDED; run.json carries RunSettings (pipeline, steps, commit, runner, device, packages)
+        |
+  Jobs page: live status (fragment, 2 s) -> album | re-run finished -> Compare runs on the pair ("Settings that differ")
+  Modal daily: purge_inputs deletes photos no job used in 7 days (+ legacy albumify-jobs/*/input copies)</pre>
+
 <h2>Related documents</h2>
 <ul>
   <li><a href="db_schemas.html">db_schemas.html</a></li>

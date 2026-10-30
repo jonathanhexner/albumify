@@ -61,3 +61,25 @@ nav#TOC ul{margin:0;padding-left:18px;}
 nav#TOC li{font-size:14px;margin:3px 0;}
 img{max-width:100%;}
 strong{color:var(--ink);}
+/* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+   EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+:root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+  --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+  --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+  --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+:root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+  --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+  padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+.tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+.tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+.tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+.tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+.legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+td:first-child{white-space:nowrap}
+/* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+/* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+.md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}

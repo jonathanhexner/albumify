@@ -4,6 +4,29 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-141: Worker face crops have red and blue swapped (and the detector may be fed RGB)
+**Status**: crop swap FIXED 2026-10-23 (owner: fix it); detector colour order still a suspicion, OPEN until measured.
+**Severity**: Medium (every face crop in the Albumify People tab and, likely, the face-clustering app export shows wrong colours; embeddings are NOT affected)
+**Persona**: Pipeline / Face
+
+**Problem**: `face_cluster_export._crop_from_aligned` flips channels (`aligned[:, :, ::-1]`) because it assumes
+`align_faces` output is BGR. But `align_faces` warps the image from `image_cache.get()`, which is RGB (PIL), so the
+aligned faces are RGB and the flip produces BGR-in-an-RGB-JPEG. `curate_job._encode_crop` uses it for every job's
+`faces/<id>.jpg`; the FC-app export (spec-091) uses it too.
+**Evidence**: 5 of 5 pairs from slovakia26: mean R-B of the worker crop has the opposite sign to the same face cut
+from the photo (e.g. face 18: worker -28, photo +31; skin is warm, so the photo crop is right).
+`reports/2026-10-23_spec115_crop_orientation/` (crops local only).
+**Not affected**: `insightface_native` treats aligned faces as RGB and converts to BGR before ArcFace (correct).
+**Suspicion, unverified**: `face_analyzer.detect_faces` passes the RGB `image_cache` array to InsightFace
+`FaceAnalysis.get`, which expects BGR. SCRFD is fairly colour-robust, but landmark/pose models may be affected.
+Needs a measured A/B (RGB vs BGR input) on a real album before any change.
+**Fix**: the flip in `_crop_from_aligned` is gone; the old unit test (which asserted the swap) is replaced by a test of
+the real chain (image_cache -> align_faces -> crop) that fails on the old code. Budapest suite 11/11; a fresh run's
+crops have natural colour. Crops already exported by older runs keep the swapped colours until re-exported.
+Albumify jobs no longer use worker crops at all (spec-115 W2).
+
+---
+
 ### SIGHTING-140: Nightly full-test lane red since the photo purge (41 tests read photos that left the repo)
 **Status**: FIXED 2026-10-23 (photos in a private test-data repo the full lane checks out)
 **Severity**: Medium (the nightly lane was red 6 nights running, hiding any new failure; no product bug)

@@ -73,6 +73,21 @@ class ut_JobsRouter:
         faces = client.get("/jobs/trip/faces", params={"person_id": 3}).json()
         assert [f["face_id"] for f in faces] == [0, 1]
 
+    def test_other_jobs_photo_is_404(self, client, tmp_path):
+        """spec-115 R7: photos live in a shared store, but a job only serves the ones its manifest lists."""
+        _submit(client)
+        other = tmp_path / "other"
+        other.mkdir()
+        Image.new("RGB", (900, 600), "red").save(other / "x.jpg")
+        assert client.post("/jobs", json={"source": str(other), "job_id": "other"}).status_code == 202
+        foreign = "inputs/" + client.svc.store.input_keys("other")[0]
+        from sim_bench.control.models import Photo
+        with client.svc.db.session() as s:
+            row = s.get(Photo, ("trip", "b"))
+            row.input_key, row.display_key = foreign, None
+        assert client.get("/jobs/trip/photos/b/image").status_code == 404
+        assert client.get("/jobs/other/photos/x/image").status_code == 200
+
     def test_edit_round_trip(self, client):
         """AC5 over the API."""
         _submit(client)
@@ -136,3 +151,40 @@ class ut_CompareRouter:
         jobs = {j["id"]: j for j in client.get("/jobs").json()}
         assert jobs["tagged"]["tag"] == "regression:quick"
         assert jobs["orphan"]["status"] == "failed" and "interrupted" in jobs["orphan"]["error"]
+
+
+class ut_WorkbenchRoutes:
+    """spec-115 W4: estimate, cancel, re-run, settings, delete photos from Modal."""
+
+    def test_estimate_for_l4_and_local(self, client):
+        l4 = client.get("/jobs/estimate", params={"source": str(client.src), "runner": "modal_gpu"}).json()
+        assert l4["n_photos"] == 6 and l4["allowed"] and l4["gpu_minutes"] > 0 and l4["dollars"] is not None
+        local = client.get("/jobs/estimate", params={"source": str(client.src), "runner": "local"}).json()
+        assert local["gpu_minutes"] is None
+        assert client.get("/jobs/estimate", params={"source": "Z:/nope"}).status_code == 422
+
+    def test_finished_job_cannot_be_cancelled(self, client):
+        _submit(client)
+        r = client.post("/jobs/trip/cancel")
+        assert r.status_code == 409 and "already succeeded" in r.text
+        assert client.post("/jobs/nope/cancel").status_code == 404
+
+    def test_rerun_uses_the_same_photos_and_records_settings(self, client):
+        _submit(client)
+        r = client.post("/jobs", json={"rerun_of": "trip", "job_id": "trip-again", "runner": "local"})
+        assert r.status_code == 202, r.text
+        svc = client.svc
+        assert svc.store.input_keys("trip-again") == svc.store.input_keys("trip")
+        job = client.get("/jobs/trip-again").json()
+        assert job["status"] == "succeeded" and job["source"] == str(client.src)
+        assert any(e["message"] == "re-run of trip" for e in job["events"])
+        assert job["settings"]["pipeline"] == "minimal" and job["settings"]["steps"]
+
+    def test_negative_start_is_refused(self, client):
+        """review L2."""
+        assert client.post("/jobs", json={"source": str(client.src), "start": -3}).status_code == 422
+        assert client.get("/jobs/estimate", params={"source": str(client.src), "start": -1}).status_code == 422
+
+    def test_submit_needs_a_source_or_a_job(self, client):
+        assert client.post("/jobs", json={}).status_code == 422
+        assert client.post("/jobs", json={"rerun_of": "ghost"}).status_code == 422
