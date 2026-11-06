@@ -4,6 +4,24 @@
 
 **Status:** In Progress 2026-11-06 (owner approved; W1-W6 being built in worktree `D:\sim-bench-117`)
 
+## 2026-11-06 — W7 migration script written and tested (NOT run on the real data)
+
+`scripts/migrate_to_neon.py` `NeonMigrator`: `plan` (row counts per table in `sim_bench.db` and `control.db`),
+`copy` (refuses a target holding any Albumify rows; creates the tables; copies in FK order, in batches, through the
+ORM column types; control.db's old `people` lands in `job_people`; moves Postgres id sequences past the copied ids),
+`verify` (per-table counts, raises on a difference). The sources are only read. `--skip universal_cache` leaves the
+cache out (it is regenerable and may be large against the Neon free size).
+
+| Claim | Evidence |
+|---|---|
+| R4 copy + verify, counts match, refuses a non-empty target, sources unchanged (hash), JSON/blob/datetime round-trip, new ids after the copy | `tests/scripts/test_migrate_to_neon.py`: 6 passed on SQLite, and 6 passed with the target on a throwaway Neon schema (183 s, schema dropped) |
+| Real migration | **not run** (owner instruction: W7 real run and W8 wait); per-table counts go here when it is |
+
+**Risks for the real run**: the API's `sim_bench.db` never had foreign keys switched on, so orphan rows (e.g. people of
+a deleted run) would be refused by Postgres; run `--plan` first and fix or skip what fails. Feature-cache rows keyed
+by full staged paths still hit on this PC (legacy lookup) but not on the L4 until a local run rewrites them as
+content keys.
+
 ## 2026-11-06 — W6 One feature cache landed
 
 `UniversalCacheHandler.load_many` / `store_many`: one IN query per (feature, model), i.e. one per step, and one

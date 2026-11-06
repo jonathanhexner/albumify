@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [FEATURE] spec-117 W7 — migration script (written + tested, not run on real data)
+**Files**: new `scripts/migrate_to_neon.py`, `tests/scripts/test_migrate_to_neon.py`; spec-117 updates.
+**Change**: `NeonMigrator` plan / copy / verify: SQLite files -> the one database, FK order, batches, `people` -> `job_people`, Postgres sequences moved; refuses a non-empty target; sources only read.
+**Verification**: 6 passed SQLite->SQLite, 6 passed SQLite->Neon test schema. Real run waits for the owner.
+**Reason**: spec-117 R4.
+
 ### 2026-11-06 [FEATURE] spec-117 W6 — one feature cache (batched, content-keyed, on DATABASE_URL)
 **Files**: `sim_bench/pipeline/{cache_handler,base}.py`, `sim_bench/serving/curate_job.py`; new `tests/pipeline/test_cache_handler_batch.py`, `tests/architecture/test_no_secrets_leak.py`; `docs/architecture/{data_flow,classes,db_schemas}.html`; spec-117 spec/tasks/updates (+ html).
 **Change**: cache reads/writes are one query / one commit per step (`load_many`, `store_many`); staged photos are cached by content key (`staged:<sha16>/<name>`), shared by this PC and the L4; the worker's cache uses `DATABASE_URL`. R13 secret checks. Architecture docs for spec-117.
