@@ -29,6 +29,14 @@ def _empty_postgres(url: str) -> None:
     if engine is None:
         engine = _engines[url] = DatabaseConfig(url).make_engine()
     with engine.begin() as conn:
+        # An earlier test's session left "idle in transaction" (closed only at garbage collection) holds a lock
+        # that makes TRUNCATE wait for minutes. End those -- only connections of this parity run, recognised by
+        # the application_name the parity fixture puts in the URL, never anyone else's.
+        conn.execute(text(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() "
+            "AND pid <> pg_backend_pid() AND state LIKE 'idle in transaction%' "
+            "AND application_name LIKE 'albumify-test-%' "
+            "AND application_name = current_setting('application_name')"))
         names = inspect(conn).get_table_names()
         if names:
             conn.execute(text("TRUNCATE " + ", ".join(f'"{n}"' for n in names) + " RESTART IDENTITY CASCADE"))

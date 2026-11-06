@@ -44,7 +44,10 @@ class RunPersister:
             ))
             people = PeopleService(self._session).add_from_payload(album_id, run_id, output.people)
             self._logger.info("run %s: %d people", run_id, len(people))
-            # People exist now, so faces can be linked to their person_id (spec-086).
+            # People exist now, so faces can be linked to their person_id (spec-086). Flushed first: face rows carry
+            # a foreign key to people with no ORM relationship, so the unit of work does not order them, and
+            # Postgres enforces it where SQLite never did (spec-117 R3, found by the Neon parity run).
+            self._session.flush()
             self._write_metric_tables(run_id, output.image_metrics, people)
             self._session.flush()
             return people

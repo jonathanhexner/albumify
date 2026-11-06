@@ -46,7 +46,9 @@ def neon_schema():
     try:
         with admin.begin() as conn:
             conn.execute(text(f'CREATE SCHEMA "{schema}"'))
-        scoped = make_url(direct).update_query_dict({"options": f"-csearch_path={schema}"}) \
+        # application_name marks this run's connections: tests/_db.py may end only those
+        scoped = make_url(direct).update_query_dict({"options": f"-csearch_path={schema}",
+                                                     "application_name": f"albumify-test-{schema}"}) \
             .render_as_string(hide_password=False)
         scrub = [s for s in (url, direct, scoped, make_url(url).password) if s]
         yield scoped, schema, scrub

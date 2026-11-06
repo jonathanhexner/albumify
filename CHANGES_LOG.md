@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [BUGFIX] spec-117 — RunPersister writes people before their face rows (Postgres FK)
+**Files**: `sim_bench/api/services/run_persister.py`, new `tests/api/test_run_persister_fk.py`; `tests/_db.py`, `tests/storage/test_neon_parity.py`.
+**Change**: flush the `people` rows before `face_metric_rows` (FK `person_id -> people.id`, no ORM relationship, so the unit of work did not order them; SQLite never enforced it, Postgres refused every run with faces). Parity helper: TRUNCATE no longer waits minutes on an earlier test's idle-in-transaction session; it ends only connections tagged with the parity run's `application_name`.
+**Verification**: new SQLite test with foreign keys ON fails without the flush, passes with it; 8 Neon failures in `test_pipeline_service_runners.py` traced to this.
+**Reason**: spec-117 R3 (found by the Neon parity run).
+
 ### 2026-11-06 [BUGFIX] spec-117 — read_album finds an L4 run's album in the object store
 **Files**: `sim_bench/serving/job_store.py`, `tests/serving/test_worker_persister.py`.
 **Change**: `JobStore.read_album` falls back to the object store when the job folder has no `album.json` (an L4 run copies nothing back), so `scripts/albumify_regression.py` keeps working for L4 runs.
