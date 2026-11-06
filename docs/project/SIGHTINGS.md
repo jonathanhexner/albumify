@@ -4,6 +4,19 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-146: Photos in no scene (-1) compete as one scene; losers are called near-duplicates
+**Status**: IN PROGRESS 2026-11-06 (found reviewing the 10-23 Slovakia26 L4 run, job `Slovakia26-20261023-115640`)
+**Severity**: High for Gate 1 (good, unique photos are dropped from every album)
+**Persona**: Pipeline / Selection
+
+**Problem**: `cluster_scenes` labels photos that fit no scene `-1` (noise). `select_best` treats `-1` as one scene, so 109
+unrelated photos over 11 days competed for a few slots: 24 picked, 85 dropped. `album.normalizer.classify` then marks the 85
+`near_dup` "beaten by" the same 24 photos. Eyeballed 12 of the 85: none is a duplicate of anything.
+**Root cause**: `-1` means "no scene", but both consumers read it as a scene id like any other.
+**Fix**: each `-1` photo is its own moment: kept iff composite >= `min_score_threshold` (no keep-the-best fallback, which
+would keep every one); `classify` never reports `near_dup` for `-1`.
+**Reproduce**: `reports/2026-11-06_slovakia26_l4_review/contact_sheet.html` section 2.
+
 ### SIGHTING-145: An L4 run dies if the PC drops off the network
 **Status**: OPEN 2026-10-31 (found during spec-116 T4.2, twice)
 **Severity**: High for the L4 path (a drop during a paid run would stop it and lose its results)

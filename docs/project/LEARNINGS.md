@@ -6,6 +6,12 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-11-06: editing .py files kills a running local album run
+**What happened**: the API runs `uvicorn --reload`; a code edit restarted it and the Ctrl+C reached the LocalRunner child, failing a 715-photo Slovakia26 run 6 minutes in.
+**Prevention**: while a local run is in progress, edit no `.py` under the repo (tests included), or run the API without `--reload` for long runs.
+**Also**: SIGHTING-146 -- a sentinel label (-1 = "no cluster") read as an ordinary id by consumers; `clustering_labels.is_noise` exists, so every consumer of a cluster id must branch on it.
+
+
 ### 2026-10-23: spec-115 — what only the real app and real runs caught
 **What happened**: unit tests were green, yet driving the real app found: two widgets sharing the key
 `jobs_run_start` (the form's number box and the Start button) blanked the page; setting a selectbox's state after

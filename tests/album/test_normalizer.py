@@ -29,6 +29,11 @@ class ut_Classify:
         out = classify({"a"}, ["a"], {}, {"a": {"reason": "x"}}, {"a": 0.9})
         assert out["a"][0] == PICK                                     # selected takes priority
 
+    def test_noise_photo_is_never_a_near_dup(self):
+        # SIGHTING-146: -1 is "in no scene"; a pick in -1 must not make other -1 photos its duplicates
+        out = classify({"a", "b"}, ["a"], {"a": -1, "b": -1}, {}, {"a": 0.6, "b": 0.5})
+        assert out["b"][0] == NOT_SELECTED and out["b"][2] == []
+
     def test_multiple_winners_in_a_cluster(self):
         out = classify({"a", "b", "c"}, ["a", "b"], {"a": 0, "b": 0, "c": 0}, {}, {})
         assert out["c"][0] == NEAR_DUP

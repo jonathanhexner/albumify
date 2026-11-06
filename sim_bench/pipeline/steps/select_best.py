@@ -263,7 +263,11 @@ class SelectBestStep(BaseStep):
         if use_face_subclusters and context.face_clusters:
             # Process subclusters within each scene
             for scene_id, subclusters in context.face_clusters.items():
-                if is_noise(scene_id) and not include_noise:
+                if is_noise(scene_id):
+                    if include_noise:
+                        noise_images = list(dict.fromkeys(
+                            img for sub in subclusters.values() for img in sub.get("images", [])))
+                        selected.extend(self._select_unclustered(context, noise_images, siamese_model))
                     continue
 
                 for subcluster_id, subcluster in subclusters.items():
@@ -289,7 +293,9 @@ class SelectBestStep(BaseStep):
         else:
             # Fall back to scene clusters
             for cluster_id, image_paths in context.scene_clusters.items():
-                if is_noise(cluster_id) and not include_noise:
+                if is_noise(cluster_id):
+                    if include_noise:
+                        selected.extend(self._select_unclustered(context, image_paths, siamese_model))
                     continue
 
                 total_clusters += 1
@@ -384,6 +390,39 @@ class SelectBestStep(BaseStep):
                          "cluster_size": len(scored_images)},
             ))
 
+        return selected
+
+    def _select_unclustered(
+        self,
+        context: PipelineContext,
+        image_paths: list[str],
+        siamese_model,
+    ) -> list[str]:
+        """Photos in no scene (NOISE_LABEL): each is its own moment, kept iff it clears the threshold.
+
+        SIGHTING-146: pooling them as one scene made unrelated photos compete for a few slots.
+        No keep-the-best fallback: for a group of one it would keep every photo.
+        """
+        if not image_paths:
+            return []
+        min_threshold = self._config.get("min_score_threshold", 0.4)
+        cfg = {"min_score_threshold": min_threshold, "unclustered": True}
+        selected = []
+        for image_path in image_paths:
+            # scored alone: quality strategies rank within the group they are given
+            [(path, score)] = self._compute_composite_scores(context, [image_path], siamese_model)
+            context.composite_scores[path] = score
+            kept = score >= min_threshold
+            if kept:
+                selected.append(path)
+            context.step_decisions.append(StepDecision(
+                item_id=path, item_type="image", step="select_best",
+                decision="selected" if kept else "rejected",
+                reason=(f"In no scene; score {score:.2f} >= threshold {min_threshold}" if kept
+                        else f"In no scene; score {score:.2f} < threshold {min_threshold}"),
+                config_used=cfg,
+                metrics={"composite_score": round(score, 3), "rank": 1, "cluster_size": 1},
+            ))
         return selected
 
     def _compute_composite_scores(

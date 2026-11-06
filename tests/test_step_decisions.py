@@ -161,6 +161,49 @@ class ut_SelectBestDecisions:
             assert "rank" in d.reason.lower() or "outranked" in d.reason.lower() or "score" in d.reason.lower(), \
                 f"Rejected reason should explain ranking: {d.reason}"
 
+    def _make_context_with_noise(self):
+        """Four photos in no scene (-1): three good, one poor. Unrelated, so they must not compete."""
+        import numpy as np
+        from sim_bench.pipeline.clustering_labels import NOISE_LABEL
+        ctx = PipelineContext()
+        imgs = ["n1.jpg", "n2.jpg", "n3.jpg", "n4.jpg"]
+        ctx.scene_clusters = {NOISE_LABEL: imgs}
+        ctx.iqa_scores = {"n1.jpg": 0.8, "n2.jpg": 0.7, "n3.jpg": 0.75, "n4.jpg": 0.1}
+        ctx.ava_scores = {"n1.jpg": 0.9, "n2.jpg": 0.8, "n3.jpg": 0.85, "n4.jpg": 0.1}
+        ctx.sharpness_scores = dict(ctx.iqa_scores)
+        ctx.scene_embeddings = {i: np.random.randn(512).astype(np.float32) for i in imgs}
+        ctx.persons, ctx.insightface_faces, ctx.face_clusters = {}, {}, {}
+        return ctx
+
+    def test_noise_photos_are_judged_alone_not_pooled(self):
+        """SIGHTING-146: every -1 photo above the threshold is kept, not just the pool's best N."""
+        from sim_bench.pipeline.steps.select_best import SelectBestStep
+        ctx = self._make_context_with_noise()
+        SelectBestStep().process(ctx, {
+            "max_images_per_cluster": 2,
+            "min_score_threshold": 0.4,
+            "quality_strategy": "weighted_average",
+            "siamese": {"enabled": False},
+        })
+        assert sorted(ctx.selected_images) == ["n1.jpg", "n2.jpg", "n3.jpg"]
+        poor = [d for d in ctx.step_decisions if d.step == "select_best" and d.item_id == "n4.jpg"]
+        assert poor[0].decision == "rejected" and "no scene" in poor[0].reason
+
+    def test_noise_photos_judged_alone_with_face_subclusters(self):
+        """Same rule on the face sub-cluster path: -1 sub-clusters span unrelated photos too."""
+        from sim_bench.pipeline.steps.select_best import SelectBestStep
+        from sim_bench.pipeline.clustering_labels import NOISE_LABEL
+        ctx = self._make_context_with_noise()
+        ctx.face_clusters = {NOISE_LABEL: {0: {"images": ["n1.jpg", "n2.jpg"]},
+                                           1: {"images": ["n3.jpg", "n4.jpg"]}}}
+        SelectBestStep().process(ctx, {
+            "max_images_per_cluster": 1,
+            "min_score_threshold": 0.4,
+            "quality_strategy": "weighted_average",
+            "siamese": {"enabled": False},
+        })
+        assert sorted(ctx.selected_images) == ["n1.jpg", "n2.jpg", "n3.jpg"]
+
     def test_no_hardcoded_thresholds_in_reasons(self):
         """Decision reasons must never contain hardcoded values — only actual config values."""
         from sim_bench.pipeline.steps.select_best import SelectBestStep
