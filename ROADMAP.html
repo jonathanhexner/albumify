@@ -365,6 +365,18 @@ technical write-up</td>
 </table>
 <h2 id="current-position">Current position</h2>
 <ul>
+<li><strong>2026-11-06 — <a
+href="specs/117-neon-r2-one-database/spec.html">spec-117</a> one cloud
+database drafted.</strong> Reviewing the 10-23 Slovakia26 L4 run found
+it unusable: face clustering ran without its settings (80 people for
+about 4), and photos in no scene were dropped as near-duplicates
+(SIGHTING-146, fixed, not committed). The owner chose option A: every
+Albumify table on Neon, files on R2, and the L4 worker writes status,
+progress and results itself, so a dropped PC no longer kills a run
+(SIGHTING-145). Accounts set up and checked. Sharpness gate: 59 of 60
+removals wrong on owner labels (<a
+href="reports/2026-11-06_sharpness_labels/report.html">report</a>); bad
+picks are mostly people not looking or strangers in frame.</li>
 <li><strong>2026-10-31 — spec-116 W1-W3 built, not Implemented.</strong>
 One run path works on this PC and passes every suite. Open: 768 px fails
 its Budapest check (sharpness gate, people; SIGHTING-144), and two L4
@@ -557,6 +569,15 @@ needs one re-run after the SIGHTING-126 fix; AC5 unproven; SIGHTING-128
 open</td>
 <td><a
 href="specs/110-containerized-worker-modal-cpu/updates.html">updates</a></td>
+</tr>
+<tr>
+<td><a href="specs/117-neon-r2-one-database/spec.html">117</a></td>
+<td>One cloud database: every Albumify table on Neon, files on R2, the
+L4 worker writes the database; runs survive a dropped PC</td>
+<td>C (next, before Gate 1)</td>
+<td>Draft 2026-11-06 — awaiting owner approval</td>
+<td><a href="specs/117-neon-r2-one-database/updates.html">updates</a> ·
+<a href="specs/117-neon-r2-one-database/tasks.html">tasks</a></td>
 </tr>
 <tr>
 <td><a href="specs/116-one-run-path/spec.html">116</a></td>

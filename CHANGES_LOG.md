@@ -2,6 +2,17 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [DOCS] spec-117 drafted (one cloud database: Neon + R2) + sharpness label experiment
+**Files**: new `specs/117-neon-r2-one-database/{spec,tasks,updates}.md` (+ html); `ROADMAP.md`; `specs/112-live-db-storage-runner/spec.md` (Phase B pointer); new `reports/2026-11-06_sharpness_labels/{summary.md,report.html,sharpness_labels.json}`; `reports/EXPERIMENTS.md`; `docs/project/LEARNINGS.md`.
+**Change**: spec-117 moves every Albumify table and the feature cache to Neon and render/crop/embedding files to R2; the L4 worker writes status, progress and results; detached runs, watchdog, GPU fallback. Supersedes spec-112 Phase B and its AC7.
+**Reason**: owner decision 2026-11-06 (option A) after SIGHTING-145 killed two L4 runs.
+
+### 2026-11-06 [BUGFIX] SIGHTING-146 -- photos in no scene (-1) no longer compete as one scene
+**Files**: `sim_bench/pipeline/steps/select_best.py`, `sim_bench/album/normalizer.py`, `tests/test_step_decisions.py`, `tests/album/test_normalizer.py`, `docs/project/SIGHTINGS.md`.
+**Change**: `select_best` judges each noise photo alone (scored alone, kept iff composite >= `min_score_threshold`, no keep-the-best fallback), on both the scene and face sub-cluster paths. `classify` never marks a noise photo `near_dup`.
+**Verification**: 3 new tests fail without the fix, pass with it; tests/album, tests/control, tests/serving, test_step_decisions: 207 passed. Real-data check: Slovakia26 re-run (pending).
+**Reason**: 10-23 Slovakia26 L4 run dropped 85 unique photos as "near-duplicates" of 24 unrelated noise picks.
+
 ### 2026-10-31 [FEATURE] spec-116 W1-W3 — one run path (In Progress: L4 evidence and R13 open)
 **Files**: new `sim_bench/pipeline/run_spec.py`, `sim_bench/serving/{run_output,path_map}.py`, `sim_bench/api/services/{run_persister,run_embeddings}.py`, `scripts/spec116_r13_{fullsize_vs_768,sharpness_diagnostic}.py`, `tests/e2e_fake_modal_api.py`, `tests/test_{configure_run_on,albums_table}_e2e.py`, `tests/api/test_{pipeline_router,pipeline_service_runners,results_face_distance}.py`, `tests/serving/test_{run_output,path_map}.py`, `tests/pipeline/test_run_spec.py`; `sim_bench/api/services/{pipeline_service,people_service,face_service}.py`, `sim_bench/api/routers/{pipeline,results}.py`, `sim_bench/api/schemas/pipeline.py`, `sim_bench/api/database/session.py`, `sim_bench/serving/{curate_job,job_service,job_store,runners,modal_app,pipeline_runner}.py`, `app/streamlit/{api_client,models}.py`, `app/streamlit/components/pipeline_runner.py`, `app/streamlit/pages/{albums,configure,jobs}.py`; updated tests; `docs/architecture/{classes,data_flow}.html`; spec-116 docs; ROADMAP; SIGHTINGS (143-145); `reports/EXPERIMENTS.md`.
 **Change**: Configure & Run chooses this PC or the L4 (estimate, confirm, spend cap, stages, Cancel). Every album run is a job with the same id, runs on the 768 px copies in a child process or on Modal, returns `results/run_output.json`, and is written by one `RunPersister` with original paths. Albums is a table of runs; ticking two opens Compare runs. The Jobs page no longer starts runs. Face tabs read the run's own embeddings.
