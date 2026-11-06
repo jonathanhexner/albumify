@@ -377,8 +377,12 @@ When Producer (Albumify) ≠ Producer (FC App), you're looking at the duplicatio
 
 <h2 id="control-jobs" style="border-color:#0f766e;">Control DB: jobs<span class="src">spec-112 · ORM: sim_bench/control/models.py::Job · DB: <code>$DATABASE_URL</code> or <code>~/.sim_bench/control.db</code> · writer: <code>JobRepo</code> only</span></h2>
 <p>The Albumify job list (spec-112). Other control tables, one row set per job: <code>job_events</code>, <code>photos</code>,
-<code>faces</code>, <code>people</code>, <code>scenes</code>, <code>user_edits</code> (see the ORM module). Columns added after
-the first release are added to existing DBs by <code>ControlDB._add_missing_columns</code> (nullable only).</p>
+<code>faces</code>, <code>job_people</code> (named <code>people</code> before spec-117; renamed in place on open, because the
+API's own <code>people</code> table now shares the database), <code>scenes</code>, <code>user_edits</code> (see the ORM module).
+Columns added after the first release are added to existing DBs by <code>ControlDB._add_missing_columns</code> (nullable
+only). <strong>spec-117:</strong> with <code>DATABASE_URL</code> set, these tables, the API tables and
+<code>universal_cache</code> live in one Neon Postgres database; <code>universal_cache.image_path</code> holds
+<code>staged:&lt;sha16&gt;/&lt;name&gt;.jpg</code> (content key, <code>image_mtime</code> 0) for photos from the shared input store.</p>
 <table>
   <thead><tr><th>Column</th><th>Type</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
   <tbody>
@@ -388,6 +392,10 @@ the first release are added to existing DBs by <code>ControlDB._add_missing_colu
     <tr><td><code>source</code></td><td>TEXT nullable</td><td>Input folder.</td><td>Request / regression <code>datasets.yaml</code>.</td></tr>
     <tr><td><code>tag</code> <span class="pill">spec-114</span></td><td>VARCHAR(64) nullable</td><td><code>regression:&lt;album&gt;</code> for a regression check run, <code>regression:&lt;album&gt;:baseline</code> for the baseline; NULL = an owner's album. Jobs page hides tagged runs by default; Compare page groups by it.</td><td><code>scripts/albumify_regression.py</code> via <code>SubmitInputs.tag</code>; <code>mark_baseline</code> moves the baseline tag.</td></tr>
     <tr><td><code>worker</code> <span class="pill">spec-114</span></td><td>VARCHAR(128) nullable</td><td><code>host:pid:start-time</code> of the process running the job. A live job whose worker is gone is failed as interrupted (SIGHTING-137).</td><td><code>JobService.run</code> / <code>load_existing</code> (<code>this_worker()</code>); read by <code>JobRepo.reap_orphans</code>.</td></tr>
+    <tr><td><code>progress</code> <span class="pill">spec-117</span></td><td>JSON nullable</td><td>Live state: <code>stage</code>, <code>current_step</code>, <code>step_fraction</code>, <code>photos_done</code>, <code>photos_total</code>, <code>completed_steps</code>. The app's only view of a run in flight.</td><td>The worker (<code>DbProgressWriter</code>); <code>ModalRunner</code> for uploading / waiting for gpu.</td></tr>
+    <tr><td><code>heartbeat_at</code> <span class="pill">spec-117</span></td><td>DATETIME (UTC) nullable</td><td>Last sign of life from the worker (at least every 5 s).</td><td><code>DbProgressWriter</code>; read by <code>RunWatchdog</code>.</td></tr>
+    <tr><td><code>call_id</code> <span class="pill">spec-117</span></td><td>VARCHAR(128) nullable</td><td>Modal function call of a detached L4 run; cancel and status go by it.</td><td><code>ModalRunner</code>.</td></tr>
+    <tr><td><code>gpu</code> <span class="pill">spec-117</span></td><td>VARCHAR(32) nullable</td><td>The GPU the run got (L4, A10G).</td><td>The L4 worker (<code>modal_app._curate_job</code>).</td></tr>
     <tr><td><code>n_inputs, error, failed_step</code></td><td>INTEGER / TEXT / VARCHAR</td><td>Photo count; failure text and step.</td><td><code>JobService</code>.</td></tr>
     <tr><td><code>theme, album_created_at</code></td><td>JSON / VARCHAR</td><td>Album theme (spec-108), album timestamp.</td><td><code>ResultsLoader</code>.</td></tr>
     <tr><td><code>created_at, started_at, finished_at</code></td><td>DATETIME (UTC)</td><td>Lifecycle times.</td><td><code>JobRepo</code>.</td></tr>

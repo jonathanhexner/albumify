@@ -4,6 +4,31 @@
 
 **Status:** In Progress 2026-11-06 (owner approved; W1-W6 being built in worktree `D:\sim-bench-117`)
 
+## 2026-11-06 — W6 One feature cache landed
+
+`UniversalCacheHandler.load_many` / `store_many`: one IN query per (feature, model), i.e. one per step, and one
+commit per step's writes (`BaseStep` uses `store_many`; `load_from_cache` delegates to `load_many`). Photos from the
+shared input store are keyed `staged:<sha16>/<name>.jpg` (content, the same on this PC and the L4) and skip the
+mtime check; rows an older run stored under the full staged path are still found by the same query. `run_pipeline`
+opens the cache through `DATABASE_URL` (`feature_cache_config`; `ALBUMIFY_FEATURE_CACHE` still names an isolated
+SQLite file; unset -> `sim_bench.db`). The `albumify-cache` Volume and its copy in/out left `modal_app.py` in W5.
+Also landed: `tests/architecture/test_no_secrets_leak.py` (R13 unit part) and the architecture docs
+(`data_flow.html` spec-117 section, `classes.html` new classes, `db_schemas.html` new `jobs` columns + `job_people`).
+
+| Claim | Evidence |
+|---|---|
+| R12 one query per step (715 photos), one commit per step's writes | `tests/pipeline/test_cache_handler_batch.py::test_a_step_reads_with_one_query_not_one_per_photo`, `test_a_step_writes_in_one_commit` passed |
+| R12 the L4 reuses this PC's cache (other folder, other mtimes) | `test_the_l4_reuses_what_this_pc_cached` passed; older path-keyed rows still hit; mtime check kept outside the store |
+| R12 the worker's cache follows `DATABASE_URL` | `test_the_worker_cache_follows_database_url` passed |
+| R13 no secret in logs, argv, run records, the worker image or status responses | `tests/architecture/test_no_secrets_leak.py`: 6 passed |
+| R15 the full default suite on SQLite | `pytest tests` (worktree, pydeps): **1,772 passed, 71 skipped, 0 failed** (281 s). The skips are the private test photos, which are not in the worktree (`test_data/face_clustering`, `samples/ukbench`), plus 2 standing skips |
+| R3 the whole parity set on Neon | see the parity entry below |
+
+**Decisions / deviations**
+- `load_many` no longer touches `last_accessed` on reads (nothing reads it; on Neon it was one UPDATE per photo at the next commit).
+- IN lists are chunked at 5,000 paths (SQLite 3.45 here allows 32,766 parameters, Postgres 65,535), so a step over 715 photos plus their legacy keys is one query.
+- `tests/storage`, `tests/scripts` have no `__init__.py`, like `tests/control`.
+
 ## 2026-11-06 — W5 Detached L4 runs landed (code + fakes; deploy and real L4 are W8)
 
 `serving/detached_modal.py` `DetachedModalRemote` spawns `curate_job` on the DEPLOYED app by name and returns the

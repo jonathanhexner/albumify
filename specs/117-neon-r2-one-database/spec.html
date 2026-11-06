@@ -287,8 +287,8 @@ id="toc-decisions-risks-non-goals">Decisions, risks, non-goals</a></li>
 id="spec-117--one-cloud-database-everything-on-neon-files-on-r2-l4-runs-survive-a-dropped-pc">spec-117
 — One cloud database: everything on Neon, files on R2, L4 runs survive a
 dropped PC</h1>
-<p><strong>Status:</strong> Draft · <strong>Created:</strong> 2026-11-06
-· <strong>Roadmap:</strong> Stage C, next, before Gate 1 ·
+<p><strong>Status:</strong> In Progress · <strong>Created:</strong>
+2026-11-06 · <strong>Roadmap:</strong> Stage C, next, before Gate 1 ·
 <strong>Resolves:</strong> SIGHTING-145, SIGHTING-143 ·
 <strong>Supersedes:</strong> <a
 href="../112-live-db-storage-runner/spec.html">spec-112</a> Phase B</p>
@@ -313,28 +313,28 @@ dropped PC no longer stops or loses a run.</p>
 <tbody>
 <tr>
 <td>R1</td>
-<td>○</td>
+<td>◐</td>
 <td>One <code>DATABASE_URL</code>, loaded from <code>.env</code> at
 start, puts every Albumify table on Neon: the API's tables, the job
 tables and the feature cache. Unset, everything stays on local SQLite as
 today</td>
-<td>○ <code>tests/storage/test_database_config.py</code>; ○ real: API
+<td>● <code>tests/storage/test_database_config.py</code>; ○ real: API
 starts on Neon, all tables listed</td>
 </tr>
 <tr>
 <td>R2</td>
-<td>○</td>
+<td>◐</td>
 <td>The two <code>people</code> tables no longer clash: the job table
 becomes <code>job_people</code>, existing rows kept</td>
-<td>○ <code>tests/control/test_jobs.py::test_job_people_table</code>; ○
+<td>● <code>tests/control/test_jobs.py::test_job_people_table</code>; ○
 real: both tables on Neon</td>
 </tr>
 <tr>
 <td>R3</td>
-<td>○</td>
+<td>◐</td>
 <td>The API, control and serving suites pass on Postgres as well as
 SQLite</td>
-<td>○ <code>tests/storage/test_neon_parity.py</code> runs
+<td>● <code>tests/storage/test_neon_parity.py</code> runs
 <code>tests/api</code>, <code>tests/control</code>,
 <code>tests/serving</code> on a throwaway Neon branch
 (<code>-m needs_neon</code>): 0 failed</td>
@@ -351,37 +351,37 @@ SQLite); ○ real: per-table counts in updates.md</td>
 </tr>
 <tr>
 <td>R5</td>
-<td>○</td>
+<td>◐</td>
 <td><strong>Status and progress from the database only:</strong> the
 worker writes step, step fraction, photo n of N and a heartbeat at least
 every 5 s; the app shows "triage_content 43% (307/715)" for local and L4
 runs alike. <code>progress.json</code> is retired</td>
-<td>○ <code>tests/serving/test_db_progress.py</code>; ○ real L4 run:
+<td>● <code>tests/serving/test_db_progress.py</code>; ○ real L4 run:
 in-step % moves on the Albums page</td>
 </tr>
 <tr>
 <td>R6</td>
-<td>○</td>
+<td>◐</td>
 <td><strong>The worker writes the results:</strong> rows go to Neon with
 original photo paths (the manifest carries them), from the L4 and from
 this PC. Nothing is copied back to the PC</td>
-<td>○ <code>tests/serving/test_worker_persister.py</code>; ○ real L4
+<td>● <code>tests/serving/test_worker_persister.py</code>; ○ real L4
 run: 0 files downloaded, rows present, 0 staged paths stored</td>
 </tr>
 <tr>
 <td>R7</td>
-<td>○</td>
+<td>◐</td>
 <td>Display images, face crops and embeddings live in the private R2
 bucket under <code>jobs/&lt;id&gt;/</code>. The API serves only a job's
 own keys; another job's key or a made-up key returns 404</td>
-<td>○ <code>tests/storage/test_object_store.py</code> (moto: a fake S3
-for tests); ○
+<td>● <code>tests/storage/test_object_store.py</code> (moto: a fake S3
+for tests); ●
 <code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code>
 on R2; ○ real: People tab crops load</td>
 </tr>
 <tr>
 <td>R8</td>
-<td>○</td>
+<td>◐</td>
 <td><strong>Detached L4 runs:</strong> started on the deployed Modal
 app; the call id is stored on the job. Cutting the PC's network for 2
 minutes, or restarting the API, neither stops nor loses the run</td>
@@ -390,21 +390,21 @@ finishes; results in Albums</td>
 </tr>
 <tr>
 <td>R9</td>
-<td>○</td>
+<td>◐</td>
 <td><strong>Failure end states:</strong> a crashed, timed-out or
 vanished worker turns the job <code>failed</code> with the reason within
 2 minutes of the heartbeat stopping; Cancel works by call id; a queued
 run reads "Waiting for a GPU", not "Running"</td>
-<td>○ <code>tests/serving/test_run_watchdog.py</code>; ○ real: cancel of
+<td>● <code>tests/serving/test_run_watchdog.py</code>; ○ real: cancel of
 a queued L4 run</td>
 </tr>
 <tr>
 <td>R10</td>
-<td>○</td>
+<td>◐</td>
 <td><strong>GPU fallback:</strong> Modal tries L4, then A10G; the run
 records the GPU it got; the spend cap is checked against the dearest GPU
 in the list</td>
-<td>○ <code>tests/serving/test_modal_gpu_choice.py</code>; ○ real: run
+<td>● <code>tests/serving/test_modal_gpu_choice.py</code>; ○ real: run
 record names the GPU</td>
 </tr>
 <tr>
@@ -419,41 +419,41 @@ timings for Slovakia26</td>
 </tr>
 <tr>
 <td>R12</td>
-<td>○</td>
+<td>◐</td>
 <td><strong>One feature cache for both machines:</strong> an L4 run
 after a local run of the same photos recomputes no cached step. Cache
 reads are one query per step, not per photo</td>
-<td>○ <code>tests/pipeline/test_cache_handler_batch.py</code>; ○ real:
+<td>● <code>tests/pipeline/test_cache_handler_batch.py</code>; ○ real:
 L4 after local, cached steps 0 recomputed</td>
 </tr>
 <tr>
 <td>R13</td>
-<td>○</td>
+<td>◐</td>
 <td><strong>Secrets:</strong> only in <code>.env</code> (gitignored) and
 the Modal secret <code>albumify-cloud</code>; never in logs, API
 responses, run records or the worker image; logged URLs are
 redacted</td>
-<td>○ <code>tests/architecture/test_no_secrets_leak.py</code>; ○ real:
+<td>● <code>tests/architecture/test_no_secrets_leak.py</code>; ○ real:
 <code>git grep</code>, log and run-record scan after the L4 run</td>
 </tr>
 <tr>
 <td>R14</td>
-<td>○</td>
+<td>◐</td>
 <td><strong>Cost and size:</strong> after Slovakia26 and Budapest, Neon
 is under 1 GB and R2 under 10 GB (both free plans). A deleted job's R2
 objects are deleted with it</td>
-<td>○
+<td>●
 <code>tests/storage/test_object_store.py::test_delete_prefix</code>; ○
 real: sizes in updates.md</td>
 </tr>
 <tr>
 <td>R15</td>
-<td>○</td>
+<td>◐</td>
 <td><strong>No cloud, no change:</strong> without
 <code>DATABASE_URL</code> and <code>R2_*</code> the app, the tests and
 CI run on SQLite and a local folder. The V2 Budapest gate stays
 green</td>
-<td>○
+<td>●
 <code>tests/storage/test_database_config.py::test_unset_is_sqlite</code>;
 ○ real: full suite with no <code>.env</code>, Budapest gate
 (<code>tests/face_clustering/e2e_budapest/</code>) 11 passed</td>
@@ -470,17 +470,17 @@ passes.</p>
 <p>Thick border ● = done; dashed ○ = planned. Each step ends on the
 check that closes it.</p>
 <pre class="mermaid"><code>flowchart TD
-  W1[&quot;&lt;b&gt;○ W1 One database setting&lt;/b&gt;&lt;br/&gt;load .env · one engine factory for API, jobs, cache ·&lt;br/&gt;psycopg + boto3 · job_people rename&lt;br/&gt;&lt;i&gt;storage/database.py (new), api/database/session.py,&lt;br/&gt;control/db.py, control/models.py, api/main.py, requirements.txt&lt;/i&gt;&quot;]
+  W1[&quot;&lt;b&gt;● W1 One database setting&lt;/b&gt;&lt;br/&gt;load .env · one engine factory for API, jobs, cache ·&lt;br/&gt;psycopg + boto3 · job_people rename&lt;br/&gt;&lt;i&gt;storage/database.py (new), api/database/session.py,&lt;br/&gt;control/db.py, control/models.py, api/main.py, requirements.txt&lt;/i&gt;&quot;]
   C1{{&quot;○ check R1 R2 R15&quot;}}
-  W2[&quot;&lt;b&gt;○ W2 Postgres parity&lt;/b&gt;&lt;br/&gt;run the suites on a Neon branch · portable column migrations&lt;br/&gt;&lt;i&gt;api/database/session.py, control/db.py, tests (needs_neon)&lt;/i&gt;&quot;]
+  W2[&quot;&lt;b&gt;● W2 Postgres parity&lt;/b&gt;&lt;br/&gt;run the suites on a Neon branch · portable column migrations&lt;br/&gt;&lt;i&gt;api/database/session.py, control/db.py, tests (needs_neon)&lt;/i&gt;&quot;]
   C2{{&quot;○ check R3&quot;}}
-  W3[&quot;&lt;b&gt;○ W3 Files on R2&lt;/b&gt;&lt;br/&gt;object store (local folder or R2) · renders, crops, embeddings ·&lt;br/&gt;routes serve through the store&lt;br/&gt;&lt;i&gt;storage/object_store.py (new), local_renders.py, loader.py,&lt;br/&gt;run_embeddings.py, routers/jobs.py, job_store.py&lt;/i&gt;&quot;]
+  W3[&quot;&lt;b&gt;● W3 Files on R2&lt;/b&gt;&lt;br/&gt;object store (local folder or R2) · renders, crops, embeddings ·&lt;br/&gt;routes serve through the store&lt;br/&gt;&lt;i&gt;storage/object_store.py (new), local_renders.py, loader.py,&lt;br/&gt;run_embeddings.py, routers/jobs.py, job_store.py&lt;/i&gt;&quot;]
   C3{{&quot;○ check R7 R14&quot;}}
-  W4[&quot;&lt;b&gt;○ W4 Worker writes the database&lt;/b&gt;&lt;br/&gt;progress + heartbeat rows · results rows with original paths&lt;br/&gt;&lt;i&gt;db_progress.py (new), worker_persister.py (new), curate_job.py,&lt;br/&gt;job_service.py, pipeline_service.py&lt;/i&gt;&quot;]
+  W4[&quot;&lt;b&gt;● W4 Worker writes the database&lt;/b&gt;&lt;br/&gt;progress + heartbeat rows · results rows with original paths&lt;br/&gt;&lt;i&gt;db_progress.py (new), worker_persister.py (new), curate_job.py,&lt;br/&gt;job_service.py, pipeline_service.py&lt;/i&gt;&quot;]
   C4{{&quot;○ check R5 R6&quot;}}
-  W5[&quot;&lt;b&gt;○ W5 Detached L4 runs&lt;/b&gt;&lt;br/&gt;deployed app · spawn by name · call id · watchdog · GPU list&lt;br/&gt;&lt;i&gt;detached_modal.py (new), run_watchdog.py (new), runners.py,&lt;br/&gt;modal_app.py, configs/serving.yaml&lt;/i&gt;&quot;]
+  W5[&quot;&lt;b&gt;◐ W5 Detached L4 runs&lt;/b&gt;&lt;br/&gt;deployed app · spawn by name · call id · watchdog · GPU list&lt;br/&gt;&lt;i&gt;detached_modal.py (new), run_watchdog.py (new), runners.py,&lt;br/&gt;modal_app.py, configs/serving.yaml&lt;/i&gt;&quot;]
   C5{{&quot;○ check R8 R9 R10&quot;}}
-  W6[&quot;&lt;b&gt;○ W6 One feature cache&lt;/b&gt;&lt;br/&gt;cache on Neon · batch read per step&lt;br/&gt;&lt;i&gt;pipeline/cache_handler.py, curate_job.py, modal_app.py&lt;/i&gt;&quot;]
+  W6[&quot;&lt;b&gt;● W6 One feature cache&lt;/b&gt;&lt;br/&gt;cache on Neon · batch read per step&lt;br/&gt;&lt;i&gt;pipeline/cache_handler.py, curate_job.py, modal_app.py&lt;/i&gt;&quot;]
   C6{{&quot;○ check R12&quot;}}
   W7[&quot;&lt;b&gt;○ W7 Move the data&lt;/b&gt;&lt;br/&gt;copy SQLite to Neon, verify counts&lt;br/&gt;&lt;i&gt;scripts/migrate_to_neon.py (new)&lt;/i&gt;&quot;]
   C7{{&quot;○ check R4&quot;}}
@@ -490,7 +490,8 @@ check that closes it.</p>
   classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
   classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
   classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
-  class W1,W2,W3,W4,W5,W6,W7,W8 todo
+  class W1,W2,W3,W4,W6 done
+  class W5,W7,W8 todo
   class C1,C2,C3,C4,C5,C6,C7,C8 check</code></pre>
 <h2 id="4-class-diagram">4. Class diagram</h2>
 <p>Green = new class, amber = changed class, grey = existing, unchanged.
@@ -563,8 +564,6 @@ check that closes it.</p>
   }
   class ModalVolumeRemote {
     upload(keys, store)
-    ✖ run_job()
-    ✖ download_results()
   }
   class JobService {
     ✎ run(job_id, inputs)
@@ -651,7 +650,7 @@ for SQLite or Postgres (pooled, pre-ping), redacts the URL for logs</td>
 <td><code>from_env</code>, <code>make_engine</code>,
 <code>redacted</code></td>
 <td><code>url</code>, <code>is_sqlite</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/storage/object_store.py</code></td>
@@ -663,7 +662,7 @@ private R2 bucket otherwise</td>
 <code>list</code>, <code>delete_prefix</code>,
 <code>from_env</code></td>
 <td><code>root</code>, <code>bucket</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/db_progress.py</code></td>
@@ -673,7 +672,7 @@ most every 2 s; replaces <code>progress.json</code></td>
 <td><code>on_step</code>, <code>on_fraction</code>,
 <code>heartbeat</code></td>
 <td><code>job_id</code>, <code>db</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/worker_persister.py</code></td>
@@ -683,7 +682,7 @@ from the manifest, writes job rows and Albumify result rows in one
 transaction</td>
 <td><code>calc</code></td>
 <td><code>db</code>, <code>store</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/detached_modal.py</code></td>
@@ -692,7 +691,7 @@ transaction</td>
 id; status and cancel by call id</td>
 <td><code>start</code>, <code>status</code>, <code>cancel</code></td>
 <td><code>app_name</code>, <code>gpu</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/run_watchdog.py</code></td>
@@ -701,7 +700,7 @@ id; status and cancel by call id</td>
 Modal call ended without a result</td>
 <td><code>reconcile</code></td>
 <td><code>db</code>, <code>remote</code>, <code>grace_s</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>scripts/migrate_to_neon.py</code></td>
@@ -737,7 +736,7 @@ SQLite-only column adds</td>
 <td><code>DatabaseConfig</code> from <code>DATABASE_URL</code>, SQLite
 when unset; column adds work on both</td>
 <td>R1 R3 R15</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/api/main.py</code></td>
@@ -745,7 +744,7 @@ when unset; column adds work on both</td>
 <td><code>init_db()</code> only</td>
 <td>Loads <code>.env</code> first; starts <code>RunWatchdog</code></td>
 <td>R1 R9</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/control/db.py</code></td>
@@ -753,7 +752,7 @@ when unset; column adds work on both</td>
 <td>Own <code>DATABASE_URL</code>, default <code>control.db</code></td>
 <td>Same engine factory as the API, so one database</td>
 <td>R1</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/control/models.py</code></td>
@@ -763,7 +762,7 @@ when unset; column adds work on both</td>
 <code>call_id</code>, <code>gpu</code>, <code>progress</code>,
 <code>heartbeat_at</code></td>
 <td>R2 R5 R8</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/control/local_renders.py</code></td>
@@ -772,7 +771,7 @@ when unset; column adds work on both</td>
 folder</td>
 <td>Writes to the object store (worker on the L4, API on this PC)</td>
 <td>R7</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/control/loader.py</code></td>
@@ -781,7 +780,7 @@ folder</td>
 folder; keys from a folder listing</td>
 <td>Runs in the worker; keys from the object store</td>
 <td>R6 R7</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/curate_job.py</code></td>
@@ -791,16 +790,19 @@ folder; keys from a folder listing</td>
 <td><code>DbProgressWriter</code>; cache through
 <code>DATABASE_URL</code>; <code>WorkerPersister</code> at the end</td>
 <td>R5 R6 R12</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/runners.py</code></td>
 <td><code>ModalRunner</code>, <code>ModalVolumeRemote</code></td>
 <td><code>run_job</code> holds a live link and waits;
 <code>download_results</code> copies back</td>
-<td>Starts detached, then follows the job row; no copy-back</td>
+<td>Starts detached, then follows the job row; no copy-back
+(<code>ModalVolumeRemote.run_job</code> and
+<code>download_results</code> removed, so they left the class
+diagram)</td>
 <td>R6 R8</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/modal_app.py</code></td>
@@ -810,7 +812,7 @@ secret</td>
 <td>Deployed app; <code>gpu</code> list; secret
 <code>albumify-cloud</code>; no cache Volume</td>
 <td>R8 R10 R12 R13</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/job_service.py</code></td>
@@ -819,16 +821,19 @@ secret</td>
 <td>Stages and starts; rows come from the worker; deleting a job deletes
 its R2 objects</td>
 <td>R6 R14</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/job_store.py</code></td>
 <td><code>write_progress</code>, <code>read_progress</code>,
-<code>write_displays</code></td>
+<code>objects</code>, <code>read_object</code>, manifest</td>
 <td><code>progress.json</code> and display files on disk</td>
-<td>Removed; inputs and run spec stay local</td>
-<td>R5 R7</td>
-<td>○</td>
+<td><code>progress.json</code> removed; <code>objects</code> (the object
+store) + <code>read_object</code>; manifest carries originals' pixel
+sizes; inputs and run spec stay local (<code>write_displays</code> kept
+for the debug-only worker renders)</td>
+<td>R5 R6 R7</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/api/services/pipeline_service.py</code></td>
@@ -837,7 +842,7 @@ its R2 objects</td>
 <td>Job row only: stage, step, fraction, heartbeat; same view for local
 and L4 runs</td>
 <td>R5 R9 R11</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/api/services/run_embeddings.py</code></td>
@@ -845,7 +850,7 @@ and L4 runs</td>
 <td>Reads <code>results/*.npy</code> from the jobs folder</td>
 <td>Reads them from the object store</td>
 <td>R7</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/api/routers/jobs.py</code></td>
@@ -853,7 +858,7 @@ and L4 runs</td>
 <td><code>FileResponse</code> from the jobs folder</td>
 <td>Streams the job's own key from the object store</td>
 <td>R7</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/pipeline/cache_handler.py</code></td>
@@ -861,7 +866,7 @@ and L4 runs</td>
 <td>One query per photo</td>
 <td><code>load_many</code>: one query per step</td>
 <td>R12</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>configs/serving.yaml</code></td>
@@ -869,7 +874,7 @@ and L4 runs</td>
 <td>One GPU type</td>
 <td><code>gpu: [L4, A10G]</code></td>
 <td>R10</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>requirements.txt</code></td>
@@ -878,7 +883,65 @@ and L4 runs</td>
 <td><code>psycopg[binary]</code>, <code>boto3</code>; <code>moto</code>
 for tests</td>
 <td>R1 R7</td>
-<td>○</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/jobs.py</code></td>
+<td><code>JobRepo</code></td>
+<td>Status transitions only; <code>reap_orphans</code> fails any live
+job whose process is gone</td>
+<td><code>set_progress</code> (progress, heartbeat, call id, gpu);
+<code>reap_orphans</code> skips detached jobs (they have a call id)</td>
+<td>R5 R8</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/path_map.py</code></td>
+<td><code>PathMap.from_job</code></td>
+<td>Opens each original for its pixel scale</td>
+<td>Uses the manifest's sizes, so the L4 worker needs no original</td>
+<td>R6</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/serving_config.py</code></td>
+<td><code>ServingConfig</code></td>
+<td>One L4 price</td>
+<td><code>gpu</code> list, <code>gpu_dollars_per_hour</code>,
+<code>dearest_dollars_per_hour</code></td>
+<td>R10</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/base.py</code></td>
+<td>cached-step template</td>
+<td>One <code>store_to_cache</code> commit per photo</td>
+<td>One <code>store_many</code> batch per step</td>
+<td>R12</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/schemas/pipeline.py</code>,
+<code>app/streamlit/{api_client,models}.py</code>,
+<code>app/streamlit/pages/configure.py</code>,
+<code>app/streamlit/components/pipeline_runner.py</code></td>
+<td><code>PipelineStatus</code>, <code>PipelineProgress</code>, run
+page</td>
+<td>Step list for this PC only</td>
+<td><code>step_fraction</code>, photo n of N, <code>gpu</code>; "43%
+(307/715)" and the step list on both machines; "Waiting for a GPU"</td>
+<td>R5 R9 R11</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>docs/architecture/classes.html</code>,
+<code>docs/architecture/db_schemas.html</code></td>
+<td>classes, <code>jobs</code> columns</td>
+<td>spec-116 state</td>
+<td>New classes; <code>jobs.progress/heartbeat_at/call_id/gpu</code>;
+<code>job_people</code></td>
+<td>R2 R5</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>docs/architecture/data_flow.html</code></td>
@@ -886,7 +949,7 @@ for tests</td>
 <td>SQLite files + copy-back</td>
 <td>Neon + R2 + detached worker</td>
 <td>R6</td>
-<td>○</td>
+<td>●</td>
 </tr>
 </tbody>
 </table>

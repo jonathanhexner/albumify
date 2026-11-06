@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [FEATURE] spec-117 W6 — one feature cache (batched, content-keyed, on DATABASE_URL)
+**Files**: `sim_bench/pipeline/{cache_handler,base}.py`, `sim_bench/serving/curate_job.py`; new `tests/pipeline/test_cache_handler_batch.py`, `tests/architecture/test_no_secrets_leak.py`; `docs/architecture/{data_flow,classes,db_schemas}.html`; spec-117 spec/tasks/updates (+ html).
+**Change**: cache reads/writes are one query / one commit per step (`load_many`, `store_many`); staged photos are cached by content key (`staged:<sha16>/<name>`), shared by this PC and the L4; the worker's cache uses `DATABASE_URL`. R13 secret checks. Architecture docs for spec-117.
+**Verification**: 8 cache tests + 6 secret tests; full default suite 1,772 passed, 0 failed.
+**Reason**: spec-117 R12, R13.
+
 ### 2026-11-06 [FEATURE] spec-117 W5 — detached L4 runs, watchdog, GPU fallback
 **Files**: new `sim_bench/serving/{detached_modal,run_watchdog}.py`, `tests/serving/{test_run_watchdog,test_modal_gpu_choice}.py`; `sim_bench/serving/{runners,modal_app,job_service,serving_config}.py`, `sim_bench/control/jobs.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/main.py`, `configs/serving.yaml`; tests `tests/serving/test_modal_staging.py`, `tests/api/test_pipeline_service_runners.py`, `tests/pipeline/test_run_spec.py`, `tests/e2e_fake_modal_api.py`.
 **Change**: L4 runs are spawned on the deployed Modal app by name; the call id is stored on the job and the runner follows the job row (no live link, no copy-back). `RunWatchdog` fails runs whose heartbeat stops (90 s) or whose call ended without results; cancel by call id; "Waiting for a GPU" until the worker starts. Job functions use `gpu: [L4, A10G]` and secret `albumify-cloud`; the spend cap uses the dearest GPU; the cache Volume is gone.

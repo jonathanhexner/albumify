@@ -46,8 +46,8 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
       queued -> "Waiting for a GPU". Test `tests/serving/test_run_watchdog.py`. Spend cap at the dearest GPU: `test_modal_gpu_choice.py`.
 
 ## W6 — One feature cache (R12)
-- [ ] T6.1 `UniversalCacheHandler.load_many`; steps read once per step. Test `tests/pipeline/test_cache_handler_batch.py`.
-- [ ] T6.2 Worker and local runs use the cache through `DATABASE_URL`; the `albumify-cache` Volume copy is removed.
+- [x] T6.1 `UniversalCacheHandler.load_many`; steps read once per step. Test `tests/pipeline/test_cache_handler_batch.py`.
+- [x] T6.2 Worker and local runs use the cache through `DATABASE_URL`; the `albumify-cache` Volume copy is removed.
 
 ## W7 — Move the data (R4)
 - [ ] T7.1 `scripts/migrate_to_neon.py` (`NeonMigrator`): plan, copy, verify; refuses a non-empty target.

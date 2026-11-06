@@ -246,16 +246,16 @@ class BaseStep(ABC):
         if uncached_items:
             new_results = self._process_uncached(uncached_items, context, config)
             
-            # Serialize and save to cache
+            # Serialize and save to cache: one batch, one commit (spec-117 R12; ~0.2 s per round trip on Neon)
             metadata = cache_config.get("metadata", {})
-            for item, result in new_results.items():
-                data_bytes = self._serialize_for_cache(result, item)
-                key = CacheKey(
-                    image_path=item,
-                    feature_type=feature_type,
-                    model_name=model_name
-                )
-                cache_handler.store_to_cache(key, data_bytes, metadata)
+            entries = [(CacheKey(image_path=item, feature_type=feature_type, model_name=model_name),
+                        self._serialize_for_cache(result, item))
+                       for item, result in new_results.items()]
+            if hasattr(cache_handler, "store_many"):
+                cache_handler.store_many(entries, metadata)
+            else:
+                for key, data_bytes in entries:
+                    cache_handler.store_to_cache(key, data_bytes, metadata)
             
             cached_results.update(new_results)
         

@@ -46,12 +46,14 @@ PipelineRunner = Callable[..., Tuple[object, object]]
 OutputBuilder = Callable[[object, object], RunOutput]
 
 
-# The worker's feature cache (faces, embeddings, quality, scene features). Default: the PC's
-# ~/.sim_bench/sim_bench.db, shared with the app. The L4 worker points this at a Modal Volume.
+# The worker's feature cache (faces, embeddings, quality, scene features). spec-117 R12: the one database
+# (DATABASE_URL, Neon), so this PC and the L4 share it; unset -> the PC's ~/.sim_bench/sim_bench.db, shared with
+# the app. ALBUMIFY_FEATURE_CACHE names another SQLite file (isolated tests).
 FEATURE_CACHE_ENV = "ALBUMIFY_FEATURE_CACHE"
 
 
 def feature_cache_path() -> Path:
+    """The SQLite file the cache uses when ``DATABASE_URL`` is unset."""
     env = os.environ.get(FEATURE_CACHE_ENV)
     if env:
         return Path(env)
@@ -59,12 +61,22 @@ def feature_cache_path() -> Path:
     return get_database_path()
 
 
+def feature_cache_config():
+    """``ALBUMIFY_FEATURE_CACHE`` file if set, else ``DATABASE_URL``, else ``sim_bench.db``."""
+    from sim_bench.storage.database import DatabaseConfig
+
+    if os.environ.get(FEATURE_CACHE_ENV):
+        return DatabaseConfig.sqlite(feature_cache_path())
+    return DatabaseConfig.from_env(feature_cache_path())
+
+
 def run_pipeline(images: List[Path], plan: SpecResult, *, on_step: Optional[Callable] = None,
                  on_progress: Optional[Callable[[str, float, str], None]] = None,
-                 fail_fast: bool = True, album_name: Optional[str] = None) -> Tuple[object, object]:
+                 fail_fast: bool = True, album_name: Optional[str] = None,
+                 inputs_root: Optional[Path] = None) -> Tuple[object, object]:
     """The production runner: execute the resolved plan over exactly ``images``, with the feature
-    cache attached (spec-112 TW1.3: job runs had none, so every job recomputed everything)."""
-    from sqlalchemy import create_engine
+    cache attached (spec-112 TW1.3: job runs had none, so every job recomputed everything). ``inputs_root``: the
+    shared input store, whose photos are cached by content (spec-117 R12)."""
     from sqlalchemy.orm import sessionmaker
 
     from sim_bench.api.database.models import UniversalCache
@@ -72,16 +84,15 @@ def run_pipeline(images: List[Path], plan: SpecResult, *, on_step: Optional[Call
     from sim_bench.pipeline.context import PipelineContext
     from sim_bench.pipeline.run import execute_spec
 
-    cache_db = feature_cache_path()
-    cache_db.parent.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(f"sqlite:///{cache_db.as_posix()}",
-                           connect_args={"check_same_thread": False, "timeout": 60})
+    cache = feature_cache_config()
+    engine = cache.make_engine(sqlite_timeout_s=60)
     UniversalCache.__table__.create(engine, checkfirst=True)
     session = sessionmaker(bind=engine)()
-    logger.info("feature cache: %s", cache_db)
+    logger.info("feature cache: %s", cache.redacted())
     try:
         context = PipelineContext(image_paths=list(images),
-                                  cache_handler=UniversalCacheHandler(session))
+                                  cache_handler=UniversalCacheHandler(
+                                      session, inputs_root=str(inputs_root) if inputs_root else None))
         context.album_name = album_name   # spec-088: names the export folder
         return context, execute_spec(plan.as_pipeline_spec(), context, fail_fast=fail_fast,
                                      progress_cb=on_progress, on_step_complete=on_step)
@@ -171,6 +182,7 @@ class JobCurator:
             with progress:
                 context, result = self._runner(sources, plan, on_step=progress.on_step,
                                                on_progress=progress.on_fraction,
+                                               inputs_root=store.inputs.root,
                                                fail_fast=spec.fail_fast if spec else True,
                                                album_name=spec.album_name if spec else None)
                 out = self._finish(inputs, plan, sources, context, result)
