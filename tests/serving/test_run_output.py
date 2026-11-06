@@ -148,21 +148,3 @@ class ut_Worker:
 
         res = JobCurator(store, runner=failing).calc(CurateJobInputs(job_id="j1"))
         assert not res.ok and store.read_run_output("j1") is None
-
-    def test_progress_file_follows_the_steps(self, tmp_path):
-        store = JobStore(tmp_path)
-        store.inputs.put_bytes("00000000000000aa/a.jpg", b"x")
-        store.write_input_manifest("j1", ["00000000000000aa/a.jpg"])
-        snapshots = []
-
-        def runner(images, plan, on_step, **_):
-            snapshots.append(store.read_progress("j1"))
-            on_step(SimpleNamespace(step_name="discover_images", duration_ms=5, success=True, error_message=None))
-            snapshots.append(store.read_progress("j1"))
-            return finished_context(), RESULT
-
-        JobCurator(store, runner=runner).calc(CurateJobInputs(job_id="j1", run_spec={
-            "steps": ["discover_images", "select_best"], "step_configs": {}}))
-        assert snapshots[0] == {"stage": "running", "current_step": "discover_images", "completed_steps": []}
-        assert snapshots[1]["current_step"] == "select_best"
-        assert snapshots[1]["completed_steps"][0]["step"] == "discover_images"

@@ -13,9 +13,15 @@ Two deliberate choices make a re-run reproduce its result (AC4):
 
 ``created_at`` is wall-clock and therefore differs between runs by design; compare two runs with
 :func:`stable_album`, which drops it.
+
+spec-117: given the job database, the curator writes the run's live progress and heartbeat to the job row
+(:class:`~sim_bench.serving.db_progress.DbProgressWriter`, replacing ``progress.json``) and, given a
+:class:`~sim_bench.serving.worker_persister.WorkerPersister`, the results themselves: the job ends
+``succeeded`` or ``failed`` here, in the worker, whether or not the app is still watching.
 """
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
 from dataclasses import dataclass, field
@@ -54,6 +60,7 @@ def feature_cache_path() -> Path:
 
 
 def run_pipeline(images: List[Path], plan: SpecResult, *, on_step: Optional[Callable] = None,
+                 on_progress: Optional[Callable[[str, float, str], None]] = None,
                  fail_fast: bool = True, album_name: Optional[str] = None) -> Tuple[object, object]:
     """The production runner: execute the resolved plan over exactly ``images``, with the feature
     cache attached (spec-112 TW1.3: job runs had none, so every job recomputed everything)."""
@@ -77,7 +84,7 @@ def run_pipeline(images: List[Path], plan: SpecResult, *, on_step: Optional[Call
                                   cache_handler=UniversalCacheHandler(session))
         context.album_name = album_name   # spec-088: names the export folder
         return context, execute_spec(plan.as_pipeline_spec(), context, fail_fast=fail_fast,
-                                     on_step_complete=on_step)
+                                     progress_cb=on_progress, on_step_complete=on_step)
     finally:
         session.close()
         engine.dispose()
@@ -124,27 +131,6 @@ class CurateJobResult:
     settings: Dict = field(default_factory=dict)   # RunSettings (spec-115 R12)
 
 
-class _ProgressFile:
-    """``progress.json`` while the steps run (spec-116 R7): the step list the app shows for a run on this PC."""
-
-    def __init__(self, store: JobStore, job_id: str, steps: List[str]):
-        self._store, self._job_id, self._steps = store, job_id, list(steps)
-        self._done: List[Dict] = []
-        self._write()
-
-    def _write(self) -> None:
-        names = {d["step"] for d in self._done}
-        current = next((s for s in self._steps if s not in names), None)
-        self._store.write_progress(self._job_id, {"stage": "running", "current_step": current,
-                                                  "completed_steps": self._done})
-
-    def __call__(self, step_result) -> None:
-        self._done.append({"step": step_result.step_name, "duration_ms": step_result.duration_ms,
-                           "status": "completed" if step_result.success else "failed",
-                           "error": step_result.error_message})
-        self._write()
-
-
 class JobCurator:
     """Curate a job whose images live in a store. Config in ``__init__``, per-call data in Inputs."""
 
@@ -152,8 +138,11 @@ class JobCurator:
                  spec_builder: Optional[SpecBuilder] = None,
                  runner: PipelineRunner = run_pipeline,
                  clock: Callable[[], str] = lambda: datetime.now(timezone.utc).isoformat(),
-                 output_builder: OutputBuilder = RunOutput.from_context):
+                 output_builder: OutputBuilder = RunOutput.from_context,
+                 db=None, persister=None):
         self._store = store
+        self._db = db                       # ControlDB: live progress + heartbeat in the job row (spec-117 R5)
+        self._persister = persister         # WorkerPersister: the worker writes the results (spec-117 R6)
         self._spec_builder = spec_builder or SpecBuilder()
         self._runner = runner
         self._clock = clock
@@ -173,9 +162,43 @@ class JobCurator:
         logger.info("job %s: %d inputs, pipeline=%s device=%s (%d steps)",
                     job_id, len(sources), inputs.pipeline, inputs.device, len(plan.steps))
 
-        context, result = self._runner(sources, plan, on_step=_ProgressFile(store, job_id, plan.steps),
-                                       fail_fast=spec.fail_fast if spec else True,
-                                       album_name=spec.album_name if spec else None)
+        from sim_bench.serving.db_progress import DbProgressWriter, NullProgress
+
+        progress = (DbProgressWriter(self._db, job_id, plan.steps, total=len(sources))
+                    if self._db is not None else NullProgress())
+        try:
+            with progress:
+                context, result = self._runner(sources, plan, on_step=progress.on_step,
+                                               on_progress=progress.on_fraction,
+                                               fail_fast=spec.fail_fast if spec else True,
+                                               album_name=spec.album_name if spec else None)
+                out = self._finish(inputs, plan, sources, context, result)
+                if out.ok and self._persister is not None:
+                    progress.set_stage("saving results")
+                    out = self._persist(inputs, out)
+        except Exception as e:
+            if self._persister is not None:
+                self._persister.fail(job_id, f"{type(e).__name__}: {e}")
+            raise
+        if not out.ok and self._persister is not None:
+            self._persister.fail(job_id, out.error, out.failed_step)
+        return out
+
+    def _persist(self, inputs: CurateJobInputs, out: CurateJobResult) -> CurateJobResult:
+        """The worker writes its results (spec-117 R6); a failure here fails the run with the reason."""
+        from sim_bench.serving.worker_persister import PersistInputs
+
+        try:
+            self._persister.calc(PersistInputs(job_id=inputs.job_id, runner=inputs.runner))
+            return out
+        except Exception as e:
+            logger.exception("job %s: results not saved", inputs.job_id)
+            failed = dataclasses.replace(out, ok=False, error=f"saving results failed: {type(e).__name__}: {e}")
+            self._store.write_run_record(inputs.job_id, _run_record(failed, inputs))
+            return failed
+
+    def _finish(self, inputs: CurateJobInputs, plan, sources: List[Path], context, result) -> CurateJobResult:
+        store, job_id = self._store, inputs.job_id
 
         timing = _timing(result)
         settings = RunSettings.collect(plan, pipeline=inputs.pipeline, runner=inputs.runner,

@@ -4,6 +4,33 @@
 
 **Status:** In Progress 2026-11-06 (owner approved; W1-W6 being built in worktree `D:\sim-bench-117`)
 
+## 2026-11-06 — W4 Worker writes the database landed
+
+`Job` gained `progress` (JSON), `heartbeat_at`, `call_id`, `gpu` (added to older DBs by `_add_missing_columns`).
+`serving/db_progress.py` `DbProgressWriter` writes step, in-step fraction, photo n of N and the heartbeat to the job
+row (fractions throttled to one write per 2 s, heartbeat thread every 5 s, a failed write never stops the run);
+`progress.json` is gone (`JobStore.write_progress/read_progress/progress_path` removed). `serving/worker_persister.py`
+`WorkerPersister` runs in the worker after the pipeline: job `running -> loading`, result files to the object store,
+`ResultsLoader` rows + renders, the album run's rows via `RunPersister` with original paths (`write_run_rows`, the one
+implementation `PipelineService` also falls back to), job `succeeded`; on any failure the worker ends the job and the
+run `failed` with the reason. The manifest now carries each original's pixel size, so `PathMap` needs no original
+(the L4 has none). The local child process gets the job DB URL by env var (never argv) and runs
+`runners.worker_curator`. `JobService.run` reads the job row after the runner returns; `PipelineService.live` reads
+only the job row. Configure & Run shows "43% (307/715)" for the current step on both machines and the GPU name.
+
+| Claim | Evidence |
+|---|---|
+| R5 progress + heartbeat in the job row, throttled, never fatal | `tests/serving/test_db_progress.py`: 6 passed |
+| R5 the app view is the same on both machines, no progress.json | `tests/api/test_pipeline_service_runners.py::test_in_step_progress_reads_the_same_on_both_machines[local,modal_gpu]` passed |
+| R6 worker writes job rows + run rows, original paths, 0 staged paths, files in R2, on "PC" and "L4" (originals deleted, moto R2) | `tests/serving/test_worker_persister.py`: 12 passed (5 tests x 2 machines + 2) |
+| R6 a failed write fails job + run, no partial run rows | `test_a_failed_run_write_fails_the_job_and_leaves_no_run_rows[pc,l4]` passed |
+| Nothing else broke | `tests/api tests/control tests/serving tests/storage tests/streamlit`: 306 passed |
+
+**Decisions / deviations**
+- Job rows and run rows are two transactions, not one (two databases when `DATABASE_URL` is unset). A failure in either fails the job; `RunPersister` still leaves no partial run rows.
+- A runner whose worker did not write its results (in-process test fakes, the pre-W5 Modal path) still gets them loaded by `JobService`, so both paths stay tested until W5 retires the copy-back.
+- The L4 worker (`modal_app._curate_job`) switches to `worker_curator` in W5, together with the deployed app and the secret.
+
 ## 2026-11-06 — W3 Files on R2 landed
 
 `sim_bench/storage/object_store.py`: `ObjectStore` (put, get, exists, list, delete_prefix), `LocalObjectStore` (the

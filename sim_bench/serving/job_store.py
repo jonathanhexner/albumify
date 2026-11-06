@@ -9,7 +9,6 @@ testable off Modal.
                                  staged 768 px images themselves
     <root>/_inputs/<sha16>/<stem>.jpg   shared, content-addressed input store (:mod:`input_store`)
     <root>/<job_id>/run_spec.json   the run's steps + parameters, when it was given some (spec-116)
-    <root>/<job_id>/progress.json   the run's live stage / steps (spec-116 R7), never a result
     <root>/<job_id>/album.json   normalized Album (spec-106 contract) -- the RESULT the front end reads
     <root>/<job_id>/display/     display copies of the picks, for the front end
     <root>/<job_id>/run.json     run record: device, timing, step placement (debug trail, not a contract)
@@ -24,7 +23,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import shutil
 from dataclasses import dataclass
@@ -70,10 +68,6 @@ class JobPaths:
     @property
     def run_spec_path(self) -> Path:
         return self.root / "run_spec.json"
-
-    @property
-    def progress_path(self) -> Path:
-        return self.root / "progress.json"
 
 
 class JobStore:
@@ -131,10 +125,12 @@ class JobStore:
         return written
 
     def write_input_manifest(self, job_id: str, keys: Sequence[str],
-                             originals: Optional[Dict[str, str]] = None) -> Path:
+                             originals: Optional[Dict[str, str]] = None,
+                             sizes: Optional[Dict[str, Sequence[int]]] = None) -> Path:
         """Point the job at photos in the shared input store (replaces any previous inputs).
 
-        ``originals`` maps key -> the original photo's path (spec-116 R5); a worker has none to give."""
+        ``originals`` maps key -> the original photo's path (spec-116 R5) and ``sizes`` key -> its [width, height]
+        in pixels (spec-117 R6): the worker maps its results to the originals without reading them."""
         paths = self.paths(job_id)
         if paths.input_dir.exists():
             shutil.rmtree(paths.input_dir)
@@ -145,8 +141,9 @@ class JobStore:
         if len(set(names)) != len(names):
             raise ValueError(f"job {job_id}: two inputs share a file name")
         manifest = paths.input_dir / _MANIFEST
-        manifest.write_text(json.dumps({"inputs": list(keys), "originals": dict(originals or {})}, indent=2),
-                            encoding="utf-8")
+        body = {"inputs": list(keys), "originals": dict(originals or {}),
+                "sizes": {k: list(v) for k, v in (sizes or {}).items()}}
+        manifest.write_text(json.dumps(body, indent=2), encoding="utf-8")
         logger.info("job %s: %d inputs in the shared store", job_id, len(keys))
         return manifest
 
@@ -163,6 +160,18 @@ class JobStore:
         if not manifest.is_file():
             return {}
         return dict(json.loads(manifest.read_text(encoding="utf-8")).get("originals") or {})
+
+    def input_sizes(self, job_id: str) -> Dict[str, List[int]]:
+        """Input-store key -> the original's [width, height]; empty for jobs that predate spec-117."""
+        manifest = self.paths(job_id).input_dir / _MANIFEST
+        if not manifest.is_file():
+            return {}
+        return {k: list(v) for k, v in (json.loads(manifest.read_text(encoding="utf-8")).get("sizes") or {}).items()}
+
+    def manifest(self, job_id: str) -> Optional[Dict]:
+        """The whole manifest (inputs, originals, sizes), to hand to a remote worker; None for older jobs."""
+        manifest = self.paths(job_id).input_dir / _MANIFEST
+        return json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else None
 
     def input_images(self, job_id: str) -> List[Path]:
         """The job's staged images, sorted by name (stable order -> stable album order)."""
@@ -310,18 +319,3 @@ class JobStore:
     def read_run_spec(self, job_id: str) -> Optional[Dict]:
         path = self.paths(job_id).run_spec_path
         return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
-
-    def write_progress(self, job_id: str, progress: Dict) -> None:
-        """Atomic: the API reads this while the run writes it (spec-116 R7)."""
-        paths = self.paths(job_id)
-        paths.root.mkdir(parents=True, exist_ok=True)
-        tmp = paths.progress_path.with_suffix(".part")
-        tmp.write_text(json.dumps(progress, default=str), encoding="utf-8")
-        os.replace(tmp, paths.progress_path)
-
-    def read_progress(self, job_id: str) -> Optional[Dict]:
-        path = self.paths(job_id).progress_path
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):     # not started yet
-            return None

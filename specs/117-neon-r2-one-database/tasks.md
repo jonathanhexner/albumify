@@ -32,12 +32,12 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
 - [x] T3.3 Job deletion deletes `jobs/<id>/` in the store (`test_delete_prefix`).
 
 ## W4 — Worker writes the database (R5, R6)
-- [ ] T4.1 `Job` columns `progress` (JSON), `heartbeat_at`, `call_id`, `gpu`.
-- [ ] T4.2 `serving/db_progress.py` `DbProgressWriter`; steps' `report_progress` reaches it (throttled 2 s); `progress.json` retired.
+- [x] T4.1 `Job` columns `progress` (JSON), `heartbeat_at`, `call_id`, `gpu`.
+- [x] T4.2 `serving/db_progress.py` `DbProgressWriter`; steps' `report_progress` reaches it (throttled 2 s); `progress.json` retired.
       Test `tests/serving/test_db_progress.py`.
-- [ ] T4.3 `serving/worker_persister.py`: manifest carries original path + size; remap in the worker; `ResultsLoader` + `RunPersister`
+- [x] T4.3 `serving/worker_persister.py`: manifest carries original path + size; remap in the worker; `ResultsLoader` + `RunPersister`
       in one transaction. Test `tests/serving/test_worker_persister.py` (SQLite + fake store).
-- [ ] T4.4 `JobService.run` and `PipelineService.live/get_status` read the job row only.
+- [x] T4.4 `JobService.run` and `PipelineService.live/get_status` read the job row only.
 
 ## W5 — Detached L4 runs (R8, R9, R10)
 - [ ] T5.1 `modal deploy` of `albumify-curator` with secret `albumify-cloud`; `gpu=["L4", "A10G"]`; run record stores the GPU.

@@ -276,6 +276,10 @@ class ApiClient:
             started_at=data.get("started_at"),
             runner=data.get("runner"),
             stage=data.get("stage"),
+            step_fraction=data.get("step_fraction"),
+            photos_done=data.get("photos_done"),
+            photos_total=data.get("photos_total"),
+            gpu=data.get("gpu"),
         )
 
     def get_pipeline_result(self, job_id: str) -> Optional[PipelineResult]:

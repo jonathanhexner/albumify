@@ -1,8 +1,10 @@
 """Pipeline service - every album run goes through here, on this PC or on the L4 (spec-116).
 
     start_pipeline   build the RunSpec, check it, create the run row and a job with the same id
-    execute_pipeline JobService stages the photos and runs them on the chosen machine; once the job's results are
-                     loaded, the run's RunOutput is pointed at the originals and written by RunPersister
+    execute_pipeline JobService stages the photos and runs them on the chosen machine; the worker writes the run's
+                     rows itself (spec-117 R6, WorkerPersister -> RunPersister, original paths). A worker that did
+                     not (an in-process fake) gets them written here, the same way
+    live / get_status  read the job row only: stage, step, in-step fraction, heartbeat (spec-117 R5)
 
 The models never load in this process: runs on this PC use a child process, like every job (spec-104).
 """
@@ -21,13 +23,11 @@ from sqlalchemy.orm import Session
 from sim_bench.api.database.models import Album, Person, PipelineRun, PipelineResult
 from sim_bench.api.schemas.pipeline import RunRow
 from sim_bench.api.services.config_service import ConfigService
-from sim_bench.api.services.run_persister import RunPersister
 from sim_bench.control.jobs import FAILED, SUCCEEDED, TERMINAL
 from sim_bench.pipeline.run_spec import RunSpec
 from sim_bench.pipeline.spec import validate_spec_or_raise
 from sim_bench.serving.job_service import Estimate, JobService, SubmitInputs
-from sim_bench.serving.path_map import PathMap
-from sim_bench.serving.run_output import RunOutput
+from sim_bench.serving.worker_persister import write_run_rows
 
 # No more hardcoded pipeline - loaded from config service
 
@@ -155,24 +155,11 @@ class PipelineService:
         run.started_at = datetime.utcnow()
         self._session.commit()     # holds no transaction open during the run
 
-        def write_rows(_job_id: str) -> None:
-            store = self._service.store
-            text = store.read_run_output(job_id)
-            if text is None:
-                raise FileNotFoundError(f"run {job_id} returned no results/run_output.json")
-            output = RunOutput.from_json(text).remap(PathMap.from_job(store, job_id))
-            if job.inputs.runner != "local":
-                output.fc_export_dir = None       # that folder stayed on the worker
-            RunPersister(self._session, self._logger).persist(job.album_id, job_id, output)
-            run.completed_steps = [{"step": s, "duration_ms": ms, "status": "completed", "error": None}
-                                   for s, ms in output.step_timings.items()]
-            run.status = "completed"
-            run.current_step = None
-            run.completed_at = datetime.utcnow()
-            run.progress = 1.0
-            self._session.commit()
+        def write_rows(_job_id: str) -> None:       # only when the worker did not write them itself
+            write_run_rows(self._session, self._service.store, job_id, job.inputs.runner)
 
         res = self._service.run(job_id, replace(job.inputs, on_loaded=write_rows))
+        self._session.expire_all()                  # the worker wrote the run row in its own session
         if res.status != SUCCEEDED:
             self._logger.error(f"Pipeline {job_id} failed: {res.error}")
             self._mark_failed(job_id, res.error)
@@ -213,17 +200,25 @@ class PipelineService:
         return run
 
     def live(self, run: PipelineRun) -> Dict:
-        """What the job knows about a run in flight (R7): machine, stage, and on this PC the steps so far."""
+        """What the job row says about a run in flight (spec-117 R5): machine, stage, step, in-step fraction and
+        photo n of N, heartbeat. The same for a run on this PC and on the L4."""
         job = self._service.repo.get(run.id)
         if job is None:                  # made before spec-116
             return {}
         out: Dict = {"runner": job.runner}
+        if job.gpu:
+            out["gpu"] = job.gpu
         if run.status in ("pending", "running") and job.status not in TERMINAL:
-            progress = self._service.store.read_progress(run.id) or {}
-            out["stage"] = progress.get("stage") if job.status == "running" else job.status
+            progress = job.progress or {}
+            out["stage"] = progress.get("stage") or job.status if job.status == "running" else job.status
             out["current_step"] = progress.get("current_step")
             out["completed_steps"] = progress.get("completed_steps") or []
             out["started_at"] = job.started_at or run.started_at
+            for key in ("step_fraction", "photos_done", "photos_total"):
+                if progress.get(key) is not None:
+                    out[key] = progress[key]
+            if job.heartbeat_at is not None:
+                out["heartbeat_at"] = job.heartbeat_at
         return out
 
     def list_runs(self) -> List[RunRow]:

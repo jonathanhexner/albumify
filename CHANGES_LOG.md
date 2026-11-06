@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [FEATURE] spec-117 W4 — the worker writes status, progress and results to the database
+**Files**: new `sim_bench/serving/{db_progress,worker_persister}.py`, `tests/serving/{test_db_progress,test_worker_persister}.py`; `sim_bench/control/{models,jobs}.py`, `sim_bench/serving/{curate_job,job_service,job_store,path_map,runners}.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/schemas/pipeline.py`, `app/streamlit/{api_client,models}.py`, `app/streamlit/components/pipeline_runner.py`, `app/streamlit/pages/configure.py`; tests `tests/api/test_pipeline_service_runners.py`, `tests/serving/{test_run_output,test_modal_staging}.py`.
+**Change**: `jobs` gains `progress`, `heartbeat_at`, `call_id`, `gpu`. The worker writes step / in-step % / n of N / heartbeat to the job row (progress.json retired) and, after the pipeline, its own result rows (original paths from the manifest, which now carries pixel sizes) and files; it ends the job succeeded or failed itself. The app reads the job row only; Configure & Run shows "43% (307/715)" on both machines.
+**Verification**: 18 new tests; api/control/serving/storage/streamlit 306 passed.
+**Reason**: spec-117 R5, R6.
+
 ### 2026-11-06 [FEATURE] spec-117 W3 — files on R2 (object store)
 **Files**: new `sim_bench/storage/object_store.py`, `tests/storage/test_object_store.py`; `sim_bench/serving/{job_store,job_service}.py`, `sim_bench/control/{local_renders,loader}.py`, `sim_bench/api/services/run_embeddings.py`, `sim_bench/api/routers/jobs.py`, `tests/api/test_jobs_router.py`.
 **Change**: display images, face crops and result files go through an object store: the job folders (default, unchanged layout) or the private R2 bucket when `R2_*` is set (`jobs/<id>/...`). Routes serve a job's own keys only. New `DELETE /jobs/{id}` deletes rows and stored files.

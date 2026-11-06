@@ -142,7 +142,12 @@ class PipelineProgress:
     total_steps: int = 0
     started_at: Optional[Any] = None
     runner: Optional[str] = None      # spec-116: local | modal_gpu; None for runs made before it
-    stage: Optional[str] = None       # queued | staging | uploading | running | copying back | loading
+    stage: Optional[str] = None       # queued | staging | uploading | running | saving results | loading
+    # spec-117 R5: in-step progress from the job row, the same for this PC and the L4
+    step_fraction: Optional[float] = None
+    photos_done: Optional[int] = None
+    photos_total: Optional[int] = None
+    gpu: Optional[str] = None
 
 
 @dataclass

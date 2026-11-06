@@ -60,7 +60,8 @@ STEP_DISPLAY_NAMES = {
 # spec-116 R1: where a run runs. The stage text is what Configure & Run shows while it does.
 RUN_ON = {"local": "This PC", "modal_gpu": "L4 (GPU)"}
 STAGE_TEXT = {"queued": "Waiting to start", "staging": "Making the 768 px copies", "uploading": "Uploading photos",
-              "running": "Running", "copying back": "Copying results back", "loading": "Saving the results"}
+              "running": "Running", "copying back": "Copying results back", "loading": "Saving the results",
+              "saving results": "Saving the results", "waiting for gpu": "Waiting for a GPU"}
 
 PIPELINE_DISPLAY_NAMES = {
     "default_pipeline": "Full (InsightFace)",

@@ -41,10 +41,17 @@ class PathMap:
 
     @classmethod
     def from_job(cls, store: JobStore, job_id: str) -> "PathMap":
+        """From the job's manifest. With the originals' sizes in it (spec-117) nothing but the staged copies is
+        read, so this works in the L4 worker, which has no originals."""
         originals = store.input_originals(job_id)
+        sizes = store.input_sizes(job_id)
         scales: Dict[str, float] = {}
         for key, original in originals.items():
             try:
+                if key in sizes:
+                    with Image.open(store.inputs.path(key)) as staged:
+                        scales[key] = float(sizes[key][0]) / staged.size[0]
+                    continue
                 scales[key] = _pixel_scale(Path(original), store.inputs.path(key))
             except OSError as e:
                 # the photo moved since staging: the path is still right, pixel boxes stay in staged pixels

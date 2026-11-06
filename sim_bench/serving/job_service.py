@@ -3,9 +3,12 @@
     create (queued) -> stage (staging) -> runner.run (running) -> load + on_loaded (loading) -> succeeded
                                      any failure or exception --------------------------------> failed
 
-Same code whatever the runner; only ``runner`` differs. The runner writes files, this service is
-the only thing that writes the DB. Synchronous by design: the API calls it from a background task,
-the CLI calls it directly.
+Same code whatever the runner; only ``runner`` differs. Synchronous by design: the API calls it from a
+background task, the CLI calls it directly.
+
+spec-117 R6: the real workers (the child process here, the L4) write their own progress and results and end the
+job ``succeeded`` / ``failed`` themselves; once the runner returns, this service reads the job row. A runner whose
+worker did not (an in-process test fake, an older worker) still gets its files loaded here, as before.
 """
 from __future__ import annotations
 
@@ -32,6 +35,14 @@ from sim_bench.serving.staging import downsample, select_images
 logger = logging.getLogger(__name__)
 
 __all__ = ["SubmitInputs", "SubmitResult", "Estimate", "JobService", "RemoteError", "new_job_id"]
+
+
+def _pixel_size(photo: Path) -> list:
+    """[width, height] of the original as stored (no EXIF turn), read from its header only."""
+    from PIL import Image
+
+    with Image.open(photo) as img:
+        return [int(img.size[0]), int(img.size[1])]
 
 
 def new_job_id(source: Path) -> str:
@@ -85,21 +96,19 @@ class Estimate:
 RunnerFactory = Callable[[str, JobStore, str, str], Runner]
 
 
-def _default_factory(name: str, store: JobStore, pipeline: str, device: str) -> Runner:
-    return make_runner(name, store, pipeline=pipeline, device=device)
-
-
 class JobService:
     def __init__(self, db: ControlDB, config: ServingConfig, *,
                  store: Optional[JobStore] = None,
-                 runner_factory: RunnerFactory = _default_factory):
+                 runner_factory: Optional[RunnerFactory] = None):
         self.db, self.config = db, config
         if store is None:
             from sim_bench.storage.object_store import make_object_store   # R2 when R2_* is set (spec-117 R7)
             store = JobStore(config.jobs_root, objects=make_object_store(config.jobs_root))
         self.store = store
         self.repo = JobRepo(db)
-        self._factory = runner_factory
+        # the real runners get the job database: their workers write progress and results to it (spec-117)
+        self._factory = runner_factory or (lambda name, st, pipeline, device: make_runner(
+            name, st, pipeline=pipeline, device=device, db=self.db))
         self._active: Dict[str, Runner] = {}          # job id -> the runner working on it (for cancel)
         self._cancel_requested: Set[str] = set()
         self._modal = threading.Lock()                 # one Modal job at a time: one cache writer (R4, review M4)
@@ -144,10 +153,10 @@ class JobService:
 
     def run_settings(self, job_id: str) -> Optional[Dict]:
         """The settings the run recorded in run.json (spec-115 R12), if any."""
-        path = self.store.paths(job_id).run_path
+        data = self.store.read_object(job_id, "run.json")   # the job folder, or R2 for an L4 run (spec-117)
         try:
-            return json.loads(path.read_text(encoding="utf-8")).get("settings") or None
-        except (OSError, ValueError):     # not there yet, or still being copied back
+            return json.loads(data.decode("utf-8")).get("settings") or None if data else None
+        except ValueError:
             return None
 
     def delete_remote_inputs(self, job_id: str, remote=None) -> Dict:
@@ -235,7 +244,7 @@ class JobService:
     def _stage(self, job_id: str, source: Path, start: int, n: Optional[int]) -> None:
         """Put the folder's photos in the shared input store (only new ones are resized) and point
         the job at them (spec-112 A2)."""
-        keys, originals, fresh = [], {}, 0
+        keys, originals, sizes, fresh = [], {}, {}, 0
         for photo in select_images(source, start, n):
             try:
                 key = self.store.inputs.key_for(photo)
@@ -244,11 +253,12 @@ class JobService:
                     fresh += 1
                 keys.append(key)
                 originals[key] = str(photo)
+                sizes[key] = _pixel_size(photo)
             except Exception as e:   # one unreadable file must not sink the job; it is logged
                 logger.warning("skipping unreadable image %s: %s", photo, e)
         if not keys:
             raise ValueError(f"no readable images in {source}")
-        self.store.write_input_manifest(job_id, keys, originals)
+        self.store.write_input_manifest(job_id, keys, originals, sizes)
         self.repo.log(job_id, f"staged {len(keys)} photos ({fresh} new, {len(keys) - fresh} already staged)")
 
     def run(self, job_id: str, inputs: SubmitInputs) -> SubmitResult:
@@ -260,7 +270,8 @@ class JobService:
             self.repo.transition(job_id, STAGING, worker=this_worker())
             if inputs.rerun_of is not None:
                 keys = self.store.input_keys(inputs.rerun_of)
-                self.store.write_input_manifest(job_id, keys, self.store.input_originals(inputs.rerun_of))
+                self.store.write_input_manifest(job_id, keys, self.store.input_originals(inputs.rerun_of),
+                                                self.store.input_sizes(inputs.rerun_of))
                 self.repo.log(job_id, f"staged {len(keys)} photos (the same photos as {inputs.rerun_of})")
             elif inputs.source is not None:
                 self._stage(job_id, Path(inputs.source), inputs.start, inputs.n)
@@ -291,11 +302,16 @@ class JobService:
                 self.repo.log(job_id, note)
             if outcome.error == CANCELLED or job_id in self._cancel_requested:
                 raise _Cancelled()
+            if outcome.wall_s is not None:
+                self.repo.log(job_id, f"pipeline {outcome.wall_s}s")
+            after = self.repo.get(job_id)
+            if after.status == SUCCEEDED:          # the worker wrote its results (spec-117 R6)
+                return SubmitResult(job_id, SUCCEEDED)
+            if after.status == FAILED:             # ... or recorded its own failure
+                return SubmitResult(job_id, FAILED, after.error)
             if not outcome.ok:
                 self.repo.fail(job_id, outcome.error or "run failed", outcome.failed_step)
                 return SubmitResult(job_id, FAILED, outcome.error)
-            if outcome.wall_s is not None:
-                self.repo.log(job_id, f"pipeline {outcome.wall_s}s")
 
             self.repo.transition(job_id, LOADING)
             res = ResultsLoader(self.db, self.store).calc(LoadInputs(job_id))
@@ -322,7 +338,6 @@ class JobService:
             return SubmitResult(job_id, FAILED, msg)
         finally:
             self._cancel_requested.discard(job_id)
-            self.store.paths(job_id).progress_path.unlink(missing_ok=True)   # live state only (spec-116 R7)
 
     def _wait_for_modal(self, job_id: str) -> None:
         """One Modal job at a time; a job waiting its turn can still be cancelled (review M1)."""

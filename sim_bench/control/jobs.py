@@ -21,7 +21,7 @@ from typing import Callable, Dict, FrozenSet, List, Optional
 
 import psutil
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from sim_bench.control.db import ControlDB
 from sim_bench.control.models import Job, JobEvent
@@ -95,6 +95,7 @@ class JobRepo:
             job.tag = tag or job.tag
             job.error = job.failed_step = None
             job.started_at = job.finished_at = None
+            job.progress = job.heartbeat_at = job.call_id = job.gpu = None
             _event(s, job_id, "status", QUEUED)
             return job
 
@@ -125,6 +126,20 @@ class JobRepo:
     def get(self, job_id: str) -> Optional[Job]:
         with self._db.session() as s:
             return s.get(Job, job_id)
+
+    def set_progress(self, job_id: str, progress: Optional[Dict] = None, *, heartbeat: bool = True,
+                     **fields) -> None:
+        """spec-117 R5: the live state of a run (``progress`` replaces the old one when given) and its heartbeat.
+        One UPDATE; no status event (the status set is ``transition``'s)."""
+        values = dict(fields)
+        if progress is not None:
+            values["progress"] = progress
+        if heartbeat:
+            values["heartbeat_at"] = _now()
+        if not values:
+            return
+        with self._db.session() as s:
+            s.execute(update(Job).where(Job.id == job_id).values(**values))
 
     def set_tag(self, job_id: str, tag: Optional[str]) -> None:
         with self._db.session() as s:

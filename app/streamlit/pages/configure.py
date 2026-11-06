@@ -106,7 +106,7 @@ def _pipeline_progress_fragment(job_id: str) -> None:
     total_steps = getattr(progress, 'total_steps', None) or 0
     current_step = progress.current_step
 
-    if total_steps > 0 and progress.runner in (None, "local"):
+    if total_steps > 0:          # spec-117 R11: the worker writes the steps on either machine
         n_done = len(completed_steps)
         st.progress(n_done / total_steps, text=f"Step {n_done}/{total_steps}")
 
@@ -127,7 +127,7 @@ def _pipeline_progress_fragment(job_id: str) -> None:
 
     if current_step:
         display = STEP_DISPLAY_NAMES.get(current_step, current_step)
-        st.write(f":orange[>>] {display} ...")
+        st.write(f":orange[>>] {display} {step_detail(progress)}")
 
     # Show elapsed time
     if progress.started_at:
@@ -140,12 +140,26 @@ def _pipeline_progress_fragment(job_id: str) -> None:
             pass
 
 
+def step_detail(progress) -> str:
+    """spec-117 R5: "43% (307/715)" within the current step, "..." when the worker has not said yet."""
+    fraction = getattr(progress, "step_fraction", None)
+    if fraction is None:
+        return "..."
+    text = f"{round(fraction * 100)}%"
+    done, total = getattr(progress, "photos_done", None), getattr(progress, "photos_total", None)
+    if done is not None and total:
+        text += f" ({done}/{total})"
+    return text
+
+
 def _render_stage(progress) -> None:
-    """Which machine and what it is doing (R7). The L4 reports stages only: no live step list from there."""
+    """Which machine and what it is doing (R7); the GPU an L4 run got (spec-117 R10)."""
     if not progress.runner:
         return
     stage = STAGE_TEXT.get(progress.stage, progress.stage or "Running")
-    st.info(f"**{stage}** on {RUN_ON.get(progress.runner, progress.runner)}")
+    where = RUN_ON.get(progress.runner, progress.runner)
+    gpu = getattr(progress, "gpu", None)
+    st.info(f"**{stage}** on {where}" + (f" ({gpu})" if gpu else ""))
 
 
 def _render_run_history(album) -> None:

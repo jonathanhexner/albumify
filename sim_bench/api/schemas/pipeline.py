@@ -27,7 +27,13 @@ class PipelineStatus(BaseModel):
     created_at: datetime
     started_at: Optional[datetime] = None
     runner: Optional[str] = None  # spec-116 R7: None for runs made before it
-    stage: Optional[str] = None   # queued | staging | uploading | running | copying back | loading
+    stage: Optional[str] = None   # queued | staging | uploading | running | saving results | loading
+    # spec-117 R5: from the job row, written by the worker on either machine
+    step_fraction: Optional[float] = None    # 0..1 within current_step
+    photos_done: Optional[int] = None
+    photos_total: Optional[int] = None
+    heartbeat_at: Optional[datetime] = None
+    gpu: Optional[str] = None                # the GPU an L4 run got (spec-117 R10)
 
     class Config:
         from_attributes = True

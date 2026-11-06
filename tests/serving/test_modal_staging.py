@@ -84,7 +84,7 @@ class ut_ModalStaging:
         out = ModalRunner(store, remote=FakeVolume(tmp_path / "modal")).run("j1")
         root = store.paths("j1").root
         got = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
-        assert got == ["album.json", "input/manifest.json", "progress.json", "results/bundle.json", "run.json"]
+        assert got == ["album.json", "input/manifest.json", "results/bundle.json", "run.json"]   # no progress.json (spec-117)
         assert out.notes[1] == "copied back 3 result files"
 
     def test_cancelled_call_ends_cancelled_and_copies_nothing(self, store, tmp_path):

@@ -17,6 +17,7 @@ from sim_bench.api.database.models import (Album, Base, FaceMetricRow, ImageMetr
 from sim_bench.api.services.people_service import PeopleService
 from sim_bench.api.services.pipeline_service import PipelineService
 from sim_bench.control.db import ControlDB
+from sim_bench.control.jobs import this_worker
 from sim_bench.serving.curate_job import CurateJobInputs, JobCurator
 from sim_bench.serving.job_service import JobService
 from sim_bench.serving.job_store import JobStore
@@ -109,7 +110,7 @@ def world(tmp_path):
     def factory(name, store, pipeline, device):
         if name == "local":
             return LocalFake(store)
-        return ModalRunner(store, pipeline=pipeline, remote=w.modal)
+        return ModalRunner(store, pipeline=pipeline, remote=w.modal, db=w.jobs.db)
 
     w.jobs = JobService(ControlDB(fresh_database_url(tmp_path, "c.db")),
                         ServingConfig(jobs_root=tmp_path / "jobs", max_photos_l4=100), runner_factory=factory)
@@ -179,6 +180,26 @@ class ut_EitherMachine:
         world.svc.execute_pipeline(run_id)
         assert seen == ["uploading"]
 
+    @pytest.mark.parametrize("runner", ["local", "modal_gpu"])
+    def test_in_step_progress_reads_the_same_on_both_machines(self, world, runner):
+        """spec-117 R5: the job row is the only source; "triage_content 43% (307/715)" on either machine."""
+        from app.streamlit.pages.configure import step_detail
+        from app.streamlit.api_client import PipelineProgress, PipelineStatus as UiStatus
+
+        run_id = world.svc.start_pipeline("alb", steps=STEPS, runner=runner)
+        world.jobs.repo.transition(run_id, "running", worker=this_worker())
+        world.jobs.repo.set_progress(run_id, {"stage": "running", "current_step": "triage_content",
+                                              "step_fraction": 0.43, "photos_done": 307, "photos_total": 715,
+                                              "completed_steps": [{"step": "discover_images"}]})
+        live = world.svc.live(world.svc.get_status(run_id))
+        assert (live["runner"], live["stage"], live["current_step"]) == (runner, "running", "triage_content")
+        assert (live["step_fraction"], live["photos_done"], live["photos_total"]) == (0.43, 307, 715)
+        assert live["heartbeat_at"] is not None
+        ui = PipelineProgress(status=UiStatus.RUNNING, step_fraction=live["step_fraction"],
+                              photos_done=live["photos_done"], photos_total=live["photos_total"])
+        assert step_detail(ui) == "43% (307/715)"
+        assert not list(world.jobs.store.root.rglob("progress.json"))
+
     def test_an_old_run_has_no_job_and_still_reads(self, world):
         world.session.add(PipelineRun(id="old", album_id="alb", steps=["discover_images"], status="completed"))
         world.session.commit()
@@ -243,7 +264,7 @@ class ut_FailureStates:
         """The API was killed mid-run: the next status read ends it instead of showing running forever."""
         run_id = world.svc.start_pipeline("alb", steps=STEPS)
         world.jobs.repo.transition(run_id, "staging", worker="otherhost:1:1")
-        world.jobs.repo.transition(run_id, "running")
+        world.jobs.repo.transition(run_id, "running", worker=this_worker())
         world.jobs.repo.reap_orphans(alive=lambda w: False)
         world.session.query(PipelineRun).filter_by(id=run_id).one().status = "running"
         world.session.commit()
