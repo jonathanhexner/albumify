@@ -1,16 +1,16 @@
 """Where a job runs (spec-112 TA4.3, spec-115 W3/W4). Every runner has the same contract:
 
-    run(job_id) -> RunOutcome,  with the job's results (album.json, run.json, results/) in the LOCAL job
-                                store afterwards; the server renders display/ and faces/ itself
+    run(job_id) -> RunOutcome   once the run has ended
     cancel(job_id)              stop it; run() then returns ok=False, error "cancelled by owner"
 
-so the control plane loads results the same way whichever runner ran. Runners never touch the DB.
+spec-117: the worker writes its own progress and results to the database (WorkerPersister), on this PC and on
+the L4, so the job row is the outcome; RunOutcome only carries what the control plane logs.
 
     LocalRunner   JobCurator in a child process: torch / ONNX memory is only returned to the OS
                   when a process exits (spec-104, SIGHTING-117), so a long-lived API must not run
                   the models in-process.
-    ModalRunner   upload the photos the Modal input store lacks (by content key), run curate_job as a
-                  cancellable call, copy back the results only (spec-115 R8/R9).
+    ModalRunner   upload the photos the Modal input store lacks (by content key), spawn curate_job on the
+                  deployed app and follow the job row by call id (spec-117 R8); nothing comes back.
 """
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ import os
 import logging
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Protocol, Sequence, Tuple
@@ -126,12 +127,11 @@ INPUTS_VOLUME, JOBS_VOLUME = "albumify-inputs", "albumify-jobs"
 
 
 class ModalVolumeRemote:
-    """The real Modal calls. Imported lazily: the API must start without Modal installed/authed."""
+    """The Modal Volume side: which photos the inputs Volume lacks, upload them, delete them (spec-115 R13).
+    Runs are started by ``DetachedModalRemote`` (spec-117). ``modal`` is imported lazily."""
 
     def __init__(self, gpu: bool = True):
         self.gpu = gpu
-        self._call = None
-        self._cancelled = False
 
     def missing(self, keys: Sequence[str]) -> List[str]:
         """Input-store keys not yet on the ``albumify-inputs`` Volume (one listing)."""
@@ -155,56 +155,6 @@ class ModalVolumeRemote:
                 # a just-uploaded photo counts as used now (review M2); the worker adds the job id later
                 batch.put_file(io.BytesIO(claim), "/" + k.split("/", 1)[0] + "/.used.json")
 
-    def run_job(self, job_id: str, keys: Sequence[str], pipeline: str, spec: Optional[dict] = None) -> dict:
-        import modal
-        from sim_bench.serving.modal_app import app, cpu_app, curate_job, curate_job_cpu
-        fn, run_app = (curate_job, app) if self.gpu else (curate_job_cpu, cpu_app)
-        if self._cancelled:                    # cancelled while photos were uploading: no GPU at all
-            return {"ok": False, "error": CANCELLED}
-        with modal.enable_output(), run_app.run():
-            self._call = fn.spawn(job_id, pipeline, list(keys), current_commit(), spec)
-            if self._cancelled:                # cancel arrived while the app was starting (review M3)
-                self._call.cancel()
-            try:
-                return self._call.get()
-            except Exception as e:
-                if self._cancelled:
-                    return {"ok": False, "error": CANCELLED}
-                return {"ok": False, "error": f"Modal call failed: {e}"}
-            finally:
-                self._call = None
-
-    def cancel(self) -> None:
-        self._cancelled = True
-        if self._call is not None:
-            self._call.cancel()
-
-    def download_results(self, job_id: str, store: JobStore) -> int:
-        """Copy back the job's results only (spec-115 R8): album.json, run.json, results/*."""
-        import modal
-        from modal.volume import FileEntryType
-        vol = modal.Volume.from_name(JOBS_VOLUME)
-        remote = [f"/{job_id}/album.json", f"/{job_id}/run.json"]
-        try:
-            remote += [e.path if e.path.startswith("/") else "/" + e.path
-                       for e in vol.listdir(f"/{job_id}/results", recursive=True) if e.type == FileEntryType.FILE]
-        except Exception as e:                   # the worker failed before writing results (review M5)
-            logger.info("job %s: no results folder on the Volume (%s)", job_id, type(e).__name__)
-        root, n = store.paths(job_id).root, 0
-        for path in remote:
-            dest = root / Path(path.lstrip("/")).relative_to(job_id)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            part = dest.with_name(dest.name + ".part")    # readers never see half a file
-            try:
-                with open(part, "wb") as fh:
-                    for chunk in vol.read_file(path):
-                        fh.write(chunk)
-                os.replace(part, dest)
-                n += 1
-            except FileNotFoundError:
-                part.unlink(missing_ok=True)      # album.json is absent when the run failed
-        return n
-
     def delete_inputs(self, job_id: str, keys: Sequence[str]) -> dict:
         import modal
         from sim_bench.serving.modal_app import cpu_app, delete_inputs
@@ -213,48 +163,80 @@ class ModalVolumeRemote:
 
 
 class ModalRunner:
+    """A detached run on the deployed Modal app (spec-117 R8): upload the photos it lacks, spawn, store the call id
+    on the job, then follow the JOB ROW until the worker ends it. Nothing is copied back: the worker writes the
+    rows and the files. If this process goes away, the run goes on and still lands in the database.
+
+    ``volumes`` uploads photos (``ModalVolumeRemote``); ``remote`` starts / follows / cancels by call id
+    (``DetachedModalRemote``). A test fake may be both."""
+
     def __init__(self, store: JobStore, *, gpu: bool = True, pipeline: str = "default",
-                 remote=None, db=None):
+                 remote=None, volumes=None, db=None, poll_s: float = 2.0):
+        from sim_bench.serving.detached_modal import DetachedModalRemote
+
         self.name = "modal_gpu" if gpu else "modal_cpu"
-        self._store, self._pipeline = store, pipeline
-        self._db = db
-        self._remote = remote or ModalVolumeRemote(gpu=gpu)
-        self._cancelled = False
+        self._store, self._pipeline, self._db, self._poll_s = store, pipeline, db, poll_s
+        self._remote = remote if remote is not None else DetachedModalRemote(gpu=gpu)
+        self._volumes = volumes if volumes is not None else (remote if remote is not None
+                                                             else ModalVolumeRemote(gpu=gpu))
+        self._cancelled = threading.Event()
+        self._call_id: Optional[str] = None
 
     def run(self, job_id: str) -> RunOutcome:
+        from sim_bench.control.jobs import JobRepo
+
         paths = self._store.paths(job_id)
         keys = self._store.input_keys(job_id)
         if not keys:
             return RunOutcome(ok=False, error=f"job {job_id!r} has no input manifest under {paths.input_dir}; "
                                               "re-run it from its source folder")
-        for stale in (paths.run_path, paths.album_path):
-            if stale.exists():
-                stale.unlink()
-        self._stage(job_id, "uploading")
-        missing = self._remote.missing(keys)
-        self._remote.upload(missing, self._store)
+        if self._db is None:
+            return RunOutcome(ok=False, error="an L4 run needs the job database")
+        if getattr(self._remote, "needs_shared_db", False) and self._db.is_sqlite:
+            return RunOutcome(ok=False, error="L4 runs need DATABASE_URL (Neon) in .env: the L4 worker writes its "
+                                              "status and results to the database, and cannot reach a file here")
+        repo = JobRepo(self._db)
+        repo.set_progress(job_id, {"stage": "uploading"})
+        missing = self._volumes.missing(keys)
+        self._volumes.upload(missing, self._store)
         notes = [f"uploaded {len(missing)} new photos to Modal ({len(keys) - len(missing)} already there)"]
-        if self._cancelled:
+        if self._cancelled.is_set():
             return RunOutcome(ok=False, error=CANCELLED, notes=tuple(notes))
-        self._stage(job_id, "running")
-        res = self._remote.run_job(job_id, keys, self._pipeline, self._store.read_run_spec(job_id))
-        if res.get("error") == CANCELLED:
+        # "waiting for gpu" until the worker's first write: a queued run never reads "Running" (R9)
+        repo.set_progress(job_id, {"stage": "waiting for gpu"}, heartbeat=False)
+        self._call_id = self._remote.start(job_id, keys, self._store.read_run_spec(job_id),
+                                           self._store.manifest(job_id), self._pipeline)
+        repo.set_progress(job_id, None, heartbeat=False, call_id=self._call_id)
+        notes.append(f"started on Modal, call {self._call_id}")
+        if self._cancelled.is_set():               # cancel arrived while the call was being spawned
+            self._remote.cancel(self._call_id)
             return RunOutcome(ok=False, error=CANCELLED, notes=tuple(notes))
-        self._stage(job_id, "copying back")
-        n = self._remote.download_results(job_id, self._store)
-        notes.append(f"copied back {n} result files")
-        logger.info("job %s: %s ok=%s; %s", job_id, self.name, res.get("ok"), "; ".join(notes))
-        return _outcome_from_record(self._store, job_id,
-                                    res.get("error") or "Modal run returned no run record", notes)
+        return self._follow(repo, job_id, notes)
+
+    def _follow(self, repo, job_id: str, notes: List[str]) -> RunOutcome:
+        from sim_bench.control.jobs import SUCCEEDED, TERMINAL
+        from sim_bench.serving.detached_modal import call_ended
+
+        while True:
+            job = repo.get(job_id)
+            if job.status in TERMINAL:
+                logger.info("job %s: %s ended %s; %s", job_id, self.name, job.status, "; ".join(notes))
+                return RunOutcome(ok=job.status == SUCCEEDED, error=job.error, failed_step=job.failed_step,
+                                  notes=tuple(notes))
+            if self._cancelled.is_set():
+                self._remote.cancel(self._call_id)
+                return RunOutcome(ok=False, error=CANCELLED, notes=tuple(notes))
+            status = self._remote.status(self._call_id)
+            if call_ended(status):
+                job = repo.get(job_id)              # the worker may have finished just now
+                if job.status in TERMINAL:
+                    continue
+                return RunOutcome(ok=False, error=f"the L4 worker ended without saving its results ({status})",
+                                  notes=tuple(notes))
+            self._cancelled.wait(self._poll_s)
 
     def cancel(self, job_id: str) -> None:
-        self._cancelled = True
-        self._remote.cancel()
-
-    def _stage(self, job_id: str, stage: str) -> None:
-        if self._db is not None:          # the job row is the app's one view of a run (spec-117 R5)
-            from sim_bench.control.jobs import JobRepo
-            JobRepo(self._db).set_progress(job_id, {"stage": stage})
+        self._cancelled.set()
 
 
 def make_runner(name: str, store: JobStore, *, pipeline: str, device: str = "cpu", db=None) -> Runner:
@@ -280,7 +262,7 @@ def _child_main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     from sim_bench.storage.database import load_env
     load_env()        # spec-117: the worker reads the same DATABASE_URL / R2_* as the API (env already set wins)
-    curator, store = worker_curator(a.root, runner="local")
+    curator, store, _ = worker_curator(a.root, runner="local")
     res = curator.calc(CurateJobInputs(job_id=a.job_id, pipeline=a.pipeline, device=a.device, runner="local",
                                        run_spec=store.read_run_spec(a.job_id)))
     return 0 if res.ok else 1
@@ -298,7 +280,7 @@ def worker_curator(root, *, inputs_root=None, runner: str = "local", control_db_
     store = JobStore(root, inputs_root=inputs_root, objects=make_object_store(root))
     db = ControlDB(control_db_url or os.environ.get(CONTROL_DB_ENV) or None)
     persister = WorkerPersister(db, store, api_sessions=get_session_direct)
-    return JobCurator(store, db=db, persister=persister), store
+    return JobCurator(store, db=db, persister=persister), store, db
 
 
 if __name__ == "__main__":

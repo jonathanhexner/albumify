@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional, Tuple
 
 import yaml
 
@@ -31,10 +31,20 @@ class ServingConfig:
     l4_fixed_seconds: float = 150.0
     l4_seconds_per_photo: float = 0.6
     l4_dollars_per_hour: float = 0.80
+    # spec-117 R10: Modal tries these GPUs in order; the spend cap is checked at the dearest one
+    gpu: Tuple[str, ...] = ("L4", "A10G")
+    gpu_dollars_per_hour: Dict[str, float] = field(default_factory=lambda: {"L4": 0.80, "A10G": 1.10})
 
     def __post_init__(self):
         if self.runner not in RUNNERS:
             raise ValueError(f"runner must be one of {RUNNERS}, got {self.runner!r}")
+        object.__setattr__(self, "gpu", tuple(self.gpu))
+        if not self.gpu:
+            raise ValueError("gpu: give at least one GPU type")
+
+    @property
+    def dearest_dollars_per_hour(self) -> float:
+        return max(float(self.gpu_dollars_per_hour.get(g, self.l4_dollars_per_hour)) for g in self.gpu)
 
     def with_runner(self, runner: Optional[str]) -> "ServingConfig":
         return replace(self, runner=runner) if runner else self
@@ -48,7 +58,7 @@ def load_serving_config(path: Optional[Path] = None) -> ServingConfig:
             raw[key] = os.environ[env]
     if "jobs_root" in raw:
         raw["jobs_root"] = Path(os.path.expanduser(str(raw["jobs_root"])))
-    unknown = set(raw) - set(_ENV) - set(_NUMBERS)
+    unknown = set(raw) - set(_ENV) - set(_NUMBERS) - {"gpu", "gpu_dollars_per_hour"}
     if unknown:
         raise ValueError(f"unknown keys in {path}: {sorted(unknown)}")
     return ServingConfig(**raw)

@@ -194,6 +194,9 @@ class PipelineService:
         if run is not None and run.status in ("pending", "running"):
             self._service.repo.reap_orphans()
             job = self._service.repo.get(job_id)
+            if job is not None and job.call_id:          # a detached L4 run: judged by its heartbeat (R9)
+                self._service.watchdog().reconcile([job_id])
+            job = self._service.repo.get(job_id)
             if job is not None and job.status == FAILED:
                 self._mark_failed(job_id, job.error)
                 run = self._session.query(PipelineRun).filter(PipelineRun.id == job_id).first()

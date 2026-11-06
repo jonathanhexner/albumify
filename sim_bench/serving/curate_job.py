@@ -109,6 +109,7 @@ class CurateJobInputs:
     # worker returns results only. True keeps the old worker-side renders (debug / comparison only).
     write_renders: bool = False
     run_spec: Optional[Dict] = None  # spec-116 R2: what to run (RunSpec.to_dict); None = the named pipeline
+    gpu: Optional[str] = None        # spec-117 R10: the GPU the run got (recorded in run.json)
 
 
 @dataclass(frozen=True, slots=True)
@@ -296,4 +297,5 @@ def _run_record(result: CurateJobResult, inputs: CurateJobInputs) -> Dict:
         "failed_step": result.failed_step,
         "error": result.error,
         "settings": result.settings,
+        "gpu": inputs.gpu,
     }

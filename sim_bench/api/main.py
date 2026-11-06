@@ -49,6 +49,7 @@ def startup():
     from sim_bench.storage.database import load_env
     load_env()
     init_db()
+    _start_run_watchdog()
     logger.info("Database initialized")
 
     import sim_bench.pipeline.steps.all_steps
@@ -59,6 +60,28 @@ def startup():
     config_service = ConfigService(session)
     config_service.ensure_default_profile()
     logger.info("Default config profile ready")
+
+
+def _start_run_watchdog(period_s: float = 30.0) -> None:
+    """spec-117 R9: detached L4 runs whose worker is gone end failed within ~2 min, even if no page asks.
+    Only with DATABASE_URL set: without it there are no detached runs."""
+    import os
+    import threading
+
+    if not os.environ.get("DATABASE_URL"):
+        return
+
+    def loop() -> None:
+        from sim_bench.api.routers.jobs import get_job_service
+        stop = threading.Event()
+        while not stop.wait(period_s):
+            try:
+                get_job_service().watchdog().reconcile()
+            except Exception as e:      # never takes the API down
+                logger.warning("run watchdog: %s", type(e).__name__)
+
+    threading.Thread(target=loop, name="run-watchdog", daemon=True).start()
+    logger.info("run watchdog started (every %.0f s)", period_s)
 
 
 @app.on_event("shutdown")

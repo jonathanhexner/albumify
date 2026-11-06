@@ -4,6 +4,37 @@
 
 **Status:** In Progress 2026-11-06 (owner approved; W1-W6 being built in worktree `D:\sim-bench-117`)
 
+## 2026-11-06 — W5 Detached L4 runs landed (code + fakes; deploy and real L4 are W8)
+
+`serving/detached_modal.py` `DetachedModalRemote` spawns `curate_job` on the DEPLOYED app by name and returns the
+call id; `status` / `cancel` by call id. `ModalRunner` now uploads missing photos (`ModalVolumeRemote`, which lost
+`run_job` and `download_results`), sets the stage "waiting for gpu", spawns, stores the call id on the job and
+follows the job row until the worker ends it; nothing is copied back. It refuses a SQLite job DB when the remote is
+the real one (the L4 cannot reach a file here). `serving/run_watchdog.py` `RunWatchdog.reconcile` fails a detached
+job whose heartbeat is older than 90 s (and cancels the call), or whose call ended before it started / without
+results; it re-reads the row first so a worker that just finished is never overruled. The API starts it every 30 s
+when `DATABASE_URL` is set, and `PipelineService.get_status` runs it for the run asked about. `reap_orphans` skips
+jobs with a call id (the process that started them may restart). `JobService.cancel` reaches Modal by the stored
+call id when no runner in this process knows the job. `modal_app.py`: job functions ask for `GPU_TYPES` (from
+`configs/serving.yaml`, `[L4, A10G]`), mount secret `albumify-cloud`, run `runners.worker_curator` (Neon + R2), record
+the GPU on the job row and in run.json; the `albumify-cache` Volume and its copy in/out are gone. The spend cap is
+checked at the dearest GPU (`ServingConfig.dearest_dollars_per_hour`, A10G $1.10/h).
+
+| Claim | Evidence |
+|---|---|
+| R8 detached: call id stored, manifest travels, nothing copied back, the job row is the outcome | `tests/serving/test_modal_staging.py`: 15 passed (10 runner tests incl. `test_nothing_comes_back_and_the_job_row_is_the_outcome`, `test_the_call_id_is_stored_and_the_manifest_travels`) |
+| R8 an API restart mid-run loses nothing; a restarted API does not reap the run | `test_pipeline_service_runners.py::test_an_api_restart_mid_run_loses_nothing`, `test_run_watchdog.py::test_a_restarted_api_does_not_reap_a_detached_run` passed |
+| R9 lost heartbeat / dead call / ended without results -> failed with the reason; finished worker never overruled; Modal unreachable judged by heartbeat | `tests/serving/test_run_watchdog.py`: 10 passed |
+| R9 cancel by call id (also after a restart); queued reads "waiting for gpu" | `test_cancel_by_call_id_after_a_restart`, `test_a_queued_run_reads_waiting_for_a_gpu`, `test_cancel_while_it_runs` passed |
+| R10 GPU list L4 then A10G, cap at the dearest, GPU recorded, functions use the list + secret | `tests/serving/test_modal_gpu_choice.py`: 5 passed |
+| Nothing else broke | `tests/api tests/control tests/serving tests/storage tests/streamlit`: 327 passed; `tests/pipeline/test_run_spec.py` 9 passed |
+
+**Decisions / deviations**
+- T5.1 `modal deploy` was not run (owner OK needed, W8). The code targets the deployed app `albumify-curator` / `albumify-curator-cpu`.
+- Grace is 90 s and the API watchdog runs every 30 s, so a stopped heartbeat fails the job within 2 minutes (R9).
+- "Waiting for a GPU" is the stage between the spawn and the worker's first write; Modal's own queue state is not read.
+- `tests/e2e_fake_modal_api.py` (Playwright stand-in) now fakes the detached call with a local child worker; the Playwright E2E tests were not run here (they start an API; W8).
+
 ## 2026-11-06 — W4 Worker writes the database landed
 
 `Job` gained `progress` (JSON), `heartbeat_at`, `call_id`, `gpu` (added to older DBs by `_add_missing_columns`).

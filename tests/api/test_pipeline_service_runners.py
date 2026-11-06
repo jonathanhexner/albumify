@@ -25,6 +25,7 @@ from sim_bench.serving.pipeline_runner import SpecBuilder
 from sim_bench.serving.run_output import RunOutput
 from sim_bench.serving.runners import CANCELLED, ModalRunner, RunOutcome
 from sim_bench.serving.serving_config import ServingConfig
+from sim_bench.serving.worker_persister import WorkerPersister
 
 from tests.control.fakes import NAMES, fake_pipeline
 from tests.serving.test_run_output import RESULT, finished_context
@@ -60,10 +61,12 @@ class LocalFake:
 
 
 class FakeModal:
-    """The Modal side of ``ModalRunner``: never touches the network."""
+    """The Modal side of ``ModalRunner``, never touching the network. ``start`` is a detached call: the L4 worker
+    runs in its own job store (the inputs Volume holds the uploaded photos, no originals), sees /inputs/... paths,
+    and writes its rows and files itself (spec-117 W4/W5); nothing comes back to the PC's job folder."""
 
-    def __init__(self, store, fail=None):
-        self.store, self.fail, self.uploaded, self.spec = store, fail, [], None
+    def __init__(self, world, fail=None):
+        self.w, self.fail, self.uploaded, self.spec, self.cancelled = world, fail, [], None, []
         self.present = set()
 
     def missing(self, keys):
@@ -75,19 +78,34 @@ class FakeModal:
         self.uploaded.append(list(keys))
         self.present |= set(keys)
 
-    def run_job(self, job_id, keys, pipeline, spec=None):
+    def start(self, job_id, keys, spec, manifest, pipeline):
         self.spec = spec
+        if self.fail == "cancel":                          # the owner cancels while the call is queued
+            self.w.svc.cancel(job_id)
+            return f"call-{job_id}"
+        pc = self.w.jobs.store
+        l4 = JobStore(self.w.tmp / "l4", inputs_root=pc.inputs.root, objects=pc.objects)   # objects = "R2"
+        l4.write_input_manifest(job_id, keys, manifest.get("originals"), manifest.get("sizes"))
+        if self.fail == "no output":
+            l4.write_run_output = lambda *_: None
+        images = [Path("/inputs") / p.parent.name / p.name for p in l4.input_images(job_id)]
+        runner = fake_pipeline
         if self.fail == "step":
-            self.store.write_run_record(job_id, {"ok": False, "error": "CUDA out of memory", "failed_step": "score_ava"})
-            return {"ok": False}
-        _curate(self.store, job_id, spec, images_root="/inputs")
-        return {"ok": True}
+            from types import SimpleNamespace
+            runner = lambda *a, **k: (None, SimpleNamespace(success=False, failed_step="score_ava",  # noqa: E731
+                                                            error_message="CUDA out of memory",
+                                                            step_results=[], total_duration_ms=1))
+        db = self.w.jobs.db
+        JobCurator(l4, spec_builder=SpecBuilder(), runner=runner, output_builder=_output_for(images), db=db,
+                   persister=WorkerPersister(db, l4, api_sessions=self.w.sessions)).calc(
+            CurateJobInputs(job_id=job_id, pipeline="minimal", run_spec=spec, runner="modal_gpu"))
+        return f"call-{job_id}"
 
-    def download_results(self, job_id, store):
-        return 3
+    def status(self, call_id):
+        return "done"
 
-    def cancel(self):
-        pass
+    def cancel(self, call_id):
+        self.cancelled.append(call_id)
 
 
 @pytest.fixture
@@ -105,16 +123,17 @@ def world(tmp_path):
         pass
 
     w = World()
-    w.session, w.src, w.modal = session, src, None
+    w.session, w.src, w.modal, w.tmp = session, src, None, tmp_path
+    w.sessions = sessionmaker(bind=engine)          # the L4 worker's own sessions on the API tables
 
     def factory(name, store, pipeline, device):
         if name == "local":
             return LocalFake(store)
-        return ModalRunner(store, pipeline=pipeline, remote=w.modal, db=w.jobs.db)
+        return ModalRunner(store, pipeline=pipeline, remote=w.modal, db=w.jobs.db, poll_s=0.01)
 
     w.jobs = JobService(ControlDB(fresh_database_url(tmp_path, "c.db")),
                         ServingConfig(jobs_root=tmp_path / "jobs", max_photos_l4=100), runner_factory=factory)
-    w.modal = FakeModal(w.jobs.store)
+    w.modal = FakeModal(w)
     w.svc = PipelineService(session, job_service=w.jobs)
     return w
 
@@ -180,6 +199,40 @@ class ut_EitherMachine:
         world.svc.execute_pipeline(run_id)
         assert seen == ["uploading"]
 
+    def test_an_api_restart_mid_run_loses_nothing(self, world):
+        """spec-117 R8: the API that started an L4 run dies; the worker finishes with nobody watching; a new API
+        process finds the run completed with its rows."""
+        run_id = world.svc.start_pipeline("alb", steps=STEPS, runner="modal_gpu")
+        store, repo = world.jobs.store, world.jobs.repo
+        world.jobs._stage(run_id, world.src, 0, None)
+        store.write_run_spec(run_id, world.modal.spec or {"steps": STEPS, "step_configs": {}})
+        repo.transition(run_id, "staging", worker="the-old-api:1:1")
+        repo.transition(run_id, "running")
+        repo.set_progress(run_id, {"stage": "waiting for gpu"}, heartbeat=False, call_id=f"call-{run_id}")
+        # the old API process is gone; the L4 worker runs to the end on its own
+        world.modal.start(run_id, store.input_keys(run_id), store.read_run_spec(run_id), store.manifest(run_id),
+                          "minimal")
+        # a new API process: new services over the same databases
+        fresh = PipelineService(world.sessions(), job_service=JobService(world.jobs.db, world.jobs.config,
+                                                                         store=store))
+        fresh._service._detached = world.modal
+        assert fresh._service.repo.reap_orphans(alive=lambda w: False) == []
+        run = fresh.get_status(run_id)
+        assert run.status == "completed" and fresh._service.repo.get(run_id).status == "succeeded"
+        assert {r.image_path for r in fresh._session.query(ImageMetricRow).all()} == \
+            {str(world.src / "a.jpg"), str(world.src / "b.jpg")}
+
+    def test_nothing_is_copied_back_from_the_l4(self, world):
+        """spec-117 R6: no album.json, run.json or results/ come back; the rows came from the worker. (display/ and
+        faces/ here ARE the object store: the fake's "R2" is the PC's job folder.)"""
+        run_id = _run(world, "modal_gpu")
+        root = world.jobs.store.paths(run_id).root
+        files = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+        assert [f for f in files if not f.startswith(("display/", "faces/"))] == \
+            ["input/manifest.json", "run_spec.json"]
+        assert world.svc.get_status(run_id).status == "completed"
+        assert world.jobs.repo.get(run_id).call_id == f"call-{run_id}"
+
     @pytest.mark.parametrize("runner", ["local", "modal_gpu"])
     def test_in_step_progress_reads_the_same_on_both_machines(self, world, runner):
         """spec-117 R5: the job row is the only source; "triage_content 43% (307/715)" on either machine."""
@@ -237,23 +290,15 @@ class ut_FailureStates:
         self._assert_failed(world, run_id, CANCELLED)
 
     def test_cancel_while_it_runs(self, world):
-        run_id = world.svc.start_pipeline("alb", steps=STEPS, runner="modal_gpu")
-        original = world.modal.run_job
-
-        def run_job(*args, **kwargs):
-            world.svc.cancel(run_id)
-            return original(*args, **kwargs)
-
-        world.modal.run_job = run_job
-        world.svc.execute_pipeline(run_id)
+        """The owner cancels while the L4 call is queued: the call is cancelled by id, the run ends failed."""
+        world.modal.fail = "cancel"
+        run_id = _run(world, "modal_gpu")
         self._assert_failed(world, run_id, CANCELLED)
+        assert world.modal.cancelled == [f"call-{run_id}"]
 
     def test_no_run_output_is_a_failure(self, world):
-        run_id = world.svc.start_pipeline("alb", steps=STEPS, runner="modal_gpu")
-        world.modal.run_job = lambda *a, **k: (_curate(world.jobs.store, run_id, None),
-                                               world.jobs.store.paths(run_id).run_output_path.unlink(), {"ok": True})[-1]
-        world.svc.execute_pipeline(run_id)
-        self._assert_failed(world, run_id, "run_output.json")
+        world.modal.fail = "no output"
+        self._assert_failed(world, _run(world, "modal_gpu"), "run_output.json")
 
     def test_a_write_that_fails_leaves_no_rows(self, world, monkeypatch):
         monkeypatch.setattr(PeopleService, "add_from_payload",

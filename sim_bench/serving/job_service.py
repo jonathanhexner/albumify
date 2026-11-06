@@ -112,6 +112,20 @@ class JobService:
         self._active: Dict[str, Runner] = {}          # job id -> the runner working on it (for cancel)
         self._cancel_requested: Set[str] = set()
         self._modal = threading.Lock()                 # one Modal job at a time: one cache writer (R4, review M4)
+        self._detached = None                          # DetachedModalRemote, made when first needed (spec-117)
+
+    @property
+    def detached(self):
+        """Start / status / cancel of L4 runs by call id; lazy, so the API starts without Modal."""
+        if self._detached is None:
+            from sim_bench.serving.detached_modal import DetachedModalRemote
+            self._detached = DetachedModalRemote()
+        return self._detached
+
+    def watchdog(self):
+        """spec-117 R9: fails detached runs whose worker is gone (heartbeat stopped, call ended)."""
+        from sim_bench.serving.run_watchdog import RunWatchdog
+        return RunWatchdog(self.db, self.detached)
 
     def estimate(self, source: Optional[Path], start: int = 0, n: Optional[int] = None,
                  runner: Optional[str] = None, rerun_of: Optional[str] = None) -> Estimate:
@@ -126,7 +140,7 @@ class JobService:
         if cfg.runner != "modal_gpu":
             return Estimate(runner=cfg.runner, n_photos=count)
         minutes = round((cfg.l4_fixed_seconds + count * cfg.l4_seconds_per_photo) / 60, 1)
-        dollars = round(minutes / 60 * cfg.l4_dollars_per_hour, 2)
+        dollars = round(minutes / 60 * cfg.dearest_dollars_per_hour, 2)   # spec-117 R10: whichever GPU it gets
         reason = None
         if count > cfg.max_photos_l4:
             reason = f"{count} photos is over the L4 limit of {cfg.max_photos_l4}; choose a smaller range"
@@ -148,6 +162,12 @@ class JobService:
         runner = self._active.get(job_id)
         if runner is not None:
             runner.cancel(job_id)
+        elif job.call_id:                  # a detached L4 run this process did not start (or since restarted)
+            try:
+                self.detached.cancel(job.call_id)
+            except Exception as e:
+                raise RemoteError(f"Modal did not cancel the run: {type(e).__name__}: {e}") from e
+            self.repo.fail(job_id, CANCELLED)
         elif job.status == QUEUED:
             self.repo.fail(job_id, CANCELLED)
 

@@ -40,9 +40,9 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
 - [x] T4.4 `JobService.run` and `PipelineService.live/get_status` read the job row only.
 
 ## W5 — Detached L4 runs (R8, R9, R10)
-- [ ] T5.1 `modal deploy` of `albumify-curator` with secret `albumify-cloud`; `gpu=["L4", "A10G"]`; run record stores the GPU.
-- [ ] T5.2 `serving/detached_modal.py`: `start` (spawn by name, store call id), `status`, `cancel`.
-- [ ] T5.3 `serving/run_watchdog.py`: heartbeat older than 2 min or call ended without rows -> `failed` with the reason;
+- [~] T5.1 `modal deploy` of `albumify-curator` with secret `albumify-cloud`; `gpu=["L4", "A10G"]`; run record stores the GPU. (code done; the deploy itself waits for the owner, W8)
+- [x] T5.2 `serving/detached_modal.py`: `start` (spawn by name, store call id), `status`, `cancel`.
+- [x] T5.3 `serving/run_watchdog.py`: heartbeat older than 2 min or call ended without rows -> `failed` with the reason;
       queued -> "Waiting for a GPU". Test `tests/serving/test_run_watchdog.py`. Spend cap at the dearest GPU: `test_modal_gpu_choice.py`.
 
 ## W6 — One feature cache (R12)

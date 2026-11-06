@@ -146,10 +146,12 @@ class JobRepo:
             s.get(Job, job_id).tag = tag
 
     def reap_orphans(self, alive: Callable[[Optional[str]], bool] = worker_alive) -> List[str]:
-        """Fail every live job whose worker process is gone; return their ids."""
+        """Fail every live job whose worker process is gone; return their ids. A detached L4 run (it has a call
+        id) is not judged by the process that started it -- that one may restart freely (spec-117 R8); its
+        heartbeat and call are, by ``RunWatchdog``."""
         with self._db.session() as s:
             ids = [j.id for j in s.scalars(select(Job).where(Job.status.in_(LIVE)))
-                   if not alive(j.worker)]
+                   if not j.call_id and not alive(j.worker)]
         for job_id in ids:
             self.fail(job_id, "interrupted: the process running this job ended before it finished "
                               "(killed, out of memory, or closed)")

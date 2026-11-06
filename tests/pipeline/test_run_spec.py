@@ -66,14 +66,14 @@ class _Remote:
     def upload(self, keys, store):
         pass
 
-    def run_job(self, job_id, keys, pipeline, spec=None):
+    def start(self, job_id, keys, spec, manifest, pipeline):      # spec-117: a detached call
         self.spec = spec
-        return {"ok": False, "error": "stop here"}
+        return "call-1"
 
-    def download_results(self, job_id, store):
-        return 0
+    def status(self, call_id):
+        return "done"
 
-    def cancel(self):
+    def cancel(self, call_id):
         pass
 
 
@@ -87,7 +87,11 @@ class ut_BothMachines:
 
         assert "--job-id" in LocalRunner(store).command("j1") and store.read_run_spec("j1") == spec
         remote = _Remote()
-        ModalRunner(store, remote=remote).run("j1")
+        from sim_bench.control.db import ControlDB
+        from sim_bench.control.jobs import JobRepo
+        db = ControlDB(f"sqlite:///{(tmp_path / 'c.db').as_posix()}")
+        JobRepo(db).create("j1", runner="modal_gpu")
+        ModalRunner(store, remote=remote, db=db, poll_s=0.01).run("j1")
         assert remote.spec == spec
 
         seen = []

@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [FEATURE] spec-117 W5 — detached L4 runs, watchdog, GPU fallback
+**Files**: new `sim_bench/serving/{detached_modal,run_watchdog}.py`, `tests/serving/{test_run_watchdog,test_modal_gpu_choice}.py`; `sim_bench/serving/{runners,modal_app,job_service,serving_config}.py`, `sim_bench/control/jobs.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/main.py`, `configs/serving.yaml`; tests `tests/serving/test_modal_staging.py`, `tests/api/test_pipeline_service_runners.py`, `tests/pipeline/test_run_spec.py`, `tests/e2e_fake_modal_api.py`.
+**Change**: L4 runs are spawned on the deployed Modal app by name; the call id is stored on the job and the runner follows the job row (no live link, no copy-back). `RunWatchdog` fails runs whose heartbeat stops (90 s) or whose call ended without results; cancel by call id; "Waiting for a GPU" until the worker starts. Job functions use `gpu: [L4, A10G]` and secret `albumify-cloud`; the spend cap uses the dearest GPU; the cache Volume is gone.
+**Verification**: 15 new tests + rewritten Modal fakes; affected suites 327 passed. Not deployed (W8).
+**Reason**: spec-117 R8, R9, R10.
+
 ### 2026-11-06 [FEATURE] spec-117 W4 — the worker writes status, progress and results to the database
 **Files**: new `sim_bench/serving/{db_progress,worker_persister}.py`, `tests/serving/{test_db_progress,test_worker_persister}.py`; `sim_bench/control/{models,jobs}.py`, `sim_bench/serving/{curate_job,job_service,job_store,path_map,runners}.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/schemas/pipeline.py`, `app/streamlit/{api_client,models}.py`, `app/streamlit/components/pipeline_runner.py`, `app/streamlit/pages/configure.py`; tests `tests/api/test_pipeline_service_runners.py`, `tests/serving/{test_run_output,test_modal_staging}.py`.
 **Change**: `jobs` gains `progress`, `heartbeat_at`, `call_id`, `gpu`. The worker writes step / in-step % / n of N / heartbeat to the job row (progress.json retired) and, after the pipeline, its own result rows (original paths from the manifest, which now carries pixel sizes) and files; it ends the job succeeded or failed itself. The app reads the job row only; Configure & Run shows "43% (307/715)" on both machines.
