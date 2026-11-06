@@ -10,7 +10,7 @@
 ### 2026-11-06 [BUGFIX] SIGHTING-146 -- photos in no scene (-1) no longer compete as one scene
 **Files**: `sim_bench/pipeline/steps/select_best.py`, `sim_bench/album/normalizer.py`, `tests/test_step_decisions.py`, `tests/album/test_normalizer.py`, `docs/project/SIGHTINGS.md`.
 **Change**: `select_best` judges each noise photo alone (scored alone, kept iff composite >= `min_score_threshold`, no keep-the-best fallback), on both the scene and face sub-cluster paths. `classify` never marks a noise photo `near_dup`.
-**Verification**: 3 new tests fail without the fix, pass with it; tests/album, tests/control, tests/serving, test_step_decisions: 207 passed. Real-data check: Slovakia26 re-run (pending).
+**Verification**: 3 new tests fail without the fix, pass with it; full suite 1,742 passed, 2 skipped; Budapest gate 11 passed; real Slovakia26 re-run `277fb705`: 0 photos dropped as near-dups of no-scene picks (was 85), picks 253 -> 311.
 **Reason**: 10-23 Slovakia26 L4 run dropped 85 unique photos as "near-duplicates" of 24 unrelated noise picks.
 
 ### 2026-10-31 [FEATURE] spec-116 W1-W3 — one run path (In Progress: L4 evidence and R13 open)

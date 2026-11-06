@@ -5,7 +5,7 @@ This file tracks issues that need investigation and resolution.
 ---
 
 ### SIGHTING-146: Photos in no scene (-1) compete as one scene; losers are called near-duplicates
-**Status**: IN PROGRESS 2026-11-06 (found reviewing the 10-23 Slovakia26 L4 run, job `Slovakia26-20261023-115640`)
+**Status**: RESOLVED 2026-11-06 (found reviewing the 10-23 Slovakia26 L4 run, job `Slovakia26-20261023-115640`); verified on the Slovakia26 re-run `277fb705`: 0 near-dups beaten by no-scene picks (was 85), 85 no-scene picks (was 24)
 **Severity**: High for Gate 1 (good, unique photos are dropped from every album)
 **Persona**: Pipeline / Selection
 
