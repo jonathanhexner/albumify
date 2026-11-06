@@ -57,6 +57,11 @@ STEP_DISPLAY_NAMES = {
     "select_best": "Select Best Photos",
 }
 
+# spec-116 R1: where a run runs. The stage text is what Configure & Run shows while it does.
+RUN_ON = {"local": "This PC", "modal_gpu": "L4 (GPU)"}
+STAGE_TEXT = {"queued": "Waiting to start", "staging": "Making the 768 px copies", "uploading": "Uploading photos",
+              "running": "Running", "copying back": "Copying results back", "loading": "Saving the results"}
+
 PIPELINE_DISPLAY_NAMES = {
     "default_pipeline": "Full (InsightFace)",
     "minimal_pipeline": "Minimal (no faces)",
@@ -449,6 +454,12 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
     is_running = state.pipeline_status == PipelineStatus.RUNNING
 
     st.divider()
+    runner = st.radio("Run on", list(RUN_ON), format_func=RUN_ON.get, horizontal=True, key="run_on",
+                      disabled=is_running)
+    pending = _l4_confirmation(album, selected_pipeline, runner)
+    if pending:
+        return _render_l4_confirm(album, selected_pipeline, steps, config, pending)
+
     col1, col2, col3 = st.columns([2, 1, 1])
 
     with col1:
@@ -459,9 +470,12 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
             use_container_width=True,
             key="run_pipeline_btn",
         ):
-            job_id = _start_pipeline(album.album_id, selected_pipeline, steps, config)
-            if job_id:
-                return job_id
+            if runner == "local":
+                job_id = _start_pipeline(album.album_id, selected_pipeline, steps, config)
+                if job_id:
+                    return job_id
+            else:
+                _ask_for_l4_confirm(album, selected_pipeline, runner)
 
     with col2:
         if st.button(
@@ -472,13 +486,44 @@ def _render_pipeline_config(album: Album) -> Optional[str]:
         ):
             _save_user_settings(selected_pipeline, config)
 
-    with col3:
-        if is_running and st.button("Cancel", use_container_width=True, key="cancel_pipeline_btn"):
-            from app.streamlit.session import clear_pipeline_state
-            clear_pipeline_state()
-            add_notification("Pipeline cancelled", "warning")
-            st.rerun()
+    return None
 
+
+def _ask_for_l4_confirm(album: Album, pipeline: str, runner: str) -> None:
+    """The L4 costs money: show the estimate and wait for a second click; over the spend cap it stops here."""
+    try:
+        est = get_client().estimate_run(album.album_id, runner)
+    except ApiError as e:
+        st.error(str(e))
+        return
+    if not est.get("allowed", False):
+        st.error(est.get("reason") or "The spend cap refuses this run.")
+        return
+    st.session_state["l4_pending"] = {"album_id": album.album_id, "pipeline": pipeline, "runner": runner,
+                                      "estimate": est}
+    st.rerun()
+
+
+def _l4_confirmation(album: Album, pipeline: str, runner: str) -> Optional[Dict[str, Any]]:
+    """The waiting confirm, unless a choice changed since its estimate (then it is dropped: estimate again)."""
+    pending = st.session_state.get("l4_pending")
+    if pending and (pending["album_id"], pending["pipeline"], pending["runner"]) != (album.album_id, pipeline, runner):
+        st.session_state["l4_pending"] = pending = None
+    return pending
+
+
+def _render_l4_confirm(album: Album, pipeline: str, steps: List[str], config: Dict[str, Any],
+                       pending: Dict[str, Any]) -> Optional[str]:
+    est = pending["estimate"]
+    st.warning(f"This runs on the L4: {est.get('n_photos')} photos, about {est.get('gpu_minutes')} GPU minutes, "
+               f"about ${est.get('dollars')}. Photos Modal already has are not uploaded again.")
+    confirm, back = st.columns(2)
+    if confirm.button("Confirm: run on the L4", type="primary", key="l4_confirm_btn"):
+        st.session_state["l4_pending"] = None
+        return _start_pipeline(album.album_id, pipeline, steps, config, runner=pending["runner"])
+    if back.button("Back", key="l4_back_btn"):
+        st.session_state["l4_pending"] = None
+        st.rerun()
     return None
 
 
@@ -533,13 +578,17 @@ def _start_pipeline(
     album_id: str,
     pipeline_name: str,
     steps: List[str],
-    config: Dict[str, Any]
+    config: Dict[str, Any],
+    runner: str = "local",
 ) -> Optional[str]:
-    """Start the pipeline execution."""
+    """Start the pipeline execution on the chosen machine."""
     client = get_client()
-    # Pass steps=None to let backend use the pipeline_name from config
-    # But also pass the config overrides
-    job_id = client.start_pipeline(album_id, steps=steps, config=config)
+    try:
+        job_id = client.start_pipeline(album_id, steps=steps, config=config, runner=runner,
+                                       pipeline_name=pipeline_name)
+    except ApiError as e:             # e.g. the spend cap refused it after the estimate
+        st.error(str(e))
+        return None
 
     update_pipeline_progress(PipelineProgress(
         status=PipelineStatus.RUNNING,

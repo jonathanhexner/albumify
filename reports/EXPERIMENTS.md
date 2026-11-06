@@ -90,3 +90,6 @@ Entries below predate the convention; their reports live at the linked legacy lo
 
 - **2026-10-23 spec-115 T2.1 crop orientation gate** — can the PC cut the worker's face crops from its own 768 px copies using the bundle's boxes (20 slovakia26 faces, 5 per EXIF rotation)?
   18/20 above the pre-set ArcFace bar (needed 19): rotation handled right (no-rotate control ~0), misses = a tilted head + a tiny face; found SIGHTING-141 (worker crops have red/blue swapped). Report: `reports/2026-10-23_spec115_crop_orientation/report.html` (crops local only).
+
+- **2026-10-30 spec-116 R13 full-size vs 768** — do the 768 px copies pick close enough to the originals (Budapest 122, this PC)?
+  Not close enough: the resolution-dependent sharpness gate removes 114 vs 26 photos (SIGHTING-144); with the gate off picks match but people split 11 vs 8. Data: `reports/2026-10-30_spec116_r13_fullsize_vs_768/results.json` (report.html still to be written).

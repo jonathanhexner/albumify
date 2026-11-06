@@ -60,7 +60,7 @@ def refinement_run():
     from sim_bench.pipeline.spec import PipelineSpec
     from sim_bench.pipeline.run import execute_spec
     from sim_bench.api.database.session import get_session_direct
-    from sim_bench.api.services.pipeline_service import PipelineService
+    from sim_bench.pipeline.run_spec import spread_clustering_config
 
     params = FCParams.load(PROFILE)
     doc = yaml.safe_load(PIPELINE_YAML.read_text(encoding="utf-8"))
@@ -71,8 +71,7 @@ def refinement_run():
     step_configs["people_clustering"] = cp
 
     session = get_session_direct()
-    svc = PipelineService(session)
-    step_configs = svc._broadcast_clustering_config(steps, dict(step_configs))
+    step_configs = spread_clustering_config(steps, dict(step_configs))
 
     cut = steps.index("identity_refinement") + 1
     spec = PipelineSpec(steps=steps[:cut], step_configs=step_configs)

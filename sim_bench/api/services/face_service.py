@@ -20,6 +20,7 @@ from sim_bench.api.database.models import (
     UniversalCache,
     UserEvent,
 )
+from sim_bench.api.services.run_embeddings import RunEmbeddings
 from sim_bench.api.schemas.face import (
     FaceInfo,
     PersonDistance,
@@ -50,7 +51,8 @@ class FaceService:
         """
         Get all faces for a pipeline run with their current status.
 
-        Reads face data directly from UniversalCache (insightface_detection).
+        Reads face data from UniversalCache (insightface_detection), keyed by the path the pipeline saw.
+        Staged runs (spec-116) saw copies, so for their photos the run's own metric rows are used.
         """
         # Load face overrides for this album
         overrides = self._get_face_overrides(album_id)
@@ -89,7 +91,10 @@ class FaceService:
             if img_path:
                 known_image_paths.add(img_path)
 
-        if known_image_paths:
+        run_faces = self._run_face_lists(run_id)
+        if run_faces:
+            cache_entries = []            # staged run: the cache has nothing under the original paths
+        elif known_image_paths:
             # Filter cache to only album-relevant images
             cache_entries = (
                 self._session.query(UniversalCache)
@@ -107,17 +112,16 @@ class FaceService:
                 .all()
             )
 
-        faces = []
+        face_lists = dict(run_faces)
         for entry in cache_entries:
-            img_path = entry.image_path.replace('\\', '/')
-
             # Parse cached face data (stored as JSON bytes in data_blob)
             if not entry.data_blob:
                 continue
             face_data = json.loads(entry.data_blob.decode('utf-8'))
+            face_lists[entry.image_path.replace('\\', '/')] = face_data.get('faces', [])
 
-            face_list = face_data.get('faces', [])
-
+        faces = []
+        for img_path, face_list in face_lists.items():
             for face in face_list:
                 face_idx = face.get('face_index', 0)
                 face_key = f"{img_path}:face_{face_idx}"
@@ -457,13 +461,42 @@ class FaceService:
             .all()
         )
 
+    def _run_face_lists(self, run_id: str) -> dict:
+        """Image path -> faces, cache-shaped, from a staged run's rows (spec-116 R6). {} for older runs."""
+        from sim_bench.api.database.models import FaceMetricRow
+
+        if not RunEmbeddings().has(run_id):
+            return {}
+        result = self._session.query(PipelineResult).filter(PipelineResult.run_id == run_id).first()
+        metrics = (result.image_metrics or {}) if result else {}
+        lists: dict = {}
+        rows = self._session.query(FaceMetricRow).filter(FaceMetricRow.run_id == run_id).all()
+        for row in rows:
+            frontal = {f.get('face_index'): f.get('frontal_score')
+                       for f in (metrics.get(row.image_path, {}).get('frontal_scores') or [])}
+            lists.setdefault(row.image_path.replace('\\', '/'), []).append({
+                'face_index': row.face_index,
+                'bbox': {'x': row.bbox_x, 'y': row.bbox_y, 'w': row.bbox_w, 'h': row.bbox_h,
+                         'x_px': row.bbox_x_px, 'y_px': row.bbox_y_px,
+                         'w_px': row.bbox_w_px, 'h_px': row.bbox_h_px},
+                'frontal_score': frontal.get(row.face_index),
+            })
+        return lists
+
     def _get_face_embedding(
         self,
         face_key: str,
         run_id: str
     ) -> Optional[np.ndarray]:
-        """Load face embedding from cache."""
+        """Load a face embedding: the run's own (spec-116 R14), else from the cache."""
         from sim_bench.api.database.models import UniversalCache
+
+        if ":face_" in face_key:
+            path, index = face_key.rsplit(":face_", 1)
+            own = RunEmbeddings().get(run_id, path, int(index))
+            if own is not None:
+                norm = np.linalg.norm(own)
+                return own / norm if norm > 0 else own
 
         cache_entry = (
             self._session.query(UniversalCache)

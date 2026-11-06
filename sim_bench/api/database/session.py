@@ -1,6 +1,7 @@
 """Database session management."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Generator
 
@@ -17,7 +18,10 @@ _SessionLocal = None
 
 
 def get_database_path() -> Path:
-    """Get default database path."""
+    """Get default database path. ``SIM_BENCH_DB`` points the app at another file (spec-116: isolated tests)."""
+    override = os.environ.get("SIM_BENCH_DB")
+    if override:
+        return Path(override)
     db_dir = Path.home() / ".sim_bench"
     db_dir.mkdir(parents=True, exist_ok=True)
     return db_dir / "sim_bench.db"

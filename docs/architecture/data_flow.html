@@ -146,7 +146,7 @@ return type must update this document in the same PR</b> (CODE_REVIEW_CHECKLIST 
   <div class="head"><span class="name">D · people-clustering settings</span><span class="src">sim_bench/api/services/pipeline_service.py</span></div>
   <div class="body">
     <code>configs/pipeline.yaml: people_clustering</code> (a settings block, not a step) →
-    <code>PipelineService._broadcast_clustering_config</code> → <code>FCParams</code> →
+    <code>RunSpec.build</code> → <code>FCParams</code> →
     <code>FCParams.to_step_configs()</code> → the 8 chain steps.<br>
     <code>context.face_records</code> (FaceRecord, built by <code>insightface_detect_faces</code>) feed <code>quality_gate</code> directly.
   </div>
@@ -380,6 +380,35 @@ scratch copy's paths would miss the key anyway (SIGHTING-112). Cross-run feature
         |
   Jobs page: live status (fragment, 2 s) -> album | re-run finished -> Compare runs on the pair ("Settings that differ")
   Modal daily: purge_inputs deletes photos no job used in 7 days (+ legacy albumify-jobs/*/input copies)</pre>
+
+<h2>spec-116 &mdash; one run path: every album run, on this PC or the L4</h2>
+<pre>
+Configure &amp; Run (Run on: This PC | L4; the L4 shows the estimate and needs a confirm)
+  |  POST /api/v1/pipeline/run {runner}
+  v
+PipelineService.start_pipeline
+  RunSpec.build(steps, merged config)     people_clustering -&gt; FCParams -&gt; the unified steps
+  validate_spec_or_raise                  a bad spec costs nothing
+  JobService.create(job_id = run id)      L4: spend cap; refused = 422, nothing left behind
+  PipelineRun row (pending)
+  |  background task
+  v
+PipelineService.execute_pipeline -&gt; JobService.run
+  stage        768 px copies in the shared InputStore; manifest records key -&gt; original path
+  run          LocalRunner child process | ModalRunner (uploads what Modal lacks)
+               JobCurator: RunSpec -&gt; album.json, results/bundle.json, results/run_output.json, progress.json
+  load         ResultsLoader: control DB rows, server-side displays + face crops (Jobs, Compare runs)
+  on_loaded    RunOutput.from_json -&gt; remap(PathMap: originals, pixel scale) -&gt; RunPersister
+               pipeline_results + people + image/face metric rows + run status, one commit
+  |
+  v
+Albums (runs table) -&gt; Results / People &amp; Faces / Explore read the regular tables, as for any run
+Explore face distance + People &amp; Faces -&gt; RunEmbeddings (results/embeddings.npy), then universal_cache
+</pre>
+<p>Runs made before spec-116 have no job: they keep their rows and open as before. Failure, cancel or an unreachable
+Modal end the run <code>failed</code> with the message on Configure &amp; Run and no result rows. Job status drives the
+stage shown (<code>staging</code>, <code>loading</code>); <code>progress.json</code> supplies the rest. Straightened picks are not
+shown in the app: the derived file stays on the worker, so a pick is stored under its original photo.</p>
 
 <h2>Related documents</h2>
 <ul>

@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from sim_bench.pipeline.run_spec import RunSpec
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["SpecInputs", "SpecResult", "SpecBuilder", "default_config_path"]
@@ -68,10 +70,16 @@ class SpecBuilder:
 
         steps = list(doc[key])
         step_configs: Dict[str, dict] = {s: dict(doc.get(s) or {}) for s in steps}
-        flipped, refused = self._place_device(step_configs, inputs.device)
-        logger.info("device=%s flipped=%s refused(typed config forbids)=%s",
-                    inputs.device, flipped, refused)
-        return SpecResult(steps=steps, step_configs=step_configs, flipped=flipped, refused=refused)
+        if doc.get("people_clustering"):       # spec-116 R2: one interpreter, or the job path ignores this block
+            step_configs["people_clustering"] = dict(doc["people_clustering"])
+        return self.place(RunSpec.build(steps, step_configs), inputs.device)
+
+    def place(self, spec: RunSpec, device: str) -> SpecResult:
+        """Resolve device placement for a spec built elsewhere (spec-116 R2: the app's own steps + parameters)."""
+        step_configs = {k: dict(v) if isinstance(v, dict) else v for k, v in spec.step_configs.items()}
+        flipped, refused = self._place_device(step_configs, device)
+        logger.info("device=%s flipped=%s refused(typed config forbids)=%s", device, flipped, refused)
+        return SpecResult(steps=list(spec.steps), step_configs=step_configs, flipped=flipped, refused=refused)
 
     @staticmethod
     def _place_device(step_configs: Dict[str, dict], device: str) -> tuple[List[str], List[str]]:
@@ -84,6 +92,8 @@ class SpecBuilder:
         flipped: List[str] = []
         refused: List[str] = []
         for step, cfg in step_configs.items():
+            if not registry.has_step(step) or not isinstance(cfg, dict):
+                continue  # a merged profile also carries pipeline lists and config-only blocks
             schema = (registry.get_metadata(step).config_schema or {}).get("properties", {})
             if "device" not in cfg and "device" not in schema:
                 continue  # no knob at all: the step's code decides (spec-109 P1 covers those)

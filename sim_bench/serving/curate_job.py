@@ -23,7 +23,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
+from sim_bench.pipeline.run_spec import RunSpec
 from sim_bench.serving.job_store import JobStore
+from sim_bench.serving.run_output import RunOutput
 from sim_bench.serving.run_settings import RunSettings
 from sim_bench.serving.pipeline_runner import SpecBuilder, SpecInputs, SpecResult
 
@@ -32,9 +34,10 @@ logger = logging.getLogger(__name__)
 __all__ = ["CurateJobInputs", "CurateJobResult", "JobCurator", "run_pipeline", "stable_album",
            "feature_cache_path", "FEATURE_CACHE_ENV"]
 
-# (image paths, plan) -> (finished PipelineContext, PipelineResult). Injectable so the orchestration
-# above can be tested without the real models.
-PipelineRunner = Callable[[List[Path], SpecResult], Tuple[object, object]]
+# (image paths, plan, on_step=, fail_fast=, album_name=) -> (finished PipelineContext, PipelineResult). Injectable
+# so the orchestration above can be tested without the real models.
+PipelineRunner = Callable[..., Tuple[object, object]]
+OutputBuilder = Callable[[object, object], RunOutput]
 
 
 # The worker's feature cache (faces, embeddings, quality, scene features). Default: the PC's
@@ -50,7 +53,8 @@ def feature_cache_path() -> Path:
     return get_database_path()
 
 
-def run_pipeline(images: List[Path], plan: SpecResult) -> Tuple[object, object]:
+def run_pipeline(images: List[Path], plan: SpecResult, *, on_step: Optional[Callable] = None,
+                 fail_fast: bool = True, album_name: Optional[str] = None) -> Tuple[object, object]:
     """The production runner: execute the resolved plan over exactly ``images``, with the feature
     cache attached (spec-112 TW1.3: job runs had none, so every job recomputed everything)."""
     from sqlalchemy import create_engine
@@ -71,7 +75,9 @@ def run_pipeline(images: List[Path], plan: SpecResult) -> Tuple[object, object]:
     try:
         context = PipelineContext(image_paths=list(images),
                                   cache_handler=UniversalCacheHandler(session))
-        return context, execute_spec(plan.as_pipeline_spec(), context, fail_fast=True)
+        context.album_name = album_name   # spec-088: names the export folder
+        return context, execute_spec(plan.as_pipeline_spec(), context, fail_fast=fail_fast,
+                                     on_step_complete=on_step)
     finally:
         session.close()
         engine.dispose()
@@ -95,6 +101,7 @@ class CurateJobInputs:
     # spec-115 W2: the server makes display images and face crops from its own copies (LocalRenders), so the
     # worker returns results only. True keeps the old worker-side renders (debug / comparison only).
     write_renders: bool = False
+    run_spec: Optional[Dict] = None  # spec-116 R2: what to run (RunSpec.to_dict); None = the named pipeline
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,17 +124,40 @@ class CurateJobResult:
     settings: Dict = field(default_factory=dict)   # RunSettings (spec-115 R12)
 
 
+class _ProgressFile:
+    """``progress.json`` while the steps run (spec-116 R7): the step list the app shows for a run on this PC."""
+
+    def __init__(self, store: JobStore, job_id: str, steps: List[str]):
+        self._store, self._job_id, self._steps = store, job_id, list(steps)
+        self._done: List[Dict] = []
+        self._write()
+
+    def _write(self) -> None:
+        names = {d["step"] for d in self._done}
+        current = next((s for s in self._steps if s not in names), None)
+        self._store.write_progress(self._job_id, {"stage": "running", "current_step": current,
+                                                  "completed_steps": self._done})
+
+    def __call__(self, step_result) -> None:
+        self._done.append({"step": step_result.step_name, "duration_ms": step_result.duration_ms,
+                           "status": "completed" if step_result.success else "failed",
+                           "error": step_result.error_message})
+        self._write()
+
+
 class JobCurator:
     """Curate a job whose images live in a store. Config in ``__init__``, per-call data in Inputs."""
 
     def __init__(self, store: JobStore, *,
                  spec_builder: Optional[SpecBuilder] = None,
                  runner: PipelineRunner = run_pipeline,
-                 clock: Callable[[], str] = lambda: datetime.now(timezone.utc).isoformat()):
+                 clock: Callable[[], str] = lambda: datetime.now(timezone.utc).isoformat(),
+                 output_builder: OutputBuilder = RunOutput.from_context):
         self._store = store
         self._spec_builder = spec_builder or SpecBuilder()
         self._runner = runner
         self._clock = clock
+        self._output_builder = output_builder
 
     def calc(self, inputs: CurateJobInputs) -> CurateJobResult:
         store, job_id = self._store, inputs.job_id
@@ -137,11 +167,15 @@ class JobCurator:
                                    error=f"job {job_id!r} has no staged inputs under "
                                          f"{store.paths(job_id).input_dir}")
 
-        plan = self._spec_builder.calc(SpecInputs(pipeline=inputs.pipeline, device=inputs.device))
+        spec = RunSpec.from_dict(inputs.run_spec) if inputs.run_spec else None
+        plan = self._spec_builder.place(spec, inputs.device) if spec else \
+            self._spec_builder.calc(SpecInputs(pipeline=inputs.pipeline, device=inputs.device))
         logger.info("job %s: %d inputs, pipeline=%s device=%s (%d steps)",
                     job_id, len(sources), inputs.pipeline, inputs.device, len(plan.steps))
 
-        context, result = self._runner(sources, plan)
+        context, result = self._runner(sources, plan, on_step=_ProgressFile(store, job_id, plan.steps),
+                                       fail_fast=spec.fail_fast if spec else True,
+                                       album_name=spec.album_name if spec else None)
 
         timing = _timing(result)
         settings = RunSettings.collect(plan, pipeline=inputs.pipeline, runner=inputs.runner,
@@ -160,6 +194,7 @@ class JobCurator:
         album_path = store.write_album(job_id, album)
 
         bundle_path = self._write_bundle(job_id, context, sources, album, inputs.write_renders)
+        store.write_run_output(job_id, self._output_builder(context, result).to_json())
 
         displays: List[Path] = []
         if inputs.write_renders:

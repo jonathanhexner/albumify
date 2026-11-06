@@ -13,7 +13,7 @@ from sim_bench.api.database.models import (
 )
 from sim_bench.api.repositories.image_repository import ImageRepository
 from sim_bench.api.services.people_service import PeopleService
-from sim_bench.api.services.pipeline_service import PipelineService
+from sim_bench.api.services.run_persister import RunPersister
 from sim_bench.api.schemas.people import PersonImageResponse
 
 
@@ -69,7 +69,7 @@ def session():
                  ]))
     s.commit()
     # Write the normalized tables (the production write path).
-    PipelineService(s)._write_metric_tables(RUN, image_metrics,
+    RunPersister(s)._write_metric_tables(RUN, image_metrics,
                                             s.query(Person).all())
     s.commit()
     yield s

@@ -4,6 +4,55 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-145: An L4 run dies if the PC drops off the network
+**Status**: OPEN 2026-10-31 (found during spec-116 T4.2, twice)
+**Severity**: High for the L4 path (a drop during a paid run would stop it and lose its results)
+**Persona**: Serving
+
+**Problem**: `ModalVolumeRemote.run_job` holds `run_app.run()` open for the whole run. Both Slovakia26 attempts ended on
+`ConnectionError: [Errno 11001] getaddrinfo failed`, and Modal logged "Stopping app - local client disconnected". The error
+is raised on leaving the `with` block, past the `except` around `.get()`.
+**Suspicion**: an ephemeral app is tied to its client. Modal's own message points at detached running; a deployed app with
+`spawn` plus a re-attach by call id would survive a drop. Both drops happened while queued, so no paid run was lost yet.
+**Reproduce**: start an L4 run, cut the PC's network, watch `modal app logs <app id>`.
+
+### SIGHTING-144: The sharpness gate depends on photo resolution
+**Status**: OPEN 2026-10-31 (found by spec-116 R13; owner decision)
+**Severity**: High for Gate 1 (it decides which photos reach the album, and spec-116 moves every run to 768 px)
+**Persona**: Pipeline / Quality
+
+**Problem**: Budapest 122 with one threshold (`filter_quality.min_sharpness: 0.2`): median score 0.05 at full size, 0.31 at
+768 px; the gate removes 114 vs 26 photos. So 768 px runs keep far more photos than full-size runs did, and the threshold
+does not mean the same thing across sizes.
+**Suspicion**: the score measures per-pixel detail, which rises when a photo is shrunk. Thresholds were tuned elsewhere (spec-098).
+**Reproduce**: `reports/2026-10-30_spec116_r13_fullsize_vs_768/results.json`; `scripts/spec116_r13_fullsize_vs_768.py`.
+
+### SIGHTING-143: An L4 run waiting for a GPU shows as "Running"
+**Status**: OPEN 2026-10-30 (found during spec-116 T4.2)
+**Severity**: Low (nothing is billed while it waits; the elapsed time just reads as if the job were slow)
+**Persona**: Serving / App
+
+**Problem**: the first spec-116 Slovakia26 L4 run sat in Modal's queue for 29+ minutes ("Function 'curate_job' is waiting to be
+scheduled on a GPU_L4 worker", 0 tasks) while Configure & Run said "Running on L4 (GPU)".
+**Suspicion**: `ModalRunner` writes the stage `running` before `spawn`; nothing reads the call's scheduled state, and the
+worker's own `progress.json` sits on the Volume where the app cannot see it.
+**Reproduce**: start an L4 run when Modal has no L4 capacity; compare the stage with `modal app logs <app id>`.
+
+### SIGHTING-142: Album picks include near-identical photos; select_best ignores its own limits
+**Status**: OPEN 2026-10-25 (owner: "the selections are poor, we're getting near identical images")
+**Severity**: High for Gate 1 (the picks are what the owner judges)
+**Persona**: Pipeline / Selection
+
+**Problem**: Slovakia26 L4 job `Slovakia26-20261023-114445` (715 photos, 251 picks). `select_best.max_images_per_cluster: 2`, yet
+43 of 95 scenes have more than 2 picks (one has 9) and scene -1 (unclustered) has 25. 37 of 250 consecutive picks are within
+5 s of each other (e.g. `20260818_152912`, `_152913`, `_152914`, all in scene 2); 104 within 30 s. `min_score_threshold: 0.4`,
+yet pick #1 has composite 0.33.
+**Suspicion, unverified**: the per-scene cap is applied per person subgroup rather than per scene; scene -1 bypasses the cap and
+the near-duplicate check; the threshold is applied to a different score than `composite`. Not engine-related (the local run of
+the same photos gave the same picks).
+**Reproduce**: run Slovakia26 through Configure & Run (after spec-116, the Results page shows each pick's reason); or read
+`~/.sim_bench/jobs/Slovakia26-20261023-114445/album.json` and count picks per `scene_cluster`.
+
 ### SIGHTING-141: Worker face crops have red and blue swapped (and the detector may be fed RGB)
 **Status**: crop swap FIXED 2026-10-23 (owner: fix it); detector colour order still a suspicion, OPEN until measured.
 **Severity**: Medium (every face crop in the Albumify People tab and, likely, the face-clustering app export shows wrong colours; embeddings are NOT affected)

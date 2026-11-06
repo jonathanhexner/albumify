@@ -146,14 +146,14 @@ class ModalVolumeRemote:
                 # a just-uploaded photo counts as used now (review M2); the worker adds the job id later
                 batch.put_file(io.BytesIO(claim), "/" + k.split("/", 1)[0] + "/.used.json")
 
-    def run_job(self, job_id: str, keys: Sequence[str], pipeline: str) -> dict:
+    def run_job(self, job_id: str, keys: Sequence[str], pipeline: str, spec: Optional[dict] = None) -> dict:
         import modal
         from sim_bench.serving.modal_app import app, cpu_app, curate_job, curate_job_cpu
         fn, run_app = (curate_job, app) if self.gpu else (curate_job_cpu, cpu_app)
         if self._cancelled:                    # cancelled while photos were uploading: no GPU at all
             return {"ok": False, "error": CANCELLED}
         with modal.enable_output(), run_app.run():
-            self._call = fn.spawn(job_id, pipeline, list(keys), current_commit())
+            self._call = fn.spawn(job_id, pipeline, list(keys), current_commit(), spec)
             if self._cancelled:                # cancel arrived while the app was starting (review M3)
                 self._call.cancel()
             try:
@@ -220,14 +220,17 @@ class ModalRunner:
         for stale in (paths.run_path, paths.album_path):
             if stale.exists():
                 stale.unlink()
+        self._store.write_progress(job_id, {"stage": "uploading"})
         missing = self._remote.missing(keys)
         self._remote.upload(missing, self._store)
         notes = [f"uploaded {len(missing)} new photos to Modal ({len(keys) - len(missing)} already there)"]
         if self._cancelled:
             return RunOutcome(ok=False, error=CANCELLED, notes=tuple(notes))
-        res = self._remote.run_job(job_id, keys, self._pipeline)
+        self._store.write_progress(job_id, {"stage": "running"})
+        res = self._remote.run_job(job_id, keys, self._pipeline, self._store.read_run_spec(job_id))
         if res.get("error") == CANCELLED:
             return RunOutcome(ok=False, error=CANCELLED, notes=tuple(notes))
+        self._store.write_progress(job_id, {"stage": "copying back"})
         n = self._remote.download_results(job_id, self._store)
         notes.append(f"copied back {n} result files")
         logger.info("job %s: %s ok=%s; %s", job_id, self.name, res.get("ok"), "; ".join(notes))
@@ -260,8 +263,9 @@ def _child_main() -> int:
     ap.add_argument("--device", default="cpu")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    res = JobCurator(JobStore(a.root)).calc(
-        CurateJobInputs(job_id=a.job_id, pipeline=a.pipeline, device=a.device))
+    store = JobStore(a.root)
+    res = JobCurator(store).calc(CurateJobInputs(job_id=a.job_id, pipeline=a.pipeline, device=a.device,
+                                                 run_spec=store.read_run_spec(a.job_id)))
     return 0 if res.ok else 1
 
 

@@ -229,7 +229,7 @@ def stage_job(job_id: str, images: list[tuple[str, bytes]], replace: bool = True
 
 
 def _curate_job(job_id: str, pipeline: str, device: str, keys: list[str] | None = None,
-                commit: str | None = None) -> dict:
+                commit: str | None = None, spec: dict | None = None) -> dict:
     """Shared body of curate_job (GPU) / curate_job_cpu — see sim_bench/serving/curate_job.py.
 
     ``keys`` (spec-115 W3): the job's photos in the shared input store, uploaded once by the control
@@ -268,7 +268,7 @@ def _curate_job(job_id: str, pipeline: str, device: str, keys: list[str] | None 
         os.environ[FEATURE_CACHE_ENV] = str(local_cache)
     runner = "modal_gpu" if device == "cuda" else "modal_cpu"
     result = JobCurator(store).calc(CurateJobInputs(job_id=job_id, pipeline=pipeline, device=device,
-                                                    runner=runner))
+                                                    runner=runner, run_spec=spec))
     if keys is not None and local_cache.is_file():
         tmp = Path(FCACHE_DIR) / "sim_bench.db.part"
         shutil.copyfile(local_cache, tmp)
@@ -287,20 +287,20 @@ def _commit_job_volumes() -> None:
 @app.function(image=full_image, gpu=GPU_TYPE, timeout=1800, cpu=4.0, memory=16384,
               volumes=_JOB_VOLUMES)
 def curate_job(job_id: str, pipeline: str = "default", keys: list[str] | None = None,
-               commit: str | None = None) -> dict:
+               commit: str | None = None, spec: dict | None = None) -> dict:
     """Curate a job on GPU -> album.json + results in the job store (spec-110 AC3, spec-115 W3)."""
     try:
-        return _curate_job(job_id, pipeline, device="cuda", keys=keys, commit=commit)
+        return _curate_job(job_id, pipeline, device="cuda", keys=keys, commit=commit, spec=spec)
     finally:
         _commit_job_volumes()
 
 
 @cpu_app.function(image=full_image, timeout=3600, cpu=4.0, memory=16384, volumes=_JOB_VOLUMES)
 def curate_job_cpu(job_id: str, pipeline: str = "default", keys: list[str] | None = None,
-                   commit: str | None = None) -> dict:
+                   commit: str | None = None, spec: dict | None = None) -> dict:
     """Same, on a CPU container: the free-tier correctness proof. Slow (~9 s/img)."""
     try:
-        return _curate_job(job_id, pipeline, device="cpu", keys=keys, commit=commit)
+        return _curate_job(job_id, pipeline, device="cpu", keys=keys, commit=commit, spec=spec)
     finally:
         _commit_job_volumes()
 

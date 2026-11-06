@@ -233,8 +233,10 @@ class ApiClient:
         config: Optional[Dict[str, Any]] = None,
         profile: Optional[str] = None,
         fail_fast: bool = True,
+        runner: str = "local",
+        pipeline_name: Optional[str] = None,
     ) -> str:
-        """Start pipeline execution. Returns job ID."""
+        """Start pipeline execution on the chosen machine. Returns the run ID."""
         data = self._post(
             "/api/v1/pipeline/run",
             json={
@@ -243,21 +245,37 @@ class ApiClient:
                 "config": config,
                 "profile": profile,
                 "fail_fast": fail_fast,
+                "runner": runner,
+                "pipeline_name": pipeline_name,
             },
         )
         return data.get("job_id", "")
+
+    def estimate_run(self, album_id: str, runner: str) -> Dict[str, Any]:
+        """spec-116 R1: photos, and on the L4 GPU minutes, dollars and whether the spend cap allows it."""
+        return self._get("/api/v1/pipeline/estimate", params={"album_id": album_id, "runner": runner})
+
+    def cancel_run(self, run_id: str) -> Dict[str, Any]:
+        return self._post(f"/api/v1/pipeline/{run_id}/cancel")
+
+    def list_runs(self) -> List[Dict[str, Any]]:
+        """spec-116 R10: every run of every album, newest first."""
+        return self._get("/api/v1/pipeline/runs")
 
     def get_pipeline_status(self, job_id: str) -> PipelineProgress:
         """Get current pipeline status by job ID."""
         data = self._get(f"/api/v1/pipeline/{job_id}")
         return PipelineProgress(
-            status=PipelineStatus(data.get("status", "idle")),
+            # a run the worker has not picked up yet counts as running: the page keeps polling it
+            status=PipelineStatus("running" if data.get("status") == "pending" else data.get("status", "idle")),
             current_step=data.get("current_step"),
             current_step_progress=data.get("progress", 0.0),
             current_step_message=data.get("message", ""),
             completed_steps=data.get("completed_steps") or [],
             total_steps=data.get("total_steps") or 0,
             started_at=data.get("started_at"),
+            runner=data.get("runner"),
+            stage=data.get("stage"),
         )
 
     def get_pipeline_result(self, job_id: str) -> Optional[PipelineResult]:
@@ -277,11 +295,6 @@ class ApiClient:
             if e.status_code == 404:
                 return None
             raise
-
-    def stop_pipeline(self, job_id: str) -> bool:
-        """Stop running pipeline."""
-        # Note: API may not have stop endpoint yet
-        return False
 
     def run_pipeline_with_polling(
         self,
@@ -732,19 +745,6 @@ class ApiClient:
         return self._post(f"/jobs/{job_id}/edits", json={"kind": kind, "payload": payload})
 
     # spec-115: run, watch, cancel and re-run jobs from the app
-    def estimate_job(self, *, source: Optional[str] = None, start: int = 0, n: Optional[int] = None,
-                     runner: Optional[str] = None, rerun_of: Optional[str] = None) -> Dict[str, Any]:
-        params = {k: v for k, v in {"source": source, "start": start, "n": n, "runner": runner,
-                                    "rerun_of": rerun_of}.items() if v is not None}
-        return self._get("/jobs/estimate", params=params)
-
-    def submit_job(self, *, source: Optional[str] = None, start: int = 0, n: Optional[int] = None,
-                   runner: Optional[str] = None, pipeline: Optional[str] = None,
-                   rerun_of: Optional[str] = None) -> Dict[str, Any]:
-        body = {k: v for k, v in {"source": source, "start": start, "n": n, "runner": runner,
-                                  "pipeline": pipeline, "rerun_of": rerun_of}.items() if v is not None}
-        return self._post("/jobs", json=body)
-
     def cancel_job(self, job_id: str) -> Dict[str, Any]:
         return self._post(f"/jobs/{job_id}/cancel")
 

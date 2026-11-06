@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>updates</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="updates.md">updates.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-116--progress--verification-updates"
+id="toc-spec-116--progress--verification-updates">spec-116 — Progress
+&amp; verification updates</a>
+<ul>
+<li><a
+href="#2026-10-31--w1-w3-built-r13-fails-its-check-both-l4-attempts-ended-in-modals-queue"
+id="toc-2026-10-31--w1-w3-built-r13-fails-its-check-both-l4-attempts-ended-in-modals-queue">2026-10-31
+— W1-W3 built; R13 fails its check; both L4 attempts ended in Modal's
+queue</a></li>
+<li><a href="#2026-10-25--drafted"
+id="toc-2026-10-25--drafted">2026-10-25 — Drafted</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-116--progress--verification-updates">spec-116 — Progress
+&amp; verification updates</h1>
+<p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
+href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
+<a href="../../ROADMAP.html">ROADMAP.md</a></p>
+<p><strong>Status:</strong> In Progress 2026-10-30</p>
+<h2
+id="2026-10-31--w1-w3-built-r13-fails-its-check-both-l4-attempts-ended-in-modals-queue">2026-10-31
+— W1-W3 built; R13 fails its check; both L4 attempts ended in Modal's
+queue</h2>
+<p>Every album run now goes Configure &amp; Run -&gt;
+<code>JobService</code> -&gt; this PC or the L4 -&gt;
+<code>run_output.json</code> -&gt; <code>RunPersister</code>.
+<strong>Not Implemented:</strong> R5, R6, R9 (L4) and R13 are open.</p>
+<p><strong>How it was verified</strong></p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1 R2 R3 R4 R8 R11 R14 unit level</td>
+<td><code>tests/pipeline/test_run_spec.py</code>,
+<code>tests/serving/test_run_output.py</code>,
+<code>tests/serving/test_path_map.py</code>,
+<code>tests/api/test_pipeline_service_runners.py</code>,
+<code>tests/api/test_pipeline_router.py</code>,
+<code>tests/api/test_results_face_distance.py</code>: part of 255 passed
+on the affected suites</td>
+</tr>
+<tr>
+<td>R1 R6 R7 R8 R10 R15 in the app</td>
+<td><code>tests/test_configure_run_on_e2e.py</code>,
+<code>tests/test_albums_table_e2e.py</code>,
+<code>tests/test_jobs_page_run_e2e.py</code>: 11 passed (Modal
+faked)</td>
+</tr>
+<tr>
+<td>Full suite</td>
+<td>1,739 passed, 2 skipped, 145 deselected, 0 failed</td>
+</tr>
+<tr>
+<td>V2 gate</td>
+<td><code>tests/face_clustering/e2e_budapest/</code>: 11 passed</td>
+</tr>
+<tr>
+<td>R5 stored paths, real</td>
+<td>768 run, Budapest, this PC: 0 staged paths in
+<code>image_metrics</code>, <code>selected_images</code>,
+<code>scene_clusters</code>, <code>step_decisions</code>,
+<code>siamese_comparisons</code>, <code>face_subclusters</code>,
+<code>people</code> (16 people, 487 face rows). L4 crops: open</td>
+</tr>
+<tr>
+<td>R8, real</td>
+<td>Both L4 attempts lost DNS on the PC; each run ended
+<code>failed</code> with the message and no result rows</td>
+</tr>
+<tr>
+<td>R9 this PC, real</td>
+<td>48 photos: 593.3 s cold, 14.9 s warm, ratio 0.025</td>
+</tr>
+<tr>
+<td>R12, real</td>
+<td>Budapest run15 <code>f782ad87</code>: Results, People &amp; Faces,
+Explore: 0 exceptions, 0 broken images. Same for the real 768 run
+<code>a40333fd</code></td>
+</tr>
+<tr>
+<td>R13</td>
+<td><strong>Fails:</strong> see below.
+<code>reports/2026-10-30_spec116_r13_fullsize_vs_768/results.json</code>,
+<code>diagnostic_no_sharpness_gate.json</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>R13, Budapest 122, this PC (full-size vs 768).</strong>
+Production config: NOT close enough: 8 vs 96 photos reach the album, 5
+vs 49 picks, 0 vs 13 scenes, 11 vs 8 people, precision 0.27. Cause: the
+sharpness score depends on resolution (median 0.05 vs 0.31) and the gate
+is one fixed 0.2, so it removes 114 vs 26 photos (SIGHTING-144).
+Diagnostic with the gate off on both arms (not production): 122 each, 61
+vs 58 picks, 15 vs 15 scenes, recall and precision 1.00, but still NOT
+close enough on people: 11 vs 8, largest person 19 vs 11 faces. Owner
+decision needed. The full-size arm reproduces the old path's inputs, not
+its code: the in-API runner is gone.</p>
+<p><strong>L4 (T4.2), both attempts never got a GPU.</strong> The
+owner's OK reached this agent as a relayed coordinator message.</p>
+<table>
+<thead>
+<tr>
+<th>Attempt</th>
+<th>Run</th>
+<th>App</th>
+<th>What happened</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1, 2026-10-30</td>
+<td><code>b4180532</code></td>
+<td><code>ap-0s9GGjOWWYUyS7Lgy3MBG7</code></td>
+<td>Estimate 715 photos, 9.7 min, $0.13. Queued 34 min "waiting to be
+scheduled on a GPU_L4 worker", then DNS failed on the PC</td>
+</tr>
+<tr>
+<td>2, 2026-10-31</td>
+<td><code>683cf93f</code></td>
+<td><code>ap-veL55C9lBBArN1JMHMkXQU</code></td>
+<td>Queued about 10 min, then DNS failed; Modal: "Stopping app - local
+client disconnected"</td>
+</tr>
+</tbody>
+</table>
+<p>No curator app is live and neither run left a folder on
+<code>albumify-jobs</code>. No pipeline ran on the L4, so Slovakia26 has
+no L4 evidence yet. Modal billing itself was not checked. Stages reached
+on the real L4 path: staging, uploading, running; "copying back" only
+with the faked Modal. Re-runs were not attempted. SIGHTING-143 (a queued
+run reads "Running") and SIGHTING-145 (the PC must stay connected for a
+whole L4 run).</p>
+<p><strong>Decisions / deviations:</strong> spec §5-§6 gained
+<code>RunEmbeddings</code>, <code>FaceService</code>,
+<code>PeopleService</code>, <code>SIM_BENCH_DB</code> (People &amp;
+Faces would have been empty for staged runs). Rows are written after the
+job loads. Straightened picks show as the original. Staging is
+non-recursive. The Jobs page also lost Re-run (one way to start a run).
+The websocket no longer pushes step progress.</p>
+<p><strong>Outstanding artefacts:</strong> <code>report.html</code> and
+<code>summary.md</code> for R13 were refused by the agent harness
+(subagents may not write report files); the owner or parent must add
+them.</p>
+<h2 id="2026-10-25--drafted">2026-10-25 — Drafted</h2>
+<p>Owner, after looking for the spec-115 L4 run in the app: "this should
+be in albums … the execution engine shouldn't matter to our UI. we
+should be able to choose where to run at the beginning of the run." Code
+map: both paths already call <code>execute_spec</code>, but the job path
+skips the <code>people_clustering</code> settings, keys the cache on
+staged copies, and saves its results to a separate database
+(<code>control.db</code>) that the Albums, Results and People pages
+never read. This spec makes Configure &amp; Run the only way to start a
+run, on either machine. Separately filed SIGHTING-142 (near-duplicate
+picks).</p>
+</div>
+</body>
+</html>

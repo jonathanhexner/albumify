@@ -141,6 +141,8 @@ class PipelineProgress:
     completed_steps: List[Dict] = field(default_factory=list)  # [{step, duration_ms, status, error}]
     total_steps: int = 0
     started_at: Optional[Any] = None
+    runner: Optional[str] = None      # spec-116: local | modal_gpu; None for runs made before it
+    stage: Optional[str] = None       # queued | staging | uploading | running | copying back | loading
 
 
 @dataclass

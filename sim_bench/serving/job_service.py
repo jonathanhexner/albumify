@@ -1,7 +1,7 @@
 """The control plane's one job flow (spec-112 TA4.2):
 
-    create (queued) -> stage (staging) -> runner.run (running) -> load (loading) -> succeeded
-                                     any failure or exception ---------------------> failed
+    create (queued) -> stage (staging) -> runner.run (running) -> load + on_loaded (loading) -> succeeded
+                                     any failure or exception --------------------------------> failed
 
 Same code whatever the runner; only ``runner`` differs. The runner writes files, this service is
 the only thing that writes the DB. Synchronous by design: the API calls it from a background task,
@@ -58,6 +58,9 @@ class SubmitInputs:
     n: Optional[int] = None
     tag: Optional[str] = None          # e.g. regression:slovakia (spec-114); None = an owner's album
     rerun_of: Optional[str] = None     # spec-115 R5: the same photos as this earlier job (its manifest)
+    run_spec: Optional[Dict] = None    # spec-116 R2: what to run; None = the named pipeline's yaml
+    # spec-116: called once the results are loaded, before the job counts as succeeded; raising fails the job
+    on_loaded: Optional[Callable[[str], None]] = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,7 +210,7 @@ class JobService:
     def _stage(self, job_id: str, source: Path, start: int, n: Optional[int]) -> None:
         """Put the folder's photos in the shared input store (only new ones are resized) and point
         the job at them (spec-112 A2)."""
-        keys, fresh = [], 0
+        keys, originals, fresh = [], {}, 0
         for photo in select_images(source, start, n):
             try:
                 key = self.store.inputs.key_for(photo)
@@ -215,11 +218,12 @@ class JobService:
                     self.store.inputs.put_bytes(key, downsample(photo))
                     fresh += 1
                 keys.append(key)
+                originals[key] = str(photo)
             except Exception as e:   # one unreadable file must not sink the job; it is logged
                 logger.warning("skipping unreadable image %s: %s", photo, e)
         if not keys:
             raise ValueError(f"no readable images in {source}")
-        self.store.write_input_manifest(job_id, keys)
+        self.store.write_input_manifest(job_id, keys, originals)
         self.repo.log(job_id, f"staged {len(keys)} photos ({fresh} new, {len(keys) - fresh} already staged)")
 
     def run(self, job_id: str, inputs: SubmitInputs) -> SubmitResult:
@@ -231,10 +235,12 @@ class JobService:
             self.repo.transition(job_id, STAGING, worker=this_worker())
             if inputs.rerun_of is not None:
                 keys = self.store.input_keys(inputs.rerun_of)
-                self.store.write_input_manifest(job_id, keys)
+                self.store.write_input_manifest(job_id, keys, self.store.input_originals(inputs.rerun_of))
                 self.repo.log(job_id, f"staged {len(keys)} photos (the same photos as {inputs.rerun_of})")
             elif inputs.source is not None:
                 self._stage(job_id, Path(inputs.source), inputs.start, inputs.n)
+            if inputs.run_spec:
+                self.store.write_run_spec(job_id, inputs.run_spec)
             n = len(self.store.input_images(job_id))
             if n == 0:
                 raise ValueError(f"job {job_id!r} has no staged inputs")
@@ -270,6 +276,8 @@ class JobService:
             res = ResultsLoader(self.db, self.store).calc(LoadInputs(job_id))
             for w in res.warnings:
                 self.repo.log(job_id, w, kind="warning")
+            if inputs.on_loaded is not None:
+                inputs.on_loaded(job_id)
             self.repo.transition(job_id, SUCCEEDED,
                                  f"{res.n_picks} picks of {res.n_photos} photos, "
                                  f"{res.n_faces} faces, {res.n_people} people")
@@ -289,6 +297,7 @@ class JobService:
             return SubmitResult(job_id, FAILED, msg)
         finally:
             self._cancel_requested.discard(job_id)
+            self.store.paths(job_id).progress_path.unlink(missing_ok=True)   # live state only (spec-116 R7)
 
     def _wait_for_modal(self, job_id: str) -> None:
         """One Modal job at a time; a job waiting its turn can still be cancelled (review M1)."""

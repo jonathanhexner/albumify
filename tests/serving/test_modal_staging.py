@@ -33,7 +33,7 @@ class FakeVolume:
             (self.inputs / k).write_bytes(store.inputs.path(k).read_bytes())
         self.uploads.append(len(keys))
 
-    def run_job(self, job_id, keys, pipeline):
+    def run_job(self, job_id, keys, pipeline, spec=None):
         self.calls.append((job_id, tuple(keys), pipeline))
         if self.cancelled:
             return {"ok": False, "error": CANCELLED}
@@ -84,7 +84,7 @@ class ut_ModalStaging:
         out = ModalRunner(store, remote=FakeVolume(tmp_path / "modal")).run("j1")
         root = store.paths("j1").root
         got = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
-        assert got == ["album.json", "input/manifest.json", "results/bundle.json", "run.json"]
+        assert got == ["album.json", "input/manifest.json", "progress.json", "results/bundle.json", "run.json"]
         assert out.notes[1] == "copied back 3 result files"
 
     def test_cancelled_call_ends_cancelled_and_copies_nothing(self, store, tmp_path):

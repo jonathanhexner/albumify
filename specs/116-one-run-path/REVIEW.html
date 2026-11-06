@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="REVIEW.md">REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-116--code-review"
+id="toc-spec-116--code-review">spec-116 — Code review</a>
+<ul>
+<li><a href="#part-1-how-it-works" id="toc-part-1-how-it-works">Part 1:
+How it works</a></li>
+<li><a href="#part-2-findings" id="toc-part-2-findings">Part 2:
+Findings</a></li>
+<li><a href="#part-3-verdict-per-area"
+id="toc-part-3-verdict-per-area">Part 3: Verdict per area</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-116--code-review">spec-116 — Code review</h1>
+<p><strong>Status:</strong> Blocked, 2 High findings ·
+<strong>Date:</strong> 2026-10-31 · <strong>Base:</strong>
+<code>main</code> (changes uncommitted on
+<code>spec/116-one-run-path</code>) · <strong>Checklist:</strong>
+<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code></p>
+<p>Self-review by the implementing agent, not an independent one.</p>
+<h2 id="part-1-how-it-works">Part 1: How it works</h2>
+<pre><code>Configure &amp; Run -&gt; POST /pipeline/run {runner}
+  PipelineService.start_pipeline   RunSpec.build, validate, JobService.create (spend cap), run row
+  PipelineService.execute_pipeline -&gt; JobService.run
+     stage    InputStore copies, manifest key -&gt; original
+     run      LocalRunner child process | ModalRunner
+              JobCurator -&gt; album.json, bundle.json, run_output.json, progress.json
+     load     ResultsLoader -&gt; control DB, displays, crops
+     on_loaded  RunOutput.remap(PathMap) -&gt; RunPersister -&gt; commit with run status
+Albums -&gt; Results / People &amp; Faces / Explore (regular tables; RunEmbeddings, then cache)</code></pre>
+<p>Layering: <code>app</code> -&gt; <code>api</code> -&gt;
+<code>serving</code> / <code>control</code> -&gt; <code>pipeline</code>.
+Exception, recorded: <code>serving/run_output.py</code> imports
+<code>api.schemas.result</code> and, lazily,
+<code>api.services.people_service</code>. <code>pipeline_service</code>
+imports <code>routers.jobs</code> lazily for its default
+<code>JobService</code>.</p>
+<h2 id="part-2-findings">Part 2: Findings</h2>
+<h3 id="high">High</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding</th>
+<th>Evidence</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H1</td>
+<td><strong>The L4 path has no real-data proof.</strong> Checklist: "a
+new public API with no E2E test exercising it on real data". Both
+attempts stayed in Modal's queue, so <code>spec</code> reaching the
+worker, <code>run_output.json</code> copy-back and the remap of real
+<code>/inputs/</code> paths ran only against a fake</td>
+<td>updates.md 2026-10-31; R5 R6 R9</td>
+<td>Open: needs an L4 run</td>
+</tr>
+<tr>
+<td>H2</td>
+<td><strong>R13 fails its check.</strong> 768 px is not close enough at
+production settings, and with the sharpness gate off people still split
+11 vs 8. Every run now uses 768 px, so this changes results for every
+album</td>
+<td><code>reports/2026-10-30_spec116_r13_fullsize_vs_768/</code>;
+SIGHTING-144</td>
+<td>Open: owner decision</td>
+</tr>
+</tbody>
+</table>
+<h3 id="medium">Medium</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding</th>
+<th>Ticket</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M1</td>
+<td>The PC must stay online for a whole L4 run (<code>runners.py</code>,
+<code>run_job</code>). A drop stops the app and raises past the
+<code>except</code>; a drop during a paid run would lose it</td>
+<td>SIGHTING-145</td>
+</tr>
+<tr>
+<td>M2</td>
+<td>A queued L4 run reads "Running"</td>
+<td>SIGHTING-143</td>
+</tr>
+<tr>
+<td>M3</td>
+<td>Behaviour changes to confirm: straightened picks show as the
+original; photos in subfolders are not run; Re-run left the Jobs page; a
+failed people or metric write now fails the run (it was a warning)</td>
+<td>spec §6 notes, updates.md</td>
+</tr>
+<tr>
+<td>M4</td>
+<td><code>SpecBuilder.calc</code> now applies
+<code>people_clustering</code>, so regression runs may shift from their
+baselines. Not measured</td>
+<td>TODO</td>
+</tr>
+</tbody>
+</table>
+<h3 id="low">Low</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding</th>
+<th>Ticket</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L1</td>
+<td><code>PeopleService.create_from_clusters</code> is now used by tests
+only; <code>JobProgress</code> and the websocket queue are never
+fed</td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L2</td>
+<td><code>run_output.py</code> 320 LOC (justified in its docstring);
+<code>job_service.py</code> 327 and <code>job_store.py</code> 309 passed
+300 in this spec with no such note</td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L3</td>
+<td><code>start_pipeline</code> has 6 parameters (was 5)</td>
+<td>Accepted: mirrors the request</td>
+</tr>
+<tr>
+<td>L4</td>
+<td>Albums shows 7 old runs stuck at <code>running</code>, made before
+spec-116, with no job to end them</td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L5</td>
+<td><code>reports/</code> <code>report.html</code> +
+<code>summary.md</code> for R13 not written: the agent harness refused
+report files</td>
+<td>updates.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="part-3-verdict-per-area">Part 3: Verdict per area</h2>
+<table>
+<thead>
+<tr>
+<th>§</th>
+<th>Area</th>
+<th>Verdict</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Structure</td>
+<td>pass-with-follow-up</td>
+<td>L1, L2, L3</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Code quality</td>
+<td>pass</td>
+<td>The two swallowed writes became failures (R8)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Naming and packages</td>
+<td>pass</td>
+<td><code>__all__</code> on every new module</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Layering and coupling</td>
+<td>pass-with-follow-up</td>
+<td>One writer for result rows; <code>serving</code> -&gt;
+<code>api</code> schema import recorded in Part 1</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Testability</td>
+<td><strong>fail</strong></td>
+<td>H1. Local path covered by real E2E and real Budapest runs; L4 only
+faked. Fake Modal justified: no spend in tests</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Boundary contracts</td>
+<td>pass</td>
+<td><code>RunRow</code> forbids extras; <code>RunSpec</code> validated
+before anything is created; <code>RunOutput</code> is a dataclass read
+with <code>cls(**json)</code>, so unknown keys raise</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Documentation</td>
+<td>pass-with-follow-up</td>
+<td><code>classes.html</code>, <code>data_flow.html</code> updated; no
+DB column changed; L5</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Risk register</td>
+<td><strong>fail</strong></td>
+<td>H2, M1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Test inventory:</strong> 1,739 passed + 2 skipped full suite
+(0 failed); 11 Playwright on the real app with Modal faked; 11 Budapest
+V2 gate; 3 real local Budapest pipelines plus diagnostic. The 2 skips
+were not investigated individually.</p>
+<p><strong>Failure walk-through:</strong> staged path stored:
+<code>test_every_path_is_the_original</code>,
+<code>test_rows_name_the_originals_on_both_machines</code>. Boxes on the
+wrong scale: <code>test_pixel_boxes_scale_and_ratio_boxes_stay</code>.
+Job path ignores clustering:
+<code>test_people_clustering_reaches_the_steps</code>. Partial rows:
+<code>test_a_failed_write_leaves_no_rows</code>. Run stuck forever:
+<code>test_a_process_that_died_ends_failed</code>. Spend cap bypass:
+<code>test_l4_over_cap_is_refused</code>.</p>
+<p><strong>Blockers:</strong> H1 and H2 block <code>Implemented</code>.
+Decision needed on each: fix, waive (recorded here), or keep at In
+Progress. Spec stays In Progress.</p>
+</div>
+</body>
+</html>

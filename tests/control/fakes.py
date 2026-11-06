@@ -11,6 +11,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from sim_bench.serving.run_output import RunOutput
+
 NAMES = ("a.jpg", "b.jpg", "c.jpg", "d.jpg", "q.jpg", "s.jpg")
 
 
@@ -49,7 +51,19 @@ def _context(images):
     )
 
 
-def fake_pipeline(images, plan):
+def fake_output(context, result):
+    """The fake context has no metrics; the tests here are about the album and the bundle."""
+    return RunOutput()
+
+
+def stage_fake_album(store, job_id: str) -> None:
+    keys = [f"{i:016x}/{n}" for i, n in enumerate(NAMES)]
+    for k in keys:
+        store.inputs.put_bytes(k, b"jpeg")
+    store.write_input_manifest(job_id, keys)
+
+
+def fake_pipeline(images, plan, **_):
     return _context(images), SimpleNamespace(success=True, total_duration_ms=1.0, failed_step=None,
                                            error_message=None, step_results=[])
 

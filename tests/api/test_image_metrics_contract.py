@@ -6,7 +6,7 @@ blanked the Results columns (spec-084).
 """
 
 from sim_bench.pipeline.context import PipelineContext
-from sim_bench.api.services.pipeline_service import PipelineService
+from sim_bench.serving.run_output import build_image_metrics
 from sim_bench.api.services.result_service import ResultService
 from sim_bench.api.schemas.result import ImageMetrics
 
@@ -18,7 +18,7 @@ class ut_ImageMetricsContract:
         output is EXACTLY the contract field set — not a subset, not a superset."""
         ctx = PipelineContext()
         path = "a.jpg"
-        produced = PipelineService(None)._build_image_metrics(ctx, path, {})
+        produced = build_image_metrics(ctx, path, {})
 
         assert set(produced.keys()) == set(ImageMetrics.model_fields)
 

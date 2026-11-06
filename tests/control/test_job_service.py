@@ -21,7 +21,7 @@ from sim_bench.serving.runners import CANCELLED, LocalRunner, ModalRunner, RunOu
 from sim_bench.serving.serving_config import ServingConfig, load_serving_config
 from sim_bench.serving.staging import collect_images
 
-from tests.control.fakes import NAMES, fake_pipeline
+from tests.control.fakes import fake_output, NAMES, fake_pipeline
 
 
 class InProcessRunner:
@@ -31,7 +31,8 @@ class InProcessRunner:
         self.name, self.store = name, store
 
     def run(self, job_id):
-        res = JobCurator(self.store, spec_builder=SpecBuilder(), runner=fake_pipeline).calc(
+        res = JobCurator(self.store, spec_builder=SpecBuilder(), runner=fake_pipeline,
+                         output_builder=fake_output).calc(
             CurateJobInputs(job_id=job_id, pipeline="minimal"))
         return RunOutcome(ok=res.ok, error=res.error, wall_s=1.0)
 
@@ -46,7 +47,8 @@ class ResultsOnlyRunner:
     def run(self, job_id):
         self.worker.write_input_manifest(job_id, self.store.input_keys(job_id))
         self.worker.inputs = self.store.inputs              # the worker's own copy of the same photos
-        res = JobCurator(self.worker, spec_builder=SpecBuilder(), runner=fake_pipeline).calc(
+        res = JobCurator(self.worker, spec_builder=SpecBuilder(), runner=fake_pipeline,
+                         output_builder=fake_output).calc(
             CurateJobInputs(job_id=job_id, pipeline="minimal"))
         for rel in self.worker.results_files(job_id):
             dest = self.store.paths(job_id).root / rel

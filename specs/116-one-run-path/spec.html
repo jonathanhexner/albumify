@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-116--one-run-path-choose-this-pc-or-the-l4-see-the-album-in-albums-either-way"
+id="toc-spec-116--one-run-path-choose-this-pc-or-the-l4-see-the-album-in-albums-either-way">spec-116
+— One run path: choose this PC or the L4, see the album in Albums either
+way</a>
+<ul>
+<li><a href="#1-objective" id="toc-1-objective">1. Objective</a></li>
+<li><a href="#2-requirements" id="toc-2-requirements">2.
+Requirements</a></li>
+<li><a href="#3-plan" id="toc-3-plan">3. Plan</a></li>
+<li><a href="#4-class-diagram" id="toc-4-class-diagram">4. Class
+diagram</a></li>
+<li><a href="#5-new-files" id="toc-5-new-files">5. New files</a></li>
+<li><a href="#6-modified-files" id="toc-6-modified-files">6. Modified
+files</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-116--one-run-path-choose-this-pc-or-the-l4-see-the-album-in-albums-either-way">spec-116
+— One run path: choose this PC or the L4, see the album in Albums either
+way</h1>
+<p><strong>Status:</strong> In Progress · <strong>Created:</strong>
+2026-10-25 · <strong>Roadmap:</strong> Stage C, before Gate 1 ·
+<strong>Follows:</strong> <a
+href="../115-album-workbench/spec.html">spec-115</a></p>
+<p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
+
+<h2 id="1-objective">1. Objective</h2>
+<p>There is one way to run an album: Configure &amp; Run, where you
+choose <strong>this PC</strong> or the <strong>L4</strong> before the
+run starts. Whichever machine runs it, the run shows up in Albums,
+Results, People and Explore with the same "why" detail. Re-runs reuse
+that machine's feature cache. Today an L4 run can be seen only on the
+Jobs page, with no reasons.</p>
+<h2 id="2-requirements">2. Requirements</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Status</th>
+<th>Requirement</th>
+<th>How we know it works</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1</td>
+<td>●</td>
+<td>Configure &amp; Run has <strong>Run on: this PC / L4 (GPU)</strong>.
+The L4 shows the spec-115 estimate, needs a confirm, and the spend cap
+applies</td>
+<td>●
+<code>tests/test_configure_run_on_e2e.py::test_l4_needs_confirm</code>;
+●
+<code>tests/api/test_pipeline_router.py::test_l4_over_cap_is_refused</code></td>
+</tr>
+<tr>
+<td>R2</td>
+<td>●</td>
+<td><strong>One spec:</strong> the same steps and parameters (profile +
+page overrides + the <code>people_clustering</code> block) reach either
+machine. The job path stops ignoring <code>people_clustering</code></td>
+<td>●
+<code>tests/pipeline/test_run_spec.py::test_same_spec_for_both_machines</code>,
+<code>::test_people_clustering_reaches_the_steps</code></td>
+</tr>
+<tr>
+<td>R3</td>
+<td>●</td>
+<td>Both machines analyse the same inputs: the 768 px copies, staged
+once by content (spec-115 <code>InputStore</code>)</td>
+<td>●
+<code>tests/serving/test_run_output.py::test_local_run_reads_staged_copies</code></td>
+</tr>
+<tr>
+<td>R4</td>
+<td>●</td>
+<td>Every run returns one <code>results/run_output.json</code>: image
+metrics, scenes, picks, people, decisions, timings (no pictures). One
+<code>RunPersister</code> writes the regular tables from it, whichever
+machine ran it</td>
+<td>●
+<code>tests/serving/test_run_output.py::test_round_trip_writes_the_same_rows</code>
+(in-process vs read back from JSON)</td>
+</tr>
+<tr>
+<td>R5</td>
+<td>◐</td>
+<td>Stored paths point at the <strong>original photos</strong>; pixel
+boxes are scaled to the original's size; [0,1] boxes stay as they
+are</td>
+<td>● <code>tests/serving/test_path_map.py</code>; ○ real: L4 run's
+People crops cut the right face</td>
+</tr>
+<tr>
+<td>R6</td>
+<td>◐</td>
+<td>Results, People &amp; Faces and Explore show an L4 run the same way
+as a local one, including the per-photo reasons</td>
+<td>●
+<code>tests/test_configure_run_on_e2e.py::test_l4_run_opens_in_results</code>
+(Modal faked); ○ real: Slovakia26 on the L4, all pages, all images
+load</td>
+</tr>
+<tr>
+<td>R7</td>
+<td>●</td>
+<td>Progress while running. This PC: the step list, as today. L4: the
+stage (uploading, running, copying back) and elapsed time.
+<strong>Cancel</strong> works on both</td>
+<td>●
+<code>tests/test_configure_run_on_e2e.py::test_progress_and_cancel</code></td>
+</tr>
+<tr>
+<td>R8</td>
+<td>●</td>
+<td><strong>Failure end states:</strong> a step error, a cancel, or an
+unreachable Modal mark the run failed with the message shown on
+Configure &amp; Run, and write no partial result rows</td>
+<td>●
+<code>tests/api/test_pipeline_service_runners.py::ut_FailureStates</code></td>
+</tr>
+<tr>
+<td>R9</td>
+<td>◐</td>
+<td>A re-run reuses the cache of the machine it runs on (PC:
+<code>sim_bench.db</code>; L4: the Volume)</td>
+<td>○ real: Slovakia26 L4 re-run uploads 0 photos, pipeline ≤ ⅓ of the
+first run; ● real: PC re-run of 48 photos ≤ ⅓ (0.025)</td>
+</tr>
+<tr>
+<td>R10</td>
+<td>●</td>
+<td><strong>Albums is one table of runs:</strong> album, folder, ran on,
+date, photos, picks, people, status. A row opens Results on that run;
+ticking two opens Compare runs</td>
+<td>●
+<code>tests/test_albums_table_e2e.py::test_row_opens_results</code>,
+<code>::test_two_rows_open_compare</code></td>
+</tr>
+<tr>
+<td>R11</td>
+<td>●</td>
+<td>Every run is also a job under the same id, so Compare runs and the
+run settings work for it</td>
+<td>●
+<code>tests/api/test_pipeline_service_runners.py::test_run_is_a_job</code></td>
+</tr>
+<tr>
+<td>R12</td>
+<td>●</td>
+<td>Runs made before this spec (full-size originals, e.g. Budapest
+run15) still open unchanged</td>
+<td>● <code>tests/test_navigation_e2e.py</code> (7) green; ● real:
+Budapest run15 opens on every page</td>
+</tr>
+<tr>
+<td>R13</td>
+<td>◐</td>
+<td>The 768 px copies pick close enough to the full-size originals</td>
+<td>◐ real: Budapest (122) full-size vs 768 measured: Compare runs says
+NOT close enough, report data in
+<code>reports/2026-10-30_spec116_r13_fullsize_vs_768/</code></td>
+</tr>
+<tr>
+<td>R14</td>
+<td>●</td>
+<td>Explore's face-distance tab works for a run from either machine; it
+reads the run's own embeddings</td>
+<td>●
+<code>tests/api/test_results_face_distance.py::test_reads_run_embeddings</code></td>
+</tr>
+<tr>
+<td>R15</td>
+<td>●</td>
+<td>The Jobs page loses its run form and keeps job history and "Photos
+on Modal". Each job links to its run in Albums</td>
+<td>● <code>tests/test_jobs_page_run_e2e.py</code> updated</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Definition of done:</strong> every row ● with evidence in <a
+href="updates.html">updates.md</a>; full suite green;
+<code>/code-review</code> → REVIEW.md with no high findings;
+<code>scripts/prd_lint.py</code> passes. L4 runs only after the owner
+OKs the spend.</p>
+<h2 id="3-plan">3. Plan</h2>
+<p>Thick border ● = done; dashed ○ = planned. Each step ends on the
+check that closes it.</p>
+<pre class="mermaid"><code>flowchart TD
+  W1[&quot;&lt;b&gt;● W1 One spec, one output, one writer&lt;/b&gt;&lt;br/&gt;build the spec once (incl. people_clustering) ·&lt;br/&gt;RunOutput from the context · RunPersister writes the tables&lt;br/&gt;&lt;i&gt;run_spec.py (new), run_output.py (new), run_persister.py (new),&lt;br/&gt;pipeline_service.py, curate_job.py&lt;/i&gt;&quot;]
+  C1{{&quot;check R2 R4 R12&lt;br/&gt;same rows before/after · old runs open&quot;}}
+  W2[&quot;&lt;b&gt;● W2 Regular runs go through the job service&lt;/b&gt;&lt;br/&gt;stage copies → this PC or the L4 → run_output.json →&lt;br/&gt;originals&#39; paths → RunPersister + job loader&lt;br/&gt;&lt;i&gt;path_map.py (new), job_store.py, job_service.py, runners.py,&lt;br/&gt;modal_app.py, pipeline_service.py, routers/pipeline.py, routers/results.py&lt;/i&gt;&quot;]
+  C2{{&quot;check R3 R5 R8 R11 R14&lt;br/&gt;fake Modal · cancel · failure tests&quot;}}
+  W3[&quot;&lt;b&gt;● W3 The app&lt;/b&gt;&lt;br/&gt;Run on + estimate/confirm · progress/cancel ·&lt;br/&gt;Albums table · Jobs form removed&lt;br/&gt;&lt;i&gt;pipeline_runner.py, configure.py, albums.py, jobs.py, api_client.py&lt;/i&gt;&quot;]
+  C3{{&quot;check R1 R6 R7 R10 R15&lt;br/&gt;Playwright on the real app&quot;}}
+  W4[&quot;&lt;b&gt;◐ W4 Prove on real data&lt;/b&gt;&lt;br/&gt;Budapest full-size vs 768 on this PC ·&lt;br/&gt;Slovakia26 on the L4 + re-run (owner OK first)&quot;]
+  C4{{&quot;check R9 R13 + R5 R6 real&lt;br/&gt;updates.md evidence · full suite · /code-review&quot;}}
+  W1 --&gt; C1 --&gt; W2 --&gt; C2 --&gt; W3 --&gt; C3 --&gt; W4 --&gt; C4
+  classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
+  classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
+  classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
+  class W1,W2,W3 done
+  class W4 todo
+  class C1,C2,C3,C4 check</code></pre>
+<h2 id="4-class-diagram">4. Class diagram</h2>
+<p>Green = new class, amber = changed class, grey = existing context. ✚
+new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
+<pre class="mermaid"><code>classDiagram
+  direction TB
+  class ConfigureRun {
+    &lt;&lt;page&gt;&gt;
+    ✚ Run on: this PC / L4
+    ✚ estimate + confirm
+    ✎ progress (steps or stage) + cancel
+  }
+  class AlbumsPage {
+    &lt;&lt;page&gt;&gt;
+    ✚ runs table
+    ✚ open in Results / compare two
+  }
+  class PipelineRouter {
+    &lt;&lt;API&gt;&gt;
+    ✎ POST /pipeline/run (+runner)
+    ✚ POST /pipeline/id/cancel
+    ✚ GET /pipeline/estimate
+    ✚ GET /pipeline/runs
+  }
+  class PipelineService {
+    ✎ start_pipeline(album_id, steps, pipeline_name, step_configs, fail_fast, runner) str
+    ✎ execute_pipeline(job_id)
+    ✚ cancel(run_id)
+    ✚ estimate(album_id, runner)
+    ✚ list_runs()
+  }
+  class RunSpec {
+    ✚ steps: List~str~
+    ✚ step_configs: Dict
+    ✚ build(steps, step_configs)$
+    ✚ to_pipeline_spec() PipelineSpec
+  }
+  class RunOutput {
+    ✚ image_metrics, scene_clusters, selected_images
+    ✚ people, step_decisions, step_timings
+    ✚ from_context(context, result)$
+    ✚ to_json() / from_json(text)$
+    ✚ remap(path_map) RunOutput
+  }
+  class RunPersister {
+    ✚ persist(album_id, run_id, output) List~Person~
+  }
+  class PathMap {
+    ✚ from_job(store, job_id)$
+    ✚ original(staged) str
+    ✚ scale(staged) float
+  }
+  class JobService {
+    ✎ create(SubmitInputs) str
+    ✎ run(job_id, SubmitInputs)
+    ✎ _stage(job_id, source, start, n)
+  }
+  class JobCurator {
+    ✎ calc(CurateJobInputs) CurateJobResult
+  }
+  class ModalVolumeRemote {
+    ✎ run_job(job_id, keys, pipeline, spec) dict
+  }
+  class JobStore {
+    ✎ write_input_manifest(job_id, keys, originals)
+    ✚ input_originals(job_id) Dict
+  }
+  ConfigureRun --&gt; PipelineRouter
+  AlbumsPage --&gt; PipelineRouter
+  PipelineRouter --&gt; PipelineService
+  PipelineService --&gt; RunSpec
+  PipelineService --&gt; JobService : runs every album
+  JobService --&gt; JobCurator : this PC (child process)
+  JobService --&gt; ModalVolumeRemote : L4
+  JobCurator --&gt; RunOutput : writes run_output.json
+  PipelineService --&gt; PathMap
+  PipelineService --&gt; RunPersister
+  RunPersister --&gt; RunOutput
+  PathMap --&gt; JobStore
+  style ConfigureRun fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style AlbumsPage fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style PipelineRouter fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style PipelineService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobCurator fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ModalVolumeRemote fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobStore fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style RunSpec fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style RunOutput fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style RunPersister fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style PathMap fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px</code></pre>
+<h2 id="5-new-files">5. New files</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class</th>
+<th>Responsibility</th>
+<th>Methods</th>
+<th>Attributes</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/pipeline/run_spec.py</code></td>
+<td><code>RunSpec</code></td>
+<td>The steps + parameters of a run, built once; includes spreading
+<code>people_clustering</code> to the clustering steps</td>
+<td><code>build</code> (classmethod), <code>to_pipeline_spec</code>,
+<code>to_dict</code>, <code>from_dict</code></td>
+<td><code>steps</code>, <code>step_configs</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/run_output.py</code></td>
+<td><code>RunOutput</code></td>
+<td>Everything the regular pages need from a finished run, as plain JSON
+(moved out of <code>PipelineService</code>)</td>
+<td><code>from_context</code> (classmethod), <code>to_json</code>,
+<code>from_json</code>, <code>remap</code></td>
+<td><code>image_metrics</code>, <code>scene_clusters</code>,
+<code>face_subclusters</code>, <code>selected_images</code>,
+<code>people</code>, <code>step_decisions</code>,
+<code>step_timings</code>, <code>siamese_comparisons</code>,
+<code>total_duration_ms</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/run_persister.py</code></td>
+<td><code>RunPersister</code></td>
+<td>Writes <code>pipeline_results</code>, <code>people</code>,
+<code>image_metric_rows</code>, <code>face_metric_rows</code> from a
+<code>RunOutput</code></td>
+<td><code>persist</code></td>
+<td><code>session</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/path_map.py</code></td>
+<td><code>PathMap</code></td>
+<td>Staged copy → original photo path, and the pixel scale between
+them</td>
+<td><code>from_job</code> (classmethod), <code>original</code>,
+<code>scale</code></td>
+<td><code>originals</code>, <code>scales</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/run_embeddings.py</code></td>
+<td><code>RunEmbeddings</code></td>
+<td>A run's own face embeddings, read before the cache (added in W2: the
+spec named only face-distance; People &amp; Faces needs them too)</td>
+<td><code>has</code>, <code>get</code></td>
+<td><code>jobs root</code></td>
+<td>●</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-modified-files">6. Modified files</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class / function</th>
+<th>Today</th>
+<th>After this spec</th>
+<th>Req</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/api/services/pipeline_service.py</code></td>
+<td><code>PipelineService</code></td>
+<td>runs the pipeline in the API process on the originals; builds and
+writes the result itself</td>
+<td>builds a <code>RunSpec</code>, hands the run to
+<code>JobService</code> (this PC or L4), then <code>PathMap</code> +
+<code>RunPersister</code></td>
+<td>R2 R4 R8 R11</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/curate_job.py</code></td>
+<td><code>JobCurator</code>, <code>CurateJobInputs</code></td>
+<td>steps from <code>configs/pipeline.yaml</code>, no
+<code>people_clustering</code>; writes album + bundle</td>
+<td>runs the given <code>RunSpec</code>; also writes
+<code>results/run_output.json</code> and <code>progress.json</code></td>
+<td>R2 R4 R7</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/job_service.py</code></td>
+<td><code>JobService</code>, <code>SubmitInputs</code></td>
+<td>jobs from the Jobs page only</td>
+<td>also takes a <code>RunSpec</code> and an album run id; records each
+photo's original path</td>
+<td>R3 R11</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/job_store.py</code></td>
+<td><code>JobStore</code></td>
+<td>manifest = staged keys</td>
+<td>manifest also maps key → original path</td>
+<td>R5</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/runners.py</code>,
+<code>sim_bench/serving/modal_app.py</code></td>
+<td><code>ModalVolumeRemote</code>, <code>_curate_job</code></td>
+<td>worker gets a pipeline name</td>
+<td>worker gets the <code>RunSpec</code></td>
+<td>R2</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/schemas/pipeline.py</code>,
+<code>sim_bench/api/routers/pipeline.py</code></td>
+<td><code>PipelineRequest</code>, routes</td>
+<td>no machine choice</td>
+<td><code>runner</code> field; cancel route</td>
+<td>R1 R7</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/face_service.py</code></td>
+<td><code>FaceService</code></td>
+<td>faces from <code>universal_cache</code> by original path</td>
+<td>a staged run's faces come from its metric rows, embeddings from
+<code>RunEmbeddings</code></td>
+<td>R6</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/people_service.py</code></td>
+<td><code>people_payload</code>, <code>PeopleService</code></td>
+<td>builds and commits Person rows from framework objects</td>
+<td>plain payload in <code>RunOutput</code>;
+<code>add_from_payload</code> leaves the commit to
+<code>RunPersister</code></td>
+<td>R4 R8</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/database/session.py</code></td>
+<td><code>get_database_path</code></td>
+<td>fixed path</td>
+<td><code>SIM_BENCH_DB</code> overrides it, for isolated tests and
+experiments</td>
+<td>R12</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/routers/results.py</code></td>
+<td>face-distance</td>
+<td>embeddings from <code>universal_cache</code> by original path</td>
+<td>the run's own embeddings, falling back to the cache for old
+runs</td>
+<td>R14</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>app/streamlit/components/pipeline_runner.py</code>,
+<code>app/streamlit/pages/configure.py</code></td>
+<td>run controls, progress</td>
+<td>step list only</td>
+<td>Run on, estimate/confirm, stage progress, Cancel</td>
+<td>R1 R7</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>app/streamlit/pages/albums.py</code></td>
+<td><code>render_albums_page</code></td>
+<td>album cards</td>
+<td>runs table; open in Results; compare two</td>
+<td>R10</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>app/streamlit/pages/jobs.py</code>,
+<code>app/streamlit/api_client.py</code></td>
+<td>run form</td>
+<td>Jobs page starts runs</td>
+<td>form removed; link to the run in Albums; new client calls</td>
+<td>R15</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>docs/architecture/{classes,data_flow}.html</code></td>
+<td>—</td>
+<td>two run paths</td>
+<td>one run path</td>
+<td>—</td>
+<td>●</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Decision: both machines analyse the 768 px copies.</strong>
+Then which machine ran it makes no difference, and the inputs are cached
+once. R13 measures what that costs against full size.</li>
+<li><strong>Decision: existing L4 jobs are not imported.</strong> They
+lack <code>run_output.json</code>. A cached L4 re-run of Slovakia26
+costs about 2 minutes and $0.03.</li>
+<li><strong>Risk:</strong> runs on this PC move from the API process to
+a child process, as spec-115 jobs already do. Step progress now comes
+from <code>progress.json</code>.</li>
+<li><strong>Found while building (2026-10-30):</strong> a straightened
+pick's file stays on the worker, so picks are stored and shown as the
+original photo (unstraightened). Staging is non-recursive where the old
+scan was recursive (it also swept up hidden <code>.studio_runs</code>
+folders), so photos in subfolders are not run. Results are written after
+the job loads, not before, so a failed load leaves no rows.
+<code>people_clustering</code> also reaches runs started without a spec
+(regression scripts).</li>
+<li><strong>Non-goals:</strong> fixing the near-duplicate picks
+(SIGHTING-142, separate); live step-by-step progress for L4 runs; the
+face-clustering app's export link for L4 runs.</li>
+</ul>
+</div><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+document.querySelectorAll("pre.mermaid").forEach(function (pre) {
+  var div = document.createElement("div");
+  div.className = "mermaid";
+  div.textContent = pre.textContent;
+  pre.replaceWith(div);
+});
+mermaid.initialize({startOnLoad: false, securityLevel: "loose"});
+mermaid.run({querySelector: "div.mermaid"});
+</script>
+</body>
+</html>

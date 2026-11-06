@@ -8,7 +8,7 @@ exposed; (AC3) every metrics-table column has a tooltip in METRIC_HELP.
 import pytest
 
 from sim_bench.pipeline.context import PipelineContext, StepDecision
-from sim_bench.api.services.pipeline_service import PipelineService, _build_reason_by_path
+from sim_bench.serving.run_output import build_image_metrics, build_reason_by_path
 from sim_bench.api.services.result_service import ResultService
 from sim_bench.pipeline.steps.select_best import SelectBestStep
 from app.streamlit.components.metrics import METRIC_HELP, _build_metric_row
@@ -30,22 +30,19 @@ class ut_ImageMetricsReasonAndBreakdown:
         path = "D:/x/img.jpg"
         ctx = self._ctx(path)
         reason_by_path = {path: "Best in cluster (score 0.65)"}
-        svc = PipelineService(None)
 
-        m = svc._build_image_metrics(ctx, path, reason_by_path)
+        m = build_image_metrics(ctx, path, reason_by_path)
 
         assert m["filter_reason"] == "Best in cluster (score 0.65)"
 
     def test_missing_reason_is_none_not_crash(self):
         path = "D:/x/img.jpg"
-        svc = PipelineService(None)
-        m = svc._build_image_metrics(self._ctx(path), path, {})  # no entry
+        m = build_image_metrics(self._ctx(path), path, {})  # no entry
         assert m["filter_reason"] is None
 
     def test_composite_breakdown_exposed(self):
         path = "D:/x/img.jpg"
-        svc = PipelineService(None)
-        m = svc._build_image_metrics(self._ctx(path), path, {})
+        m = build_image_metrics(self._ctx(path), path, {})
 
         assert m["quality_score"] == 0.80
         assert m["person_penalty"] == -0.15
@@ -66,19 +63,19 @@ class ut_ReasonByPath:
             self._d("a.jpg", "filter_quality", "passed", "IQA 0.5 ok"),
             self._d("a.jpg", "select_best", "selected", "Best in cluster (0.8)"),
         ]
-        m = _build_reason_by_path(decisions)
+        m = build_reason_by_path(decisions)
         assert m["a.jpg"] == "Best in cluster (0.8)"  # final word wins
 
     def test_early_filtered_image_keeps_its_reason(self):
         # Image rejected at filter_quality never reaches select_best.
         decisions = [self._d("b.jpg", "filter_quality", "rejected", "IQA 0.08 < 0.20")]
-        m = _build_reason_by_path(decisions)
+        m = build_reason_by_path(decisions)
         assert m["b.jpg"] == "IQA 0.08 < 0.20"
 
     def test_face_decisions_ignored(self):
         decisions = [self._d("f:face_0", "filter_faces", "rejected",
                              "confidence low", item_type="face")]
-        assert _build_reason_by_path(decisions) == {}
+        assert build_reason_by_path(decisions) == {}
 
 
 class ut_CompositeBreakdownPersisted:
