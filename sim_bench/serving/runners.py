@@ -263,6 +263,8 @@ def _child_main() -> int:
     ap.add_argument("--device", default="cpu")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    from sim_bench.storage.database import load_env
+    load_env()        # spec-117: the worker reads the same DATABASE_URL / R2_* as the API (env already set wins)
     store = JobStore(a.root)
     res = JobCurator(store).calc(CurateJobInputs(job_id=a.job_id, pipeline=a.pipeline, device=a.device,
                                                  run_spec=store.read_run_spec(a.job_id)))

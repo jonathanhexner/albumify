@@ -1,6 +1,6 @@
 # spec-117 — One cloud database: everything on Neon, files on R2, L4 runs survive a dropped PC
 
-**Status:** Draft · **Created:** 2026-11-06 · **Roadmap:** Stage C, next, before Gate 1 · **Resolves:** SIGHTING-145, SIGHTING-143 · **Supersedes:** [spec-112](../112-live-db-storage-runner/spec.html) Phase B
+**Status:** In Progress · **Created:** 2026-11-06 · **Roadmap:** Stage C, next, before Gate 1 · **Resolves:** SIGHTING-145, SIGHTING-143 · **Supersedes:** [spec-112](../112-live-db-storage-runner/spec.html) Phase B
 
 <p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
 

@@ -1,68 +1,56 @@
-"""Control-plane DB engine (spec-112 A2).
+"""Control-plane DB engine (spec-112 A2, spec-117 R1).
 
-``DATABASE_URL`` picks the backend: unset -> a local SQLite file (Phase A, offline, tests, CI);
-a Postgres URL -> Neon (Phase B). Nothing else changes between the two.
+``DATABASE_URL`` picks the backend: unset -> a local SQLite file ``control.db`` (offline, tests, CI);
+a Postgres URL -> Neon, the same database that holds the API's tables and the feature cache. The engine
+comes from :class:`~sim_bench.storage.database.DatabaseConfig`, the one factory every Albumify table uses.
 
 Schema creation is ``create_all``, plus ``_add_missing_columns`` for columns added later (spec-114:
-``jobs.tag``, ``jobs.worker``). Only additive, nullable columns are allowed that way; anything else (a
-rename, a type change, a NOT NULL column) needs a real migration. Alembic in this repo targets
+``jobs.tag``, ``jobs.worker``; spec-117: ``jobs.progress`` ...). Only additive, nullable columns are allowed
+that way; anything else (a type change, a NOT NULL column) needs a real migration. The one rename so far,
+``people`` -> ``job_people`` (spec-117 R2), is done by ``_rename_job_people``. Alembic in this repo targets
 ``sim_bench.db`` only (alembic/env.py).
 """
 from __future__ import annotations
 
 import logging
-import os
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator, Optional
 
-from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from sim_bench.control.models import ControlBase
+from sim_bench.control.models import ControlBase, Person
+from sim_bench.storage.database import ENV_VAR, DatabaseConfig, redact_url
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["ControlDB", "default_url", "ENV_VAR"]
 
-ENV_VAR = "DATABASE_URL"
-
 
 def default_url() -> str:
     """``$DATABASE_URL`` or ``sqlite:///~/.sim_bench/control.db``."""
-    url = os.environ.get(ENV_VAR)
-    if url:
-        return url
-    path = Path.home() / ".sim_bench" / "control.db"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return f"sqlite:///{path.as_posix()}"
+    return DatabaseConfig.from_env(Path.home() / ".sim_bench" / "control.db").url
 
 
-def _redact(url: str) -> str:
-    """Never log a password: keep scheme + host only."""
-    if "@" not in url:
-        return url
-    scheme, _, rest = url.partition("://")
-    return f"{scheme}://***@{rest.split('@', 1)[1]}"
+_redact = redact_url      # the spec-112 name, kept for its callers
 
 
 class ControlDB:
     """Engine + session factory for the control DB. Construct once per process."""
 
     def __init__(self, url: Optional[str] = None, *, create: bool = True):
-        self.url = url or default_url()
-        self.is_sqlite = self.url.startswith("sqlite")
-        kwargs = {"connect_args": {"check_same_thread": False}} if self.is_sqlite else \
-            {"pool_pre_ping": True}   # Neon closes idle connections when it scales to zero
-        self.engine: Engine = create_engine(self.url, **kwargs)
-        if self.is_sqlite:
-            event.listen(self.engine, "connect", _sqlite_fk_on)
+        self.config = DatabaseConfig(url or default_url())
+        self.url = self.config.url
+        self.is_sqlite = self.config.is_sqlite
+        self.engine: Engine = self.config.make_engine(sqlite_foreign_keys=True)
         self._sessions = sessionmaker(bind=self.engine, expire_on_commit=False)
         if create:
+            _rename_job_people(self.engine)
             ControlBase.metadata.create_all(self.engine)
             _add_missing_columns(self.engine)
-        logger.info("control DB: %s", _redact(self.url))
+        logger.info("control DB: %s", self.config.redacted())
 
     @contextmanager
     def session(self) -> Iterator[Session]:
@@ -76,6 +64,19 @@ class ControlDB:
             raise
         finally:
             s.close()
+
+
+def _rename_job_people(engine: Engine) -> None:
+    """spec-117 R2: the job table ``people`` is now ``job_people`` (the API has its own ``people``). An older
+    control.db is renamed in place, rows kept. Only a ``people`` table keyed by ``job_id`` is ours."""
+    insp = inspect(engine)
+    if not insp.has_table("people") or insp.has_table(Person.__tablename__):
+        return
+    if "job_id" not in {c["name"] for c in insp.get_columns("people")}:
+        return                                   # the API's people table: not ours to touch
+    with engine.begin() as conn:
+        conn.execute(text(f"ALTER TABLE people RENAME TO {Person.__tablename__}"))
+    logger.info("control DB: renamed table people -> %s", Person.__tablename__)
 
 
 def _add_missing_columns(engine: Engine) -> None:
@@ -93,10 +94,3 @@ def _add_missing_columns(engine: Engine) -> None:
             with engine.begin() as conn:
                 conn.execute(text(f'ALTER TABLE {table.name} ADD COLUMN "{col.name}" {ddl}'))
             logger.info("control DB: added column %s.%s", table.name, col.name)
-
-
-def _sqlite_fk_on(dbapi_conn, _record) -> None:
-    # SQLite ignores ON DELETE CASCADE unless foreign keys are switched on per connection.
-    cur = dbapi_conn.cursor()
-    cur.execute("PRAGMA foreign_keys=ON")
-    cur.close()

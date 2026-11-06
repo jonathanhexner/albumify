@@ -1,6 +1,6 @@
 # spec-117 — Tasks (One cloud database: Neon + R2)
 
-**Status:** Draft 2026-11-06 — awaiting owner approval; no code yet.
+**Status:** In Progress 2026-11-06 — owner approved; W1-W6 built in worktree `D:/sim-bench-117` (branch `spec/117-neon-r2`).
 **Spec:** [spec.md](spec.html) · [updates](updates.html) · roadmap stage **C** · [ROADMAP.md](../../ROADMAP.html)
 
 Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). This file orders the work.
@@ -13,11 +13,11 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
 - [x] T0.4 Check: Neon query + temp table, R2 put/read/delete: both PASS (scratch script, no values printed).
 
 ## W1 — One database setting (R1, R2, R15)
-- [ ] T1.1 `requirements.txt`: `psycopg[binary]`, `boto3`, `moto`; install into `.venv`.
-- [ ] T1.2 `sim_bench/storage/database.py` `DatabaseConfig`; `.env` loaded once at API start (`api/main.py`) and in the worker.
+- [~] T1.1 `requirements.txt`: `psycopg[binary]`, `boto3`, `moto`; install into `.venv` (listed; install deferred: the live `.venv` must not change during the album run, tests use a side folder).
+- [x] T1.2 `sim_bench/storage/database.py` `DatabaseConfig`; `.env` loaded once at API start (`api/main.py`) and in the worker.
       Test `tests/storage/test_database_config.py` (unset -> SQLite path as today; Postgres URL -> psycopg driver, pre-ping; redaction).
-- [ ] T1.3 `api/database/session.py` and `control/db.py` build their engines from `DatabaseConfig`.
-- [ ] T1.4 `control/models.py`: `Person.__tablename__ = "job_people"`, with a one-time rename of the existing SQLite table.
+- [x] T1.3 `api/database/session.py` and `control/db.py` build their engines from `DatabaseConfig`.
+- [x] T1.4 `control/models.py`: `Person.__tablename__ = "job_people"`, with a one-time rename of the existing SQLite table.
       Test `tests/control/test_jobs.py::test_job_people_table`.
 
 ## W2 — Postgres parity (R3)

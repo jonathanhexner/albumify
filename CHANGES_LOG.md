@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [FEATURE] spec-117 W1 — one database setting (DATABASE_URL), job table people -> job_people
+**Files**: new `sim_bench/storage/{__init__,database}.py`, `tests/storage/test_database_config.py`; `sim_bench/api/database/session.py`, `sim_bench/control/{db,models}.py`, `sim_bench/api/main.py`, `sim_bench/serving/runners.py`, `requirements.txt`, `tests/conftest.py`, `tests/control/test_jobs.py`; spec-117 updates.
+**Change**: `DatabaseConfig` builds every Albumify engine (SQLite or psycopg 3 Postgres with pre-ping); `.env` read at API start and worker start only; unset `DATABASE_URL` keeps the two SQLite files. Control `people` renamed `job_people` (in-place rename of older files). Test suite never reads `.env` or cloud env vars.
+**Verification**: api/control/serving/storage 243 passed (11 new).
+**Reason**: spec-117 R1, R2, R15 (owner approved 2026-11-06).
+
 ### 2026-11-06 [DOCS] spec-117 drafted (one cloud database: Neon + R2) + sharpness label experiment
 **Files**: new `specs/117-neon-r2-one-database/{spec,tasks,updates}.md` (+ html); `ROADMAP.md`; `specs/112-live-db-storage-runner/spec.md` (Phase B pointer); new `reports/2026-11-06_sharpness_labels/{summary.md,report.html,sharpness_labels.json}`; `reports/EXPERIMENTS.md`; `docs/project/LEARNINGS.md`.
 **Change**: spec-117 moves every Albumify table and the feature cache to Neon and render/crop/embedding files to R2; the L4 worker writes status, progress and results; detached runs, watchdog, GPU fallback. Supersedes spec-112 Phase B and its AC7.

@@ -5,10 +5,11 @@ import os
 from pathlib import Path
 from typing import Generator
 
-from sqlalchemy import create_engine, text, inspect
+from sqlalchemy import text, inspect
 from sqlalchemy.orm import sessionmaker, Session
 
 from sim_bench.api.database.models import Base
+from sim_bench.storage.database import DatabaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -28,27 +29,33 @@ def get_database_path() -> Path:
 
 
 def get_database_url(db_path: Path = None) -> str:
-    """Get SQLite database URL."""
-    if db_path is None:
-        db_path = get_database_path()
-    return f"sqlite:///{db_path}"
+    """``$DATABASE_URL`` (spec-117: one database for every Albumify table), else the SQLite file."""
+    if db_path is not None:
+        return DatabaseConfig.sqlite(db_path).url
+    return DatabaseConfig.from_env(get_database_path()).url
+
+
+_MIGRATIONS = [
+    ("pipeline_results", "fc_export_dir"),
+    ("pipeline_results", "step_decisions"),
+    ("pipeline_runs", "completed_steps"),
+]
 
 
 def _migrate_new_columns(engine) -> None:
-    """Idempotent migration: add columns that don't exist yet on existing tables."""
-    _MIGRATIONS = [
-        ("pipeline_results", "fc_export_dir", "VARCHAR"),
-        ("pipeline_results", "step_decisions", "JSON"),
-        ("pipeline_runs", "completed_steps", "JSON"),
-    ]
+    """Idempotent migration: add columns that don't exist yet on existing tables.
+
+    The column type is compiled from the model for the engine's dialect (spec-117 R3), so the same
+    migration runs on SQLite and on Postgres."""
     insp = inspect(engine)
     with engine.begin() as conn:
-        for table, column, col_type in _MIGRATIONS:
+        for table, column in _MIGRATIONS:
             if not insp.has_table(table):
                 continue
             existing = {c["name"] for c in insp.get_columns(table)}
             if column not in existing:
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                col_type = Base.metadata.tables[table].c[column].type.compile(dialect=engine.dialect)
+                conn.execute(text(f'ALTER TABLE {table} ADD COLUMN "{column}" {col_type}'))
                 logger.info("Migration: added %s.%s", table, column)
 
 
@@ -59,7 +66,9 @@ def init_db(db_url: str = None) -> None:
     if db_url is None:
         db_url = get_database_url()
 
-    _engine = create_engine(db_url, echo=False, connect_args={"check_same_thread": False})
+    config = DatabaseConfig(db_url)
+    _engine = config.make_engine()
+    logger.info("API database: %s", config.redacted())
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
     Base.metadata.create_all(_engine)

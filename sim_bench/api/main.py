@@ -45,6 +45,9 @@ def startup():
     """Initialize database on startup."""
     logger.info(f"Starting Album Organization API")
     logger.info(f"Logs directory: {log_dir}")
+    # spec-117 R1: DATABASE_URL / R2_* come from .env, read once here (never on import of a library module)
+    from sim_bench.storage.database import load_env
+    load_env()
     init_db()
     logger.info("Database initialized")
 

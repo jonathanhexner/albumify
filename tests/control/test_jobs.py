@@ -11,8 +11,8 @@ from sim_bench.control.jobs import (
 
 
 @pytest.fixture
-def repo(tmp_path):
-    return JobRepo(ControlDB(f"sqlite:///{(tmp_path / 'c.db').as_posix()}"))
+def repo(control_db_url):
+    return JobRepo(ControlDB(control_db_url))
 
 
 class ut_JobRepo:
@@ -120,6 +120,44 @@ class ut_ControlDB:
         job = repo.get("old")
         assert job.status == SUCCEEDED and job.tag is None and job.worker is None
 
+
+    def test_job_people_table(self, tmp_path):
+        """spec-117 R2: an older control.db's ``people`` becomes ``job_people``, rows kept; the API's ``people``
+        in a shared database is never touched."""
+        import sqlite3
+
+        from sqlalchemy import inspect, select
+
+        from sim_bench.control.models import Person
+        path = tmp_path / "old.db"
+        ControlDB(f"sqlite:///{path.as_posix()}").engine.dispose()
+        con = sqlite3.connect(path)
+        con.execute("ALTER TABLE job_people RENAME TO people")      # what a spec-116 control.db looks like
+        con.execute("INSERT INTO jobs (id, status, runner, pipeline, n_inputs, created_at) "
+                    "VALUES ('j', 'succeeded', 'local', 'default', 1, '2026-10-01 10:00:00')")
+        con.execute("INSERT INTO people (job_id, person_id, face_count, sample_ids, label, position) "
+                    "VALUES ('j', 'person_0', 3, '[]', 'Ann', 0)")
+        con.commit()
+        con.close()
+
+        db = ControlDB(f"sqlite:///{path.as_posix()}")
+        names = set(inspect(db.engine).get_table_names())
+        assert "job_people" in names and "people" not in names
+        with db.session() as s:
+            rows = list(s.scalars(select(Person)))
+        assert [(p.job_id, p.person_id, p.face_count, p.label) for p in rows] == [("j", "person_0", 3, "Ann")]
+
+        # a shared database: the API's people (no job_id) stays as it is
+        from sim_bench.api.database.models import Base
+        shared = tmp_path / "shared.db"
+        from sqlalchemy import create_engine
+        api_engine = create_engine(f"sqlite:///{shared.as_posix()}")
+        Base.metadata.create_all(api_engine)
+        api_engine.dispose()
+        db2 = ControlDB(f"sqlite:///{shared.as_posix()}")
+        cols = {c["name"] for c in inspect(db2.engine).get_columns("people")}
+        assert "run_id" in cols and "job_id" not in cols
+        assert "job_people" in inspect(db2.engine).get_table_names()
 
     def test_env_var_wins(self, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", "sqlite:///x.db")

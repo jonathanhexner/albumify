@@ -112,7 +112,7 @@ class Face(ControlBase):
 
 
 class Person(ControlBase):
-    __tablename__ = "people"
+    __tablename__ = "job_people"   # spec-117 R2: the API owns ``people``; both live in one database
 
     job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True)
     person_id: Mapped[str] = mapped_column(String(64), primary_key=True)   # album id, person_<n>
