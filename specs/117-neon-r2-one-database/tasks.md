@@ -21,9 +21,9 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
       Test `tests/control/test_jobs.py::test_job_people_table`.
 
 ## W2 — Postgres parity (R3)
-- [ ] T2.1 `needs_neon` pytest marker: creates a throwaway Neon branch (or schema), runs `tests/api`, `tests/control`, `tests/serving`.
-- [ ] T2.2 Make `_migrate_new_columns` and `_add_missing_columns` portable (SQLAlchemy inspector, no raw SQLite DDL).
-- [ ] T2.3 Fix what fails on Postgres (types, JSON, timezones); record each fix in updates.md.
+- [x] T2.1 `needs_neon` pytest marker: creates a throwaway Neon branch (or schema), runs `tests/api`, `tests/control`, `tests/serving`.
+- [x] T2.2 Make `_migrate_new_columns` and `_add_missing_columns` portable (SQLAlchemy inspector, no raw SQLite DDL).
+- [x] T2.3 Fix what fails on Postgres (types, JSON, timezones); record each fix in updates.md.
 
 ## W3 — Files on R2 (R7, R14)
 - [ ] T3.1 `sim_bench/storage/object_store.py`: `LocalObjectStore`, `R2ObjectStore`. Test `tests/storage/test_object_store.py` (moto).

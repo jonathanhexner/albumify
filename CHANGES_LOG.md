@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [TEST] spec-117 W2 — Postgres parity (needs_neon)
+**Files**: new `tests/_db.py`, `tests/storage/test_neon_parity.py`; `tests/conftest.py`, `pyproject.toml` (markers `needs_neon`, `needs_r2`, excluded by default), `sim_bench/control/db.py`; DB fixtures in `tests/control/{test_job_service,test_loader_builder}.py`, `tests/api/{test_jobs_router,test_pipeline_service_runners,test_image_repository,test_results_endpoint_roundtrip,test_results_face_distance}.py`.
+**Change**: DB tests take a fresh database from one helper (SQLite file, or the parity run's throwaway Neon schema). `-m needs_neon` runs tests/api, tests/control, tests/serving on Neon. ControlDB start: 2 schema queries instead of ~15.
+**Verification**: Neon parity (control + jobs router) 97 passed; SQLite 243 passed.
+**Reason**: spec-117 R3.
+
 ### 2026-11-06 [FEATURE] spec-117 W1 — one database setting (DATABASE_URL), job table people -> job_people
 **Files**: new `sim_bench/storage/{__init__,database}.py`, `tests/storage/test_database_config.py`; `sim_bench/api/database/session.py`, `sim_bench/control/{db,models}.py`, `sim_bench/api/main.py`, `sim_bench/serving/runners.py`, `requirements.txt`, `tests/conftest.py`, `tests/control/test_jobs.py`; spec-117 updates.
 **Change**: `DatabaseConfig` builds every Albumify engine (SQLite or psycopg 3 Postgres with pre-ping); `.env` read at API start and worker start only; unset `DATABASE_URL` keeps the two SQLite files. Control `people` renamed `job_people` (in-place rename of older files). Test suite never reads `.env` or cloud env vars.

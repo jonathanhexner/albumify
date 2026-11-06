@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from tests._db import fresh_database_url
 from sim_bench.api.routers import jobs as jobs_router
 from sim_bench.control.db import ControlDB
 from sim_bench.serving.curate_job import stable_album
@@ -22,7 +23,7 @@ from tests.control.test_job_service import FailingRunner, _in_process
 
 @pytest.fixture
 def client(tmp_path):
-    svc = JobService(ControlDB(f"sqlite:///{(tmp_path / 'c.db').as_posix()}"),
+    svc = JobService(ControlDB(fresh_database_url(tmp_path, "c.db")),
                      ServingConfig(runner="local", pipeline="minimal", jobs_root=tmp_path / "jobs"),
                      runner_factory=_in_process)
     app = FastAPI()

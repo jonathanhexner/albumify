@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from tests._db import fresh_api_engine
 from sim_bench.api.database.models import (Album, Base, FaceMetricRow, Person, PipelineResult, PipelineRun,
                                            UniversalCache)
 from sim_bench.api.database.session import get_session
@@ -32,8 +33,7 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setattr(run_embeddings, "load_serving_config", lambda: ServingConfig(jobs_root=tmp_path / "jobs"))
     run_embeddings._loaded.clear()
 
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
+    engine = fresh_api_engine(tmp_path)          # spec-117 R3: Postgres in the needs_neon parity run
     session = sessionmaker(bind=engine)()
     session.add_all([Album(id="alb", name="Trip", source_path="D:/Trip"),
                      PipelineRun(id=RUN, album_id="alb", steps=[], status="completed"),

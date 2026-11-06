@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from tests._db import fresh_api_engine
 from sim_bench.api.database.models import (
     Base, Album, PipelineRun, PipelineResult, Person,
     ImageMetricRow, FaceMetricRow,
@@ -44,9 +45,8 @@ def _metric(path, is_selected, composite, faces):
 
 
 @pytest.fixture
-def session():
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
+def session(tmp_path):
+    engine = fresh_api_engine(tmp_path)          # spec-117 R3: Postgres in the needs_neon parity run
     s = sessionmaker(bind=engine)()
     s.add(Album(id=ALBUM, name="a", source_path="D:/x"))
     s.add(PipelineRun(id=RUN, album_id=ALBUM, pipeline_name="p"))

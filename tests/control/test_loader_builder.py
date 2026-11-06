@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
+from tests._db import fresh_database_url
 from sim_bench.control.album_builder import (
     DEMOTED_DETAIL, AlbumBuilder, BuildInputs, EditError, record_edit,
 )
@@ -40,7 +41,7 @@ def env(tmp_path):
     JobCurator(store, spec_builder=SpecBuilder(), runner=_runner, output_builder=fake_output,
                clock=lambda: "2026-10-10T00:00:00+00:00").calc(
         CurateJobInputs(job_id="trip", pipeline="minimal"))
-    db = ControlDB(f"sqlite:///{(tmp_path / 'c.db').as_posix()}")
+    db = ControlDB(fresh_database_url(tmp_path, "c.db"))
     JobRepo(db).create("trip", runner="local")
     return SimpleNamespace(store=store, db=db, loader=ResultsLoader(db, store),
                            builder=AlbumBuilder(db))

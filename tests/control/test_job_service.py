@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from tests._db import fresh_database_url
 from sim_bench.control.db import ControlDB
 from sim_bench.control.jobs import FAILED, SUCCEEDED
 from sim_bench.serving.curate_job import CurateJobInputs, JobCurator
@@ -82,7 +83,7 @@ def src(tmp_path):
 
 
 def _service(tmp_path, factory):
-    db = ControlDB(f"sqlite:///{(tmp_path / 'c.db').as_posix()}")
+    db = ControlDB(fresh_database_url(tmp_path, "c.db"))
     cfg = ServingConfig(runner="local", pipeline="minimal", jobs_root=tmp_path / "jobs")
     return JobService(db, cfg, runner_factory=factory)
 

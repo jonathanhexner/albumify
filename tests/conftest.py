@@ -11,45 +11,16 @@ import pytest
 # ---------------------------------------------------------------------------
 # The suite never reads .env and never sees the owner's Neon / R2 settings: everything runs on SQLite
 # and a local folder. The needs_neon parity run (tests/storage/test_neon_parity.py) hands a throwaway
-# Postgres schema to its child pytest through ALBUMIFY_TEST_DATABASE_URL; only the db-url fixtures
-# below use it.
+# Postgres schema to its child pytest through ALBUMIFY_TEST_DATABASE_URL; only tests/_db.py uses it.
 os.environ["ALBUMIFY_NO_DOTENV"] = "1"
 for _var in ("DATABASE_URL", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"):
     os.environ.pop(_var, None)
-
-TEST_DATABASE_ENV = "ALBUMIFY_TEST_DATABASE_URL"
-
-
-def _empty_postgres(url: str) -> None:
-    """Every table in the test schema emptied, so each test starts from nothing (as with a fresh SQLite file)."""
-    from sqlalchemy import inspect, text
-
-    from sim_bench.storage.database import DatabaseConfig
-
-    engine = DatabaseConfig(url).make_engine()
-    try:
-        with engine.begin() as conn:
-            names = inspect(conn).get_table_names()
-            if names:
-                conn.execute(text("TRUNCATE " + ", ".join(f'"{n}"' for n in names) + " RESTART IDENTITY CASCADE"))
-    finally:
-        engine.dispose()
-
-
-def fresh_database_url(tmp_path: Path, name: str) -> str:
-    """A fresh database URL for one test: the parity run's Postgres schema (emptied), else a new SQLite file."""
-    url = os.environ.get(TEST_DATABASE_ENV)
-    if url:
-        _empty_postgres(url)
-        return url
-    return f"sqlite:///{(tmp_path / name).as_posix()}"
-
-
 
 
 @pytest.fixture
 def control_db_url(tmp_path: Path) -> str:
     """URL for the job tables (``ControlDB``); Postgres in the needs_neon parity run (spec-117 R3)."""
+    from tests._db import fresh_database_url
     return fresh_database_url(tmp_path, "c.db")
 
 

@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from tests._db import fresh_api_engine, fresh_database_url
 from sim_bench.api.database.models import (Album, Base, FaceMetricRow, ImageMetricRow, Person, PipelineResult,
                                            PipelineRun)
 from sim_bench.api.services.people_service import PeopleService
@@ -90,8 +91,7 @@ class FakeModal:
 
 @pytest.fixture
 def world(tmp_path):
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
+    engine = fresh_api_engine(tmp_path)          # spec-117 R3: Postgres in the needs_neon parity run
     session = sessionmaker(bind=engine)()
     src = tmp_path / "trip"
     src.mkdir()
@@ -111,7 +111,7 @@ def world(tmp_path):
             return LocalFake(store)
         return ModalRunner(store, pipeline=pipeline, remote=w.modal)
 
-    w.jobs = JobService(ControlDB(f"sqlite:///{(tmp_path / 'c.db').as_posix()}"),
+    w.jobs = JobService(ControlDB(fresh_database_url(tmp_path, "c.db")),
                         ServingConfig(jobs_root=tmp_path / "jobs", max_photos_l4=100), runner_factory=factory)
     w.modal = FakeModal(w.jobs.store)
     w.svc = PipelineService(session, job_service=w.jobs)
