@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [FEATURE] spec-117 W3 — files on R2 (object store)
+**Files**: new `sim_bench/storage/object_store.py`, `tests/storage/test_object_store.py`; `sim_bench/serving/{job_store,job_service}.py`, `sim_bench/control/{local_renders,loader}.py`, `sim_bench/api/services/run_embeddings.py`, `sim_bench/api/routers/jobs.py`, `tests/api/test_jobs_router.py`.
+**Change**: display images, face crops and result files go through an object store: the job folders (default, unchanged layout) or the private R2 bucket when `R2_*` is set (`jobs/<id>/...`). Routes serve a job's own keys only. New `DELETE /jobs/{id}` deletes rows and stored files.
+**Verification**: object store 30 passed (moto); router 404/serve/delete on both stores passed.
+**Reason**: spec-117 R7, R14.
+
 ### 2026-11-06 [TEST] spec-117 W2 — Postgres parity (needs_neon)
 **Files**: new `tests/_db.py`, `tests/storage/test_neon_parity.py`; `tests/conftest.py`, `pyproject.toml` (markers `needs_neon`, `needs_r2`, excluded by default), `sim_bench/control/db.py`; DB fixtures in `tests/control/{test_job_service,test_loader_builder}.py`, `tests/api/{test_jobs_router,test_pipeline_service_runners,test_image_repository,test_results_endpoint_roundtrip,test_results_face_distance}.py`.
 **Change**: DB tests take a fresh database from one helper (SQLite file, or the parity run's throwaway Neon schema). `-m needs_neon` runs tests/api, tests/control, tests/serving on Neon. ControlDB start: 2 schema queries instead of ~15.

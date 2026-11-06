@@ -79,12 +79,16 @@ class JobPaths:
 class JobStore:
     """Job directories under one root (a Modal Volume mount in production)."""
 
-    def __init__(self, root: Path | str, inputs_root: Path | str | None = None):
+    def __init__(self, root: Path | str, inputs_root: Path | str | None = None, objects=None):
         from sim_bench.serving.input_store import InputStore   # lazy: input_store -> staging -> here
+        from sim_bench.storage.object_store import LocalObjectStore
 
         self.root = Path(root)
         # "_inputs" cannot collide with a job: job ids start alphanumeric
         self.inputs = InputStore(inputs_root if inputs_root is not None else self.root / "_inputs")
+        # spec-117 R7: display images, face crops and the results the app reads (<job_id>/...); the job
+        # folders themselves unless R2 is configured (make_object_store)
+        self.objects = objects if objects is not None else LocalObjectStore(self.root)
 
     # --- layout ---------------------------------------------------------------
 
@@ -186,6 +190,20 @@ class JobStore:
         if paths.results_dir.is_dir():
             files += sorted(p for p in paths.results_dir.rglob("*") if p.is_file())
         return [p.relative_to(paths.root).as_posix() for p in files]
+
+    def read_object(self, job_id: str, key: str) -> Optional[bytes]:
+        """A job's stored file by its key (spec-117 R7): ``inputs/...`` from the shared input store if the job's
+        manifest lists it, anything else from the object store under this job's own prefix. Else None."""
+        if not key:
+            return None
+        if key.startswith(INPUTS_PREFIX) or self.objects.is_local:
+            path = self.resolve(job_id, key)
+            return path.read_bytes() if path is not None else None
+        from sim_bench.storage.object_store import job_key
+        try:
+            return self.objects.get_or_none(job_key(self.paths(job_id).job_id, key))
+        except ValueError:                # a key that tries to leave the job's prefix
+            return None
 
     def resolve(self, job_id: str, key: str) -> Optional[Path]:
         """A stored file key -> an existing file of THIS job: inside its folder, or a photo its manifest lists

@@ -26,10 +26,10 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
 - [x] T2.3 Fix what fails on Postgres (types, JSON, timezones); record each fix in updates.md.
 
 ## W3 — Files on R2 (R7, R14)
-- [ ] T3.1 `sim_bench/storage/object_store.py`: `LocalObjectStore`, `R2ObjectStore`. Test `tests/storage/test_object_store.py` (moto).
-- [ ] T3.2 `LocalRenders`, `ResultsLoader`, `RunEmbeddings`, `routers/jobs.py` use the store; per-job key check kept
+- [x] T3.1 `sim_bench/storage/object_store.py`: `LocalObjectStore`, `R2ObjectStore`. Test `tests/storage/test_object_store.py` (moto).
+- [x] T3.2 `LocalRenders`, `ResultsLoader`, `RunEmbeddings`, `routers/jobs.py` use the store; per-job key check kept
       (`tests/api/test_jobs_router.py::test_other_jobs_photo_is_404` on both stores).
-- [ ] T3.3 Job deletion deletes `jobs/<id>/` in the store (`test_delete_prefix`).
+- [x] T3.3 Job deletion deletes `jobs/<id>/` in the store (`test_delete_prefix`).
 
 ## W4 — Worker writes the database (R5, R6)
 - [ ] T4.1 `Job` columns `progress` (JSON), `heartbeat_at`, `call_id`, `gpu`.

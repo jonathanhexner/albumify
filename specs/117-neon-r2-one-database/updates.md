@@ -4,6 +4,28 @@
 
 **Status:** In Progress 2026-11-06 (owner approved; W1-W6 being built in worktree `D:\sim-bench-117`)
 
+## 2026-11-06 — W3 Files on R2 landed
+
+`sim_bench/storage/object_store.py`: `ObjectStore` (put, get, exists, list, delete_prefix), `LocalObjectStore` (the
+job folders, layout unchanged) and `R2ObjectStore` (boto3, objects under `jobs/<job_id>/`). `make_object_store`
+picks R2 only when every `R2_*` is set. `JobStore.objects` carries it; `LocalRenders` writes display images and
+face crops through it, `ResultsLoader` lists it (one listing per folder, not one check per face), `RunEmbeddings`
+reads `results/*` from it, and `/jobs/{id}/photos/.../image` + `/faces/.../crop` serve this job's own key only.
+`DELETE /jobs/{id}` (`JobService.delete_job`) deletes the rows and every stored file of the job.
+
+| Claim | Evidence |
+|---|---|
+| R7 store contract on both stores, unsafe keys refused | `tests/storage/test_object_store.py`: 30 passed (moto for R2; incl. 8 unsafe-key cases x 2 stores) |
+| R7 another job's key / a made-up key is 404, on both stores | `tests/api/test_jobs_router.py::test_other_jobs_photo_is_404[local]` and `[r2]` passed |
+| R7 images and crops served from R2 | `test_images_and_crops_are_served[r2]` passed |
+| R14 deleting a job deletes its files | `test_delete_prefix` (both stores, 1,005-object case on R2) + `test_delete_job_removes_rows_and_stored_files[local,r2]` passed |
+| SQLite default unchanged | `tests/api tests/control tests/serving tests/storage`: all passed |
+
+**Decisions / deviations**
+- Keys are job-relative (`<job_id>/display/a.jpg`); the R2 store adds the `jobs/` prefix, the local store maps a key to `<jobs_root>/<key>`, so a local run's files stay exactly where they were and the DB keys (`display/a.jpg`, `faces/12.jpg`) are unchanged.
+- The staged 768 px inputs stay in the local input store and the Modal inputs Volume (a spec non-goal); `inputs/...` keys are still served from there.
+- `JobStore.write_displays` (worker-side renders, debug only) is kept, not removed: it is behind `write_renders=True`, which no runner sets.
+
 ## 2026-11-06 — W2 Postgres parity landed
 
 `tests/_db.py` gives each DB test a fresh database: a new SQLite file by default, or, in the parity run, the

@@ -1,4 +1,4 @@
-"""A run's own face embeddings (spec-116 R14): ``results/embeddings.npy`` in its job folder.
+"""A run's own face embeddings (spec-116 R14): ``results/embeddings.npy`` of its job, in the object store (spec-117).
 
 The feature cache is keyed by the path the pipeline saw, which for a staged run is a copy (and for an L4 run lives
 on the Volume), so pages that hold an original path read the run's embeddings first. Runs made before spec-116
@@ -13,6 +13,7 @@ import numpy as np
 
 from sim_bench.serving.job_store import JobStore
 from sim_bench.serving.serving_config import load_serving_config
+from sim_bench.storage.object_store import make_object_store
 
 __all__ = ["RunEmbeddings"]
 
@@ -35,17 +36,22 @@ def _load(root: str, job_id: str) -> Dict[Tuple[str, int], np.ndarray]:
 
 
 def _read(root: str, job_id: str) -> Dict[Tuple[str, int], np.ndarray]:
-    store = JobStore(root)
+    """spec-117 R7: from the object store (the job folder, or R2 for a run the worker wrote there)."""
+    import io
+    import json
+
+    store = JobStore(root, objects=make_object_store(root))
     try:
-        paths = store.paths(job_id)
+        store.paths(job_id)
     except ValueError:                # an old run id that is not a valid job id
         return {}
-    bundle, vectors, ids = store.read_results(job_id), paths.results_dir / "embeddings.npy", \
-        paths.results_dir / "embedding_face_ids.npy"
-    if bundle is None or not vectors.is_file() or not ids.is_file():
+    raw = {name: store.read_object(job_id, f"results/{name}")
+           for name in ("bundle.json", "embeddings.npy", "embedding_face_ids.npy")}
+    if any(v is None for v in raw.values()):
         return {}
-    row_of = {int(fid): i for i, fid in enumerate(np.load(ids))}
-    matrix = np.load(vectors)
+    bundle = json.loads(raw["bundle.json"].decode("utf-8"))
+    row_of = {int(fid): i for i, fid in enumerate(np.load(io.BytesIO(raw["embedding_face_ids.npy"])))}
+    matrix = np.load(io.BytesIO(raw["embeddings.npy"]))
     return {(f["photo_id"], int(f["face_index"])): matrix[row_of[int(f["face_id"])]]
             for f in bundle.get("faces", [])
             if f.get("face_index") is not None and int(f["face_id"]) in row_of}

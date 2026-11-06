@@ -22,10 +22,24 @@ from tests.control.test_job_service import FailingRunner, _in_process
 
 
 @pytest.fixture
-def client(tmp_path):
+def client(tmp_path, request):
+    """``indirect`` param "r2": display images and face crops go to a fake R2 bucket (moto) (spec-117 R7)."""
+    store = None
+    if getattr(request, "param", "local") == "r2":
+        import boto3
+        from moto import mock_aws
+
+        from sim_bench.serving.job_store import JobStore
+        from sim_bench.storage.object_store import R2ObjectStore
+        aws = mock_aws()
+        aws.start()
+        request.addfinalizer(aws.stop)
+        s3 = boto3.client("s3", region_name="us-east-1")
+        s3.create_bucket(Bucket="albumify-test")
+        store = JobStore(tmp_path / "jobs", objects=R2ObjectStore("albumify-test", s3))
     svc = JobService(ControlDB(fresh_database_url(tmp_path, "c.db")),
                      ServingConfig(runner="local", pipeline="minimal", jobs_root=tmp_path / "jobs"),
-                     runner_factory=_in_process)
+                     store=store, runner_factory=_in_process)
     app = FastAPI()
     app.include_router(jobs_router.router)
     app.dependency_overrides[jobs_router.get_job_service] = lambda: svc
@@ -65,6 +79,7 @@ class ut_JobsRouter:
         assert photos["q"]["decisions"][0]["step"] == "filter_quality"
         assert photos["a"]["has_display"] and photos["a"]["n_faces"] == 1
 
+    @pytest.mark.parametrize("client", ["local", "r2"], indirect=True)
     def test_images_and_crops_are_served(self, client):
         _submit(client)
         assert client.get("/jobs/trip/photos/a/image").headers["content-type"] == "image/jpeg"
@@ -74,8 +89,10 @@ class ut_JobsRouter:
         faces = client.get("/jobs/trip/faces", params={"person_id": 3}).json()
         assert [f["face_id"] for f in faces] == [0, 1]
 
+    @pytest.mark.parametrize("client", ["local", "r2"], indirect=True)
     def test_other_jobs_photo_is_404(self, client, tmp_path):
-        """spec-115 R7: photos live in a shared store, but a job only serves the ones its manifest lists."""
+        """spec-115 R7: photos live in a shared store, but a job only serves the ones its manifest lists.
+        spec-117 R7: on either object store, another job's display key or a made-up key is a 404 too."""
         _submit(client)
         other = tmp_path / "other"
         other.mkdir()
@@ -89,6 +106,13 @@ class ut_JobsRouter:
         assert client.get("/jobs/trip/photos/b/image").status_code == 404
         assert client.get("/jobs/other/photos/x/image").status_code == 200
 
+        objects = client.svc.store.objects
+        assert objects.exists("trip/display/a.jpg")              # the pick's display copy is in the store
+        for key in ("../other/display/x.jpg", "display/nope.jpg", "/etc/passwd", "faces/../../other/x.jpg"):
+            with client.svc.db.session() as s:
+                s.get(Photo, ("trip", "a")).display_key = key
+            assert client.get("/jobs/trip/photos/a/image").status_code == 404, key
+
     def test_edit_round_trip(self, client):
         """AC5 over the API."""
         _submit(client)
@@ -97,6 +121,23 @@ class ut_JobsRouter:
         assert "b" in [p["id"] for p in client.get("/jobs/trip/album").json()["picks"]]
         r = client.post("/jobs/trip/edits", json={"kind": "promote", "payload": {"photo_id": "q"}})
         assert r.status_code == 422
+
+    @pytest.mark.parametrize("client", ["local", "r2"], indirect=True)
+    def test_delete_job_removes_rows_and_stored_files(self, client):
+        """spec-117 R14: a deleted job's files go with it, from the folder or the bucket."""
+        _submit(client)
+        objects = client.svc.store.objects
+        assert objects.list("trip/display/") and objects.list("trip/faces/")
+        r = client.delete("/jobs/trip")
+        assert r.status_code == 200 and r.json()["deleted_files"] >= 2
+        assert objects.list("trip/") == []
+        assert client.get("/jobs/trip").status_code == 404
+        from sim_bench.control.models import Face, Photo
+        from sqlalchemy import func, select
+        with client.svc.db.session() as s:
+            assert s.scalar(select(func.count()).select_from(Photo).where(Photo.job_id == "trip")) == 0
+            assert s.scalar(select(func.count()).select_from(Face).where(Face.job_id == "trip")) == 0
+        assert client.delete("/jobs/trip").status_code == 404
 
     def test_bad_requests(self, client, tmp_path):
         assert client.post("/jobs", json={"source": str(tmp_path / "nope")}).status_code == 422

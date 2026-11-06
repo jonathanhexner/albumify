@@ -94,7 +94,10 @@ class JobService:
                  store: Optional[JobStore] = None,
                  runner_factory: RunnerFactory = _default_factory):
         self.db, self.config = db, config
-        self.store = store or JobStore(config.jobs_root)
+        if store is None:
+            from sim_bench.storage.object_store import make_object_store   # R2 when R2_* is set (spec-117 R7)
+            store = JobStore(config.jobs_root, objects=make_object_store(config.jobs_root))
+        self.store = store
         self.repo = JobRepo(db)
         self._factory = runner_factory
         self._active: Dict[str, Runner] = {}          # job id -> the runner working on it (for cancel)
@@ -179,6 +182,28 @@ class JobService:
             f.unlink(missing_ok=True)
         for d in (paths.results_dir, paths.display_dir, paths.faces_dir):
             shutil.rmtree(d, ignore_errors=True)
+        if not self.store.objects.is_local:            # spec-117: and what the worker put in R2
+            for sub in ("results/", "display/", "faces/"):
+                self.store.objects.delete_prefix(f"{job_id}/{sub}")
+
+    def delete_job(self, job_id: str) -> int:
+        """Delete a finished job: its rows (photos, faces, people, events, edits go with it) and every file
+        under ``<job_id>/`` in the object store (spec-117 R14). Its staged photos stay (shared by content).
+        Returns the number of stored files deleted."""
+        from sim_bench.control.models import Job
+
+        job = self.repo.get(job_id)
+        if job is None:
+            raise KeyError(job_id)
+        if job.status not in TERMINAL:
+            raise ValueError(f"job {job_id!r} is {job.status}; cancel it or let it finish first")
+        n = self.store.objects.delete_prefix(f"{self.store.paths(job_id).job_id}/")
+        if not self.store.objects.is_local:            # the job folder here: manifest, run spec
+            shutil.rmtree(self.store.paths(job_id).root, ignore_errors=True)
+        with self.db.session() as s:
+            s.delete(s.get(Job, job_id))
+        logger.info("job %s deleted (%d stored files)", job_id, n)
+        return n
 
     def create(self, inputs: SubmitInputs) -> str:
         """Record the job (queued) and return its id; ``run`` does the work."""
