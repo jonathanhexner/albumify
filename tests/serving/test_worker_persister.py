@@ -133,6 +133,17 @@ class ut_WorkerPersister:
             assert s.get(Photo, (RUN, "a")).display_key == "display/a.jpg"
             assert s.get(Face, (RUN, 0)).crop_key == "faces/0.jpg"
 
+    def test_the_pc_reads_an_l4_album_from_the_object_store(self, world, tmp_path):
+        """Scripts that read album.json (regression) find an L4 run's album although nothing was copied back."""
+        world.run()
+        pc = JobStore(tmp_path / "pc_jobs", objects=world.objects)
+        assert not pc.paths(RUN).album_path.exists()
+        album = pc.read_album(RUN)
+        if world.l4:
+            assert {p["id"] for p in album["picks"]} == {"a", "c"}
+        else:
+            assert album is None            # the local store is the job folder itself: no second copy
+
     def test_a_failed_run_write_fails_the_job_and_leaves_no_run_rows(self, world, monkeypatch):
         monkeypatch.setattr(PeopleService, "add_from_payload",
                             lambda *a: (_ for _ in ()).throw(RuntimeError("disk full")))

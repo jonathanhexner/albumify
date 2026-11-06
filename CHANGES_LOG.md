@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-06 [BUGFIX] spec-117 — read_album finds an L4 run's album in the object store
+**Files**: `sim_bench/serving/job_store.py`, `tests/serving/test_worker_persister.py`.
+**Change**: `JobStore.read_album` falls back to the object store when the job folder has no `album.json` (an L4 run copies nothing back), so `scripts/albumify_regression.py` keeps working for L4 runs.
+**Verification**: `test_the_pc_reads_an_l4_album_from_the_object_store[pc,l4]` passed.
+**Reason**: found in self-review of spec-117 W5 (callers of the removed copy-back).
+
 ### 2026-11-06 [FEATURE] spec-117 W7 — migration script (written + tested, not run on real data)
 **Files**: new `scripts/migrate_to_neon.py`, `tests/scripts/test_migrate_to_neon.py`; spec-117 updates.
 **Change**: `NeonMigrator` plan / copy / verify: SQLite files -> the one database, FK order, batches, `people` -> `job_people`, Postgres sequences moved; refuses a non-empty target; sources only read.

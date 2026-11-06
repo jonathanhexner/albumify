@@ -239,10 +239,12 @@ class JobStore:
         return paths.album_path
 
     def read_album(self, job_id: str) -> Optional[Dict]:
+        """``album.json`` from the job folder, else (an L4 run, spec-117: nothing copied back) the object store."""
         path = self.paths(job_id).album_path
-        if not path.is_file():
-            return None
-        return json.loads(path.read_text(encoding="utf-8"))
+        if path.is_file():
+            return json.loads(path.read_text(encoding="utf-8"))
+        data = None if self.objects.is_local else self.read_object(job_id, "album.json")
+        return json.loads(data.decode("utf-8")) if data else None
 
     def write_run_record(self, job_id: str, record: Dict) -> Path:
         paths = self.paths(job_id)
