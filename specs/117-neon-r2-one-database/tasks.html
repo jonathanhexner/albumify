@@ -297,9 +297,11 @@ run</a></li>
 </nav>
 <h1 id="spec-117--tasks-one-cloud-database-neon--r2">spec-117 — Tasks
 (One cloud database: Neon + R2)</h1>
-<p><strong>Status:</strong> Draft 2026-11-06 — awaiting owner approval;
-no code yet. <strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
-href="updates.html">updates</a> · roadmap stage <strong>C</strong> · <a
+<p><strong>Status:</strong> In Progress 2026-11-06 — owner approved;
+W1-W6 built in worktree <code>D:/sim-bench-117</code> (branch
+<code>spec/117-neon-r2</code>). <strong>Spec:</strong> <a
+href="spec.html">spec.md</a> · <a href="updates.html">updates</a> ·
+roadmap stage <strong>C</strong> · <a
 href="../../ROADMAP.html">ROADMAP.md</a></p>
 <p>Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file
 tables). This file orders the work. <strong>Rule while a local album run
@@ -324,84 +326,95 @@ printed).</label></li>
 </ul>
 <h2 id="w1--one-database-setting-r1-r2-r15">W1 — One database setting
 (R1, R2, R15)</h2>
-<ul class="task-list">
-<li><label><input type="checkbox" />T1.1 <code>requirements.txt</code>:
+<ul>
+<li>[~] T1.1 <code>requirements.txt</code>:
 <code>psycopg[binary]</code>, <code>boto3</code>, <code>moto</code>;
-install into <code>.venv</code>.</label></li>
-<li><label><input type="checkbox" />T1.2
+install into <code>.venv</code> (listed; install deferred: the live
+<code>.venv</code> must not change during the album run, tests use a
+side folder).</li>
+</ul>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T1.2
 <code>sim_bench/storage/database.py</code> <code>DatabaseConfig</code>;
 <code>.env</code> loaded once at API start (<code>api/main.py</code>)
 and in the worker. Test
 <code>tests/storage/test_database_config.py</code> (unset -&gt; SQLite
 path as today; Postgres URL -&gt; psycopg driver, pre-ping;
 redaction).</label></li>
-<li><label><input type="checkbox" />T1.3
+<li><label><input type="checkbox" checked="" />T1.3
 <code>api/database/session.py</code> and <code>control/db.py</code>
 build their engines from <code>DatabaseConfig</code>.</label></li>
-<li><label><input type="checkbox" />T1.4 <code>control/models.py</code>:
+<li><label><input type="checkbox" checked="" />T1.4
+<code>control/models.py</code>:
 <code>Person.__tablename__ = "job_people"</code>, with a one-time rename
 of the existing SQLite table. Test
 <code>tests/control/test_jobs.py::test_job_people_table</code>.</label></li>
 </ul>
 <h2 id="w2--postgres-parity-r3">W2 — Postgres parity (R3)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T2.1 <code>needs_neon</code> pytest
-marker: creates a throwaway Neon branch (or schema), runs
-<code>tests/api</code>, <code>tests/control</code>,
+<li><label><input type="checkbox" checked="" />T2.1
+<code>needs_neon</code> pytest marker: creates a throwaway Neon branch
+(or schema), runs <code>tests/api</code>, <code>tests/control</code>,
 <code>tests/serving</code>.</label></li>
-<li><label><input type="checkbox" />T2.2 Make
+<li><label><input type="checkbox" checked="" />T2.2 Make
 <code>_migrate_new_columns</code> and <code>_add_missing_columns</code>
 portable (SQLAlchemy inspector, no raw SQLite DDL).</label></li>
-<li><label><input type="checkbox" />T2.3 Fix what fails on Postgres
-(types, JSON, timezones); record each fix in updates.md.</label></li>
+<li><label><input type="checkbox" checked="" />T2.3 Fix what fails on
+Postgres (types, JSON, timezones); record each fix in
+updates.md.</label></li>
 </ul>
 <h2 id="w3--files-on-r2-r7-r14">W3 — Files on R2 (R7, R14)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T3.1
+<li><label><input type="checkbox" checked="" />T3.1
 <code>sim_bench/storage/object_store.py</code>:
 <code>LocalObjectStore</code>, <code>R2ObjectStore</code>. Test
 <code>tests/storage/test_object_store.py</code> (moto).</label></li>
-<li><label><input type="checkbox" />T3.2 <code>LocalRenders</code>,
-<code>ResultsLoader</code>, <code>RunEmbeddings</code>,
-<code>routers/jobs.py</code> use the store; per-job key check kept
+<li><label><input type="checkbox" checked="" />T3.2
+<code>LocalRenders</code>, <code>ResultsLoader</code>,
+<code>RunEmbeddings</code>, <code>routers/jobs.py</code> use the store;
+per-job key check kept
 (<code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code>
 on both stores).</label></li>
-<li><label><input type="checkbox" />T3.3 Job deletion deletes
+<li><label><input type="checkbox" checked="" />T3.3 Job deletion deletes
 <code>jobs/&lt;id&gt;/</code> in the store
 (<code>test_delete_prefix</code>).</label></li>
 </ul>
 <h2 id="w4--worker-writes-the-database-r5-r6">W4 — Worker writes the
 database (R5, R6)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T4.1 <code>Job</code> columns
-<code>progress</code> (JSON), <code>heartbeat_at</code>,
+<li><label><input type="checkbox" checked="" />T4.1 <code>Job</code>
+columns <code>progress</code> (JSON), <code>heartbeat_at</code>,
 <code>call_id</code>, <code>gpu</code>.</label></li>
-<li><label><input type="checkbox" />T4.2
+<li><label><input type="checkbox" checked="" />T4.2
 <code>serving/db_progress.py</code> <code>DbProgressWriter</code>;
 steps' <code>report_progress</code> reaches it (throttled 2 s);
 <code>progress.json</code> retired. Test
 <code>tests/serving/test_db_progress.py</code>.</label></li>
-<li><label><input type="checkbox" />T4.3
+<li><label><input type="checkbox" checked="" />T4.3
 <code>serving/worker_persister.py</code>: manifest carries original path
 + size; remap in the worker; <code>ResultsLoader</code> +
 <code>RunPersister</code> in one transaction. Test
 <code>tests/serving/test_worker_persister.py</code> (SQLite + fake
 store).</label></li>
-<li><label><input type="checkbox" />T4.4 <code>JobService.run</code> and
+<li><label><input type="checkbox" checked="" />T4.4
+<code>JobService.run</code> and
 <code>PipelineService.live/get_status</code> read the job row
 only.</label></li>
 </ul>
 <h2 id="w5--detached-l4-runs-r8-r9-r10">W5 — Detached L4 runs (R8, R9,
 R10)</h2>
+<ul>
+<li>[~] T5.1 <code>modal deploy</code> of <code>albumify-curator</code>
+with secret <code>albumify-cloud</code>;
+<code>gpu=["L4", "A10G"]</code>; run record stores the GPU. (code done;
+the deploy itself waits for the owner, W8)</li>
+</ul>
 <ul class="task-list">
-<li><label><input type="checkbox" />T5.1 <code>modal deploy</code> of
-<code>albumify-curator</code> with secret <code>albumify-cloud</code>;
-<code>gpu=["L4", "A10G"]</code>; run record stores the GPU.</label></li>
-<li><label><input type="checkbox" />T5.2
+<li><label><input type="checkbox" checked="" />T5.2
 <code>serving/detached_modal.py</code>: <code>start</code> (spawn by
 name, store call id), <code>status</code>,
 <code>cancel</code>.</label></li>
-<li><label><input type="checkbox" />T5.3
+<li><label><input type="checkbox" checked="" />T5.3
 <code>serving/run_watchdog.py</code>: heartbeat older than 2 min or call
 ended without rows -&gt; <code>failed</code> with the reason; queued
 -&gt; "Waiting for a GPU". Test
@@ -410,21 +423,21 @@ dearest GPU: <code>test_modal_gpu_choice.py</code>.</label></li>
 </ul>
 <h2 id="w6--one-feature-cache-r12">W6 — One feature cache (R12)</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T6.1
+<li><label><input type="checkbox" checked="" />T6.1
 <code>UniversalCacheHandler.load_many</code>; steps read once per step.
 Test
 <code>tests/pipeline/test_cache_handler_batch.py</code>.</label></li>
-<li><label><input type="checkbox" />T6.2 Worker and local runs use the
-cache through <code>DATABASE_URL</code>; the <code>albumify-cache</code>
-Volume copy is removed.</label></li>
+<li><label><input type="checkbox" checked="" />T6.2 Worker and local
+runs use the cache through <code>DATABASE_URL</code>; the
+<code>albumify-cache</code> Volume copy is removed.</label></li>
 </ul>
 <h2 id="w7--move-the-data-r4">W7 — Move the data (R4)</h2>
-<ul class="task-list">
-<li><label><input type="checkbox" />T7.1
-<code>scripts/migrate_to_neon.py</code> (<code>NeonMigrator</code>):
-plan, copy, verify; refuses a non-empty target. Test
-<code>tests/scripts/test_migrate_to_neon.py</code> (SQLite to SQLite).
-Real run: counts per table into updates.md.</label></li>
+<ul>
+<li>[~] T7.1 <code>scripts/migrate_to_neon.py</code>
+(<code>NeonMigrator</code>): plan, copy, verify; refuses a non-empty
+target. Test <code>tests/scripts/test_migrate_to_neon.py</code> (SQLite
+to SQLite). Real run: counts per table into updates.md. (script + test
+done; the real run waits for the owner)</li>
 </ul>
 <h2
 id="w8--prove-on-real-data-r8-r11-r13-r14--owner-ok-before-each-l4-run">W8

@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 
 from tests._db import fresh_api_engine
 from sim_bench.api.main import app
-from sim_bench.api.database.models import Base, PipelineResult
+from sim_bench.api.database.models import Album, Base, PipelineResult, PipelineRun
 from sim_bench.api.database.session import get_session
 
 
@@ -23,6 +23,10 @@ def test_images_endpoint_exposes_previously_dropped_fields(tmp_path):
     # a file (or the parity run's Postgres schema), so the route's worker thread sees the same tables
     engine = fresh_api_engine(tmp_path)
     session = sessionmaker(bind=engine)()
+    # the run the result belongs to: Postgres enforces pipeline_results.run_id -> pipeline_runs.id
+    session.add(Album(id="alb", name="a", source_path="D:/x"))
+    session.add(PipelineRun(id="job1", album_id="alb", steps=[], status="completed"))
+    session.flush()
     session.add(PipelineResult(
         id=str(uuid.uuid4()),
         run_id="job1",

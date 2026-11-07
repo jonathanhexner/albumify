@@ -91,6 +91,7 @@ class ut_PeopleAndFaces:
             {"face_index": 0, "frontal_score": 0.7}]}}))
         s.add(Person(id="p", album_id="alb", run_id=RUN, person_index=0, face_count=1, image_count=1,
                      face_instances=[{"image_path": "D:\\Trip\\a.jpg", "face_index": 0}]))
+        s.flush()          # the person first: Postgres enforces face_metric_rows.person_id -> people.id
         s.add(FaceMetricRow(run_id=RUN, image_path="D:\\Trip\\a.jpg", face_index=0, person_id="p", bbox_x=0.1,
                             bbox_y=0.2, bbox_w=0.3, bbox_h=0.4, filter_passed=True))
         s.commit()

@@ -267,6 +267,31 @@
 id="toc-spec-117--progress--verification-updates">spec-117 — Progress
 &amp; verification updates</a>
 <ul>
+<li><a
+href="#2026-11-06--w7-migration-script-written-and-tested-not-run-on-the-real-data"
+id="toc-2026-11-06--w7-migration-script-written-and-tested-not-run-on-the-real-data">2026-11-06
+— W7 migration script written and tested (NOT run on the real
+data)</a></li>
+<li><a href="#2026-11-06--w6-one-feature-cache-landed"
+id="toc-2026-11-06--w6-one-feature-cache-landed">2026-11-06 — W6 One
+feature cache landed</a></li>
+<li><a
+href="#2026-11-06--w5-detached-l4-runs-landed-code--fakes-deploy-and-real-l4-are-w8"
+id="toc-2026-11-06--w5-detached-l4-runs-landed-code--fakes-deploy-and-real-l4-are-w8">2026-11-06
+— W5 Detached L4 runs landed (code + fakes; deploy and real L4 are
+W8)</a></li>
+<li><a href="#2026-11-06--w4-worker-writes-the-database-landed"
+id="toc-2026-11-06--w4-worker-writes-the-database-landed">2026-11-06 —
+W4 Worker writes the database landed</a></li>
+<li><a href="#2026-11-06--w3-files-on-r2-landed"
+id="toc-2026-11-06--w3-files-on-r2-landed">2026-11-06 — W3 Files on R2
+landed</a></li>
+<li><a href="#2026-11-06--w2-postgres-parity-landed"
+id="toc-2026-11-06--w2-postgres-parity-landed">2026-11-06 — W2 Postgres
+parity landed</a></li>
+<li><a href="#2026-11-06--w1-one-database-setting-landed"
+id="toc-2026-11-06--w1-one-database-setting-landed">2026-11-06 — W1 One
+database setting landed</a></li>
 <li><a href="#2026-11-06--drafted"
 id="toc-2026-11-06--drafted">2026-11-06 — Drafted</a></li>
 </ul></li>
@@ -277,7 +302,479 @@ id="toc-2026-11-06--drafted">2026-11-06 — Drafted</a></li>
 <p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
-<p><strong>Status:</strong> Draft 2026-11-06</p>
+<p><strong>Status:</strong> In Progress 2026-11-06 (owner approved;
+W1-W6 being built in worktree <code>D:\sim-bench-117</code>)</p>
+<h2
+id="2026-11-06--w7-migration-script-written-and-tested-not-run-on-the-real-data">2026-11-06
+— W7 migration script written and tested (NOT run on the real data)</h2>
+<p><code>scripts/migrate_to_neon.py</code> <code>NeonMigrator</code>:
+<code>plan</code> (row counts per table in <code>sim_bench.db</code> and
+<code>control.db</code>), <code>copy</code> (refuses a target holding
+any Albumify rows; creates the tables; copies in FK order, in batches,
+through the ORM column types; control.db's old <code>people</code> lands
+in <code>job_people</code>; moves Postgres id sequences past the copied
+ids), <code>verify</code> (per-table counts, raises on a difference).
+The sources are only read. <code>--skip universal_cache</code> leaves
+the cache out (it is regenerable and may be large against the Neon free
+size).</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R4 copy + verify, counts match, refuses a non-empty target, sources
+unchanged (hash), JSON/blob/datetime round-trip, new ids after the
+copy</td>
+<td><code>tests/scripts/test_migrate_to_neon.py</code>: 6 passed on
+SQLite, and 6 passed with the target on a throwaway Neon schema (183 s,
+schema dropped)</td>
+</tr>
+<tr>
+<td>Real migration</td>
+<td><strong>not run</strong> (owner instruction: W7 real run and W8
+wait); per-table counts go here when it is</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Risks for the real run</strong>: the API's
+<code>sim_bench.db</code> never had foreign keys switched on, so orphan
+rows (e.g. people of a deleted run) would be refused by Postgres; run
+<code>--plan</code> first and fix or skip what fails. Feature-cache rows
+keyed by full staged paths still hit on this PC (legacy lookup) but not
+on the L4 until a local run rewrites them as content keys.</p>
+<h2 id="2026-11-06--w6-one-feature-cache-landed">2026-11-06 — W6 One
+feature cache landed</h2>
+<p><code>UniversalCacheHandler.load_many</code> /
+<code>store_many</code>: one IN query per (feature, model), i.e. one per
+step, and one commit per step's writes (<code>BaseStep</code> uses
+<code>store_many</code>; <code>load_from_cache</code> delegates to
+<code>load_many</code>). Photos from the shared input store are keyed
+<code>staged:&lt;sha16&gt;/&lt;name&gt;.jpg</code> (content, the same on
+this PC and the L4) and skip the mtime check; rows an older run stored
+under the full staged path are still found by the same query.
+<code>run_pipeline</code> opens the cache through
+<code>DATABASE_URL</code> (<code>feature_cache_config</code>;
+<code>ALBUMIFY_FEATURE_CACHE</code> still names an isolated SQLite file;
+unset -&gt; <code>sim_bench.db</code>). The <code>albumify-cache</code>
+Volume and its copy in/out left <code>modal_app.py</code> in W5. Also
+landed: <code>tests/architecture/test_no_secrets_leak.py</code> (R13
+unit part) and the architecture docs (<code>data_flow.html</code>
+spec-117 section, <code>classes.html</code> new classes,
+<code>db_schemas.html</code> new <code>jobs</code> columns +
+<code>job_people</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R12 one query per step (715 photos), one commit per step's
+writes</td>
+<td><code>tests/pipeline/test_cache_handler_batch.py::test_a_step_reads_with_one_query_not_one_per_photo</code>,
+<code>test_a_step_writes_in_one_commit</code> passed</td>
+</tr>
+<tr>
+<td>R12 the L4 reuses this PC's cache (other folder, other mtimes)</td>
+<td><code>test_the_l4_reuses_what_this_pc_cached</code> passed; older
+path-keyed rows still hit; mtime check kept outside the store</td>
+</tr>
+<tr>
+<td>R12 the worker's cache follows <code>DATABASE_URL</code></td>
+<td><code>test_the_worker_cache_follows_database_url</code> passed</td>
+</tr>
+<tr>
+<td>R13 no secret in logs, argv, run records, the worker image or status
+responses</td>
+<td><code>tests/architecture/test_no_secrets_leak.py</code>: 6
+passed</td>
+</tr>
+<tr>
+<td>R15 the full default suite on SQLite</td>
+<td><code>pytest tests</code> (worktree, pydeps): <strong>1,772 passed,
+71 skipped, 0 failed</strong> (281 s). The skips are the private test
+photos, which are not in the worktree
+(<code>test_data/face_clustering</code>, <code>samples/ukbench</code>),
+plus 2 standing skips</td>
+</tr>
+<tr>
+<td>R3 the whole parity set on Neon</td>
+<td>see the parity entry below</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Decisions / deviations</strong></p>
+<ul>
+<li><code>load_many</code> no longer touches <code>last_accessed</code>
+on reads (nothing reads it; on Neon it was one UPDATE per photo at the
+next commit).</li>
+<li>IN lists are chunked at 5,000 paths (SQLite 3.45 here allows 32,766
+parameters, Postgres 65,535), so a step over 715 photos plus their
+legacy keys is one query.</li>
+<li><code>tests/storage</code>, <code>tests/scripts</code> have no
+<code>__init__.py</code>, like <code>tests/control</code>.</li>
+</ul>
+<h2
+id="2026-11-06--w5-detached-l4-runs-landed-code--fakes-deploy-and-real-l4-are-w8">2026-11-06
+— W5 Detached L4 runs landed (code + fakes; deploy and real L4 are
+W8)</h2>
+<p><code>serving/detached_modal.py</code>
+<code>DetachedModalRemote</code> spawns <code>curate_job</code> on the
+DEPLOYED app by name and returns the call id; <code>status</code> /
+<code>cancel</code> by call id. <code>ModalRunner</code> now uploads
+missing photos (<code>ModalVolumeRemote</code>, which lost
+<code>run_job</code> and <code>download_results</code>), sets the stage
+"waiting for gpu", spawns, stores the call id on the job and follows the
+job row until the worker ends it; nothing is copied back. It refuses a
+SQLite job DB when the remote is the real one (the L4 cannot reach a
+file here). <code>serving/run_watchdog.py</code>
+<code>RunWatchdog.reconcile</code> fails a detached job whose heartbeat
+is older than 90 s (and cancels the call), or whose call ended before it
+started / without results; it re-reads the row first so a worker that
+just finished is never overruled. The API starts it every 30 s when
+<code>DATABASE_URL</code> is set, and
+<code>PipelineService.get_status</code> runs it for the run asked about.
+<code>reap_orphans</code> skips jobs with a call id (the process that
+started them may restart). <code>JobService.cancel</code> reaches Modal
+by the stored call id when no runner in this process knows the job.
+<code>modal_app.py</code>: job functions ask for <code>GPU_TYPES</code>
+(from <code>configs/serving.yaml</code>, <code>[L4, A10G]</code>), mount
+secret <code>albumify-cloud</code>, run
+<code>runners.worker_curator</code> (Neon + R2), record the GPU on the
+job row and in run.json; the <code>albumify-cache</code> Volume and its
+copy in/out are gone. The spend cap is checked at the dearest GPU
+(<code>ServingConfig.dearest_dollars_per_hour</code>, A10G $1.10/h).</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R8 detached: call id stored, manifest travels, nothing copied back,
+the job row is the outcome</td>
+<td><code>tests/serving/test_modal_staging.py</code>: 15 passed (10
+runner tests incl.
+<code>test_nothing_comes_back_and_the_job_row_is_the_outcome</code>,
+<code>test_the_call_id_is_stored_and_the_manifest_travels</code>)</td>
+</tr>
+<tr>
+<td>R8 an API restart mid-run loses nothing; a restarted API does not
+reap the run</td>
+<td><code>test_pipeline_service_runners.py::test_an_api_restart_mid_run_loses_nothing</code>,
+<code>test_run_watchdog.py::test_a_restarted_api_does_not_reap_a_detached_run</code>
+passed</td>
+</tr>
+<tr>
+<td>R9 lost heartbeat / dead call / ended without results -&gt; failed
+with the reason; finished worker never overruled; Modal unreachable
+judged by heartbeat</td>
+<td><code>tests/serving/test_run_watchdog.py</code>: 10 passed</td>
+</tr>
+<tr>
+<td>R9 cancel by call id (also after a restart); queued reads "waiting
+for gpu"</td>
+<td><code>test_cancel_by_call_id_after_a_restart</code>,
+<code>test_a_queued_run_reads_waiting_for_a_gpu</code>,
+<code>test_cancel_while_it_runs</code> passed</td>
+</tr>
+<tr>
+<td>R10 GPU list L4 then A10G, cap at the dearest, GPU recorded,
+functions use the list + secret</td>
+<td><code>tests/serving/test_modal_gpu_choice.py</code>: 5 passed</td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td><code>tests/api tests/control tests/serving tests/storage tests/streamlit</code>:
+327 passed; <code>tests/pipeline/test_run_spec.py</code> 9 passed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Decisions / deviations</strong></p>
+<ul>
+<li>T5.1 <code>modal deploy</code> was not run (owner OK needed, W8).
+The code targets the deployed app <code>albumify-curator</code> /
+<code>albumify-curator-cpu</code>.</li>
+<li>Grace is 90 s and the API watchdog runs every 30 s, so a stopped
+heartbeat fails the job within 2 minutes (R9).</li>
+<li>"Waiting for a GPU" is the stage between the spawn and the worker's
+first write; Modal's own queue state is not read.</li>
+<li><code>tests/e2e_fake_modal_api.py</code> (Playwright stand-in) now
+fakes the detached call with a local child worker; the Playwright E2E
+tests were not run here (they start an API; W8).</li>
+</ul>
+<h2 id="2026-11-06--w4-worker-writes-the-database-landed">2026-11-06 —
+W4 Worker writes the database landed</h2>
+<p><code>Job</code> gained <code>progress</code> (JSON),
+<code>heartbeat_at</code>, <code>call_id</code>, <code>gpu</code> (added
+to older DBs by <code>_add_missing_columns</code>).
+<code>serving/db_progress.py</code> <code>DbProgressWriter</code> writes
+step, in-step fraction, photo n of N and the heartbeat to the job row
+(fractions throttled to one write per 2 s, heartbeat thread every 5 s, a
+failed write never stops the run); <code>progress.json</code> is gone
+(<code>JobStore.write_progress/read_progress/progress_path</code>
+removed). <code>serving/worker_persister.py</code>
+<code>WorkerPersister</code> runs in the worker after the pipeline: job
+<code>running -&gt; loading</code>, result files to the object store,
+<code>ResultsLoader</code> rows + renders, the album run's rows via
+<code>RunPersister</code> with original paths
+(<code>write_run_rows</code>, the one implementation
+<code>PipelineService</code> also falls back to), job
+<code>succeeded</code>; on any failure the worker ends the job and the
+run <code>failed</code> with the reason. The manifest now carries each
+original's pixel size, so <code>PathMap</code> needs no original (the L4
+has none). The local child process gets the job DB URL by env var (never
+argv) and runs <code>runners.worker_curator</code>.
+<code>JobService.run</code> reads the job row after the runner returns;
+<code>PipelineService.live</code> reads only the job row. Configure
+&amp; Run shows "43% (307/715)" for the current step on both machines
+and the GPU name.</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R5 progress + heartbeat in the job row, throttled, never fatal</td>
+<td><code>tests/serving/test_db_progress.py</code>: 6 passed</td>
+</tr>
+<tr>
+<td>R5 the app view is the same on both machines, no progress.json</td>
+<td><code>tests/api/test_pipeline_service_runners.py::test_in_step_progress_reads_the_same_on_both_machines[local,modal_gpu]</code>
+passed</td>
+</tr>
+<tr>
+<td>R6 worker writes job rows + run rows, original paths, 0 staged
+paths, files in R2, on "PC" and "L4" (originals deleted, moto R2)</td>
+<td><code>tests/serving/test_worker_persister.py</code>: 12 passed (5
+tests x 2 machines + 2)</td>
+</tr>
+<tr>
+<td>R6 a failed write fails job + run, no partial run rows</td>
+<td><code>test_a_failed_run_write_fails_the_job_and_leaves_no_run_rows[pc,l4]</code>
+passed</td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td><code>tests/api tests/control tests/serving tests/storage tests/streamlit</code>:
+306 passed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Decisions / deviations</strong></p>
+<ul>
+<li>Job rows and run rows are two transactions, not one (two databases
+when <code>DATABASE_URL</code> is unset). A failure in either fails the
+job; <code>RunPersister</code> still leaves no partial run rows.</li>
+<li>A runner whose worker did not write its results (in-process test
+fakes, the pre-W5 Modal path) still gets them loaded by
+<code>JobService</code>, so both paths stay tested until W5 retires the
+copy-back.</li>
+<li>The L4 worker (<code>modal_app._curate_job</code>) switches to
+<code>worker_curator</code> in W5, together with the deployed app and
+the secret.</li>
+</ul>
+<h2 id="2026-11-06--w3-files-on-r2-landed">2026-11-06 — W3 Files on R2
+landed</h2>
+<p><code>sim_bench/storage/object_store.py</code>:
+<code>ObjectStore</code> (put, get, exists, list, delete_prefix),
+<code>LocalObjectStore</code> (the job folders, layout unchanged) and
+<code>R2ObjectStore</code> (boto3, objects under
+<code>jobs/&lt;job_id&gt;/</code>). <code>make_object_store</code> picks
+R2 only when every <code>R2_*</code> is set.
+<code>JobStore.objects</code> carries it; <code>LocalRenders</code>
+writes display images and face crops through it,
+<code>ResultsLoader</code> lists it (one listing per folder, not one
+check per face), <code>RunEmbeddings</code> reads <code>results/*</code>
+from it, and <code>/jobs/{id}/photos/.../image</code> +
+<code>/faces/.../crop</code> serve this job's own key only.
+<code>DELETE /jobs/{id}</code> (<code>JobService.delete_job</code>)
+deletes the rows and every stored file of the job.</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R7 store contract on both stores, unsafe keys refused</td>
+<td><code>tests/storage/test_object_store.py</code>: 30 passed (moto for
+R2; incl. 8 unsafe-key cases x 2 stores)</td>
+</tr>
+<tr>
+<td>R7 another job's key / a made-up key is 404, on both stores</td>
+<td><code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404[local]</code>
+and <code>[r2]</code> passed</td>
+</tr>
+<tr>
+<td>R7 images and crops served from R2</td>
+<td><code>test_images_and_crops_are_served[r2]</code> passed</td>
+</tr>
+<tr>
+<td>R14 deleting a job deletes its files</td>
+<td><code>test_delete_prefix</code> (both stores, 1,005-object case on
+R2) +
+<code>test_delete_job_removes_rows_and_stored_files[local,r2]</code>
+passed</td>
+</tr>
+<tr>
+<td>SQLite default unchanged</td>
+<td><code>tests/api tests/control tests/serving tests/storage</code>:
+all passed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Decisions / deviations</strong></p>
+<ul>
+<li>Keys are job-relative (<code>&lt;job_id&gt;/display/a.jpg</code>);
+the R2 store adds the <code>jobs/</code> prefix, the local store maps a
+key to <code>&lt;jobs_root&gt;/&lt;key&gt;</code>, so a local run's
+files stay exactly where they were and the DB keys
+(<code>display/a.jpg</code>, <code>faces/12.jpg</code>) are
+unchanged.</li>
+<li>The staged 768 px inputs stay in the local input store and the Modal
+inputs Volume (a spec non-goal); <code>inputs/...</code> keys are still
+served from there.</li>
+<li><code>JobStore.write_displays</code> (worker-side renders, debug
+only) is kept, not removed: it is behind
+<code>write_renders=True</code>, which no runner sets.</li>
+</ul>
+<h2 id="2026-11-06--w2-postgres-parity-landed">2026-11-06 — W2 Postgres
+parity landed</h2>
+<p><code>tests/_db.py</code> gives each DB test a fresh database: a new
+SQLite file by default, or, in the parity run, the throwaway Neon schema
+(emptied once per test). The control, API-session and router tests that
+build databases use it (<code>control_db_url</code> fixture,
+<code>fresh_database_url</code>, <code>fresh_api_engine</code>).
+<code>tests/storage/test_neon_parity.py</code>
+(<code>-m needs_neon</code>, excluded from the default run) reads
+<code>DATABASE_URL</code> from <code>.env</code> inside its fixture,
+creates <code>test_&lt;random&gt;</code>, runs the child pytest on it
+through <code>ALBUMIFY_TEST_DATABASE_URL</code> and drops the schema at
+the end; output is scrubbed of the URL and password.</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R3 control + jobs API pass on Neon Postgres</td>
+<td>parity run of <code>tests/control</code> +
+<code>tests/api/test_jobs_router.py</code> on a <code>test_*</code>
+schema: <strong>97 passed, 0 failed</strong> (1,377 s; schema
+dropped)</td>
+</tr>
+<tr>
+<td>Both table sets in one Postgres schema</td>
+<td><code>test_neon_parity.py::test_both_table_sets_live_in_one_postgres_schema</code>
+passed on Neon (33 s)</td>
+</tr>
+<tr>
+<td>Column migrations portable</td>
+<td><code>_migrate_new_columns</code> compiles the model's type per
+dialect; <code>_add_missing_columns</code> reads all columns in one
+query (<code>get_multi_columns</code>)</td>
+</tr>
+<tr>
+<td>SQLite default unchanged</td>
+<td><code>tests/api tests/control tests/serving tests/storage</code>:
+243 passed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Decisions / deviations</strong></p>
+<ul>
+<li>Postgres fixes needed: none so far (types, JSON, timezones passed as
+written). The whole <code>tests/api tests/control tests/serving</code>
+parity run is repeated at the end of W6.</li>
+<li>The schema is set per connection (libpq
+<code>options=-csearch_path=...</code>), which Neon's pooler does not
+pass on, so the fixture connects to the direct host (the pooled host
+name minus <code>-pooler</code>).</li>
+<li>Each Neon round trip is ~180 ms from this PC, so the parity run is
+slow (~14 s per DB test). <code>ControlDB</code> start now makes ~2
+schema queries instead of ~15 (also helps API start on Neon).</li>
+<li><code>tests/api/test_people_service_bbox.py</code> keeps its
+in-memory SQLite (pure unit test of bbox shapes).</li>
+</ul>
+<h2 id="2026-11-06--w1-one-database-setting-landed">2026-11-06 — W1 One
+database setting landed</h2>
+<p><code>sim_bench/storage/database.py</code>
+(<code>DatabaseConfig</code>, <code>load_env</code>,
+<code>redact_url</code>) is the one engine factory: the API session,
+<code>ControlDB</code> and (W6) the feature cache build their engines
+from it. <code>DATABASE_URL</code> set puts every Albumify table in that
+database; unset, the API stays on <code>sim_bench.db</code> and the jobs
+on <code>control.db</code>. <code>.env</code> is read only at API
+startup and in the local worker child. The job table <code>people</code>
+is now <code>job_people</code>; an older <code>control.db</code> is
+renamed in place on open (only a <code>people</code> table with a
+<code>job_id</code> column, never the API's).</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1 one URL, psycopg 3 driver, pre-ping, both table sets in one
+DB</td>
+<td><code>tests/storage/test_database_config.py</code>: 10 passed (incl.
+<code>test_api_and_control_share_one_url_when_set</code>)</td>
+</tr>
+<tr>
+<td>R2 <code>job_people</code>, rows kept, API <code>people</code>
+untouched</td>
+<td><code>tests/control/test_jobs.py::ut_ControlDB::test_job_people_table</code>
+passed</td>
+</tr>
+<tr>
+<td>R15 unset = the two SQLite files; the suite never reads
+<code>.env</code></td>
+<td><code>test_unset_is_sqlite</code>,
+<code>test_unset_keeps_the_two_sqlite_files</code>,
+<code>ut_LoadEnv</code> (3); <code>tests/conftest.py</code> sets
+<code>ALBUMIFY_NO_DOTENV=1</code> and drops
+<code>DATABASE_URL</code>/<code>R2_*</code></td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td><code>tests/api tests/control tests/serving tests/storage</code>:
+243 passed (baseline 232 + 11 new)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Decisions / deviations</strong></p>
+<ul>
+<li><code>redact_url</code> hides user and password
+(<code>scheme://***@host/db</code>), the spec-112 <code>_redact</code>
+format; <code>_redact</code> is kept as an alias.</li>
+<li>SQLite foreign keys stay off for the API's <code>sim_bench.db</code>
+(as before); <code>ControlDB</code> keeps them on. Postgres enforces
+them for both (W2 checks).</li>
+<li>Tests run with pydeps on <code>PYTHONPATH</code> (psycopg 3.3.8,
+boto3 1.43, moto 5.2.5) because nothing may be installed into the live
+<code>.venv</code>; <code>requirements.txt</code> lists them for the
+real install.</li>
+</ul>
 <h2 id="2026-11-06--drafted">2026-11-06 — Drafted</h2>
 <p>Owner, after the L4 path was explained (<a
 href="https://claude.ai/artifact/K3WQv7SkBsConZVnJZhh9f">diagram</a>):
