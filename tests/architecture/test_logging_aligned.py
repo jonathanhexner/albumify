@@ -68,3 +68,18 @@ def test_logging_setup_module_exists_and_exports_expected_api():
         assert hasattr(logging_setup, name), (
             f"sim_bench.logging_setup missing {name!r}"
         )
+
+
+def test_setup_logging_is_one_dir_per_process(tmp_path):
+    """SIGHTING-148: Streamlit re-runs main.py on every rerun; a second call must not open a new log dir."""
+    from sim_bench import logging_setup
+
+    saved = (logging_setup._current_log_dir, logging_setup._current_surface)
+    logging_setup._current_log_dir = logging_setup._current_surface = None
+    try:
+        first = logging_setup.setup_logging("ut_surface", base_dir=str(tmp_path), console=False)
+        second = logging_setup.setup_logging("ut_surface", base_dir=str(tmp_path), console=False)
+        assert first == second
+        assert len(list(tmp_path.iterdir())) == 1
+    finally:
+        logging_setup._current_log_dir, logging_setup._current_surface = saved

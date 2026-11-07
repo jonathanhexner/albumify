@@ -65,25 +65,23 @@ if "cluster" in _qp:
 
 _render_session_panel()
 
-(tab_run, tab_recluster, tab_hist, tab_overview, tab_cluster,
- tab_merged, tab_merge_analysis, tab_face, tab_labeling, tab_ml,
- tab_label_verify) = st.tabs([
-    "Run", "Recluster", "History", "Clusters (Base)", "Cluster Analysis",
-    "Clusters (Merged)", "Merge Analysis", "Face Analysis",
-    "Labeling Review", "ML Training", "Label Verification",
-])
-
-with tab_run:            render_run_tab()
-with tab_recluster:      render_recluster_tab()
-with tab_hist:           render_history_tab()
-with tab_overview:       render_run_overview_tab()
-with tab_cluster:        render_cluster_analysis_tab()
-with tab_merged:         render_merged_clusters_tab()
-with tab_merge_analysis: render_merge_analysis_tab()
-with tab_face:           render_face_analysis_tab()
-with tab_labeling:       render_labeling_review_tab()
-with tab_ml:             render_ml_training_tab()
-with tab_label_verify:   render_label_verification_tab()
+# SIGHTING-148: only the chosen tab renders. st.tabs ran all 11 bodies on every rerun (4,932 images and
+# 19,398 buttons for a 984-face run), and the tabs' 0.4 s worker polls reran all of them too.
+TABS = {
+    "Run": render_run_tab,
+    "Recluster": render_recluster_tab,
+    "History": render_history_tab,
+    "Clusters (Base)": render_run_overview_tab,
+    "Cluster Analysis": render_cluster_analysis_tab,
+    "Clusters (Merged)": render_merged_clusters_tab,
+    "Merge Analysis": render_merge_analysis_tab,
+    "Face Analysis": render_face_analysis_tab,
+    "Labeling Review": render_labeling_review_tab,
+    "ML Training": render_ml_training_tab,
+    "Label Verification": render_label_verification_tab,
+}
+_active_tab = st.radio("Tab", list(TABS), horizontal=True, key="fc_active_tab", label_visibility="collapsed")
+TABS[_active_tab]()
 
 maybe_show_face_popup(st.session_state.pipeline_result)
 maybe_show_cluster_popup(st.session_state.pipeline_result)

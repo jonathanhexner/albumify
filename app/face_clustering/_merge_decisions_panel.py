@@ -682,23 +682,24 @@ def _render_iteration_grouped_gallery(view: MergeAnalysisView, result: PipelineR
     decisions: dict = st.session_state.merge_approval_decisions
     changed = False
 
-    for entry in view.iter_timeline:
-        it   = entry["iteration"]
+    # SIGHTING-148: one iteration, one page at a time. Collapsed expanders still build their crops, so
+    # rendering every pair of every iteration was ~6,000 images on a 984-face run.
+    def _iter_label(entry) -> str:
         ma, mb = entry.get("merged_a"), entry.get("merged_b")
-        nc   = entry.get("n_candidates", 0)
-        sa, sb = entry.get("size_a"), entry.get("size_b")
-
-        iter_merges  = merge_by_iter.get(it, [])
-        iter_rejects = sorted(reject_by_iter.get(it, []), key=lambda r: r.exemplar_dist)
-        all_iter_rows = iter_merges + iter_rejects
-
+        nc = entry.get("n_candidates", 0)
         if ma is not None:
-            iter_header = f"Iter {it} — :green[merged C{ma}+C{mb}] (sz {sa}+{sb}) | {nc} candidates"
-        else:
-            iter_header = f"Iter {it} — :red[no merge] | {nc} candidates"
+            return f"Iter {entry['iteration']} - merged C{ma}+C{mb} (sz {entry.get('size_a')}+{entry.get('size_b')}) | {nc} candidates"
+        return f"Iter {entry['iteration']} - no merge | {nc} candidates"
 
-        with st.expander(iter_header, expanded=(it == 1)):
-            for i, d in enumerate(all_iter_rows):
+    entry = st.selectbox("Iteration", view.iter_timeline, format_func=_iter_label, key="mg_iter_view_sel")
+    if entry is not None:
+        it = entry["iteration"]
+        all_iter_rows = merge_by_iter.get(it, []) + sorted(reject_by_iter.get(it, []), key=lambda r: r.exemplar_dist)
+        total_pages = max(1, (len(all_iter_rows) + _GALLERY_PAGE_SIZE - 1) // _GALLERY_PAGE_SIZE)
+        page = st.number_input("Page", 1, total_pages, 1, key=f"mg_iter_page_{it}") - 1
+        st.caption(f"{len(all_iter_rows)} pairs  |  Page {page + 1}/{total_pages}")
+        start = page * _GALLERY_PAGE_SIZE
+        for i, d in enumerate(all_iter_rows[start:start + _GALLERY_PAGE_SIZE], start=start):
                 key              = (min(d.cluster_a, d.cluster_b), max(d.cluster_a, d.cluster_b))
                 current_decision = decisions.get(key, "")
                 outcome_label, color = _outcome_label_color(d)

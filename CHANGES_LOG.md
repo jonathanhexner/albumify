@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-07 [BUGFIX] SIGHTING-147 / SIGHTING-148 -- people over-split (K=5) and the face clustering app hanging
+**Files**: `configs/pipeline.yaml`; `app/face_clustering/main.py`, `app/face_clustering/_merge_decisions_panel.py`, `sim_bench/logging_setup.py`; `tests/face_clustering/test_streamlit_app.py`, `tests/architecture/test_logging_aligned.py`, `tests/face_clustering/conftest.py`; `docs/project/SIGHTINGS.md`, `docs/project/LEARNINGS.md`.
+**Change**: `people_clustering` takes `K: 51`, `blur_min: 73.3` from the validated Budapest profile_4 (was the code defaults 5 / 50.0). The face clustering app renders only the chosen tab (radio selector instead of `st.tabs`); Merge Analysis' iteration view shows one iteration, 10 pairs a page; `setup_logging` opens one log dir per process. Test fixture also redirects `run_history.get_db_path`.
+**Verification**: recluster of the 277fb705 faces K=5/15/51 -> 76/21/10 people; real Slovakia26 re-run with the new config: 8 people (136, 108, 108, 97 + four of 3-5 faces), in Results as `52776cc5` (302 picks, export: 8 clusters, 18 noise faces); FC app on the 984-face run: every tab 1-7 s, 0 closed-socket errors; tests/face_clustering + tests/architecture 891 passed (3 opt-in e2e tests stale since April, fail on the old app too).
+**Reason**: owner saw ~4 people split into 76 and the face clustering app unusable on Slovakia26.
+
 ### 2026-11-06 [DOCS] spec-117 drafted (one cloud database: Neon + R2) + sharpness label experiment
 **Files**: new `specs/117-neon-r2-one-database/{spec,tasks,updates}.md` (+ html); `ROADMAP.md`; `specs/112-live-db-storage-runner/spec.md` (Phase B pointer); new `reports/2026-11-06_sharpness_labels/{summary.md,report.html,sharpness_labels.json}`; `reports/EXPERIMENTS.md`; `docs/project/LEARNINGS.md`.
 **Change**: spec-117 moves every Albumify table and the feature cache to Neon and render/crop/embedding files to R2; the L4 worker writes status, progress and results; detached runs, watchdog, GPU fallback. Supersedes spec-112 Phase B and its AC7.

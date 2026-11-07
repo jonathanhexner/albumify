@@ -4,6 +4,44 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-148: The face clustering app hangs on a run of ~1,000 faces
+**Status**: RESOLVED 2026-11-07 (found opening the Slovakia26 re-run `277fb705` via `?load_run=`); verified on that run:
+every tab opens in 1-7 s (Merge Analysis 2.9 s, 20 images; was 5,961 images and never finished), 0 closed-socket errors, 1 log
+dir per app start
+**Severity**: Medium (the app is unusable on real albums bigger than Budapest's 340 faces)
+**Persona**: Face clustering app
+
+**Problem**: one page load of the 984-face run renders 4,932 images and 19,398 buttons and had not finished after 3 min;
+the browser froze. Loading the run itself takes 0.6 s. While the browser hangs, the server writes ~1,000
+`WebSocketClosedError` tracebacks per second (83 MB of log in 2 min), and every rerun opens a new `logs/<timestamp>/` folder
+(2,952 folders, 803 MB).
+**Root cause**: `st.tabs` runs all 11 tab bodies on every rerun, and the tabs' 0.4 s worker polls (`st.rerun()`) reran all
+of them; Merge Analysis' default "By iteration" view built every pair of every iteration (collapsed expanders still build
+their crops); `setup_logging` ran at the top of `main.py`, which Streamlit re-executes per rerun.
+**Fix**: a tab selector renders only the chosen tab (`app/face_clustering/main.py`); the iteration view shows one iteration,
+10 pairs a page; `setup_logging` is once per process per surface.
+**Also found**: `tests/face_clustering/conftest.py` redirected `run_history_db.get_db_path` but `run_history` binds it by
+name, so the History tab queried a table-less DB under pytest (fixed, test-only). `tests/face_clustering/test_streamlit_e2e.py`
+(opt-in `e2e`) is stale since 2026-04-08: it clicks "Browse Clusters", "Debug", "Output directory", none of which exist; it
+fails on the old app too. Not fixed here.
+**Reproduce**: open `http://localhost:8502/?load_run=results%5CSlovakia26%5Cface_clustering_20261106_121259`.
+
+### SIGHTING-147: The album pipeline splits ~4 people into 76 (K=5 instead of the validated K=51)
+**Status**: RESOLVED 2026-11-07; verified on a real Slovakia26 re-run (`Slovakia26-20261107-231700-0f0a`, K=51 and
+blur_min=73.3 confirmed in its run.json): 8 people, four main ones of 136, 108, 108, 97 faces plus four of 3-5 faces (was 76); through Albums as `52776cc5`: Results
+shows 8 people, 302 picks; its export has 8 clusters, 18 noise faces (was 79 and 60)
+**Severity**: High for Gate 1 (the People page is unusable)
+**Persona**: Pipeline / People clustering
+
+**Problem**: the Slovakia26 re-run `277fb705` found 76 people (41 with >= 5 faces) where the album has about 4.
+**Root cause**: `configs/pipeline.yaml` `people_clustering` kept the code defaults `K: 5`, `blur_min: 50.0`; the profile
+validated on Budapest (`profile_4.json`) uses `K: 51`, `blur_min: 73.3`. A mutual-kNN graph with 5 neighbours breaks one
+person into many small groups. Recluster of the same 984 faces: K=5 -> 76 people (reproduces the run), K=15 -> 21,
+K=51 -> 10 people, top sizes 151, 119, 119, 117 then 5 and below.
+**Fix**: `pipeline.yaml` takes `K: 51`, `blur_min: 73.3` from profile_4.
+**Prevention (open)**: nothing ties the album config to the validated profile; a parity test is the follow-up.
+**Reproduce**: recluster `results/Slovakia26/face_clustering_20261106_121259` with stages cluster..export at K=5 and K=51.
+
 ### SIGHTING-146: Photos in no scene (-1) compete as one scene; losers are called near-duplicates
 **Status**: RESOLVED 2026-11-06 (found reviewing the 10-23 Slovakia26 L4 run, job `Slovakia26-20261023-115640`); verified on the Slovakia26 re-run `277fb705`: 0 near-dups beaten by no-scene picks (was 85), 85 no-scene picks (was 24)
 **Severity**: High for Gate 1 (good, unique photos are dropped from every album)

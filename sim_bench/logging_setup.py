@@ -30,6 +30,7 @@ from typing import Optional
 
 # Module-level reference to the current run's log directory.
 _current_log_dir: Optional[Path] = None
+_current_surface: Optional[str] = None
 
 
 def setup_logging(
@@ -54,12 +55,17 @@ def setup_logging(
     Returns:
         Path to the timestamped log directory for this process.
     """
-    global _current_log_dir
+    global _current_log_dir, _current_surface
+
+    # SIGHTING-148: Streamlit re-executes main.py on every rerun; one log dir per process, not per rerun.
+    if _current_log_dir is not None and _current_surface == surface:
+        return _current_log_dir
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_dir = Path(base_dir) / timestamp
     log_dir.mkdir(parents=True, exist_ok=True)
     _current_log_dir = log_dir
+    _current_surface = surface
 
     log_file = log_dir / f"{surface}.log"
 
