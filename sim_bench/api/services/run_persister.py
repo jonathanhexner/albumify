@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from sim_bench.api.database.models import FaceMetricRow, ImageMetricRow, PipelineResult, Person
 from sim_bench.api.services.people_service import PeopleService
+from sim_bench.api.services.result_service import result_cache
 from sim_bench.serving.run_output import RunOutput
 
 __all__ = ["RunPersister"]
@@ -24,6 +25,7 @@ class RunPersister:
     def persist(self, album_id: str, run_id: str, output: RunOutput) -> List[Person]:
         """Add every row and flush, in one transaction the CALLER commits with the run's status (R8: a failed
         run has no partial rows). On any error it rolls back and raises."""
+        result_cache.evict([run_id])
         try:
             self._session.add(PipelineResult(
                 id=str(uuid.uuid4()),

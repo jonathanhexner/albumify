@@ -5,7 +5,7 @@ import uuid
 from collections import defaultdict
 from typing import Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from sim_bench.api.database.models import Person, Album, PipelineRun
 
@@ -156,24 +156,22 @@ class PeopleService:
             album_id: Album ID
             run_id: Optional specific run ID (defaults to latest run)
         """
-        query = self._session.query(Person).filter(Person.album_id == album_id)
-
+        # the list shows names, counts and a thumbnail: every face instance (~100 kB a run) stays in the database,
+        # and the latest run is found in the same query; each Neon query costs ~0.3 s (SIGHTING-152)
+        query = (self._session.query(Person).filter(Person.album_id == album_id)
+                 .options(defer(Person.face_instances)))
         if run_id:
             query = query.filter(Person.run_id == run_id)
         else:
-            # Get latest run for this album
             latest_run = (
-                self._session.query(PipelineRun)
+                self._session.query(PipelineRun.id)
                 .filter(PipelineRun.album_id == album_id)
                 .filter(PipelineRun.status == "completed")
                 .order_by(PipelineRun.completed_at.desc())
-                .first()
+                .limit(1)
+                .scalar_subquery()
             )
-            if latest_run:
-                query = query.filter(Person.run_id == latest_run.id)
-            else:
-                return []
-
+            query = query.filter(Person.run_id == latest_run)
         return query.order_by(Person.face_count.desc()).all()
 
     def get_person(self, album_id: str, person_id: str) -> Optional[Person]:

@@ -7373,3 +7373,37 @@ python scripts/export_clustering_data.py --embeddings results/Budapest/embedding
 - [FEATURE][TEST] sim_bench/albumify_vs_vlm/albumify_arm.py (+fuse_scene_distance flag, _insert_scene_distance helper), tests/albumify_vs_vlm/test_scene_distance_insertion.py, scripts/exp_album_scene_fused.py — spec-103: let the Albumify arm opt into build_scene_distance (inserted before cluster_scenes) so its effect on the FINAL K=20 album picks can be measured against a visual-only baseline on real trips. Default False (unchanged). Reason: answer the original 'does it change the final images selected' question end-to-end through the real album selector.
 - [DOCS] reports/2026-07-21_scene_clustering_fusion/album_fused_diff_{austria,germany}.json + album_swaps_{budapest,austria,germany}.html — spec-103: end-to-end album baseline-vs-fused diff on all 3 trips (Budapest faces / Austria+Germany minimal due to SIGHTING-117 OOM). Final K=20 pick churn: Budapest 3/20, Austria 4/20, Germany 7/20 (grows with trip size). Swap visuals for eyeball judging. Reason: answer 'does build_scene_distance change the final images selected' on real albums.
 - [CONFIG][TEST] .github/workflows/tests.yml (NEW — first CI), tests/pipeline/test_scoring_strategy.py, tests/architecture/test_no_raw_collection_iteration.py, tests/pipeline/test_face_embedding_validation.py + test_face_pipeline_e2e.py + test_face_recognition_benchmark.py, docs/project/SIGHTINGS.md — set up GitHub Actions CI (fast, model-free suite on push/PR; light deps only, no torch/insightface/mediapipe) and resolved SIGHTING-118: fixed stale person-penalty expectation (0.02->0.22, code was correct), allow-listed score_tilt raw iteration, fixed stale filter_quality_gate import (->quality_gate), and marked the 3 model/data integration test modules `slow` so they leave the default suite. Reason: user asked for a commit-triggered CI; had to green the pre-existing failures first.
+
+## 2026-11-13 [DOCS] spec-118 album tiers + Gate 1 drafted
+- Files: specs/118-album-tiers-gate1/{spec,tasks,updates}.md (+html), ROADMAP.md, reports/2026-11-13_slovakia26_picks_review/ (report, summary, review page, answers; images untracked)
+- Change: PRD for Best 10 / Best 30 / All album tiers, Gate 1 on Best 30, review yardstick script, SIGHTING-149/150 fixes; parked quality backlog with the review evidence.
+- Reason: owner's picks review (Best 30 93% kept, all 73%) and request to proceed toward productization.
+
+## 2026-11-13 [BUGFIX] SIGHTING-151 — Results gallery stopped part-way on duplicate Detail keys
+- Files: `app/streamlit/components/gallery.py`, new `tests/streamlit/test_gallery_keys.py`
+- Change: the Detail button key is `detail_{image.path}` (was `detail_{hash(path) % 100000}`, which collided on ~300-photo albums).
+- Verification: new test fails before (duplicate `detail_20449`), passes after; tests/streamlit + gallery tab 14 passed; live Neon app shows 302 Detail buttons, 0 errors (was 231 + error).
+- Reason: found in spec-117 T8.1 from the real app.
+
+## 2026-11-13 [DOCS] spec-117 T8.1 + SIGHTING-152 measured
+- Files: specs/117-neon-r2-one-database/{updates,tasks}.md
+- Change: real migration and the app-driven T8.1 run recorded; Neon page timings measured (over-fetching 2.8 MB result rows, N+1 in the runs list, repeated fetches, cold thumbnails, 160-320 ms round trips).
+- Reason: owner asked that "works on Neon" mean end to end from the app.
+
+## 2026-11-13 [PERF] SIGHTING-152 (part) — Neon pages: summary-only lists, joined runs query, result cache
+- Files: `sim_bench/api/services/{result_service,pipeline_service,album_service,run_persister}.py`, `sim_bench/api/routers/results.py`, `app/streamlit/api_client.py`, `app/streamlit/pages/{results,explore}.py`, `tests/conftest.py`, new `tests/api/test_result_queries.py`
+- Change: `list_results` reads summary columns in 2 queries and drops `step_decisions` (new `GET /api/v1/results/{id}/decisions`); `list_runs` loads albums with the runs; `ResultCache` keeps finished result rows in the API process (evicted by `RunPersister.persist` and album deletion); the UI client keeps `/api/v1/results/` reads for 10 s (cleared by any write).
+- Verification: 6 query-count tests (runs-table test fails without the join); API/serving/control/UI/storage/architecture suites 474 passed; live on Neon: API 75 s -> 29 s, SQL queries 188 -> 45; Results again 18.4 -> 4.6 s, Explore again 54.5 -> 5.9 s, Albums 7.7 -> 3.7 s.
+- Reason: spec-117 T8.1 page timings (R11); owner chose fixing the queries + a cache over copying results back locally.
+
+## 2026-11-13 [PERF] SIGHTING-152 (part 2) — thumbnails from the 768 px copies; runs-table and People queries
+- Files: new `sim_bench/api/services/run_display_copies.py`, new `app/streamlit/thumb_sources.py`; `sim_bench/api/schemas/result.py` (`ImageMetrics.display_path`), `sim_bench/api/services/{result_service,pipeline_service,people_service}.py`, `sim_bench/control/jobs.py` (`JobRepository.runners`), `app/streamlit/{models,api_client}.py`, `app/streamlit/components/{gallery,metrics}.py`, `app/streamlit/pages/{explore,results}.py`; tests `tests/api/test_result_queries.py` (+2), new `tests/streamlit/test_thumb_sources.py`
+- Change: every result image carries `display_path`, the run's staged 768 px copy (from the job manifest, cached with the result row); the UI records original -> copy and all thumbnail loaders open the copy (6 ms vs 90 ms per photo). Runs table: one query for runs + album + counts + people, jobs read as (id, runner, status). People list: one query, `face_instances` deferred.
+- Verification: 8 query/copy tests + 2 UI tests; suites 478 passed; live on Neon (both servers restarted): Results first open 86 -> 12.3 s, Explore first 48.4 -> 8.0 s, People 4.5 -> 1.8 s; 302 thumbnails, 0 missing, 0 errors.
+- Reason: spec-117 R11 page timings; owner approved "thumbnails and queries".
+
+## 2026-11-13 [PERF] SIGHTING-152 (part 3) — read requests run in autocommit on Postgres
+- Files: `sim_bench/api/database/session.py` (`get_session(request)`, `READ_METHODS`, `_ReadSessionLocal`), `sim_bench/control/db.py` (`ControlDB.read_session`), `sim_bench/control/jobs.py` (get/list/runners/events read), `sim_bench/api/routers/jobs.py` (4 GET routes read); new `tests/api/test_read_sessions.py`
+- Change: GET/HEAD requests get an autocommit session on Postgres (no `BEGIN`/`ROLLBACK` round trips); the jobs DB's read-only methods use one too. SQLite unchanged (one factory). Writes keep transactions. Audit: no GET handler writes more than one row.
+- Verification: 8 tests; suites 486 passed; live on Neon: per call albums/people 0.48 -> 0.34 s, runs 1.9 -> 1.37 s; Albums again 3.0 -> 2.4 s, Results again 3.9 -> 3.2 s, People 1.8 -> 1.5 s; write check (create/update/read/delete a profile) OK.
+- Reason: spec-117 R11; owner approved "autocommit for reads".

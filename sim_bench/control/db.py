@@ -46,6 +46,9 @@ class ControlDB:
         self.is_sqlite = self.config.is_sqlite
         self.engine: Engine = self.config.make_engine(sqlite_foreign_keys=True)
         self._sessions = sessionmaker(bind=self.engine, expire_on_commit=False)
+        # reads on Postgres run in autocommit: no BEGIN/COMMIT round trips to Neon (SIGHTING-152)
+        self._read_sessions = self._sessions if self.is_sqlite else sessionmaker(
+            bind=self.engine.execution_options(isolation_level="AUTOCOMMIT"), expire_on_commit=False)
         if create:
             _create_schema(self.engine)
         logger.info("control DB: %s", self.config.redacted())
@@ -63,6 +66,15 @@ class ControlDB:
         finally:
             s.close()
 
+
+    @contextmanager
+    def read_session(self) -> Iterator[Session]:
+        """For reads only: each statement stands alone (autocommit on Postgres), so nothing here may write."""
+        s = self._read_sessions()
+        try:
+            yield s
+        finally:
+            s.close()
 
 def _create_schema(engine: Engine) -> None:
     """Rename, create what is missing, add new columns. Few schema queries: on Neon each one is a network round

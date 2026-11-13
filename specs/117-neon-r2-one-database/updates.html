@@ -268,6 +268,30 @@ id="toc-spec-117--progress--verification-updates">spec-117 — Progress
 &amp; verification updates</a>
 <ul>
 <li><a
+href="#2026-11-13--sighting-152-part-3-read-requests-in-autocommit-r11-met-on-people-only"
+id="toc-2026-11-13--sighting-152-part-3-read-requests-in-autocommit-r11-met-on-people-only">2026-11-13
+— SIGHTING-152 part 3: read requests in autocommit (R11 met on People
+only)</a></li>
+<li><a
+href="#2026-11-13--sighting-152-part-2-thumbnails-from-the-768-px-copies-runs-table-and-people-queries-r11-not-met-yet"
+id="toc-2026-11-13--sighting-152-part-2-thumbnails-from-the-768-px-copies-runs-table-and-people-queries-r11-not-met-yet">2026-11-13
+— SIGHTING-152 part 2: thumbnails from the 768 px copies, runs-table and
+People queries (R11 not met yet)</a></li>
+<li><a
+href="#2026-11-13--sighting-152-part-fix-queries--result-cache-r11-not-met-yet"
+id="toc-2026-11-13--sighting-152-part-fix-queries--result-cache-r11-not-met-yet">2026-11-13
+— SIGHTING-152 part fix: queries + result cache (R11 not met
+yet)</a></li>
+<li><a
+href="#2026-11-13--sighting-151-fixed-sighting-152-measured-no-fix-yet"
+id="toc-2026-11-13--sighting-151-fixed-sighting-152-measured-no-fix-yet">2026-11-13
+— SIGHTING-151 fixed; SIGHTING-152 measured (no fix yet)</a></li>
+<li><a
+href="#2026-11-13--w7-real-migration-t81-run-from-the-app-works-too-slow-one-gallery-bug"
+id="toc-2026-11-13--w7-real-migration-t81-run-from-the-app-works-too-slow-one-gallery-bug">2026-11-13
+— W7 real migration; T8.1 run from the app: works, too slow, one gallery
+bug</a></li>
+<li><a
 href="#2026-11-06--w7-migration-script-written-and-tested-not-run-on-the-real-data"
 id="toc-2026-11-06--w7-migration-script-written-and-tested-not-run-on-the-real-data">2026-11-06
 — W7 migration script written and tested (NOT run on the real
@@ -304,6 +328,232 @@ href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
 <p><strong>Status:</strong> In Progress 2026-11-06 (owner approved;
 W1-W6 being built in worktree <code>D:\sim-bench-117</code>)</p>
+<h2
+id="2026-11-13--sighting-152-part-3-read-requests-in-autocommit-r11-met-on-people-only">2026-11-13
+— SIGHTING-152 part 3: read requests in autocommit (R11 met on People
+only)</h2>
+<p>Owner: "go ahead with autocommit for reads".</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET/HEAD get the autocommit session on Postgres, writes keep a
+transaction</td>
+<td><code>tests/api/test_read_sessions.py</code> (8: method -&gt;
+factory, startup call, <code>init_db</code> on a Postgres URL,
+<code>ControlDB.read_session</code>)</td>
+</tr>
+<tr>
+<td>No GET writes more than one row</td>
+<td>audit of every <code>commit/add/delete/flush</code> in
+<code>sim_bench/api</code>: only the default-profile sync (one row)</td>
+</tr>
+<tr>
+<td>Writes still work on Neon</td>
+<td>live: create, update, read back, delete a config profile
+(201/200/200/404 after delete)</td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td>tests/api, serving, control, streamlit, storage, architecture: 486
+passed</td>
+</tr>
+<tr>
+<td>Live on Neon</td>
+<td>per call albums/people 0.48 -&gt; 0.34 s, runs 1.9 -&gt; 1.37 s;
+Albums again 2.4 s, Results again 3.2 s, People 1.5 s, Explore again 5.9
+s</td>
+</tr>
+<tr>
+<td>R11 (&lt; 2 s)</td>
+<td><strong>met on People only</strong>; Results/Explore are Streamlit
+drawing 302 photos (~3-4 s even on SQLite); Albums first ~8 s (schema
+read after API start)</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="2026-11-13--sighting-152-part-2-thumbnails-from-the-768-px-copies-runs-table-and-people-queries-r11-not-met-yet">2026-11-13
+— SIGHTING-152 part 2: thumbnails from the 768 px copies, runs-table and
+People queries (R11 not met yet)</h2>
+<p>Owner: "go ahead with the thumbnails and queries".</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thumbnails come from the run's 768 px copy</td>
+<td><code>tests/api/test_result_queries.py::test_images_and_clusters_carry_the_runs_768px_copy</code>,
+<code>tests/streamlit/test_thumb_sources.py</code> (all five loaders); 6
+ms vs 90 ms per photo on Slovakia26</td>
+</tr>
+<tr>
+<td>Runs table is one query (+ jobs id/runner/status)</td>
+<td><code>::test_runs_table_query_count_does_not_grow_with_runs</code>
+(now asserts 1 query and the counts)</td>
+</tr>
+<tr>
+<td>People list is one query without face instances</td>
+<td><code>::test_people_list_is_one_query_without_face_instances</code></td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td>tests/api, serving, control, streamlit, storage, architecture: 478
+passed</td>
+</tr>
+<tr>
+<td>Live on Neon (both servers restarted, same browser walk)</td>
+<td>Results first open 86 -&gt; 12.3 s, Explore first 48.4 -&gt; 8.0 s,
+People 4.5 -&gt; 1.8 s, Albums again 3.0 s, Results again 3.9 s; 302
+thumbnails, 0 missing, 0 errors</td>
+</tr>
+<tr>
+<td>R11 (&lt; 2 s)</td>
+<td><strong>not met</strong>: each request pays 3-5 extra round trips
+(pre-ping, separate BEGIN, ROLLBACK/COMMIT; 0.80 s vs 0.48 s autocommit
+for one query); runs list 1.8-2.2 s; first request after API start 8 s
+(schema reflection); Streamlit renders a 302-photo page in ~3-4 s even
+on SQLite</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="2026-11-13--sighting-152-part-fix-queries--result-cache-r11-not-met-yet">2026-11-13
+— SIGHTING-152 part fix: queries + result cache (R11 not met yet)</h2>
+<p>Owner: "go ahead with M1 and the cache" (chosen over copying results
+back to local SQLite).</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lists read summary columns in fixed queries</td>
+<td><code>tests/api/test_result_queries.py::test_result_list_is_summary_only_in_fixed_queries</code>,
+<code>::test_runs_table_query_count_does_not_grow_with_runs</code>
+(fails without the join: 5 vs 4)</td>
+</tr>
+<tr>
+<td>A finished result is read from the database once</td>
+<td><code>::test_a_finished_result_is_read_from_the_database_once</code>,
+<code>::test_an_unfinished_run_is_not_cached</code>,
+<code>::test_deleting_the_album_evicts_its_results</code>,
+<code>::test_decisions_route</code></td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td>tests/api, serving, control, streamlit, storage, architecture: 474
+passed</td>
+</tr>
+<tr>
+<td>Live on Neon (same profiler + browser script)</td>
+<td>API 75 s -&gt; 29 s, SQL queries 188 -&gt; 45. Results again 18.4
+-&gt; 4.6 s, Explore again 54.5 -&gt; 5.9 s, Albums 7.7 -&gt; 3.7 s;
+Explore shows step decisions; Results 302 cards, 0 errors</td>
+</tr>
+<tr>
+<td>R11 (&lt; 2 s)</td>
+<td><strong>not met</strong>: first visits 48-86 s (thumbnails from
+originals, C5), runs list ~4 s per call, People 4.5 s</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="2026-11-13--sighting-151-fixed-sighting-152-measured-no-fix-yet">2026-11-13
+— SIGHTING-151 fixed; SIGHTING-152 measured (no fix yet)</h2>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Results shows every pick</td>
+<td><code>tests/streamlit/test_gallery_keys.py</code> (colliding keys):
+fails before, passes after; live app on Neon: 302 Detail buttons, 0
+errors</td>
+</tr>
+<tr>
+<td>Where Neon page time goes</td>
+<td>profiling API (per-request time + SQL count) under the real UI: 75 s
+API of 211 s page time, 61 s in 188 SQL queries; list endpoints load
+whole 2.8 MB result rows (Slovakia26: 2.0 s vs 0.18 s for summary
+columns); runs list N+1 (26 album queries per call); 7 repeat fetches
+per Results visit; cold thumbnails 105 s vs 18 s warm; round trip
+160-320 ms. Detail in SIGHTING-152</td>
+</tr>
+<tr>
+<td>Neon vs local</td>
+<td>Albums 7.7-15 s vs 1.0 s; Results 18 s warm vs 2.9 s; Explore 54 s
+vs 4.5 s; People 4.4 s vs 0.8 s</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="2026-11-13--w7-real-migration-t81-run-from-the-app-works-too-slow-one-gallery-bug">2026-11-13
+— W7 real migration; T8.1 run from the app: works, too slow, one gallery
+bug</h2>
+<p>Owner OK for the real migration (copy everything incl. cache). Merged
+spec/116 into spec/117 first (<code>b163e19</code>): this branch was
+missing the K=51 fix, so the first Neon run (<code>e35ec67e</code>,
+started by API) clustered 76 people.</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R4 real migration</td>
+<td><code>migrate_to_neon.py --copy --yes</code>: 17 tables, all counts
+verified (25,636 cache rows), 2 min 19 s; SQLite kept</td>
+</tr>
+<tr>
+<td>T8.1 run started from the app on Neon + R2</td>
+<td>Playwright on the real app (8511): Configure &amp; Run -&gt;
+Slovakia26 -&gt; Full -&gt; This PC -&gt; Run; run
+<code>5a6cfec8</code>, K=51, completed in 23.7 min: 659 photos, 302
+picks, 7 people (SQLite run <code>52776cc5</code>: 302 / 8)</td>
+</tr>
+<tr>
+<td>Albums shows the run</td>
+<td>top row: This PC, 659 / 302 / 7, completed</td>
+</tr>
+<tr>
+<td>Results opens it with images</td>
+<td>231 of 231 drawn images load; <strong>but</strong> the gallery stops
+at a duplicate button key: SIGHTING-151 (old bug, not Neon)</td>
+</tr>
+<tr>
+<td>People &amp; Faces, Explore open</td>
+<td>no errors; 7 people</td>
+</tr>
+<tr>
+<td><strong>Page timings (R11): FAIL</strong></td>
+<td>Results 54 s cold / 28.5 s warm (SQLite app 2.9 s), Explore 54 s,
+Albums 8-12 s, People 2.2 s: SIGHTING-152</td>
+</tr>
+</tbody>
+</table>
+<p>Open in W8: T8.1 timings (SIGHTING-152), T8.2/T8.3 need
+<code>modal deploy</code> + L4 spend (owner OK), T8.4 secret scan,
+T8.5.</p>
 <h2
 id="2026-11-06--w7-migration-script-written-and-tested-not-run-on-the-real-data">2026-11-06
 — W7 migration script written and tested (NOT run on the real data)</h2>

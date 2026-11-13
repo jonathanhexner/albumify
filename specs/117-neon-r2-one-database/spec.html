@@ -341,13 +341,14 @@ SQLite</td>
 </tr>
 <tr>
 <td>R4</td>
-<td>○</td>
+<td>●</td>
 <td><strong>Migration:</strong> existing albums, runs, results, people,
 metrics, profiles, feature cache and jobs are copied to Neon. Row counts
 match per table; the script refuses a non-empty target; the SQLite files
 stay as the backup</td>
-<td>○ <code>tests/scripts/test_migrate_to_neon.py</code> (SQLite to
-SQLite); ○ real: per-table counts in updates.md</td>
+<td>● <code>tests/scripts/test_migrate_to_neon.py</code> (6, on SQLite
+and on Neon); ● real 2026-11-13: 17 tables, counts verified (<a
+href="updates.html">updates.md</a>)</td>
 </tr>
 <tr>
 <td>R5</td>
@@ -482,7 +483,7 @@ check that closes it.</p>
   C5{{&quot;○ check R8 R9 R10&quot;}}
   W6[&quot;&lt;b&gt;● W6 One feature cache&lt;/b&gt;&lt;br/&gt;cache on Neon · batch read per step&lt;br/&gt;&lt;i&gt;pipeline/cache_handler.py, curate_job.py, modal_app.py&lt;/i&gt;&quot;]
   C6{{&quot;○ check R12&quot;}}
-  W7[&quot;&lt;b&gt;○ W7 Move the data&lt;/b&gt;&lt;br/&gt;copy SQLite to Neon, verify counts&lt;br/&gt;&lt;i&gt;scripts/migrate_to_neon.py (new)&lt;/i&gt;&quot;]
+  W7[&quot;&lt;b&gt;● W7 Move the data&lt;/b&gt;&lt;br/&gt;copy SQLite to Neon, verify counts&lt;br/&gt;&lt;i&gt;scripts/migrate_to_neon.py (new)&lt;/i&gt;&quot;]
   C7{{&quot;○ check R4&quot;}}
   W8[&quot;&lt;b&gt;○ W8 Prove on real data&lt;/b&gt;&lt;br/&gt;owner OK before each L4 run&lt;br/&gt;Slovakia26 local + L4 · network cut · secret scan · sizes&quot;]
   C8{{&quot;○ check R8 R11 R13 R14&lt;br/&gt;full suite · Budapest gate · /code-review&quot;}}
@@ -490,8 +491,8 @@ check that closes it.</p>
   classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
   classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
   classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
-  class W1,W2,W3,W4,W6 done
-  class W5,W7,W8 todo
+  class W1,W2,W3,W4,W6,W7 done
+  class W5,W8 todo
   class C1,C2,C3,C4,C5,C6,C7,C8 check</code></pre>
 <h2 id="4-class-diagram">4. Class diagram</h2>
 <p>Green = new class, amber = changed class, grey = existing, unchanged.
@@ -710,7 +711,7 @@ Modal call ended without a result</td>
 counts</td>
 <td><code>plan</code>, <code>copy</code>, <code>verify</code></td>
 <td><code>source_urls</code>, <code>target_url</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 </tbody>
 </table>

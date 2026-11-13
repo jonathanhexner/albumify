@@ -170,7 +170,7 @@ def compare_jobs(job_id: str, with_: str = Query(..., alias="with", description=
 def list_photos(job_id: str, svc: JobService = Depends(get_job_service)):
     """Every staged photo, including ones removed before the album saw them (with the reason)."""
     _job_or_404(svc, job_id)
-    with svc.db.session() as s:
+    with svc.db.read_session() as s:
         n_faces = dict(s.execute(select(Face.photo_id, func.count()).where(Face.job_id == job_id)
                                  .group_by(Face.photo_id)).all())
         photos = list(s.scalars(select(Photo).where(Photo.job_id == job_id).order_by(Photo.photo_id)))
@@ -184,7 +184,7 @@ def list_photos(job_id: str, svc: JobService = Depends(get_job_service)):
 def list_faces(job_id: str, person_id: int | None = None,
                svc: JobService = Depends(get_job_service)):
     _job_or_404(svc, job_id)
-    with svc.db.session() as s:
+    with svc.db.read_session() as s:
         q = select(Face).where(Face.job_id == job_id)
         if person_id is not None:
             q = q.where(Face.person_id == person_id)
@@ -213,7 +213,7 @@ def _file(svc: JobService, job_id: str, key: str | None) -> Response:
 @router.get("/{job_id}/photos/{photo_id}/image")
 def photo_image(job_id: str, photo_id: str, svc: JobService = Depends(get_job_service)):
     """The display copy for picks, else the staged 768 px input (dropped photos are shown too)."""
-    with svc.db.session() as s:
+    with svc.db.read_session() as s:
         p = s.get(Photo, (job_id, photo_id))
     if p is None:
         raise HTTPException(404, f"no photo {photo_id!r} in job {job_id!r}")
@@ -222,7 +222,7 @@ def photo_image(job_id: str, photo_id: str, svc: JobService = Depends(get_job_se
 
 @router.get("/{job_id}/faces/{face_id}/crop")
 def face_crop(job_id: str, face_id: int, svc: JobService = Depends(get_job_service)):
-    with svc.db.session() as s:
+    with svc.db.read_session() as s:
         f = s.get(Face, (job_id, face_id))
     if f is None:
         raise HTTPException(404, f"no face {face_id} in job {job_id!r}")

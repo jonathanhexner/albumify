@@ -53,6 +53,7 @@ class ImageInfo:
     iqa_score: Optional[float] = None
     ava_score: Optional[float] = None
     composite_score: Optional[float] = None
+    display_path: Optional[str] = None  # the run's 768 px copy; thumbnails read it instead of the original
     # spec-084: composite_score = quality_score + person_penalty.
     quality_score: Optional[float] = None
     person_penalty: Optional[float] = None

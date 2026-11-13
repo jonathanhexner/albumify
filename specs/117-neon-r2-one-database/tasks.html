@@ -432,20 +432,24 @@ runs use the cache through <code>DATABASE_URL</code>; the
 <code>albumify-cache</code> Volume copy is removed.</label></li>
 </ul>
 <h2 id="w7--move-the-data-r4">W7 — Move the data (R4)</h2>
-<ul>
-<li>[~] T7.1 <code>scripts/migrate_to_neon.py</code>
-(<code>NeonMigrator</code>): plan, copy, verify; refuses a non-empty
-target. Test <code>tests/scripts/test_migrate_to_neon.py</code> (SQLite
-to SQLite). Real run: counts per table into updates.md. (script + test
-done; the real run waits for the owner)</li>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T7.1
+<code>scripts/migrate_to_neon.py</code> (<code>NeonMigrator</code>):
+plan, copy, verify; refuses a non-empty target. Test
+<code>tests/scripts/test_migrate_to_neon.py</code> (SQLite to SQLite).
+Real run: counts per table into updates.md. (script + test done; the
+real run waits for the owner)</label></li>
 </ul>
 <h2
 id="w8--prove-on-real-data-r8-r11-r13-r14--owner-ok-before-each-l4-run">W8
 — Prove on real data (R8, R11, R13, R14) — owner OK before each L4
 run</h2>
+<ul>
+<li>[~] T8.1 Slovakia26 on this PC against Neon + R2;
+Albums/Results/People/Explore; page timings. (2026-11-13: run from the
+app works; timings fail, SIGHTING-152; gallery bug SIGHTING-151)</li>
+</ul>
 <ul class="task-list">
-<li><label><input type="checkbox" />T8.1 Slovakia26 on this PC against
-Neon + R2; Albums/Results/People/Explore; page timings.</label></li>
 <li><label><input type="checkbox" />T8.2 Slovakia26 on the L4: cut the
 PC's network 2 min, restart the API once; run finishes; results in
 Albums.</label></li>

@@ -1,0 +1,124 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Picks Review</title>
+<style>
+:root{--bg:#f6f6f4;--fg:#1d1d1b;--mut:#6b6b66;--card:#fff;--line:#ddd;--keep:#2f7d4f;--drop:#b33a3a;--miss:#2b62b8;--pick:#2f7d4f}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#161615;--fg:#eee;--mut:#9a9a94;--card:#222220;--line:#383836}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px system-ui,sans-serif}
+header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;z-index:5}
+header b{font-size:16px}.bar{flex:1;min-width:100px;height:6px;background:var(--line);border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:var(--keep)}
+main{max-width:1500px;margin:0 auto;padding:12px 16px}
+button,select,input{font:inherit;color:var(--fg)}button{padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+button.on{background:var(--fg);color:var(--bg)}select{padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--card);max-width:340px}
+.mut{color:var(--mut);font-size:12px}.tabs button{border-radius:6px 6px 0 0}
+.nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.card{background:var(--card);border:3px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.card.pick{border-color:var(--pick)}.card.v-drop{border-color:var(--drop)}.card.v-miss{border-color:var(--miss)}
+.card:not(.pick) img{opacity:.8}.card .ph{position:relative}.card img{width:100%;height:220px;object-fit:contain;background:#0001;cursor:zoom-in;display:block}
+.badge{position:absolute;top:6px;left:6px;background:var(--pick);color:#fff;font-weight:700;font-size:11px;padding:2px 6px;border-radius:4px}
+.badge.miss{background:var(--miss)}.badge.drop{background:var(--drop)}
+.meta{padding:6px 8px 0}.acts{display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px 8px}
+.acts button{padding:4px 9px;font-size:13px}
+button.k.on{background:var(--keep);border-color:var(--keep);color:#fff}button.d.on{background:var(--drop);border-color:var(--drop);color:#fff}button.m.on{background:var(--miss);border-color:var(--miss);color:#fff}
+.reasons{display:flex;gap:4px;flex-wrap:wrap;padding:0 8px 8px}.reasons button{font-size:12px;padding:3px 7px;border-radius:12px}
+.reasons button.on{background:var(--drop);border-color:var(--drop);color:#fff}
+textarea{width:100%;min-height:44px;font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:6px;margin-top:10px}
+.foot{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.ok{background:var(--keep)!important;color:#fff!important;border-color:var(--keep)!important;font-weight:600}
+#lb{position:fixed;inset:0;background:#000e;display:none;z-index:9;flex-direction:column;align-items:center;justify-content:center;color:#fff}
+#lb img{max-width:96vw;max-height:84vh;object-fit:contain}#lb .mut{color:#bbb}#lb.show{display:flex}
+.person{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:12px}
+.crops{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}.crops img{width:72px;height:72px;object-fit:cover;border-radius:4px}
+details.help{margin-bottom:10px}details.help li{margin:3px 0}
+</style>
+<header><b>Picks review</b><span id=runlbl class=mut></span>
+<span class=tabs><button id=tPicks class=on>Picks</button><button id=tPeople>People</button></span>
+<div class=bar><i id=prog></i></div><span id=cnt class=mut></span><button id=exp>Export review</button></header>
+<main>
+<details class=help open><summary>How to review (click to hide)</summary><ul>
+<li>One scene at a time. <b style="color:var(--pick)">Green border = the app picked it.</b> The others are what it skipped, with the reason.</li>
+<li>For each pick: <b>Keep</b> or <b>Drop</b>, and on Drop tick why. For a skipped photo you would want in the album: <b>Should pick</b>.</li>
+<li><b>Scene OK</b> keeps every undecided pick and moves on. Use it whenever the scene looks right.</li>
+<li>Click a photo for a large view. Keys there: <b>K</b> keep, <b>D</b> drop, <b>M</b> should pick, &larr;/&rarr; move, Esc close. Outside it: &larr;/&rarr; change scene.</li>
+<li>Everything saves in this browser as you go. When done, <b>Export review</b> and save <code>picks_review.json</code> into this folder.</li></ul></details>
+<section id=picks>
+<div class=nav><button id=prev>&larr; Prev</button><select id=sel></select><button id=next>Next &rarr;</button><span id=gstat class=mut></span>
+<label class=mut><input type=checkbox id=undone> jump to unreviewed only</label></div>
+<div id=grid class=grid></div>
+<textarea id=note placeholder="Note on this scene (optional)"></textarea>
+<div class=foot><button id=sceneok class=ok>Scene OK &rarr; next</button><span class=mut>Marks undecided picks Keep and the scene reviewed.</span></div>
+</section>
+<section id=people hidden><p class=mut>Each row is one person the app found (sampled faces). The album has about 4 real people. Say what each one is.</p><div id=plist></div></section>
+</main>
+<div id=lb><img id=lbim alt=""><div id=lbinfo class=mut style="margin-top:8px"></div><div id=lbacts class=acts style="justify-content:center"></div></div>
+<script src="items.js"></script>
+<script>
+const R=window.REVIEW, KEY='picks_review_'+R.run;
+const REASONS=['blurry','eyes closed / not looking','stranger in frame','bad framing / cut off','near-duplicate of another pick','dull / no value','bad exposure','other'];
+const PV=['main person','stranger / extra','split of another person','mixed people'];
+let S={v:{},r:{},notes:{},done:{},people:{},pnote:{}};
+try{Object.assign(S,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){}
+let save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){};stats()};
+const $=id=>document.getElementById(id);let gi=0,lbi=-1;
+$('runlbl').textContent=R.album+' · run '+R.run.slice(0,8)+' · '+R.n_picks+' picks';
+const allPicks=R.groups.flatMap(g=>g.photos.filter(p=>p.pick));
+function stats(){const judged=allPicks.filter(p=>S.v[p.key]).length,drops=allPicks.filter(p=>S.v[p.key]==='drop').length,
+ miss=Object.values(S.v).filter(v=>v==='miss').length,gd=R.groups.filter(g=>S.done[g.id]).length;
+ $('cnt').textContent=`scenes ${gd}/${R.groups.length} · picks judged ${judged}/${allPicks.length} · dropped ${drops} · should-pick ${miss}`;
+ $('prog').style.width=(100*gd/R.groups.length)+'%';
+ [...$('sel').options].forEach((o,i)=>o.textContent=(S.done[R.groups[i].id]?'✓ ':'  ')+label(R.groups[i]))}
+const label=g=>`${g.title} — ${g.photos.length} photos, ${g.photos.filter(p=>p.pick).length} picked`;
+R.groups.forEach((g,i)=>{const o=document.createElement('option');o.value=i;$('sel').append(o)});
+function setV(p,v){S.v[p.key]=S.v[p.key]===v?undefined:v;if(S.v[p.key]===undefined)delete S.v[p.key];save();render()}
+function card(p,i){const c=document.createElement('div'),v=S.v[p.key];
+ c.className='card'+(p.pick?' pick':'')+(v?' v-'+v:'');
+ const badge=p.pick?(v==='drop'?'<span class="badge drop">PICK · DROP</span>':'<span class=badge>PICK</span>'):(v==='miss'?'<span class="badge miss">SHOULD PICK</span>':'');
+ c.innerHTML=`<div class=ph><img loading=lazy src="${p.img}" alt="">${badge}</div><div class="meta mut">${p.key} · score ${p.score} · sharp ${p.sharp} · ${p.faces} faces<br>${p.why}</div>`;
+ c.querySelector('img').onclick=()=>openLb(i);
+ const a=document.createElement('div');a.className='acts';
+ if(p.pick){a.append(btn('Keep','k',v==='keep',()=>setV(p,'keep')),btn('Drop','d',v==='drop',()=>setV(p,'drop')))}
+ else a.append(btn('Should pick','m',v==='miss',()=>setV(p,'miss')));
+ c.append(a);
+ if(p.pick&&v==='drop'){const rs=document.createElement('div');rs.className='reasons';const cur=S.r[p.key]||[];
+  REASONS.forEach(r=>rs.append(btn(r,'',cur.includes(r),()=>{const x=S.r[p.key]||[];S.r[p.key]=x.includes(r)?x.filter(y=>y!==r):[...x,r];save();render()})));c.append(rs)}
+ return c}
+function btn(t,cls,on,f){const b=document.createElement('button');b.textContent=t;b.className=cls+(on?' on':'');b.onclick=e=>{e.stopPropagation();f()};return b}
+function render(){const g=R.groups[gi];$('sel').value=gi;$('grid').replaceChildren(...g.photos.map(card));
+ $('note').value=S.notes[g.id]||'';$('gstat').textContent=S.done[g.id]?'reviewed':'';
+ $('sceneok').textContent=g.kind==='removed'?'Nothing to rescue → next':'Scene OK → next';stats();if(lbi>=0)showLb()}
+function go(d){let i=gi;do{i+=d}while($('undone').checked&&i>=0&&i<R.groups.length&&S.done[R.groups[i].id]);
+ if(i>=0&&i<R.groups.length){gi=i;render();scrollTo(0,0)}}
+$('prev').onclick=()=>go(-1);$('next').onclick=()=>go(1);$('sel').onchange=e=>{gi=+e.target.value;render()};
+$('note').oninput=e=>{S.notes[R.groups[gi].id]=e.target.value;save()};
+$('sceneok').onclick=()=>{const g=R.groups[gi];g.photos.forEach(p=>{if(p.pick&&!S.v[p.key])S.v[p.key]='keep'});S.done[g.id]=1;save();go(1)};
+// mark a scene reviewed once every pick has a verdict
+const autoDone=()=>{const g=R.groups[gi];if(g.photos.filter(p=>p.pick).every(p=>S.v[p.key])&&g.photos.some(p=>p.pick))S.done[g.id]=1};
+const _save=save;
+function openLb(i){lbi=i;$('lb').classList.add('show');showLb()}
+function showLb(){const g=R.groups[gi],p=g.photos[lbi];if(!p)return closeLb();const v=S.v[p.key];$('lbim').src=p.img;
+ $('lbinfo').innerHTML=`${lbi+1}/${g.photos.length} · ${p.pick?'<b style="color:#6c6">PICK</b>':'skipped'} · ${p.key} · ${p.why} · <a style="color:#bbb" href="${p.full}" target=_blank>original</a>`;
+ const a=$('lbacts');a.replaceChildren(...(p.pick?[btn('K Keep','k',v==='keep',()=>setV(p,'keep')),btn('D Drop','d',v==='drop',()=>setV(p,'drop'))]:[btn('M Should pick','m',v==='miss',()=>setV(p,'miss'))]),btn('Close','',false,closeLb))}
+function closeLb(){lbi=-1;$('lb').classList.remove('show')}
+$('lb').onclick=e=>{if(e.target.id==='lb')closeLb()};
+document.onkeydown=e=>{if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT'&&e.target.type==='text')return;const g=R.groups[gi];
+ if(lbi>=0){const p=g.photos[lbi];
+  if(e.key==='Escape')closeLb();else if(e.key==='ArrowRight'){lbi=Math.min(lbi+1,g.photos.length-1);showLb()}else if(e.key==='ArrowLeft'){lbi=Math.max(lbi-1,0);showLb()}
+  else if(e.key==='k'&&p.pick)setV(p,'keep');else if(e.key==='d'&&p.pick)setV(p,'drop');else if(e.key==='m'&&!p.pick)setV(p,'miss');return}
+ if(e.key==='ArrowRight')go(1);else if(e.key==='ArrowLeft')go(-1)};
+save=function(){autoDone();_save()};
+// people
+function renderPeople(){$('plist').replaceChildren(...R.people.map(pp=>{const d=document.createElement('div');d.className='person';
+ const name=pp.id<0?'Not assigned (noise)':'Person '+pp.id;
+ d.innerHTML=`<b>${name}</b> <span class=mut>${pp.size} faces (showing ${pp.crops.length})</span><div class=crops>${pp.crops.map(c=>`<img loading=lazy src="${c.img}" title="${c.photo}" alt="">`).join('')}</div>`;
+ if(pp.id>=0){const a=document.createElement('div');a.className='acts';a.style.padding=0;
+  PV.forEach(v=>a.append(btn(v,'',S.people[pp.id]===v,()=>{S.people[pp.id]=S.people[pp.id]===v?undefined:v;save();renderPeople()})));
+  const t=document.createElement('input');t.type='text';t.placeholder='note, e.g. "same as person 2"';t.value=S.pnote[pp.id]||'';t.style.cssText='flex:1;min-width:180px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card)';
+  t.oninput=()=>{S.pnote[pp.id]=t.value;save()};a.append(t);d.append(a)}
+ return d}))}
+$('tPicks').onclick=()=>{$('picks').hidden=false;$('people').hidden=true;$('tPicks').className='on';$('tPeople').className=''};
+$('tPeople').onclick=()=>{$('picks').hidden=true;$('people').hidden=false;$('tPeople').className='on';$('tPicks').className='';renderPeople()};
+$('exp').onclick=()=>{const photos={};R.groups.forEach(g=>g.photos.forEach(p=>{if(S.v[p.key])photos[p.key]={group:g.id,pick:p.pick,verdict:S.v[p.key],reasons:S.r[p.key]||[],app_reason:p.why}}));
+ const out={run:R.run,album:R.album,exported:new Date().toISOString(),n_picks:R.n_picks,groups_reviewed:Object.keys(S.done),photos,scene_notes:S.notes,people:S.people,people_notes:S.pnote};
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,1)],{type:'application/json'}));a.download='picks_review.json';a.click()};
+render();
+</script>

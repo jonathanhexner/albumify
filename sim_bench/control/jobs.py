@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 import socket
 from datetime import datetime, timezone
-from typing import Callable, Dict, FrozenSet, List, Optional
+from typing import Callable, Dict, FrozenSet, List, Optional, Tuple
 
 import psutil
 
@@ -124,7 +124,7 @@ class JobRepo:
             _event(s, job_id, kind, message)
 
     def get(self, job_id: str) -> Optional[Job]:
-        with self._db.session() as s:
+        with self._db.read_session() as s:
             return s.get(Job, job_id)
 
     def set_progress(self, job_id: str, progress: Optional[Dict] = None, *, heartbeat: bool = True,
@@ -158,11 +158,18 @@ class JobRepo:
         return ids
 
     def list(self, limit: int = 100) -> List[Job]:
-        with self._db.session() as s:
+        with self._db.read_session() as s:
             return list(s.scalars(select(Job).order_by(Job.created_at.desc()).limit(limit)))
 
+    def runners(self) -> Dict[str, Tuple[str, str]]:
+        """job id -> (runner, status) for every job: the Albums page's runs table needs nothing else, and full rows
+        carry each job's pipeline and source (SIGHTING-152)."""
+        with self._db.read_session() as s:
+            rows = s.execute(select(Job.id, Job.runner, Job.status))
+            return {job_id: (runner, status) for job_id, runner, status in rows}
+
     def events(self, job_id: str) -> List[JobEvent]:
-        with self._db.session() as s:
+        with self._db.read_session() as s:
             return list(s.scalars(select(JobEvent).where(JobEvent.job_id == job_id)
                                   .order_by(JobEvent.id)))
 

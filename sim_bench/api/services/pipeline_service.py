@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from sim_bench.api.database.models import Album, Person, PipelineRun, PipelineResult
 from sim_bench.api.schemas.pipeline import RunRow
@@ -226,22 +226,24 @@ class PipelineService:
 
     def list_runs(self) -> List[RunRow]:
         """Every run, newest first, for the Albums page (R10). Old runs have no job and ran on this PC."""
-        runs = (self._session.query(PipelineRun).join(Album)
+        # one query for runs, their album, result counts and people counts: on Neon every query costs two
+        # network round trips (~0.3 s), and the page redraws on every click (SIGHTING-152)
+        people = (self._session.query(Person.run_id.label("run_id"), func.count().label("n"))
+                  .group_by(Person.run_id).subquery())
+        runs = (self._session.query(PipelineRun, PipelineResult.total_images, PipelineResult.num_selected, people.c.n)
+                .join(Album).options(contains_eager(PipelineRun.album))
+                .outerjoin(PipelineResult, PipelineResult.run_id == PipelineRun.id)
+                .outerjoin(people, people.c.run_id == PipelineRun.id)
                 .order_by(PipelineRun.created_at.desc()).all())
-        jobs = {j.id: j for j in self._service.repo.list(100_000)}
-        # columns only: the page redraws on every click and a result row carries every photo's metrics
-        counts = {run_id: (photos, picks) for run_id, photos, picks in self._session.query(
-            PipelineResult.run_id, PipelineResult.total_images, PipelineResult.num_selected).all()}
-        people = dict(self._session.query(Person.run_id, func.count()).group_by(Person.run_id).all())
+        jobs = self._service.repo.runners()
         rows = []
-        for run in runs:
-            job = jobs.get(run.id)
-            photos, picks = counts.get(run.id, (None, None))
+        for run, photos, picks, n_people in runs:
+            runner, job_status = jobs.get(run.id, ("local", None))
             rows.append(RunRow(
                 run_id=run.id, album_id=run.album_id, album_name=run.album.name, folder=run.album.source_path,
-                ran_on=_RAN_ON.get(job.runner, job.runner) if job else _RAN_ON["local"],
-                created_at=run.created_at, photos=photos, picks=picks, people=people.get(run.id),
-                status=run.status, comparable=bool(job and job.status == SUCCEEDED)))
+                ran_on=_RAN_ON.get(runner, runner),
+                created_at=run.created_at, photos=photos, picks=picks, people=n_people,
+                status=run.status, comparable=job_status == SUCCEEDED))
         return rows
 
     def get_result(self, job_id: str) -> Optional[PipelineResult]:

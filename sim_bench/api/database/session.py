@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from typing import Generator
 
+from fastapi import Request
+
 from sqlalchemy import text, inspect
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -16,6 +18,12 @@ logger = logging.getLogger(__name__)
 
 _engine = None
 _SessionLocal = None
+_ReadSessionLocal = None
+
+# Requests that only read. On Postgres they run in autocommit: no BEGIN before and no ROLLBACK after each request,
+# two of the ~0.16 s round trips to Neon (SIGHTING-152). No GET handler writes more than one row (audited
+# 2026-11-13; the default config profile sync is a single upsert), so nothing loses all-or-nothing protection.
+READ_METHODS = frozenset({"GET", "HEAD"})
 
 
 def get_database_path() -> Path:
@@ -61,7 +69,7 @@ def _migrate_new_columns(engine) -> None:
 
 def init_db(db_url: str = None) -> None:
     """Initialize database engine and create tables."""
-    global _engine, _SessionLocal
+    global _engine, _SessionLocal, _ReadSessionLocal
 
     if db_url is None:
         db_url = get_database_url()
@@ -70,6 +78,9 @@ def init_db(db_url: str = None) -> None:
     _engine = config.make_engine()
     logger.info("API database: %s", config.redacted())
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+    # SQLite: a local file, nothing to save; it keeps the normal session
+    _ReadSessionLocal = _SessionLocal if config.is_sqlite else sessionmaker(
+        autoflush=False, bind=_engine.execution_options(isolation_level="AUTOCOMMIT"))
 
     Base.metadata.create_all(_engine)
     _migrate_new_columns(_engine)
@@ -83,13 +94,14 @@ def get_engine():
     return _engine
 
 
-def get_session() -> Generator[Session, None, None]:
-    """Dependency for FastAPI to get a database session."""
-    global _SessionLocal
+def get_session(request: Request = None) -> Generator[Session, None, None]:  # type: ignore[assignment]
+    """Dependency for FastAPI to get a database session; read requests get the autocommit one. ``request`` is
+    None outside a request (API startup); FastAPI does not accept ``Optional[Request]`` here."""
     if _SessionLocal is None:
         init_db()
 
-    session = _SessionLocal()
+    reading = request is not None and request.method in READ_METHODS
+    session = (_ReadSessionLocal if reading else _SessionLocal)()
     try:
         yield session
     finally:

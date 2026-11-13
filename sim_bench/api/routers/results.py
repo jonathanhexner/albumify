@@ -40,6 +40,15 @@ def get_result(job_id: str, session: Session = Depends(get_session)):
     return result
 
 
+@router.get("/{job_id}/decisions", response_model=list[dict])
+def get_result_decisions(job_id: str, session: Session = Depends(get_session)):
+    """The run's per-item step decisions (kept out of the result list, which shows counts only: SIGHTING-152)."""
+    decisions = ResultService(session).get_step_decisions(job_id)
+    if decisions is None:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return decisions
+
+
 @router.get("/{job_id}/images", response_model=list[ImageMetrics])
 def get_result_images(
     job_id: str,

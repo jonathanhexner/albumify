@@ -4,6 +4,123 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-152: Albumify on Neon is 10-20x slower than on local SQLite
+**Status**: PARTLY FIXED 2026-11-13 on `spec/117-neon-r2` (C1-C3, API result cache, C5 thumbnails, runs-list and People queries, autocommit reads; Streamlit rendering and per-request pre-ping remain). Found in spec-117 T8.1 from the real app, run `5a6cfec8`
+**Severity**: High for a public URL (blocks spec-117 R11 page timings)
+**Persona**: API / database
+
+**Problem**: Results for Slovakia26 (302 picks) takes 54 s cold and 28.5 s warm on the Neon-backed app (port 8511),
+2.9 s on the local SQLite app (8501). Explore 54 s, Albums 8-12 s. API calls alone: result 2.8 s, picks 1.8 s, run
+list 6.0 s.
+**Measured 2026-11-13** (profiling copy of the API: per-request time + SQL count; same pages driven in Playwright):
+
+| Page | Neon | local SQLite |
+|---|---|---|
+| Albums | 7.7-15 s | 1.0 s |
+| Results (302 picks) | 105 s cold / 18 s warm | 2.9 s warm |
+| Explore | 54 s | 4.5 s |
+| People & Faces | 4.4 s | 0.8 s |
+
+API time 75 s of 211 s page time; 61 s of it in SQL, only 188 queries (0.33 s each). Causes, largest first:
+1. **Over-fetching:** list endpoints load whole `pipeline_results` rows (JSON up to 2.8 MB each, 30 MB in all) to show
+   counts. `GET /api/v1/results/?album_id` 7 calls 28.5 s; `GET /api/v1/pipeline/runs` 3 calls 26.9 s. Slovakia26 rows:
+   all columns 2.0 s vs summary columns 0.18 s.
+2. **N+1:** the runs list runs one `albums` query per run (26 per call, ~160 ms each).
+3. **Repeats:** one Results visit re-fetched `/results/` and `/results/<id>/images` 7 times each (Streamlit reruns, no
+   client cache); each re-reads the 2.8 MB row.
+4. **Cold thumbnails** (not Neon): after a UI restart the gallery decodes 302 full-size originals (105 s vs 18 s warm).
+5. **Distance:** 160-320 ms per round trip to Neon us-east-1 from this PC.
+**Fixed 2026-11-13 (C1-C3)**: `ResultService.list_results` reads summary columns in 2 queries and no longer returns
+`step_decisions` (new `GET /api/v1/results/{id}/decisions`); `list_runs` loads albums in the same query; finished result
+rows are kept in the API process (`ResultCache`, evicted by the run's writer and album deletion); the UI keeps result
+reads for 10 s. Tests: `tests/api/test_result_queries.py` (6, query counts), API/serving/control/UI suites 474 passed.
+
+| Page (Neon) | before | after |
+|---|---|---|
+| Albums | 7.7-15.3 s | 3.7-9.3 s |
+| Results, first open | 105 s | 86 s |
+| Results, again | 18.4 s | 4.6 s |
+| Explore, first | 54.5 s | 48.4 s |
+| Explore, again | 54.5 s | 5.9 s |
+| People & Faces | 4.4 s | 4.5 s |
+| API total / SQL queries | 75 s / 188 | 29 s / 45 |
+
+**Fixed 2026-11-13, part 2 (C5 + queries)**: thumbnails are made from the run's 768 px staged copy (6 ms vs 90 ms
+each): the API adds `display_path` to every image (`RunDisplayCopies`, from the job manifest, kept in the result
+cache), the UI records original -> copy (`app/streamlit/thumb_sources.py`) and all five thumbnail loaders (gallery,
+cluster table, metrics table, Explore, Results comparisons) open the copy. Runs table: runs, albums, result counts and
+people counts in one query, jobs read as (id, runner, status) only. People list: one query (latest run as a
+subquery), `face_instances` (~107 kB) not loaded. Tests: `tests/api/test_result_queries.py` (8),
+`tests/streamlit/test_thumb_sources.py` (2); API/serving/control/UI/storage/architecture suites 478 passed.
+
+| Page (Neon, both servers restarted) | before | part 1 | part 2 |
+|---|---|---|---|
+| Albums, first / again | 7.7-15.3 s | 9.3 / 3.7 s | 9.6 / 3.0 s |
+| Results, first open | 105 s | 86 s | 12.3 s |
+| Results, again | 18.4 s | 4.6 s | 3.9 s |
+| Explore, first / again | 54.5 s | 48.4 / 5.9 s | 8.0 / 5.8 s |
+| People & Faces | 4.4 s | 4.5 s | 1.8 s |
+
+**Fixed 2026-11-13, part 3 (autocommit reads, owner-approved)**: on Postgres, GET/HEAD requests get an autocommit
+session (`get_session`), and the jobs DB has `ControlDB.read_session()` for its read-only methods and job-file routes:
+no `BEGIN` before or `ROLLBACK`/`COMMIT` after a read (psycopg 3 sends `BEGIN` as its own round trip). Audit: no GET
+handler writes more than one row. Writes keep transactions (live check on Neon: create/update/read/delete a profile).
+Test: `tests/api/test_read_sessions.py` (8); suites 486 passed.
+
+| Page (Neon, both servers restarted) | part 2 | part 3 |
+|---|---|---|
+| Albums, first / again | 9.6 / 3.0 s | 8.0 / 2.4 s |
+| Results, first / again | 12.3 / 3.9 s | 11.6 / 3.2 s |
+| Explore, first / again | 8.0 / 5.8 s | 7.7 / 5.9 s |
+| People & Faces | 1.8 s | 1.5 s |
+| Per call: albums, people / runs | 0.48 / 1.9 s | 0.34 / 1.37 s |
+
+**Still open (R11 < 2 s on People only)**: Streamlit draws a 302-photo page in ~3-4 s even on SQLite (Results, Explore);
+the first request after an API start reflects the schema (Albums first ~8 s); the pool pre-ping is one round trip per
+request (kept: Neon closes idle connections); the runs table uses two pools (API + jobs). People thumbnails still
+crop the originals (7 photos, uncached).
+**Repro**: start the spec-117 stack against `DATABASE_URL`; Albums -> Open the newest Slovakia26 run; time until idle.
+
+---
+
+### SIGHTING-151: Results gallery crashes on duplicate "Detail" button keys
+**Status**: RESOLVED 2026-11-13 on `spec/117-neon-r2` (found in spec-117 T8.1; not Neon-specific; code from 2026-05-09 `4b86028`). Verified: `tests/streamlit/test_gallery_keys.py` fails before (duplicate `detail_20449`), passes after; live app on Neon: 302 Detail buttons, 0 errors (was 231 + error)
+**Severity**: High (gallery stops part-way: 231 of 302 picks shown, plus a Streamlit error box)
+**Persona**: Albumify frontend
+
+**Problem**: `StreamlitDuplicateElementKey: key='detail_82333'`. `components/gallery.py` `render_image_card` keys the
+button `detail_{hash(image.path) % 100000}`; with ~300 images two paths collide often (birthday odds ~35%). Python's
+string hash changes per process, so it appears on some server starts and not others (8501 showed none today).
+**Fix**: `gallery.py` keys the button `detail_{image.path}`; it was the only hash-based widget key in `app/streamlit`.
+**Repro**: Results -> Selected Only on a run with 300 picks; restart Streamlit until it appears.
+
+---
+
+### SIGHTING-150: select_best "Best in cluster" / "Rank N" labels are not score order
+**Status**: OPEN 2026-11-13 (found mapping code for spec-118; fix planned there, R10)
+**Severity**: Low (picks are right; only the reason text and the `rank` metric are wrong)
+**Persona**: Pipeline / selection
+
+**Problem**: `select_best.py` `_select_from_cluster` sorts `filtered` by score but writes decisions with
+`enumerate(scored_images, 1)`, the unsorted list, so "Best in cluster" means "first in input order".
+**Repro**: in run `52776cc5`, picks labelled "Rank 2" can have a higher composite than the "Best in cluster" photo.
+
+---
+
+### SIGHTING-149: Photos removed by filter_quality show "Person detected" as their reason
+**Status**: OPEN 2026-11-13 (found in the Slovakia26 picks review, run `52776cc5`)
+**Severity**: Medium (Results and the review page hide why 89 photos were dropped)
+**Persona**: Pipeline / run output
+
+**Problem**: all 89 photos removed before scene clustering carry `filter_reason` "Person detected (conf ...)" or
+"No person detected"; their real reason ("Sharpness 0.05 < threshold 0.2") is only in `step_decisions`.
+**Suspicion**: `serving/run_output.py` `build_reason_by_path` keeps the FIRST decision per photo unless it is
+`select_best`; `detect_persons` writes first, so the `filter_quality` rejection never wins.
+**Repro**: in `pipeline_results` of `52776cc5`, compare `image_metrics[...].filter_reason` with the `filter_quality`
+entry in `step_decisions` for `D:\Slovakia2660821_150124.jpg`.
+
+---
+
 ### SIGHTING-148: The face clustering app hangs on a run of ~1,000 faces
 **Status**: RESOLVED 2026-11-07 (found opening the Slovakia26 re-run `277fb705` via `?load_run=`); verified on that run:
 every tab opens in 1-7 s (Merge Analysis 2.9 s, 20 images; was 5,961 images and never finished), 0 closed-socket errors, 1 log

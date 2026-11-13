@@ -50,11 +50,11 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
 - [x] T6.2 Worker and local runs use the cache through `DATABASE_URL`; the `albumify-cache` Volume copy is removed.
 
 ## W7 — Move the data (R4)
-- [~] T7.1 `scripts/migrate_to_neon.py` (`NeonMigrator`): plan, copy, verify; refuses a non-empty target.
+- [x] T7.1 `scripts/migrate_to_neon.py` (`NeonMigrator`): plan, copy, verify; refuses a non-empty target.
       Test `tests/scripts/test_migrate_to_neon.py` (SQLite to SQLite). Real run: counts per table into updates.md. (script + test done; the real run waits for the owner)
 
 ## W8 — Prove on real data (R8, R11, R13, R14) — owner OK before each L4 run
-- [ ] T8.1 Slovakia26 on this PC against Neon + R2; Albums/Results/People/Explore; page timings.
+- [~] T8.1 Slovakia26 on this PC against Neon + R2; Albums/Results/People/Explore; page timings. (2026-11-13: run from the app works; timings fail, SIGHTING-152; gallery bug SIGHTING-151)
 - [ ] T8.2 Slovakia26 on the L4: cut the PC's network 2 min, restart the API once; run finishes; results in Albums.
 - [ ] T8.3 L4 re-run after the local run: cached steps recompute nothing.
 - [ ] T8.4 Secret scan (`git grep`, logs, run records, image env); Neon and R2 sizes.

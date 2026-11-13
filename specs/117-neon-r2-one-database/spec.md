@@ -17,7 +17,7 @@ there itself, so the app only reads the database and a dropped PC no longer stop
 | R1 | ◐ | One `DATABASE_URL`, loaded from `.env` at start, puts every Albumify table on Neon: the API's tables, the job tables and the feature cache. Unset, everything stays on local SQLite as today | ● `tests/storage/test_database_config.py`; ○ real: API starts on Neon, all tables listed |
 | R2 | ◐ | The two `people` tables no longer clash: the job table becomes `job_people`, existing rows kept | ● `tests/control/test_jobs.py::test_job_people_table`; ○ real: both tables on Neon |
 | R3 | ◐ | The API, control and serving suites pass on Postgres as well as SQLite | ● `tests/storage/test_neon_parity.py` runs `tests/api`, `tests/control`, `tests/serving` on a throwaway Neon branch (`-m needs_neon`): 0 failed |
-| R4 | ○ | **Migration:** existing albums, runs, results, people, metrics, profiles, feature cache and jobs are copied to Neon. Row counts match per table; the script refuses a non-empty target; the SQLite files stay as the backup | ○ `tests/scripts/test_migrate_to_neon.py` (SQLite to SQLite); ○ real: per-table counts in updates.md |
+| R4 | ● | **Migration:** existing albums, runs, results, people, metrics, profiles, feature cache and jobs are copied to Neon. Row counts match per table; the script refuses a non-empty target; the SQLite files stay as the backup | ● `tests/scripts/test_migrate_to_neon.py` (6, on SQLite and on Neon); ● real 2026-11-13: 17 tables, counts verified ([updates.md](updates.html)) |
 | R5 | ◐ | **Status and progress from the database only:** the worker writes step, step fraction, photo n of N and a heartbeat at least every 5 s; the app shows "triage_content 43% (307/715)" for local and L4 runs alike. `progress.json` is retired | ● `tests/serving/test_db_progress.py`; ○ real L4 run: in-step % moves on the Albums page |
 | R6 | ◐ | **The worker writes the results:** rows go to Neon with original photo paths (the manifest carries them), from the L4 and from this PC. Nothing is copied back to the PC | ● `tests/serving/test_worker_persister.py`; ○ real L4 run: 0 files downloaded, rows present, 0 staged paths stored |
 | R7 | ◐ | Display images, face crops and embeddings live in the private R2 bucket under `jobs/<id>/`. The API serves only a job's own keys; another job's key or a made-up key returns 404 | ● `tests/storage/test_object_store.py` (moto: a fake S3 for tests); ● `tests/api/test_jobs_router.py::test_other_jobs_photo_is_404` on R2; ○ real: People tab crops load |
@@ -50,7 +50,7 @@ flowchart TD
   C5{{"○ check R8 R9 R10"}}
   W6["<b>● W6 One feature cache</b><br/>cache on Neon · batch read per step<br/><i>pipeline/cache_handler.py, curate_job.py, modal_app.py</i>"]
   C6{{"○ check R12"}}
-  W7["<b>○ W7 Move the data</b><br/>copy SQLite to Neon, verify counts<br/><i>scripts/migrate_to_neon.py (new)</i>"]
+  W7["<b>● W7 Move the data</b><br/>copy SQLite to Neon, verify counts<br/><i>scripts/migrate_to_neon.py (new)</i>"]
   C7{{"○ check R4"}}
   W8["<b>○ W8 Prove on real data</b><br/>owner OK before each L4 run<br/>Slovakia26 local + L4 · network cut · secret scan · sizes"]
   C8{{"○ check R8 R11 R13 R14<br/>full suite · Budapest gate · /code-review"}}
@@ -58,8 +58,8 @@ flowchart TD
   classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
   classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
   classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
-  class W1,W2,W3,W4,W6 done
-  class W5,W7,W8 todo
+  class W1,W2,W3,W4,W6,W7 done
+  class W5,W8 todo
   class C1,C2,C3,C4,C5,C6,C7,C8 check
 ```
 
@@ -213,7 +213,7 @@ classDiagram
 | `sim_bench/serving/worker_persister.py` | `WorkerPersister` | In the worker, after the pipeline: maps staged paths to originals from the manifest, writes job rows and Albumify result rows in one transaction | `calc` | `db`, `store` | ● |
 | `sim_bench/serving/detached_modal.py` | `DetachedModalRemote` | Starts a run on the deployed Modal app by name and returns the call id; status and cancel by call id | `start`, `status`, `cancel` | `app_name`, `gpu` | ● |
 | `sim_bench/serving/run_watchdog.py` | `RunWatchdog` | Turns a job `failed` when its heartbeat stops or its Modal call ended without a result | `reconcile` | `db`, `remote`, `grace_s` | ● |
-| `scripts/migrate_to_neon.py` | `NeonMigrator` | Copies the Albumify tables from `sim_bench.db` and `control.db` to Neon; refuses a non-empty target; verifies counts | `plan`, `copy`, `verify` | `source_urls`, `target_url` | ○ |
+| `scripts/migrate_to_neon.py` | `NeonMigrator` | Copies the Albumify tables from `sim_bench.db` and `control.db` to Neon; refuses a non-empty target; verifies counts | `plan`, `copy`, `verify` | `source_urls`, `target_url` | ● |
 
 ## 6. Modified files
 

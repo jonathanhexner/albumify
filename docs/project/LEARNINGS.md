@@ -6,6 +6,14 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-11-13: on a far-away Postgres, count round trips per request, not queries (SIGHTING-152)
+**What happened**: Neon is 0.16 s away; a request with one query cost 0.80 s (pool pre-ping, psycopg 3's separate `BEGIN`, the query, `ROLLBACK`). Query-count tests caught the N+1s but not this; and first page opens were dominated by thumbnails decoded from full-size originals, not by SQL.
+**Prevention**: time `select 1` inside and outside a transaction before tuning queries; read requests run in autocommit (`tests/api/test_read_sessions.py`); thumbnails come from the 768 px copies (`tests/streamlit/test_thumb_sources.py`).
+
+### 2026-11-13: a short-hash widget key broke the gallery only on some restarts (SIGHTING-151)
+**What happened**: `detail_{hash(path) % 100000}` collided on ~300-photo albums and stopped the Results gallery at 231 of 302; Python's string hash changes per process, so it failed on some restarts and passed every small test.
+**Prevention**: key widgets by the full identifier; test with inputs built to collide (`tests/streamlit/test_gallery_keys.py`).
+
 ### 2026-11-07: the album config drifted from the validated clustering profile
 **What happened**: `pipeline.yaml` kept the code defaults (K=5) while every clustering validation used profile_4 (K=51); the album pipeline split ~4 people into 76 and nobody compared the two.
 **Prevention**: a parameter validated in one place must be the one production reads; a parity test between `pipeline.yaml` and the reference profile is the follow-up.

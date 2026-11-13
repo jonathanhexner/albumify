@@ -95,3 +95,6 @@ Entries below predate the convention; their reports live at the linked legacy lo
 
 - **2026-10-30 spec-116 R13 full-size vs 768** — do the 768 px copies pick close enough to the originals (Budapest 122, this PC)?
   Not close enough: the resolution-dependent sharpness gate removes 114 vs 26 photos (SIGHTING-144); with the gate off picks match but people split 11 vs 8. Data: `reports/2026-10-30_spec116_r13_fullsize_vs_768/results.json` (report.html still to be written).
+
+- **2026-11-13 Slovakia26 picks review (Gate 1 evidence)** — owner judged every pick, skipped photo and person of K=51 run `52776cc5` (302 picks).
+  73% of picks kept; near-duplicates are 47 of 80 drops; the sharpness gate removed 20/20 reviewed photos the owner wants; 4 people right + 1 split + 3 strangers. Report: `reports/2026-11-13_slovakia26_picks_review/report.html`.

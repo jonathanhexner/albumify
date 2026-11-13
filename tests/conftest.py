@@ -148,3 +148,14 @@ def synthetic_action_log_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "sim_bench.db"
     init_table(db_path=db_path)
     return db_path
+
+
+@pytest.fixture(autouse=True)
+def empty_result_cache():
+    """Start every test with an empty API result cache (SIGHTING-152): it lives for the process, and tests reuse
+    run ids with different rows. Only touched when a test has imported the API."""
+    import sys
+    module = sys.modules.get("sim_bench.api.services.result_service")
+    if module is not None:
+        module.result_cache.evict()
+    yield

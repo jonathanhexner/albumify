@@ -2,13 +2,64 @@
 
 import logging
 import shutil
+import threading
+from collections import OrderedDict
 from pathlib import Path
-from typing import Optional
+from types import SimpleNamespace
+from typing import Iterable, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from sim_bench.api.database.models import Album, PipelineRun, PipelineResult, Person
 from sim_bench.api.schemas.result import ImageMetrics
+from sim_bench.api.services.run_display_copies import RunDisplayCopies, normalise
+
+
+RESULT_COLUMNS = (
+    "total_images", "filtered_images", "num_clusters", "num_selected", "scene_clusters", "face_subclusters",
+    "selected_images", "image_metrics", "siamese_comparisons", "step_timings", "total_duration_ms",
+    "fc_export_dir", "step_decisions",
+)
+
+
+class ResultCache:
+    """Finished runs' result rows, kept in this process (SIGHTING-152).
+
+    A ``pipeline_results`` row is written once, when its run finishes, and never changed, so a copy can be served
+    instead of re-reading up to 2.8 MB from the database on every request. Only rows that exist are cached; the
+    run's writer evicts its own entry, and deleting an album evicts its runs.
+    """
+
+    def __init__(self, max_runs: int = 8):
+        self._max_runs = max_runs
+        self._rows: "OrderedDict[str, SimpleNamespace]" = OrderedDict()
+        self._lock = threading.Lock()
+
+    def get(self, run_id: str) -> Optional[SimpleNamespace]:
+        with self._lock:
+            row = self._rows.get(run_id)
+            if row is not None:
+                self._rows.move_to_end(run_id)
+            return row
+
+    def put(self, run_id: str, row: SimpleNamespace) -> None:
+        with self._lock:
+            self._rows[run_id] = row
+            self._rows.move_to_end(run_id)
+            while len(self._rows) > self._max_runs:
+                self._rows.popitem(last=False)
+
+    def evict(self, run_ids: Optional[Iterable[str]] = None) -> None:
+        """Drop the given runs, or every run when ``run_ids`` is None."""
+        with self._lock:
+            if run_ids is None:
+                self._rows.clear()
+            for run_id in run_ids or ():
+                self._rows.pop(run_id, None)
+
+
+result_cache = ResultCache()
 
 
 class ResultService:
@@ -22,6 +73,30 @@ class ResultService:
         self._session = session
         self._logger = logger or logging.getLogger(__name__)
 
+    def _result(self, job_id: str) -> Optional[SimpleNamespace]:
+        """The run's result row (attributes = ``RESULT_COLUMNS``), from ``result_cache`` after the first read."""
+        cached = result_cache.get(job_id)
+        if cached is not None:
+            return cached
+        row = (
+            self._session.query(*(getattr(PipelineResult, c) for c in RESULT_COLUMNS))
+            .filter(PipelineResult.run_id == job_id)
+            .first()
+        )
+        if row is None:
+            return None
+        snapshot = SimpleNamespace(**dict(zip(RESULT_COLUMNS, row)))
+        snapshot.display_paths = RunDisplayCopies().paths(job_id)   # thumbnails from the 768 px copies (C5)
+        result_cache.put(job_id, snapshot)
+        return snapshot
+
+    def get_step_decisions(self, job_id: str) -> Optional[list]:
+        """The run's per-item step decisions (Explore, image popup); None when the run has no result."""
+        result = self._result(job_id)
+        if result is None:
+            return None
+        return result.step_decisions or []
+
     def get_result(self, job_id: str) -> Optional[dict]:
         """Get full result details for a job."""
         run = (
@@ -33,7 +108,7 @@ class ResultService:
             return None
 
         album = run.album
-        result = run.result
+        result = self._result(job_id)
 
         # Count people if available
         num_people = (
@@ -65,7 +140,8 @@ class ResultService:
             'completed_at': run.completed_at
         }
 
-    def _build_image_dict(self, path: str, metrics: dict, is_selected: bool = False) -> dict:
+    def _build_image_dict(self, path: str, metrics: dict, is_selected: bool = False,
+                          display_paths: Optional[dict] = None) -> dict:
         """Build the API image dict from stored metrics.
 
         spec-085: derive straight from ``ImageMetrics`` (the single source of
@@ -76,6 +152,7 @@ class ResultService:
         """
         data = {**metrics, 'path': path}
         data['is_selected'] = metrics.get('is_selected', is_selected)
+        data['display_path'] = (display_paths or {}).get(normalise(path))
         return ImageMetrics(**data).model_dump()
 
     def get_images(
@@ -93,11 +170,7 @@ class ResultService:
             person_id: Filter by person ID
             selected_only: Only return selected images
         """
-        result = (
-            self._session.query(PipelineResult)
-            .filter(PipelineResult.run_id == job_id)
-            .first()
-        )
+        result = self._result(job_id)
         if not result:
             return []
 
@@ -107,7 +180,8 @@ class ResultService:
             # Return only selected images
             for path in (result.selected_images or []):
                 metrics = (result.image_metrics or {}).get(path, {})
-                images.append(self._build_image_dict(path, metrics, is_selected=True))
+                images.append(self._build_image_dict(path, metrics, is_selected=True,
+                                                     display_paths=result.display_paths))
         elif cluster_id is not None:
             # Return images from specific cluster
             cluster_images = (result.scene_clusters or {}).get(str(cluster_id), [])
@@ -117,7 +191,7 @@ class ResultService:
 
             for path in cluster_images:
                 metrics = (result.image_metrics or {}).get(path, {})
-                img = self._build_image_dict(path, metrics)
+                img = self._build_image_dict(path, metrics, display_paths=result.display_paths)
                 img['cluster_id'] = cluster_id
                 images.append(img)
         elif person_id:
@@ -134,21 +208,17 @@ class ResultService:
                     if path and path not in seen_paths:
                         seen_paths.add(path)
                         metrics = (result.image_metrics or {}).get(path, {})
-                        images.append(self._build_image_dict(path, metrics))
+                        images.append(self._build_image_dict(path, metrics, display_paths=result.display_paths))
         else:
             # Return all images with metrics
             for path, metrics in (result.image_metrics or {}).items():
-                images.append(self._build_image_dict(path, metrics))
+                images.append(self._build_image_dict(path, metrics, display_paths=result.display_paths))
 
         return images
 
     def get_clusters(self, job_id: str) -> list[dict]:
         """Get cluster information for a result."""
-        result = (
-            self._session.query(PipelineResult)
-            .filter(PipelineResult.run_id == job_id)
-            .first()
-        )
+        result = self._result(job_id)
         if not result:
             return []
 
@@ -184,7 +254,8 @@ class ResultService:
             for path in images:
                 metrics = image_metrics.get(path, {})
                 is_selected = path in selected_set
-                img_dict = self._build_image_dict(path, metrics, is_selected=is_selected)
+                img_dict = self._build_image_dict(path, metrics, is_selected=is_selected,
+                                                   display_paths=result.display_paths)
                 cid = int(cluster_id) if isinstance(cluster_id, str) else cluster_id
                 img_dict['cluster_id'] = cid
                 cluster_images.append(img_dict)
@@ -219,11 +290,7 @@ class ResultService:
 
     def get_metrics(self, job_id: str) -> Optional[dict]:
         """Get aggregate metrics for a pipeline run."""
-        result = (
-            self._session.query(PipelineResult)
-            .filter(PipelineResult.run_id == job_id)
-            .first()
-        )
+        result = self._result(job_id)
         if not result:
             return None
 
@@ -256,11 +323,7 @@ class ResultService:
 
     def get_comparisons(self, job_id: str) -> Optional[list]:
         """Get Siamese/duplicate comparison log for a pipeline run."""
-        result = (
-            self._session.query(PipelineResult)
-            .filter(PipelineResult.run_id == job_id)
-            .first()
-        )
+        result = self._result(job_id)
         if not result:
             return None
 
@@ -268,11 +331,7 @@ class ResultService:
 
     def get_subclusters(self, job_id: str) -> Optional[dict]:
         """Get face sub-clusters for a pipeline run."""
-        result = (
-            self._session.query(PipelineResult)
-            .filter(PipelineResult.run_id == job_id)
-            .first()
-        )
+        result = self._result(job_id)
         if not result:
             return None
 
@@ -302,11 +361,7 @@ class ResultService:
         Returns:
             Dict with success status and file count
         """
-        result = (
-            self._session.query(PipelineResult)
-            .filter(PipelineResult.run_id == job_id)
-            .first()
-        )
+        result = self._result(job_id)
         if not result:
             return {
                 'success': False,
@@ -418,43 +473,43 @@ class ResultService:
         }
 
     def list_results(self, album_id: Optional[str] = None) -> list[dict]:
-        """List all pipeline results, optionally filtered by album."""
-        query = self._session.query(PipelineRun).filter(
-            PipelineRun.status == "completed"
-        )
+        """List completed runs with their summary counts, newest first, optionally for one album.
 
+        Summary columns only, in two queries whatever the number of runs (SIGHTING-152): a result row carries every
+        photo's metrics and step decisions; the run's decisions come from :meth:`get_step_decisions`.
+        """
+        query = (
+            self._session.query(
+                PipelineRun.id, PipelineRun.album_id, Album.name, PipelineRun.status, PipelineRun.created_at,
+                PipelineRun.completed_at, PipelineResult.total_images, PipelineResult.filtered_images,
+                PipelineResult.num_clusters, PipelineResult.num_selected, PipelineResult.fc_export_dir,
+                PipelineResult.total_duration_ms,
+            )
+            .join(Album, Album.id == PipelineRun.album_id)
+            .join(PipelineResult, PipelineResult.run_id == PipelineRun.id)
+            .filter(PipelineRun.status == "completed")
+        )
         if album_id:
             query = query.filter(PipelineRun.album_id == album_id)
+        rows = query.order_by(PipelineRun.completed_at.desc()).all()
 
-        runs = query.order_by(PipelineRun.completed_at.desc()).all()
+        people_query = self._session.query(Person.run_id, func.count()).group_by(Person.run_id)
+        if album_id:
+            people_query = people_query.filter(Person.album_id == album_id)
+        people = dict(people_query.all())
 
-        results = []
-        for run in runs:
-            result = run.result
-            if not result:
-                continue
-
-            num_people = (
-                self._session.query(Person)
-                .filter(Person.run_id == run.id)
-                .count()
-            )
-
-            results.append({
-                'job_id': run.id,
-                'album_id': run.album_id,
-                'album_name': run.album.name,
-                'status': run.status,
-                'total_images': result.total_images,
-                'filtered_images': result.filtered_images,
-                'num_clusters': result.num_clusters,
-                'num_selected': result.num_selected,
-                'num_people': num_people if num_people > 0 else None,
-                'fc_export_dir': result.fc_export_dir,
-                'step_decisions': result.step_decisions,
-                'created_at': run.created_at,
-                'completed_at': run.completed_at,
-                'total_duration_ms': result.total_duration_ms
-            })
-
-        return results
+        return [{
+            'job_id': r[0],
+            'album_id': r[1],
+            'album_name': r[2],
+            'status': r[3],
+            'total_images': r[6],
+            'filtered_images': r[7],
+            'num_clusters': r[8],
+            'num_selected': r[9],
+            'num_people': people.get(r[0]) or None,
+            'fc_export_dir': r[10],
+            'created_at': r[4],
+            'completed_at': r[5],
+            'total_duration_ms': r[11],
+        } for r in rows]

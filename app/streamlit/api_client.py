@@ -1,5 +1,7 @@
 """HTTP API client for communicating with the FastAPI backend."""
 
+import copy
+import threading
 import time
 import logging
 from pathlib import Path
@@ -7,6 +9,8 @@ from typing import Dict, List, Optional, Any, Callable
 from urllib.parse import quote
 
 import requests
+
+from app.streamlit import thumb_sources
 
 from .config import get_config, AppConfig
 from .models import (
@@ -30,6 +34,11 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+# Result reads served from a short-lived copy (SIGHTING-152): one Results render asked for the same run up to six
+# times, each a database round trip. A finished run's results do not change; the list of runs may, hence a short TTL.
+RESULT_READ_PREFIX = "/api/v1/results/"
+RESULT_READ_TTL_S = 10.0
+
 
 class ApiError(Exception):
     """API error with status code and message."""
@@ -48,6 +57,8 @@ class ApiClient:
         self.base_url = self.config.api_base_url.rstrip("/")
         self.timeout = self.config.api_timeout_sec
         self.session = requests.Session()
+        self._reads: Dict[Any, tuple] = {}
+        self._reads_lock = threading.Lock()
 
     def _url(self, path: str) -> str:
         """Build full URL from path."""
@@ -62,6 +73,9 @@ class ApiClient:
         **kwargs,
     ) -> Dict[str, Any]:
         """Make HTTP request and return JSON response."""
+        if method != "GET":
+            with self._reads_lock:
+                self._reads.clear()     # a change anywhere may change what the result reads return
         url = self._url(path)
         try:
             response = self.session.request(
@@ -86,8 +100,18 @@ class ApiClient:
             raise ApiError(0, f"Connection error: {e}") from e
 
     def _get(self, path: str, params: Optional[Dict] = None) -> Dict[str, Any]:
-        """HTTP GET request."""
-        return self._request("GET", path, params=params)
+        """HTTP GET request; result reads come from a copy younger than ``RESULT_READ_TTL_S``."""
+        if not path.startswith(RESULT_READ_PREFIX):
+            return self._request("GET", path, params=params)
+        key = (path, tuple(sorted((params or {}).items())))
+        with self._reads_lock:
+            hit = self._reads.get(key)
+        if hit is not None and time.monotonic() - hit[0] < RESULT_READ_TTL_S:
+            return copy.deepcopy(hit[1])
+        data = self._request("GET", path, params=params)
+        with self._reads_lock:
+            self._reads[key] = (time.monotonic(), data)
+        return copy.deepcopy(data)
 
     def _post(
         self, path: str, json: Optional[Dict] = None, params: Optional[Dict] = None
@@ -351,6 +375,18 @@ class ApiClient:
         data = self._get("/api/v1/results/", params=params)
         return data if isinstance(data, list) else []
 
+    def get_step_decisions(self, job_id: str) -> List[Dict[str, Any]]:
+        """The run's per-item step decisions (no longer part of the result list)."""
+        if not job_id:
+            return []
+        try:
+            data = self._get(f"/api/v1/results/{job_id}/decisions")
+        except ApiError as e:
+            if e.status_code == 404:
+                return []
+            raise
+        return data if isinstance(data, list) else []
+
     def get_result_detail(self, job_id: str) -> Dict[str, Any]:
         """Get full details of a pipeline result."""
         return self._get(f"/api/v1/results/{job_id}")
@@ -600,9 +636,11 @@ class ApiClient:
         """Parse image from API response."""
         # Handle both "path" and "image_path" keys (different endpoints use different names)
         image_path = data.get("path") or data.get("image_path", "")
+        thumb_sources.remember(image_path, data.get("display_path"))
         return ImageInfo(
             path=image_path,
             filename=data.get("filename", Path(image_path).name if image_path else ""),
+            display_path=data.get("display_path"),
             iqa_score=data.get("iqa_score"),
             ava_score=data.get("ava_score"),
             composite_score=data.get("composite_score"),

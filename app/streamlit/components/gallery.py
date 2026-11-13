@@ -13,6 +13,7 @@ from PIL import Image, ImageOps
 from app.streamlit.models import ImageInfo, ClusterInfo
 from app.streamlit.config import get_config
 from app.streamlit.components.image_popup import image_detail_btn
+from app.streamlit.thumb_sources import source
 
 
 THUMBNAIL_WIDTH = 200  # Fixed width for gallery thumbnails (fits 4 per row)
@@ -38,9 +39,12 @@ def _load_thumbnail_cached(image_path: str) -> Optional[bytes]:
 
 
 def _load_thumbnail(image_path: Path) -> Optional[Image.Image]:
-    """Load image thumbnail (fixed width, preserves aspect ratio)."""
+    """Load image thumbnail (fixed width, preserves aspect ratio), from the run's 768 px copy when there is one."""
     try:
-        if not image_path or not image_path.exists():
+        if not image_path:
+            return None
+        image_path = Path(source(str(image_path)))
+        if not image_path.exists():
             return None
         img_bytes = _load_thumbnail_cached(str(image_path))
         if img_bytes is None:
@@ -108,7 +112,8 @@ def render_image_card(
         st.success("Selected")
 
     # Image detail popup button (always available)
-    image_detail_btn(image, key=f"detail_{hash(image.path) % 100000}")
+    # Keyed by the full path: a short hash collided on ~300-photo albums (SIGHTING-151).
+    image_detail_btn(image, key=f"detail_{image.path}")
 
     if on_click:
         if st.button("View", key=f"view_{image.path}"):
@@ -212,7 +217,7 @@ def _render_cluster_score_table(cluster: ClusterInfo) -> None:
     """Render a per-image debug spreadsheet with thumbnails for a cluster."""
     rows = []
     for img in cluster.images:
-        thumb = _image_to_base64_thumbnail(Path(img.path))
+        thumb = _image_to_base64_thumbnail(Path(source(img.path)))
         people = cluster.person_labels.get(img.path, [])
 
         pose = img.face_pose_scores[0] if img.face_pose_scores else None
@@ -306,9 +311,8 @@ def render_image_comparison(images: List[ImageInfo], title: str = "Compare Image
 
     for i, image in enumerate(images[:num_images]):
         with cols[i]:
-            image_path = Path(image.path)
-            if image_path.exists():
-                img = _load_thumbnail(image_path)
+            img = _load_thumbnail(Path(image.path))
+            if img:
                 st.image(img, width=THUMBNAIL_WIDTH)
             st.caption(image.filename[:20] + "..." if len(image.filename) > 20 else image.filename)
             if image.iqa_score is not None:

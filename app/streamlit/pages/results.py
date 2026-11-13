@@ -25,12 +25,13 @@ from app.streamlit.components.album_selector import render_album_selector
 from app.streamlit.components.gallery import render_image_gallery, render_cluster_gallery
 from app.streamlit.components.metrics import render_pipeline_metrics, render_step_timings, render_image_metrics_table
 from app.streamlit.components.people_browser import render_people_summary_row
+from app.streamlit.thumb_sources import source
 
 
 def _load_thumbnail(image_path: str, size: int = 100) -> str:
-    """Load image and return base64 thumbnail (square, fixed size)."""
+    """Load image and return base64 thumbnail (square, fixed size), from the run's 768 px copy when there is one."""
     try:
-        with Image.open(image_path) as img:
+        with Image.open(source(image_path)) as img:
             img = ImageOps.exif_transpose(img)
             # Crop to center square
             w, h = img.size
@@ -151,7 +152,7 @@ def _render_results_tab(album: Album) -> None:
     job_id, latest = _pick_run(results)
 
     # Store step_decisions + images in session for popup access
-    st.session_state["_popup_step_decisions"] = latest.get("step_decisions") or []
+    st.session_state["_popup_step_decisions"] = client.get_step_decisions(job_id)
 
     render_pipeline_metrics(latest)
 

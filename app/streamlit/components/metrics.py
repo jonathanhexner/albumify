@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 import statistics
 from PIL import Image, ImageOps
+from app.streamlit.thumb_sources import source
 
 if TYPE_CHECKING:
     from app.streamlit.models import ImageInfo
@@ -205,7 +206,7 @@ def _build_metric_row(img: "ImageInfo", is_sel: bool) -> dict:
     best_eyes = img.face_eyes_scores[0] if img.face_eyes_scores else None
     best_smile = img.face_smile_scores[0] if img.face_smile_scores else None
 
-    thumb = _image_to_base64_thumbnail(Path(img.path))
+    thumb = _image_to_base64_thumbnail(Path(source(img.path)))   # the run's 768 px copy (SIGHTING-152)
 
     has_body = img.person_detected if img.person_detected is not None else False
     has_face = (img.face_count or 0) > 0
