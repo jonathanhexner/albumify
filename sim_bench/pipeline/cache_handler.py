@@ -193,8 +193,9 @@ class UniversalCacheHandler:
 
         for entry in {id(e): e for e in to_delete}.values():
             self._session.delete(entry)
-        if to_delete:
-            self._session.commit()
+        # Always end the transaction: the step computes for minutes after this read, and Postgres (Neon) ends a
+        # connection left idle inside a transaction (spec-117 T8.2: triage_content, 8.5 min on the L4, failed).
+        self._session.commit()
         return results
 
     def _query(self, triples) -> List[UniversalCache]:

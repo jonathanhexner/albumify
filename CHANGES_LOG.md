@@ -7413,3 +7413,9 @@ python scripts/export_clustering_data.py --embeddings results/Budapest/embedding
 - Change: `fastapi.Request` imported only when FastAPI is installed (the API); the worker image has none and imports `session.py` for its paths (`curate_job.py`).
 - Verification: the new test (imports every worker module with FastAPI/Starlette/uvicorn blocked) fails on dd33596 and passes after; suites 487 passed; first L4 run of T8.2 (`61f3b9a8`) had failed with `ModuleNotFoundError: No module named 'fastapi'`.
 - Reason: regression from the 2026-11-13 autocommit-reads change (SIGHTING-152 part 3), caught by the first real L4 run.
+
+## 2026-11-14 [BUGFIX] spec-117 T8.2 — the L4 run died after an 8.5-min step: cache read left a transaction idle
+- Files: `sim_bench/pipeline/cache_handler.py` (`load_many` always commits), `tests/pipeline/test_cache_handler_batch.py` (+1); `tests/streamlit/conftest.py` (new: restores `sys.modules['__main__']` after each UI test)
+- Change: the step's batch cache read ended its transaction only when it deleted stale rows; otherwise the connection sat idle in a transaction while the step computed, and Neon ended it (`IdleInTransactionSessionTimeout`, run `6745cbb0`, `triage_content` 8.5 min on the A10G). Separately, `AppTest.from_function` left its script as `__main__`, so spawned isolation children crashed when `test_step_isolation.py` ran after `test_gallery_keys.py`.
+- Verification: new test `test_a_read_leaves_no_transaction_open` fails before, passes after; isolation tests pass after the gallery test; api/serving/control/streamlit/storage/architecture/pipeline: 684 passed.
+- Reason: spec-117 T8.2 (first full L4 run against Neon); the suite failure was found running the pipeline tests with the others.

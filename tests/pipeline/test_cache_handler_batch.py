@@ -64,6 +64,17 @@ class ut_CacheBatch:
         assert len(got) == N
         assert seen["select"] == 1                  # 715 photos (+ their older path keys), one query
 
+    def test_a_read_leaves_no_transaction_open(self, engine, tmp_path):
+        """The step computes for minutes after its cache read; Postgres (Neon) ends a connection idle in a
+        transaction, which failed triage_content on the L4 (spec-117 T8.2, 8.5 min step)."""
+        paths = _staged(tmp_path / "inputs", 5)
+        session = sessionmaker(bind=engine)()
+        handler = UniversalCacheHandler(session, inputs_root=str(tmp_path / "inputs"))
+        handler.store_many([(k, b"d") for k in _keys(paths[:3])], {})
+        got = handler.load_many(_keys(paths))                  # 3 hits, 2 misses, nothing stale
+        assert len(got) == 3
+        assert not session.in_transaction()
+
     def test_a_step_writes_in_one_commit(self, engine, tmp_path):
         paths = _staged(tmp_path / "inputs", 300)
         handler = UniversalCacheHandler(sessionmaker(bind=engine)(), inputs_root=str(tmp_path / "inputs"))
