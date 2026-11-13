@@ -7407,3 +7407,9 @@ python scripts/export_clustering_data.py --embeddings results/Budapest/embedding
 - Change: GET/HEAD requests get an autocommit session on Postgres (no `BEGIN`/`ROLLBACK` round trips); the jobs DB's read-only methods use one too. SQLite unchanged (one factory). Writes keep transactions. Audit: no GET handler writes more than one row.
 - Verification: 8 tests; suites 486 passed; live on Neon: per call albums/people 0.48 -> 0.34 s, runs 1.9 -> 1.37 s; Albums again 3.0 -> 2.4 s, Results again 3.9 -> 3.2 s, People 1.8 -> 1.5 s; write check (create/update/read/delete a profile) OK.
 - Reason: spec-117 R11; owner approved "autocommit for reads".
+
+## 2026-11-14 [BUGFIX] spec-117 T8.2 — the GPU worker failed: session.py imported FastAPI at the top
+- Files: `sim_bench/api/database/session.py`; new `tests/architecture/test_worker_imports_without_fastapi.py`
+- Change: `fastapi.Request` imported only when FastAPI is installed (the API); the worker image has none and imports `session.py` for its paths (`curate_job.py`).
+- Verification: the new test (imports every worker module with FastAPI/Starlette/uvicorn blocked) fails on dd33596 and passes after; suites 487 passed; first L4 run of T8.2 (`61f3b9a8`) had failed with `ModuleNotFoundError: No module named 'fastapi'`.
+- Reason: regression from the 2026-11-13 autocommit-reads change (SIGHTING-152 part 3), caught by the first real L4 run.

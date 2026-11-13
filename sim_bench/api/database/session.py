@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 from typing import Generator
 
-from fastapi import Request
+try:   # the API. The GPU worker image has no FastAPI: it imports this module for its paths and never serves a request
+    from fastapi import Request
+except ImportError:
+    Request = None
 
 from sqlalchemy import text, inspect
 from sqlalchemy.orm import sessionmaker, Session
