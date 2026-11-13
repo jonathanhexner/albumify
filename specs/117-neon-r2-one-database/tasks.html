@@ -403,13 +403,12 @@ only.</label></li>
 </ul>
 <h2 id="w5--detached-l4-runs-r8-r9-r10">W5 — Detached L4 runs (R8, R9,
 R10)</h2>
-<ul>
-<li>[~] T5.1 <code>modal deploy</code> of <code>albumify-curator</code>
-with secret <code>albumify-cloud</code>;
-<code>gpu=["L4", "A10G"]</code>; run record stores the GPU. (code done;
-the deploy itself waits for the owner, W8)</li>
-</ul>
 <ul class="task-list">
+<li><label><input type="checkbox" checked="" />T5.1
+<code>modal deploy</code> of <code>albumify-curator</code> with secret
+<code>albumify-cloud</code>; <code>gpu=["L4", "A10G"]</code>; run record
+stores the GPU. (deployed 2026-11-14 from <code>c56d6db</code>, owner
+OK)</label></li>
 <li><label><input type="checkbox" checked="" />T5.2
 <code>serving/detached_modal.py</code>: <code>start</code> (spawn by
 name, store call id), <code>status</code>,
@@ -450,11 +449,16 @@ Albums/Results/People/Explore; page timings. (2026-11-13: run from the
 app works; timings fail, SIGHTING-152; gallery bug SIGHTING-151)</li>
 </ul>
 <ul class="task-list">
-<li><label><input type="checkbox" />T8.2 Slovakia26 on the L4: cut the
-PC's network 2 min, restart the API once; run finishes; results in
-Albums.</label></li>
-<li><label><input type="checkbox" />T8.3 L4 re-run after the local run:
-cached steps recompute nothing.</label></li>
+<li><label><input type="checkbox" checked="" />T8.2 Slovakia26 on the
+L4: cut the PC's network 2 min, restart the API once; run finishes;
+results in Albums. (2026-11-14: run <code>f7d8ba85</code>, after three
+failed runs fixed in SIGHTING-153; the PC side was stopped, the Wi-Fi
+itself not cut)</label></li>
+<li><label><input type="checkbox" checked="" />T8.3 L4 re-run after the
+local run: cached steps recompute nothing. (2026-11-14:
+<code>fd52013c</code> after <code>f7d8ba85</code>, local
+<code>8ab479f9</code> after both; picks differ by 3 of ~330,
+SIGHTING-154)</label></li>
 <li><label><input type="checkbox" />T8.4 Secret scan
 (<code>git grep</code>, logs, run records, image env); Neon and R2
 sizes.</label></li>

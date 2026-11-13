@@ -40,7 +40,7 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
 - [x] T4.4 `JobService.run` and `PipelineService.live/get_status` read the job row only.
 
 ## W5 — Detached L4 runs (R8, R9, R10)
-- [~] T5.1 `modal deploy` of `albumify-curator` with secret `albumify-cloud`; `gpu=["L4", "A10G"]`; run record stores the GPU. (code done; the deploy itself waits for the owner, W8)
+- [x] T5.1 `modal deploy` of `albumify-curator` with secret `albumify-cloud`; `gpu=["L4", "A10G"]`; run record stores the GPU. (deployed 2026-11-14 from `c56d6db`, owner OK)
 - [x] T5.2 `serving/detached_modal.py`: `start` (spawn by name, store call id), `status`, `cancel`.
 - [x] T5.3 `serving/run_watchdog.py`: heartbeat older than 2 min or call ended without rows -> `failed` with the reason;
       queued -> "Waiting for a GPU". Test `tests/serving/test_run_watchdog.py`. Spend cap at the dearest GPU: `test_modal_gpu_choice.py`.
@@ -55,7 +55,7 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
 
 ## W8 — Prove on real data (R8, R11, R13, R14) — owner OK before each L4 run
 - [~] T8.1 Slovakia26 on this PC against Neon + R2; Albums/Results/People/Explore; page timings. (2026-11-13: run from the app works; timings fail, SIGHTING-152; gallery bug SIGHTING-151)
-- [ ] T8.2 Slovakia26 on the L4: cut the PC's network 2 min, restart the API once; run finishes; results in Albums.
-- [ ] T8.3 L4 re-run after the local run: cached steps recompute nothing.
+- [x] T8.2 Slovakia26 on the L4: cut the PC's network 2 min, restart the API once; run finishes; results in Albums. (2026-11-14: run `f7d8ba85`, after three failed runs fixed in SIGHTING-153; the PC side was stopped, the Wi-Fi itself not cut)
+- [x] T8.3 L4 re-run after the local run: cached steps recompute nothing. (2026-11-14: `fd52013c` after `f7d8ba85`, local `8ab479f9` after both; picks differ by 3 of ~330, SIGHTING-154)
 - [ ] T8.4 Secret scan (`git grep`, logs, run records, image env); Neon and R2 sizes.
 - [ ] T8.5 Full suite (SQLite), `needs_neon` set, Budapest gate, `/code-review` -> REVIEW.md.

@@ -7425,3 +7425,8 @@ python scripts/export_clustering_data.py --embeddings results/Budapest/embedding
 - Change: one PUT at a time cost 0.6-0.95 s each; a job's ~1,300 files took 10-20 min (local T8.1: 20.5 of 24 min "loading"; L4 run `54b46cd0` hit Modal's 1800 s timeout while saving).
 - Verification: new test (80 uploads of 50 ms, must overlap and all arrive) fails before, passes after; real R2: 563 crops in 29 s (52 ms per file, was ~950 ms); suites 685 passed.
 - Reason: spec-117 T8.2.
+
+## 2026-11-14 [DOCS] spec-117 M2 — T8.2/T8.3 evidence, SIGHTING-154
+- Files: `specs/117-neon-r2-one-database/{spec,tasks,updates}.md` (+html), `ROADMAP.md` (+html), `docs/project/SIGHTINGS.md` (SIGHTING-154)
+- Change: R5, R6, R8, R10, R12 marked done with the real GPU runs; T5.1, T8.2, T8.3 done; re-run pick differences filed as SIGHTING-154.
+- Reason: spec-117 M2 (owner approved the deploy and GPU spend).

@@ -352,22 +352,24 @@ href="updates.html">updates.md</a>)</td>
 </tr>
 <tr>
 <td>R5</td>
-<td>◐</td>
+<td>●</td>
 <td><strong>Status and progress from the database only:</strong> the
 worker writes step, step fraction, photo n of N and a heartbeat at least
 every 5 s; the app shows "triage_content 43% (307/715)" for local and L4
 runs alike. <code>progress.json</code> is retired</td>
-<td>● <code>tests/serving/test_db_progress.py</code>; ○ real L4 run:
-in-step % moves on the Albums page</td>
+<td>● <code>tests/serving/test_db_progress.py</code>; ● real L4 run
+2026-11-14: step, in-step fraction and photo n/N moved in the job row,
+heartbeat ≤ 7 s old</td>
 </tr>
 <tr>
 <td>R6</td>
-<td>◐</td>
+<td>●</td>
 <td><strong>The worker writes the results:</strong> rows go to Neon with
 original photo paths (the manifest carries them), from the L4 and from
 this PC. Nothing is copied back to the PC</td>
-<td>● <code>tests/serving/test_worker_persister.py</code>; ○ real L4
-run: 0 files downloaded, rows present, 0 staged paths stored</td>
+<td>● <code>tests/serving/test_worker_persister.py</code>; ● real L4 run
+<code>f7d8ba85</code>: rows in Neon with original paths, 0 staged paths,
+this PC's job folder holds only the manifest</td>
 </tr>
 <tr>
 <td>R7</td>
@@ -382,12 +384,13 @@ on R2; ○ real: People tab crops load</td>
 </tr>
 <tr>
 <td>R8</td>
-<td>◐</td>
+<td>●</td>
 <td><strong>Detached L4 runs:</strong> started on the deployed Modal
 app; the call id is stored on the job. Cutting the PC's network for 2
 minutes, or restarting the API, neither stops nor loses the run</td>
-<td>○ real: L4 run with the network cut 2 min and one API restart
-finishes; results in Albums</td>
+<td>● real: run <code>54b46cd0</code> went on through an API restart;
+<code>f7d8ba85</code> finished with the API and UI stopped (no admin
+rights to cut the Wi-Fi itself); results in Albums</td>
 </tr>
 <tr>
 <td>R9</td>
@@ -401,12 +404,12 @@ a queued L4 run</td>
 </tr>
 <tr>
 <td>R10</td>
-<td>◐</td>
+<td>●</td>
 <td><strong>GPU fallback:</strong> Modal tries L4, then A10G; the run
 records the GPU it got; the spend cap is checked against the dearest GPU
 in the list</td>
-<td>● <code>tests/serving/test_modal_gpu_choice.py</code>; ○ real: run
-record names the GPU</td>
+<td>● <code>tests/serving/test_modal_gpu_choice.py</code>; ● real: every
+run recorded <code>NVIDIA A10</code> (Modal fell back from the L4)</td>
 </tr>
 <tr>
 <td>R11</td>
@@ -420,12 +423,14 @@ timings for Slovakia26</td>
 </tr>
 <tr>
 <td>R12</td>
-<td>◐</td>
+<td>●</td>
 <td><strong>One feature cache for both machines:</strong> an L4 run
 after a local run of the same photos recomputes no cached step. Cache
 reads are one query per step, not per photo</td>
-<td>● <code>tests/pipeline/test_cache_handler_batch.py</code>; ○ real:
-L4 after local, cached steps 0 recomputed</td>
+<td>● <code>tests/pipeline/test_cache_handler_batch.py</code>; ● real:
+L4 after L4, cached steps 11-99 ms; local after L4, 2.7-4.3 s each
+(fresh: minutes). Rows cached before spec-117 by full path stay
+PC-only</td>
 </tr>
 <tr>
 <td>R13</td>

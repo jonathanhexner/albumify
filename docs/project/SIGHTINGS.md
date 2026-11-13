@@ -4,6 +4,20 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-154: re-running the same album gives slightly different picks (3 of ~330)
+**Status**: OPEN 2026-11-14. Found in spec-117 T8.3
+**Severity**: Medium (spec-110 AC4 "re-running a job reproduces it" not met; the user sees picks change)
+**Persona**: album selection
+
+**Problem**: GPU runs `f7d8ba85` (329 picks) and `fd52013c` (331) on the same 715 photos, same code and config:
+only in the first `20260818_160622`; only in the second `20260818_160621`, `20260822_174227`, `20260828_211441`.
+Scene count equal (97). The local run after them made 328.
+**Suspicion**: near-ties in `select_best` between near-duplicate shots; the first run computed some features fresh
+(GPU float32) while the second read them from the cache (serialised), or Siamese comparisons are not deterministic.
+**Repro**: two GPU runs of Slovakia26 back to back; diff `album.json` picks (both in R2 under `jobs/<id>/`).
+
+---
+
 ### SIGHTING-153: the first L4 runs against Neon failed three times (worker import, idle transaction, slow uploads)
 **Status**: RESOLVED 2026-11-14 on `spec/117-neon-r2` (`c0a2606`, `1b7d747`, and the upload fix). Found in spec-117 T8.2 from the real app
 **Severity**: High (every L4 run failed)

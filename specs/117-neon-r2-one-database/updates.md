@@ -4,6 +4,35 @@
 
 **Status:** In Progress 2026-11-06 (owner approved; W1-W6 being built in worktree `D:\sim-bench-117`)
 
+## 2026-11-14 — M2: deployed, Slovakia26 on the GPU from the app (T8.2, T8.3 done after three fixes)
+
+Owner: "go ahead with M2". `modal deploy` of `albumify-curator` (final image from `c56d6db`). Runs started from the
+app's Configure & Run with "L4 (GPU)"; Modal gave every run an A10G (the fallback).
+
+| Run | Result | Cause / fix |
+|---|---|---|
+| `61f3b9a8` | failed at start | worker image has no FastAPI; `session.py` imported it (SIGHTING-153 #1, `c0a2606`) |
+| `6745cbb0` | failed after `triage_content` (8.5 min) | cache read left a transaction idle; Neon ended it (#2, `1b7d747`) |
+| `54b46cd0` | 38 steps in 16.5 min, then Modal's 1800 s timeout while saving | renders uploaded one PUT at a time, ~0.6 s each (#3, `c56d6db`) |
+| `f7d8ba85` | **succeeded**: 659 photos, 329 picks, 7 people; saving 65 s | — |
+
+| Claim | Evidence |
+|---|---|
+| T8.2: the run survives the PC dropping out (R8) | `54b46cd0`: API restarted mid-run, the run went on. `f7d8ba85`: API and UI stopped from 23:13:57 UTC; the run finished steps, saved and turned `succeeded` at 23:15:44 with nothing running on this PC. The Wi-Fi itself was not cut (no admin rights) |
+| Progress and status from the database (R5) | job row read straight from Neon every 15-30 s: step, fraction, photo n/N, heartbeat ≤ 7 s old throughout |
+| The worker writes the results, nothing copied back (R6) | Neon rows with `D:\Slovakia26\...` paths, 0 staged paths; this PC's job folder holds only `input/manifest.json` and `run_spec.json` |
+| Results in the app (R7, R11) | Albums row "L4 (GPU)", 659 / 329 / 7; Results 329 cards, 336 images, 0 missing, 0 errors; People 7 people with crops from R2; Explore works |
+| GPU recorded (R10) | `NVIDIA A10` on every run; call id stored |
+| Failure end states (R9, partly) | each of the three failures turned the job `failed` with the reason (timeout: 24 s after Modal cancelled) |
+| T8.3: cached re-run (R12) | `fd52013c` after `f7d8ba85`: cached-layer steps 11-99 ms (were 0.4-2 s), whole pipeline 33 s; local `8ab479f9` after both: cached steps 2.7-4.3 s each, run 4.9 min end to end (T8.1: 24 min) |
+| Saving is no longer the bottleneck | local run "loading" 1 min 43 s (T8.1: 20.5 min); real R2 upload 52 ms per file |
+| Suites | api, serving, control, streamlit, storage, architecture, pipeline: 685 passed |
+
+**Open:** re-runs differ by 3 of ~330 picks, all near-duplicate shots (SIGHTING-154; spec-110 AC4 not met as written).
+The app's estimate (9.7 GPU min, $0.18) is far below the uncached run (16.5 min of steps on the A10G). Rows cached
+before spec-117 under full paths are not shared with the GPU. The cancel of a queued L4 run (R9) is still untested.
+Modal spend for M2, estimated from run times (about 55 A10G minutes): about $1.
+
 ## 2026-11-13 — SIGHTING-152 part 3: read requests in autocommit (R11 met on People only)
 
 Owner: "go ahead with autocommit for reads".

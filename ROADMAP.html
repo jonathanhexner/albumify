@@ -365,6 +365,16 @@ technical write-up</td>
 </table>
 <h2 id="current-position">Current position</h2>
 <ul>
+<li><strong>2026-11-14 — spec-117 M2 done: Slovakia26 ran on the GPU
+from the app and survived the PC dropping out.</strong> Deployed
+<code>albumify-curator</code>; three failures fixed on the way
+(SIGHTING-153: worker import, idle transaction, one-at-a-time uploads);
+run <code>f7d8ba85</code> finished with this PC's API and UI stopped,
+results in Albums. Saving dropped from 20 min to ~1 min, a local run
+from 24 to 4.9 min. Open: picks differ by 3 of ~330 between re-runs
+(SIGHTING-154), pages over 2 s (Streamlit drawing 300 photos). Next: M3
+close-out (secret scan, full suite, Budapest gate, /code-review, PR 117
+to main).</li>
 <li><strong>2026-11-13 — <a
 href="specs/118-album-tiers-gate1/spec.html">spec-118</a> album tiers
 drafted.</strong> Owner reviewed every pick of Slovakia26 run

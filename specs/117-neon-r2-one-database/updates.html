@@ -268,6 +268,11 @@ id="toc-spec-117--progress--verification-updates">spec-117 — Progress
 &amp; verification updates</a>
 <ul>
 <li><a
+href="#2026-11-14--m2-deployed-slovakia26-on-the-gpu-from-the-app-t82-t83-done-after-three-fixes"
+id="toc-2026-11-14--m2-deployed-slovakia26-on-the-gpu-from-the-app-t82-t83-done-after-three-fixes">2026-11-14
+— M2: deployed, Slovakia26 on the GPU from the app (T8.2, T8.3 done
+after three fixes)</a></li>
+<li><a
 href="#2026-11-13--sighting-152-part-3-read-requests-in-autocommit-r11-met-on-people-only"
 id="toc-2026-11-13--sighting-152-part-3-read-requests-in-autocommit-r11-met-on-people-only">2026-11-13
 — SIGHTING-152 part 3: read requests in autocommit (R11 met on People
@@ -328,6 +333,117 @@ href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
 <p><strong>Status:</strong> In Progress 2026-11-06 (owner approved;
 W1-W6 being built in worktree <code>D:\sim-bench-117</code>)</p>
+<h2
+id="2026-11-14--m2-deployed-slovakia26-on-the-gpu-from-the-app-t82-t83-done-after-three-fixes">2026-11-14
+— M2: deployed, Slovakia26 on the GPU from the app (T8.2, T8.3 done
+after three fixes)</h2>
+<p>Owner: "go ahead with M2". <code>modal deploy</code> of
+<code>albumify-curator</code> (final image from <code>c56d6db</code>).
+Runs started from the app's Configure &amp; Run with "L4 (GPU)"; Modal
+gave every run an A10G (the fallback).</p>
+<table>
+<thead>
+<tr>
+<th>Run</th>
+<th>Result</th>
+<th>Cause / fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>61f3b9a8</code></td>
+<td>failed at start</td>
+<td>worker image has no FastAPI; <code>session.py</code> imported it
+(SIGHTING-153 #1, <code>c0a2606</code>)</td>
+</tr>
+<tr>
+<td><code>6745cbb0</code></td>
+<td>failed after <code>triage_content</code> (8.5 min)</td>
+<td>cache read left a transaction idle; Neon ended it (#2,
+<code>1b7d747</code>)</td>
+</tr>
+<tr>
+<td><code>54b46cd0</code></td>
+<td>38 steps in 16.5 min, then Modal's 1800 s timeout while saving</td>
+<td>renders uploaded one PUT at a time, ~0.6 s each (#3,
+<code>c56d6db</code>)</td>
+</tr>
+<tr>
+<td><code>f7d8ba85</code></td>
+<td><strong>succeeded</strong>: 659 photos, 329 picks, 7 people; saving
+65 s</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T8.2: the run survives the PC dropping out (R8)</td>
+<td><code>54b46cd0</code>: API restarted mid-run, the run went on.
+<code>f7d8ba85</code>: API and UI stopped from 23:13:57 UTC; the run
+finished steps, saved and turned <code>succeeded</code> at 23:15:44 with
+nothing running on this PC. The Wi-Fi itself was not cut (no admin
+rights)</td>
+</tr>
+<tr>
+<td>Progress and status from the database (R5)</td>
+<td>job row read straight from Neon every 15-30 s: step, fraction, photo
+n/N, heartbeat ≤ 7 s old throughout</td>
+</tr>
+<tr>
+<td>The worker writes the results, nothing copied back (R6)</td>
+<td>Neon rows with <code>D:\Slovakia26\...</code> paths, 0 staged paths;
+this PC's job folder holds only <code>input/manifest.json</code> and
+<code>run_spec.json</code></td>
+</tr>
+<tr>
+<td>Results in the app (R7, R11)</td>
+<td>Albums row "L4 (GPU)", 659 / 329 / 7; Results 329 cards, 336 images,
+0 missing, 0 errors; People 7 people with crops from R2; Explore
+works</td>
+</tr>
+<tr>
+<td>GPU recorded (R10)</td>
+<td><code>NVIDIA A10</code> on every run; call id stored</td>
+</tr>
+<tr>
+<td>Failure end states (R9, partly)</td>
+<td>each of the three failures turned the job <code>failed</code> with
+the reason (timeout: 24 s after Modal cancelled)</td>
+</tr>
+<tr>
+<td>T8.3: cached re-run (R12)</td>
+<td><code>fd52013c</code> after <code>f7d8ba85</code>: cached-layer
+steps 11-99 ms (were 0.4-2 s), whole pipeline 33 s; local
+<code>8ab479f9</code> after both: cached steps 2.7-4.3 s each, run 4.9
+min end to end (T8.1: 24 min)</td>
+</tr>
+<tr>
+<td>Saving is no longer the bottleneck</td>
+<td>local run "loading" 1 min 43 s (T8.1: 20.5 min); real R2 upload 52
+ms per file</td>
+</tr>
+<tr>
+<td>Suites</td>
+<td>api, serving, control, streamlit, storage, architecture, pipeline:
+685 passed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Open:</strong> re-runs differ by 3 of ~330 picks, all
+near-duplicate shots (SIGHTING-154; spec-110 AC4 not met as written).
+The app's estimate (9.7 GPU min, $0.18) is far below the uncached run
+(16.5 min of steps on the A10G). Rows cached before spec-117 under full
+paths are not shared with the GPU. The cancel of a queued L4 run (R9) is
+still untested. Modal spend for M2, estimated from run times (about 55
+A10G minutes): about $1.</p>
 <h2
 id="2026-11-13--sighting-152-part-3-read-requests-in-autocommit-r11-met-on-people-only">2026-11-13
 — SIGHTING-152 part 3: read requests in autocommit (R11 met on People
