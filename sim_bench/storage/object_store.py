@@ -40,6 +40,10 @@ def job_key(job_id: str, rel: str) -> str:
     return check_key(f"{job_id}/{rel}")
 
 
+# Parallel uploads (display images and face crops): one PUT to R2 takes 0.5-1 s, so a job's ~1,300 files one
+# after another took 10-20 min (spec-117 T8.2). The R2 client keeps as many connections open.
+UPLOAD_WORKERS = 16
+
 class ObjectStore(ABC):
     """put / get / exists / list / delete_prefix by key. ``get`` of a missing key raises ``KeyError``."""
 
@@ -147,7 +151,7 @@ class R2ObjectStore(ObjectStore):
             "s3", endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
             aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
             aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"], region_name="auto",
-            config=Config(retries={"max_attempts": 5, "mode": "standard"}))
+            config=Config(retries={"max_attempts": 5, "mode": "standard"}, max_pool_connections=UPLOAD_WORKERS))
         return cls(os.environ["R2_BUCKET"], client)
 
     def _name(self, key: str) -> str:

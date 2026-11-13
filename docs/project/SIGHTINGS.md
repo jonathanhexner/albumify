@@ -4,6 +4,34 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-153: the first L4 runs against Neon failed three times (worker import, idle transaction, slow uploads)
+**Status**: RESOLVED 2026-11-14 on `spec/117-neon-r2` (`c0a2606`, `1b7d747`, and the upload fix). Found in spec-117 T8.2 from the real app
+**Severity**: High (every L4 run failed)
+**Persona**: serving / worker
+
+**Problem 1** (run `61f3b9a8`): `ModuleNotFoundError: No module named 'fastapi'` at job start. The 2026-11-13
+autocommit change (SIGHTING-152) imported `fastapi.Request` at the top of `session.py`; the worker image has no FastAPI
+and imports `session.py` inside the job (`curate_job.py`), so no import-time test saw it.
+**Fix 1**: import FastAPI only when installed. **Prevention**: `tests/architecture/test_worker_imports_without_fastapi.py`
+imports every worker module with FastAPI/Starlette/uvicorn blocked (fails on `dd33596`).
+
+**Problem 2** (run `6745cbb0`): `IdleInTransactionSessionTimeout` after `triage_content` (8.5 min on the A10G). The
+step's batch cache read (`UniversalCacheHandler.load_many`) committed only when it deleted stale rows, so the worker's
+connection sat idle in a transaction while the step computed, and Neon ended it. Steps on this PC finished sooner.
+**Fix 2**: `load_many` always ends its transaction. **Prevention**:
+`tests/pipeline/test_cache_handler_batch.py::test_a_read_leaves_no_transaction_open` (fails before).
+
+**Problem 3** (run `54b46cd0`): all 38 steps done in 16.5 min, then the worker spent 13+ min saving and hit Modal's
+1800 s function timeout. `LocalRenders` uploaded each display image and face crop to R2 one after another (~0.6 s per
+PUT from Modal, ~0.95 s from this PC: the local T8.1 run `5a6cfec8` spent 20.5 of its 24 min in "loading").
+**Fix 3**: uploads go through a 16-thread pool (R2 client pool 16). Real: 563 crops in 29 s (52 ms per file).
+**Prevention**: `tests/control/test_local_renders.py::test_uploads_run_in_parallel_and_all_arrive` (fails before).
+
+**Also found**: `AppTest.from_function` (`test_gallery_keys.py`, SIGHTING-151) leaves its script as `__main__`; the
+spec-104 step-isolation tests then crashed in their spawned children. `tests/streamlit/conftest.py` restores it.
+
+---
+
 ### SIGHTING-152: Albumify on Neon is 10-20x slower than on local SQLite
 **Status**: PARTLY FIXED 2026-11-13 on `spec/117-neon-r2` (C1-C3, API result cache, C5 thumbnails, runs-list and People queries, autocommit reads; Streamlit rendering and per-request pre-ping remain). Found in spec-117 T8.1 from the real app, run `5a6cfec8`
 **Severity**: High for a public URL (blocks spec-117 R11 page timings)

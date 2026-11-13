@@ -7419,3 +7419,9 @@ python scripts/export_clustering_data.py --embeddings results/Budapest/embedding
 - Change: the step's batch cache read ended its transaction only when it deleted stale rows; otherwise the connection sat idle in a transaction while the step computed, and Neon ended it (`IdleInTransactionSessionTimeout`, run `6745cbb0`, `triage_content` 8.5 min on the A10G). Separately, `AppTest.from_function` left its script as `__main__`, so spawned isolation children crashed when `test_step_isolation.py` ran after `test_gallery_keys.py`.
 - Verification: new test `test_a_read_leaves_no_transaction_open` fails before, passes after; isolation tests pass after the gallery test; api/serving/control/streamlit/storage/architecture/pipeline: 684 passed.
 - Reason: spec-117 T8.2 (first full L4 run against Neon); the suite failure was found running the pipeline tests with the others.
+
+## 2026-11-14 [PERF] spec-117 T8.2 — display images and face crops upload to R2 in parallel
+- Files: `sim_bench/control/local_renders.py` (`calc` cuts in order, uploads via a 16-thread pool; new `crop_bytes`), `sim_bench/storage/object_store.py` (`UPLOAD_WORKERS`, R2 client pool 16); `tests/control/test_local_renders.py` (+1); `docs/project/SIGHTINGS.md` (SIGHTING-153), `docs/project/LEARNINGS.md`
+- Change: one PUT at a time cost 0.6-0.95 s each; a job's ~1,300 files took 10-20 min (local T8.1: 20.5 of 24 min "loading"; L4 run `54b46cd0` hit Modal's 1800 s timeout while saving).
+- Verification: new test (80 uploads of 50 ms, must overlap and all arrive) fails before, passes after; real R2: 563 crops in 29 s (52 ms per file, was ~950 ms); suites 685 passed.
+- Reason: spec-117 T8.2.

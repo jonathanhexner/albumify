@@ -6,6 +6,10 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-11-14: code the worker imports lazily needs its own import test (SIGHTING-153)
+**What happened**: a FastAPI import at the top of `session.py` passed 486 tests and broke every L4 run: the GPU image has no FastAPI and the worker imports that module only inside a job. The second failure (a read transaction left open across an 8.5-min step) only shows where steps are slow and the database is Postgres.
+**Prevention**: import every worker module with the web stack blocked (`tests/architecture/test_worker_imports_without_fastapi.py`); any DB read before long compute ends its transaction (asserted with `session.in_transaction()`).
+
 ### 2026-11-13: on a far-away Postgres, count round trips per request, not queries (SIGHTING-152)
 **What happened**: Neon is 0.16 s away; a request with one query cost 0.80 s (pool pre-ping, psycopg 3's separate `BEGIN`, the query, `ROLLBACK`). Query-count tests caught the N+1s but not this; and first page opens were dominated by thumbnails decoded from full-size originals, not by SQL.
 **Prevention**: time `select 1` inside and outside a transaction before tuning queries; read requests run in autocommit (`tests/api/test_read_sessions.py`); thumbnails come from the 768 px copies (`tests/streamlit/test_thumb_sources.py`).
