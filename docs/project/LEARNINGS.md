@@ -6,6 +6,11 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-11-07: the album config drifted from the validated clustering profile
+**What happened**: `pipeline.yaml` kept the code defaults (K=5) while every clustering validation used profile_4 (K=51); the album pipeline split ~4 people into 76 and nobody compared the two.
+**Prevention**: a parameter validated in one place must be the one production reads; a parity test between `pipeline.yaml` and the reference profile is the follow-up.
+**Also**: Streamlit `st.tabs` builds every tab on every rerun, and collapsed expanders still build their contents; page anything per-item.
+
 ### 2026-11-06: editing .py files kills a running local album run
 **What happened**: the API runs `uvicorn --reload`; a code edit restarted it and the Ctrl+C reached the LocalRunner child, failing a 715-photo Slovakia26 run 6 minutes in.
 **Prevention**: while a local run is in progress, edit no `.py` under the repo (tests included), or run the API without `--reload` for long runs.

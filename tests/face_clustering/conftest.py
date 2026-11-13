@@ -33,7 +33,9 @@ def _isolate_run_history_db(tmp_path_factory):
     db_path = tmp_path_factory.mktemp("face_cluster_db") / "test_hist.db"
     _rh.init_table(db_path=db_path)
 
-    original = _rh.get_db_path
-    _rh.get_db_path = lambda: db_path
+    import face_cluster.run_history as _hist  # binds get_db_path by name; patch it too (SIGHTING-148)
+
+    original, original_hist = _rh.get_db_path, _hist.get_db_path
+    _rh.get_db_path = _hist.get_db_path = lambda: db_path
     yield db_path
-    _rh.get_db_path = original
+    _rh.get_db_path, _hist.get_db_path = original, original_hist
