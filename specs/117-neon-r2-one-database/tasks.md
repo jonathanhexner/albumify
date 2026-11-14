@@ -57,5 +57,5 @@ Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file tables). Thi
 - [~] T8.1 Slovakia26 on this PC against Neon + R2; Albums/Results/People/Explore; page timings. (2026-11-13: run from the app works; timings fail, SIGHTING-152; gallery bug SIGHTING-151)
 - [x] T8.2 Slovakia26 on the L4: cut the PC's network 2 min, restart the API once; run finishes; results in Albums. (2026-11-14: run `f7d8ba85`, after three failed runs fixed in SIGHTING-153; the PC side was stopped, the Wi-Fi itself not cut)
 - [x] T8.3 L4 re-run after the local run: cached steps recompute nothing. (2026-11-14: `fd52013c` after `f7d8ba85`, local `8ab479f9` after both; picks differ by 3 of ~330, SIGHTING-154)
-- [ ] T8.4 Secret scan (`git grep`, logs, run records, image env); Neon and R2 sizes.
-- [ ] T8.5 Full suite (SQLite), `needs_neon` set, Budapest gate, `/code-review` -> REVIEW.md.
+- [x] T8.4 Secret scan (`git grep`, logs, run records, image env); Neon and R2 sizes.
+- [x] T8.5 Full suite (SQLite), `needs_neon` set, Budapest gate, `/code-review` -> REVIEW.md.

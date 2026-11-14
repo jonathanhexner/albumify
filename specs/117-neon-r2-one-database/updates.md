@@ -2,7 +2,30 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** In Progress 2026-11-06 (owner approved; W1-W6 being built in worktree `D:\sim-bench-117`)
+**Status:** Code Review 2026-11-15 — accepted, no High open; Implemented after the PR merges (and the follow-ups below are accepted or done)
+
+## 2026-11-15 — M3 close-out: checks, reviews, fixes merged
+
+Owner: "go ahead with M3", then (via Telegram) decisions recorded in `f11f595`: **keep 768 px** (SIGHTING-144
+accepted); **R11 (pages < 2 s) and SIGHTING-154 (3 of ~330 picks differ on re-run) are follow-ups, not merge
+blockers**. Review fixes were made on `spec/117-m3-fixes` (worktree `D:\sim-bench-117-m3`) and merged here as `b95e485`.
+
+| Claim | Evidence |
+|---|---|
+| No secret in git, files, logs, run records or the database (T8.4) | Secret scan of the real `.env` values (Neon password + URL, R2 keys, Anthropic, Gemini): full history of both branches, 2,568 + 2,539 files, 3,812 logs/job records, 107 text columns in Neon: **0 hits**. Modal image holds only `configs/` + packages; keys come from the `albumify-cloud` secret |
+| Storage within free tiers | Neon 89 MB (0.5 GB); R2 8,709 objects, 0.32 GB (10 GB) |
+| Full suite (T8.5) | `9cd0e67`: 1805 passed, 0 failed, 71 skipped. **Merged `b95e485`: 1824 passed, 0 failed, 71 skipped** |
+| Budapest gate | 11/11 at `9cd0e67` and 11/11 on the fix branch |
+| Neon parity (`needs_neon`) | `9cd0e67`: 296/297, heartbeat test window shorter than one Neon write (SIGHTING-155, fixed). Fix branch: 315/316, `BlockingRunner` 30 s wait too short on Neon, raised to 300 s (`151b79d`); the 8 cancel tests then passed on Neon. No full 316-test re-run after that |
+| Review H1: lost Modal connection failed a healthy run | `10358db`: status "unknown", the heartbeat decides; `tests/serving/test_detached_modal_status.py` (SIGHTING-156) |
+| Review H2 + M4: architecture docs, CHANGES_LOG | `7ad54ac`, `10358db` |
+| Code review | [REVIEW.md](REVIEW.html) 2026-11-15: accepted, no High open |
+
+**Not done, follow-ups:** `modal deploy` of the fix image (the deployed worker is from `c56d6db`; the M1 guard only
+reaches the GPU after a deploy); cancel of a queued L4 run on real Modal (R9); review M7 (Modal auth/internal
+errors still read as "failed"), M8 (no `R2_*` on the worker silently falls back to local files); R11; SIGHTING-154;
+the 71 skipped tests are not itemised. Incident: the first secret scan echoed the Gemini key into a local tool
+log and the Claude session (never git/Neon/R2); log redacted, scan fixed; owner asked to rotate the key.
 
 ## 2026-11-14 — M2: deployed, Slovakia26 on the GPU from the app (T8.2, T8.3 done after three fixes)
 

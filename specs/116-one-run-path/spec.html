@@ -285,8 +285,10 @@ files</a></li>
 id="spec-116--one-run-path-choose-this-pc-or-the-l4-see-the-album-in-albums-either-way">spec-116
 — One run path: choose this PC or the L4, see the album in Albums either
 way</h1>
-<p><strong>Status:</strong> In Progress · <strong>Created:</strong>
-2026-10-25 · <strong>Roadmap:</strong> Stage C, before Gate 1 ·
+<p><strong>Status:</strong> Code Review — accepted, no High open
+(2026-11-15; <a href="REVIEW.html">REVIEW</a>); merges with spec-117 in
+one PR · <strong>Created:</strong> 2026-10-25 ·
+<strong>Roadmap:</strong> Stage C, before Gate 1 ·
 <strong>Follows:</strong> <a
 href="../115-album-workbench/spec.html">spec-115</a></p>
 <p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
@@ -529,7 +531,7 @@ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
     ✎ calc(CurateJobInputs) CurateJobResult
   }
   class ModalVolumeRemote {
-    ✎ run_job(job_id, keys, pipeline, spec) dict
+    missing(keys) List
   }
   class JobStore {
     ✎ write_input_manifest(job_id, keys, originals)
@@ -559,6 +561,13 @@ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
   style RunOutput fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
   style RunPersister fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
   style PathMap fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px</code></pre>
+<blockquote>
+<p>2026-11-15:
+<code>ModalVolumeRemote.run_job(job_id, keys, pipeline, spec)</code>,
+changed here to carry the <code>RunSpec</code>, was replaced by
+spec-117's detached start (<code>DetachedModalRemote.start</code>); it
+is no longer in the code.</p>
+</blockquote>
 <h2 id="5-new-files">5. New files</h2>
 <table>
 <thead>

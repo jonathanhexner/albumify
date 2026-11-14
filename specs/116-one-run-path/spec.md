@@ -1,6 +1,6 @@
 # spec-116 — One run path: choose this PC or the L4, see the album in Albums either way
 
-**Status:** In Progress · **Created:** 2026-10-25 · **Roadmap:** Stage C, before Gate 1 · **Follows:** [spec-115](../115-album-workbench/spec.html)
+**Status:** Code Review — accepted, no High open (2026-11-15; [REVIEW](REVIEW.html)); merges with spec-117 in one PR · **Created:** 2026-10-25 · **Roadmap:** Stage C, before Gate 1 · **Follows:** [spec-115](../115-album-workbench/spec.html)
 
 <p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
 
@@ -117,7 +117,7 @@ classDiagram
     ✎ calc(CurateJobInputs) CurateJobResult
   }
   class ModalVolumeRemote {
-    ✎ run_job(job_id, keys, pipeline, spec) dict
+    missing(keys) List
   }
   class JobStore {
     ✎ write_input_manifest(job_id, keys, originals)
@@ -148,6 +148,8 @@ classDiagram
   style RunPersister fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
   style PathMap fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
 ```
+
+> 2026-11-15: `ModalVolumeRemote.run_job(job_id, keys, pipeline, spec)`, changed here to carry the `RunSpec`, was replaced by spec-117's detached start (`DetachedModalRemote.start`); it is no longer in the code.
 
 ## 5. New files
 

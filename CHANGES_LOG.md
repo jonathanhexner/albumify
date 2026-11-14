@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-15 [DOCS] spec-116/117 M3 close-out: reviews, evidence, fix branch merged
+**Files**: `specs/116-one-run-path/{REVIEW,updates,spec}.md`, `specs/117-neon-r2-one-database/{REVIEW,updates,tasks,spec}.md`, `ROADMAP.md`, `docs/project/m3_closeout_2026-11-14.html`, `docs/project/status_2026-11-15.html`.
+**Change**: Code reviews (116 refreshed, 117 new, both re-checked after the fixes: accepted, no High open); T8.4/T8.5 done; both specs to Code Review; merged `spec/117-m3-fixes` (`b95e485`).
+**Reason**: M3 close-out; full suite 1824 passed / 0 failed on the merged branch, Budapest 11/11, secret scan 0 hits.
+
 ### 2026-11-14 [TEST] Neon parity re-run — the cancel tests' fake long job waits 5 min, not 30 s
 **Files**: `tests/control/test_job_service.py` (`BlockingRunner.run`).
 **Change**: `_stop.wait(30)` -> `_stop.wait(300)`; the fake job is always cancelled, so only the upper bound changes.

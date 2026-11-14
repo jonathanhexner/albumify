@@ -266,6 +266,8 @@
 <li><a href="#spec-116--code-review"
 id="toc-spec-116--code-review">spec-116 — Code review</a>
 <ul>
+<li><a href="#changes-since-2026-11-14"
+id="toc-changes-since-2026-11-14">Changes since 2026-11-14</a></li>
 <li><a href="#part-1-how-it-works" id="toc-part-1-how-it-works">Part 1:
 How it works</a></li>
 <li><a href="#part-2-findings" id="toc-part-2-findings">Part 2:
@@ -276,29 +278,80 @@ id="toc-part-3-verdict-per-area">Part 3: Verdict per area</a></li>
 </ul>
 </nav>
 <h1 id="spec-116--code-review">spec-116 — Code review</h1>
-<p><strong>Status:</strong> Blocked, 2 High findings ·
-<strong>Date:</strong> 2026-10-31 · <strong>Base:</strong>
-<code>main</code> (changes uncommitted on
-<code>spec/116-one-run-path</code>) · <strong>Checklist:</strong>
+<p><strong>Status:</strong> Accepted, no High open (2026-11-15), on the
+merge plan below: spec-116 reaches <code>main</code> only together with
+spec-117, in one PR from <code>spec/117-neon-r2</code>
+(<code>b95e485</code>). Not <code>Implemented</code> yet: the full suite
+on <code>b95e485</code> (see updates.md 2026-11-15, pending) and the H2
+decision copied into spec.md / updates.md · <strong>Date:</strong>
+2026-11-15 (refresh of 2026-11-14, 2026-10-31) · <strong>Base:</strong>
+<code>main...spec/116-one-run-path</code>
+(<code>4cb2adf</code>..<code>edc7678</code>), as merged into
+<code>spec/117-neon-r2</code> <code>b95e485</code> ·
+<strong>Checklist:</strong>
 <code>docs/guides/CODE_REVIEW_CHECKLIST.md</code></p>
-<p>Self-review by the implementing agent, not an independent one.</p>
+<p>Self-review by an agent, not an independent one. The three-dot diff
+also carries spec-115 commits
+(<code>7c9d9f2</code>..<code>01192fe</code>, reviewed under spec-115);
+this review covers <code>4cb2adf</code>, <code>7a29c4a</code>,
+<code>edc7678</code>.</p>
+<h2 id="changes-since-2026-11-14">Changes since 2026-11-14</h2>
+<ul>
+<li><strong>Merge plan (decides H1):</strong> spec-116 is not merged
+alone. It goes to <code>main</code> in the same PR as spec-117
+(<code>spec/117-neon-r2</code>, now <code>b95e485</code> after merging
+<code>spec/117-m3-fixes</code>). The spec-116-only transport (ephemeral
+Modal app + copy-back) never reaches <code>main</code>: spec-117
+replaced it, and spec-117's path is proven on real data. H1 is
+<strong>superseded</strong>.</li>
+<li><strong>H2 decided by owner</strong> (<code>f11f595</code>,
+SIGHTING-144 now DECIDED: keep 768 px for every run; any
+<code>min_sharpness</code> retune is a separate follow-up).</li>
+<li><strong>M5 decided by owner</strong> (<code>f11f595</code>,
+SIGHTING-154: a follow-up, not a merge blocker).</li>
+<li><strong>M1, M2 fixed by spec-117 code</strong> in the joint merge
+(deployed app + <code>spawn</code>; "waiting for gpu" stage). Their
+sightings (145, 143) are still marked OPEN and should be closed.</li>
+<li>The spec-117 fix commits (<code>10358db</code>,
+<code>7ad54ac</code>, <code>151b79d</code>) touch no spec-116 code;
+nothing new found in them for this spec (spec-117 REVIEW.md has their
+findings).</li>
+<li><strong>Evidence added:</strong> Budapest V2 gate 11/11 on
+<code>spec/117-m3-fixes</code> (contains all spec-116 code), which
+closes the "pending" gate from 2026-11-14. Neon parity 315/316 (one test
+timeout, fixed in <code>151b79d</code>). Full suite on
+<code>b95e485</code>: see updates.md 2026-11-15 (pending).</li>
+</ul>
 <h2 id="part-1-how-it-works">Part 1: How it works</h2>
 <pre><code>Configure &amp; Run -&gt; POST /pipeline/run {runner}
   PipelineService.start_pipeline   RunSpec.build, validate, JobService.create (spend cap), run row
   PipelineService.execute_pipeline -&gt; JobService.run
      stage    InputStore copies, manifest key -&gt; original
-     run      LocalRunner child process | ModalRunner
+     run      LocalRunner child process | ModalRunner (ephemeral app, run_app.run() held open)
               JobCurator -&gt; album.json, bundle.json, run_output.json, progress.json
-     load     ResultsLoader -&gt; control DB, displays, crops
+     load     ResultsLoader -&gt; control DB, displays, crops   (L4: run_output.json copied back)
      on_loaded  RunOutput.remap(PathMap) -&gt; RunPersister -&gt; commit with run status
-Albums -&gt; Results / People &amp; Faces / Explore (regular tables; RunEmbeddings, then cache)</code></pre>
+Albums -&gt; Results / People &amp; Faces / Explore (regular tables; RunEmbeddings, then cache)
+
+select_best (7a29c4a):  scene -1 -&gt; _select_unclustered: each photo scored alone, kept iff &gt;= min_score_threshold
+classify    (7a29c4a):  a -1 photo is never near_dup</code></pre>
+<p>spec-117 replaces the transport row: deployed app +
+<code>spawn</code>, and <code>WorkerPersister</code> on the worker calls
+the same <code>RunOutput.from_json(...).remap(PathMap...)</code> -&gt;
+<code>RunPersister</code>
+(<code>sim_bench/serving/worker_persister.py:71-74</code>). No
+copy-back. In the joint merge this is the only GPU path that reaches
+<code>main</code>.</p>
 <p>Layering: <code>app</code> -&gt; <code>api</code> -&gt;
 <code>serving</code> / <code>control</code> -&gt; <code>pipeline</code>.
 Exception, recorded: <code>serving/run_output.py</code> imports
 <code>api.schemas.result</code> and, lazily,
 <code>api.services.people_service</code>. <code>pipeline_service</code>
 imports <code>routers.jobs</code> lazily for its default
-<code>JobService</code>.</p>
+<code>JobService</code>. <code>7a29c4a</code> adds
+<code>album/normalizer.py</code> -&gt;
+<code>pipeline.clustering_labels</code> (data -&gt; lower layer,
+fine).</p>
 <h2 id="part-2-findings">Part 2: Findings</h2>
 <h3 id="high">High</h3>
 <table>
@@ -313,23 +366,40 @@ imports <code>routers.jobs</code> lazily for its default
 <tbody>
 <tr>
 <td>H1</td>
-<td><strong>The L4 path has no real-data proof.</strong> Checklist: "a
-new public API with no E2E test exercising it on real data". Both
-attempts stayed in Modal's queue, so <code>spec</code> reaching the
-worker, <code>run_output.json</code> copy-back and the remap of real
-<code>/inputs/</code> paths ran only against a fake</td>
-<td>updates.md 2026-10-31; R5 R6 R9</td>
-<td>Open: needs an L4 run</td>
+<td><strong>The spec-116 L4 transport has no real-data proof.</strong>
+Proven via spec-117 on real Slovakia26: <code>RunSpec</code> reaches the
+worker (<code>f7d8ba85</code>: 659 photos, 329 picks, 7 people);
+<code>RunOutput</code> round trip + <code>PathMap.remap</code> give
+original paths, 0 staged (R5); <code>RunPersister</code> rows open in
+Albums, Results, People, Explore (R6); cached re-run
+<code>fd52013c</code> (R9). Not proven: this branch's
+<code>ModalVolumeRemote.run_job</code> with the ephemeral
+<code>run_app.run()</code>
+(<code>sim_bench/serving/runners.py:149-161</code> on
+<code>spec/116-one-run-path</code>), copy-back of
+<code>run_output.json</code>, the "copying back" stage (R7), the Volume
+cache (R9 as written), cancel of a queued L4 run</td>
+<td><code>specs/117-neon-r2-one-database/updates.md</code> 2026-11-14
+M2; SIGHTINGS 153, 154</td>
+<td><strong>Superseded</strong> (2026-11-15): merge plan above. The
+unproven code is replaced by spec-117 (<code>runners.py</code>
+<code>ModalRunner</code> / <code>DetachedModalRemote</code>) before it
+reaches <code>main</code>. Re-opens if 116 is ever merged alone. Cancel
+of a queued L4 run stays a spec-117 gate (R9)</td>
 </tr>
 <tr>
 <td>H2</td>
 <td><strong>R13 fails its check.</strong> 768 px is not close enough at
-production settings, and with the sharpness gate off people still split
-11 vs 8. Every run now uses 768 px, so this changes results for every
-album</td>
+production settings (8 vs 96 photos reach the album, 11 vs 8 people);
+every run uses 768 px</td>
 <td><code>reports/2026-10-30_spec116_r13_fullsize_vs_768/</code>;
 SIGHTING-144</td>
-<td>Open: owner decision</td>
+<td><strong>Decided by owner</strong> 2026-11-14, <code>f11f595</code>:
+keep 768 px for every run; the threshold now means "sharp at 768 px"; a
+<code>filter_quality.min_sharpness</code> retune is a separate follow-up
+(<code>docs/project/SIGHTINGS.md</code> SIGHTING-144 status). Recorded
+in SIGHTINGS.md only: copy into spec.md R13 and updates.md before
+<code>Implemented</code></td>
 </tr>
 </tbody>
 </table>
@@ -340,34 +410,70 @@ SIGHTING-144</td>
 <th>#</th>
 <th>Finding</th>
 <th>Ticket</th>
+<th>Status</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>M1</td>
-<td>The PC must stay online for a whole L4 run (<code>runners.py</code>,
-<code>run_job</code>). A drop stops the app and raises past the
-<code>except</code>; a drop during a paid run would lose it</td>
-<td>SIGHTING-145</td>
+<td>The PC must stay online for a whole L4 run:
+<code>runners.py:155</code> holds <code>run_app.run()</code> open</td>
+<td>SIGHTING-145 (still OPEN)</td>
+<td><strong>Fixed by spec-117</strong> in the joint merge: deployed app
++ <code>spawn</code>, the job row is followed
+(<code>sim_bench/serving/runners.py:207-214</code> at
+<code>b95e485</code>); <code>f7d8ba85</code> finished with the PC's
+API/UI stopped; a lost link no longer fails the run (spec-117 H1,
+<code>10358db</code>,
+<code>tests/serving/test_detached_modal_status.py</code>). Close
+SIGHTING-145</td>
 </tr>
 <tr>
 <td>M2</td>
-<td>A queued L4 run reads "Running"</td>
-<td>SIGHTING-143</td>
+<td>A queued L4 run reads "Running": <code>runners.py:229</code> wrote
+<code>running</code> before the worker starts</td>
+<td>SIGHTING-143 (still OPEN)</td>
+<td><strong>Fixed by spec-117</strong> in the joint merge: stage
+"waiting for gpu" until the worker's first write
+(<code>sim_bench/serving/runners.py:205-206</code> at
+<code>b95e485</code>). No test names this; close SIGHTING-143 with one,
+or on the R9 queued-cancel run</td>
 </tr>
 <tr>
 <td>M3</td>
 <td>Behaviour changes to confirm: straightened picks show as the
 original; photos in subfolders are not run; Re-run left the Jobs page; a
-failed people or metric write now fails the run (it was a warning)</td>
-<td>spec §6 notes, updates.md</td>
+failed people or metric write fails the run; no-scene photos have no
+per-scene cap (Slovakia26 no-scene picks 24 -&gt; 85)</td>
+<td>spec §6 notes, updates.md, SIGHTING-146</td>
+<td>Still open (owner to confirm; not a merge blocker)</td>
 </tr>
 <tr>
 <td>M4</td>
-<td><code>SpecBuilder.calc</code> now applies
-<code>people_clustering</code>, so regression runs may shift from their
-baselines. Not measured</td>
+<td>Regression baselines not re-measured: <code>people_clustering</code>
+K=51 / blur_min 73.3 (<code>configs/pipeline.yaml:205,211</code>) and
+the <code>7a29c4a</code> selection change shift picks and people on
+every album</td>
 <td>TODO</td>
+<td>Partly: Budapest gate 11/11 on the fix branch holds its baselines;
+album-level (picks/people) baselines still not re-measured.
+Follow-up</td>
+</tr>
+<tr>
+<td>M5</td>
+<td>Re-running the same album on the GPU gives different picks (329 vs
+331, 3 photos differ); spec-110 AC4 not met</td>
+<td>SIGHTING-154</td>
+<td><strong>Decided by owner</strong> 2026-11-14, <code>f11f595</code>:
+follow-up, does not block the merge (SIGHTING-154 status line)</td>
+</tr>
+<tr>
+<td>M6</td>
+<td>Nothing ties <code>pipeline.yaml</code>
+<code>people_clustering</code> to the validated
+<code>profile_4.json</code>; the K=5 drift can recur silently</td>
+<td>SIGHTING-147 "Prevention (open)"</td>
+<td>Still open (follow-up)</td>
 </tr>
 </tbody>
 </table>
@@ -392,7 +498,8 @@ fed</td>
 <td>L2</td>
 <td><code>run_output.py</code> 320 LOC (justified in its docstring);
 <code>job_service.py</code> 327 and <code>job_store.py</code> 309 passed
-300 in this spec with no such note</td>
+300 in this spec with no note; <code>select_best.py</code> 653 LOC grew
+by 37 in <code>7a29c4a</code></td>
 <td>TODO</td>
 </tr>
 <tr>
@@ -409,9 +516,35 @@ spec-116, with no job to end them</td>
 <tr>
 <td>L5</td>
 <td><code>reports/</code> <code>report.html</code> +
-<code>summary.md</code> for R13 not written: the agent harness refused
-report files</td>
+<code>summary.md</code> for R13 not written</td>
 <td>updates.md</td>
+</tr>
+<tr>
+<td>L6</td>
+<td><code>min_score_threshold</code> default <code>0.4</code> is
+repeated at <code>select_best.py:346</code> and <code>:408</code></td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L7</td>
+<td>Wrong per-photo reasons: <code>build_reason_by_path</code>
+(<code>run_output.py:26-43</code>) keeps <code>detect_persons</code>'
+reason over <code>filter_quality</code>'s; "Best in cluster"/"Rank N"
+use the unsorted list (<code>select_best.py:373</code>)</td>
+<td>SIGHTING-149, SIGHTING-150 (OPEN, planned in spec-118)</td>
+</tr>
+<tr>
+<td>L8</td>
+<td><code>_merge_decisions_panel.py:702+</code> loop body keeps a
+16-space indent under an 8-space <code>for</code>;
+<code>tests/face_clustering/test_streamlit_e2e.py</code> is stale</td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L9</td>
+<td><strong>New.</strong> SIGHTING-143 and SIGHTING-145 are still OPEN
+although the merged code fixes them (M1, M2)</td>
+<td>Close in SIGHTINGS.md</td>
 </tr>
 </tbody>
 </table>
@@ -430,13 +563,13 @@ report files</td>
 <td>1</td>
 <td>Structure</td>
 <td>pass-with-follow-up</td>
-<td>L1, L2, L3</td>
+<td>L1, L2, L3, L8</td>
 </tr>
 <tr>
 <td>2</td>
 <td>Code quality</td>
-<td>pass</td>
-<td>The two swallowed writes became failures (R8)</td>
+<td>pass-with-follow-up</td>
+<td>Swallowed writes became failures (R8); L6</td>
 </tr>
 <tr>
 <td>3</td>
@@ -448,43 +581,103 @@ report files</td>
 <td>4</td>
 <td>Layering and coupling</td>
 <td>pass-with-follow-up</td>
-<td>One writer for result rows; <code>serving</code> -&gt;
-<code>api</code> schema import recorded in Part 1</td>
+<td>One writer for result rows (<code>RunPersister</code>, also the
+worker's writer in 117); <code>serving</code> -&gt; <code>api</code>
+import recorded</td>
 </tr>
 <tr>
 <td>5</td>
 <td>Testability</td>
-<td><strong>fail</strong></td>
-<td>H1. Local path covered by real E2E and real Budapest runs; L4 only
-faked. Fake Modal justified: no spend in tests</td>
+<td>pass-with-follow-up</td>
+<td>was fail: H1 superseded by the joint merge; the path that reaches
+<code>main</code> is the spec-117 one, proven on real data and now
+tested against the real Modal status
+(<code>tests/serving/test_detached_modal_status.py</code>). Still no
+test for K=51 (M6) or re-run stability (M5, owner follow-up)</td>
 </tr>
 <tr>
 <td>6</td>
 <td>Boundary contracts</td>
 <td>pass</td>
 <td><code>RunRow</code> forbids extras; <code>RunSpec</code> validated
-before anything is created; <code>RunOutput</code> is a dataclass read
-with <code>cls(**json)</code>, so unknown keys raise</td>
+before anything is created; <code>RunOutput</code> read with
+<code>cls(**json)</code>, unknown keys raise</td>
 </tr>
 <tr>
 <td>7</td>
 <td>Documentation</td>
 <td>pass-with-follow-up</td>
-<td><code>classes.html</code>, <code>data_flow.html</code> updated; no
-DB column changed; L5</td>
+<td><code>classes.html</code>, <code>data_flow.html</code> updated in
+<code>4cb2adf</code> (and for 117 in <code>7ad54ac</code>); L5; H2
+decision and merge plan not yet in spec.md / updates.md; L9</td>
 </tr>
 <tr>
 <td>8</td>
 <td>Risk register</td>
-<td><strong>fail</strong></td>
-<td>H2, M1</td>
+<td>pass-with-follow-up</td>
+<td>was fail: H2 and M5 decided by owner, M1 fixed by spec-117. Open
+follow-ups: M3, M4, M6</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Test inventory:</strong> 1,739 passed + 2 skipped full suite
-(0 failed); 11 Playwright on the real app with Modal faked; 11 Budapest
-V2 gate; 3 real local Budapest pipelines plus diagnostic. The 2 skips
-were not investigated individually.</p>
+<p><strong>Test inventory</strong></p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Count</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Full suite (spec-117 HEAD <code>9cd0e67</code>, all 116 code)</td>
+<td>1,805 passed, 0 failed, 71 skipped</td>
+<td>2026-11-14 run. On <code>b95e485</code>: see updates.md 2026-11-15
+(pending)</td>
+</tr>
+<tr>
+<td>Unit, new since 2026-10-31</td>
+<td>5</td>
+<td><code>tests/test_step_decisions.py</code>,
+<code>tests/album/test_normalizer.py</code>,
+<code>tests/architecture/test_logging_aligned.py</code>,
+<code>tests/face_clustering/test_streamlit_app.py</code></td>
+</tr>
+<tr>
+<td>Playwright on the real app</td>
+<td>11, Modal faked</td>
+<td><code>tests/test_configure_run_on_e2e.py</code>,
+<code>test_albums_table_e2e.py</code>,
+<code>test_jobs_page_run_e2e.py</code></td>
+</tr>
+<tr>
+<td>Budapest V2 gate</td>
+<td><strong>11/11 passed</strong> on <code>spec/117-m3-fixes</code> (all
+116 code)</td>
+<td><code>tests/face_clustering/e2e_budapest/</code></td>
+</tr>
+<tr>
+<td>Neon parity</td>
+<td>315/316 on the fix branch; the one failure (cancel test 30 s wait)
+fixed in <code>151b79d</code>, 8 cancel tests then passed on Neon</td>
+<td><code>tests/storage/test_neon_parity.py</code></td>
+</tr>
+<tr>
+<td>Real runs, this branch</td>
+<td>3 local Budapest + diagnostic (2026-10-31); Slovakia26 re-runs
+<code>277fb705</code> (SIGHTING-146) and <code>52776cc5</code> (K=51, 8
+people, 302 picks)</td>
+<td>SIGHTINGS 146, 147</td>
+</tr>
+<tr>
+<td>Real runs, GPU (spec-117 path)</td>
+<td><code>f7d8ba85</code> succeeded, <code>fd52013c</code> cached
+re-run</td>
+<td>spec-117 updates.md M2</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Failure walk-through:</strong> staged path stored:
 <code>test_every_path_is_the_original</code>,
 <code>test_rows_name_the_originals_on_both_machines</code>. Boxes on the
@@ -493,10 +686,19 @@ Job path ignores clustering:
 <code>test_people_clustering_reaches_the_steps</code>. Partial rows:
 <code>test_a_failed_write_leaves_no_rows</code>. Run stuck forever:
 <code>test_a_process_that_died_ends_failed</code>. Spend cap bypass:
-<code>test_l4_over_cap_is_refused</code>.</p>
-<p><strong>Blockers:</strong> H1 and H2 block <code>Implemented</code>.
-Decision needed on each: fix, waive (recorded here), or keep at In
-Progress. Spec stays In Progress.</p>
+<code>test_l4_over_cap_is_refused</code>. No-scene photos pooled /
+called near-dups: the three SIGHTING-146 tests. App hang from rendering
+all tabs: <code>test_only_the_chosen_tab_renders</code>. Lost link to
+Modal fails the run:
+<code>tests/serving/test_detached_modal_status.py</code> (spec-117).
+Album K drifting from the profile: <strong>no test</strong> (M6). Re-run
+picks changing: <strong>no test</strong> (M5, owner follow-up).</p>
+<p><strong>Verdict: Accepted, no High open</strong>, conditional on the
+merge plan (116 merges only with 117, one PR). Before
+<code>Implemented</code>: full suite on <code>b95e485</code> recorded
+(see updates.md 2026-11-15, pending); the H2 owner decision and the
+merge plan recorded in spec.md / updates.md; SIGHTINGS 143 and 145
+closed (L9). M3, M4, M6 are follow-ups.</p>
 </div>
 </body>
 </html>

@@ -2,7 +2,16 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** In Progress 2026-10-30
+**Status:** Code Review 2026-11-15 — accepted; merges with spec-117 in one PR
+
+## 2026-11-15 — review refreshed; merges together with spec-117
+
+| Claim | Evidence |
+|---|---|
+| H1 (no real GPU proof) superseded | spec-117 runs `f7d8ba85` / `fd52013c` proved the shared path; the 116-only copy-back path is replaced by 117, and 116 reaches `main` only in the same PR |
+| H2 (768 px changes results, SIGHTING-144) | Owner decision 2026-11-14: keep 768 px (`f11f595`) |
+| Tests | Merged branch `b95e485`: full suite 1824 passed, 0 failed; Budapest gate 11/11 |
+| Code review | [REVIEW.md](REVIEW.html) 2026-11-15: accepted, no High open |
 
 ## 2026-10-31 — W1-W3 built; R13 fails its check; both L4 attempts ended in Modal's queue
 

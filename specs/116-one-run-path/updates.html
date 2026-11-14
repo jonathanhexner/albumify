@@ -268,6 +268,10 @@ id="toc-spec-116--progress--verification-updates">spec-116 — Progress
 &amp; verification updates</a>
 <ul>
 <li><a
+href="#2026-11-15--review-refreshed-merges-together-with-spec-117"
+id="toc-2026-11-15--review-refreshed-merges-together-with-spec-117">2026-11-15
+— review refreshed; merges together with spec-117</a></li>
+<li><a
 href="#2026-10-31--w1-w3-built-r13-fails-its-check-both-l4-attempts-ended-in-modals-queue"
 id="toc-2026-10-31--w1-w3-built-r13-fails-its-check-both-l4-attempts-ended-in-modals-queue">2026-10-31
 — W1-W3 built; R13 fails its check; both L4 attempts ended in Modal's
@@ -282,7 +286,41 @@ id="toc-2026-10-25--drafted">2026-10-25 — Drafted</a></li>
 <p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
-<p><strong>Status:</strong> In Progress 2026-10-30</p>
+<p><strong>Status:</strong> Code Review 2026-11-15 — accepted; merges
+with spec-117 in one PR</p>
+<h2
+id="2026-11-15--review-refreshed-merges-together-with-spec-117">2026-11-15
+— review refreshed; merges together with spec-117</h2>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H1 (no real GPU proof) superseded</td>
+<td>spec-117 runs <code>f7d8ba85</code> / <code>fd52013c</code> proved
+the shared path; the 116-only copy-back path is replaced by 117, and 116
+reaches <code>main</code> only in the same PR</td>
+</tr>
+<tr>
+<td>H2 (768 px changes results, SIGHTING-144)</td>
+<td>Owner decision 2026-11-14: keep 768 px (<code>f11f595</code>)</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td>Merged branch <code>b95e485</code>: full suite 1824 passed, 0
+failed; Budapest gate 11/11</td>
+</tr>
+<tr>
+<td>Code review</td>
+<td><a href="REVIEW.html">REVIEW.md</a> 2026-11-15: accepted, no High
+open</td>
+</tr>
+</tbody>
+</table>
 <h2
 id="2026-10-31--w1-w3-built-r13-fails-its-check-both-l4-attempts-ended-in-modals-queue">2026-10-31
 — W1-W3 built; R13 fails its check; both L4 attempts ended in Modal's

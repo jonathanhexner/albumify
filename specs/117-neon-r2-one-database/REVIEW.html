@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>REVIEW</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="REVIEW.md">REVIEW.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-117--code-review"
+id="toc-spec-117--code-review">spec-117 — Code review</a>
+<ul>
+<li><a href="#changes-since-2026-11-14"
+id="toc-changes-since-2026-11-14">Changes since 2026-11-14</a></li>
+<li><a href="#part-1-how-it-works" id="toc-part-1-how-it-works">Part 1:
+How it works</a></li>
+<li><a href="#part-2-findings" id="toc-part-2-findings">Part 2:
+Findings</a></li>
+<li><a href="#part-3-verdict-per-area"
+id="toc-part-3-verdict-per-area">Part 3: Verdict per area</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-117--code-review">spec-117 — Code review</h1>
+<p><strong>Status:</strong> Accepted, no High open (2026-11-15). Not
+<code>Implemented</code> yet: the gates under Verdict must land in
+updates.md first (full suite on <code>b95e485</code>, T8.4 secret scan +
+sizes, cancel of a queued L4 run, <code>modal deploy</code> of the fix
+image) · <strong>Date:</strong> 2026-11-15 (refresh of 2026-11-14) ·
+<strong>Base:</strong> <code>spec/116-one-run-path</code> ..
+<code>b95e485</code> (branch <code>spec/117-neon-r2</code>, merge of
+<code>spec/117-m3-fixes</code>) · <strong>Checklist:</strong>
+<code>docs/guides/CODE_REVIEW_CHECKLIST.md</code></p>
+<p>Review by a separate agent; not human. Scope: code under
+<code>sim_bench/</code>, <code>app/</code>, <code>scripts/</code>,
+<code>tests/</code> (79 files, +4,256 / -808 at <code>9cd0e67</code>;
+the fix commits add 14 files, +334 / -25); docs checked for §7 only.</p>
+<h2 id="changes-since-2026-11-14">Changes since 2026-11-14</h2>
+<ul>
+<li><strong>Fix branch merged</strong> (<code>b95e485</code>,
+<code>git log 92f7882..b95e485</code>): <code>10358db</code> (H1 /
+SIGHTING-156, M1, M6, SIGHTING-155), <code>7ad54ac</code> (H2 docs),
+<code>f11f595</code> (owner decisions, recorded in
+<code>docs/project/SIGHTINGS.md</code> only), <code>151b79d</code>
+(cancel tests' fake job waits 300 s, not 30 s). CHANGES_LOG gained 7
+entries dated 2026-11-14, M4's among them.</li>
+<li><strong>Fixed:</strong> H1, H2, M1 (database half), M4, M6.
+<strong>Decided by owner:</strong> M5. <strong>Unchanged:</strong> M2,
+M3, L1-L10.</li>
+<li><strong>New:</strong> M7 (other errors that mean "this PC has a
+problem with Modal" still read as "failed"), M8 (the worker still runs
+without <code>R2_*</code>), L11 (the M1 guard is not in the deployed GPU
+image yet), L12 (the H1 test uses raw <code>GRPCError</code> where Modal
+1.6.1 raises <code>ServiceError</code>), L13 (a cancel while Modal is
+unreachable fails the job but does not stop the GPU).</li>
+<li><strong>Evidence added:</strong> Budapest gate 11/11 on the fix
+branch. Neon parity 315/316 on the fix branch; the one failure
+(<code>tests/control/test_job_service.py</code>
+<code>BlockingRunner</code> 30 s wait) was raised to 300 s in
+<code>151b79d</code>, after which the 8 cancel tests passed on Neon. The
+SIGHTING-155 heartbeat test passes on Neon. Full suite on
+<code>b95e485</code>: see updates.md 2026-11-15 (pending).</li>
+</ul>
+<h2 id="part-1-how-it-works">Part 1: How it works</h2>
+<pre><code>.env (DATABASE_URL, R2_*) --load_env()--&gt; API startup / local worker child / Modal secret &quot;albumify-cloud&quot;
+                                   |
+            storage/database.py DatabaseConfig  -- one engine factory (SQLite default | Neon via psycopg 3)
+            storage/object_store.py  LocalObjectStore(jobs_root) | R2ObjectStore (jobs/&lt;job_id&gt;/...)
+
+Configure &amp; Run -&gt; PipelineService -&gt; JobService.run -&gt; stage photos (manifest: keys, originals, sizes)
+   LocalRunner : child process, DB URL by env var (never argv)      \
+   ModalRunner : upload missing photos, DetachedModalRemote.spawn,  -&gt; worker_curator():
+                 store call_id, follow the JOB ROW                  /    require_shared_db(runner)   (M1, 10358db)
+                                                                         JobCurator.calc
+                                                                         DbProgressWriter -&gt; jobs.progress, heartbeat 5 s
+                                                                         run_pipeline (UniversalCacheHandler on DATABASE_URL,
+                                                                                       staged:&lt;sha16&gt;/&lt;name&gt; content keys, 1 query/step)
+                                                                         WorkerPersister: result files -&gt; object store,
+                                                                           ResultsLoader (job rows, LocalRenders 16-thread uploads),
+                                                                           write_run_rows (API rows, original paths) -&gt; succeeded
+   RunWatchdog (API thread, 30 s; and on each status GET): heartbeat &gt; 90 s, or call ended -&gt; failed
+   DetachedModalRemote.status: running | done | failed: &lt;why&gt; | gone | unknown (PC cannot reach Modal; H1, 10358db)
+       call_ended(&quot;unknown&quot;) is False -&gt; the heartbeat decides
+Albums / Results / People / Explore: GET -&gt; autocommit read session -&gt; ResultCache (finished rows) + 768 px thumbnails</code></pre>
+<p>Layering intended: <code>app</code> -&gt; <code>api</code> -&gt;
+<code>serving</code> / <code>control</code> -&gt; <code>pipeline</code>;
+<code>storage</code> at the bottom. Exceptions (existing + new):
+<code>serving/run_output.py</code> -&gt; <code>api.schemas</code>; new:
+<code>serving/runners.py:274</code> -&gt;
+<code>api.database.session</code>,
+<code>serving/worker_persister.py:60-61,87</code> -&gt;
+<code>api.database.models</code>,
+<code>api.services.run_persister</code> (lazy). This is why the GPU
+image needed <code>fastapi</code> guarded in
+<code>api/database/session.py:8-11</code> (SIGHTING-153 #1).</p>
+<p><strong>H1 consumers checked (2026-11-15).</strong> Every caller of
+<code>status()</code> goes through <code>call_ended</code>; nothing
+compares the string or tests <code>startswith("failed")</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Consumer</th>
+<th>Code</th>
+<th>"unknown" handled</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RunWatchdog._reason</code></td>
+<td><code>run_watchdog.py:70-71</code>
+(<code>status is None or not call_ended(status)</code> -&gt; no
+verdict)</td>
+<td>yes: heartbeat age decides (<code>:61-69</code>)</td>
+</tr>
+<tr>
+<td><code>ModalRunner._follow</code></td>
+<td><code>runners.py:229-230</code></td>
+<td>yes: keeps polling; a dead worker is failed by the watchdog,
+<code>_follow</code> then sees the terminal row
+(<code>:222-226</code>)</td>
+</tr>
+<tr>
+<td><code>PipelineService.get_status</code></td>
+<td><code>pipeline_service.py:198</code> -&gt;
+<code>reconcile([job_id])</code></td>
+<td>yes, via the watchdog</td>
+</tr>
+<tr>
+<td>UI pages</td>
+<td><code>app/streamlit/pages/jobs.py:78</code>,
+<code>configure.py:123</code> compare the <em>job</em> status, not the
+Modal status</td>
+<td>n/a</td>
+</tr>
+</tbody>
+</table>
+<h2 id="part-2-findings">Part 2: Findings</h2>
+<h3 id="high">High</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding</th>
+<th>Evidence</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H1</td>
+<td><strong>"Modal not reachable" is reported as "the call failed", so a
+healthy detached run can be failed and its paid results lost.</strong>
+<code>DetachedModalRemote.status</code> mapped <em>every</em> exception
+except <code>TimeoutError</code>/<code>OutputExpiredError</code> to
+<code>"failed: ..."</code>; <code>modal.exception.ConnectionError</code>
+and gRPC errors landed there too. <code>RunWatchdog._reason</code> then
+failed the job; <code>ModalRunner._follow</code> did the same;
+<code>WorkerPersister.calc</code> then refused the results. Tests did
+not catch it: <code>FakeCalls.status</code> <em>raises</em>
+(<code>tests/serving/test_run_watchdog.py:20-22, 91-94</code>)</td>
+<td><code>sim_bench/serving/detached_modal.py:297-305</code> (old);
+<code>run_watchdog.py:235-240</code>; <code>runners.py:229-234</code>;
+<code>pipeline_service.py:198</code>;
+<code>worker_persister.py:110</code></td>
+<td><strong>Fixed</strong> <code>10358db</code>: <code>status()</code>
+returns <code>"unknown"</code> when <code>unreachable(e)</code>
+(<code>detached_modal.py:57-60, 69-80</code>: <code>OSError</code>,
+Modal <code>ConnectionError</code> / <code>ClientClosed</code> /
+<code>ServiceError</code>, grpclib stream/protocol errors, gRPC
+UNAVAILABLE / DEADLINE_EXCEEDED); <code>call_ended</code> excludes it
+(<code>:83-86</code>). All three consumers checked (table above). Test:
+<code>tests/serving/test_detached_modal_status.py</code> (12 tests)
+drives the real <code>status()</code> with real Modal / grpclib
+exception classes and runs the watchdog on top
+(<code>ut_WatchdogWithRealRemote</code>). Remaining edges: M7, L12.
+SIGHTING-156 RESOLVED</td>
+</tr>
+<tr>
+<td>H2</td>
+<td><strong>§7 docs mandate: the architecture HTMLs stop at W6.</strong>
+Not documented: <code>ImageMetrics.display_path</code>,
+<code>GET /results/{id}/decisions</code>,
+<code>DELETE /jobs/{id}</code>, <code>ResultCache</code>,
+<code>RunDisplayCopies</code>, autocommit read sessions,
+<code>JobRepo.set_progress</code> / <code>runners()</code>, parallel
+uploads (<code>UPLOAD_WORKERS</code>)</td>
+<td><code>api/schemas/result.py:18</code>;
+<code>api/routers/results.py:43</code>;
+<code>api/routers/jobs.py:110</code>;
+<code>api/services/result_service.py:20-62</code>;
+<code>api/database/session.py:24-29,85-86</code>;
+<code>control/db.py:50-52,70-77</code></td>
+<td><strong>Fixed</strong> <code>7ad54ac</code>: every listed name is in
+<code>docs/architecture/classes.html:368-372</code> (rows "spec-117
+after W6", <code>ResultCache</code>, <code>RunDisplayCopies</code>,
+<code>ImageMetrics.display_path</code>, autocommit read sessions) and
+<code>docs/architecture/data_flow.html:425-456</code> (new "spec-117
+read path" block: <code>require_shared_db</code>,
+<code>UPLOAD_WORKERS = 16</code>, <code>status</code> "unknown",
+<code>DELETE /jobs/{id}</code>, <code>slowest_slowdown</code>,
+<code>get_session(request)</code>, <code>ControlDB.read_session</code>,
+<code>/decisions</code>, <code>JobRepo.runners()</code>). The
+<code>10358db</code> additions are documented too</td>
+</tr>
+</tbody>
+</table>
+<h3 id="medium">Medium</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding</th>
+<th>Evidence</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M1</td>
+<td>The worker never checked that it has the shared database: without
+<code>DATABASE_URL</code> the Modal worker wrote to a SQLite file inside
+the container and lost the paid results</td>
+<td><code>serving/runners.py:281</code> (old);
+<code>serving/modal_app.py:240-276</code>;
+<code>control/jobs.py:130-145</code></td>
+<td><strong>Fixed (database half)</strong> <code>10358db</code>:
+<code>require_shared_db(runner)</code> (<code>runners.py:271-282</code>)
+runs first in <code>worker_curator</code> (<code>:288</code>) and stops
+a <code>modal_*</code> worker with no or a SQLite
+<code>DATABASE_URL</code>. Test:
+<code>tests/serving/test_worker_needs_shared_db.py</code> (6, incl.
+"nothing created before the check"). The <code>R2_*</code> half the
+2026-11-14 fix asked for is not checked: M8. The guard reaches the GPU
+only after a <code>modal deploy</code> (L11)</td>
+</tr>
+<tr>
+<td>M2</td>
+<td>Two runs over the same photos at once can hit
+<code>uq_universal_cache_key</code>; the second writer's step fails and
+the session is left unrolled-back</td>
+<td><code>pipeline/cache_handler.py:125-135</code>;
+<code>api/database/models.py:157</code></td>
+<td>Still open (follow-up: upsert or rollback + retry; no sighting filed
+yet)</td>
+</tr>
+<tr>
+<td>M3</td>
+<td>New <code>serving -&gt; api</code> imports; the <code>fastapi</code>
+guard in <code>session.py</code> works around them</td>
+<td><code>serving/runners.py:274</code>;
+<code>serving/worker_persister.py:60-61,87</code>;
+<code>api/database/session.py:8-11</code>;
+<code>tests/architecture/test_worker_imports_without_fastapi.py</code></td>
+<td>Accept with follow-up (refactor TODO)</td>
+</tr>
+<tr>
+<td>M4</td>
+<td>No CHANGES_LOG entries for <code>dd33596</code>,
+<code>c0a2606</code>, <code>1b7d747</code>, <code>c56d6db</code></td>
+<td><code>git diff spec/116...HEAD -- CHANGES_LOG.md</code></td>
+<td><strong>Fixed</strong> <code>10358db</code>:
+<code>CHANGES_LOG.md:41-44</code> ("[DOCS] spec-117 review M4 — entries
+for four earlier commits") names all four with what each changed</td>
+</tr>
+<tr>
+<td>M5</td>
+<td>The definition of done is not met: R11 (&lt; 2 s on Neon) holds on
+People only (Results first open 11.6 s, Explore 7.7 s); SIGHTING-154
+(re-run picks differ by 3 photos; spec-110 AC4) open</td>
+<td>spec.md R11; updates.md 2026-11-13/14</td>
+<td><strong>Decided by owner</strong> 2026-11-14, <code>f11f595</code>:
+both are follow-ups and do not block the merge
+(<code>docs/project/SIGHTINGS.md</code> SIGHTING-152 "Still open" line
+and SIGHTING-154 status). Not yet copied into spec.md R11 or updates.md:
+record it there before <code>Implemented</code></td>
+</tr>
+<tr>
+<td>M6</td>
+<td>The spend cap under-counted on the fallback GPU (L4 timing, dearest
+price; 9.7 min estimated vs 16.5 min on the A10G)</td>
+<td><code>serving/job_service.py:142-143</code> (old);
+<code>tests/serving/test_modal_gpu_choice.py:38</code></td>
+<td><strong>Fixed</strong> <code>10358db</code>: minutes = L4 time x
+<code>slowest_slowdown</code> (<code>job_service.py:142</code>;
+<code>serving_config.py:37-39, 52-54</code>;
+<code>configs/serving.yaml:35-37</code>, A10G 1.7), dollars from those
+minutes at the dearest rate (<code>:143</code>); the cap
+(<code>max_gpu_minutes</code>, <code>:147</code>) now counts A10
+minutes. Tests:
+<code>tests/serving/test_modal_gpu_choice.py::test_the_spend_cap_is_checked_at_the_dearest_gpu</code>,
+<code>::test_the_estimate_assumes_the_slowest_gpu</code>;
+<code>tests/control/test_job_service.py::ut_Estimate::test_l4_estimate_has_minutes_and_dollars</code>.
+An unknown GPU still counts at L4 speed and price (deliberate,
+tested)</td>
+</tr>
+<tr>
+<td>M7</td>
+<td><strong>New.</strong> <code>unreachable(e)</code> misses other
+errors that come from this PC's link to Modal, not from the call:
+<code>AuthError</code> (expired token),
+<code>PermissionDeniedError</code>, <code>InternalError</code> (gRPC
+INTERNAL during a Modal incident). Modal 1.6.1 raises these as
+<code>_GRPCErrorWrapper</code> subclasses
+(<code>modal/_grpc_client.py:27-44</code>), so they fall through to
+<code>"failed: ..."</code> and a healthy run is failed exactly as in H1.
+Less likely than a network blip</td>
+<td><code>sim_bench/serving/detached_modal.py:61, 77-80</code></td>
+<td>Still open (follow-up): treat every <code>_GRPCErrorWrapper</code>
+except <code>NotFoundError</code> as unknown, or invert the rule (only
+<code>FunctionTimeoutError</code>, <code>RemoteError</code>,
+<code>InternalFailure</code>, <code>ExecutionError</code>,
+<code>NotFoundError</code> mean failed)</td>
+</tr>
+<tr>
+<td>M8</td>
+<td><strong>New.</strong> The worker still runs without the shared
+object store. <code>make_object_store</code> falls back to
+<code>LocalObjectStore</code> when any <code>R2_*</code> is missing
+(<code>storage/object_store.py:196-202</code>); on Modal that is the
+<code>/jobs</code> Volume, so the rows land in Neon but their
+photos/crops are not in R2 and the PC shows broken images. Same
+silent-default class as M1</td>
+<td><code>sim_bench/serving/runners.py:271-282, 295</code></td>
+<td>Still open (follow-up): extend <code>require_shared_db</code> to
+require all <code>R2_*</code> for <code>modal_*</code> runners, with a
+test</td>
+</tr>
+</tbody>
+</table>
+<h3 id="low">Low</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding</th>
+<th>Evidence</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L1</td>
+<td><code>a or b if cond else c</code> with no parentheses (§2 names
+this exact pattern). Both happen to be correct</td>
+<td><code>api/services/pipeline_service.py:216</code>;
+<code>serving/job_service.py:178</code></td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L2</td>
+<td>Dead code: <code>LocalRenders.render_display</code> /
+<code>render_crop</code> have no callers; <code>_redact</code> alias
+kept "for its callers"</td>
+<td><code>control/local_renders.py:123-128</code>;
+<code>control/db.py:37</code></td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L3</td>
+<td>More than 4 parameters: <code>_render_all</code> has 7;
+<code>run_pipeline</code> grew to 7;
+<code>DetachedModalRemote.start</code> has 5</td>
+<td><code>control/local_renders.py:77</code>;
+<code>serving/curate_job.py:73</code></td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L4</td>
+<td>Files over 300 LOC grew with no size note:
+<code>result_service</code> 460 -&gt; 515, <code>job_service</code> 327
+-&gt; 387, <code>job_store</code> 309 -&gt; 323, <code>modal_app</code>
+360 -&gt; 366</td>
+<td><code>wc -l</code></td>
+<td>TODO (carried from spec-116 L2)</td>
+</tr>
+<tr>
+<td>L5</td>
+<td><code>ResultCache</code> eviction runs in the worker process, so a
+re-loaded run is served stale by the API until restart or LRU</td>
+<td><code>api/services/run_persister.py:28</code>;
+<code>result_service.py:29-31</code></td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L6</td>
+<td>Each status GET of a detached run calls Modal; the watchdog thread
+logs only the exception type</td>
+<td><code>pipeline_service.py:198</code>;
+<code>api/main.py:79-81</code></td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L7</td>
+<td><code>redact_url</code> hides user:password but not a
+<code>?password=</code> query parameter; <code>main.py</code> uses the
+literal <code>"DATABASE_URL"</code></td>
+<td><code>storage/database.py:46-53</code>;
+<code>api/main.py:71</code></td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L8</td>
+<td>Leftovers on delete: album delete leaves job rows and R2 objects;
+<code>delete_job</code> leaves API run rows pointing at deleted
+files</td>
+<td><code>api/services/album_service.py:65-77</code>;
+<code>serving/job_service.py:218-235</code></td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L9</td>
+<td>Untyped boundaries: <code>jobs.progress</code> JSON and the Modal
+<code>manifest</code> dict; <code>ImageMetrics</code> has no
+<code>extra="forbid"</code></td>
+<td><code>serving/db_progress.py:51-61</code>;
+<code>serving/modal_app.py:268-270</code></td>
+<td>TODO</td>
+</tr>
+<tr>
+<td>L10</td>
+<td>The cache key ignores device and <code>model_version</code>; CPU-
+and GPU-computed features now mix</td>
+<td><code>pipeline/cache_handler.py:22-50, 81-88</code></td>
+<td>Note on SIGHTING-154</td>
+</tr>
+<tr>
+<td>L11</td>
+<td><strong>New.</strong> The M1 guard runs inside the Modal worker, but
+the deployed <code>albumify-curator</code> image dates from
+<code>c56d6db</code> (updates.md 2026-11-14 M2). Until
+<code>modal deploy</code> from <code>b95e485</code>, the GPU runs
+without it. H1 and M6 are PC-side and live on the next API restart</td>
+<td><code>sim_bench/serving/modal_app.py:274-275</code></td>
+<td>Open: redeploy, record in updates.md</td>
+</tr>
+<tr>
+<td>L12</td>
+<td><strong>New.</strong> <code>test_detached_modal_status.py</code>
+raises raw
+<code>grpclib.GRPCError(UNAVAILABLE / DEADLINE_EXCEEDED / NOT_FOUND)</code>;
+Modal 1.6.1 converts these to <code>ServiceError</code> /
+<code>NotFoundError</code> before they reach <code>get()</code>
+(<code>modal/_grpc_client.py:27-52</code>). <code>ServiceError</code> is
+in <code>unreachable</code> but has no test case; the code is right, the
+"real exception types" claim is only partly true</td>
+<td><code>tests/serving/test_detached_modal_status.py:55-62, 73-74</code></td>
+<td>TODO: add <code>ServiceError</code> and <code>NotFoundError</code>
+cases</td>
+</tr>
+<tr>
+<td>L13</td>
+<td><strong>New</strong> (pre-existing path). A cancel while Modal is
+unreachable: <code>ModalRunner._follow</code> calls
+<code>self._remote.cancel</code> (<code>runners.py:226-227</code>),
+which raises; <code>JobService.run</code>
+(<code>job_service.py:351</code>) ends the job failed, but the call
+keeps running and billing until it ends, and its results are
+refused</td>
+<td><code>sim_bench/serving/runners.py:226-227</code></td>
+<td>TODO</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Checked and fine:</strong> passwords never logged.
+<code>DatabaseConfig.__repr__</code> is redacted, both engines log
+<code>redacted()</code>, the local worker gets the URL by env var not
+argv, the migration script prints the target redacted, R2 errors name
+missing variables only, the image adds <code>configs/</code> + Python
+sources only (no <code>.env</code>), and
+<code>tests/conftest.py:15-16</code> clears all cloud variables. Object
+keys are checked (<code>..</code>, absolute, backslash, NUL), and
+<code>_file</code> serves only the job's own keys.
+<code>job_people</code> rename only touches a <code>people</code> table
+that has <code>job_id</code>. Column migrations compile per dialect.
+Postgres FK order was fixed (<code>bb3ab4b</code>). The cache read ends
+its transaction (<code>cache_handler.py:196-198</code>). Parallel
+uploads: the first failure fails the load and the executor waits for the
+rest. <code>np.load</code> from R2 bytes keeps
+<code>allow_pickle=False</code>. <strong>Fix commits:</strong>
+<code>require_shared_db</code> prints no URL;
+<code>test_detached_modal_status.py</code> restores the asyncio event
+loop policy after importing <code>modal</code> (keeps the later
+Playwright tests on the Proactor loop); the <code>151b79d</code> change
+only raises an upper bound on a fake job that is always cancelled.</p>
+<h2 id="part-3-verdict-per-area">Part 3: Verdict per area</h2>
+<p><strong>Test inventory (new/changed):</strong> about 97 new test
+functions in 17 files at <code>9cd0e67</code>, plus 19 from the fix
+branch: <code>tests/serving/test_detached_modal_status.py</code> (12),
+<code>tests/serving/test_worker_needs_shared_db.py</code> (6),
+<code>tests/serving/test_modal_gpu_choice.py::test_the_estimate_assumes_the_slowest_gpu</code>
+(1); changed: <code>test_db_progress.py</code> (heartbeat polls to a
+deadline), <code>test_job_service.py</code> (A10 estimate, 300 s fake
+job). Real E2E: T8.1 local run <code>5a6cfec8</code> on Neon + R2, T8.2
+L4 run <code>f7d8ba85</code> (PC API/UI stopped), T8.3 cached re-run
+<code>fd52013c</code>. Mocks: moto for R2 and fake Modal calls are
+justified; the Modal status contract is now tested against the real
+<code>status()</code> (H1).</p>
+<p><strong>Evidence:</strong> full suite on SQLite at
+<code>9cd0e67</code>: 1805 passed, 0 failed, 71 skipped. Fix branch:
+Budapest V2 gate 11/11; Neon parity 315/316, the one failure fixed in
+<code>151b79d</code> and its 8 cancel tests then passed on Neon;
+SIGHTING-155 heartbeat test passes on Neon. Full suite on
+<code>b95e485</code>: see updates.md 2026-11-15 (pending).</p>
+<table>
+<thead>
+<tr>
+<th>§</th>
+<th>Area</th>
+<th>Verdict</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Structure</td>
+<td>pass-with-follow-up</td>
+<td>L2, L3, L4; new modules small (<code>database</code> 112,
+<code>object_store</code> 202, <code>db_progress</code> 165,
+<code>worker_persister</code> 163, <code>run_watchdog</code> 82)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Code quality</td>
+<td>pass-with-follow-up</td>
+<td>M1 fixed for the database; M8 is the same silent default for R2.
+L1</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Naming and packages</td>
+<td>pass</td>
+<td><code>unreachable</code>, <code>UNKNOWN</code> added to
+<code>__all__</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Layering and coupling</td>
+<td>pass-with-follow-up</td>
+<td>M3</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Testability</td>
+<td>pass-with-follow-up</td>
+<td>was fail: H1 now has a test of the real <code>status()</code> +
+watchdog. L12 (missing <code>ServiceError</code> case)</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Boundary contracts</td>
+<td>pass-with-follow-up</td>
+<td>L9. Config knob -&gt; producer:
+<code>serving.yaml gpu_slowdown</code> -&gt;
+<code>ServingConfig.slowest_slowdown</code> -&gt;
+<code>JobService.estimate</code> -&gt; spend cap (M6 fixed, tested)</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Documentation</td>
+<td>pass-with-follow-up</td>
+<td>was fail: H2 and M4 fixed. Follow-ups: owner decisions (M5,
+SIGHTING-144) are in SIGHTINGS.md only, copy them into spec.md /
+updates.md; SIGHTING-155 "Left" line still asks for the parity re-run
+that has now happened</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Risk register</td>
+<td>pass-with-follow-up</td>
+<td>M2, M7, M8, L5, L8, L10, L11, L13; M5 decided by owner</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verdict: Accepted, no High open.</strong> Medium findings M2,
+M7, M8 are follow-ups and do not block the merge. Before
+<code>Implemented</code>, updates.md must record: the full suite on
+<code>b95e485</code> (see updates.md 2026-11-15, pending); T8.4 secret
+scan + Neon/R2 sizes (R13, R14); cancel of a queued L4 run (R9);
+<code>modal deploy</code> of the fix image (L11); the M5 owner
+decision.</p>
+<p><strong>Proposed follow-ups (not filed by this review):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Item</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sighting</td>
+<td>M2: concurrent cache writers -&gt; <code>IntegrityError</code> fails
+the step</td>
+</tr>
+<tr>
+<td>Sighting</td>
+<td>M7: Modal auth / permission / internal errors on the status poll
+read as a failed run</td>
+</tr>
+<tr>
+<td>Sighting</td>
+<td>M8: the Modal worker runs without <code>R2_*</code> and its files
+stay on the Volume</td>
+</tr>
+<tr>
+<td>Docs (this spec)</td>
+<td>owner decisions into spec.md / updates.md; SIGHTING-155 "Left" line;
+L11 redeploy</td>
+</tr>
+<tr>
+<td>TODO</td>
+<td>M3 engine/session factory into <code>storage/</code>; L1-L10, L12,
+L13 housekeeping</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>
