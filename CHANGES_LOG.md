@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-15 [CONFIG] CI installs the spec-117 test deps; heavy secret test out of the fast lane
+**Files**: `.github/workflows/tests.yml`, `docs/project/LEARNINGS.md`.
+**Change**: fast lane installs `psycopg[binary]` and `modal==1.6.1`; full lane installs `modal==1.6.1`; fast lane deselects `test_no_secrets_leak.py::test_a_run_record_holds_no_secret` (imports the step registry -> ultralytics/torch; still runs in the full lane and locally).
+**Reason**: PR #5 fast-tests failed 4 tests on missing packages (psycopg, modal, ultralytics); local fast-lane command now 152 passed.
+
 ### 2026-11-15 [DOCS] spec-116/117 M3 close-out: reviews, evidence, fix branch merged
 **Files**: `specs/116-one-run-path/{REVIEW,updates,spec}.md`, `specs/117-neon-r2-one-database/{REVIEW,updates,tasks,spec}.md`, `ROADMAP.md`, `docs/project/m3_closeout_2026-11-14.html`, `docs/project/status_2026-11-15.html`.
 **Change**: Code reviews (116 refreshed, 117 new, both re-checked after the fixes: accepted, no High open); T8.4/T8.5 done; both specs to Code Review; merged `spec/117-m3-fixes` (`b95e485`).

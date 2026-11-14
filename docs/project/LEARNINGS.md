@@ -6,6 +6,10 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-11-15: a new test must pass in CI's package set, not only the local .venv (PR #5)
+**What happened**: spec-117 added architecture tests that load `psycopg`, `modal` and (through a curate job) `ultralytics`. All passed locally (1824/0); the PR's fast lane installs only light packages and failed 4 tests. Spec-117 had never run in CI before the PR.
+**Prevention**: before pushing, run the fast-lane command from `.github/workflows/tests.yml` for any new test under its paths, and add a light dependency to its install step (or keep a heavy-stack test out of that lane, as the chain-order test is).
+
 ### 2026-11-14: code the worker imports lazily needs its own import test (SIGHTING-153)
 **What happened**: a FastAPI import at the top of `session.py` passed 486 tests and broke every L4 run: the GPU image has no FastAPI and the worker imports that module only inside a job. The second failure (a read transaction left open across an 8.5-min step) only shows where steps are slow and the database is Postgres.
 **Prevention**: import every worker module with the web stack blocked (`tests/architecture/test_worker_imports_without_fastapi.py`); any DB read before long compute ends its transaction (asserted with `session.in_transaction()`).

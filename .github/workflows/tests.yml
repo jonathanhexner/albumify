@@ -51,6 +51,9 @@ jobs:
           # Same pins as requirements.txt: unpinned, CI got SQLAlchemy 2.1 and the alembic drift
           # test failed on a Float/Double difference (SIGHTING-135).
           pip install pytest hdbscan "sqlalchemy>=2.0.30,<2.1" "alembic>=1.13,<2" pillow-heif
+          # spec-117: the architecture tests load the Postgres driver (secret-leak checks) and the Modal
+          # worker module (worker imports without FastAPI). Both are light; no torch.
+          pip install "psycopg[binary]>=3.2,<4" "modal==1.6.1"
 
       - name: Run fast test suite
         run: |
@@ -65,7 +68,10 @@ jobs:
             tests/pipeline/test_step_isolation.py \
             tests/albumify_vs_vlm/test_scene_distance_insertion.py \
             --ignore=tests/architecture/test_unified_clustering_chain_order.py \
+            --deselect=tests/architecture/test_no_secrets_leak.py::test_a_run_record_holds_no_secret \
             -q -p no:cacheprovider
+          # test_a_run_record_holds_no_secret runs a curate job, which imports the step registry
+          # (ultralytics -> torch): heavy stack, so full lane + local suite only.
 
   full-tests:
     # Nightly + manual only — the full ML stack is heavy to install and the model
@@ -123,7 +129,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest "modal==1.6.1"   # worker-import test loads modal_app (not in requirements.txt)
 
       - name: Run full suite (models installed; needs_data excluded)
         env:
