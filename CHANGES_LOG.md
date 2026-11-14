@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-14 [DOCS] spec-117 review H2 — architecture docs for the post-W6 changes
+**Files**: `docs/architecture/{classes,data_flow}.html`.
+**Change**: documented what came after W6: `ImageMetrics.display_path`, `GET /results/{id}/decisions`, `DELETE /jobs/{id}`, `ResultCache`, `RunDisplayCopies`, autocommit read sessions (`get_session(request)`, `ControlDB.read_session`), `JobRepo.set_progress` / `runners()`, parallel R2 uploads (`UPLOAD_WORKERS`), and from `10358db`: `status()` "unknown" + `unreachable(e)`, `require_shared_db`, `ServingConfig.gpu_slowdown` / `slowest_slowdown`. New data_flow subsection: spec-117 read path.
+**Verification**: grep finds each name in at least one of the two files. Docs only.
+**Reason**: spec-117 code review H2 (docs had not followed the code after W6).
+
 ### 2026-11-14 [BUGFIX] spec-117 review H1 — a lost connection to Modal is "unknown", not "failed" (SIGHTING-156)
 **Files**: `sim_bench/serving/detached_modal.py`; new `tests/serving/test_detached_modal_status.py`.
 **Change**: `status()` returns `"unknown"` when this PC cannot reach Modal (new `unreachable(e)`); `call_ended` treats it as still running, so the watchdog and the runner's follow loop judge by the heartbeat.

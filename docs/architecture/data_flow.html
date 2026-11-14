@@ -422,10 +422,12 @@ Configure &amp; Run -&gt; PipelineService.start_pipeline -&gt; JobService.run
   run       LocalRunner child  |  ModalRunner: upload what Modal lacks, spawn curate_job on the DEPLOYED app,
                                   store call_id on the job, "waiting for gpu", then follow the JOB ROW
   worker    (child process on this PC, or the L4 container; the same code: runners.worker_curator)
+            require_shared_db (first)       a modal_* worker with no DATABASE_URL, or a SQLite one, stops before any work
             JobCurator + DbProgressWriter   jobs.progress {stage, step, step_fraction, n of N, steps} + heartbeat_at
             feature cache                   universal_cache on DATABASE_URL; staged photos keyed staged:&lt;sha16&gt;/&lt;name&gt;
                                             (same key on both machines); one query per step (load_many/store_many)
-            WorkerPersister                 job loading; result files -&gt; object store; ResultsLoader rows + renders;
+            WorkerPersister                 job loading; result files -&gt; object store; ResultsLoader rows + renders
+                                            (LocalRenders uploads displays + crops on UPLOAD_WORKERS = 16 threads);
                                             album run rows (RunPersister, original paths via PathMap from the manifest);
                                             job succeeded | failed (with the reason)
   nothing is copied back to the PC
@@ -434,7 +436,25 @@ Configure &amp; Run -&gt; PipelineService.start_pipeline -&gt; JobService.run
 Albums / Results / People &amp; Faces / Explore read the regular tables; images + crops stream from the object store
 Configure &amp; Run polls PipelineService.live: the job row only (same view for both machines, "43% (307/715)")
 RunWatchdog (API, every 30 s; and on a status read): heartbeat &gt; 90 s, or call ended without results -&gt; failed
+  DetachedModalRemote.status: "unknown" when this PC cannot reach Modal (unreachable(e)); call_ended("unknown") is
+  False, so a network blip never fails a run: only the heartbeat does
 API restart / PC offline: the run goes on; reap_orphans skips jobs with a call id; cancel by call id
+DELETE /jobs/{id} (finished jobs only): JobService.delete_job -&gt; the job's rows + every file under &lt;job_id&gt;/
+GPU estimate / spend cap: L4 minutes x ServingConfig.slowest_slowdown (gpu_slowdown, A10G 1.7), at the dearest rate
+</pre>
+
+<h3>spec-117 &mdash; read path after W6 (SIGHTING-152: pages fast on Neon)</h3>
+<pre>
+GET / HEAD request -&gt; get_session(request) -&gt; AUTOCOMMIT session (no BEGIN / ROLLBACK round trips; Postgres only)
+JobRepo get / list / runners / events -&gt; ControlDB.read_session (autocommit, read only)
+
+Results page  GET /results/{id}           -&gt; ResultService._result: result_cache (ResultCache, last 8 runs)
+                                             miss -&gt; one pipeline_results read + RunDisplayCopies.paths(run) -&gt; cached
+              GET /results/{id}/images    -&gt; ImageMetrics per photo; display_path = the run's 768 px copy (thumbnails),
+                                             None -&gt; use path (runs before spec-116)
+              GET /results/{id}/decisions -&gt; step decisions, fetched apart (the result shows counts only)
+Albums page   PipelineService.list_runs   -&gt; one runs query + JobRepo.runners() (id -&gt; runner, status)
+RunPersister writes a run -&gt; result_cache.evict(run); deleting an album -&gt; evicts its runs
 </pre>
 <p>A job's rows and its album run's rows are two transactions (two databases without <code>DATABASE_URL</code>); a
 failure in either fails the job and leaves no partial run rows. The face clustering app's stores stay local
