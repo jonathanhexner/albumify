@@ -4,7 +4,7 @@
 
 ### 2026-11-15 [CONFIG] CI installs the spec-117 test deps; heavy secret test out of the fast lane
 **Files**: `.github/workflows/tests.yml`, `docs/project/LEARNINGS.md`.
-**Change**: fast lane installs `psycopg[binary]` and `modal==1.6.1`; full lane installs `modal==1.6.1`; fast lane deselects `test_no_secrets_leak.py::test_a_run_record_holds_no_secret` (imports the step registry -> ultralytics/torch; still runs in the full lane and locally).
+**Change**: fast lane installs `psycopg[binary]` and `modal==1.6.1`; full lane installs `modal==1.6.1`; fast lane deselects `test_no_secrets_leak.py::test_a_run_record_holds_no_secret` and `test_worker_imports_without_fastapi.py::test_worker_modules_import_without_the_web_stack` (both import the worker's pipeline -> ultralytics, insightface, torch; still run in the full lane and locally). Verified in a fresh venv with exactly the fast-lane packages: 151 passed, 3 deselected.
 **Reason**: PR #5 fast-tests failed 4 tests on missing packages (psycopg, modal, ultralytics); local fast-lane command now 152 passed.
 
 ### 2026-11-15 [DOCS] spec-116/117 M3 close-out: reviews, evidence, fix branch merged
