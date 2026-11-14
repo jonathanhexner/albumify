@@ -1,7 +1,7 @@
 """Detached L4 runs on the deployed Modal app (spec-117 R8, R9).
 
     start(job_id, keys, spec, manifest, pipeline) -> call id   spawn ``curate_job`` on the DEPLOYED app, by name
-    status(call_id)  -> "running" | "done" | "failed: <why>" | "gone"
+    status(call_id)  -> "running" | "done" | "failed: <why>" | "gone" | "unknown" (Modal unreachable from here)
     cancel(call_id)
 
 Nothing here holds a live link to the run: the call id is stored on the job row, the worker writes status,
@@ -15,9 +15,9 @@ from typing import Dict, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["DetachedModalRemote", "call_ended", "RUNNING", "DONE", "GONE"]
+__all__ = ["DetachedModalRemote", "call_ended", "unreachable", "RUNNING", "DONE", "GONE", "UNKNOWN"]
 
-RUNNING, DONE, GONE = "running", "done", "gone"
+RUNNING, DONE, GONE, UNKNOWN = "running", "done", "gone", "unknown"
 APP_NAME = "albumify-curator"
 
 
@@ -54,8 +54,11 @@ class DetachedModalRemote:
             return RUNNING
         except OutputExpiredError:
             return GONE
-        except Exception as e:          # cancelled, crashed, timed out on Modal's side
-            return f"failed: {type(e).__name__}: {e}"
+        except Exception as e:
+            if unreachable(e):          # this PC lost Modal; the call itself may be fine (SIGHTING-156)
+                logger.info("call %s: status unknown, Modal unreachable: %s", call_id, type(e).__name__)
+                return UNKNOWN
+            return f"failed: {type(e).__name__}: {e}"   # cancelled, crashed, timed out on Modal's side
 
     def cancel(self, call_id: str) -> None:
         import modal
@@ -63,6 +66,21 @@ class DetachedModalRemote:
         modal.FunctionCall.from_id(call_id).cancel()
 
 
+def unreachable(e: BaseException) -> bool:
+    """True when ``e`` says this PC could not talk to Modal (network, DNS, a dropped stream, Modal's service
+    briefly down), not that the call failed. Such an error must never fail a run: the worker writes to the
+    database itself and may well be fine."""
+    from grpclib.const import Status
+    from grpclib.exceptions import GRPCError, ProtocolError, StreamTerminatedError
+    from modal.exception import ClientClosed, ConnectionError as ModalConnectionError, ServiceError
+
+    if isinstance(e, (OSError, ModalConnectionError, ClientClosed, ServiceError, StreamTerminatedError,
+                      ProtocolError)):
+        return True
+    return isinstance(e, GRPCError) and e.status in (Status.UNAVAILABLE, Status.DEADLINE_EXCEEDED)
+
+
 def call_ended(status: str) -> bool:
-    """True once a call is no longer running (done, failed or gone)."""
-    return status != RUNNING
+    """True once a call is no longer running (done, failed or gone). "unknown" (Modal unreachable from here) is
+    not an end: the heartbeat decides."""
+    return status not in (RUNNING, UNKNOWN)

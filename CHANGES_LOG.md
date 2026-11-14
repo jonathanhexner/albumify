@@ -2,6 +2,47 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-14 [TEST] Neon parity re-run — the cancel tests' fake long job waits 5 min, not 30 s
+**Files**: `tests/control/test_job_service.py` (`BlockingRunner.run`).
+**Change**: `_stop.wait(30)` -> `_stop.wait(300)`; the fake job is always cancelled, so only the upper bound changes.
+**Verification**: Neon parity re-run on `spec/117-m3-fixes`: 315 of 316 passed (1 h 58 min); the one failure was `test_cancel_of_a_job_waiting_for_the_modal_slot_ends_it_at_once` (the first job ended at 30 s, before the test reached `cancel`, so the second had already succeeded). After the change: `ut_ReviewFixes` + `ut_Cancel` on a Neon schema 8 passed; `tests/control/test_job_service.py` on SQLite 33 passed. Budapest gate 11 passed. SIGHTING-155 heartbeat test passed on Neon.
+**Reason**: Neon round trips (~0.5 s each) made the test's setup take longer than the fake job's 30 s.
+
+### 2026-11-14 [DOCS] spec-117 review H2 — architecture docs for the post-W6 changes
+**Files**: `docs/architecture/{classes,data_flow}.html`.
+**Change**: documented what came after W6: `ImageMetrics.display_path`, `GET /results/{id}/decisions`, `DELETE /jobs/{id}`, `ResultCache`, `RunDisplayCopies`, autocommit read sessions (`get_session(request)`, `ControlDB.read_session`), `JobRepo.set_progress` / `runners()`, parallel R2 uploads (`UPLOAD_WORKERS`), and from `10358db`: `status()` "unknown" + `unreachable(e)`, `require_shared_db`, `ServingConfig.gpu_slowdown` / `slowest_slowdown`. New data_flow subsection: spec-117 read path.
+**Verification**: grep finds each name in at least one of the two files. Docs only.
+**Reason**: spec-117 code review H2 (docs had not followed the code after W6).
+
+### 2026-11-14 [BUGFIX] spec-117 review H1 — a lost connection to Modal is "unknown", not "failed" (SIGHTING-156)
+**Files**: `sim_bench/serving/detached_modal.py`; new `tests/serving/test_detached_modal_status.py`.
+**Change**: `status()` returns `"unknown"` when this PC cannot reach Modal (new `unreachable(e)`); `call_ended` treats it as still running, so the watchdog and the runner's follow loop judge by the heartbeat.
+**Verification**: 12 new tests (real `status()`, real exception types, watchdog on top) pass; the file fails to import on the old code; `tests/serving/test_run_watchdog.py` 10 passed.
+**Reason**: a network blip failed healthy GPU runs and their results were refused.
+
+### 2026-11-14 [TEST] SIGHTING-155 — heartbeat test polls to a deadline
+**Files**: `tests/serving/test_db_progress.py`.
+**Change**: wait until `heartbeat_at` moves (10 s deadline) instead of a fixed 0.7 s sleep; one Neon write takes ~0.65 s.
+**Verification**: `tests/serving/test_db_progress.py` 6 passed on SQLite and in the 2026-11-14 Neon parity re-run.
+**Reason**: the only failure of the 2026-11-14 Neon parity run.
+
+### 2026-11-14 [BUGFIX] spec-117 review M1 — a Modal worker without a shared DATABASE_URL stops at once
+**Files**: `sim_bench/serving/runners.py` (`require_shared_db`, called first in `worker_curator`); new `tests/serving/test_worker_needs_shared_db.py`.
+**Change**: `modal_*` workers refuse to start when `DATABASE_URL` is missing or SQLite; the error names the Modal secret, and the watchdog shows it on the job.
+**Verification**: 6 new tests pass (no URL, SQLite URL, Postgres URL, local runner, nothing created before the check).
+**Reason**: without it the worker wrote to a SQLite file inside the container and the paid run's results were lost.
+
+### 2026-11-14 [CONFIG] spec-117 review M6 — GPU estimate and spend cap at the slowest GPU
+**Files**: `sim_bench/serving/serving_config.py` (`gpu_slowdown`, `slowest_slowdown`), `sim_bench/serving/job_service.py`, `configs/serving.yaml`; `tests/serving/test_modal_gpu_choice.py`, `tests/control/test_job_service.py`.
+**Change**: GPU minutes = L4 time x the slowest GPU's slowdown (A10G 1.7, measured on Slovakia26 2026-11-13: 16.5 min vs 9.7 min estimated); dollars from those minutes at the dearest rate.
+**Verification**: `test_modal_gpu_choice.py`, `test_job_service.py`, jobs/pipeline router tests: 65 passed (3 R2 tests error on a missing `boto3` in this venv, same on `spec/117-neon-r2`).
+**Reason**: runs land on an A10G; the cap under-counted by 1.7x.
+
+### 2026-11-14 [DOCS] spec-117 review M4 — entries for four earlier commits
+**Files**: this log.
+**Change**: `dd33596` perf(SIGHTING-152) Neon pages 5-10x faster (see SIGHTING-152) + fix(SIGHTING-151) gallery Detail buttons keyed by the full path (the short hash collided on ~300-photo albums) + spec-117 T8.1 run from the app, migration marked done + spec-118 PRD; `c0a2606` fix: GPU worker imports `session.py` without FastAPI (SIGHTING-153 part 1); `1b7d747` fix: cache read ends its transaction, Neon had killed the L4 run idle in transaction (SIGHTING-153 part 2), UI tests restore `__main__`; `c56d6db` perf: display images and face crops uploaded to R2 in parallel, the L4 run had timed out saving (SIGHTING-153 part 3).
+**Reason**: house rule (every code change logged); flagged by the spec-117 review.
+
 ### 2026-11-06 [BUGFIX] spec-117 — RunPersister writes people before their face rows (Postgres FK)
 **Files**: `sim_bench/api/services/run_persister.py`, new `tests/api/test_run_persister_fk.py`; `tests/_db.py`, `tests/storage/test_neon_parity.py`.
 **Change**: flush the `people` rows before `face_metric_rows` (FK `person_id -> people.id`, no ORM relationship, so the unit of work did not order them; SQLite never enforced it, Postgres refused every run with faces). Parity helper: TRUNCATE no longer waits minutes on an earlier test's idle-in-transaction session; it ends only connections tagged with the parity run's `application_name`.

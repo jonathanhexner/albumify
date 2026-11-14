@@ -73,12 +73,20 @@ class ut_DbProgressWriter:
         assert progress["current_step"] == "b" and "step_fraction" not in progress
 
     def test_heartbeat_thread_beats_at_least_every_interval(self, db):
+        # Polls to a deadline instead of one fixed sleep: one heartbeat write to Neon takes ~0.65 s (SIGHTING-155),
+        # so a 0.7 s window failed there although the thread beat fine.
         w = DbProgressWriter(db, "j1", ["a"], heartbeat_s=0.2)
         with w:
+            deadline = time.monotonic() + 10.0
             first = JobRepo(db).get("j1").heartbeat_at
-            time.sleep(0.7)
-            later = JobRepo(db).get("j1").heartbeat_at
-        assert later > first
+            while first is None and time.monotonic() < deadline:
+                time.sleep(0.05)
+                first = JobRepo(db).get("j1").heartbeat_at
+            later = first
+            while later == first and time.monotonic() < deadline:
+                time.sleep(0.05)
+                later = JobRepo(db).get("j1").heartbeat_at
+        assert first is not None and later > first
 
     def test_a_failed_write_never_stops_the_run(self, db, monkeypatch):
         w = DbProgressWriter(db, "j1", ["a"])

@@ -252,7 +252,7 @@ class ut_Estimate:
     def test_l4_estimate_has_minutes_and_dollars(self, tmp_path, src):
         est = _service(tmp_path, _in_process).estimate(src, runner="modal_gpu")
         assert est.n_photos == 6 and est.allowed
-        assert est.gpu_minutes == round((150 + 6 * 0.6) / 60, 1) and est.dollars is not None
+        assert est.gpu_minutes == round((150 + 6 * 0.6) * 1.7 / 60, 1) and est.dollars is not None
 
     def test_local_estimate_has_no_gpu_figures(self, tmp_path, src):
         est = _service(tmp_path, _in_process).estimate(src, runner="local")
@@ -281,7 +281,7 @@ class BlockingRunner:
         (self.store.paths(job_id).results_dir).mkdir(parents=True, exist_ok=True)
         (self.store.paths(job_id).results_dir / "bundle.json").write_text("{}")
         self.started.set()
-        self._stop.wait(30)
+        self._stop.wait(300)                  # always cancelled; long enough for slow Neon round trips
         return RunOutcome(ok=False, error=CANCELLED)
 
     def cancel(self, job_id):
