@@ -30,9 +30,16 @@ def test_the_spend_cap_is_checked_at_the_dearest_gpu(tmp_path, control_db_url):
     cfg = load_serving_config()
     est = JobService(ControlDB(control_db_url), ServingConfig(jobs_root=tmp_path / "jobs")).estimate(
         src, runner="modal_gpu")
-    minutes = round((cfg.l4_fixed_seconds + 100 * cfg.l4_seconds_per_photo) / 60, 1)
-    assert est.gpu_minutes == minutes
+    minutes = round((cfg.l4_fixed_seconds + 100 * cfg.l4_seconds_per_photo) * 1.7 / 60, 1)
+    assert est.gpu_minutes == minutes                            # at A10G speed (review M6), not L4
     assert est.dollars == round(minutes / 60 * 1.10, 2)          # A10G, not L4
+
+
+def test_the_estimate_assumes_the_slowest_gpu():
+    cfg = load_serving_config()
+    assert cfg.gpu_slowdown == {"L4": 1.0, "A10G": 1.7} and cfg.slowest_slowdown == 1.7
+    assert ServingConfig(gpu=("L4",)).slowest_slowdown == 1.0
+    assert ServingConfig(gpu=("H100",), gpu_slowdown={}).slowest_slowdown == 1.0   # unknown: L4 speed
 
 
 def test_an_unknown_gpu_is_priced_at_the_l4_rate_and_an_empty_list_is_refused():

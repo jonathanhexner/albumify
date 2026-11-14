@@ -30,3 +30,8 @@ gpu: [L4, A10G]
 gpu_dollars_per_hour:
   L4: 0.80
   A10G: 1.10
+# review M6: how much slower than the L4 each GPU runs. The estimate (and so the spend cap) assumes the slowest
+# GPU in the list. A10G measured on Slovakia26, 2026-11-13: 16.5 min against 9.7 min at L4 speed.
+gpu_slowdown:
+  L4: 1.0
+  A10G: 1.7

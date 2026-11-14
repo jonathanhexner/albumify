@@ -139,8 +139,8 @@ class JobService:
             count = len(select_images(Path(source), start, n))
         if cfg.runner != "modal_gpu":
             return Estimate(runner=cfg.runner, n_photos=count)
-        minutes = round((cfg.l4_fixed_seconds + count * cfg.l4_seconds_per_photo) / 60, 1)
-        dollars = round(minutes / 60 * cfg.dearest_dollars_per_hour, 2)   # spec-117 R10: whichever GPU it gets
+        minutes = round((cfg.l4_fixed_seconds + count * cfg.l4_seconds_per_photo) * cfg.slowest_slowdown / 60, 1)
+        dollars = round(minutes / 60 * cfg.dearest_dollars_per_hour, 2)   # spec-117 R10 + M6: slowest, dearest GPU
         reason = None
         if count > cfg.max_photos_l4:
             reason = f"{count} photos is over the L4 limit of {cfg.max_photos_l4}; choose a smaller range"

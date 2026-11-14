@@ -268,9 +268,24 @@ def _child_main() -> int:
     return 0 if res.ok else 1
 
 
+def require_shared_db(runner: str) -> None:
+    """A Modal worker must write to the shared database (Neon). Without ``DATABASE_URL`` it would quietly write to a
+    SQLite file inside the container and its results would vanish with it, after the GPU time is paid
+    (spec-117 review M1). Stop before any work instead; the watchdog then shows the reason on the job."""
+    if not runner.startswith("modal"):
+        return
+    from sim_bench.storage.database import ENV_VAR, DatabaseConfig
+
+    url = os.environ.get(ENV_VAR, "")
+    if not url or DatabaseConfig(url).is_sqlite:
+        raise RuntimeError(f"{runner} worker has no shared {ENV_VAR} (add it to the Modal secret); stopped before "
+                           "any work so results are not written to a file inside the container")
+
+
 def worker_curator(root, *, inputs_root=None, runner: str = "local", control_db_url: Optional[str] = None):
     """The curator a real worker runs (spec-117): progress and results go to the job database, files to the object
     store, the album run's rows to the API tables. Same on this PC and on the L4."""
+    require_shared_db(runner)
     from sim_bench.api.database.session import get_session_direct
     from sim_bench.control.db import ControlDB
     from sim_bench.serving.curate_job import JobCurator

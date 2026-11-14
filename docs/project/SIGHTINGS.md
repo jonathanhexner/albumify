@@ -4,6 +4,39 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-156: a lost connection to Modal fails a healthy GPU run and loses its results
+**Status**: RESOLVED 2026-11-14 on `spec/117-m3-fixes` (from `spec/117-neon-r2` 9cd0e67). Found by the spec-117 code review (H1)
+**Severity**: High (the exact "PC drops out" case spec-117 R8 exists for)
+**Persona**: serving / watchdog
+
+**Problem**: `DetachedModalRemote.status()` turned every exception into `"failed: ..."`, including a lost connection
+from this PC to Modal. The watchdog took that as "the call ended", failed the job, and when the worker later finished,
+`WorkerPersister` could no longer move the job to loading, so its results were refused.
+**Why the tests missed it**: the watchdog tests' fake remote *raised* on a lost connection (the watchdog handles that),
+while the real `status()` *returned* "failed".
+**Fix**: `status()` returns `"unknown"` for errors that mean "could not reach Modal" (`OSError`, Modal
+`ConnectionError` / `ClientClosed` / `ServiceError`, grpclib stream/protocol errors, gRPC UNAVAILABLE /
+DEADLINE_EXCEEDED); `call_ended("unknown")` is False, so the heartbeat decides. A real failure of the call (timeout,
+crash, cancel, not found) is still "failed".
+**Prevention**: `tests/serving/test_detached_modal_status.py` drives the real `status()` with the real exception types
+and runs the watchdog on it (12 tests; the file fails to import on the old code).
+
+---
+
+### SIGHTING-155: heartbeat test fails on Neon (timing window shorter than one Neon write)
+**Status**: RESOLVED 2026-11-14 on `spec/117-m3-fixes` (test only). Found in spec-117 M3 (parity run on Neon: 296 passed, 1 failed)
+**Severity**: Low (test only; production beats every 5 s and GPU run `f7d8ba85` kept its heartbeat for 16 min)
+**Persona**: test infrastructure
+
+**Problem**: `tests/serving/test_db_progress.py::ut_DbProgressWriter::test_heartbeat_thread_beats_at_least_every_interval`
+set `heartbeat_s=0.2`, slept a fixed 0.7 s and expected `heartbeat_at` to have moved. On Neon it had not.
+**Cause (measured)**: one heartbeat write to Neon takes 0.65 s (about 4 round trips of 0.16 s), so the first beat
+landed at ~0.85 s, after the read.
+**Fix**: the test polls `heartbeat_at` until it moves (10 s deadline) instead of one fixed sleep.
+**Left**: re-run the Neon parity set (`pytest -m needs_neon tests/storage/test_neon_parity.py`, ~52 min) to show 297/297.
+
+---
+
 ### SIGHTING-154: re-running the same album gives slightly different picks (3 of ~330)
 **Status**: OPEN 2026-11-14. Found in spec-117 T8.3
 **Severity**: Medium (spec-110 AC4 "re-running a job reproduces it" not met; the user sees picks change)
