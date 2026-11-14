@@ -38,7 +38,7 @@ landed at ~0.85 s, after the read.
 ---
 
 ### SIGHTING-154: re-running the same album gives slightly different picks (3 of ~330)
-**Status**: OPEN 2026-11-14. Found in spec-117 T8.3
+**Status**: OPEN 2026-11-14. Found in spec-117 T8.3. Owner 2026-11-14: a follow-up, does not block the spec-117 merge
 **Severity**: Medium (spec-110 AC4 "re-running a job reproduces it" not met; the user sees picks change)
 **Persona**: album selection
 
@@ -150,7 +150,7 @@ Test: `tests/api/test_read_sessions.py` (8); suites 486 passed.
 | People & Faces | 1.8 s | 1.5 s |
 | Per call: albums, people / runs | 0.48 / 1.9 s | 0.34 / 1.37 s |
 
-**Still open (R11 < 2 s on People only)**: Streamlit draws a 302-photo page in ~3-4 s even on SQLite (Results, Explore);
+**Still open (R11 < 2 s on People only; owner 2026-11-14: a follow-up, does not block the spec-117 merge)**: Streamlit draws a 302-photo page in ~3-4 s even on SQLite (Results, Explore);
 the first request after an API start reflects the schema (Albums first ~8 s); the pool pre-ping is one round trip per
 request (kept: Neon closes idle connections); the runs table uses two pools (API + jobs). People thumbnails still
 crop the originals (7 photos, uncached).
@@ -260,7 +260,8 @@ is raised on leaving the `with` block, past the `except` around `.get()`.
 **Reproduce**: start an L4 run, cut the PC's network, watch `modal app logs <app id>`.
 
 ### SIGHTING-144: The sharpness gate depends on photo resolution
-**Status**: OPEN 2026-10-31 (found by spec-116 R13; owner decision)
+**Status**: DECIDED 2026-11-14: owner keeps 768 px for every run (no return to full size). The threshold now means
+"sharp at 768 px"; any retune of `filter_quality.min_sharpness` is a separate follow-up. Found by spec-116 R13
 **Severity**: High for Gate 1 (it decides which photos reach the album, and spec-116 moves every run to 768 px)
 **Persona**: Pipeline / Quality
 
