@@ -402,9 +402,12 @@ open</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Not done, follow-ups:</strong> <code>modal deploy</code> of
-the fix image (the deployed worker is from <code>c56d6db</code>; the M1
-guard only reaches the GPU after a deploy); cancel of a queued L4 run on
+<p>| Fix image on the GPU (review L11) | <code>modal deploy</code> of
+<code>albumify-curator</code> from <code>9cd6f66</code> (merged fixes;
+packages taken from <code>D:\sim-bench-117</code>,
+<code>require_shared_db</code> present): deployed 2026-11-15, owner OK.
+Not yet exercised by a GPU run |</p>
+<p><strong>Not done, follow-ups:</strong> cancel of a queued L4 run on
 real Modal (R9); review M7 (Modal auth/internal errors still read as
 "failed"), M8 (no <code>R2_*</code> on the worker silently falls back to
 local files); R11; SIGHTING-154; the 71 skipped tests are not itemised.

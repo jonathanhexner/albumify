@@ -21,8 +21,9 @@ blockers**. Review fixes were made on `spec/117-m3-fixes` (worktree `D:\sim-benc
 | Review H2 + M4: architecture docs, CHANGES_LOG | `7ad54ac`, `10358db` |
 | Code review | [REVIEW.md](REVIEW.html) 2026-11-15: accepted, no High open |
 
-**Not done, follow-ups:** `modal deploy` of the fix image (the deployed worker is from `c56d6db`; the M1 guard only
-reaches the GPU after a deploy); cancel of a queued L4 run on real Modal (R9); review M7 (Modal auth/internal
+| Fix image on the GPU (review L11) | `modal deploy` of `albumify-curator` from `9cd6f66` (merged fixes; packages taken from `D:\sim-bench-117`, `require_shared_db` present): deployed 2026-11-15, owner OK. Not yet exercised by a GPU run |
+
+**Not done, follow-ups:** cancel of a queued L4 run on real Modal (R9); review M7 (Modal auth/internal
 errors still read as "failed"), M8 (no `R2_*` on the worker silently falls back to local files); R11; SIGHTING-154;
 the 71 skipped tests are not itemised. Incident: the first secret scan echoed the Gemini key into a local tool
 log and the Claude session (never git/Neon/R2); log redacted, scan fixed; owner asked to rotate the key.
