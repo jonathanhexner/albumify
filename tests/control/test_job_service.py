@@ -281,7 +281,7 @@ class BlockingRunner:
         (self.store.paths(job_id).results_dir).mkdir(parents=True, exist_ok=True)
         (self.store.paths(job_id).results_dir / "bundle.json").write_text("{}")
         self.started.set()
-        self._stop.wait(30)
+        self._stop.wait(300)                  # always cancelled; long enough for slow Neon round trips
         return RunOutcome(ok=False, error=CANCELLED)
 
     def cancel(self, job_id):

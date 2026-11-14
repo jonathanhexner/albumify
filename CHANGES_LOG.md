@@ -2,6 +2,12 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-14 [TEST] Neon parity re-run — the cancel tests' fake long job waits 5 min, not 30 s
+**Files**: `tests/control/test_job_service.py` (`BlockingRunner.run`).
+**Change**: `_stop.wait(30)` -> `_stop.wait(300)`; the fake job is always cancelled, so only the upper bound changes.
+**Verification**: Neon parity re-run on `spec/117-m3-fixes`: 315 of 316 passed (1 h 58 min); the one failure was `test_cancel_of_a_job_waiting_for_the_modal_slot_ends_it_at_once` (the first job ended at 30 s, before the test reached `cancel`, so the second had already succeeded). After the change: `ut_ReviewFixes` + `ut_Cancel` on a Neon schema 8 passed; `tests/control/test_job_service.py` on SQLite 33 passed. Budapest gate 11 passed. SIGHTING-155 heartbeat test passed on Neon.
+**Reason**: Neon round trips (~0.5 s each) made the test's setup take longer than the fake job's 30 s.
+
 ### 2026-11-14 [DOCS] spec-117 review H2 — architecture docs for the post-W6 changes
 **Files**: `docs/architecture/{classes,data_flow}.html`.
 **Change**: documented what came after W6: `ImageMetrics.display_path`, `GET /results/{id}/decisions`, `DELETE /jobs/{id}`, `ResultCache`, `RunDisplayCopies`, autocommit read sessions (`get_session(request)`, `ControlDB.read_session`), `JobRepo.set_progress` / `runners()`, parallel R2 uploads (`UPLOAD_WORKERS`), and from `10358db`: `status()` "unknown" + `unreachable(e)`, `require_shared_db`, `ServingConfig.gpu_slowdown` / `slowest_slowdown`. New data_flow subsection: spec-117 read path.
@@ -17,7 +23,7 @@
 ### 2026-11-14 [TEST] SIGHTING-155 — heartbeat test polls to a deadline
 **Files**: `tests/serving/test_db_progress.py`.
 **Change**: wait until `heartbeat_at` moves (10 s deadline) instead of a fixed 0.7 s sleep; one Neon write takes ~0.65 s.
-**Verification**: `tests/serving/test_db_progress.py` 6 passed on SQLite; Neon parity re-run still to do.
+**Verification**: `tests/serving/test_db_progress.py` 6 passed on SQLite and in the 2026-11-14 Neon parity re-run.
 **Reason**: the only failure of the 2026-11-14 Neon parity run.
 
 ### 2026-11-14 [BUGFIX] spec-117 review M1 — a Modal worker without a shared DATABASE_URL stops at once
