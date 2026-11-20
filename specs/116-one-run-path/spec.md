@@ -1,6 +1,6 @@
 # spec-116 — One run path: choose this PC or the L4, see the album in Albums either way
 
-**Status:** Code Review — accepted, no High open (2026-11-15; [REVIEW](REVIEW.html)); merges with spec-117 in one PR · **Created:** 2026-10-25 · **Roadmap:** Stage C, before Gate 1 · **Follows:** [spec-115](../115-album-workbench/spec.html)
+**Status:** Implemented 2026-11-20 (merged with spec-117, PR #5, `7ddfada`; [REVIEW](REVIEW.html)) · **Created:** 2026-10-25 · **Roadmap:** Stage C, before Gate 1 · **Follows:** [spec-115](../115-album-workbench/spec.html)
 
 <p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
 

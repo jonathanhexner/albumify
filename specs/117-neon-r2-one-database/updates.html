@@ -267,6 +267,10 @@
 id="toc-spec-117--progress--verification-updates">spec-117 — Progress
 &amp; verification updates</a>
 <ul>
+<li><a
+href="#2026-11-20--implemented-pr-5-merged-two-run-lifecycle-gaps-fixed"
+id="toc-2026-11-20--implemented-pr-5-merged-two-run-lifecycle-gaps-fixed">2026-11-20
+— Implemented: PR #5 merged; two run-lifecycle gaps fixed</a></li>
 <li><a href="#2026-11-15--m3-close-out-checks-reviews-fixes-merged"
 id="toc-2026-11-15--m3-close-out-checks-reviews-fixes-merged">2026-11-15
 — M3 close-out: checks, reviews, fixes merged</a></li>
@@ -334,9 +338,52 @@ id="toc-2026-11-06--drafted">2026-11-06 — Drafted</a></li>
 <p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
-<p><strong>Status:</strong> Code Review 2026-11-15 — accepted, no High
-open; Implemented after the PR merges (and the follow-ups below are
-accepted or done)</p>
+<p><strong>Status:</strong> Implemented 2026-11-20 (PR #5)</p>
+<h2
+id="2026-11-20--implemented-pr-5-merged-two-run-lifecycle-gaps-fixed">2026-11-20
+— Implemented: PR #5 merged; two run-lifecycle gaps fixed</h2>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Merged to <code>main</code></td>
+<td>PR #5 (<a
+href="https://github.com/jonathanhexner/albumify/pull/5">https://github.com/jonathanhexner/albumify/pull/5</a>),
+merge commit <code>7ddfada</code>; CI fast-tests green after two CI
+fixes (<code>7dcf3cf</code>, <code>5c50f75</code>: spec-117 test deps;
+two heavy-stack tests run in the full lane only)</td>
+</tr>
+<tr>
+<td>App runs the merged code</td>
+<td>API (Neon) and UI restarted from it; 62 runs listed</td>
+</tr>
+<tr>
+<td>A GPU run failed in the background shows failed in Albums</td>
+<td>SIGHTING-157 fixed: <code>watchdog_tick</code> also ends the run; 3
+tests in <code>tests/api/test_pipeline_service_runners.py</code></td>
+</tr>
+<tr>
+<td>Deleting a run removes it everywhere</td>
+<td>SIGHTING-158 fixed:
+<code>DELETE /api/v1/pipeline/runs/{run_id}</code>; 3 tests. Used to
+delete the failed M2 runs <code>61f3b9a8</code>, <code>6745cbb0</code>,
+<code>54b46cd0</code> (1,528 R2 files)</td>
+</tr>
+<tr>
+<td>Suites</td>
+<td><code>tests/api tests/control tests/serving tests/architecture tests/streamlit</code>:
+473 passed, 0 failed</td>
+</tr>
+</tbody>
+</table>
+<p>Follow-ups stay as listed on 2026-11-15 (R9 cancel of a queued run,
+review M2/M7/M8, R11, SIGHTING-154). Seven runs from Feb-Jun 2026
+(before spec-116, no job row) still read "running"; owner to decide.</p>
 <h2 id="2026-11-15--m3-close-out-checks-reviews-fixes-merged">2026-11-15
 — M3 close-out: checks, reviews, fixes merged</h2>
 <p>Owner: "go ahead with M3", then (via Telegram) decisions recorded in

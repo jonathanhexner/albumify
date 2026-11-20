@@ -6,6 +6,10 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-11-20: two records for one run need one owner for the end states (SIGHTING-157/158)
+**What happened**: a run has a job row (serving/control) and a run row (API, what Albums shows). The background watchdog failed the job and the job delete removed the job, but neither touched the run row, because `serving/` cannot import the API tables. Both gaps passed every test: the tests read status through `get_status`, which syncs, not through the Albums list.
+**Prevention**: every background end state (fail, delete) goes through one API-side service that updates both records (`PipelineService.fail_runs_whose_job_failed`, `delete_run`); tests assert on `list_runs()`, what the user sees. Spec-119 (one repository layer) would remove the split.
+
 ### 2026-11-15: a new test must pass in CI's package set, not only the local .venv (PR #5)
 **What happened**: spec-117 added architecture tests that load `psycopg`, `modal` and (through a curate job) `ultralytics`. All passed locally (1824/0); the PR's fast lane installs only light packages and failed 4 tests. Spec-117 had never run in CI before the PR.
 **Prevention**: before pushing, run the fast-lane command from `.github/workflows/tests.yml` in a fresh venv holding only that lane's packages (the local .venv hides missing ones; the first fix still missed `psutil`/the worker's heavy imports), and add a light dependency to its install step (or keep a heavy-stack test out of that lane, as the chain-order test is).

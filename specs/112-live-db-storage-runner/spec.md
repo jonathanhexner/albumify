@@ -1,6 +1,6 @@
 # spec-112 — Live DB + storage, runner as config
 
-**Status:** In Progress (Phase A built; Phase A2 "album workbench" moved to [spec-115](../115-album-workbench/spec.html) on 2026-10-23; Phase B replaced by [spec-117](../117-neon-r2-one-database/spec.html) on 2026-11-06: everything on Neon + R2, the worker writes the database)
+**Status:** In Progress (Phase A built; Phase A2 "album workbench" moved to [spec-115](../115-album-workbench/spec.html) on 2026-10-23; Phase B replaced by [spec-117](../117-neon-r2-one-database/spec.html) on 2026-11-06: everything on Neon + R2, the worker writes the database; spec-117 Implemented 2026-11-20, PR #5)
 **Owner:** Jonathan / Claude
 **Priority:** P1 (Stage C critical path — every later product piece reads from here)
 **Roadmap:** Stage C · see [ROADMAP.md](../../ROADMAP.html)

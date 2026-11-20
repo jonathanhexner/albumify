@@ -20,7 +20,8 @@ from typing import Dict, List, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session, contains_eager
 
-from sim_bench.api.database.models import Album, Person, PipelineRun, PipelineResult
+from sim_bench.api.database.models import (Album, FaceMetricRow, ImageMetricRow, Person, PipelineRun,
+                                           PipelineResult)
 from sim_bench.api.schemas.pipeline import RunRow
 from sim_bench.api.services.config_service import ConfigService
 from sim_bench.control.jobs import FAILED, SUCCEEDED, TERMINAL
@@ -201,6 +202,36 @@ class PipelineService:
                 self._mark_failed(job_id, job.error)
                 run = self._session.query(PipelineRun).filter(PipelineRun.id == job_id).first()
         return run
+
+    def fail_runs_whose_job_failed(self) -> int:
+        """A run still "pending"/"running" whose job already ended failed ends failed too, with the job's reason;
+        returns how many. The watchdog and ``reap_orphans`` fail jobs in the background, where no page reads the
+        run (``get_status``), so Albums showed such a run as running forever (SIGHTING-157)."""
+        live = [run_id for (run_id,) in self._session.query(PipelineRun.id)
+                .filter(PipelineRun.status.in_(("pending", "running")))]
+        failed = 0
+        for run_id in live:
+            job = self._service.repo.get(run_id)
+            if job is not None and job.status == FAILED:
+                self._mark_failed(run_id, job.error)
+                failed += 1
+        return failed
+
+    def delete_run(self, run_id: str) -> Dict:
+        """Delete a run everywhere: its job and stored files when it has a job (the job must have ended), and
+        its rows in every Albums / Results / People table. Deleting the job alone left the run in Albums
+        (SIGHTING-158). Raises ``KeyError`` if neither exists, ``ValueError`` while its job is live."""
+        run = self._session.get(PipelineRun, run_id)
+        has_job = self._service.repo.get(run_id) is not None
+        if run is None and not has_job:
+            raise KeyError(run_id)
+        files = self._service.delete_job(run_id) if has_job else 0     # refuses a live job, before any delete
+        if run is not None:
+            for model in (FaceMetricRow, ImageMetricRow):       # no ORM cascade from the run to these
+                self._session.query(model).filter(model.run_id == run_id).delete(synchronize_session=False)
+            self._session.delete(run)                           # result, people, events, overrides cascade
+            self._session.commit()
+        return {"run_id": run_id, "deleted_files": files, "deleted_run": run is not None}
 
     def live(self, run: PipelineRun) -> Dict:
         """What the job row says about a run in flight (spec-117 R5): machine, stage, step, in-step fraction and
