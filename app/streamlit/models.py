@@ -53,6 +53,7 @@ class ImageInfo:
     iqa_score: Optional[float] = None
     ava_score: Optional[float] = None
     composite_score: Optional[float] = None
+    display_path: Optional[str] = None  # the run's 768 px copy; thumbnails read it instead of the original
     # spec-084: composite_score = quality_score + person_penalty.
     quality_score: Optional[float] = None
     person_penalty: Optional[float] = None
@@ -141,6 +142,13 @@ class PipelineProgress:
     completed_steps: List[Dict] = field(default_factory=list)  # [{step, duration_ms, status, error}]
     total_steps: int = 0
     started_at: Optional[Any] = None
+    runner: Optional[str] = None      # spec-116: local | modal_gpu; None for runs made before it
+    stage: Optional[str] = None       # queued | staging | uploading | running | saving results | loading
+    # spec-117 R5: in-step progress from the job row, the same for this PC and the L4
+    step_fraction: Optional[float] = None
+    photos_done: Optional[int] = None
+    photos_total: Optional[int] = None
+    gpu: Optional[str] = None
 
 
 @dataclass

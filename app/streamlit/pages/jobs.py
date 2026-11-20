@@ -1,8 +1,6 @@
-"""Jobs page (spec-112 TA5.3, spec-115 W4): run albums and examine them.
+"""Jobs page (spec-112 TA5.3, spec-115 W4, spec-116 R15): examine jobs. Runs start on Configure & Run only.
 
-Run an album (folder, photo range, runner, pipeline; the L4 asks for a confirm with its estimate), watch it
-live, cancel it, re-run its photos with another runner or pipeline (Compare runs opens on the pair when it
-finishes). A finished job shows its picks, every dropped photo with its reason, photos a filter removed
+Watch a job live and cancel it; each job links to its run in Albums. A finished job shows its picks, every dropped photo with its reason, photos a filter removed
 before the album saw them, and people.
 Promote / demote / rename write user edits through the API; the album is rebuilt from the rows on
 every view. Clickable actions are real st.button grids (never dataframe row-select).
@@ -11,11 +9,9 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import streamlit as st
-import yaml
 
 from app.streamlit.api_client import ApiError, get_client
 
@@ -27,16 +23,6 @@ REASON_LABEL = {"near_dup": "Near-duplicate", "not_selected": "Not selected",
                 "set_aside": "Set aside (triage)"}
 RUNNER_LABEL = {"local": "This PC", "modal_gpu": "Modal L4 (GPU)", "modal_cpu": "Modal CPU (slow, free tier)"}
 TERMINAL = ("succeeded", "failed")
-_PIPELINES = Path(__file__).resolve().parents[3] / "configs" / "pipeline.yaml"
-
-
-def _pipelines() -> List[str]:
-    try:
-        doc = yaml.safe_load(_PIPELINES.read_text(encoding="utf-8")) or {}
-    except OSError:
-        return ["default"]
-    names = [k[:-len("_pipeline")] for k in doc if k.endswith("_pipeline")]
-    return sorted(names, key=lambda n: (n != "default", n)) or ["default"]
 
 
 def render_jobs_page() -> None:
@@ -47,10 +33,8 @@ def render_jobs_page() -> None:
     except ApiError as e:
         st.error(f"Cannot list jobs: {e}")
         return
-    with st.expander("Run an album", expanded=not jobs):
-        _render_run_form(client)
     if not jobs:
-        st.info("No jobs yet. Run an album above.")
+        st.info("No jobs yet. Start a run from Configure & Run.")
         return
 
     if not st.toggle("Show regression runs", key="jobs_show_regression",
@@ -63,8 +47,6 @@ def render_jobs_page() -> None:
     labels = {j["id"]: f"{j['id']}  -  {j['status']}  ({j['runner']}, {j['n_inputs']} photos)"
                        + (f"  [{j['tag']}]" if j.get("tag") else "")
               for j in jobs}
-    if st.session_state.get("jobs_select_next") in labels:
-        st.session_state["jobs_selected"] = st.session_state.pop("jobs_select_next")
     job_id = st.selectbox("Job", list(labels), format_func=labels.get, key="jobs_selected")
     job = client.get_job(job_id)
     if job["status"] not in TERMINAL:
@@ -106,67 +88,7 @@ def _render_status(job: Dict) -> None:
             st.text(f"{e['ts'][:19]}  {e['kind']:<8} {e['message']}")
 
 
-# --- run, watch, cancel, re-run (spec-115 W4) ------------------------------------------------------
-
-def _start_controls(client, key: str, *, source: Optional[str] = None, start: int = 0,
-                    n: Optional[int] = None, rerun_of: Optional[str] = None) -> None:
-    """Runner + pipeline + Start. The L4 shows its estimate and needs a second click (R2)."""
-    c1, c2 = st.columns(2)
-    runner = c1.selectbox("Run on", list(RUNNER_LABEL), format_func=RUNNER_LABEL.get, key=f"{key}_runner")
-    pipeline = c2.selectbox("Pipeline", _pipelines(), key=f"{key}_pipeline")
-    pending = st.session_state.get(f"{key}_pending")
-    args = dict(source=source, start=start, n=n, runner=runner, rerun_of=rerun_of)
-    if pending and pending != {**args, "pipeline": pipeline}:
-        pending = st.session_state[f"{key}_pending"] = None      # a field changed: estimate again
-    if not pending:
-        if st.button("Start", key=f"{key}_go", type="primary", disabled=not (source or rerun_of)):
-            try:
-                est = client.estimate_job(**args)
-            except ApiError as e:
-                st.error(str(e))
-                return
-            if not est["allowed"]:
-                st.error(est["reason"])
-                return
-            if runner == "modal_gpu":
-                st.session_state[f"{key}_pending"] = {**args, "pipeline": pipeline}
-                st.session_state[f"{key}_estimate"] = est
-                st.rerun()
-            _submit(client, key, {**args, "pipeline": pipeline})
-        return
-    est = st.session_state.get(f"{key}_estimate") or {}
-    st.warning(f"This runs on the Modal L4: {est.get('n_photos')} photos, about {est.get('gpu_minutes')} GPU "
-               f"minutes, about ${est.get('dollars')}. Photos Modal already has are not uploaded again.")
-    b1, b2 = st.columns(2)
-    if b1.button("Confirm: start on the L4", key=f"{key}_confirm", type="primary"):
-        st.session_state[f"{key}_pending"] = None
-        _submit(client, key, pending)
-    if b2.button("Back", key=f"{key}_back"):
-        st.session_state[f"{key}_pending"] = None
-        st.rerun()
-
-
-def _submit(client, key: str, body: Dict) -> None:
-    try:
-        job = client.submit_job(**body)
-    except ApiError as e:
-        st.error(str(e))
-        return
-    if body.get("rerun_of"):
-        st.session_state["jobs_rerun_pairs"] = {**st.session_state.get("jobs_rerun_pairs", {}),
-                                                job["job_id"]: body["rerun_of"]}
-    # the Job selector may already be drawn in this run (re-run tools sit below it): select on the next run
-    st.session_state["jobs_select_next"] = job["job_id"]
-    st.rerun()
-
-
-def _render_run_form(client) -> None:
-    source = st.text_input("Photo folder on this PC", key="jobs_run_source", placeholder="D:/Slovakia26")
-    c1, c2 = st.columns(2)
-    start = int(c1.number_input("First photo (0 = from the start)", min_value=0, value=0, key="jobs_run_start"))
-    n = int(c2.number_input("How many (0 = all)", min_value=0, value=0, key="jobs_run_n"))
-    _start_controls(client, "jobs_run", source=source.strip() or None, start=start, n=n or None)
-
+# --- watch and cancel (spec-115 W4) ----------------------------------------------------------------
 
 @st.fragment(run_every=2)
 def _live_status(job_id: str) -> None:
@@ -178,9 +100,6 @@ def _live_status(job_id: str) -> None:
         st.error(str(e))
         return
     if job["status"] in TERMINAL:
-        pairs = st.session_state.get("jobs_rerun_pairs", {})
-        if job["status"] == "succeeded" and job_id in pairs:
-            _open_compare(pairs.pop(job_id), job_id)       # R5: Compare runs opens on the pair
         st.rerun()
     started = job.get("started_at") or job["created_at"]
     elapsed = datetime.now(timezone.utc) - datetime.fromisoformat(started.replace("Z", "+00:00")).replace(
@@ -197,18 +116,16 @@ def _live_status(job_id: str) -> None:
             st.error(str(e))
 
 
-def _open_compare(reference: str, new: str) -> None:
-    from app.streamlit.pages.compare import ANY
-    st.session_state["compare_dataset"] = ANY
-    st.session_state[f"compare_a_{ANY}"] = reference
-    st.session_state[f"compare_b_{ANY}"] = new
-    st.session_state["current_page"] = "compare"
-
-
 def _render_job_tools(client, job: Dict) -> None:
-    with st.expander("Re-run these photos"):
-        st.caption("The same photos, with another runner or pipeline. Compare runs opens on the pair when it finishes.")
-        _start_controls(client, f"jobs_rerun_{job['id']}", rerun_of=job["id"])
+    try:
+        client.get_pipeline_status(job["id"])
+    except ApiError:
+        st.caption("A test or script run: it has no row in Albums.")
+    else:
+        if st.button("Open this run in Albums", key=f"jobs_open_{job['id']}"):
+            st.session_state["albums_focus_run"] = job["id"]
+            st.session_state["current_page"] = "albums"
+            st.rerun()
     if job["runner"].startswith("modal"):
         with st.expander("Photos on Modal"):
             st.caption("Modal deletes photos no job used for 7 days. Delete this job's photos now "

@@ -1,0 +1,68 @@
+<!doctype html><meta charset=utf-8><title>Sharpness Gate Labels</title><style>:root{--bg:#fafaf8;--fg:#1d1d1b}@media(prefers-color-scheme:dark){:root{--bg:#171716;--fg:#eee}}body{background:var(--bg);color:var(--fg);font:15px system-ui;max-width:1000px;margin:0 auto;padding:16px}table{border-collapse:collapse}td,th{border:1px solid #8886;padding:4px 10px}.g{display:flex;flex-wrap:wrap;gap:8px}figure{margin:0;width:300px}img{width:100%}figcaption{font-size:12px}</style><h1 id="sharpness-gate-vs-owner-labels-2026-11-06">Sharpness gate vs
+owner labels (2026-11-06)</h1>
+<p><strong>Goal:</strong> does
+<code>filter_quality.min_sharpness: 0.2</code> remove the photos the
+owner calls blurry? <strong>Method:</strong> owner labelled 182 photos
+blind (Fine / Soft but keep / Blurry, drop): 60 the gate removed on the
+10-23 Slovakia26 L4 run, 92 that passed (4 score bands x 23), 30 random
+Budapest. Labels: <code>sharpness_labels.json</code>.</p>
+<p><strong>Result:</strong> only 5 of 182 are Blurry. Of the 60 the gate
+removed, 59 were wrong (37 Fine, 22 Soft); it caught 1 of the 2 blurry
+Slovakia photos in the sample. Low scores lean Soft (22/60 below 0.2 vs
+2/23 above 0.7), so the score tracks softness and scene content (water,
+smooth areas; owner note), not "would drop".</p>
+<table>
+<thead>
+<tr>
+<th>Score band</th>
+<th>Fine</th>
+<th>Soft</th>
+<th>Blurry</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&lt; 0.2 (removed)</td>
+<td>37</td>
+<td>22</td>
+<td>1</td>
+</tr>
+<tr>
+<td>0.2-0.3</td>
+<td>17</td>
+<td>5</td>
+<td>1</td>
+</tr>
+<tr>
+<td>0.3-0.45</td>
+<td>20</td>
+<td>3</td>
+<td>0</td>
+</tr>
+<tr>
+<td>0.45-0.7</td>
+<td>18</td>
+<td>5</td>
+<td>0</td>
+</tr>
+<tr>
+<td>&gt;= 0.7</td>
+<td>21</td>
+<td>2</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Budapest (no score)</td>
+<td>12</td>
+<td>15</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Owner:</strong> blur was not the main problem in the bad
+photos: people not looking at the camera, and people who do not belong
+in the frame (smart cropping) were. <strong>Outcome:</strong> the gate
+does more harm than good; replacing it is low priority. Images:
+<code>img/</code> (downscaled, untracked); originals in
+<code>D:\Slovakia26</code>, <code>D:\Budapest2025_Google</code>.</p>
+<h2>Samples</h2><div class=g><figure><img src="img/Slovakia26__20260823_125108.jpg" alt=""><figcaption>gate removed, owner: Fine</figcaption></figure><figure><img src="img/Slovakia26__20260821_142557.jpg" alt=""><figcaption>gate removed, owner: Fine</figcaption></figure><figure><img src="img/Slovakia26__20260829_171941.jpg" alt=""><figcaption>gate removed, owner: Fine</figcaption></figure><figure><img src="img/Slovakia26__20260825_155529.jpg" alt=""><figcaption>owner: Blurry</figcaption></figure><figure><img src="img/Budapest2025_Google__20250822_194551.jpg" alt=""><figcaption>owner: Blurry</figcaption></figure></div>

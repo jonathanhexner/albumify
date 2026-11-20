@@ -1,0 +1,262 @@
+<title>Neon Page Speed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column. Answer first, then symptom → mechanism → causes → fix plan → where it sits in the roadmap */
+:root{
+  --bg:#f7f8f6;--surface:#ffffff;--fg:#1c2421;--muted:#5d6a65;--line:#d9dfdb;
+  --accent:#1f6f5c;--accent-soft:#e2f0eb;
+  --ok:#2f7d4f;--warn:#a86b00;--bad:#b23a3a;--todo:#8a948f;
+  --sql:#b23a3a;--api:#d98c3a;--ui:#6d8fb8;--thumb:#9fb6d3;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917;--surface:#1c2320;--fg:#e6ece9;--muted:#9aa8a2;--line:#2f3a36;--accent:#5cc2a4;--accent-soft:#1f332c;
+  --ok:#5fbf86;--warn:#e0a640;--bad:#e07070;--todo:#6f7a75;--sql:#e07070;--api:#e8a860;--ui:#86a8d4;--thumb:#5d7699;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917;--surface:#1c2320;--fg:#e6ece9;--muted:#9aa8a2;--line:#2f3a36;--accent:#5cc2a4;--accent-soft:#1f332c;
+  --ok:#5fbf86;--warn:#e0a640;--bad:#e07070;--todo:#6f7a75;--sql:#e07070;--api:#e8a860;--ui:#86a8d4;--thumb:#5d7699;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--body);padding-inline:16px;padding-block:0 48px}
+main{max-width:980px;margin:0 auto;display:grid;gap:34px}
+header{padding-block:32px 8px;border-bottom:2px solid var(--fg)}
+h1{font-size:27px;margin:0 0 4px;text-wrap:balance}
+h2{font-size:19px;margin:0 0 10px;text-wrap:balance}
+h3{font-size:15px;margin:0 0 4px}
+p{margin:0 0 10px;max-width:74ch}
+.meta{color:var(--muted);font-size:13px}
+.label{font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+code{font-family:var(--mono);font-size:.86em;overflow-wrap:anywhere}
+.bottom{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);padding:16px 18px}
+.bottom ul{margin:0;padding-left:18px;display:grid;gap:6px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;font:600 11px/1 var(--mono);padding:4px 7px;border-radius:3px;white-space:nowrap;border:1px solid currentColor}
+.p-ok{color:var(--ok)}.p-warn{color:var(--warn)}.p-bad{color:var(--bad)}.p-todo{color:var(--todo)}
+/* split bar */
+.split{background:var(--surface);border:1px solid var(--line);padding:14px;display:grid;gap:10px}
+.sbar{display:flex;height:30px;width:100%;overflow:hidden;border-radius:3px}
+.sbar span{display:flex;align-items:center;padding-left:6px;font:600 11px var(--mono);color:#fff;white-space:nowrap;overflow:hidden;min-width:0}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
+/* cause cards */
+.causes{display:grid;gap:14px}
+.cause{background:var(--surface);border:1px solid var(--line);padding:14px 16px;display:grid;gap:6px}
+.cause .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}
+.cause dl{display:grid;grid-template-columns:110px minmax(0,1fr);gap:4px 12px;margin:0;font-size:14px}
+.cause dt{color:var(--muted);font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+.cause dd{margin:0;min-width:0}
+@media (max-width:560px){.cause dl{grid-template-columns:1fr}}
+pre.mermaid{background:var(--surface);border:1px solid var(--line);padding:12px;overflow-x:auto;margin:0}
+ol.steps{margin:0;padding-left:22px;display:grid;gap:8px}
+.who{font:600 11px var(--mono);color:var(--muted)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<main>
+<header>
+  <div class="label">SIGHTING-152 · measured 2026-11-13 · spec-117 R11</div>
+  <h1>Why Albumify is slow on the cloud database</h1>
+  <p class="meta">Albumify app pages served over Neon Postgres (cloud) vs the old local SQLite file. Same code, same Slovakia26 run (715 photos, 302 picks).</p>
+</header>
+
+<section class="bottom">
+  <div class="label">Answer</div>
+  <ul>
+    <li><b>Pages are 5-15x slower on Neon</b> and miss spec-117's target of 2 s per page (requirement R11). This blocks closing spec-117.</li>
+    <li><b>The database itself is not slow.</b> The app asks it badly: list pages pull whole result records of up to 2.8 MB each to show a few counts, some pages ask once per row, and the Results page asks the same question up to 6 times per render. Locally each question costs microseconds, so nobody noticed. Over the network each costs 160-320 ms plus transfer.</li>
+    <li><b>Fixes are known and small:</b> fetch only the needed columns, load related rows in one query, and stop the repeats. Estimate: half a day plus re-measurement. One extra cause is not Neon at all: first-time thumbnails are made from full-size photos.</li>
+    <li><b>After this fix, spec-117's remaining checks are one GPU session and the close-out.</b> That session also supplies the missing evidence for specs 109 and 110, so up to five specs (109, 110, 112, 116, 117) can close in one merge.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>1. What the user sees</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Page</th><th>Neon</th><th>Local SQLite</th><th>Slower by</th><th>Target (R11)</th></tr>
+    <tr><td>Albums (runs table)</td><td class="num">7.7-15.3 s</td><td class="num">1.0 s</td><td class="num">8-15x</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td>Results, first open after restart</td><td class="num">105 s</td><td class="num">not measured</td><td class="num">n/a</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td>Results, opened again</td><td class="num">18.4 s</td><td class="num">2.9 s</td><td class="num">6x</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td>Explore</td><td class="num">54.5 s</td><td class="num">4.1-4.5 s</td><td class="num">12x</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td>People &amp; Faces</td><td class="num">4.4 s</td><td class="num">0.8 s</td><td class="num">5x</td><td class="num">&lt; 2 s</td></tr>
+  </table></div>
+  <p class="meta" style="margin-top:8px">Time from click until the page stops loading, measured by a script driving a real browser. One session per app, so treat single numbers as ±20%. Even the local app misses 2 s on Results and Explore. The target covers both.</p>
+</section>
+
+<section>
+  <h2>2. How one page load works</h2>
+  <pre class="mermaid">
+sequenceDiagram
+  participant B as Browser
+  participant S as Streamlit (this PC)
+  participant A as API (this PC)
+  participant N as Neon (us-east-1)
+  B->>S: click "Results"
+  Note over S: reruns the whole page script, every tab included
+  loop each client call in the page (up to 6x the same call)
+    S->>A: GET /api/v1/results/?album_id=...
+    loop each query the endpoint makes
+      A->>N: SQL (160-320 ms round trip + data)
+      N-->>A: rows (result rows up to 2.8 MB)
+    end
+    A-->>S: JSON
+  end
+  Note over S: thumbnails: decode the original photo unless cached
+  S-->>B: page
+  </pre>
+  <p class="meta" style="margin-top:8px">Streamlit reruns the full page script on every click, and <code>st.tabs</code> builds every tab, not only the visible one. Every API call inside any tab therefore runs on every render.</p>
+</section>
+
+<section>
+  <h2>3. Where the time goes</h2>
+  <p>A profiling copy of the API recorded each request's duration, number of SQL queries and SQL time, while the browser script visited Home → Albums → Results → People &amp; Faces → Explore → Albums → Results.</p>
+  <div class="split" role="img" aria-label="211 seconds of page time: 61 s SQL, 14 s other API, 136 s in the UI">
+    <div class="label">211 s of page time in the session</div>
+    <div class="sbar">
+      <span style="flex:61;background:var(--sql)">SQL 61 s</span>
+      <span style="flex:14;background:var(--api)">API 14 s</span>
+      <span style="flex:87;background:var(--thumb)">cold thumbnails ≈87 s</span>
+      <span style="flex:49;background:var(--ui)">UI 49 s</span>
+    </div>
+    <div class="legend"><span><i style="background:var(--sql)"></i>SQL on Neon (188 queries, 0.33 s each on average)</span><span><i style="background:var(--api)"></i>API work outside SQL (turning rows into JSON)</span><span><i style="background:var(--thumb)"></i>first-time thumbnails (cold minus warm Results)</span><span><i style="background:var(--ui)"></i>rest of Streamlit: page code, rendering, transfer</span></div>
+  </div>
+  <div class="tablewrap" style="margin-top:12px"><table>
+    <tr><th>Endpoint</th><th>Calls</th><th>Total</th><th>Per call</th><th>SQL queries</th><th>SQL time</th></tr>
+    <tr><td><code>GET /api/v1/results/?album_id=</code></td><td class="num">7</td><td class="num">28.5 s</td><td class="num">4.1 s</td><td class="num">70</td><td class="num">26.0 s</td></tr>
+    <tr><td><code>GET /api/v1/pipeline/runs</code></td><td class="num">3</td><td class="num">26.9 s</td><td class="num">9.0 s</td><td class="num">94</td><td class="num">19.5 s</td></tr>
+    <tr><td><code>GET /api/v1/results/{id}/images</code></td><td class="num">7</td><td class="num">9.7 s</td><td class="num">1.4 s</td><td class="num">7</td><td class="num">8.1 s</td></tr>
+    <tr><td><code>GET /api/v1/albums/</code></td><td class="num">8</td><td class="num">3.9 s</td><td class="num">0.5 s</td><td class="num">8</td><td class="num">2.6 s</td></tr>
+    <tr><td><code>GET /api/v1/people/{album}</code></td><td class="num">4</td><td class="num">3.8 s</td><td class="num">0.9 s</td><td class="num">6</td><td class="num">3.2 s</td></tr>
+    <tr><td><code>GET /api/v1/results/{id}/clusters</code></td><td class="num">1</td><td class="num">1.8 s</td><td class="num">1.8 s</td><td class="num">2</td><td class="num">1.6 s</td></tr>
+    <tr><td><b>All API</b></td><td class="num">32</td><td class="num">75.2 s</td><td></td><td class="num">188</td><td class="num">61.3 s</td></tr>
+  </table></div>
+  <p class="meta" style="margin-top:8px">The three top endpoints are 87% of API time. Direct database checks: one round trip 161-322 ms; reading Slovakia26's 4 result rows with all columns 2.0 s, with summary columns only 0.18 s. Result rows hold 30 MB of JSON in all, 2.8 MB at most per row.</p>
+</section>
+
+<section>
+  <h2>4. Causes, largest first</h2>
+  <div class="causes">
+    <div class="cause">
+      <div class="head"><h3>C1 · Result list loads whole records to show counts</h3><span class="pill p-bad">≈26 s</span></div>
+      <dl>
+        <dt>Where</dt><dd><code>sim_bench/api/services/result_service.py</code> <code>ResultService.list_results</code></dd>
+        <dt>What</dt><dd>For each completed run it touches <code>run.result</code>, which loads the full <code>pipeline_results</code> row (every photo's metrics and every step decision, up to 2.8 MB), and runs a separate count of people. It also returns <code>step_decisions</code> in the response, so the multi-MB JSON goes over HTTP too.</dd>
+        <dt>Evidence</dt><dd>10 queries and 4.1 s per call; 7 calls in the session. Same rows with summary columns only: 0.18 s instead of 2.0 s.</dd>
+        <dt>Fix</dt><dd>Select summary columns only, count people in one grouped query, drop <code>step_decisions</code> from the list response (the one page that needs it asks for that run).</dd>
+      </dl>
+    </div>
+    <div class="cause">
+      <div class="head"><h3>C2 · Runs table asks for each run's album separately</h3><span class="pill p-bad">≈20 s</span></div>
+      <dl>
+        <dt>Where</dt><dd><code>sim_bench/api/services/pipeline_service.py</code> <code>list_runs</code> (Albums page)</dd>
+        <dt>What</dt><dd>Counts are already fetched column-only (an earlier fix). But <code>run.album.name</code> is loaded lazily, one query per run (26 per call), and every job is read from the jobs table. The first call also inspected the database schema (catalog queries).</dd>
+        <dt>Evidence</dt><dd>30-34 queries per call, 6.5-13.6 s per call; 26 of them are the same album lookup.</dd>
+        <dt>Fix</dt><dd>Load albums with the runs in one query (eager join), read only the job columns the table shows.</dd>
+      </dl>
+    </div>
+    <div class="cause">
+      <div class="head"><h3>C3 · The Results page repeats the same calls</h3><span class="pill p-bad">multiplies C1 + C4</span></div>
+      <dl>
+        <dt>Where</dt><dd><code>app/streamlit/pages/results.py</code>: <code>list_results</code> is called in 6 places, picks/images in 4, all inside tabs that are built on every render</dd>
+        <dt>What</dt><dd>The UI keeps no copy of API answers between calls or reruns, so one Results render fetches the result list up to 6 times and the full result row several times.</dd>
+        <dt>Evidence</dt><dd>7 calls each of <code>/results/</code> and <code>/results/{id}/images</code> in one visit sequence.</dd>
+        <dt>Fix</dt><dd>Fetch once per render and pass the data down; cache reads per run in the UI for a short time. A finished run's results never change.</dd>
+      </dl>
+    </div>
+    <div class="cause">
+      <div class="head"><h3>C4 · Image list re-reads the full record</h3><span class="pill p-warn">≈8 s</span></div>
+      <dl>
+        <dt>Where</dt><dd><code>ResultService.get_images</code> (<code>/results/{id}/images</code>)</dd>
+        <dt>What</dt><dd>Each call reads the whole 2.8 MB row to return per-photo metrics. That data is needed, but not 7 times.</dd>
+        <dt>Fix</dt><dd>Solved by C3's caching; optionally read <code>image_metrics</code> only.</dd>
+      </dl>
+    </div>
+    <div class="cause">
+      <div class="head"><h3>C5 · First-time thumbnails come from full-size photos</h3><span class="pill p-warn">≈87 s once</span><span class="pill p-todo">not Neon</span></div>
+      <dl>
+        <dt>Where</dt><dd><code>app/streamlit/components/gallery.py</code> <code>_load_thumbnail_cached</code></dd>
+        <dt>What</dt><dd>After a UI restart the gallery opens and shrinks 302 original photos (several MB each). The cache lives in the UI process and is lost on restart.</dd>
+        <dt>Evidence</dt><dd>Results 105 s on first open vs 18.4 s when opened again.</dd>
+        <dt>Fix</dt><dd>Use the 768 px display copies the pipeline already writes (local folder or R2). Needed anyway for a public site, where originals are not on the server.</dd>
+      </dl>
+    </div>
+    <div class="cause">
+      <div class="head"><h3>C6 · Distance to the database</h3><span class="pill p-todo">floor</span></div>
+      <dl>
+        <dt>What</dt><dd>Each round trip from this PC to Neon in us-east-1 costs 161-322 ms. The 2 s target therefore allows roughly 6 sequential queries per page after C1-C3.</dd>
+        <dt>Fix</dt><dd>Mostly removed by C1-C3. For the public site, the API will run next to the database (same cloud region), so the distance mainly affects this PC's test setup. A nearer Neon region is an option; it needs a decision.</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>5. Fix plan and how we will know it worked</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Step</th><th>Covers</th><th>Check</th><th>Effort</th></tr>
+    <tr><td>Summary-only result list; grouped people count; no <code>step_decisions</code> in the list</td><td>C1</td><td>Test: list call makes ≤ 3 queries and returns no per-photo data</td><td>1-2 h</td></tr>
+    <tr><td>Runs table loads albums in the same query</td><td>C2</td><td>Test: query count independent of the number of runs</td><td>1 h</td></tr>
+    <tr><td>Results page fetches once per render; cached reads per run</td><td>C3, C4</td><td>Profiler: ≤ 1 call per endpoint per Results render</td><td>1-2 h</td></tr>
+    <tr><td>Thumbnails from 768 px display copies</td><td>C5</td><td>First open after restart within 2x of second open</td><td>1-2 h</td></tr>
+    <tr><td>Re-measure with the same profiler and browser script</td><td>all</td><td>Neon pages &lt; 2 s (R11), or a documented gap with the remaining cause</td><td>30 min</td></tr>
+  </table></div>
+  <p class="meta" style="margin-top:8px">These are bug fixes under SIGHTING-152 (no new feature, so no new spec). Each step gets a test that counts queries, so the problem cannot silently come back on SQLite, where it is invisible.</p>
+</section>
+
+<section>
+  <h2>6. Where this sits in the plan, and which specs close when</h2>
+  <pre class="mermaid">
+flowchart LR
+  M1["M1 Fast on Neon<br/>SIGHTING-152 fix<br/>½ day"] --> M2["M2 One GPU session on Neon<br/>modal deploy · T8.2 PC cut off · T8.3 cached re-run<br/>owner OK, about $1"]
+  M2 --> M3["M3 Close-out<br/>SIGHTING-144 decision · secret scan · full suite<br/>Budapest gate · /code-review x2"]
+  M3 --> PR(["one PR: spec/117 → main"])
+  PR --> M4["M4 Gate 1<br/>build spec-118 · owner verdict on Best 30"]
+  M4 --> M5["M5 Public app<br/>spec-106 front end + deploy, then Stage D"]
+  </pre>
+  <div class="tablewrap" style="margin-top:12px"><table>
+    <tr><th>Spec</th><th>What closes it</th><th>Milestone</th></tr>
+    <tr><td><a href="https://github.com/jonathanhexner/albumify/blob/main/specs/112-live-db-storage-runner/spec.md">112</a> Live DB + storage</td><td>Phase A done; A2 became 115; Phase B is delivered by 117. Closes with 117.</td><td>M3</td></tr>
+    <tr><td>116 One run path<br><span class="meta">local: <code>specs/116-one-run-path/</code></span></td><td>Code done and inside the 117 branch. Needs: a decision on SIGHTING-144 (sharpness gate depends on resolution; the owner parked sharpness work, so record it as accepted and tracked in spec-118's backlog, or fix), and its <code>/code-review</code>.</td><td>M3</td></tr>
+    <tr><td>117 One cloud database<br><span class="meta">local: <code>specs/117-neon-r2-one-database/</code></span></td><td>R11 page speed (M1); R8-R10, R12 on the real L4 (M2, also proves SIGHTING-145 fixed); R13 secret scan, R14 sizes, R15 suite + Budapest gate, <code>/code-review</code> (M3).</td><td>M1-M3</td></tr>
+    <tr><td><a href="https://github.com/jonathanhexner/albumify/blob/main/specs/110-containerized-worker-modal-cpu/spec.md">110</a> Containerized worker</td><td>Open: AC4 (re-running a job reproduces it) and AC5 (models load from the Volume, no re-download). The M2 cached re-run of Slovakia26 can supply both if we record them.</td><td>M2</td></tr>
+    <tr><td><a href="https://github.com/jonathanhexner/albumify/blob/main/specs/109-parallel-gpu-execution/spec.md">109</a> GPU enablement</td><td>Open: end-to-end time and $/album at 100-300 photos. The M2 run (715 photos) gives a measured upper point. Record time and cost per album.</td><td>M2</td></tr>
+    <tr><td>118 Album tiers + Gate 1<br><span class="meta">local: <code>specs/118-album-tiers-gate1/</code></span></td><td>Approve the draft, build on the merged code, owner verdict.</td><td>M4</td></tr>
+    <tr><td><a href="https://github.com/jonathanhexner/albumify/blob/main/specs/106-albumify-web-showcase/spec.md">106</a> Public web app</td><td>Front end, deploy, job states; needs the content-safety and MVP-scope decisions.</td><td>M5</td></tr>
+  </table></div>
+  <p class="meta" style="margin-top:8px">Not on the critical path, worth an explicit park-or-close call to shrink the open list: 103 (time/geo scenes, now in 118's backlog), 107 P3/P4, 108 P2, 111 (v1 or v1.5).</p>
+</section>
+
+<section>
+  <h2>7. Update: C1-C3 and C5 fixed, queries trimmed, reads in autocommit (same day)</h2>
+  <p><b>Part 1:</b> summary-only result list (step decisions moved to their own call), one joined query for the runs table, finished results kept in the API process, and the UI keeps result reads for 10 s.
+  <b>Part 2:</b> thumbnails made from the run's 768 px copy (6 ms instead of 90 ms per photo; all five thumbnail loaders), the runs table in one query plus a 3-column jobs read, and the People list in one query without the 107 kB of face instances. <b>Part 3:</b> read requests (GET) run in autocommit on Postgres, with no BEGIN/ROLLBACK round trips; writes keep their transactions (checked live on Neon). Each step was re-measured with the same profiler and browser walk, after restarting both servers.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Page (Neon)</th><th>Before</th><th>Part 1</th><th>Part 2</th><th>Part 3</th><th>Target</th></tr>
+    <tr><td>Results, first open</td><td class="num">105 s</td><td class="num">86 s</td><td class="num">12.3 s</td><td class="num">11.6 s</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td>Explore, first open</td><td class="num">54.5 s</td><td class="num">48.4 s</td><td class="num">8.0 s</td><td class="num">7.7 s</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td>Results, opened again</td><td class="num">18.4 s</td><td class="num">4.6 s</td><td class="num">3.9 s</td><td class="num">3.2 s</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td>Explore, opened again</td><td class="num">54.5 s</td><td class="num">5.9 s</td><td class="num">5.8 s</td><td class="num">5.9 s</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td>Albums (first after API start / again)</td><td class="num">7.7-15.3 s</td><td class="num">9.3 / 3.7 s</td><td class="num">9.6 / 3.0 s</td><td class="num">8.0 / 2.4 s</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td>People &amp; Faces</td><td class="num">4.4 s</td><td class="num">4.5 s</td><td class="num">1.8 s</td><td class="num">1.5 s</td><td class="num">&lt; 2 s</td></tr>
+    <tr><td><b>API time / SQL queries</b></td><td class="num">75 s / 188</td><td class="num">29 s / 45</td><td class="num">25 s / 34</td><td class="num">19 s / 34</td><td></td></tr>
+  </table></div>
+  <p style="margin-top:10px"><b>Still open for R11:</b> only People meets the target. Results and Explore are now Streamlit itself drawing a 302-photo page, which takes about 3-4 s even on local SQLite. The fix there is smaller pages: spec-118's Best 30 default, or paging. The first Albums open after an API start (about 8 s) is a one-off schema read. Each request still pays one round trip for the connection check (kept, because Neon closes idle connections). The runs table still uses two connection pools.</p>
+  <p class="meta">Evidence: <code>tests/api/test_result_queries.py</code> (8 tests), <code>tests/streamlit/test_thumb_sources.py</code> (2), <code>tests/api/test_read_sessions.py</code> (8), API/serving/control/UI/storage/architecture suites 486 passed, live re-measure on Neon (302 thumbnails, 0 missing, 0 errors).</p>
+</section>
+
+<section>
+  <h2>8. Method and limits</h2>
+  <ul class="meta" style="padding-left:18px;margin:0;display:grid;gap:4px">
+    <li>Profiling API: the real spec-117 API (branch <code>spec/117-neon-r2</code> after merge <code>b163e19</code>) with a timing middleware and SQLAlchemy query hooks, on port 8012; UI on 8511 pointed at it. Database: Neon free plan, pooled endpoint, us-east-1.</li>
+    <li>Browser script: Playwright, 1500 px window, "page done" = Streamlit's running indicator gone.</li>
+    <li>API calls were logged per session, not per page, so the per-page split in section 3 is by subtraction, not measured per page.</li>
+    <li>Local comparison: the same pages on the spec-116 app over local SQLite (port 8501), one run.</li>
+    <li>Related, already fixed: SIGHTING-151 (Results gallery stopped at 231 of 302 picks: duplicate button keys); live app now shows all 302.</li>
+  </ul>
+</section>
+</main>

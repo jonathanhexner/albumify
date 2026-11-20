@@ -1,0 +1,2573 @@
+{
+ "run": "52776cc5-ced2-4c93-978f-af86236a88b6",
+ "album": "Slovakia26",
+ "exported": "2026-11-13T08:02:36.531Z",
+ "n_picks": 302,
+ "groups_reviewed": [
+  "scene-41",
+  "scene-47",
+  "scene-38",
+  "scene-37",
+  "scene-29",
+  "scene-34",
+  "scene-35",
+  "scene-40",
+  "scene-39",
+  "scene-28",
+  "scene-20",
+  "scene-54",
+  "scene-83",
+  "scene-91",
+  "scene-92",
+  "scene-90",
+  "scene-93",
+  "scene-94",
+  "scene-72",
+  "scene-81",
+  "scene-2",
+  "scene-49",
+  "scene-60",
+  "scene-16",
+  "scene-17",
+  "scene-23",
+  "scene-14",
+  "scene-24",
+  "scene-0",
+  "scene-73",
+  "scene-9",
+  "scene-1",
+  "scene-21",
+  "scene-19",
+  "scene-18",
+  "scene-7",
+  "scene-8",
+  "scene-11",
+  "scene-69",
+  "scene-66",
+  "scene-64",
+  "scene-65",
+  "scene-27",
+  "scene-26",
+  "scene-4",
+  "scene-70",
+  "scene-71",
+  "scene-13",
+  "scene-62",
+  "scene-77",
+  "scene-6",
+  "scene-48",
+  "scene-52",
+  "scene-85",
+  "scene-84",
+  "scene-87",
+  "scene-86",
+  "scene-89",
+  "scene-82",
+  "scene-74",
+  "scene-88",
+  "scene-51",
+  "scene-78",
+  "scene-79",
+  "scene-57",
+  "scene-56",
+  "scene-58",
+  "scene-59",
+  "scene-50",
+  "scene-68",
+  "scene-12",
+  "scene-76",
+  "scene-55",
+  "scene-80",
+  "scene-75",
+  "scene-22",
+  "scene-63",
+  "scene-33",
+  "scene-32",
+  "scene-53",
+  "scene-3",
+  "scene-36",
+  "scene-44",
+  "scene-31",
+  "scene-15",
+  "scene-25",
+  "scene-10",
+  "scene-43",
+  "scene-42",
+  "scene-61",
+  "scene-45",
+  "scene-46",
+  "scene-30",
+  "scene-67",
+  "lone-0",
+  "lone-1",
+  "lone-2",
+  "lone-3",
+  "lone-4",
+  "lone-5",
+  "removed-4"
+ ],
+ "photos": {
+  "20260818_152615.jpg": {
+   "group": "scene-41",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick",
+    "bad framing / cut off"
+   ],
+   "app_reason": "Best in cluster (score 0.50)"
+  },
+  "20260818_152620.jpg": {
+   "group": "scene-41",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.56)"
+  },
+  "20260818_152912.jpg": {
+   "group": "scene-47",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.43)"
+  },
+  "20260818_152913.jpg": {
+   "group": "scene-47",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "stranger in frame"
+   ],
+   "app_reason": "Best in cluster (score 0.31)"
+  },
+  "20260818_152914(0).jpg": {
+   "group": "scene-47",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.57)"
+  },
+  "20260818_155917.jpg": {
+   "group": "scene-38",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.27)"
+  },
+  "20260818_155919.jpg": {
+   "group": "scene-38",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.33)"
+  },
+  "20260818_160135.jpg": {
+   "group": "scene-37",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 3 in cluster (score 0.37)"
+  },
+  "20260818_160139.jpg": {
+   "group": "scene-37",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.43)"
+  },
+  "20260818_160621.jpg": {
+   "group": "scene-29",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.31)"
+  },
+  "20260819_104037.jpg": {
+   "group": "scene-29",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.43)"
+  },
+  "20260819_104039.jpg": {
+   "group": "scene-29",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.43)"
+  },
+  "20260819_104921.jpg": {
+   "group": "scene-29",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.43)"
+  },
+  "20260818_160715.jpg": {
+   "group": "scene-34",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.50)"
+  },
+  "20260818_161229.jpg": {
+   "group": "scene-34",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.34)"
+  },
+  "20260818_161546.jpg": {
+   "group": "scene-35",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.27)"
+  },
+  "20260818_161549(0).jpg": {
+   "group": "scene-35",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "eyes closed / not looking"
+   ],
+   "app_reason": "Best in cluster (score 0.33)"
+  },
+  "20260818_193736.jpg": {
+   "group": "scene-40",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.48)"
+  },
+  "20260819_090253.jpg": {
+   "group": "scene-40",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 2 in cluster (score 0.47)"
+  },
+  "20260819_094108.jpg": {
+   "group": "scene-39",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Outranked (rank 1/5, score 0.20)"
+  },
+  "20260819_094113.jpg": {
+   "group": "scene-39",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "other"
+   ],
+   "app_reason": "Rank 4 in cluster (score 0.39)"
+  },
+  "20260819_110626.jpg": {
+   "group": "scene-28",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.57)"
+  },
+  "20260819_110638.jpg": {
+   "group": "scene-28",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.55)"
+  },
+  "20260819_125650.jpg": {
+   "group": "scene-20",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.48)"
+  },
+  "20260825_154525.jpg": {
+   "group": "scene-20",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.55)"
+  },
+  "20260820_104322.jpg": {
+   "group": "scene-54",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.35)"
+  },
+  "20260820_104333.jpg": {
+   "group": "scene-54",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Outranked (rank 2/2, score 0.28)"
+  },
+  "20260820_104335.jpg": {
+   "group": "scene-54",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "other"
+   ],
+   "app_reason": "Best in cluster (score 0.35)"
+  },
+  "20260820_110016.jpg": {
+   "group": "scene-83",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260820_110028.jpg": {
+   "group": "scene-83",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.49)"
+  },
+  "20260820_122101.jpg": {
+   "group": "scene-91",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "stranger in frame",
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 2 in cluster (score 0.54)"
+  },
+  "20260820_122112.jpg": {
+   "group": "scene-91",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.48)"
+  },
+  "20260820_123946.jpg": {
+   "group": "scene-92",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.59)"
+  },
+  "20260820_122303.jpg": {
+   "group": "scene-90",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.57)"
+  },
+  "20260820_124938.jpg": {
+   "group": "scene-90",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.60)"
+  },
+  "20260820_122355.jpg": {
+   "group": "scene-93",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "eyes closed / not looking"
+   ],
+   "app_reason": "Best in cluster (score 0.57)"
+  },
+  "20260820_124025.jpg": {
+   "group": "scene-93",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.51)"
+  },
+  "20260820_122856.jpg": {
+   "group": "scene-94",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.54)"
+  },
+  "20260820_123203.jpg": {
+   "group": "scene-94",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.28)"
+  },
+  "20260820_124804.jpg": {
+   "group": "scene-72",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.53)"
+  },
+  "20260820_132245.jpg": {
+   "group": "scene-81",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.41)"
+  },
+  "20260820_132259.jpg": {
+   "group": "scene-81",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.52)"
+  },
+  "20260820_153837.jpg": {
+   "group": "scene-2",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Score 0.20 < threshold 0.4"
+  },
+  "20260821_105339.jpg": {
+   "group": "scene-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 7 in cluster (score 0.50)"
+  },
+  "20260821_105350.jpg": {
+   "group": "scene-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 6 in cluster (score 0.53)"
+  },
+  "20260821_103714.jpg": {
+   "group": "scene-49",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.55)"
+  },
+  "20260821_105633.jpg": {
+   "group": "scene-49",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.65)"
+  },
+  "20260821_105705.jpg": {
+   "group": "scene-49",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.43)"
+  },
+  "20260828_113116.jpg": {
+   "group": "scene-49",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Score 0.33 < threshold 0.4"
+  },
+  "20260820_155017.jpg": {
+   "group": "scene-60",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.63)"
+  },
+  "20260824_152216.jpg": {
+   "group": "scene-60",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.57)"
+  },
+  "20260828_113559.jpg": {
+   "group": "scene-60",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.55)"
+  },
+  "20260821_100737.jpg": {
+   "group": "scene-16",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.58)"
+  },
+  "20260821_102322.jpg": {
+   "group": "scene-16",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.54)"
+  },
+  "20260821_102354.jpg": {
+   "group": "scene-16",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Outranked (rank 1/5, score 0.51)"
+  },
+  "20260821_101651.jpg": {
+   "group": "scene-17",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.55)"
+  },
+  "20260821_101654.jpg": {
+   "group": "scene-17",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.30)"
+  },
+  "20260821_101707.jpg": {
+   "group": "scene-23",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260821_105313.jpg": {
+   "group": "scene-23",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.39)"
+  },
+  "20260821_102251.jpg": {
+   "group": "scene-14",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.53)"
+  },
+  "20260824_154432.jpg": {
+   "group": "scene-14",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.56)"
+  },
+  "20260821_105811.jpg": {
+   "group": "scene-24",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.51)"
+  },
+  "20260821_105852.jpg": {
+   "group": "scene-24",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Outranked (rank 2/2, score 0.15)"
+  },
+  "20260821_105927.jpg": {
+   "group": "scene-24",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Outranked (rank 5/6, score 0.43)"
+  },
+  "20260821_110122.jpg": {
+   "group": "scene-24",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 6 in cluster (score 0.62)"
+  },
+  "20260821_110131.jpg": {
+   "group": "scene-24",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.34)"
+  },
+  "20260821_134547.jpg": {
+   "group": "scene-0",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.59)"
+  },
+  "20260821_134551.jpg": {
+   "group": "scene-0",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Outranked (rank 3/4, score 0.52)"
+  },
+  "20260823_122538.jpg": {
+   "group": "scene-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.56)"
+  },
+  "20260821_142601.jpg": {
+   "group": "scene-73",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.38)"
+  },
+  "20260823_133010.jpg": {
+   "group": "scene-73",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.56)"
+  },
+  "20260823_141038.jpg": {
+   "group": "scene-73",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.54)"
+  },
+  "20260821_143109.jpg": {
+   "group": "scene-9",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.48)"
+  },
+  "20260821_153956.jpg": {
+   "group": "scene-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.51)"
+  },
+  "20260823_140741.jpg": {
+   "group": "scene-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.53)"
+  },
+  "20260823_140846.jpg": {
+   "group": "scene-1",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.48)"
+  },
+  "20260821_154554.jpg": {
+   "group": "scene-21",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.51)"
+  },
+  "20260821_192729.jpg": {
+   "group": "scene-19",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.31)"
+  },
+  "20260821_192743.jpg": {
+   "group": "scene-19",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.44)"
+  },
+  "20260821_193032.jpg": {
+   "group": "scene-18",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.57)"
+  },
+  "20260821_193038.jpg": {
+   "group": "scene-18",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 2 in cluster (score 0.56)"
+  },
+  "20260822_113534.jpg": {
+   "group": "scene-7",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.52)"
+  },
+  "20260822_113633.jpg": {
+   "group": "scene-7",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.43)"
+  },
+  "20260822_113702.jpg": {
+   "group": "scene-7",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.53)"
+  },
+  "20260824_165755.jpg": {
+   "group": "scene-7",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 6 in cluster (score 0.57)"
+  },
+  "20260822_125632.jpg": {
+   "group": "scene-8",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.51)"
+  },
+  "20260822_125652.jpg": {
+   "group": "scene-8",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.50)"
+  },
+  "20260822_161323.jpg": {
+   "group": "scene-11",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.53)"
+  },
+  "20260822_161324.jpg": {
+   "group": "scene-11",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.53)"
+  },
+  "20260822_161328.jpg": {
+   "group": "scene-11",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.52)"
+  },
+  "20260822_161343.jpg": {
+   "group": "scene-11",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.52)"
+  },
+  "20260822_161719.jpg": {
+   "group": "scene-69",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.54)"
+  },
+  "20260822_171453.jpg": {
+   "group": "scene-69",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.57)"
+  },
+  "20260822_161928.jpg": {
+   "group": "scene-66",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.47)"
+  },
+  "20260822_161930(0).jpg": {
+   "group": "scene-66",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 2 in cluster (score 0.48)"
+  },
+  "20260822_162026.jpg": {
+   "group": "scene-64",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "stranger in frame"
+   ],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260822_162054.jpg": {
+   "group": "scene-64",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.47)"
+  },
+  "20260822_162100.jpg": {
+   "group": "scene-64",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "eyes closed / not looking",
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.42)"
+  },
+  "20260822_162116.jpg": {
+   "group": "scene-64",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "eyes closed / not looking"
+   ],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260822_162652.jpg": {
+   "group": "scene-65",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 5 in cluster (score 0.54)"
+  },
+  "20260822_162702.jpg": {
+   "group": "scene-65",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 2 in cluster (score 0.51)"
+  },
+  "20260822_165337.jpg": {
+   "group": "scene-27",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.55)"
+  },
+  "20260822_165357.jpg": {
+   "group": "scene-26",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.33)"
+  },
+  "20260822_171005.jpg": {
+   "group": "scene-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 5 in cluster (score 0.60)"
+  },
+  "20260822_171645.jpg": {
+   "group": "scene-70",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 5 in cluster (score 0.58)"
+  },
+  "20260822_171729(0).jpg": {
+   "group": "scene-71",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 5 in cluster (score 0.53)"
+  },
+  "20260822_181211.jpg": {
+   "group": "scene-13",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.58)"
+  },
+  "20260822_181233.jpg": {
+   "group": "scene-13",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.57)"
+  },
+  "20260822_181234.jpg": {
+   "group": "scene-13",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.56)"
+  },
+  "20260822_181544.jpg": {
+   "group": "scene-62",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.49)"
+  },
+  "20260822_181558.jpg": {
+   "group": "scene-62",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.54)"
+  },
+  "20260823_120309.jpg": {
+   "group": "scene-77",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.51)"
+  },
+  "20260823_120328.jpg": {
+   "group": "scene-77",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "eyes closed / not looking"
+   ],
+   "app_reason": "Rank 2 in cluster (score 0.55)"
+  },
+  "20260823_120346(0).jpg": {
+   "group": "scene-77",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.49)"
+  },
+  "20260823_120537.jpg": {
+   "group": "scene-6",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.59)"
+  },
+  "20260823_121510.jpg": {
+   "group": "scene-48",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.49)"
+  },
+  "20260823_121636.jpg": {
+   "group": "scene-52",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.51)"
+  },
+  "20260823_121654.jpg": {
+   "group": "scene-52",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.33)"
+  },
+  "20260823_121732.jpg": {
+   "group": "scene-52",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.52)"
+  },
+  "20260823_141404.jpg": {
+   "group": "scene-52",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.56)"
+  },
+  "20260823_123753.jpg": {
+   "group": "scene-85",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.50)"
+  },
+  "20260823_125153.jpg": {
+   "group": "scene-85",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.53)"
+  },
+  "20260823_125203.jpg": {
+   "group": "scene-85",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.52)"
+  },
+  "20260823_125425.jpg": {
+   "group": "scene-85",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "other"
+   ],
+   "app_reason": "Best in cluster (score 0.48)"
+  },
+  "20260823_125446.jpg": {
+   "group": "scene-85",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.49)"
+  },
+  "20260823_123910.jpg": {
+   "group": "scene-84",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.49)"
+  },
+  "20260823_123916.jpg": {
+   "group": "scene-84",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.50)"
+  },
+  "20260823_123956.jpg": {
+   "group": "scene-84",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.52)"
+  },
+  "20260823_124015.jpg": {
+   "group": "scene-84",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.57)"
+  },
+  "20260823_124024(0).jpg": {
+   "group": "scene-84",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.48)"
+  },
+  "20260823_124024.jpg": {
+   "group": "scene-84",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 4 in cluster (score 0.50)"
+  },
+  "20260823_124318.jpg": {
+   "group": "scene-87",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.36)"
+  },
+  "20260823_124321.jpg": {
+   "group": "scene-87",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.25)"
+  },
+  "20260823_124326.jpg": {
+   "group": "scene-87",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "other"
+   ],
+   "app_reason": "Best in cluster (score 0.23)"
+  },
+  "20260823_124339.jpg": {
+   "group": "scene-86",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.25)"
+  },
+  "20260823_124340.jpg": {
+   "group": "scene-86",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.25)"
+  },
+  "20260823_124344.jpg": {
+   "group": "scene-86",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.34)"
+  },
+  "20260823_125226.jpg": {
+   "group": "scene-89",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.59)"
+  },
+  "20260823_125229(0).jpg": {
+   "group": "scene-89",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.51)"
+  },
+  "20260823_125244.jpg": {
+   "group": "scene-82",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.54)"
+  },
+  "20260823_125245.jpg": {
+   "group": "scene-82",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 5 in cluster (score 0.53)"
+  },
+  "20260823_125344.jpg": {
+   "group": "scene-74",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.56)"
+  },
+  "20260823_142818.jpg": {
+   "group": "scene-74",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.49)"
+  },
+  "20260823_125450.jpg": {
+   "group": "scene-88",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.46)"
+  },
+  "20260823_125501.jpg": {
+   "group": "scene-88",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 5 in cluster (score 0.48)"
+  },
+  "20260823_131958.jpg": {
+   "group": "scene-51",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.30)"
+  },
+  "20260823_132013.jpg": {
+   "group": "scene-51",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.46)"
+  },
+  "20260823_132859.jpg": {
+   "group": "scene-78",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.60)"
+  },
+  "20260823_132941.jpg": {
+   "group": "scene-78",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.59)"
+  },
+  "20260823_134136.jpg": {
+   "group": "scene-79",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.47)"
+  },
+  "20260823_134901.jpg": {
+   "group": "scene-79",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.54)"
+  },
+  "20260823_141448.jpg": {
+   "group": "scene-57",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260823_141500.jpg": {
+   "group": "scene-57",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260823_141515.jpg": {
+   "group": "scene-56",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.37)"
+  },
+  "20260823_141911.jpg": {
+   "group": "scene-58",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.48)"
+  },
+  "20260823_141924.jpg": {
+   "group": "scene-58",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.30)"
+  },
+  "20260823_142003.jpg": {
+   "group": "scene-59",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.57)"
+  },
+  "20260824_152145.jpg": {
+   "group": "scene-50",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.58)"
+  },
+  "20260824_152442.jpg": {
+   "group": "scene-50",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.50)"
+  },
+  "20260824_152617.jpg": {
+   "group": "scene-50",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.50)"
+  },
+  "20260824_152625.jpg": {
+   "group": "scene-50",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 2 in cluster (score 0.56)"
+  },
+  "20260824_153247.jpg": {
+   "group": "scene-68",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.55)"
+  },
+  "20260826_165723.jpg": {
+   "group": "scene-68",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.52)"
+  },
+  "20260826_165813.jpg": {
+   "group": "scene-68",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 3 in cluster (score 0.56)"
+  },
+  "20260826_165833.jpg": {
+   "group": "scene-68",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.55)"
+  },
+  "20260826_165837.jpg": {
+   "group": "scene-68",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.52)"
+  },
+  "20260826_165839.jpg": {
+   "group": "scene-68",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.32)"
+  },
+  "20260825_122914.jpg": {
+   "group": "scene-12",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.53)"
+  },
+  "20260825_122922.jpg": {
+   "group": "scene-12",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.43)"
+  },
+  "20260825_122937.jpg": {
+   "group": "scene-12",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.49)"
+  },
+  "20260825_125659.jpg": {
+   "group": "scene-76",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260825_125712.jpg": {
+   "group": "scene-76",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.34)"
+  },
+  "20260825_132546.jpg": {
+   "group": "scene-55",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.46)"
+  },
+  "20260825_132620.jpg": {
+   "group": "scene-55",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.38)"
+  },
+  "20260825_142356.jpg": {
+   "group": "scene-80",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260825_142402.jpg": {
+   "group": "scene-80",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.57)"
+  },
+  "20260825_142628.jpg": {
+   "group": "scene-75",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.49)"
+  },
+  "20260825_142638.jpg": {
+   "group": "scene-75",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 6 in cluster (score 0.49)"
+  },
+  "20260826_182345.jpg": {
+   "group": "scene-22",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.53)"
+  },
+  "20260828_161440.jpg": {
+   "group": "scene-22",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.58)"
+  },
+  "20260826_220145.jpg": {
+   "group": "scene-63",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.50)"
+  },
+  "20260827_214736.jpg": {
+   "group": "scene-63",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.57)"
+  },
+  "20260826_222952.jpg": {
+   "group": "scene-33",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.60)"
+  },
+  "20260827_211614.jpg": {
+   "group": "scene-33",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 5 in cluster (score 0.64)"
+  },
+  "20260827_215128.jpg": {
+   "group": "scene-33",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick",
+    "blurry"
+   ],
+   "app_reason": "Best in cluster (score 0.31)"
+  },
+  "20260827_215132.jpg": {
+   "group": "scene-33",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.25)"
+  },
+  "20260827_214748.jpg": {
+   "group": "scene-32",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.51)"
+  },
+  "20260827_214831.jpg": {
+   "group": "scene-32",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.58)"
+  },
+  "20260827_123834.jpg": {
+   "group": "scene-53",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260827_123840.jpg": {
+   "group": "scene-53",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.45)"
+  },
+  "20260827_130740.jpg": {
+   "group": "scene-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.61)"
+  },
+  "20260827_204636.jpg": {
+   "group": "scene-36",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.69)"
+  },
+  "20260827_210534.jpg": {
+   "group": "scene-44",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.48)"
+  },
+  "20260827_210619.jpg": {
+   "group": "scene-44",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.62)"
+  },
+  "20260828_155356.jpg": {
+   "group": "scene-31",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 4 in cluster (score 0.51)"
+  },
+  "20260828_162133.jpg": {
+   "group": "scene-31",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 5 in cluster (score 0.52)"
+  },
+  "20260829_133340.jpg": {
+   "group": "scene-31",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.33)"
+  },
+  "20260828_151434.jpg": {
+   "group": "scene-15",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.42)"
+  },
+  "20260828_151443.jpg": {
+   "group": "scene-15",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.36)"
+  },
+  "20260828_202834.jpg": {
+   "group": "scene-25",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.62)"
+  },
+  "20260829_180002.jpg": {
+   "group": "scene-25",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.65)"
+  },
+  "20260829_104853.jpg": {
+   "group": "scene-10",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.39)"
+  },
+  "20260829_104856.jpg": {
+   "group": "scene-10",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.44)"
+  },
+  "20260829_104940.jpg": {
+   "group": "scene-10",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.36)"
+  },
+  "20260829_132513.jpg": {
+   "group": "scene-43",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.40)"
+  },
+  "20260829_132514.jpg": {
+   "group": "scene-43",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick",
+    "bad framing / cut off"
+   ],
+   "app_reason": "Best in cluster (score 0.26)"
+  },
+  "20260829_132650.jpg": {
+   "group": "scene-42",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 2 in cluster (score 0.58)"
+  },
+  "20260829_132659.jpg": {
+   "group": "scene-42",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.32)"
+  },
+  "20260829_171415.jpg": {
+   "group": "scene-61",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.61)"
+  },
+  "20260829_171822.jpg": {
+   "group": "scene-45",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "bad framing / cut off"
+   ],
+   "app_reason": "Rank 3 in cluster (score 0.48)"
+  },
+  "20260829_171825.jpg": {
+   "group": "scene-45",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Outranked (rank 1/6, score 0.41)"
+  },
+  "20260829_171902.jpg": {
+   "group": "scene-45",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.54)"
+  },
+  "20260829_172041.jpg": {
+   "group": "scene-45",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.45)"
+  },
+  "20260829_172121.jpg": {
+   "group": "scene-45",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 3 in cluster (score 0.49)"
+  },
+  "20260829_172216.jpg": {
+   "group": "scene-45",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.35)"
+  },
+  "20260829_172226.jpg": {
+   "group": "scene-45",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.40)"
+  },
+  "20260829_172247.jpg": {
+   "group": "scene-45",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Rank 3 in cluster (score 0.48)"
+  },
+  "20260829_172253.jpg": {
+   "group": "scene-45",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "other"
+   ],
+   "app_reason": "Best in cluster (score 0.32)"
+  },
+  "20260829_171906.jpg": {
+   "group": "scene-46",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.56)"
+  },
+  "20260829_173305.jpg": {
+   "group": "scene-46",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.28)"
+  },
+  "20260829_173309.jpg": {
+   "group": "scene-46",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "other"
+   ],
+   "app_reason": "Rank 3 in cluster (score 0.35)"
+  },
+  "20260829_172303.jpg": {
+   "group": "scene-30",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.27)"
+  },
+  "20260829_172536.jpg": {
+   "group": "scene-30",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "Best in cluster (score 0.56)"
+  },
+  "20260829_172541.jpg": {
+   "group": "scene-30",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Best in cluster (score 0.60)"
+  },
+  "20260829_172824.jpg": {
+   "group": "scene-67",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 6 in cluster (score 0.51)"
+  },
+  "20260829_172834.jpg": {
+   "group": "scene-67",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "Rank 2 in cluster (score 0.48)"
+  },
+  "20260818_093753.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.41 >= threshold 0.4"
+  },
+  "20260818_160204.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.53 >= threshold 0.4"
+  },
+  "20260818_165425.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.51 >= threshold 0.4"
+  },
+  "20260818_165432.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.44 >= threshold 0.4"
+  },
+  "20260818_193958.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.53 >= threshold 0.4"
+  },
+  "20260819_090314.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.47 >= threshold 0.4"
+  },
+  "20260819_090404.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.50 >= threshold 0.4"
+  },
+  "20260819_100122.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.56 >= threshold 0.4"
+  },
+  "20260819_111409.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.51 >= threshold 0.4"
+  },
+  "20260819_170446.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.54 >= threshold 0.4"
+  },
+  "20260819_170450.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "In no scene; score 0.54 >= threshold 0.4"
+  },
+  "20260820_110330.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.53 >= threshold 0.4"
+  },
+  "20260820_112017.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.49 >= threshold 0.4"
+  },
+  "20260820_122251.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "In no scene; score 0.58 >= threshold 0.4"
+  },
+  "20260820_122253.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.61 >= threshold 0.4"
+  },
+  "20260820_122346.jpg": {
+   "group": "lone-0",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.58 >= threshold 0.4"
+  },
+  "20260820_123534.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.53 >= threshold 0.4"
+  },
+  "20260820_124026.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.56 >= threshold 0.4"
+  },
+  "20260820_124944.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "stranger in frame"
+   ],
+   "app_reason": "In no scene; score 0.51 >= threshold 0.4"
+  },
+  "20260820_132311.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.57 >= threshold 0.4"
+  },
+  "20260820_154604.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.57 >= threshold 0.4"
+  },
+  "20260820_154748.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.55 >= threshold 0.4"
+  },
+  "20260820_154917.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.55 >= threshold 0.4"
+  },
+  "20260820_155135.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.52 >= threshold 0.4"
+  },
+  "20260821_100729.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.43 >= threshold 0.4"
+  },
+  "20260821_102235.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "In no scene; score 0.43 >= threshold 0.4"
+  },
+  "20260821_102317.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.52 >= threshold 0.4"
+  },
+  "20260821_105416.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.52 >= threshold 0.4"
+  },
+  "20260821_105727.jpg": {
+   "group": "lone-1",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.56 >= threshold 0.4"
+  },
+  "20260821_155559.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.49 >= threshold 0.4"
+  },
+  "20260821_155628.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.53 >= threshold 0.4"
+  },
+  "20260821_155630.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "In no scene; score 0.52 >= threshold 0.4"
+  },
+  "20260822_120204.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.57 >= threshold 0.4"
+  },
+  "20260822_120206.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "In no scene; score 0.55 >= threshold 0.4"
+  },
+  "20260822_122826.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.42 >= threshold 0.4"
+  },
+  "20260822_161009.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.61 >= threshold 0.4"
+  },
+  "20260822_161020.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.58 >= threshold 0.4"
+  },
+  "20260822_161221.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.51 >= threshold 0.4"
+  },
+  "20260822_161751.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.51 >= threshold 0.4"
+  },
+  "20260822_162306.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.59 >= threshold 0.4"
+  },
+  "20260822_162849.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "In no scene; score 0.54 >= threshold 0.4"
+  },
+  "20260822_162853.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.45 >= threshold 0.4"
+  },
+  "20260822_171158.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.54 >= threshold 0.4"
+  },
+  "20260823_072729.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.52 >= threshold 0.4"
+  },
+  "20260823_072734.jpg": {
+   "group": "lone-2",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.54 >= threshold 0.4"
+  },
+  "20260823_131438.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "blurry",
+    "other"
+   ],
+   "app_reason": "In no scene; score 0.44 >= threshold 0.4"
+  },
+  "20260823_134918.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.50 >= threshold 0.4"
+  },
+  "20260823_140359.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.56 >= threshold 0.4"
+  },
+  "20260823_140403.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.52 >= threshold 0.4"
+  },
+  "20260823_173608.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.44 >= threshold 0.4"
+  },
+  "20260823_173612.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.48 >= threshold 0.4"
+  },
+  "20260824_152910.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.54 >= threshold 0.4"
+  },
+  "20260825_083934.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "other"
+   ],
+   "app_reason": "In no scene; score 0.42 >= threshold 0.4"
+  },
+  "20260825_142357.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.46 >= threshold 0.4"
+  },
+  "20260825_143616.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.47 >= threshold 0.4"
+  },
+  "20260826_165733.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.50 >= threshold 0.4"
+  },
+  "20260826_182332.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.60 >= threshold 0.4"
+  },
+  "20260826_182352.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "near-duplicate of another pick"
+   ],
+   "app_reason": "In no scene; score 0.59 >= threshold 0.4"
+  },
+  "20260826_220144.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.55 >= threshold 0.4"
+  },
+  "20260827_115205.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.55 >= threshold 0.4"
+  },
+  "20260827_125105.jpg": {
+   "group": "lone-3",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.49 >= threshold 0.4"
+  },
+  "20260827_125113.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.50 >= threshold 0.4"
+  },
+  "20260827_211456.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.53 >= threshold 0.4"
+  },
+  "20260827_214733.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.57 >= threshold 0.4"
+  },
+  "20260828_121916.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.55 >= threshold 0.4"
+  },
+  "20260828_122325.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.49 >= threshold 0.4"
+  },
+  "20260828_122519.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.58 >= threshold 0.4"
+  },
+  "20260828_152242.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.53 >= threshold 0.4"
+  },
+  "20260828_153522.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.53 >= threshold 0.4"
+  },
+  "20260828_154423.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.45 >= threshold 0.4"
+  },
+  "20260828_161429.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "dull / no value"
+   ],
+   "app_reason": "In no scene; score 0.56 >= threshold 0.4"
+  },
+  "20260828_202814.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "dull / no value"
+   ],
+   "app_reason": "In no scene; score 0.48 >= threshold 0.4"
+  },
+  "20260828_205116.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "dull / no value"
+   ],
+   "app_reason": "In no scene; score 0.53 >= threshold 0.4"
+  },
+  "20260829_132707.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.56 >= threshold 0.4"
+  },
+  "20260829_133930.jpg": {
+   "group": "lone-4",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "dull / no value"
+   ],
+   "app_reason": "In no scene; score 0.55 >= threshold 0.4"
+  },
+  "20260829_140740.jpg": {
+   "group": "lone-5",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "dull / no value"
+   ],
+   "app_reason": "In no scene; score 0.54 >= threshold 0.4"
+  },
+  "20260829_171549.jpg": {
+   "group": "lone-5",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.56 >= threshold 0.4"
+  },
+  "20260829_171712.jpg": {
+   "group": "lone-5",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.54 >= threshold 0.4"
+  },
+  "20260829_172031.jpg": {
+   "group": "lone-5",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "bad framing / cut off"
+   ],
+   "app_reason": "In no scene; score 0.47 >= threshold 0.4"
+  },
+  "20260829_173354.jpg": {
+   "group": "lone-5",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.43 >= threshold 0.4"
+  },
+  "20260829_175957.jpg": {
+   "group": "lone-5",
+   "pick": true,
+   "verdict": "keep",
+   "reasons": [],
+   "app_reason": "In no scene; score 0.56 >= threshold 0.4"
+  },
+  "20260829_180139.jpg": {
+   "group": "lone-5",
+   "pick": true,
+   "verdict": "drop",
+   "reasons": [
+    "dull / no value"
+   ],
+   "app_reason": "In no scene; score 0.42 >= threshold 0.4"
+  },
+  "20260819_104933.jpg": {
+   "group": "removed-0",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.93)"
+  },
+  "20260819_170533.jpg": {
+   "group": "removed-0",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.93)"
+  },
+  "20260821_143325.jpg": {
+   "group": "removed-0",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.91)"
+  },
+  "20260821_150124.jpg": {
+   "group": "removed-0",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.91)"
+  },
+  "20260821_150128.jpg": {
+   "group": "removed-0",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.94)"
+  },
+  "20260821_150129.jpg": {
+   "group": "removed-1",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.94)"
+  },
+  "20260822_165347.jpg": {
+   "group": "removed-1",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.93)"
+  },
+  "20260823_121502.jpg": {
+   "group": "removed-1",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.95)"
+  },
+  "20260823_121651.jpg": {
+   "group": "removed-1",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.94)"
+  },
+  "20260823_123951.jpg": {
+   "group": "removed-1",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.86)"
+  },
+  "20260823_125201.jpg": {
+   "group": "removed-2",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.93)"
+  },
+  "20260824_195108.jpg": {
+   "group": "removed-2",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.84)"
+  },
+  "20260825_140206.jpg": {
+   "group": "removed-3",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.91)"
+  },
+  "20260825_142349.jpg": {
+   "group": "removed-3",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.92)"
+  },
+  "20260829_121555.jpg": {
+   "group": "removed-4",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.96)"
+  },
+  "20260829_121600.jpg": {
+   "group": "removed-4",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.95)"
+  },
+  "20260829_122352.jpg": {
+   "group": "removed-4",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.96)"
+  },
+  "20260829_171941.jpg": {
+   "group": "removed-4",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.95)"
+  },
+  "20260829_171955.jpg": {
+   "group": "removed-4",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.92)"
+  },
+  "20260829_172126.jpg": {
+   "group": "removed-4",
+   "pick": false,
+   "verdict": "miss",
+   "reasons": [],
+   "app_reason": "Person detected (conf 0.95)"
+  }
+ },
+ "scene_notes": {
+  "scene-39": "kid making a face made the pircute look bad",
+  "scene-82": "there is a finger that needs to be removed. was it detected?",
+  "lone-2": "image of dryer is not interesting! need to find a way to remove non-interesting photos"
+ },
+ "people": {
+  "0": "main person",
+  "1": "main person",
+  "2": "main person",
+  "3": "main person",
+  "4": "split of another person",
+  "5": "stranger / extra",
+  "6": "stranger / extra",
+  "7": "stranger / extra"
+ },
+ "people_notes": {
+  "4": "Person 2"
+ }
+}

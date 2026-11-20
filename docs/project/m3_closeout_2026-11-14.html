@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albumify M3 Close-out</title>
+<style>
+:root{--bg:#fbfaf7;--card:#ffffff;--ink:#1f2328;--muted:#5d6670;--line:#e3e0d8;--ok:#2f7d43;--okbg:#e3f3e5;--warn:#9a6a12;--warnbg:#fff1d6;--bad:#a8322d;--badbg:#fbe4e2;--accent:#2d5d9f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15181c;--card:#1d2126;--ink:#e6e8eb;--muted:#9aa3ad;--line:#2f353c;--ok:#7cc98d;--okbg:#1f3326;--warn:#e7b562;--warnbg:#3a2f18;--bad:#f08a84;--badbg:#3d2120;--accent:#8db4ea}}
+:root[data-theme="dark"]{--bg:#15181c;--card:#1d2126;--ink:#e6e8eb;--muted:#9aa3ad;--line:#2f353c;--ok:#7cc98d;--okbg:#1f3326;--warn:#e7b562;--warnbg:#3a2f18;--bad:#f08a84;--badbg:#3d2120;--accent:#8db4ea}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:980px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:19px;margin:34px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+h3{font-size:16px;margin:18px 0 8px}
+.sub{color:var(--muted);margin:0 0 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card .k{color:var(--muted);font-size:13px}
+.card .v{font-size:22px;font-weight:650;margin-top:2px}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--okbg);color:var(--ok)}.p-warn{background:var(--warnbg);color:var(--warn)}.p-bad{background:var(--badbg);color:var(--bad)}
+.tbl{width:100%;overflow-x:auto}
+table{border-collapse:collapse;width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:color-mix(in srgb,var(--line) 45%,var(--card));font-weight:600}
+tr:last-child td{border-bottom:none}
+code{font-family:ui-monospace,Consolas,monospace;font-size:13px;background:color-mix(in srgb,var(--line) 50%,transparent);padding:1px 5px;border-radius:4px}
+.note{background:var(--warnbg);border-left:4px solid var(--warn);padding:10px 14px;border-radius:6px;margin:12px 0}
+.alert{background:var(--badbg);border-left:4px solid var(--bad);padding:10px 14px;border-radius:6px;margin:12px 0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.flow span.s{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13.5px}
+.flow span.a{color:var(--muted)}
+ul{padding-left:20px}li{margin:3px 0}
+footer{color:var(--muted);font-size:13px;margin-top:40px}
+</style>
+</head>
+<body>
+<main>
+<h1>Albumify — M3 close-out (specs 116 + 117)</h1>
+<p class="sub">2026-11-14 · branch <code>spec/117-neon-r2</code> at <code>9cd0e67</code> (contains spec/116) · local only, not pushed</p>
+
+<div class="alert"><b>Verdict: not ready to merge yet.</b> Every test and gate passed and the secret scan is clean.
+Both code reviews still have <b>High</b> findings: one real bug, one docs gap, and two decisions only you can make
+(section 6).</div>
+
+<div class="grid">
+  <div class="card"><div class="k">Full test suite (SQLite)</div><div class="v ok">1805 passed · 0 failed</div><div class="k">71 skipped · 6 min 43 s</div></div>
+  <div class="card"><div class="k">Budapest gate</div><div class="v ok">11 / 11 passed</div><div class="k">Scenario A: 8 clusters, as the baseline</div></div>
+  <div class="card"><div class="k">Secret scan</div><div class="v ok">0 hits</div><div class="k">git, files, 3,812 logs, 107 Neon columns</div></div>
+  <div class="card"><div class="k">Neon parity (api/control/serving on Neon)</div><div class="v warn">296 / 297</div><div class="k">1 test timing too tight for Neon · 52 min</div></div>
+  <div class="card"><div class="k">Code reviews</div><div class="v bad">2 + 2 High</div><div class="k">spec-116 and spec-117 both blocked</div></div>
+  <div class="card"><div class="k">Cloud storage used</div><div class="v">89 MB · 0.32 GB</div><div class="k">Neon (0.5 GB free) · R2 (10 GB free)</div></div>
+</div>
+
+<h2>1. What M3 is</h2>
+<div class="flow">
+  <span class="s">T8.4 secret scan + sizes</span><span class="a">→</span>
+  <span class="s">T8.5 full suite</span><span class="a">→</span>
+  <span class="s">Neon + R2 sets</span><span class="a">→</span>
+  <span class="s">Budapest gate</span><span class="a">→</span>
+  <span class="s">/code-review 116 + 117</span><span class="a">→</span>
+  <span class="s">PR 117 → main (after your OK)</span>
+</div>
+<div class="tbl"><table>
+<tr><th>Step</th><th>Result</th><th>Evidence</th></tr>
+<tr><td>Secret scan (T8.4)</td><td><span class="pill p-ok">pass</span> no secret value anywhere it was looked for</td><td>Neon password, full DB URL, R2 key id + secret, Anthropic and Gemini keys, searched in: full git history of both branches, 2,568 + 2,539 repo files, 3,812 logs/job records (<code>~/.sim_bench/jobs</code>, <code>runs</code>, session logs), every text/JSON column in Neon (107)</td></tr>
+<tr><td>Modal image</td><td><span class="pill p-ok">pass</span></td><td>Image holds only <code>configs/</code> + Python packages; keys come from the Modal secret <code>albumify-cloud</code> at run time</td></tr>
+<tr><td>Storage sizes</td><td><span class="pill p-ok">ok</span></td><td>Neon 89 MB; R2 8,709 objects, 0.32 GB, all under <code>jobs/</code></td></tr>
+<tr><td>Full suite (T8.5)</td><td><span class="pill p-ok">pass</span> 1805 passed, 0 failed</td><td>71 skipped, 147 deselected (e2e / slow / needs-data markers). The 71 skips are not yet itemised.</td></tr>
+<tr><td>Neon parity</td><td><span class="pill p-warn">1 failed</span> 296 passed</td><td>Both table sets in one schema: pass. Of the api/control/serving suites run on Neon, 296 of 297 pass (52 min). Failed: <code>test_db_progress.py::test_heartbeat_thread_beats_at_least_every_interval</code>. <b>Cause, measured:</b> one heartbeat write to Neon takes 0.65 s (about 4 round trips of 0.16 s). The test wants a beat every 0.2 s and reads at 0.7 s, but the first beat lands at about 0.85 s. Production beats every 5 s, and GPU run f7d8ba85 kept its heartbeat for 16 min, so runs are not affected. This is the first time this test ran on Neon. <b>Proposed fix:</b> the test polls until a deadline instead of sleeping a fixed 0.7 s.</td></tr>
+<tr><td>Budapest gate</td><td><span class="pill p-ok">pass</span> 11/11</td><td>Scenarios A–K, 6 min 57 s; A = fresh run, 8 clusters</td></tr>
+<tr><td>Code review 116</td><td><span class="pill p-bad">blocked</span> 2 High, 6 Medium</td><td><code>specs/116-one-run-path/REVIEW.md</code> (refreshed 2026-11-14)</td></tr>
+<tr><td>Code review 117</td><td><span class="pill p-bad">blocked</span> 2 High, 6 Medium, 10 Low</td><td><code>specs/117-neon-r2-one-database/REVIEW.md</code> (new)</td></tr>
+</table></div>
+
+<h2>2. Spec-117 code review: High and Medium</h2>
+<div class="tbl"><table>
+<tr><th>#</th><th>Finding</th><th>Where</th><th>Why it matters</th></tr>
+<tr><td><span class="pill p-bad">H1</span></td><td><b>A network blip on the PC can fail a healthy GPU run and lose its results.</b> <code>status()</code> turns <i>any</i> error, including a lost connection to Modal, into "failed". The watchdog then fails the job, and when the worker finishes, its results are refused. I checked this against the code: it's real.</td><td><code>sim_bench/serving/detached_modal.py:57</code>, <code>run_watchdog.py</code>, <code>worker_persister.py:110</code></td><td>This is exactly the "PC drops out" case R8 exists for. The test fake raises where the real code returns "failed", so the tests miss it.</td></tr>
+<tr><td><span class="pill p-bad">H2</span></td><td><b>Architecture docs not updated</b> since W6: <code>display_path</code>, new endpoints, <code>RunDisplayCopies</code>, autocommit read sessions, parallel uploads</td><td><code>docs/architecture/*.html</code></td><td>Required by checklist §7</td></tr>
+<tr><td><span class="pill p-warn">M1</span></td><td>If the Modal secret has no <code>DATABASE_URL</code>, the worker quietly writes to a SQLite file inside the container, and the results are lost after the GPU time is paid for</td><td><code>runners.py:281</code></td><td>Should fail at once instead</td></tr>
+<tr><td><span class="pill p-warn">M2</span></td><td>If the PC and the GPU write the same cache row at once, the database rejects the duplicate and the whole step fails</td><td><code>pipeline/cache_handler.py:125-135</code></td><td>Rare today; likely with two runs</td></tr>
+<tr><td><span class="pill p-warn">M3</span></td><td><code>serving</code> imports from <code>api</code>. The FastAPI guard in <code>session.py</code> works around it; the engine/session code belongs in <code>storage/</code></td><td><code>worker_persister.py:60,87</code></td><td>Layering</td></tr>
+<tr><td><span class="pill p-warn">M4</span></td><td>CHANGES_LOG has no entries for 4 code commits</td><td><code>dd33596 c0a2606 1b7d747 c56d6db</code></td><td>House rule</td></tr>
+<tr><td><span class="pill p-warn">M5</span></td><td>Definition of done not fully met: R11 met on People only; SIGHTING-154 open</td><td>spec.md</td><td>Your decision</td></tr>
+<tr><td><span class="pill p-warn">M6</span></td><td>The spend cap assumes L4 speed. Runs land on an A10, so it under-counts by about 1.7× (9.7 min estimated, 16.5 min actual)</td><td><code>job_service.py:142</code></td><td>The cost cap is too lenient</td></tr>
+</table></div>
+
+<h2>3. Spec-116 code review (refreshed)</h2>
+<div class="tbl"><table>
+<tr><th>#</th><th>Finding</th><th>Status</th></tr>
+<tr><td><span class="pill p-bad">H1</span></td><td>GPU path proof. The M2 runs (<code>f7d8ba85</code>, <code>fd52013c</code>) now prove the parts 116 and 117 share on real data. Still unproven: the 116-only parts (copying results back to the PC, the short-lived Modal app), which 117 replaces.</td><td>Superseded if 116 and 117 merge together; open if 116 merges alone</td></tr>
+<tr><td><span class="pill p-bad">H2</span></td><td>SIGHTING-144: running at 768 px changes results (the sharpness gate depends on resolution)</td><td>Your decision; still open</td></tr>
+<tr><td><span class="pill p-warn">M1–M4</span></td><td>The PC must stay online during a run (fixed in 117); a queued run shows as "Running"; a behaviour change to confirm (Slovakia26's no-scene picks went from 24 to 85); regression baselines not re-measured</td><td>Carried over / grown</td></tr>
+<tr><td><span class="pill p-warn">M5</span></td><td>Re-running the same album gives different picks, 3 of about 330 photos (SIGHTING-154)</td><td>New, open</td></tr>
+<tr><td><span class="pill p-warn">M6</span></td><td>Nothing ties <code>pipeline.yaml</code> people clustering to the validated K=51 profile, so it can drift back silently</td><td>New</td></tr>
+</table></div>
+
+<h2>4. What this work delivered (M1 + M2)</h2>
+<div class="tbl"><table>
+<tr><th>Claim</th><th>Evidence</th></tr>
+<tr><td>One cloud database (Neon) + one object store (R2); the GPU worker writes results directly</td><td>Spec-117 R4–R6, R8, R10, R12 done</td></tr>
+<tr><td>A GPU run started from the app finishes with the PC's API and UI stopped</td><td>Run <code>f7d8ba85</code>: 329 picks, 7 people, original paths; nothing copied back</td></tr>
+<tr><td>A re-run uses the shared cache</td><td>Run <code>fd52013c</code>: cached steps 11–99 ms; local run after both took 4.9 min end to end</td></tr>
+<tr><td>Three GPU-run failures found and fixed</td><td>SIGHTING-153: worker missing FastAPI → guarded import + test; Neon closing an idle transaction → the cache read commits; saving timed out → parallel R2 uploads (52 ms/file)</td></tr>
+</table></div>
+<h3>Page speed on Neon (R11 target: under 2 s)</h3>
+<div class="tbl"><table>
+<tr><th>Page</th><th>Before</th><th>Now</th><th>Target met?</th></tr>
+<tr><td>Results, first open</td><td>105 s</td><td>11.6 s</td><td><span class="pill p-bad">no</span></td></tr>
+<tr><td>Explore, first open</td><td>54.5 s</td><td>7.7 s</td><td><span class="pill p-bad">no</span></td></tr>
+<tr><td>Results, again</td><td>—</td><td>3.2 s</td><td><span class="pill p-bad">no</span></td></tr>
+<tr><td>Albums, again</td><td>—</td><td>2.4 s</td><td><span class="pill p-warn">close</span></td></tr>
+<tr><td>People</td><td>—</td><td>1.5 s</td><td><span class="pill p-ok">yes</span></td></tr>
+</table></div>
+<p>The rest of the time is the app drawing about 300 photos, not the database.</p>
+
+<h2>5. Incident during the scan (handled)</h2>
+<div class="note">The first scan ran at the same moment as the Neon tests and hit a database deadlock. The error message
+echoed one search value, the <b>Gemini API key</b>, into a local tool-output file and into this Claude session's transcript.
+It never reached git, Neon or R2. I removed it from the output file, and the rerun scan now hides query
+parameters. <b>Recommendation: rotate the Gemini key</b>, because it was shown in the session.</div>
+
+<h2>6. Decisions needed from you</h2>
+<ol>
+<li><b>Fix 117-H1</b> (treat a lost connection as "unknown", not "failed", plus a test that uses the real exception) as a sighting. About 30 min.</li>
+<li><b>Heartbeat test</b>: change it to poll until a deadline so it passes on Neon (test-only change), then re-run the parity set.</li>
+<li><b>Update the architecture docs</b> (117-H2) and add the missing CHANGES_LOG entries (M4).</li>
+<li><b>SIGHTING-144</b>: accept 768 px results as the new normal, or keep full size for the sharpness gate.</li>
+<li><b>Definition of done</b>: merge with R11 met on People only and SIGHTING-154 open (as listed follow-ups), or fix them first.</li>
+<li>Merge plan: one PR carrying 116 + 117 (makes 116-H1 moot). Push only after your OK.</li>
+<li>Housekeeping: delete the 3 failed runs from Albums; optionally a real Wi-Fi-off test during a GPU run.</li>
+</ol>
+
+<h2>7. Still open, not in M3</h2>
+<ul>
+<li>Cancel of a queued GPU run (R9) — untested on real Modal.</li>
+<li>spec-118 (album tiers Best 10 / 30 / All) — waiting on your approval.</li>
+<li>The 71 skipped tests need a list of reasons.</li>
+</ul>
+
+<footer>Logs: full suite, Budapest gate and secret scan are in the session scratchpad (local). No photos are shown or attached here.
+Reviews: <code>specs/116-one-run-path/REVIEW.md</code>, <code>specs/117-neon-r2-one-database/REVIEW.md</code> in the <code>D:\sim-bench-117</code> worktree.</footer>
+</main>
+</body>
+</html>

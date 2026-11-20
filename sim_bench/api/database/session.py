@@ -1,62 +1,89 @@
 """Database session management."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Generator
 
-from sqlalchemy import create_engine, text, inspect
+try:   # the API. The GPU worker image has no FastAPI: it imports this module for its paths and never serves a request
+    from fastapi import Request
+except ImportError:
+    Request = None
+
+from sqlalchemy import text, inspect
 from sqlalchemy.orm import sessionmaker, Session
 
 from sim_bench.api.database.models import Base
+from sim_bench.storage.database import DatabaseConfig
 
 logger = logging.getLogger(__name__)
 
 
 _engine = None
 _SessionLocal = None
+_ReadSessionLocal = None
+
+# Requests that only read. On Postgres they run in autocommit: no BEGIN before and no ROLLBACK after each request,
+# two of the ~0.16 s round trips to Neon (SIGHTING-152). No GET handler writes more than one row (audited
+# 2026-11-13; the default config profile sync is a single upsert), so nothing loses all-or-nothing protection.
+READ_METHODS = frozenset({"GET", "HEAD"})
 
 
 def get_database_path() -> Path:
-    """Get default database path."""
+    """Get default database path. ``SIM_BENCH_DB`` points the app at another file (spec-116: isolated tests)."""
+    override = os.environ.get("SIM_BENCH_DB")
+    if override:
+        return Path(override)
     db_dir = Path.home() / ".sim_bench"
     db_dir.mkdir(parents=True, exist_ok=True)
     return db_dir / "sim_bench.db"
 
 
 def get_database_url(db_path: Path = None) -> str:
-    """Get SQLite database URL."""
-    if db_path is None:
-        db_path = get_database_path()
-    return f"sqlite:///{db_path}"
+    """``$DATABASE_URL`` (spec-117: one database for every Albumify table), else the SQLite file."""
+    if db_path is not None:
+        return DatabaseConfig.sqlite(db_path).url
+    return DatabaseConfig.from_env(get_database_path()).url
+
+
+_MIGRATIONS = [
+    ("pipeline_results", "fc_export_dir"),
+    ("pipeline_results", "step_decisions"),
+    ("pipeline_runs", "completed_steps"),
+]
 
 
 def _migrate_new_columns(engine) -> None:
-    """Idempotent migration: add columns that don't exist yet on existing tables."""
-    _MIGRATIONS = [
-        ("pipeline_results", "fc_export_dir", "VARCHAR"),
-        ("pipeline_results", "step_decisions", "JSON"),
-        ("pipeline_runs", "completed_steps", "JSON"),
-    ]
+    """Idempotent migration: add columns that don't exist yet on existing tables.
+
+    The column type is compiled from the model for the engine's dialect (spec-117 R3), so the same
+    migration runs on SQLite and on Postgres."""
     insp = inspect(engine)
     with engine.begin() as conn:
-        for table, column, col_type in _MIGRATIONS:
+        for table, column in _MIGRATIONS:
             if not insp.has_table(table):
                 continue
             existing = {c["name"] for c in insp.get_columns(table)}
             if column not in existing:
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                col_type = Base.metadata.tables[table].c[column].type.compile(dialect=engine.dialect)
+                conn.execute(text(f'ALTER TABLE {table} ADD COLUMN "{column}" {col_type}'))
                 logger.info("Migration: added %s.%s", table, column)
 
 
 def init_db(db_url: str = None) -> None:
     """Initialize database engine and create tables."""
-    global _engine, _SessionLocal
+    global _engine, _SessionLocal, _ReadSessionLocal
 
     if db_url is None:
         db_url = get_database_url()
 
-    _engine = create_engine(db_url, echo=False, connect_args={"check_same_thread": False})
+    config = DatabaseConfig(db_url)
+    _engine = config.make_engine()
+    logger.info("API database: %s", config.redacted())
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+    # SQLite: a local file, nothing to save; it keeps the normal session
+    _ReadSessionLocal = _SessionLocal if config.is_sqlite else sessionmaker(
+        autoflush=False, bind=_engine.execution_options(isolation_level="AUTOCOMMIT"))
 
     Base.metadata.create_all(_engine)
     _migrate_new_columns(_engine)
@@ -70,13 +97,14 @@ def get_engine():
     return _engine
 
 
-def get_session() -> Generator[Session, None, None]:
-    """Dependency for FastAPI to get a database session."""
-    global _SessionLocal
+def get_session(request: Request = None) -> Generator[Session, None, None]:  # type: ignore[assignment]
+    """Dependency for FastAPI to get a database session; read requests get the autocommit one. ``request`` is
+    None outside a request (API startup); FastAPI does not accept ``Optional[Request]`` here."""
     if _SessionLocal is None:
         init_db()
 
-    session = _SessionLocal()
+    reading = request is not None and request.method in READ_METHODS
+    session = (_ReadSessionLocal if reading else _SessionLocal)()
     try:
         yield session
     finally:

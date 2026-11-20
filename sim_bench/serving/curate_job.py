@@ -13,9 +13,15 @@ Two deliberate choices make a re-run reproduce its result (AC4):
 
 ``created_at`` is wall-clock and therefore differs between runs by design; compare two runs with
 :func:`stable_album`, which drops it.
+
+spec-117: given the job database, the curator writes the run's live progress and heartbeat to the job row
+(:class:`~sim_bench.serving.db_progress.DbProgressWriter`, replacing ``progress.json``) and, given a
+:class:`~sim_bench.serving.worker_persister.WorkerPersister`, the results themselves: the job ends
+``succeeded`` or ``failed`` here, in the worker, whether or not the app is still watching.
 """
 from __future__ import annotations
 
+import dataclasses
 import logging
 import os
 from dataclasses import dataclass, field
@@ -23,7 +29,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
+from sim_bench.pipeline.run_spec import RunSpec
 from sim_bench.serving.job_store import JobStore
+from sim_bench.serving.run_output import RunOutput
 from sim_bench.serving.run_settings import RunSettings
 from sim_bench.serving.pipeline_runner import SpecBuilder, SpecInputs, SpecResult
 
@@ -32,17 +40,20 @@ logger = logging.getLogger(__name__)
 __all__ = ["CurateJobInputs", "CurateJobResult", "JobCurator", "run_pipeline", "stable_album",
            "feature_cache_path", "FEATURE_CACHE_ENV"]
 
-# (image paths, plan) -> (finished PipelineContext, PipelineResult). Injectable so the orchestration
-# above can be tested without the real models.
-PipelineRunner = Callable[[List[Path], SpecResult], Tuple[object, object]]
+# (image paths, plan, on_step=, fail_fast=, album_name=) -> (finished PipelineContext, PipelineResult). Injectable
+# so the orchestration above can be tested without the real models.
+PipelineRunner = Callable[..., Tuple[object, object]]
+OutputBuilder = Callable[[object, object], RunOutput]
 
 
-# The worker's feature cache (faces, embeddings, quality, scene features). Default: the PC's
-# ~/.sim_bench/sim_bench.db, shared with the app. The L4 worker points this at a Modal Volume.
+# The worker's feature cache (faces, embeddings, quality, scene features). spec-117 R12: the one database
+# (DATABASE_URL, Neon), so this PC and the L4 share it; unset -> the PC's ~/.sim_bench/sim_bench.db, shared with
+# the app. ALBUMIFY_FEATURE_CACHE names another SQLite file (isolated tests).
 FEATURE_CACHE_ENV = "ALBUMIFY_FEATURE_CACHE"
 
 
 def feature_cache_path() -> Path:
+    """The SQLite file the cache uses when ``DATABASE_URL`` is unset."""
     env = os.environ.get(FEATURE_CACHE_ENV)
     if env:
         return Path(env)
@@ -50,10 +61,22 @@ def feature_cache_path() -> Path:
     return get_database_path()
 
 
-def run_pipeline(images: List[Path], plan: SpecResult) -> Tuple[object, object]:
+def feature_cache_config():
+    """``ALBUMIFY_FEATURE_CACHE`` file if set, else ``DATABASE_URL``, else ``sim_bench.db``."""
+    from sim_bench.storage.database import DatabaseConfig
+
+    if os.environ.get(FEATURE_CACHE_ENV):
+        return DatabaseConfig.sqlite(feature_cache_path())
+    return DatabaseConfig.from_env(feature_cache_path())
+
+
+def run_pipeline(images: List[Path], plan: SpecResult, *, on_step: Optional[Callable] = None,
+                 on_progress: Optional[Callable[[str, float, str], None]] = None,
+                 fail_fast: bool = True, album_name: Optional[str] = None,
+                 inputs_root: Optional[Path] = None) -> Tuple[object, object]:
     """The production runner: execute the resolved plan over exactly ``images``, with the feature
-    cache attached (spec-112 TW1.3: job runs had none, so every job recomputed everything)."""
-    from sqlalchemy import create_engine
+    cache attached (spec-112 TW1.3: job runs had none, so every job recomputed everything). ``inputs_root``: the
+    shared input store, whose photos are cached by content (spec-117 R12)."""
     from sqlalchemy.orm import sessionmaker
 
     from sim_bench.api.database.models import UniversalCache
@@ -61,17 +84,18 @@ def run_pipeline(images: List[Path], plan: SpecResult) -> Tuple[object, object]:
     from sim_bench.pipeline.context import PipelineContext
     from sim_bench.pipeline.run import execute_spec
 
-    cache_db = feature_cache_path()
-    cache_db.parent.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(f"sqlite:///{cache_db.as_posix()}",
-                           connect_args={"check_same_thread": False, "timeout": 60})
+    cache = feature_cache_config()
+    engine = cache.make_engine(sqlite_timeout_s=60)
     UniversalCache.__table__.create(engine, checkfirst=True)
     session = sessionmaker(bind=engine)()
-    logger.info("feature cache: %s", cache_db)
+    logger.info("feature cache: %s", cache.redacted())
     try:
         context = PipelineContext(image_paths=list(images),
-                                  cache_handler=UniversalCacheHandler(session))
-        return context, execute_spec(plan.as_pipeline_spec(), context, fail_fast=True)
+                                  cache_handler=UniversalCacheHandler(
+                                      session, inputs_root=str(inputs_root) if inputs_root else None))
+        context.album_name = album_name   # spec-088: names the export folder
+        return context, execute_spec(plan.as_pipeline_spec(), context, fail_fast=fail_fast,
+                                     progress_cb=on_progress, on_step_complete=on_step)
     finally:
         session.close()
         engine.dispose()
@@ -95,6 +119,8 @@ class CurateJobInputs:
     # spec-115 W2: the server makes display images and face crops from its own copies (LocalRenders), so the
     # worker returns results only. True keeps the old worker-side renders (debug / comparison only).
     write_renders: bool = False
+    run_spec: Optional[Dict] = None  # spec-116 R2: what to run (RunSpec.to_dict); None = the named pipeline
+    gpu: Optional[str] = None        # spec-117 R10: the GPU the run got (recorded in run.json)
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,11 +149,16 @@ class JobCurator:
     def __init__(self, store: JobStore, *,
                  spec_builder: Optional[SpecBuilder] = None,
                  runner: PipelineRunner = run_pipeline,
-                 clock: Callable[[], str] = lambda: datetime.now(timezone.utc).isoformat()):
+                 clock: Callable[[], str] = lambda: datetime.now(timezone.utc).isoformat(),
+                 output_builder: OutputBuilder = RunOutput.from_context,
+                 db=None, persister=None):
         self._store = store
+        self._db = db                       # ControlDB: live progress + heartbeat in the job row (spec-117 R5)
+        self._persister = persister         # WorkerPersister: the worker writes the results (spec-117 R6)
         self._spec_builder = spec_builder or SpecBuilder()
         self._runner = runner
         self._clock = clock
+        self._output_builder = output_builder
 
     def calc(self, inputs: CurateJobInputs) -> CurateJobResult:
         store, job_id = self._store, inputs.job_id
@@ -137,11 +168,50 @@ class JobCurator:
                                    error=f"job {job_id!r} has no staged inputs under "
                                          f"{store.paths(job_id).input_dir}")
 
-        plan = self._spec_builder.calc(SpecInputs(pipeline=inputs.pipeline, device=inputs.device))
+        spec = RunSpec.from_dict(inputs.run_spec) if inputs.run_spec else None
+        plan = self._spec_builder.place(spec, inputs.device) if spec else \
+            self._spec_builder.calc(SpecInputs(pipeline=inputs.pipeline, device=inputs.device))
         logger.info("job %s: %d inputs, pipeline=%s device=%s (%d steps)",
                     job_id, len(sources), inputs.pipeline, inputs.device, len(plan.steps))
 
-        context, result = self._runner(sources, plan)
+        from sim_bench.serving.db_progress import DbProgressWriter, NullProgress
+
+        progress = (DbProgressWriter(self._db, job_id, plan.steps, total=len(sources))
+                    if self._db is not None else NullProgress())
+        try:
+            with progress:
+                context, result = self._runner(sources, plan, on_step=progress.on_step,
+                                               on_progress=progress.on_fraction,
+                                               inputs_root=store.inputs.root,
+                                               fail_fast=spec.fail_fast if spec else True,
+                                               album_name=spec.album_name if spec else None)
+                out = self._finish(inputs, plan, sources, context, result)
+                if out.ok and self._persister is not None:
+                    progress.set_stage("saving results")
+                    out = self._persist(inputs, out)
+        except Exception as e:
+            if self._persister is not None:
+                self._persister.fail(job_id, f"{type(e).__name__}: {e}")
+            raise
+        if not out.ok and self._persister is not None:
+            self._persister.fail(job_id, out.error, out.failed_step)
+        return out
+
+    def _persist(self, inputs: CurateJobInputs, out: CurateJobResult) -> CurateJobResult:
+        """The worker writes its results (spec-117 R6); a failure here fails the run with the reason."""
+        from sim_bench.serving.worker_persister import PersistInputs
+
+        try:
+            self._persister.calc(PersistInputs(job_id=inputs.job_id, runner=inputs.runner))
+            return out
+        except Exception as e:
+            logger.exception("job %s: results not saved", inputs.job_id)
+            failed = dataclasses.replace(out, ok=False, error=f"saving results failed: {type(e).__name__}: {e}")
+            self._store.write_run_record(inputs.job_id, _run_record(failed, inputs))
+            return failed
+
+    def _finish(self, inputs: CurateJobInputs, plan, sources: List[Path], context, result) -> CurateJobResult:
+        store, job_id = self._store, inputs.job_id
 
         timing = _timing(result)
         settings = RunSettings.collect(plan, pipeline=inputs.pipeline, runner=inputs.runner,
@@ -160,6 +230,7 @@ class JobCurator:
         album_path = store.write_album(job_id, album)
 
         bundle_path = self._write_bundle(job_id, context, sources, album, inputs.write_renders)
+        store.write_run_output(job_id, self._output_builder(context, result).to_json())
 
         displays: List[Path] = []
         if inputs.write_renders:
@@ -238,4 +309,5 @@ def _run_record(result: CurateJobResult, inputs: CurateJobInputs) -> Dict:
         "failed_step": result.failed_step,
         "error": result.error,
         "settings": result.settings,
+        "gpu": inputs.gpu,
     }

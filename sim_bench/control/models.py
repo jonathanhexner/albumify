@@ -5,8 +5,9 @@ Neon Postgres (Phase B). Every product row is keyed by ``job_id``. This metadata
 ``sim_bench.db`` (api/database/models.py, Alembic) and from the per-run ``run_db`` schema; the
 three must not be cross-imported.
 
-Rows are written only by the control plane (JobService / ResultsLoader / the API), never by the
-worker -- the worker writes files (album.json + results bundle) and holds no DB credentials.
+spec-117 (supersedes spec-112 AC7): the worker writes the job's status, progress and heartbeat and, once the
+pipeline is done, the result rows itself (``serving/worker_persister.py``), so a run survives the PC going away.
+The worker's credentials live in the Modal secret ``albumify-cloud`` only.
 """
 from __future__ import annotations
 
@@ -40,6 +41,11 @@ class Job(ControlBase):
     tag: Mapped[Optional[str]] = mapped_column(String(64))       # e.g. regression:slovakia (spec-114)
     worker: Mapped[Optional[str]] = mapped_column(String(128))   # host:pid:start of the process running it
     album_created_at: Mapped[Optional[str]] = mapped_column(String(40))
+    # spec-117: live state, written by the worker (DbProgressWriter); the app reads only this row
+    progress: Mapped[Optional[dict]] = mapped_column(JSON)       # stage, current step, fraction, n of N, steps done
+    heartbeat_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    call_id: Mapped[Optional[str]] = mapped_column(String(128))  # Modal function call id of a detached L4 run
+    gpu: Mapped[Optional[str]] = mapped_column(String(32))       # the GPU the run got (L4, A10G)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
@@ -112,7 +118,7 @@ class Face(ControlBase):
 
 
 class Person(ControlBase):
-    __tablename__ = "people"
+    __tablename__ = "job_people"   # spec-117 R2: the API owns ``people``; both live in one database
 
     job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True)
     person_id: Mapped[str] = mapped_column(String(64), primary_key=True)   # album id, person_<n>

@@ -2,6 +2,138 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-15 [CONFIG] CI installs the spec-117 test deps; heavy secret test out of the fast lane
+**Files**: `.github/workflows/tests.yml`, `docs/project/LEARNINGS.md`.
+**Change**: fast lane installs `psycopg[binary]` and `modal==1.6.1`; full lane installs `modal==1.6.1`; fast lane deselects `test_no_secrets_leak.py::test_a_run_record_holds_no_secret` and `test_worker_imports_without_fastapi.py::test_worker_modules_import_without_the_web_stack` (both import the worker's pipeline -> ultralytics, insightface, torch; still run in the full lane and locally). Verified in a fresh venv with exactly the fast-lane packages: 151 passed, 3 deselected.
+**Reason**: PR #5 fast-tests failed 4 tests on missing packages (psycopg, modal, ultralytics); local fast-lane command now 152 passed.
+
+### 2026-11-15 [DOCS] spec-116/117 M3 close-out: reviews, evidence, fix branch merged
+**Files**: `specs/116-one-run-path/{REVIEW,updates,spec}.md`, `specs/117-neon-r2-one-database/{REVIEW,updates,tasks,spec}.md`, `ROADMAP.md`, `docs/project/m3_closeout_2026-11-14.html`, `docs/project/status_2026-11-15.html`.
+**Change**: Code reviews (116 refreshed, 117 new, both re-checked after the fixes: accepted, no High open); T8.4/T8.5 done; both specs to Code Review; merged `spec/117-m3-fixes` (`b95e485`).
+**Reason**: M3 close-out; full suite 1824 passed / 0 failed on the merged branch, Budapest 11/11, secret scan 0 hits.
+
+### 2026-11-14 [TEST] Neon parity re-run — the cancel tests' fake long job waits 5 min, not 30 s
+**Files**: `tests/control/test_job_service.py` (`BlockingRunner.run`).
+**Change**: `_stop.wait(30)` -> `_stop.wait(300)`; the fake job is always cancelled, so only the upper bound changes.
+**Verification**: Neon parity re-run on `spec/117-m3-fixes`: 315 of 316 passed (1 h 58 min); the one failure was `test_cancel_of_a_job_waiting_for_the_modal_slot_ends_it_at_once` (the first job ended at 30 s, before the test reached `cancel`, so the second had already succeeded). After the change: `ut_ReviewFixes` + `ut_Cancel` on a Neon schema 8 passed; `tests/control/test_job_service.py` on SQLite 33 passed. Budapest gate 11 passed. SIGHTING-155 heartbeat test passed on Neon.
+**Reason**: Neon round trips (~0.5 s each) made the test's setup take longer than the fake job's 30 s.
+
+### 2026-11-14 [DOCS] spec-117 review H2 — architecture docs for the post-W6 changes
+**Files**: `docs/architecture/{classes,data_flow}.html`.
+**Change**: documented what came after W6: `ImageMetrics.display_path`, `GET /results/{id}/decisions`, `DELETE /jobs/{id}`, `ResultCache`, `RunDisplayCopies`, autocommit read sessions (`get_session(request)`, `ControlDB.read_session`), `JobRepo.set_progress` / `runners()`, parallel R2 uploads (`UPLOAD_WORKERS`), and from `10358db`: `status()` "unknown" + `unreachable(e)`, `require_shared_db`, `ServingConfig.gpu_slowdown` / `slowest_slowdown`. New data_flow subsection: spec-117 read path.
+**Verification**: grep finds each name in at least one of the two files. Docs only.
+**Reason**: spec-117 code review H2 (docs had not followed the code after W6).
+
+### 2026-11-14 [BUGFIX] spec-117 review H1 — a lost connection to Modal is "unknown", not "failed" (SIGHTING-156)
+**Files**: `sim_bench/serving/detached_modal.py`; new `tests/serving/test_detached_modal_status.py`.
+**Change**: `status()` returns `"unknown"` when this PC cannot reach Modal (new `unreachable(e)`); `call_ended` treats it as still running, so the watchdog and the runner's follow loop judge by the heartbeat.
+**Verification**: 12 new tests (real `status()`, real exception types, watchdog on top) pass; the file fails to import on the old code; `tests/serving/test_run_watchdog.py` 10 passed.
+**Reason**: a network blip failed healthy GPU runs and their results were refused.
+
+### 2026-11-14 [TEST] SIGHTING-155 — heartbeat test polls to a deadline
+**Files**: `tests/serving/test_db_progress.py`.
+**Change**: wait until `heartbeat_at` moves (10 s deadline) instead of a fixed 0.7 s sleep; one Neon write takes ~0.65 s.
+**Verification**: `tests/serving/test_db_progress.py` 6 passed on SQLite and in the 2026-11-14 Neon parity re-run.
+**Reason**: the only failure of the 2026-11-14 Neon parity run.
+
+### 2026-11-14 [BUGFIX] spec-117 review M1 — a Modal worker without a shared DATABASE_URL stops at once
+**Files**: `sim_bench/serving/runners.py` (`require_shared_db`, called first in `worker_curator`); new `tests/serving/test_worker_needs_shared_db.py`.
+**Change**: `modal_*` workers refuse to start when `DATABASE_URL` is missing or SQLite; the error names the Modal secret, and the watchdog shows it on the job.
+**Verification**: 6 new tests pass (no URL, SQLite URL, Postgres URL, local runner, nothing created before the check).
+**Reason**: without it the worker wrote to a SQLite file inside the container and the paid run's results were lost.
+
+### 2026-11-14 [CONFIG] spec-117 review M6 — GPU estimate and spend cap at the slowest GPU
+**Files**: `sim_bench/serving/serving_config.py` (`gpu_slowdown`, `slowest_slowdown`), `sim_bench/serving/job_service.py`, `configs/serving.yaml`; `tests/serving/test_modal_gpu_choice.py`, `tests/control/test_job_service.py`.
+**Change**: GPU minutes = L4 time x the slowest GPU's slowdown (A10G 1.7, measured on Slovakia26 2026-11-13: 16.5 min vs 9.7 min estimated); dollars from those minutes at the dearest rate.
+**Verification**: `test_modal_gpu_choice.py`, `test_job_service.py`, jobs/pipeline router tests: 65 passed (3 R2 tests error on a missing `boto3` in this venv, same on `spec/117-neon-r2`).
+**Reason**: runs land on an A10G; the cap under-counted by 1.7x.
+
+### 2026-11-14 [DOCS] spec-117 review M4 — entries for four earlier commits
+**Files**: this log.
+**Change**: `dd33596` perf(SIGHTING-152) Neon pages 5-10x faster (see SIGHTING-152) + fix(SIGHTING-151) gallery Detail buttons keyed by the full path (the short hash collided on ~300-photo albums) + spec-117 T8.1 run from the app, migration marked done + spec-118 PRD; `c0a2606` fix: GPU worker imports `session.py` without FastAPI (SIGHTING-153 part 1); `1b7d747` fix: cache read ends its transaction, Neon had killed the L4 run idle in transaction (SIGHTING-153 part 2), UI tests restore `__main__`; `c56d6db` perf: display images and face crops uploaded to R2 in parallel, the L4 run had timed out saving (SIGHTING-153 part 3).
+**Reason**: house rule (every code change logged); flagged by the spec-117 review.
+
+### 2026-11-06 [BUGFIX] spec-117 — RunPersister writes people before their face rows (Postgres FK)
+**Files**: `sim_bench/api/services/run_persister.py`, new `tests/api/test_run_persister_fk.py`; `tests/_db.py`, `tests/storage/test_neon_parity.py`.
+**Change**: flush the `people` rows before `face_metric_rows` (FK `person_id -> people.id`, no ORM relationship, so the unit of work did not order them; SQLite never enforced it, Postgres refused every run with faces). Parity helper: TRUNCATE no longer waits minutes on an earlier test's idle-in-transaction session; it ends only connections tagged with the parity run's `application_name`.
+**Verification**: new SQLite test with foreign keys ON fails without the flush, passes with it; 8 Neon failures in `test_pipeline_service_runners.py` traced to this.
+**Reason**: spec-117 R3 (found by the Neon parity run).
+
+### 2026-11-06 [BUGFIX] spec-117 — read_album finds an L4 run's album in the object store
+**Files**: `sim_bench/serving/job_store.py`, `tests/serving/test_worker_persister.py`.
+**Change**: `JobStore.read_album` falls back to the object store when the job folder has no `album.json` (an L4 run copies nothing back), so `scripts/albumify_regression.py` keeps working for L4 runs.
+**Verification**: `test_the_pc_reads_an_l4_album_from_the_object_store[pc,l4]` passed.
+**Reason**: found in self-review of spec-117 W5 (callers of the removed copy-back).
+
+### 2026-11-06 [FEATURE] spec-117 W7 — migration script (written + tested, not run on real data)
+**Files**: new `scripts/migrate_to_neon.py`, `tests/scripts/test_migrate_to_neon.py`; spec-117 updates.
+**Change**: `NeonMigrator` plan / copy / verify: SQLite files -> the one database, FK order, batches, `people` -> `job_people`, Postgres sequences moved; refuses a non-empty target; sources only read.
+**Verification**: 6 passed SQLite->SQLite, 6 passed SQLite->Neon test schema. Real run waits for the owner.
+**Reason**: spec-117 R4.
+
+### 2026-11-06 [FEATURE] spec-117 W6 — one feature cache (batched, content-keyed, on DATABASE_URL)
+**Files**: `sim_bench/pipeline/{cache_handler,base}.py`, `sim_bench/serving/curate_job.py`; new `tests/pipeline/test_cache_handler_batch.py`, `tests/architecture/test_no_secrets_leak.py`; `docs/architecture/{data_flow,classes,db_schemas}.html`; spec-117 spec/tasks/updates (+ html).
+**Change**: cache reads/writes are one query / one commit per step (`load_many`, `store_many`); staged photos are cached by content key (`staged:<sha16>/<name>`), shared by this PC and the L4; the worker's cache uses `DATABASE_URL`. R13 secret checks. Architecture docs for spec-117.
+**Verification**: 8 cache tests + 6 secret tests; full default suite 1,772 passed, 0 failed.
+**Reason**: spec-117 R12, R13.
+
+### 2026-11-06 [FEATURE] spec-117 W5 — detached L4 runs, watchdog, GPU fallback
+**Files**: new `sim_bench/serving/{detached_modal,run_watchdog}.py`, `tests/serving/{test_run_watchdog,test_modal_gpu_choice}.py`; `sim_bench/serving/{runners,modal_app,job_service,serving_config}.py`, `sim_bench/control/jobs.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/main.py`, `configs/serving.yaml`; tests `tests/serving/test_modal_staging.py`, `tests/api/test_pipeline_service_runners.py`, `tests/pipeline/test_run_spec.py`, `tests/e2e_fake_modal_api.py`.
+**Change**: L4 runs are spawned on the deployed Modal app by name; the call id is stored on the job and the runner follows the job row (no live link, no copy-back). `RunWatchdog` fails runs whose heartbeat stops (90 s) or whose call ended without results; cancel by call id; "Waiting for a GPU" until the worker starts. Job functions use `gpu: [L4, A10G]` and secret `albumify-cloud`; the spend cap uses the dearest GPU; the cache Volume is gone.
+**Verification**: 15 new tests + rewritten Modal fakes; affected suites 327 passed. Not deployed (W8).
+**Reason**: spec-117 R8, R9, R10.
+
+### 2026-11-06 [FEATURE] spec-117 W4 — the worker writes status, progress and results to the database
+**Files**: new `sim_bench/serving/{db_progress,worker_persister}.py`, `tests/serving/{test_db_progress,test_worker_persister}.py`; `sim_bench/control/{models,jobs}.py`, `sim_bench/serving/{curate_job,job_service,job_store,path_map,runners}.py`, `sim_bench/api/services/pipeline_service.py`, `sim_bench/api/schemas/pipeline.py`, `app/streamlit/{api_client,models}.py`, `app/streamlit/components/pipeline_runner.py`, `app/streamlit/pages/configure.py`; tests `tests/api/test_pipeline_service_runners.py`, `tests/serving/{test_run_output,test_modal_staging}.py`.
+**Change**: `jobs` gains `progress`, `heartbeat_at`, `call_id`, `gpu`. The worker writes step / in-step % / n of N / heartbeat to the job row (progress.json retired) and, after the pipeline, its own result rows (original paths from the manifest, which now carries pixel sizes) and files; it ends the job succeeded or failed itself. The app reads the job row only; Configure & Run shows "43% (307/715)" on both machines.
+**Verification**: 18 new tests; api/control/serving/storage/streamlit 306 passed.
+**Reason**: spec-117 R5, R6.
+
+### 2026-11-06 [FEATURE] spec-117 W3 — files on R2 (object store)
+**Files**: new `sim_bench/storage/object_store.py`, `tests/storage/test_object_store.py`; `sim_bench/serving/{job_store,job_service}.py`, `sim_bench/control/{local_renders,loader}.py`, `sim_bench/api/services/run_embeddings.py`, `sim_bench/api/routers/jobs.py`, `tests/api/test_jobs_router.py`.
+**Change**: display images, face crops and result files go through an object store: the job folders (default, unchanged layout) or the private R2 bucket when `R2_*` is set (`jobs/<id>/...`). Routes serve a job's own keys only. New `DELETE /jobs/{id}` deletes rows and stored files.
+**Verification**: object store 30 passed (moto); router 404/serve/delete on both stores passed.
+**Reason**: spec-117 R7, R14.
+
+### 2026-11-06 [TEST] spec-117 W2 — Postgres parity (needs_neon)
+**Files**: new `tests/_db.py`, `tests/storage/test_neon_parity.py`; `tests/conftest.py`, `pyproject.toml` (markers `needs_neon`, `needs_r2`, excluded by default), `sim_bench/control/db.py`; DB fixtures in `tests/control/{test_job_service,test_loader_builder}.py`, `tests/api/{test_jobs_router,test_pipeline_service_runners,test_image_repository,test_results_endpoint_roundtrip,test_results_face_distance}.py`.
+**Change**: DB tests take a fresh database from one helper (SQLite file, or the parity run's throwaway Neon schema). `-m needs_neon` runs tests/api, tests/control, tests/serving on Neon. ControlDB start: 2 schema queries instead of ~15.
+**Verification**: Neon parity (control + jobs router) 97 passed; SQLite 243 passed.
+**Reason**: spec-117 R3.
+
+### 2026-11-06 [FEATURE] spec-117 W1 — one database setting (DATABASE_URL), job table people -> job_people
+**Files**: new `sim_bench/storage/{__init__,database}.py`, `tests/storage/test_database_config.py`; `sim_bench/api/database/session.py`, `sim_bench/control/{db,models}.py`, `sim_bench/api/main.py`, `sim_bench/serving/runners.py`, `requirements.txt`, `tests/conftest.py`, `tests/control/test_jobs.py`; spec-117 updates.
+**Change**: `DatabaseConfig` builds every Albumify engine (SQLite or psycopg 3 Postgres with pre-ping); `.env` read at API start and worker start only; unset `DATABASE_URL` keeps the two SQLite files. Control `people` renamed `job_people` (in-place rename of older files). Test suite never reads `.env` or cloud env vars.
+**Verification**: api/control/serving/storage 243 passed (11 new).
+**Reason**: spec-117 R1, R2, R15 (owner approved 2026-11-06).
+### 2026-11-07 [BUGFIX] SIGHTING-147 / SIGHTING-148 -- people over-split (K=5) and the face clustering app hanging
+**Files**: `configs/pipeline.yaml`; `app/face_clustering/main.py`, `app/face_clustering/_merge_decisions_panel.py`, `sim_bench/logging_setup.py`; `tests/face_clustering/test_streamlit_app.py`, `tests/architecture/test_logging_aligned.py`, `tests/face_clustering/conftest.py`; `docs/project/SIGHTINGS.md`, `docs/project/LEARNINGS.md`.
+**Change**: `people_clustering` takes `K: 51`, `blur_min: 73.3` from the validated Budapest profile_4 (was the code defaults 5 / 50.0). The face clustering app renders only the chosen tab (radio selector instead of `st.tabs`); Merge Analysis' iteration view shows one iteration, 10 pairs a page; `setup_logging` opens one log dir per process. Test fixture also redirects `run_history.get_db_path`.
+**Verification**: recluster of the 277fb705 faces K=5/15/51 -> 76/21/10 people; real Slovakia26 re-run with the new config: 8 people (136, 108, 108, 97 + four of 3-5 faces), in Results as `52776cc5` (302 picks, export: 8 clusters, 18 noise faces); FC app on the 984-face run: every tab 1-7 s, 0 closed-socket errors; tests/face_clustering + tests/architecture 891 passed (3 opt-in e2e tests stale since April, fail on the old app too).
+**Reason**: owner saw ~4 people split into 76 and the face clustering app unusable on Slovakia26.
+
+### 2026-11-06 [DOCS] spec-117 drafted (one cloud database: Neon + R2) + sharpness label experiment
+**Files**: new `specs/117-neon-r2-one-database/{spec,tasks,updates}.md` (+ html); `ROADMAP.md`; `specs/112-live-db-storage-runner/spec.md` (Phase B pointer); new `reports/2026-11-06_sharpness_labels/{summary.md,report.html,sharpness_labels.json}`; `reports/EXPERIMENTS.md`; `docs/project/LEARNINGS.md`.
+**Change**: spec-117 moves every Albumify table and the feature cache to Neon and render/crop/embedding files to R2; the L4 worker writes status, progress and results; detached runs, watchdog, GPU fallback. Supersedes spec-112 Phase B and its AC7.
+**Reason**: owner decision 2026-11-06 (option A) after SIGHTING-145 killed two L4 runs.
+
+### 2026-11-06 [BUGFIX] SIGHTING-146 -- photos in no scene (-1) no longer compete as one scene
+**Files**: `sim_bench/pipeline/steps/select_best.py`, `sim_bench/album/normalizer.py`, `tests/test_step_decisions.py`, `tests/album/test_normalizer.py`, `docs/project/SIGHTINGS.md`.
+**Change**: `select_best` judges each noise photo alone (scored alone, kept iff composite >= `min_score_threshold`, no keep-the-best fallback), on both the scene and face sub-cluster paths. `classify` never marks a noise photo `near_dup`.
+**Verification**: 3 new tests fail without the fix, pass with it; full suite 1,742 passed, 2 skipped; Budapest gate 11 passed; real Slovakia26 re-run `277fb705`: 0 photos dropped as near-dups of no-scene picks (was 85), picks 253 -> 311.
+**Reason**: 10-23 Slovakia26 L4 run dropped 85 unique photos as "near-duplicates" of 24 unrelated noise picks.
+
+### 2026-10-31 [FEATURE] spec-116 W1-W3 — one run path (In Progress: L4 evidence and R13 open)
+**Files**: new `sim_bench/pipeline/run_spec.py`, `sim_bench/serving/{run_output,path_map}.py`, `sim_bench/api/services/{run_persister,run_embeddings}.py`, `scripts/spec116_r13_{fullsize_vs_768,sharpness_diagnostic}.py`, `tests/e2e_fake_modal_api.py`, `tests/test_{configure_run_on,albums_table}_e2e.py`, `tests/api/test_{pipeline_router,pipeline_service_runners,results_face_distance}.py`, `tests/serving/test_{run_output,path_map}.py`, `tests/pipeline/test_run_spec.py`; `sim_bench/api/services/{pipeline_service,people_service,face_service}.py`, `sim_bench/api/routers/{pipeline,results}.py`, `sim_bench/api/schemas/pipeline.py`, `sim_bench/api/database/session.py`, `sim_bench/serving/{curate_job,job_service,job_store,runners,modal_app,pipeline_runner}.py`, `app/streamlit/{api_client,models}.py`, `app/streamlit/components/pipeline_runner.py`, `app/streamlit/pages/{albums,configure,jobs}.py`; updated tests; `docs/architecture/{classes,data_flow}.html`; spec-116 docs; ROADMAP; SIGHTINGS (143-145); `reports/EXPERIMENTS.md`.
+**Change**: Configure & Run chooses this PC or the L4 (estimate, confirm, spend cap, stages, Cancel). Every album run is a job with the same id, runs on the 768 px copies in a child process or on Modal, returns `results/run_output.json`, and is written by one `RunPersister` with original paths. Albums is a table of runs; ticking two opens Compare runs. The Jobs page no longer starts runs. Face tabs read the run's own embeddings.
+**Verification**: full suite 1,739 passed, 2 skipped; Playwright 11 passed (Modal faked); Budapest V2 gate 11 passed; real local 768 run: no staged paths stored, every page clean; PC re-run ratio 0.025. R13 NOT close enough (SIGHTING-144). Two L4 attempts never got a GPU (SIGHTING-145).
+**Reason**: spec-116, owner approved 2026-10-30.
+
+### 2026-10-25 [DOCS] spec-116 drafted (one run path) + SIGHTING-142 filed
+**Files**: new `specs/116-one-run-path/{spec,tasks,updates}.md` (+ html); `ROADMAP.md`; `docs/project/SIGHTINGS.md`.
+**Change**: spec-116 PRD: Configure & Run chooses this PC or the L4; every run shows in Albums/Results/People via one RunSpec → RunOutput → RunPersister path; Albums becomes a runs table. SIGHTING-142: picks break `max_images_per_cluster` and `min_score_threshold` (near-identical picks on Slovakia26).
+**Reason**: owner could not find the spec-115 L4 run in Albums ("the execution engine shouldn't matter to our UI").
+
 ### 2026-10-23 [FEATURE] spec-115 W3-W5 Implemented — run albums from the app on this PC or the L4; results only come back
 **Files**: new `sim_bench/serving/{input_retention,run_settings}.py`, `tests/serving/{test_modal_staging,test_run_settings}.py`, `tests/test_jobs_page_run_e2e.py`, `specs/115-album-workbench/REVIEW.md`; `sim_bench/serving/{runners,modal_app,job_service,curate_job,serving_config}.py`, `sim_bench/control/local_renders.py`, `sim_bench/api/{routers,schemas}/jobs.py`, `app/streamlit/{api_client.py,pages/jobs.py,pages/compare.py}`, `configs/serving.yaml`; tests `tests/control/{test_job_service,test_local_renders}.py`, `tests/api/test_jobs_router.py`; `docs/architecture/{classes,data_flow}.html`; spec-115/112 docs; ROADMAP; LEARNINGS.
 **Change**: Modal side: `albumify-inputs` (photos once, by content) + `albumify-cache` (feature cache kept across runs) Volumes; results-only atomic download; daily `purge_inputs` (7 days) + `delete_inputs` (cpu app deployed). App: Jobs page run form with L4 estimate + confirm + spend cap, live status, Cancel, Re-run → Compare runs, run settings + "Settings that differ", delete-photos button. Service: estimate, cancel (queued / waiting / running), one Modal job at a time, re-run by job. Review: 7 medium + 6 low findings fixed.
@@ -7292,3 +7424,60 @@ python scripts/export_clustering_data.py --embeddings results/Budapest/embedding
 - [FEATURE][TEST] sim_bench/albumify_vs_vlm/albumify_arm.py (+fuse_scene_distance flag, _insert_scene_distance helper), tests/albumify_vs_vlm/test_scene_distance_insertion.py, scripts/exp_album_scene_fused.py — spec-103: let the Albumify arm opt into build_scene_distance (inserted before cluster_scenes) so its effect on the FINAL K=20 album picks can be measured against a visual-only baseline on real trips. Default False (unchanged). Reason: answer the original 'does it change the final images selected' question end-to-end through the real album selector.
 - [DOCS] reports/2026-07-21_scene_clustering_fusion/album_fused_diff_{austria,germany}.json + album_swaps_{budapest,austria,germany}.html — spec-103: end-to-end album baseline-vs-fused diff on all 3 trips (Budapest faces / Austria+Germany minimal due to SIGHTING-117 OOM). Final K=20 pick churn: Budapest 3/20, Austria 4/20, Germany 7/20 (grows with trip size). Swap visuals for eyeball judging. Reason: answer 'does build_scene_distance change the final images selected' on real albums.
 - [CONFIG][TEST] .github/workflows/tests.yml (NEW — first CI), tests/pipeline/test_scoring_strategy.py, tests/architecture/test_no_raw_collection_iteration.py, tests/pipeline/test_face_embedding_validation.py + test_face_pipeline_e2e.py + test_face_recognition_benchmark.py, docs/project/SIGHTINGS.md — set up GitHub Actions CI (fast, model-free suite on push/PR; light deps only, no torch/insightface/mediapipe) and resolved SIGHTING-118: fixed stale person-penalty expectation (0.02->0.22, code was correct), allow-listed score_tilt raw iteration, fixed stale filter_quality_gate import (->quality_gate), and marked the 3 model/data integration test modules `slow` so they leave the default suite. Reason: user asked for a commit-triggered CI; had to green the pre-existing failures first.
+
+## 2026-11-13 [DOCS] spec-118 album tiers + Gate 1 drafted
+- Files: specs/118-album-tiers-gate1/{spec,tasks,updates}.md (+html), ROADMAP.md, reports/2026-11-13_slovakia26_picks_review/ (report, summary, review page, answers; images untracked)
+- Change: PRD for Best 10 / Best 30 / All album tiers, Gate 1 on Best 30, review yardstick script, SIGHTING-149/150 fixes; parked quality backlog with the review evidence.
+- Reason: owner's picks review (Best 30 93% kept, all 73%) and request to proceed toward productization.
+
+## 2026-11-13 [BUGFIX] SIGHTING-151 — Results gallery stopped part-way on duplicate Detail keys
+- Files: `app/streamlit/components/gallery.py`, new `tests/streamlit/test_gallery_keys.py`
+- Change: the Detail button key is `detail_{image.path}` (was `detail_{hash(path) % 100000}`, which collided on ~300-photo albums).
+- Verification: new test fails before (duplicate `detail_20449`), passes after; tests/streamlit + gallery tab 14 passed; live Neon app shows 302 Detail buttons, 0 errors (was 231 + error).
+- Reason: found in spec-117 T8.1 from the real app.
+
+## 2026-11-13 [DOCS] spec-117 T8.1 + SIGHTING-152 measured
+- Files: specs/117-neon-r2-one-database/{updates,tasks}.md
+- Change: real migration and the app-driven T8.1 run recorded; Neon page timings measured (over-fetching 2.8 MB result rows, N+1 in the runs list, repeated fetches, cold thumbnails, 160-320 ms round trips).
+- Reason: owner asked that "works on Neon" mean end to end from the app.
+
+## 2026-11-13 [PERF] SIGHTING-152 (part) — Neon pages: summary-only lists, joined runs query, result cache
+- Files: `sim_bench/api/services/{result_service,pipeline_service,album_service,run_persister}.py`, `sim_bench/api/routers/results.py`, `app/streamlit/api_client.py`, `app/streamlit/pages/{results,explore}.py`, `tests/conftest.py`, new `tests/api/test_result_queries.py`
+- Change: `list_results` reads summary columns in 2 queries and drops `step_decisions` (new `GET /api/v1/results/{id}/decisions`); `list_runs` loads albums with the runs; `ResultCache` keeps finished result rows in the API process (evicted by `RunPersister.persist` and album deletion); the UI client keeps `/api/v1/results/` reads for 10 s (cleared by any write).
+- Verification: 6 query-count tests (runs-table test fails without the join); API/serving/control/UI/storage/architecture suites 474 passed; live on Neon: API 75 s -> 29 s, SQL queries 188 -> 45; Results again 18.4 -> 4.6 s, Explore again 54.5 -> 5.9 s, Albums 7.7 -> 3.7 s.
+- Reason: spec-117 T8.1 page timings (R11); owner chose fixing the queries + a cache over copying results back locally.
+
+## 2026-11-13 [PERF] SIGHTING-152 (part 2) — thumbnails from the 768 px copies; runs-table and People queries
+- Files: new `sim_bench/api/services/run_display_copies.py`, new `app/streamlit/thumb_sources.py`; `sim_bench/api/schemas/result.py` (`ImageMetrics.display_path`), `sim_bench/api/services/{result_service,pipeline_service,people_service}.py`, `sim_bench/control/jobs.py` (`JobRepository.runners`), `app/streamlit/{models,api_client}.py`, `app/streamlit/components/{gallery,metrics}.py`, `app/streamlit/pages/{explore,results}.py`; tests `tests/api/test_result_queries.py` (+2), new `tests/streamlit/test_thumb_sources.py`
+- Change: every result image carries `display_path`, the run's staged 768 px copy (from the job manifest, cached with the result row); the UI records original -> copy and all thumbnail loaders open the copy (6 ms vs 90 ms per photo). Runs table: one query for runs + album + counts + people, jobs read as (id, runner, status). People list: one query, `face_instances` deferred.
+- Verification: 8 query/copy tests + 2 UI tests; suites 478 passed; live on Neon (both servers restarted): Results first open 86 -> 12.3 s, Explore first 48.4 -> 8.0 s, People 4.5 -> 1.8 s; 302 thumbnails, 0 missing, 0 errors.
+- Reason: spec-117 R11 page timings; owner approved "thumbnails and queries".
+
+## 2026-11-13 [PERF] SIGHTING-152 (part 3) — read requests run in autocommit on Postgres
+- Files: `sim_bench/api/database/session.py` (`get_session(request)`, `READ_METHODS`, `_ReadSessionLocal`), `sim_bench/control/db.py` (`ControlDB.read_session`), `sim_bench/control/jobs.py` (get/list/runners/events read), `sim_bench/api/routers/jobs.py` (4 GET routes read); new `tests/api/test_read_sessions.py`
+- Change: GET/HEAD requests get an autocommit session on Postgres (no `BEGIN`/`ROLLBACK` round trips); the jobs DB's read-only methods use one too. SQLite unchanged (one factory). Writes keep transactions. Audit: no GET handler writes more than one row.
+- Verification: 8 tests; suites 486 passed; live on Neon: per call albums/people 0.48 -> 0.34 s, runs 1.9 -> 1.37 s; Albums again 3.0 -> 2.4 s, Results again 3.9 -> 3.2 s, People 1.8 -> 1.5 s; write check (create/update/read/delete a profile) OK.
+- Reason: spec-117 R11; owner approved "autocommit for reads".
+
+## 2026-11-14 [BUGFIX] spec-117 T8.2 — the GPU worker failed: session.py imported FastAPI at the top
+- Files: `sim_bench/api/database/session.py`; new `tests/architecture/test_worker_imports_without_fastapi.py`
+- Change: `fastapi.Request` imported only when FastAPI is installed (the API); the worker image has none and imports `session.py` for its paths (`curate_job.py`).
+- Verification: the new test (imports every worker module with FastAPI/Starlette/uvicorn blocked) fails on dd33596 and passes after; suites 487 passed; first L4 run of T8.2 (`61f3b9a8`) had failed with `ModuleNotFoundError: No module named 'fastapi'`.
+- Reason: regression from the 2026-11-13 autocommit-reads change (SIGHTING-152 part 3), caught by the first real L4 run.
+
+## 2026-11-14 [BUGFIX] spec-117 T8.2 — the L4 run died after an 8.5-min step: cache read left a transaction idle
+- Files: `sim_bench/pipeline/cache_handler.py` (`load_many` always commits), `tests/pipeline/test_cache_handler_batch.py` (+1); `tests/streamlit/conftest.py` (new: restores `sys.modules['__main__']` after each UI test)
+- Change: the step's batch cache read ended its transaction only when it deleted stale rows; otherwise the connection sat idle in a transaction while the step computed, and Neon ended it (`IdleInTransactionSessionTimeout`, run `6745cbb0`, `triage_content` 8.5 min on the A10G). Separately, `AppTest.from_function` left its script as `__main__`, so spawned isolation children crashed when `test_step_isolation.py` ran after `test_gallery_keys.py`.
+- Verification: new test `test_a_read_leaves_no_transaction_open` fails before, passes after; isolation tests pass after the gallery test; api/serving/control/streamlit/storage/architecture/pipeline: 684 passed.
+- Reason: spec-117 T8.2 (first full L4 run against Neon); the suite failure was found running the pipeline tests with the others.
+
+## 2026-11-14 [PERF] spec-117 T8.2 — display images and face crops upload to R2 in parallel
+- Files: `sim_bench/control/local_renders.py` (`calc` cuts in order, uploads via a 16-thread pool; new `crop_bytes`), `sim_bench/storage/object_store.py` (`UPLOAD_WORKERS`, R2 client pool 16); `tests/control/test_local_renders.py` (+1); `docs/project/SIGHTINGS.md` (SIGHTING-153), `docs/project/LEARNINGS.md`
+- Change: one PUT at a time cost 0.6-0.95 s each; a job's ~1,300 files took 10-20 min (local T8.1: 20.5 of 24 min "loading"; L4 run `54b46cd0` hit Modal's 1800 s timeout while saving).
+- Verification: new test (80 uploads of 50 ms, must overlap and all arrive) fails before, passes after; real R2: 563 crops in 29 s (52 ms per file, was ~950 ms); suites 685 passed.
+- Reason: spec-117 T8.2.
+
+## 2026-11-14 [DOCS] spec-117 M2 — T8.2/T8.3 evidence, SIGHTING-154
+- Files: `specs/117-neon-r2-one-database/{spec,tasks,updates}.md` (+html), `ROADMAP.md` (+html), `docs/project/SIGHTINGS.md` (SIGHTING-154)
+- Change: R5, R6, R8, R10, R12 marked done with the real GPU runs; T5.1, T8.2, T8.3 done; re-run pick differences filed as SIGHTING-154.
+- Reason: spec-117 M2 (owner approved the deploy and GPU spend).

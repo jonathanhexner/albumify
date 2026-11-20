@@ -17,6 +17,8 @@ from sim_bench.serving.curate_job import CurateJobInputs, JobCurator, stable_alb
 from sim_bench.serving.job_store import JobStore
 from sim_bench.serving.pipeline_runner import SpecBuilder
 
+from tests.control.fakes import fake_output
+
 
 def _context(images):
     """A finished-looking PipelineContext: 2 scenes, 2 picks, 1 near-dup, 1 screenshot set aside."""
@@ -42,11 +44,11 @@ def _ok_result():
                                                          duration_ms=12.0)])
 
 
-def fake_runner(images, plan):
+def fake_runner(images, plan, **_):
     return _context(images), _ok_result()
 
 
-def failing_runner(images, plan):
+def failing_runner(images, plan, **_):
     return _context(images), SimpleNamespace(success=False, failed_step="score_ava",
                                            error_message="boom", total_duration_ms=9.0,
                                            step_results=[])
@@ -74,7 +76,7 @@ def store(tmp_path):
 
 def _curator(store, runner=fake_runner, clock=None):
     # minimal_pipeline: the plan is not what is under test here, but it must be a real one
-    return JobCurator(store, spec_builder=SpecBuilder(), runner=runner,
+    return JobCurator(store, spec_builder=SpecBuilder(), runner=runner, output_builder=fake_output,
                       clock=clock or (lambda: "2026-10-09T00:00:00+00:00"))
 
 
@@ -116,7 +118,8 @@ class ut_JobCurator:
         paths = store.paths("trip1")
         assert not paths.display_dir.exists()
         assert list(paths.faces_dir.iterdir()) == []
-        assert store.results_files("trip1") == ["album.json", "run.json", "results/bundle.json"]
+        assert store.results_files("trip1") == ["album.json", "run.json", "results/bundle.json",
+                                                "results/run_output.json"]
 
     def test_worker_renders_can_be_asked_for(self, store):
         _curator(store).calc(CurateJobInputs(job_id="trip1", pipeline="minimal", write_renders=True))
@@ -142,7 +145,7 @@ class ut_JobCurator:
     def test_the_runner_gets_the_shared_store_paths_and_nothing_else(self, store):
         seen = {}
 
-        def spy(images, plan):
+        def spy(images, plan, **_):
             seen["images"] = list(images)
             return fake_runner(images, plan)
 
@@ -157,7 +160,7 @@ class ut_JobCurator:
         _stage_shared(store, "trip2")
         seen = []
 
-        def spy(images, plan):
+        def spy(images, plan, **_):
             seen.append([str(p) for p in images])
             return fake_runner(images, plan)
 

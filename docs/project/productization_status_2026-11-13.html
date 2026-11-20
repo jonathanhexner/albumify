@@ -1,0 +1,255 @@
+<title>Albumify Productization Status</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column, status first; stage track, then evidence sections, then decisions and next steps */
+:root{
+  --bg:#f7f8f6;--surface:#ffffff;--fg:#1c2421;--muted:#5d6a65;--line:#d9dfdb;
+  --accent:#1f6f5c;--accent-soft:#e2f0eb;
+  --ok:#2f7d4f;--warn:#a86b00;--bad:#b23a3a;--todo:#8a948f;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917;--surface:#1c2320;--fg:#e6ece9;--muted:#9aa8a2;--line:#2f3a36;
+  --accent:#5cc2a4;--accent-soft:#1f332c;--ok:#5fbf86;--warn:#e0a640;--bad:#e07070;--todo:#6f7a75;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917;--surface:#1c2320;--fg:#e6ece9;--muted:#9aa8a2;--line:#2f3a36;
+  --accent:#5cc2a4;--accent-soft:#1f332c;--ok:#5fbf86;--warn:#e0a640;--bad:#e07070;--todo:#6f7a75;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--body);padding-inline:16px;padding-block:0 48px}
+main{max-width:980px;margin:0 auto;display:grid;gap:36px}
+header{padding-block:32px 8px;border-bottom:2px solid var(--fg)}
+h1{font-size:28px;margin:0 0 4px;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:19px;margin:0 0 12px;text-wrap:balance}
+h3{font-size:15px;margin:16px 0 6px}
+p{margin:0 0 10px;max-width:72ch}
+.meta{color:var(--muted);font-size:13px}
+.label{font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+code,.mono{font-family:var(--mono);font-size:.88em}
+.bottom{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);padding:16px 18px}
+.bottom ul{margin:0;padding-left:18px;display:grid;gap:6px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;font-family:var(--mono);white-space:nowrap}
+.pill{display:inline-block;font:600 11px/1 var(--mono);padding:4px 7px;border-radius:3px;white-space:nowrap;border:1px solid currentColor}
+.p-ok{color:var(--ok)}.p-warn{color:var(--warn)}.p-bad{color:var(--bad)}.p-todo{color:var(--todo)}
+/* stage track */
+.track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--line);background:var(--surface)}
+.stage{padding:14px;border-right:1px solid var(--line);min-width:0;display:grid;gap:6px;align-content:start}
+.stage:last-child{border-right:0}
+.stage .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.stage .bar i{display:block;height:100%}
+.stage b{font-size:14px}.stage .gate{font-size:12px;color:var(--muted)}
+.stage.here{background:var(--accent-soft)}
+.here-tag{font:600 10px var(--mono);color:var(--accent);letter-spacing:.08em}
+@media (max-width:720px){.track{grid-template-columns:1fr}.stage{border-right:0;border-bottom:1px solid var(--line)}}
+/* bar chart */
+.chart{display:grid;gap:6px;background:var(--surface);border:1px solid var(--line);padding:14px}
+.row{display:grid;grid-template-columns:88px minmax(0,1fr) 92px;gap:10px;align-items:center;font-size:13px}
+.row .b{height:16px;background:var(--line);position:relative}
+.row .b i{position:absolute;inset:0 auto 0 0;background:var(--ok)}
+.row .b .goal{position:absolute;top:-3px;bottom:-3px;left:90%;border-left:2px dashed var(--fg)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.grid2>*{min-width:0}
+pre.mermaid{background:var(--surface);border:1px solid var(--line);padding:12px;overflow-x:auto;margin:0}
+ol.steps{margin:0;padding-left:22px;display:grid;gap:8px}
+ol.steps li span.who{font:600 11px var(--mono);color:var(--muted)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<main>
+<header>
+  <div class="label">Engineering review · 2026-11-13</div>
+  <h1>Albumify: path to production</h1>
+  <p class="meta">Live photo-album curator (upload a trip, get the best photos). Repo <a href="https://github.com/jonathanhexner/albumify">github.com/jonathanhexner/albumify</a> · roadmap <code>ROADMAP.md</code> · prepared for the head of software.</p>
+</header>
+
+<section class="bottom">
+  <div class="label">Bottom line</div>
+  <ul>
+    <li><b>The engine runs end to end from the app.</b> On this PC with local storage, and on the cloud GPU (Modal L4), proven 2026-10-23. On the new cloud database (Neon) + file store (R2): a full 715-photo run started from the app completes and shows in Albums, Results and People. <b>Not yet proven:</b> the GPU writing to Neon (needs a deploy and owner OK for spend), and acceptable page speed on Neon (Results takes 28-54 s vs 2.9 s locally).</li>
+    <li><b>Quality is close to the bar:</b> on a 715-photo trip the owner kept 10/10 of the top 10 picks and 28/30 of the top 30 (bar: ≥ 90%). The full list of 302 picks is weaker (73%), so the product will show Best 10 / Best 30 / All.</li>
+    <li><b>Not shippable yet.</b> Open items before merging: Neon page speed (SIGHTING-152), a Results gallery crash (SIGHTING-151), the GPU-on-Neon proof, and spec-116's open sighting. Then Gate 1 needs its formal verdict. The public web front end and hardening (Stage D) have not started.</li>
+    <li><b>Main risk is scope creep</b> into quality tuning. Seven improvement ideas are parked in spec-118, each measurable against the saved owner review.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Where we are on the roadmap</h2>
+  <div class="track">
+    <div class="stage here">
+      <span class="here-tag">▶ CURRENT GATE</span>
+      <b>A · Prove the picks</b>
+      <div class="bar"><i style="width:80%;background:var(--warn)"></i></div>
+      <span class="gate">Gate 1: "would I show these picks to a recruiter"</span>
+      <span class="pill p-warn">evidence in, verdict pending</span>
+    </div>
+    <div class="stage">
+      <b>B · Finalize engine</b>
+      <div class="bar"><i style="width:85%;background:var(--ok)"></i></div>
+      <span class="gate">folder → album.json, one command</span>
+      <span class="pill p-ok">mostly done</span>
+    </div>
+    <div class="stage here">
+      <span class="here-tag">▶ ACTIVE WORK</span>
+      <b>C · Build service</b>
+      <div class="bar"><i style="width:55%;background:var(--warn)"></i></div>
+      <span class="gate">worker, GPU, cloud DB, control plane, web front end</span>
+      <span class="pill p-warn">back end built, front end not started</span>
+    </div>
+    <div class="stage">
+      <b>D · Harden + ship</b>
+      <div class="bar"><i style="width:0%"></i></div>
+      <span class="gate">Ship gate: cold public URL, stranger upload, AC1-AC10</span>
+      <span class="pill p-todo">not started</span>
+    </div>
+  </div>
+  <p class="meta" style="margin-top:8px">Bar lengths are a judgement of scope done per stage, not a measured number.</p>
+</section>
+
+<section>
+  <h2>System today</h2>
+  <pre class="mermaid">
+flowchart LR
+  U["Owner<br/>Streamlit app"] --> API["FastAPI<br/>control plane"]
+  API -->|"run on this PC"| W1["Local worker<br/>(child process)"]
+  API -->|"run on GPU"| W2["Modal L4 worker"]
+  W1 --> DB[("Neon Postgres<br/>jobs, results, cache")]
+  W2 --> DB
+  W1 --> R2[("Cloudflare R2<br/>images, crops")]
+  W2 --> R2
+  API --> DB
+  API --> R2
+  </pre>
+  <p class="meta" style="margin-top:8px">The worker writes status and results to the database itself (spec-117), so a dropped PC no longer kills a GPU run. The planned public front end (Next.js on Vercel) replaces the Streamlit app in Stage C/D.</p>
+</section>
+
+<section>
+  <h2>Evidence: what is proven</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Claim</th><th>Evidence</th><th>Status</th></tr>
+    <tr><td>Album runs from the app, on this PC or the L4</td><td>spec-115: Slovakia26 (715 photos) on the L4 in 10.7 min; cached re-run 46 s vs 437 s</td><td><span class="pill p-ok">proven</span></td></tr>
+    <tr><td>Process isolation: a crash or OOM does not take down the server</td><td>spec-104, merged 2026-09-28, 9 tests in CI</td><td><span class="pill p-ok">proven</span></td></tr>
+    <tr><td>All data moved to the cloud database</td><td>Migration 2026-11-13: 17 tables (25,636 cache rows), counts verified per table, 2 min 19 s; local SQLite kept as backup</td><td><span class="pill p-ok">proven</span></td></tr>
+    <tr><td>A full run works on Neon + R2, from the app</td><td>spec-117 T8.1, run <code>5a6cfec8</code>, driven in a real browser: Configure &amp; Run → Slovakia26 → This PC. Completed in 24 min (K=51): 659 photos scored, 302 picks, 7 people. Shows in Albums; opens in Results, People &amp; Faces, Explore</td><td><span class="pill p-ok">works</span></td></tr>
+    <tr><td>Pages are fast enough on Neon</td><td>Results 54 s cold / 28.5 s warm (2.9 s on local SQLite), Explore 54 s, Albums 8-12 s, People 2.2 s (SIGHTING-152, not yet profiled)</td><td><span class="pill p-bad">fails</span></td></tr>
+    <tr><td>Results gallery shows every pick</td><td>Stops at 231 of 302: two photos get the same button key (SIGHTING-151). Old bug from May, appears on some server starts, not specific to Neon</td><td><span class="pill p-bad">bug</span></td></tr>
+    <tr><td>Test suite</td><td>spec-117 branch: 1,772 passed, 0 failed (71 skipped: private photos, standing skips). Budapest regression gate 11/11 (spec-113, SIGHTING-146)</td><td><span class="pill p-ok">green</span></td></tr>
+    <tr><td>People clustering correct</td><td>K=51 run: 8 people (4 real, 1 split, 3 strangers) vs 76 with the old K=5 setting (SIGHTING-147)</td><td><span class="pill p-ok">good enough</span></td></tr>
+    <tr><td>Runs survive a dropped PC, GPU run on Neon</td><td>spec-117 T8.2, T8.3: not run yet (needs owner OK for L4 spend)</td><td><span class="pill p-todo">open</span></td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>Quality: Gate 1 evidence</h2>
+  <p>Owner reviewed every pick of the Slovakia26 run <code>52776cc5</code> (101 of 106 pages). Picks ranked by the app's own score:</p>
+  <div class="grid2">
+    <div class="chart" role="img" aria-label="Share of picks kept by rank cut-off">
+      <div class="label">Kept, by top-N cut-off · dashed line = 90% bar</div>
+      <div class="row"><span>Best 10</span><span class="b"><i style="width:100%"></i><span class="goal"></span></span><span class="mono">10/10 100%</span></div>
+      <div class="row"><span>Best 20</span><span class="b"><i style="width:100%"></i><span class="goal"></span></span><span class="mono">20/20 100%</span></div>
+      <div class="row"><span>Best 30</span><span class="b"><i style="width:93.3%"></i><span class="goal"></span></span><span class="mono">28/30 93%</span></div>
+      <div class="row"><span>Best 50</span><span class="b"><i style="width:90%"></i><span class="goal"></span></span><span class="mono">45/50 90%</span></div>
+      <div class="row"><span>Best 100</span><span class="b"><i style="width:82%;background:var(--warn)"></i><span class="goal"></span></span><span class="mono">82/100 82%</span></div>
+      <div class="row"><span>All picks</span><span class="b"><i style="width:73.2%;background:var(--bad)"></i><span class="goal"></span></span><span class="mono">219/299 73%</span></div>
+    </div>
+    <div class="tablewrap"><table>
+      <tr><th>Why picks were dropped (80)</th><th>Count</th></tr>
+      <tr><td>Near-duplicate of another pick</td><td class="num">47</td></tr>
+      <tr><td>Other / no reason given</td><td class="num">18</td></tr>
+      <tr><td>Dull, no value</td><td class="num">6</td></tr>
+      <tr><td>Eyes closed / not looking</td><td class="num">5</td></tr>
+      <tr><td>Framing 4 · stranger 4 · blurry 2</td><td class="num">10</td></tr>
+      <tr><td><b>Good photos the app missed</b></td><td class="num">29</td></tr>
+    </table></div>
+  </div>
+  <p style="margin-top:12px"><b>Decision (owner, 2026-11-13):</b> Gate 1 passes at Best 30 ≥ 90% kept and Best 10 all kept, judged in the app. spec-118 adds the Best 10 / 30 / All view and a script that re-scores any future run against this review, so quality fixes don't need another manual pass.</p>
+  <p class="meta">Of the 29 misses, 20 came from the sharpness filter (20 of 20 reviewed removals were wrong; 59 of 60 in a separate 2026-11-06 study). The fix is parked by owner decision. Report: <code>reports/2026-11-13_slovakia26_picks_review/report.html</code>.</p>
+</section>
+
+<section>
+  <h2>Code branches and the merge</h2>
+  <pre class="mermaid">
+gitGraph
+  commit id: "main (PR #4, spec-115)"
+  branch spec-116
+  commit id: "116 W1-W3 one run path"
+  commit id: "SIGHTING-146 fix"
+  branch spec-117
+  commit id: "117 W1-W7 Neon + R2"
+  commit id: "117 test fixes"
+  checkout spec-116
+  commit id: "146 docs"
+  commit id: "K=51 fix (147/148)"
+  checkout spec-117
+  merge spec-116 id: "merged b163e19"
+  </pre>
+  <div class="tablewrap" style="margin-top:12px"><table>
+    <tr><th>Branch</th><th>Contains</th><th>State</th></tr>
+    <tr><td><code>main</code></td><td>Everything up to spec-115 (album workbench)</td><td>Pushed; last merge 2026-10-30</td></tr>
+    <tr><td><code>spec/116-one-run-path</code></td><td>One run path (this PC or L4); fixes SIGHTING-146/147/148, including the K=51 people setting</td><td>12 commits ahead of main; not merged</td></tr>
+    <tr><td><code>spec/117-neon-r2</code></td><td>Cloud database and file store. Branched from 116 <b>before</b> its last 2 commits, so it still runs the old K=5 setting</td><td>Local only (worktree <code>D:\sim-bench-117</code>); not pushed</td></tr>
+  </table></div>
+  <p style="margin-top:10px"><b>What "merge" means here:</b> copy 116's two missing commits into the 117 branch, so the 117 code runs with K=51. Nothing goes to <code>main</code> yet. Afterwards 117 contains all of 116, and one pull request (117 → main) lands both, after their acceptance checks and code reviews.</p>
+  <p class="meta">Done 2026-11-13: merged as <code>b163e19</code> (local, not pushed). The first Neon run <code>e35ec67e</code> had used K=5 (76 people); the re-run from the app after the merge, <code>5a6cfec8</code>, used K=51 (7 people).</p>
+</section>
+
+<section>
+  <h2>Spec status (Stage B-C)</h2>
+  <p class="meta">Linked specs are on <code>main</code> in the GitHub repo. Specs 116-118 are on local branches that have not been pushed yet; their paths are given.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Spec</th><th>What</th><th>Status</th></tr>
+    <tr><td class="num"><a href="https://github.com/jonathanhexner/albumify/blob/main/specs/104-staged-process-isolation/spec.md">104</a></td><td>Process isolation (crash-safe pipeline)</td><td><span class="pill p-ok">implemented, merged</span></td></tr>
+    <tr><td class="num"><a href="https://github.com/jonathanhexner/albumify/blob/main/specs/113-remove-cluster-people/spec.md">113</a> · <a href="https://github.com/jonathanhexner/albumify/blob/main/specs/114-compare-jobs-view/spec.md">114</a> · <a href="https://github.com/jonathanhexner/albumify/blob/main/specs/115-album-workbench/spec.md">115</a></td><td>Cleanup · compare runs · album workbench</td><td><span class="pill p-ok">implemented, merged</span></td></tr>
+    <tr><td class="num">116<br><span class="meta">local: <code>specs/116-one-run-path/</code></span></td><td>One run path: every run shows in Albums/Results/People</td><td><span class="pill p-warn">built, not closed</span></td></tr>
+    <tr><td class="num">117<br><span class="meta">local: <code>specs/117-neon-r2-one-database/</code></span></td><td>One cloud database (Neon + R2); worker writes the DB</td><td><span class="pill p-warn">built; migration done; run from app works; speed fails</span></td></tr>
+    <tr><td class="num">118<br><span class="meta">local: <code>specs/118-album-tiers-gate1/</code></span></td><td>Best 10 / 30 / All; Gate 1; quality backlog parked</td><td><span class="pill p-todo">draft, awaiting approval</span></td></tr>
+    <tr><td class="num"><a href="https://github.com/jonathanhexner/albumify/blob/main/specs/109-parallel-gpu-execution/spec.md">109</a> · <a href="https://github.com/jonathanhexner/albumify/blob/main/specs/110-containerized-worker-modal-cpu/spec.md">110</a></td><td>GPU enablement · containerized worker</td><td><span class="pill p-warn">working; latency/cost gate at 100-300 photos open</span></td></tr>
+    <tr><td class="num"><a href="https://github.com/jonathanhexner/albumify/blob/main/specs/106-albumify-web-showcase/spec.md">106</a></td><td>Public web app (Next.js front end, deploy)</td><td><span class="pill p-todo">plan only; front end not started</span></td></tr>
+    <tr><td class="num"><a href="https://github.com/jonathanhexner/albumify/blob/main/specs/111-ai-verification-layer/spec.md">111</a></td><td>AI verification layer</td><td><span class="pill p-warn">partly built; v1 or v1.5 undecided</span></td></tr>
+  </table></div>
+</section>
+
+<section class="grid2">
+  <div>
+    <h2>Open issues</h2>
+    <div class="tablewrap"><table>
+      <tr><th>Issue</th><th>Impact</th></tr>
+      <tr><td>SIGHTING-144: 768 px copies fail the Budapest check</td><td>blocks spec-116 close</td></tr>
+      <tr><td>SIGHTING-145: L4 runs did not get a GPU</td><td>addressed by 117 (GPU fallback); unproven</td></tr>
+      <tr><td>SIGHTING-149: removed photos show the wrong reason</td><td>misleading UI; fix in 118</td></tr>
+      <tr><td>SIGHTING-150: "best in cluster" label not score order</td><td>misleading UI; fix in 118</td></tr>
+      <tr><td>SIGHTING-151: Results gallery stops part-way (duplicate key)</td><td>blocks a clean Results page; small fix</td></tr>
+      <tr><td>SIGHTING-152: Neon pages 10-20x slower than local</td><td>blocks spec-117 close and any public URL</td></tr>
+    </table></div>
+  </div>
+  <div>
+    <h2>Open decisions</h2>
+    <div class="tablewrap"><table>
+      <tr><th>Decision</th><th>Recommendation</th></tr>
+      <tr><td>Content safety for anonymous uploads</td><td>Minimal terms + short retention (TTL) for v1</td></tr>
+      <tr><td>MVP scope: anonymous, bounded, no accounts</td><td>Yes</td></tr>
+      <tr><td>AI verification layer in v1</td><td>Defer to v1.5</td></tr>
+    </table></div>
+  </div>
+</section>
+
+<section>
+  <h2>Critical path to a public URL</h2>
+  <ol class="steps">
+    <li><s>Merge 116's last two commits into 117, re-run Slovakia26 on Neon from the app</s>. Done 2026-11-13 (merge <code>b163e19</code>, run <code>5a6cfec8</code>).</li>
+    <li><b>Fix SIGHTING-151</b> (gallery key) and <b>profile and fix SIGHTING-152</b> (Neon page speed). <span class="who">ENGINEERING</span></li>
+    <li><b>Finish 117 acceptance:</b> deploy the worker to Modal, L4 run with the PC cut off (T8.2), cached re-run (T8.3), secret scan, full suite + code review. <span class="who">NEEDS OWNER OK FOR DEPLOY + L4 SPEND</span></li>
+    <li><b>Close 116</b> (SIGHTING-144), then one PR: 117 → main.</li>
+    <li><b>Build spec-118</b> (Best 10/30/All, honest reasons, review yardstick) and <b>judge Gate 1</b> on Slovakia26 + Budapest. <span class="who">OWNER VERDICT</span></li>
+    <li><b>Decide content safety and MVP scope</b>; this unblocks the public service. <span class="who">OWNER</span></li>
+    <li><b>Public front end + deploy</b> (spec-106: Next.js on Vercel, job states, upload limits). <span class="who">LARGEST REMAINING BLOCK</span></li>
+    <li><b>Stage D:</b> adversarial uploads, cold start, cost alarm, retention, AC1-AC10 on the public URL.</li>
+  </ol>
+  <p class="meta" style="margin-top:10px">Parked until after ship unless Gate 1 fails: quality-vs-similarity scoring, dull-photo filter, stronger bad-face penalty, time/GPS-aware scenes, sharpness filter, finger-in-frame, people split (all in spec-118 backlog with evidence).</p>
+</section>
+</main>

@@ -4,7 +4,7 @@ in the unified chain and fires the FC-app export.
 
 import sim_bench.pipeline.steps.face_cluster_analysis_export as mod
 from sim_bench.pipeline.steps.face_cluster_analysis_export import FaceClusterAnalysisExportStep
-from sim_bench.api.services.pipeline_service import PipelineService
+from sim_bench.pipeline.run_spec import spread_clustering_config
 
 _UNIFIED = ["quality_gate", "build_face_knn_graph", "assign_people_clusters",
             "face_cluster_analysis_export"]
@@ -24,8 +24,7 @@ class ut_ExportFlagRouting:
     """_broadcast_clustering_config routes the toggle to the export step (AC)."""
 
     def test_flag_on_routes_to_step_with_params(self):
-        svc = PipelineService(None)
-        out = svc._broadcast_clustering_config(
+        out = spread_clustering_config(
             _UNIFIED, {"people_clustering": {"K": 7, "export_for_analysis": True}}
         )
         cfg = out["face_cluster_analysis_export"]
@@ -33,23 +32,20 @@ class ut_ExportFlagRouting:
         assert cfg["K"] == 7  # clustering params travel with it (for serialization)
 
     def test_flag_off_does_not_route(self):
-        svc = PipelineService(None)
-        out = svc._broadcast_clustering_config(
+        out = spread_clustering_config(
             _UNIFIED, {"people_clustering": {"K": 7, "export_for_analysis": False}}
         )
         assert "face_cluster_analysis_export" not in out
 
     def test_settings_reach_the_unified_steps_and_source_key_is_dropped(self):
         """spec-113 AC3: a people setting reaches the chain; the source block is not a step."""
-        svc = PipelineService(None)
-        out = svc._broadcast_clustering_config(_UNIFIED, {"people_clustering": {"K": 11}})
+        out = spread_clustering_config(_UNIFIED, {"people_clustering": {"K": 11}})
         assert out["build_face_knn_graph"]["K"] == 11
         assert "people_clustering" not in out and "cluster_people" not in out
 
     def test_pre_spec113_key_overrides_yaml_defaults(self):
         """O1: an old saved profile (`cluster_people`) still wins over the yaml defaults."""
-        svc = PipelineService(None)
-        out = svc._broadcast_clustering_config(
+        out = spread_clustering_config(
             _UNIFIED, {"people_clustering": {"K": 5}, "cluster_people": {"K": 9}})
         assert out["build_face_knn_graph"]["K"] == 9
         assert "cluster_people" not in out

@@ -15,6 +15,7 @@ from sim_bench.api.schemas.result import (
     ExportResponse,
 )
 from sim_bench.api.services.result_service import ResultService
+from sim_bench.api.services.run_embeddings import RunEmbeddings
 
 router = APIRouter(prefix="/api/v1/results", tags=["results"])
 
@@ -37,6 +38,15 @@ def get_result(job_id: str, session: Session = Depends(get_session)):
     if result is None:
         raise HTTPException(status_code=404, detail="Result not found")
     return result
+
+
+@router.get("/{job_id}/decisions", response_model=list[dict])
+def get_result_decisions(job_id: str, session: Session = Depends(get_session)):
+    """The run's per-item step decisions (kept out of the result list, which shows counts only: SIGHTING-152)."""
+    decisions = ResultService(session).get_step_decisions(job_id)
+    if decisions is None:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return decisions
 
 
 @router.get("/{job_id}/images", response_model=list[ImageMetrics])
@@ -114,12 +124,16 @@ def get_face_embedding(
 ):
     """Get face embedding vector for a specific face. Returns 512-dim float array."""
     from sim_bench.api.database.models import UniversalCache
-    import numpy as np
     from sim_bench.pipeline.serializers import Serializers
 
     # Build cache key
     path_normalized = image_path.replace("\\", "/")
     cache_key = f"{path_normalized}:face_{face_index}"
+
+    # spec-116 R14: the run's own embeddings first; the cache only holds them for runs made before it
+    own = RunEmbeddings().get(job_id, image_path, face_index)
+    if own is not None:
+        return {"face_key": cache_key, "embedding": own.tolist(), "model_name": None, "created_at": None}
 
     entry = (
         session.query(UniversalCache)
@@ -156,8 +170,13 @@ def get_face_distance(
     import numpy as np
     from sim_bench.pipeline.serializers import Serializers
 
+    run_embeddings = RunEmbeddings()
+
     def load_embedding(path, face_idx):
         key = f"{path.replace(chr(92), '/')}:face_{face_idx}"
+        own = run_embeddings.get(job_id, path, face_idx)    # spec-116 R14: the run's own, then the cache
+        if own is not None:
+            return own, key
         entry = session.query(UniversalCache).filter(
             UniversalCache.image_path == key,
             UniversalCache.feature_type == "face_embedding",

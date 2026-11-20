@@ -426,6 +426,8 @@ Review: `specs/033-data-integrity/REVIEW.md` | Roadmap: `specs/033-data-integrit
 - [ ] FR-033-8: Delete or relocate `notebook_diagnostic.py` (this entry) | Claude
 - [ ] spec-086-1: Lift `ImageRepository` import in `people_service.get_person_images` to module scope | Claude
 - [ ] spec-086-2: Surface `_write_metric_tables` failures (counter/sighting) instead of warn-only | Claude
+- [ ] spec-116 review M4: measure whether `people_clustering` in `SpecBuilder.calc` shifts the regression baselines | Claude
+- [ ] spec-116 review L1/L2/L4: drop `create_from_clusters` + the unfed websocket queue; note or split `job_service.py`, `job_store.py` over 300 LOC; end the 7 pre-spec-116 runs stuck at `running` | Claude
 - [ ] spec-086-3: Add `ImageRepository` + `PersonImageResponse` to `classes.html`; read-side note in `data_flow.html` | Claude
 - [ ] spec-086-4: (w/ spec-085 C-full) `extra="forbid"` on the `ImageMetrics` model family | Claude
 

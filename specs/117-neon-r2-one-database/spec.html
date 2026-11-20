@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-117--one-cloud-database-everything-on-neon-files-on-r2-l4-runs-survive-a-dropped-pc"
+id="toc-spec-117--one-cloud-database-everything-on-neon-files-on-r2-l4-runs-survive-a-dropped-pc">spec-117
+— One cloud database: everything on Neon, files on R2, L4 runs survive a
+dropped PC</a>
+<ul>
+<li><a href="#1-objective" id="toc-1-objective">1. Objective</a></li>
+<li><a href="#2-requirements" id="toc-2-requirements">2.
+Requirements</a></li>
+<li><a href="#3-plan" id="toc-3-plan">3. Plan</a></li>
+<li><a href="#4-class-diagram" id="toc-4-class-diagram">4. Class
+diagram</a></li>
+<li><a href="#5-new-files" id="toc-5-new-files">5. New files</a></li>
+<li><a href="#6-modified-files" id="toc-6-modified-files">6. Modified
+files</a></li>
+<li><a href="#decisions-risks-non-goals"
+id="toc-decisions-risks-non-goals">Decisions, risks, non-goals</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-117--one-cloud-database-everything-on-neon-files-on-r2-l4-runs-survive-a-dropped-pc">spec-117
+— One cloud database: everything on Neon, files on R2, L4 runs survive a
+dropped PC</h1>
+<p><strong>Status:</strong> Code Review — accepted, no High open
+(2026-11-15; <a href="REVIEW.html">REVIEW</a>) ·
+<strong>Created:</strong> 2026-11-06 · <strong>Roadmap:</strong> Stage
+C, next, before Gate 1 · <strong>Resolves:</strong> SIGHTING-145,
+SIGHTING-143 · <strong>Supersedes:</strong> <a
+href="../112-live-db-storage-runner/spec.html">spec-112</a> Phase B</p>
+<p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
+
+<h2 id="1-objective">1. Objective</h2>
+<p>Every Albumify table (albums, runs, results, people, metrics, feature
+cache, jobs) moves into one Neon Postgres database; display images, face
+crops and embeddings move to R2. The L4 worker writes status, progress
+and results there itself, so the app only reads the database and a
+dropped PC no longer stops or loses a run.</p>
+<h2 id="2-requirements">2. Requirements</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Status</th>
+<th>Requirement</th>
+<th>How we know it works</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1</td>
+<td>◐</td>
+<td>One <code>DATABASE_URL</code>, loaded from <code>.env</code> at
+start, puts every Albumify table on Neon: the API's tables, the job
+tables and the feature cache. Unset, everything stays on local SQLite as
+today</td>
+<td>● <code>tests/storage/test_database_config.py</code>; ○ real: API
+starts on Neon, all tables listed</td>
+</tr>
+<tr>
+<td>R2</td>
+<td>◐</td>
+<td>The two <code>people</code> tables no longer clash: the job table
+becomes <code>job_people</code>, existing rows kept</td>
+<td>● <code>tests/control/test_jobs.py::test_job_people_table</code>; ○
+real: both tables on Neon</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>◐</td>
+<td>The API, control and serving suites pass on Postgres as well as
+SQLite</td>
+<td>● <code>tests/storage/test_neon_parity.py</code> runs
+<code>tests/api</code>, <code>tests/control</code>,
+<code>tests/serving</code> on a throwaway Neon branch
+(<code>-m needs_neon</code>): 0 failed</td>
+</tr>
+<tr>
+<td>R4</td>
+<td>●</td>
+<td><strong>Migration:</strong> existing albums, runs, results, people,
+metrics, profiles, feature cache and jobs are copied to Neon. Row counts
+match per table; the script refuses a non-empty target; the SQLite files
+stay as the backup</td>
+<td>● <code>tests/scripts/test_migrate_to_neon.py</code> (6, on SQLite
+and on Neon); ● real 2026-11-13: 17 tables, counts verified (<a
+href="updates.html">updates.md</a>)</td>
+</tr>
+<tr>
+<td>R5</td>
+<td>●</td>
+<td><strong>Status and progress from the database only:</strong> the
+worker writes step, step fraction, photo n of N and a heartbeat at least
+every 5 s; the app shows "triage_content 43% (307/715)" for local and L4
+runs alike. <code>progress.json</code> is retired</td>
+<td>● <code>tests/serving/test_db_progress.py</code>; ● real L4 run
+2026-11-14: step, in-step fraction and photo n/N moved in the job row,
+heartbeat ≤ 7 s old</td>
+</tr>
+<tr>
+<td>R6</td>
+<td>●</td>
+<td><strong>The worker writes the results:</strong> rows go to Neon with
+original photo paths (the manifest carries them), from the L4 and from
+this PC. Nothing is copied back to the PC</td>
+<td>● <code>tests/serving/test_worker_persister.py</code>; ● real L4 run
+<code>f7d8ba85</code>: rows in Neon with original paths, 0 staged paths,
+this PC's job folder holds only the manifest</td>
+</tr>
+<tr>
+<td>R7</td>
+<td>◐</td>
+<td>Display images, face crops and embeddings live in the private R2
+bucket under <code>jobs/&lt;id&gt;/</code>. The API serves only a job's
+own keys; another job's key or a made-up key returns 404</td>
+<td>● <code>tests/storage/test_object_store.py</code> (moto: a fake S3
+for tests); ●
+<code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code>
+on R2; ○ real: People tab crops load</td>
+</tr>
+<tr>
+<td>R8</td>
+<td>●</td>
+<td><strong>Detached L4 runs:</strong> started on the deployed Modal
+app; the call id is stored on the job. Cutting the PC's network for 2
+minutes, or restarting the API, neither stops nor loses the run</td>
+<td>● real: run <code>54b46cd0</code> went on through an API restart;
+<code>f7d8ba85</code> finished with the API and UI stopped (no admin
+rights to cut the Wi-Fi itself); results in Albums</td>
+</tr>
+<tr>
+<td>R9</td>
+<td>◐</td>
+<td><strong>Failure end states:</strong> a crashed, timed-out or
+vanished worker turns the job <code>failed</code> with the reason within
+2 minutes of the heartbeat stopping; Cancel works by call id; a queued
+run reads "Waiting for a GPU", not "Running"</td>
+<td>● <code>tests/serving/test_run_watchdog.py</code>; ○ real: cancel of
+a queued L4 run</td>
+</tr>
+<tr>
+<td>R10</td>
+<td>●</td>
+<td><strong>GPU fallback:</strong> Modal tries L4, then A10G; the run
+records the GPU it got; the spend cap is checked against the dearest GPU
+in the list</td>
+<td>● <code>tests/serving/test_modal_gpu_choice.py</code>; ● real: every
+run recorded <code>NVIDIA A10</code> (Modal fell back from the L4)</td>
+</tr>
+<tr>
+<td>R11</td>
+<td>○</td>
+<td>Local and L4 runs look the same in Albums, Results, People &amp;
+Faces and Explore. Pages served from this PC over Neon open in under 2
+s</td>
+<td>○ <code>tests/test_albums_table_e2e.py</code>,
+<code>tests/test_configure_run_on_e2e.py</code> on Neon; ○ real: page
+timings for Slovakia26</td>
+</tr>
+<tr>
+<td>R12</td>
+<td>●</td>
+<td><strong>One feature cache for both machines:</strong> an L4 run
+after a local run of the same photos recomputes no cached step. Cache
+reads are one query per step, not per photo</td>
+<td>● <code>tests/pipeline/test_cache_handler_batch.py</code>; ● real:
+L4 after L4, cached steps 11-99 ms; local after L4, 2.7-4.3 s each
+(fresh: minutes). Rows cached before spec-117 by full path stay
+PC-only</td>
+</tr>
+<tr>
+<td>R13</td>
+<td>◐</td>
+<td><strong>Secrets:</strong> only in <code>.env</code> (gitignored) and
+the Modal secret <code>albumify-cloud</code>; never in logs, API
+responses, run records or the worker image; logged URLs are
+redacted</td>
+<td>● <code>tests/architecture/test_no_secrets_leak.py</code>; ○ real:
+<code>git grep</code>, log and run-record scan after the L4 run</td>
+</tr>
+<tr>
+<td>R14</td>
+<td>◐</td>
+<td><strong>Cost and size:</strong> after Slovakia26 and Budapest, Neon
+is under 1 GB and R2 under 10 GB (both free plans). A deleted job's R2
+objects are deleted with it</td>
+<td>●
+<code>tests/storage/test_object_store.py::test_delete_prefix</code>; ○
+real: sizes in updates.md</td>
+</tr>
+<tr>
+<td>R15</td>
+<td>◐</td>
+<td><strong>No cloud, no change:</strong> without
+<code>DATABASE_URL</code> and <code>R2_*</code> the app, the tests and
+CI run on SQLite and a local folder. The V2 Budapest gate stays
+green</td>
+<td>●
+<code>tests/storage/test_database_config.py::test_unset_is_sqlite</code>;
+○ real: full suite with no <code>.env</code>, Budapest gate
+(<code>tests/face_clustering/e2e_budapest/</code>) 11 passed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Definition of done:</strong> every row ● with evidence in <a
+href="updates.html">updates.md</a>; the full suite green on SQLite and
+the <code>needs_neon</code> set green on Neon; Slovakia26 run on the L4
+and on this PC against Neon + R2; <code>/code-review</code> gives a
+REVIEW.md with no High findings; <code>scripts/prd_lint.py</code>
+passes.</p>
+<h2 id="3-plan">3. Plan</h2>
+<p>Thick border ● = done; dashed ○ = planned. Each step ends on the
+check that closes it.</p>
+<pre class="mermaid"><code>flowchart TD
+  W1[&quot;&lt;b&gt;● W1 One database setting&lt;/b&gt;&lt;br/&gt;load .env · one engine factory for API, jobs, cache ·&lt;br/&gt;psycopg + boto3 · job_people rename&lt;br/&gt;&lt;i&gt;storage/database.py (new), api/database/session.py,&lt;br/&gt;control/db.py, control/models.py, api/main.py, requirements.txt&lt;/i&gt;&quot;]
+  C1{{&quot;○ check R1 R2 R15&quot;}}
+  W2[&quot;&lt;b&gt;● W2 Postgres parity&lt;/b&gt;&lt;br/&gt;run the suites on a Neon branch · portable column migrations&lt;br/&gt;&lt;i&gt;api/database/session.py, control/db.py, tests (needs_neon)&lt;/i&gt;&quot;]
+  C2{{&quot;○ check R3&quot;}}
+  W3[&quot;&lt;b&gt;● W3 Files on R2&lt;/b&gt;&lt;br/&gt;object store (local folder or R2) · renders, crops, embeddings ·&lt;br/&gt;routes serve through the store&lt;br/&gt;&lt;i&gt;storage/object_store.py (new), local_renders.py, loader.py,&lt;br/&gt;run_embeddings.py, routers/jobs.py, job_store.py&lt;/i&gt;&quot;]
+  C3{{&quot;○ check R7 R14&quot;}}
+  W4[&quot;&lt;b&gt;● W4 Worker writes the database&lt;/b&gt;&lt;br/&gt;progress + heartbeat rows · results rows with original paths&lt;br/&gt;&lt;i&gt;db_progress.py (new), worker_persister.py (new), curate_job.py,&lt;br/&gt;job_service.py, pipeline_service.py&lt;/i&gt;&quot;]
+  C4{{&quot;○ check R5 R6&quot;}}
+  W5[&quot;&lt;b&gt;◐ W5 Detached L4 runs&lt;/b&gt;&lt;br/&gt;deployed app · spawn by name · call id · watchdog · GPU list&lt;br/&gt;&lt;i&gt;detached_modal.py (new), run_watchdog.py (new), runners.py,&lt;br/&gt;modal_app.py, configs/serving.yaml&lt;/i&gt;&quot;]
+  C5{{&quot;○ check R8 R9 R10&quot;}}
+  W6[&quot;&lt;b&gt;● W6 One feature cache&lt;/b&gt;&lt;br/&gt;cache on Neon · batch read per step&lt;br/&gt;&lt;i&gt;pipeline/cache_handler.py, curate_job.py, modal_app.py&lt;/i&gt;&quot;]
+  C6{{&quot;○ check R12&quot;}}
+  W7[&quot;&lt;b&gt;● W7 Move the data&lt;/b&gt;&lt;br/&gt;copy SQLite to Neon, verify counts&lt;br/&gt;&lt;i&gt;scripts/migrate_to_neon.py (new)&lt;/i&gt;&quot;]
+  C7{{&quot;○ check R4&quot;}}
+  W8[&quot;&lt;b&gt;○ W8 Prove on real data&lt;/b&gt;&lt;br/&gt;owner OK before each L4 run&lt;br/&gt;Slovakia26 local + L4 · network cut · secret scan · sizes&quot;]
+  C8{{&quot;○ check R8 R11 R13 R14&lt;br/&gt;full suite · Budapest gate · /code-review&quot;}}
+  W1 --&gt; C1 --&gt; W2 --&gt; C2 --&gt; W3 --&gt; C3 --&gt; W4 --&gt; C4 --&gt; W5 --&gt; C5 --&gt; W6 --&gt; C6 --&gt; W7 --&gt; C7 --&gt; W8 --&gt; C8
+  classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
+  classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
+  classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
+  class W1,W2,W3,W4,W6,W7 done
+  class W5,W8 todo
+  class C1,C2,C3,C4,C5,C6,C7,C8 check</code></pre>
+<h2 id="4-class-diagram">4. Class diagram</h2>
+<p>Green = new class, amber = changed class, grey = existing, unchanged.
+✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
+<pre class="mermaid"><code>classDiagram
+  direction TB
+  class DatabaseConfig {
+    ✚ url: str
+    ✚ is_sqlite: bool
+    ✚ from_env() DatabaseConfig
+    ✚ make_engine() Engine
+    ✚ redacted() str
+  }
+  class ObjectStore {
+    &lt;&lt;interface&gt;&gt;
+    ✚ put(key, data)
+    ✚ get(key) bytes
+    ✚ exists(key) bool
+    ✚ list(prefix) List
+    ✚ delete_prefix(prefix) int
+  }
+  class R2ObjectStore {
+    ✚ bucket: str
+    ✚ from_env() R2ObjectStore
+  }
+  class LocalObjectStore {
+    ✚ root: Path
+  }
+  class DbProgressWriter {
+    ✚ job_id: str
+    ✚ on_step(step, completed)
+    ✚ on_fraction(step, fraction, done, total)
+    ✚ heartbeat()
+  }
+  class WorkerPersister {
+    ✚ calc(inputs) PersistResult
+  }
+  class DetachedModalRemote {
+    ✚ start(job_id, keys, spec) str
+    ✚ status(call_id) str
+    ✚ cancel(call_id)
+  }
+  class RunWatchdog {
+    ✚ reconcile() int
+  }
+  class ControlDB {
+    ✎ __init__(url)
+    session()
+  }
+  class Job {
+    ✚ call_id
+    ✚ gpu
+    ✚ progress
+    ✚ heartbeat_at
+  }
+  class Person {
+    ✎ __tablename__
+  }
+  class UniversalCacheHandler {
+    store_to_cache()
+    load_from_cache()
+    ✚ load_many(keys) Dict
+  }
+  class JobCurator {
+    ✎ calc(inputs)
+  }
+  class ModalRunner {
+    ✎ run(job_id)
+    ✎ cancel(job_id)
+  }
+  class ModalVolumeRemote {
+    upload(keys, store)
+  }
+  class JobService {
+    ✎ run(job_id, inputs)
+  }
+  class PipelineService {
+    ✎ live(run)
+    ✎ get_status(job_id)
+  }
+  class LocalRenders {
+    ✎ calc(inputs)
+  }
+  class ResultsLoader {
+    ✎ calc(inputs)
+  }
+  class RunEmbeddings {
+    ✎ get(run_id, image_path, face_index)
+  }
+  class RunPersister {
+    persist(album_id, run_id, output)
+  }
+  class JobsRouter {
+    &lt;&lt;API&gt;&gt;
+    ✎ photo_image()
+    ✎ face_crop()
+  }
+  ObjectStore &lt;|.. R2ObjectStore
+  ObjectStore &lt;|.. LocalObjectStore
+  ControlDB --&gt; DatabaseConfig
+  UniversalCacheHandler --&gt; DatabaseConfig
+  JobCurator --&gt; DbProgressWriter
+  JobCurator --&gt; WorkerPersister
+  WorkerPersister --&gt; RunPersister
+  WorkerPersister --&gt; ResultsLoader
+  ResultsLoader --&gt; LocalRenders
+  LocalRenders --&gt; ObjectStore
+  RunEmbeddings --&gt; ObjectStore
+  JobsRouter --&gt; ObjectStore
+  ModalRunner --&gt; DetachedModalRemote
+  ModalRunner --&gt; ModalVolumeRemote
+  JobService --&gt; ModalRunner
+  PipelineService --&gt; RunWatchdog
+  RunWatchdog --&gt; Job
+  DbProgressWriter --&gt; Job
+  style DatabaseConfig fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style ObjectStore fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style R2ObjectStore fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style LocalObjectStore fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style DbProgressWriter fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style WorkerPersister fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style DetachedModalRemote fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style RunWatchdog fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style ControlDB fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style Job fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style Person fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style UniversalCacheHandler fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobCurator fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ModalRunner fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ModalVolumeRemote fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style PipelineService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style LocalRenders fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ResultsLoader fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style RunEmbeddings fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobsRouter fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style RunPersister fill:#F2F2F0,stroke:#A89F92</code></pre>
+<h2 id="5-new-files">5. New files</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class</th>
+<th>Responsibility</th>
+<th>Methods</th>
+<th>Attributes</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/storage/database.py</code></td>
+<td><code>DatabaseConfig</code></td>
+<td>The one database setting: reads <code>.env</code>, builds the engine
+for SQLite or Postgres (pooled, pre-ping), redacts the URL for logs</td>
+<td><code>from_env</code>, <code>make_engine</code>,
+<code>redacted</code></td>
+<td><code>url</code>, <code>is_sqlite</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/storage/object_store.py</code></td>
+<td><code>ObjectStore</code>, <code>LocalObjectStore</code>,
+<code>R2ObjectStore</code></td>
+<td>Files by key: a local folder when <code>R2_*</code> is unset, the
+private R2 bucket otherwise</td>
+<td><code>put</code>, <code>get</code>, <code>exists</code>,
+<code>list</code>, <code>delete_prefix</code>,
+<code>from_env</code></td>
+<td><code>root</code>, <code>bucket</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/db_progress.py</code></td>
+<td><code>DbProgressWriter</code></td>
+<td>Writes step, fraction, n of N and a heartbeat to the job row, at
+most every 2 s; replaces <code>progress.json</code></td>
+<td><code>on_step</code>, <code>on_fraction</code>,
+<code>heartbeat</code></td>
+<td><code>job_id</code>, <code>db</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/worker_persister.py</code></td>
+<td><code>WorkerPersister</code></td>
+<td>In the worker, after the pipeline: maps staged paths to originals
+from the manifest, writes job rows and Albumify result rows in one
+transaction</td>
+<td><code>calc</code></td>
+<td><code>db</code>, <code>store</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/detached_modal.py</code></td>
+<td><code>DetachedModalRemote</code></td>
+<td>Starts a run on the deployed Modal app by name and returns the call
+id; status and cancel by call id</td>
+<td><code>start</code>, <code>status</code>, <code>cancel</code></td>
+<td><code>app_name</code>, <code>gpu</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/run_watchdog.py</code></td>
+<td><code>RunWatchdog</code></td>
+<td>Turns a job <code>failed</code> when its heartbeat stops or its
+Modal call ended without a result</td>
+<td><code>reconcile</code></td>
+<td><code>db</code>, <code>remote</code>, <code>grace_s</code></td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>scripts/migrate_to_neon.py</code></td>
+<td><code>NeonMigrator</code></td>
+<td>Copies the Albumify tables from <code>sim_bench.db</code> and
+<code>control.db</code> to Neon; refuses a non-empty target; verifies
+counts</td>
+<td><code>plan</code>, <code>copy</code>, <code>verify</code></td>
+<td><code>source_urls</code>, <code>target_url</code></td>
+<td>●</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-modified-files">6. Modified files</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class / function</th>
+<th>Today</th>
+<th>After this spec</th>
+<th>Req</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/api/database/session.py</code></td>
+<td><code>get_database_url</code>, <code>init_db</code>,
+<code>_migrate_new_columns</code></td>
+<td>Always <code>sqlite:///</code> from <code>SIM_BENCH_DB</code>;
+SQLite-only column adds</td>
+<td><code>DatabaseConfig</code> from <code>DATABASE_URL</code>, SQLite
+when unset; column adds work on both</td>
+<td>R1 R3 R15</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/main.py</code></td>
+<td>startup</td>
+<td><code>init_db()</code> only</td>
+<td>Loads <code>.env</code> first; starts <code>RunWatchdog</code></td>
+<td>R1 R9</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/db.py</code></td>
+<td><code>ControlDB</code></td>
+<td>Own <code>DATABASE_URL</code>, default <code>control.db</code></td>
+<td>Same engine factory as the API, so one database</td>
+<td>R1</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/models.py</code></td>
+<td><code>Person</code>, <code>Job</code></td>
+<td>Table <code>people</code>; no call id or progress</td>
+<td>Table <code>job_people</code>; <code>Job</code> gains
+<code>call_id</code>, <code>gpu</code>, <code>progress</code>,
+<code>heartbeat_at</code></td>
+<td>R2 R5 R8</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/local_renders.py</code></td>
+<td><code>LocalRenders</code></td>
+<td>Writes <code>display/</code> and <code>faces/</code> under the jobs
+folder</td>
+<td>Writes to the object store (worker on the L4, API on this PC)</td>
+<td>R7</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/loader.py</code></td>
+<td><code>ResultsLoader</code></td>
+<td>Reads <code>album.json</code>, <code>bundle.json</code> from the job
+folder; keys from a folder listing</td>
+<td>Runs in the worker; keys from the object store</td>
+<td>R6 R7</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/curate_job.py</code></td>
+<td><code>JobCurator</code>, <code>run_pipeline</code>,
+<code>feature_cache_path</code></td>
+<td>Writes <code>progress.json</code>; cache is a SQLite file</td>
+<td><code>DbProgressWriter</code>; cache through
+<code>DATABASE_URL</code>; <code>WorkerPersister</code> at the end</td>
+<td>R5 R6 R12</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/runners.py</code></td>
+<td><code>ModalRunner</code>, <code>ModalVolumeRemote</code></td>
+<td><code>run_job</code> holds a live link and waits;
+<code>download_results</code> copies back</td>
+<td>Starts detached, then follows the job row; no copy-back
+(<code>ModalVolumeRemote.run_job</code> and
+<code>download_results</code> removed, so they left the class
+diagram)</td>
+<td>R6 R8</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/modal_app.py</code></td>
+<td>apps, <code>_curate_job</code>, <code>GPU_TYPE</code></td>
+<td>Temporary app; one GPU type; cache file copied in and out; no
+secret</td>
+<td>Deployed app; <code>gpu</code> list; secret
+<code>albumify-cloud</code>; no cache Volume</td>
+<td>R8 R10 R12 R13</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/job_service.py</code></td>
+<td><code>JobService.run</code></td>
+<td>Stages, runs, loads results, writes rows</td>
+<td>Stages and starts; rows come from the worker; deleting a job deletes
+its R2 objects</td>
+<td>R6 R14</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/job_store.py</code></td>
+<td><code>write_progress</code>, <code>read_progress</code>,
+<code>objects</code>, <code>read_object</code>, manifest</td>
+<td><code>progress.json</code> and display files on disk</td>
+<td><code>progress.json</code> removed; <code>objects</code> (the object
+store) + <code>read_object</code>; manifest carries originals' pixel
+sizes; inputs and run spec stay local (<code>write_displays</code> kept
+for the debug-only worker renders)</td>
+<td>R5 R6 R7</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/pipeline_service.py</code></td>
+<td><code>PipelineService.live</code>, <code>get_status</code></td>
+<td>Job status + local <code>progress.json</code></td>
+<td>Job row only: stage, step, fraction, heartbeat; same view for local
+and L4 runs</td>
+<td>R5 R9 R11</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/run_embeddings.py</code></td>
+<td><code>RunEmbeddings</code></td>
+<td>Reads <code>results/*.npy</code> from the jobs folder</td>
+<td>Reads them from the object store</td>
+<td>R7</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/routers/jobs.py</code></td>
+<td><code>photo_image</code>, <code>face_crop</code></td>
+<td><code>FileResponse</code> from the jobs folder</td>
+<td>Streams the job's own key from the object store</td>
+<td>R7</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/cache_handler.py</code></td>
+<td><code>UniversalCacheHandler</code></td>
+<td>One query per photo</td>
+<td><code>load_many</code>: one query per step</td>
+<td>R12</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>configs/serving.yaml</code></td>
+<td>runner settings</td>
+<td>One GPU type</td>
+<td><code>gpu: [L4, A10G]</code></td>
+<td>R10</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>requirements.txt</code></td>
+<td>dependencies</td>
+<td>No Postgres driver, no S3 client</td>
+<td><code>psycopg[binary]</code>, <code>boto3</code>; <code>moto</code>
+for tests</td>
+<td>R1 R7</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/jobs.py</code></td>
+<td><code>JobRepo</code></td>
+<td>Status transitions only; <code>reap_orphans</code> fails any live
+job whose process is gone</td>
+<td><code>set_progress</code> (progress, heartbeat, call id, gpu);
+<code>reap_orphans</code> skips detached jobs (they have a call id)</td>
+<td>R5 R8</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/path_map.py</code></td>
+<td><code>PathMap.from_job</code></td>
+<td>Opens each original for its pixel scale</td>
+<td>Uses the manifest's sizes, so the L4 worker needs no original</td>
+<td>R6</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/serving_config.py</code></td>
+<td><code>ServingConfig</code></td>
+<td>One L4 price</td>
+<td><code>gpu</code> list, <code>gpu_dollars_per_hour</code>,
+<code>dearest_dollars_per_hour</code></td>
+<td>R10</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/base.py</code></td>
+<td>cached-step template</td>
+<td>One <code>store_to_cache</code> commit per photo</td>
+<td>One <code>store_many</code> batch per step</td>
+<td>R12</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/schemas/pipeline.py</code>,
+<code>app/streamlit/{api_client,models}.py</code>,
+<code>app/streamlit/pages/configure.py</code>,
+<code>app/streamlit/components/pipeline_runner.py</code></td>
+<td><code>PipelineStatus</code>, <code>PipelineProgress</code>, run
+page</td>
+<td>Step list for this PC only</td>
+<td><code>step_fraction</code>, photo n of N, <code>gpu</code>; "43%
+(307/715)" and the step list on both machines; "Waiting for a GPU"</td>
+<td>R5 R9 R11</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>docs/architecture/classes.html</code>,
+<code>docs/architecture/db_schemas.html</code></td>
+<td>classes, <code>jobs</code> columns</td>
+<td>spec-116 state</td>
+<td>New classes; <code>jobs.progress/heartbeat_at/call_id/gpu</code>;
+<code>job_people</code></td>
+<td>R2 R5</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>docs/architecture/data_flow.html</code></td>
+<td>data flow</td>
+<td>SQLite files + copy-back</td>
+<td>Neon + R2 + detached worker</td>
+<td>R6</td>
+<td>●</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decisions-risks-non-goals">Decisions, risks, non-goals</h2>
+<ul>
+<li><strong>New spec, not spec-112 Phase B:</strong> the scope grew from
+"switch the URL" to every Albumify table plus a worker that writes the
+database. spec-112 Phase B now points here.</li>
+<li><strong>Supersedes spec-112 AC7</strong> ("the worker holds no DB
+credentials"): owner decision 2026-11-06, the worker writes status,
+progress and results itself. The credentials sit in the Modal secret
+only.</li>
+<li><strong>Risk, latency:</strong> Neon is in US East, the PC may be
+far from it. Pages make many small queries; R11 sets a 2 s bar and W8
+measures it. Fallback: batch the page queries.</li>
+<li><strong>Risk, cache keys:</strong> one cache for both machines needs
+the same key on both; staged photos are keyed by content
+(<code>&lt;sha16&gt;/&lt;stem&gt;</code>), checked by R12.</li>
+<li><strong>Non-goals:</strong> the separate face clustering app and its
+stores (<code>~/.sim_bench/runs/</code>,
+<code>face_clustering.db</code>, <code>action_log</code>, training
+tables) stay local SQLite; <code>image_cache/</code> (3.7 GB of
+regenerable copies) and the staged 768 px inputs stay on disk and the
+Modal inputs Volume; merging the job tables with the Albumify result
+tables.</li>
+<li>[NEEDS CLARIFICATION] Should the separate face clustering app move
+too? This spec says no: it is a research tool, and the owner said
+"everything" about Albumify.</li>
+</ul>
+</div><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+document.querySelectorAll("pre.mermaid").forEach(function (pre) {
+  var div = document.createElement("div");
+  div.className = "mermaid";
+  div.textContent = pre.textContent;
+  pre.replaceWith(div);
+});
+mermaid.initialize({startOnLoad: false, securityLevel: "loose"});
+mermaid.run({querySelector: "div.mermaid"});
+</script>
+</body>
+</html>

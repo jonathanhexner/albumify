@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-118--album-tiers-best-10--best-30--all-and-gate-1-on-best-30"
+id="toc-spec-118--album-tiers-best-10--best-30--all-and-gate-1-on-best-30">spec-118
+— Album tiers (Best 10 / Best 30 / All) and Gate 1 on Best 30</a>
+<ul>
+<li><a href="#1-objective" id="toc-1-objective">1. Objective</a></li>
+<li><a href="#2-requirements" id="toc-2-requirements">2.
+Requirements</a></li>
+<li><a href="#3-plan" id="toc-3-plan">3. Plan</a></li>
+<li><a href="#4-class-diagram" id="toc-4-class-diagram">4. Class
+diagram</a></li>
+<li><a href="#5-new-files" id="toc-5-new-files">5. New files</a></li>
+<li><a href="#6-modified-files" id="toc-6-modified-files">6. Modified
+files</a></li>
+<li><a
+href="#evidence-2026-11-13-slovakia26-picks-review-run-52776cc5-k51"
+id="toc-evidence-2026-11-13-slovakia26-picks-review-run-52776cc5-k51">Evidence:
+2026-11-13 Slovakia26 picks review (run <code>52776cc5</code>,
+K=51)</a></li>
+<li><a
+href="#quality-backlog-parked-measured-with-score_reviewpy-when-taken-up"
+id="toc-quality-backlog-parked-measured-with-score_reviewpy-when-taken-up">Quality
+backlog (parked; measured with <code>score_review.py</code> when taken
+up)</a></li>
+<li><a href="#open-decisions--risks--non-goals"
+id="toc-open-decisions--risks--non-goals">Open decisions / risks /
+non-goals</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-118--album-tiers-best-10--best-30--all-and-gate-1-on-best-30">spec-118
+— Album tiers (Best 10 / Best 30 / All) and Gate 1 on Best 30</h1>
+<p><strong>Status:</strong> Draft · <strong>Created:</strong> 2026-11-13
+· <strong>Roadmap:</strong> Stage A/C, Gate 1 ·
+<strong>Resolves:</strong> SIGHTING-149, SIGHTING-150 ·
+<strong>Evidence:</strong> <a
+href="../../reports/2026-11-13_slovakia26_picks_review/report.html">2026-11-13
+picks review</a></p>
+<p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
+
+<h2 id="1-objective">1. Objective</h2>
+<p>Show an album as Best 10, Best 30 or all picks, ranked by score and
+spread over scenes, and judge Gate 1 on Best 30. The owner's review of
+Slovakia26 kept 100% of the top 20 picks and 93% of the top 30, but only
+73% of all 302: the tail is weak, the top is not. Keep that review as a
+yardstick, so every later quality fix (parked below) is scored without
+another manual pass.</p>
+<h2 id="2-requirements">2. Requirements</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Status</th>
+<th>Requirement</th>
+<th>How we know it works</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1</td>
+<td>○</td>
+<td>Picks are ranked across all scenes by <code>composite_score</code>,
+highest first; ties go to the earlier photo</td>
+<td><code>tests/album/test_tiers.py::test_ranks_by_score_across_scenes</code></td>
+</tr>
+<tr>
+<td>R2</td>
+<td>○</td>
+<td>Best N takes at most 2 picks per scene while other scenes still have
+picks, then fills by score, so N is always reached when there are N
+picks</td>
+<td><code>tests/album/test_tiers.py::test_best_n_spreads_over_scenes</code>;
+real: Slovakia26 Best 30 spans at least 15 scenes</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>○</td>
+<td><code>GET /api/v1/results/{job_id}/images?selected_only=true&amp;top=N</code>
+returns N picks in rank order; without <code>top</code> the response is
+unchanged</td>
+<td><code>tests/api/test_results_tiers.py::test_top_returns_ranked_picks</code>,
+<code>::test_without_top_nothing_changes</code></td>
+</tr>
+<tr>
+<td>R4</td>
+<td>○</td>
+<td><code>top</code> outside 1-1000 is a 422; the route serves only that
+job's own result, as today (no new data exposed)</td>
+<td><code>tests/api/test_results_tiers.py::test_top_out_of_range_is_422</code></td>
+</tr>
+<tr>
+<td>R5</td>
+<td>○</td>
+<td>Results page view selector: Best 10 · Best 30 (default) · All picks
+· All processed · By cluster; each card shows its rank</td>
+<td>Playwright
+<code>tests/test_results_tiers_e2e.py::test_best_30_is_default_and_ranked</code>
+on the real app</td>
+</tr>
+<tr>
+<td>R6</td>
+<td>○</td>
+<td>An album with fewer picks than N shows them all, labelled "all 7
+picks"</td>
+<td><code>tests/album/test_tiers.py::test_fewer_picks_than_n</code>;
+Playwright same file</td>
+</tr>
+<tr>
+<td>R7</td>
+<td>○</td>
+<td>Runs made before this spec rank without a re-run (from stored
+<code>composite_score</code> + <code>scene_clusters</code>)</td>
+<td><code>tests/api/test_results_tiers.py::test_old_run_ranks</code>;
+real: run <code>52776cc5</code> opens as Best 30</td>
+</tr>
+<tr>
+<td>R8</td>
+<td>○</td>
+<td>Review yardstick: <code>scripts/score_review.py</code> scores any
+run against <code>picks_review.json</code> (keep rate at Best 10 / 30 /
+all, photos you wanted that it now picks)</td>
+<td><code>tests/scripts/test_score_review.py</code>; real: on
+<code>52776cc5</code> it reproduces 10/10, 28/30, 219/299</td>
+</tr>
+<tr>
+<td>R9</td>
+<td>○</td>
+<td>SIGHTING-149: a photo removed by a filter shows that filter's
+reason, not "Person detected"</td>
+<td><code>tests/serving/test_run_output.py::test_a_rejection_reason_wins_over_detection</code></td>
+</tr>
+<tr>
+<td>R10</td>
+<td>○</td>
+<td>SIGHTING-150: <code>select_best</code> reasons ("Best in cluster",
+"Rank N") follow score order</td>
+<td><code>tests/pipeline/test_select_best_reasons.py::test_rank_follows_score</code></td>
+</tr>
+<tr>
+<td>R11</td>
+<td>○</td>
+<td><strong>Gate 1:</strong> the owner judges Best 30 of Slovakia26 (run
+made on Neon + R2, spec-117 T8.1) and of Budapest in the app; passes at
+Best 30 ≥ 90% kept and Best 10 all kept; verdict and keep rate go in
+updates.md</td>
+<td>real: owner verdict recorded; <code>score_review.py</code> numbers
+for Slovakia26</td>
+</tr>
+<tr>
+<td>R12</td>
+<td>○</td>
+<td>Nothing else breaks</td>
+<td>full suite <code>pytest tests</code> green; Budapest gate
+<code>tests/face_clustering/e2e_budapest/</code> 11/11; real: Slovakia26
++ Budapest open in the app</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Definition of done:</strong> every row ● with evidence in <a
+href="updates.html">updates.md</a>; <code>/code-review</code> →
+REVIEW.md with no high findings; <code>scripts/prd_lint.py</code>
+passes.</p>
+<h2 id="3-plan">3. Plan</h2>
+<pre class="mermaid"><code>flowchart TD
+  S1[&quot;&lt;b&gt;○ W1 Rank + tiers&lt;/b&gt;&lt;br/&gt;&lt;i&gt;album/tiers.py (new)&lt;/i&gt;&quot;] --&gt; C1{{&quot;check R1 R2 R6&quot;}}
+  C1 --&gt; S2[&quot;&lt;b&gt;○ W2 API top=N&lt;/b&gt;&lt;br/&gt;&lt;i&gt;result_service.py, routers/results.py&lt;/i&gt;&quot;] --&gt; C2{{&quot;check R3 R4 R7&quot;}}
+  C2 --&gt; S3[&quot;&lt;b&gt;○ W3 Results page tiers&lt;/b&gt;&lt;br/&gt;&lt;i&gt;pages/results.py, api_client.py&lt;/i&gt;&quot;] --&gt; C3{{&quot;check R5&quot;}}
+  C3 --&gt; S4[&quot;&lt;b&gt;○ W4 Honest reasons&lt;/b&gt;&lt;br/&gt;&lt;i&gt;run_output.py, select_best.py&lt;/i&gt;&quot;] --&gt; C4{{&quot;check R9 R10&quot;}}
+  C4 --&gt; S5[&quot;&lt;b&gt;○ W5 Review yardstick&lt;/b&gt;&lt;br/&gt;&lt;i&gt;scripts/score_review.py (new)&lt;/i&gt;&quot;] --&gt; C5{{&quot;check R8&quot;}}
+  C5 --&gt; S6[&quot;&lt;b&gt;○ W6 Gate 1&lt;/b&gt;&lt;br/&gt;&lt;i&gt;owner judges Best 30, Slovakia26 + Budapest&lt;/i&gt;&quot;] --&gt; C6{{&quot;check R11 R12&quot;}}
+  classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
+  classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
+  class S1,S2,S3,S4,S5,S6 todo
+  class C1,C2,C3,C4,C5,C6 check</code></pre>
+<h2 id="4-class-diagram">4. Class diagram</h2>
+<pre class="mermaid"><code>classDiagram
+  direction TB
+  class ResultsPage {
+    &lt;&lt;page&gt;&gt;
+    ✎ _render_image_views(job_id)
+  }
+  class ResultsRouter {
+    &lt;&lt;API&gt;&gt;
+    ✎ GET /results/job_id/images (+top)
+  }
+  class ApiClient {
+    ✎ get_images(job_id, cluster_id, person_id, selected_only)
+    get_selected_images(job_id)
+  }
+  class ResultService {
+    ✎ get_images(job_id, cluster_id, person_id, selected_only)
+    _build_image_dict(path, metrics, is_selected)
+  }
+  class AlbumTiers {
+    ✚ max_per_scene: int
+    ✚ calc(TierInputs) TierResult
+    ✚ rank(picks) List
+  }
+  class ReviewScorer {
+    ✚ calc(ReviewInputs) ReviewScore
+    ✚ keep_rate(ranked, n) float
+  }
+  class RunOutput {
+    from_context(context, result) RunOutput
+  }
+  class SelectBestStep {
+    ✎ _select_from_cluster(context, image_paths, max_per_cluster, siamese_model)
+  }
+  ResultsPage --&gt; ApiClient
+  ApiClient --&gt; ResultsRouter
+  ResultsRouter --&gt; ResultService
+  ResultService --&gt; AlbumTiers
+  ReviewScorer --&gt; AlbumTiers
+  RunOutput ..&gt; SelectBestStep : reasons
+  style AlbumTiers fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style ReviewScorer fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style ResultsPage fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ResultsRouter fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ApiClient fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ResultService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style SelectBestStep fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style RunOutput fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px</code></pre>
+<h2 id="5-new-files">5. New files</h2>
+<p>All <span class="tag new">NEW</span>. Test files are listed per task
+in <a href="tasks.html">tasks.md</a>.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class</th>
+<th>Responsibility</th>
+<th>Methods</th>
+<th>Attributes</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/album/tiers.py</code></td>
+<td><code>AlbumTiers</code>, <code>TierInputs</code>,
+<code>TierResult</code></td>
+<td>Rank picks by score across scenes; cut Best N with a per-scene
+cap</td>
+<td><code>calc(inputs)</code>, <code>rank(picks)</code></td>
+<td><code>max_per_scene=2</code>; inputs: picks (path, score, scene,
+time), <code>top</code>; result: <code>ranked</code>,
+<code>n_scenes</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>scripts/score_review.py</code></td>
+<td><code>ReviewScorer</code>, <code>ReviewInputs</code>,
+<code>ReviewScore</code></td>
+<td>Score a run against the owner's <code>picks_review.json</code>
+(matched by file name)</td>
+<td><code>calc(inputs)</code>, <code>keep_rate(ranked, n)</code></td>
+<td>result: keep rate at 10 / 30 / all, wanted photos now picked,
+unjudged picks</td>
+<td>○</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-modified-files">6. Modified files</h2>
+<p>All <span class="tag chg">CHANGED</span>.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class / function</th>
+<th>Today</th>
+<th>After this spec</th>
+<th>Req</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/api/services/result_service.py</code></td>
+<td><code>ResultService.get_images</code></td>
+<td>Picks in stored, cluster-by-cluster order</td>
+<td>Optional <code>top</code>: ranked by <code>AlbumTiers</code>, first
+N</td>
+<td>R3 R7</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/routers/results.py</code></td>
+<td><code>get_result_images</code></td>
+<td><code>cluster_id</code>, <code>person_id</code>,
+<code>selected_only</code></td>
+<td>+ <code>top</code> (1-1000)</td>
+<td>R3 R4</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>app/streamlit/api_client.py</code></td>
+<td><code>ApiClient.get_images</code></td>
+<td>No <code>top</code></td>
+<td>Passes <code>top</code></td>
+<td>R5</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>app/streamlit/pages/results.py</code></td>
+<td><code>_render_image_views</code></td>
+<td>Selected Only · All Processed · By Cluster</td>
+<td>Best 10 · Best 30 (default) · All picks · All processed · By
+cluster; rank on each card</td>
+<td>R5 R6</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/run_output.py</code></td>
+<td><code>build_reason_by_path</code></td>
+<td>First decision per photo wins (detection), unless
+<code>select_best</code></td>
+<td>A <code>rejected</code> decision wins over detection notes;
+<code>select_best</code> still last</td>
+<td>R9</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/steps/select_best.py</code></td>
+<td><code>SelectBestStep._select_from_cluster</code></td>
+<td>Rank counted over the unsorted list</td>
+<td>Rank counted over the score-sorted list</td>
+<td>R10</td>
+<td>○</td>
+</tr>
+</tbody>
+</table>
+<h2
+id="evidence-2026-11-13-slovakia26-picks-review-run-52776cc5-k51">Evidence:
+2026-11-13 Slovakia26 picks review (run <code>52776cc5</code>,
+K=51)</h2>
+<p>Owner reviewed 101 of 106 pages in
+<code>reports/2026-11-13_slovakia26_picks_review/review.html</code>;
+answers in <code>picks_review.json</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Picks ranked by score</th>
+<th>Kept</th>
+<th></th>
+<th>Drop reasons (80)</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Best 10</td>
+<td>10/10 (100%)</td>
+<td></td>
+<td>near-duplicate of another pick</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Best 20</td>
+<td>20/20 (100%)</td>
+<td></td>
+<td>other / no reason</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Best 30</td>
+<td>28/30 (93%)</td>
+<td></td>
+<td>dull / no value</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Best 50</td>
+<td>45/50 (90%)</td>
+<td></td>
+<td>eyes closed / not looking</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Best 100</td>
+<td>82/100 (82%)</td>
+<td></td>
+<td>framing 4 · stranger 4 · blurry 2</td>
+<td>10</td>
+</tr>
+<tr>
+<td>All</td>
+<td>219/299 (73%)</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Wanted but not picked: 29.</strong> 20 of 20 on the one
+"removed before scenes" page reviewed (sharpness filter, 0.02-0.20; 69
+removed photos not yet seen), 9 inside scenes.</li>
+<li><strong>People:</strong> persons 0-3 right; 4 is a split of 2; 5-7
+are strangers (8 found, about 4 real).</li>
+<li><strong>Scenes</strong> are visual only (DINOv2 + HDBSCAN, no time
+or place): scene 5 mixes Aug 18 and Aug 29.</li>
+<li>Labels "Best in cluster" / "Rank N" in this run are not score order
+(SIGHTING-150), so drop reasons are not broken down by them.</li>
+</ul>
+<h2
+id="quality-backlog-parked-measured-with-score_reviewpy-when-taken-up">Quality
+backlog (parked; measured with <code>score_review.py</code> when taken
+up)</h2>
+<table>
+<thead>
+<tr>
+<th>Idea</th>
+<th>Evidence</th>
+<th>Owner note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Score that trades quality against similarity to the other picks,
+instead of a flat 2 per people group</td>
+<td>47 of 80 drops are near-duplicates;
+<code>max_images_per_cluster: 2</code></td>
+<td>"logic we explicitly defined; we have control over it"</td>
+</tr>
+<tr>
+<td>Filter out uninteresting photos</td>
+<td>dull 6 drops; dryer photo (lone page 3)</td>
+<td>"need to find a way to remove non-interesting photos"</td>
+</tr>
+<tr>
+<td>Stronger penalty for bad faces</td>
+<td>eyes / not looking 5; kid pulling a face (scene 39)</td>
+<td>"penalize more strongly for bad faces"</td>
+</tr>
+<tr>
+<td>Scenes by time and place too</td>
+<td>scene 5 spans 11 days; spec-103 <code>build_scene_distance</code> is
+off by default</td>
+<td>"too many clusters, cluster also by time/geo"</td>
+</tr>
+<tr>
+<td>Sharpness filter off or much lower</td>
+<td>20/20 here and 59/60 on 2026-11-06 were wrong removals</td>
+<td>Parked (owner 2026-11-13)</td>
+</tr>
+<tr>
+<td>Finger in frame</td>
+<td>scene 82 note; <code>score_occlusion</code> exists (spec-097)</td>
+<td>"was it detected?"</td>
+</tr>
+<tr>
+<td>People: 3 strangers + 1 split</td>
+<td>People tab verdicts</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="open-decisions--risks--non-goals">Open decisions / risks /
+non-goals</h2>
+<ul>
+<li>Decided 2026-11-13: Gate 1 bar = Best 30 at least 90% kept and Best
+10 all kept (ROADMAP decision 1).</li>
+<li>Decided 2026-11-13: sharpness filter parked with the rest of the
+backlog.</li>
+<li>Risk: the per-scene cap of 2 is a guess; R2's real check shows
+whether Best 30 looks varied.</li>
+<li>Non-goals: the Jobs page picks view and <code>album.json</code>
+export stay chronological; no pipeline scoring changes besides R10's
+labels.</li>
+</ul>
+</div><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+document.querySelectorAll("pre.mermaid").forEach(function (pre) {
+  var div = document.createElement("div");
+  div.className = "mermaid";
+  div.textContent = pre.textContent;
+  pre.replaceWith(div);
+});
+mermaid.initialize({startOnLoad: false, securityLevel: "loose"});
+mermaid.run({querySelector: "div.mermaid"});
+</script>
+</body>
+</html>

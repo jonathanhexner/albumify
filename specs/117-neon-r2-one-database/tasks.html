@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#spec-117--tasks-one-cloud-database-neon--r2"
+id="toc-spec-117--tasks-one-cloud-database-neon--r2">spec-117 — Tasks
+(One cloud database: Neon + R2)</a>
+<ul>
+<li><a href="#w0--owner-setup-done-2026-11-06"
+id="toc-w0--owner-setup-done-2026-11-06">W0 — Owner setup (done
+2026-11-06)</a></li>
+<li><a href="#w1--one-database-setting-r1-r2-r15"
+id="toc-w1--one-database-setting-r1-r2-r15">W1 — One database setting
+(R1, R2, R15)</a></li>
+<li><a href="#w2--postgres-parity-r3" id="toc-w2--postgres-parity-r3">W2
+— Postgres parity (R3)</a></li>
+<li><a href="#w3--files-on-r2-r7-r14" id="toc-w3--files-on-r2-r7-r14">W3
+— Files on R2 (R7, R14)</a></li>
+<li><a href="#w4--worker-writes-the-database-r5-r6"
+id="toc-w4--worker-writes-the-database-r5-r6">W4 — Worker writes the
+database (R5, R6)</a></li>
+<li><a href="#w5--detached-l4-runs-r8-r9-r10"
+id="toc-w5--detached-l4-runs-r8-r9-r10">W5 — Detached L4 runs (R8, R9,
+R10)</a></li>
+<li><a href="#w6--one-feature-cache-r12"
+id="toc-w6--one-feature-cache-r12">W6 — One feature cache (R12)</a></li>
+<li><a href="#w7--move-the-data-r4" id="toc-w7--move-the-data-r4">W7 —
+Move the data (R4)</a></li>
+<li><a
+href="#w8--prove-on-real-data-r8-r11-r13-r14--owner-ok-before-each-l4-run"
+id="toc-w8--prove-on-real-data-r8-r11-r13-r14--owner-ok-before-each-l4-run">W8
+— Prove on real data (R8, R11, R13, R14) — owner OK before each L4
+run</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="spec-117--tasks-one-cloud-database-neon--r2">spec-117 — Tasks
+(One cloud database: Neon + R2)</h1>
+<p><strong>Status:</strong> In Progress 2026-11-06 — owner approved;
+W1-W6 built in worktree <code>D:/sim-bench-117</code> (branch
+<code>spec/117-neon-r2</code>). <strong>Spec:</strong> <a
+href="spec.html">spec.md</a> · <a href="updates.html">updates</a> ·
+roadmap stage <strong>C</strong> · <a
+href="../../ROADMAP.html">ROADMAP.md</a></p>
+<p>Design lives in the spec (§3 plan, §4 class diagram, §5-§6 file
+tables). This file orders the work. <strong>Rule while a local album run
+is in progress:</strong> no <code>.py</code> edits under the repo (the
+API's <code>--reload</code> kills the run).</p>
+<h2 id="w0--owner-setup-done-2026-11-06">W0 — Owner setup (done
+2026-11-06)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T0.1 Neon project
+<code>albumify</code> (AWS us-east-1), pooled <code>DATABASE_URL</code>
+in <code>.env</code>; password reset after it was pasted in
+chat.</label></li>
+<li><label><input type="checkbox" checked="" />T0.2 R2 bucket
+<code>albumify</code>, token scoped to it; <code>R2_*</code> in
+<code>.env</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T0.3 Modal secret
+<code>albumify-cloud</code> (<code>DATABASE_URL</code> +
+<code>R2_*</code>).</label></li>
+<li><label><input type="checkbox" checked="" />T0.4 Check: Neon query +
+temp table, R2 put/read/delete: both PASS (scratch script, no values
+printed).</label></li>
+</ul>
+<h2 id="w1--one-database-setting-r1-r2-r15">W1 — One database setting
+(R1, R2, R15)</h2>
+<ul>
+<li>[~] T1.1 <code>requirements.txt</code>:
+<code>psycopg[binary]</code>, <code>boto3</code>, <code>moto</code>;
+install into <code>.venv</code> (listed; install deferred: the live
+<code>.venv</code> must not change during the album run, tests use a
+side folder).</li>
+</ul>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T1.2
+<code>sim_bench/storage/database.py</code> <code>DatabaseConfig</code>;
+<code>.env</code> loaded once at API start (<code>api/main.py</code>)
+and in the worker. Test
+<code>tests/storage/test_database_config.py</code> (unset -&gt; SQLite
+path as today; Postgres URL -&gt; psycopg driver, pre-ping;
+redaction).</label></li>
+<li><label><input type="checkbox" checked="" />T1.3
+<code>api/database/session.py</code> and <code>control/db.py</code>
+build their engines from <code>DatabaseConfig</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T1.4
+<code>control/models.py</code>:
+<code>Person.__tablename__ = "job_people"</code>, with a one-time rename
+of the existing SQLite table. Test
+<code>tests/control/test_jobs.py::test_job_people_table</code>.</label></li>
+</ul>
+<h2 id="w2--postgres-parity-r3">W2 — Postgres parity (R3)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T2.1
+<code>needs_neon</code> pytest marker: creates a throwaway Neon branch
+(or schema), runs <code>tests/api</code>, <code>tests/control</code>,
+<code>tests/serving</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T2.2 Make
+<code>_migrate_new_columns</code> and <code>_add_missing_columns</code>
+portable (SQLAlchemy inspector, no raw SQLite DDL).</label></li>
+<li><label><input type="checkbox" checked="" />T2.3 Fix what fails on
+Postgres (types, JSON, timezones); record each fix in
+updates.md.</label></li>
+</ul>
+<h2 id="w3--files-on-r2-r7-r14">W3 — Files on R2 (R7, R14)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T3.1
+<code>sim_bench/storage/object_store.py</code>:
+<code>LocalObjectStore</code>, <code>R2ObjectStore</code>. Test
+<code>tests/storage/test_object_store.py</code> (moto).</label></li>
+<li><label><input type="checkbox" checked="" />T3.2
+<code>LocalRenders</code>, <code>ResultsLoader</code>,
+<code>RunEmbeddings</code>, <code>routers/jobs.py</code> use the store;
+per-job key check kept
+(<code>tests/api/test_jobs_router.py::test_other_jobs_photo_is_404</code>
+on both stores).</label></li>
+<li><label><input type="checkbox" checked="" />T3.3 Job deletion deletes
+<code>jobs/&lt;id&gt;/</code> in the store
+(<code>test_delete_prefix</code>).</label></li>
+</ul>
+<h2 id="w4--worker-writes-the-database-r5-r6">W4 — Worker writes the
+database (R5, R6)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T4.1 <code>Job</code>
+columns <code>progress</code> (JSON), <code>heartbeat_at</code>,
+<code>call_id</code>, <code>gpu</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T4.2
+<code>serving/db_progress.py</code> <code>DbProgressWriter</code>;
+steps' <code>report_progress</code> reaches it (throttled 2 s);
+<code>progress.json</code> retired. Test
+<code>tests/serving/test_db_progress.py</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T4.3
+<code>serving/worker_persister.py</code>: manifest carries original path
++ size; remap in the worker; <code>ResultsLoader</code> +
+<code>RunPersister</code> in one transaction. Test
+<code>tests/serving/test_worker_persister.py</code> (SQLite + fake
+store).</label></li>
+<li><label><input type="checkbox" checked="" />T4.4
+<code>JobService.run</code> and
+<code>PipelineService.live/get_status</code> read the job row
+only.</label></li>
+</ul>
+<h2 id="w5--detached-l4-runs-r8-r9-r10">W5 — Detached L4 runs (R8, R9,
+R10)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T5.1
+<code>modal deploy</code> of <code>albumify-curator</code> with secret
+<code>albumify-cloud</code>; <code>gpu=["L4", "A10G"]</code>; run record
+stores the GPU. (deployed 2026-11-14 from <code>c56d6db</code>, owner
+OK)</label></li>
+<li><label><input type="checkbox" checked="" />T5.2
+<code>serving/detached_modal.py</code>: <code>start</code> (spawn by
+name, store call id), <code>status</code>,
+<code>cancel</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T5.3
+<code>serving/run_watchdog.py</code>: heartbeat older than 2 min or call
+ended without rows -&gt; <code>failed</code> with the reason; queued
+-&gt; "Waiting for a GPU". Test
+<code>tests/serving/test_run_watchdog.py</code>. Spend cap at the
+dearest GPU: <code>test_modal_gpu_choice.py</code>.</label></li>
+</ul>
+<h2 id="w6--one-feature-cache-r12">W6 — One feature cache (R12)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T6.1
+<code>UniversalCacheHandler.load_many</code>; steps read once per step.
+Test
+<code>tests/pipeline/test_cache_handler_batch.py</code>.</label></li>
+<li><label><input type="checkbox" checked="" />T6.2 Worker and local
+runs use the cache through <code>DATABASE_URL</code>; the
+<code>albumify-cache</code> Volume copy is removed.</label></li>
+</ul>
+<h2 id="w7--move-the-data-r4">W7 — Move the data (R4)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T7.1
+<code>scripts/migrate_to_neon.py</code> (<code>NeonMigrator</code>):
+plan, copy, verify; refuses a non-empty target. Test
+<code>tests/scripts/test_migrate_to_neon.py</code> (SQLite to SQLite).
+Real run: counts per table into updates.md. (script + test done; the
+real run waits for the owner)</label></li>
+</ul>
+<h2
+id="w8--prove-on-real-data-r8-r11-r13-r14--owner-ok-before-each-l4-run">W8
+— Prove on real data (R8, R11, R13, R14) — owner OK before each L4
+run</h2>
+<ul>
+<li>[~] T8.1 Slovakia26 on this PC against Neon + R2;
+Albums/Results/People/Explore; page timings. (2026-11-13: run from the
+app works; timings fail, SIGHTING-152; gallery bug SIGHTING-151)</li>
+</ul>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />T8.2 Slovakia26 on the
+L4: cut the PC's network 2 min, restart the API once; run finishes;
+results in Albums. (2026-11-14: run <code>f7d8ba85</code>, after three
+failed runs fixed in SIGHTING-153; the PC side was stopped, the Wi-Fi
+itself not cut)</label></li>
+<li><label><input type="checkbox" checked="" />T8.3 L4 re-run after the
+local run: cached steps recompute nothing. (2026-11-14:
+<code>fd52013c</code> after <code>f7d8ba85</code>, local
+<code>8ab479f9</code> after both; picks differ by 3 of ~330,
+SIGHTING-154)</label></li>
+<li><label><input type="checkbox" checked="" />T8.4 Secret scan
+(<code>git grep</code>, logs, run records, image env); Neon and R2
+sizes.</label></li>
+<li><label><input type="checkbox" checked="" />T8.5 Full suite (SQLite),
+<code>needs_neon</code> set, Budapest gate, <code>/code-review</code>
+-&gt; REVIEW.md.</label></li>
+</ul>
+</div>
+</body>
+</html>

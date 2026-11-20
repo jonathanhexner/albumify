@@ -1,0 +1,1767 @@
+{
+  "source": "D:/Budapest2025_Google",
+  "n_steps": 38,
+  "wall_768_s": 1497.7,
+  "run_768": "a40333fd-1b21-4e7c-8ad9-49c26c24143e",
+  "n_photos": 122,
+  "wall_full_s": 1653.4,
+  "compare": {
+    "a": "budapest-fullsize",
+    "b": "a40333fd-1b21-4e7c-8ad9-49c26c24143e",
+    "ok": false,
+    "failures": [
+      "uploaded: 96 vs baseline 8 (allowed +/-3%)",
+      "kept: 49 vs baseline 5 (allowed +/-10%)",
+      "scenes: 13 vs baseline 0 (allowed +/-10%)",
+      "people: 8 vs baseline 11 (allowed +/-15%)",
+      "person #1 size: 11 faces vs baseline 19 (allowed +/-20%)",
+      "person #2 size: 10 faces vs baseline 14 (allowed +/-20%)",
+      "person #3 size: 9 faces vs baseline 13 (allowed +/-20%)",
+      "person #5 size: 3 faces vs baseline 6 (allowed +/-20%)",
+      "pick precision 0.27 < 0.85 (new picks from groups the baseline did not keep)"
+    ],
+    "metrics": {
+      "count.uploaded": 96,
+      "count.kept": 49,
+      "count.scenes": 13,
+      "count.people": 8,
+      "count.set_aside": 2,
+      "pick_recall": 1.0,
+      "pick_precision": 0.265
+    },
+    "checks": [
+      {
+        "name": "uploaded",
+        "baseline": 8,
+        "current": 96,
+        "allowed": 2,
+        "ok": false
+      },
+      {
+        "name": "kept",
+        "baseline": 5,
+        "current": 49,
+        "allowed": 4,
+        "ok": false
+      },
+      {
+        "name": "scenes",
+        "baseline": 0,
+        "current": 13,
+        "allowed": 2,
+        "ok": false
+      },
+      {
+        "name": "people",
+        "baseline": 11,
+        "current": 8,
+        "allowed": 2,
+        "ok": false
+      },
+      {
+        "name": "set_aside",
+        "baseline": 2,
+        "current": 2,
+        "allowed": 2,
+        "ok": true
+      },
+      {
+        "name": "person #1 faces",
+        "baseline": 19,
+        "current": 11,
+        "allowed": 3,
+        "ok": false
+      },
+      {
+        "name": "person #2 faces",
+        "baseline": 14,
+        "current": 10,
+        "allowed": 2,
+        "ok": false
+      },
+      {
+        "name": "person #3 faces",
+        "baseline": 13,
+        "current": 9,
+        "allowed": 2,
+        "ok": false
+      },
+      {
+        "name": "person #4 faces",
+        "baseline": 9,
+        "current": 8,
+        "allowed": 2,
+        "ok": true
+      },
+      {
+        "name": "person #5 faces",
+        "baseline": 6,
+        "current": 3,
+        "allowed": 2,
+        "ok": false
+      }
+    ],
+    "picks": {
+      "same": [
+        "20250822_112359",
+        "20250822_123604",
+        "20250822_123916"
+      ],
+      "swapped": [
+        [
+          "20250822_123400",
+          "20250822_112331"
+        ],
+        [
+          "20250824_154340",
+          "20250822_112331"
+        ]
+      ],
+      "missing": [],
+      "extra": [
+        "20250822_112502",
+        "20250822_121039",
+        "20250822_121053",
+        "20250822_123514",
+        "20250822_123539",
+        "20250822_192259",
+        "20250822_192327",
+        "20250822_192352",
+        "20250822_192356",
+        "20250822_192441",
+        "20250822_192451",
+        "20250822_192528",
+        "20250822_192530",
+        "20250822_193353",
+        "20250822_193357",
+        "20250822_193432",
+        "20250822_193451",
+        "20250822_193458",
+        "20250822_193734",
+        "20250822_194044",
+        "20250822_194258",
+        "20250822_194547",
+        "20250822_194644",
+        "20250822_194648",
+        "20250822_194713",
+        "20250822_194903",
+        "20250822_194926",
+        "20250822_194952",
+        "20250822_195124",
+        "20250822_195246",
+        "20250822_195457",
+        "20250822_195716",
+        "20250822_195740",
+        "20250822_195832",
+        "20250824_152144",
+        "20250824_152246"
+      ],
+      "also_kept": [
+        "20250822_123224",
+        "20250822_123409",
+        "20250822_123501",
+        "20250822_123510",
+        "20250822_194036",
+        "20250824_154448",
+        "20250824_154522",
+        "20250824_154627",
+        "20250824_191343_01"
+      ]
+    },
+    "decisions": {
+      "budapest-fullsize": {
+        "20250822_112331": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.09 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_112502": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_121039": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_121053": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_121058": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_122539": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.00 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_122617": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.06 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_122626": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.09 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_122632": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.13 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123224": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.10 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123237": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.05 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123242": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.05 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123303": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123306": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.05 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123313": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123318": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.09 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123328": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.16 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123341": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.15 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123347": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123354": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.12 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123409": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123430": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123443": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.13 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123448": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123451": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123501": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.12 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123510": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.13 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123514": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.07 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123518": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.12 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123521": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.10 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123528": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.14 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123534": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.12 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123539": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.11 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_183651": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.09 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192248": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192259": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.03 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192327": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192328": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192352": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.10 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192356": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.09 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192441": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192451": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192500": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.03 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192528": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.03 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192530": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.03 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193345": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193353": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.12 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193356": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.13 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193357": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.14 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193404": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.10 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193432": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.13 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193451": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.13 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193458": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.09 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193734": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.15 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193736": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.12 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193945": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193947": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.03 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194036": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.18 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194044": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.06 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194159": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194201": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194258": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194259": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194444": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194451": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194547": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194551": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.03 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194644": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.03 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194648": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194651": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194653": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194711": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194713": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194859": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194903": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.05 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194923": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194926": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194950": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194952": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194955": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195016": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195018": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195021": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195052": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195121": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195124": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.03 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195246": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195457": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195500": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195716": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195738": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195740": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195753": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195758": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195800": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.01 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195832": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.03 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_152144": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.05 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_152151": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.14 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_152246": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.05 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_152450": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.05 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_152628": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_152647": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.16 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_154448": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.06 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_154452": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_154522": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_154601": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.07 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_154604": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.06 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_154621": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.04 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_154627": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.05 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_163017": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.10 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_170810": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.14 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_170831": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.02 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_170838": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.06 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_191343_01": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.14 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_191011": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_112359, 20250822_123400, 20250822_123604, 20250822_123916, 20250824_154340 (a stronger shot of this moment was kept)",
+          "scene": -1,
+          "score": 0.2915769623850974
+        },
+        "20250822_112359": {
+          "state": "pick",
+          "detail": "kept, pick #1, beat 1 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.42520846386218636
+        },
+        "20250822_123400": {
+          "state": "pick",
+          "detail": "kept, pick #5, beat 1 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.41399058488450846
+        },
+        "20250822_123604": {
+          "state": "pick",
+          "detail": "kept, pick #2, beat 1 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.5303949900883257
+        },
+        "20250822_123916": {
+          "state": "pick",
+          "detail": "kept, pick #3, beat 1 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.3355224230577662
+        },
+        "20250824_154340": {
+          "state": "pick",
+          "detail": "kept, pick #4, beat 1 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.4220166065039756
+        },
+        "20250822_125147": {
+          "state": "set_aside",
+          "detail": "set aside (printed material: sign)",
+          "scene": null,
+          "score": null
+        },
+        "20250822_125441": {
+          "state": "set_aside",
+          "detail": "set aside (printed material: sign)",
+          "scene": null,
+          "score": null
+        }
+      },
+      "a40333fd-1b21-4e7c-8ad9-49c26c24143e": {
+        "20250822_122539": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.08 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_122617": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.10 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_122626": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.18 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_122632": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.18 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123237": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.14 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123242": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.10 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123303": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.12 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123306": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.13 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123313": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.14 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123347": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.13 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123430": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.15 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123448": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.10 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_123521": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.16 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_192248": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.20 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193945": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.11 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_193947": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.11 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194259": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.19 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194444": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.14 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_194451": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.14 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_195052": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.19 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_152450": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.15 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_152628": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.16 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_152647": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.19 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_170810": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.10 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_170831": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.06 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250824_170838": {
+          "state": "removed",
+          "detail": "removed by a filter: filter_quality: Sharpness 0.07 < threshold 0.2",
+          "scene": null,
+          "score": null
+        },
+        "20250822_121058": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_112502, 20250822_121039, 20250822_121053 (a stronger shot of this moment was kept)",
+          "scene": 0,
+          "score": 0.4738755175006092
+        },
+        "20250822_123318": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123224, 20250822_123409, 20250822_123501, 20250822_123510 (a stronger shot of this moment was kept)",
+          "scene": 11,
+          "score": 0.3671543599238075
+        },
+        "20250822_123328": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123224, 20250822_123409, 20250822_123501, 20250822_123510 (a stronger shot of this moment was kept)",
+          "scene": 11,
+          "score": 0.33622650690331746
+        },
+        "20250822_123341": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123224, 20250822_123409, 20250822_123501, 20250822_123510 (a stronger shot of this moment was kept)",
+          "scene": 11,
+          "score": 0.1754190130955386
+        },
+        "20250822_123354": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123224, 20250822_123409, 20250822_123501, 20250822_123510 (a stronger shot of this moment was kept)",
+          "scene": 11,
+          "score": 0.38156792504891
+        },
+        "20250822_123400": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123224, 20250822_123409, 20250822_123501, 20250822_123510 (a stronger shot of this moment was kept)",
+          "scene": 11,
+          "score": 0.3873401565985437
+        },
+        "20250822_123443": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123224, 20250822_123409, 20250822_123501, 20250822_123510 (a stronger shot of this moment was kept)",
+          "scene": 11,
+          "score": 0.3662605716783127
+        },
+        "20250822_123451": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123224, 20250822_123409, 20250822_123501, 20250822_123510 (a stronger shot of this moment was kept)",
+          "scene": 11,
+          "score": 0.2939049967828561
+        },
+        "20250822_123518": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123224, 20250822_123409, 20250822_123501, 20250822_123510 (a stronger shot of this moment was kept)",
+          "scene": 11,
+          "score": 0.27934628923456656
+        },
+        "20250822_123528": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123514, 20250822_123539, 20250822_123604, 20250822_194044 (a stronger shot of this moment was kept)",
+          "scene": 1,
+          "score": 0.10213523338131827
+        },
+        "20250822_123534": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_123514, 20250822_123539, 20250822_123604, 20250822_194044 (a stronger shot of this moment was kept)",
+          "scene": 1,
+          "score": 0.2233293607176137
+        },
+        "20250822_183651": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_112331, 20250822_112359, 20250822_123916, 20250822_194036, 20250824_154627, 20250824_191343_01 (a stronger shot of this moment was kept)",
+          "scene": -1,
+          "score": 0.4519585741098699
+        },
+        "20250822_192328": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_192259, 20250822_192327, 20250822_192352, 20250822_192356 (a stronger shot of this moment was kept)",
+          "scene": 2,
+          "score": 0.4872572048031615
+        },
+        "20250822_192500": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_192441, 20250822_192451, 20250822_192528, 20250822_192530 (a stronger shot of this moment was kept)",
+          "scene": 3,
+          "score": 0.2752348499273042
+        },
+        "20250822_193345": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_193353, 20250822_193357, 20250822_193432, 20250822_193451, 20250822_193458 (a stronger shot of this moment was kept)",
+          "scene": 4,
+          "score": 0.2557117651549864
+        },
+        "20250822_193356": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_193353, 20250822_193357, 20250822_193432, 20250822_193451, 20250822_193458 (a stronger shot of this moment was kept)",
+          "scene": 4,
+          "score": 0.4703968294131382
+        },
+        "20250822_193404": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_193353, 20250822_193357, 20250822_193432, 20250822_193451, 20250822_193458 (a stronger shot of this moment was kept)",
+          "scene": 4,
+          "score": 0.15149102515948454
+        },
+        "20250822_193736": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_193734, 20250822_195457, 20250822_195716, 20250822_195740, 20250822_195832 (a stronger shot of this moment was kept)",
+          "scene": 5,
+          "score": 0.2977834362869512
+        },
+        "20250822_194159": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194258 (a stronger shot of this moment was kept)",
+          "scene": 6,
+          "score": 0.47787539363668974
+        },
+        "20250822_194201": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194258 (a stronger shot of this moment was kept)",
+          "scene": 6,
+          "score": 0.5065984294081491
+        },
+        "20250822_194551": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194547, 20250822_194644, 20250822_194648, 20250822_194713 (a stronger shot of this moment was kept)",
+          "scene": 7,
+          "score": 0.3302696356056426
+        },
+        "20250822_194651": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194547, 20250822_194644, 20250822_194648, 20250822_194713 (a stronger shot of this moment was kept)",
+          "scene": 7,
+          "score": 0.4127805341567139
+        },
+        "20250822_194653": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194547, 20250822_194644, 20250822_194648, 20250822_194713 (a stronger shot of this moment was kept)",
+          "scene": 7,
+          "score": 0.32726825628171924
+        },
+        "20250822_194711": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194547, 20250822_194644, 20250822_194648, 20250822_194713 (a stronger shot of this moment was kept)",
+          "scene": 7,
+          "score": 0.3979480872343275
+        },
+        "20250822_194859": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194903, 20250822_194926, 20250822_195246 (a stronger shot of this moment was kept)",
+          "scene": 8,
+          "score": 0.4946538421647659
+        },
+        "20250822_194923": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194903, 20250822_194926, 20250822_195246 (a stronger shot of this moment was kept)",
+          "scene": 8,
+          "score": 0.29949565518069665
+        },
+        "20250822_194950": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194952, 20250822_195124 (a stronger shot of this moment was kept)",
+          "scene": 9,
+          "score": 0.33850746725945924
+        },
+        "20250822_194955": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194952, 20250822_195124 (a stronger shot of this moment was kept)",
+          "scene": 9,
+          "score": 0.21892156451946265
+        },
+        "20250822_195016": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194952, 20250822_195124 (a stronger shot of this moment was kept)",
+          "scene": 9,
+          "score": 0.33366495844357824
+        },
+        "20250822_195018": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194952, 20250822_195124 (a stronger shot of this moment was kept)",
+          "scene": 9,
+          "score": 0.29276625993574723
+        },
+        "20250822_195021": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194952, 20250822_195124 (a stronger shot of this moment was kept)",
+          "scene": 9,
+          "score": 0.23167296441297136
+        },
+        "20250822_195121": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_194952, 20250822_195124 (a stronger shot of this moment was kept)",
+          "scene": 9,
+          "score": 0.10975762229374875
+        },
+        "20250822_195500": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_193734, 20250822_195457, 20250822_195716, 20250822_195740, 20250822_195832 (a stronger shot of this moment was kept)",
+          "scene": 5,
+          "score": 0.5091159260030771
+        },
+        "20250822_195738": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_193734, 20250822_195457, 20250822_195716, 20250822_195740, 20250822_195832 (a stronger shot of this moment was kept)",
+          "scene": 5,
+          "score": 0.6004927886599778
+        },
+        "20250822_195753": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_193734, 20250822_195457, 20250822_195716, 20250822_195740, 20250822_195832 (a stronger shot of this moment was kept)",
+          "scene": 5,
+          "score": 0.5500474568960485
+        },
+        "20250822_195758": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_193734, 20250822_195457, 20250822_195716, 20250822_195740, 20250822_195832 (a stronger shot of this moment was kept)",
+          "scene": 5,
+          "score": 0.556222382836246
+        },
+        "20250822_195800": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_193734, 20250822_195457, 20250822_195716, 20250822_195740, 20250822_195832 (a stronger shot of this moment was kept)",
+          "scene": 5,
+          "score": 0.6227626850657242
+        },
+        "20250824_152151": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250824_152144, 20250824_152246 (a stronger shot of this moment was kept)",
+          "scene": 12,
+          "score": 0.25539163657772446
+        },
+        "20250824_154340": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250824_154448, 20250824_154522 (a stronger shot of this moment was kept)",
+          "scene": 10,
+          "score": 0.24969897249730094
+        },
+        "20250824_154452": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250824_154448, 20250824_154522 (a stronger shot of this moment was kept)",
+          "scene": 10,
+          "score": 0.4931342514854572
+        },
+        "20250824_154601": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250824_154448, 20250824_154522 (a stronger shot of this moment was kept)",
+          "scene": 10,
+          "score": 0.3761017430169467
+        },
+        "20250824_154604": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250824_154448, 20250824_154522 (a stronger shot of this moment was kept)",
+          "scene": 10,
+          "score": 0.3086672764558584
+        },
+        "20250824_154621": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_112331, 20250822_112359, 20250822_123916, 20250822_194036, 20250824_154627, 20250824_191343_01 (a stronger shot of this moment was kept)",
+          "scene": -1,
+          "score": 0.4531184834260438
+        },
+        "20250824_163017": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_112331, 20250822_112359, 20250822_123916, 20250822_194036, 20250824_154627, 20250824_191343_01 (a stronger shot of this moment was kept)",
+          "scene": -1,
+          "score": 0.41974918070905226
+        },
+        "20250824_191011": {
+          "state": "near_dup",
+          "detail": "near-duplicate of 20250822_112331, 20250822_112359, 20250822_123916, 20250822_194036, 20250824_154627, 20250824_191343_01 (a stronger shot of this moment was kept)",
+          "scene": -1,
+          "score": 0.23606571971893914
+        },
+        "20250822_112331": {
+          "state": "pick",
+          "detail": "kept, pick #1, beat 4 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.39275358764585366
+        },
+        "20250822_112359": {
+          "state": "pick",
+          "detail": "kept, pick #2, beat 4 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.5108803869297883
+        },
+        "20250822_112502": {
+          "state": "pick",
+          "detail": "kept, pick #3, beat 1 near-duplicate(s)",
+          "scene": 0,
+          "score": 0.5176458889799156
+        },
+        "20250822_121039": {
+          "state": "pick",
+          "detail": "kept, pick #4, beat 1 near-duplicate(s)",
+          "scene": 0,
+          "score": 0.5527818546732466
+        },
+        "20250822_121053": {
+          "state": "pick",
+          "detail": "kept, pick #5, beat 1 near-duplicate(s)",
+          "scene": 0,
+          "score": 0.5287415184614369
+        },
+        "20250822_123224": {
+          "state": "pick",
+          "detail": "kept, pick #42, beat 8 near-duplicate(s)",
+          "scene": 11,
+          "score": 0.210043447042436
+        },
+        "20250822_123409": {
+          "state": "pick",
+          "detail": "kept, pick #43, beat 8 near-duplicate(s)",
+          "scene": 11,
+          "score": 0.36947896192295004
+        },
+        "20250822_123501": {
+          "state": "pick",
+          "detail": "kept, pick #44, beat 8 near-duplicate(s)",
+          "scene": 11,
+          "score": 0.2400785195877032
+        },
+        "20250822_123510": {
+          "state": "pick",
+          "detail": "kept, pick #45, beat 8 near-duplicate(s)",
+          "scene": 11,
+          "score": 0.3982238784566584
+        },
+        "20250822_123514": {
+          "state": "pick",
+          "detail": "kept, pick #46, beat 2 near-duplicate(s)",
+          "scene": 1,
+          "score": 0.5761110057285834
+        },
+        "20250822_123539": {
+          "state": "pick",
+          "detail": "kept, pick #47, beat 2 near-duplicate(s)",
+          "scene": 1,
+          "score": 0.4967456564729468
+        },
+        "20250822_123604": {
+          "state": "pick",
+          "detail": "kept, pick #6, beat 2 near-duplicate(s)",
+          "scene": 1,
+          "score": 0.5809591441522912
+        },
+        "20250822_123916": {
+          "state": "pick",
+          "detail": "kept, pick #7, beat 4 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.4815787794219042
+        },
+        "20250822_192259": {
+          "state": "pick",
+          "detail": "kept, pick #8, beat 1 near-duplicate(s)",
+          "scene": 2,
+          "score": 0.4326992322398925
+        },
+        "20250822_192327": {
+          "state": "pick",
+          "detail": "kept, pick #9, beat 1 near-duplicate(s)",
+          "scene": 2,
+          "score": 0.559390156856187
+        },
+        "20250822_192352": {
+          "state": "pick",
+          "detail": "kept, pick #10, beat 1 near-duplicate(s)",
+          "scene": 2,
+          "score": 0.5168535200425066
+        },
+        "20250822_192356": {
+          "state": "pick",
+          "detail": "kept, pick #11, beat 1 near-duplicate(s)",
+          "scene": 2,
+          "score": 0.567617858875241
+        },
+        "20250822_192441": {
+          "state": "pick",
+          "detail": "kept, pick #12, beat 1 near-duplicate(s)",
+          "scene": 3,
+          "score": 0.5119949581868061
+        },
+        "20250822_192451": {
+          "state": "pick",
+          "detail": "kept, pick #13, beat 1 near-duplicate(s)",
+          "scene": 3,
+          "score": 0.4895072839430244
+        },
+        "20250822_192528": {
+          "state": "pick",
+          "detail": "kept, pick #14, beat 1 near-duplicate(s)",
+          "scene": 3,
+          "score": 0.5248117038316877
+        },
+        "20250822_192530": {
+          "state": "pick",
+          "detail": "kept, pick #15, beat 1 near-duplicate(s)",
+          "scene": 3,
+          "score": 0.3867829046574411
+        },
+        "20250822_193353": {
+          "state": "pick",
+          "detail": "kept, pick #16, beat 3 near-duplicate(s)",
+          "scene": 4,
+          "score": 0.41050528174565815
+        },
+        "20250822_193357": {
+          "state": "pick",
+          "detail": "kept, pick #17, beat 3 near-duplicate(s)",
+          "scene": 4,
+          "score": 0.48309136006517606
+        },
+        "20250822_193432": {
+          "state": "pick",
+          "detail": "kept, pick #18, beat 3 near-duplicate(s)",
+          "scene": 4,
+          "score": 0.3198529591730224
+        },
+        "20250822_193451": {
+          "state": "pick",
+          "detail": "kept, pick #19, beat 3 near-duplicate(s)",
+          "scene": 4,
+          "score": 0.436680285833454
+        },
+        "20250822_193458": {
+          "state": "pick",
+          "detail": "kept, pick #20, beat 3 near-duplicate(s)",
+          "scene": 4,
+          "score": 0.41895065389130004
+        },
+        "20250822_193734": {
+          "state": "pick",
+          "detail": "kept, pick #21, beat 6 near-duplicate(s)",
+          "scene": 5,
+          "score": 0.3691078984922685
+        },
+        "20250822_194036": {
+          "state": "pick",
+          "detail": "kept, pick #22, beat 4 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.5539394538776253
+        },
+        "20250822_194044": {
+          "state": "pick",
+          "detail": "kept, pick #23, beat 2 near-duplicate(s)",
+          "scene": 1,
+          "score": 0.5877864432757756
+        },
+        "20250822_194258": {
+          "state": "pick",
+          "detail": "kept, pick #24, beat 2 near-duplicate(s)",
+          "scene": 6,
+          "score": 0.5734721748593485
+        },
+        "20250822_194547": {
+          "state": "pick",
+          "detail": "kept, pick #25, beat 4 near-duplicate(s)",
+          "scene": 7,
+          "score": 0.47637191769600484
+        },
+        "20250822_194644": {
+          "state": "pick",
+          "detail": "kept, pick #26, beat 4 near-duplicate(s)",
+          "scene": 7,
+          "score": 0.4972028640549937
+        },
+        "20250822_194648": {
+          "state": "pick",
+          "detail": "kept, pick #27, beat 4 near-duplicate(s)",
+          "scene": 7,
+          "score": 0.49807921098315355
+        },
+        "20250822_194713": {
+          "state": "pick",
+          "detail": "kept, pick #28, beat 4 near-duplicate(s)",
+          "scene": 7,
+          "score": 0.45028534324806135
+        },
+        "20250822_194903": {
+          "state": "pick",
+          "detail": "kept, pick #29, beat 2 near-duplicate(s)",
+          "scene": 8,
+          "score": 0.5115320903531162
+        },
+        "20250822_194926": {
+          "state": "pick",
+          "detail": "kept, pick #30, beat 2 near-duplicate(s)",
+          "scene": 8,
+          "score": 0.4570341551449873
+        },
+        "20250822_194952": {
+          "state": "pick",
+          "detail": "kept, pick #31, beat 6 near-duplicate(s)",
+          "scene": 9,
+          "score": 0.3835747391126765
+        },
+        "20250822_195124": {
+          "state": "pick",
+          "detail": "kept, pick #32, beat 6 near-duplicate(s)",
+          "scene": 9,
+          "score": 0.18436221957009147
+        },
+        "20250822_195246": {
+          "state": "pick",
+          "detail": "kept, pick #33, beat 2 near-duplicate(s)",
+          "scene": 8,
+          "score": 0.5266894726075743
+        },
+        "20250822_195457": {
+          "state": "pick",
+          "detail": "kept, pick #34, beat 6 near-duplicate(s)",
+          "scene": 5,
+          "score": 0.5750312275831236
+        },
+        "20250822_195716": {
+          "state": "pick",
+          "detail": "kept, pick #35, beat 6 near-duplicate(s)",
+          "scene": 5,
+          "score": 0.6592013729241567
+        },
+        "20250822_195740": {
+          "state": "pick",
+          "detail": "kept, pick #36, beat 6 near-duplicate(s)",
+          "scene": 5,
+          "score": 0.5985876488564955
+        },
+        "20250822_195832": {
+          "state": "pick",
+          "detail": "kept, pick #37, beat 6 near-duplicate(s)",
+          "scene": 5,
+          "score": 0.6191229158297791
+        },
+        "20250824_152144": {
+          "state": "pick",
+          "detail": "kept, pick #48, beat 1 near-duplicate(s)",
+          "scene": 12,
+          "score": 0.3993984972905307
+        },
+        "20250824_152246": {
+          "state": "pick",
+          "detail": "kept, pick #49, beat 1 near-duplicate(s)",
+          "scene": 12,
+          "score": 0.3706273830086161
+        },
+        "20250824_154448": {
+          "state": "pick",
+          "detail": "kept, pick #38, beat 4 near-duplicate(s)",
+          "scene": 10,
+          "score": 0.545503167132724
+        },
+        "20250824_154522": {
+          "state": "pick",
+          "detail": "kept, pick #39, beat 4 near-duplicate(s)",
+          "scene": 10,
+          "score": 0.5434045265563974
+        },
+        "20250824_154627": {
+          "state": "pick",
+          "detail": "kept, pick #40, beat 4 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.49644391043718367
+        },
+        "20250824_191343_01": {
+          "state": "pick",
+          "detail": "kept, pick #41, beat 4 near-duplicate(s)",
+          "scene": -1,
+          "score": 0.408515302915807
+        },
+        "20250822_125147": {
+          "state": "set_aside",
+          "detail": "set aside (printed material: sign)",
+          "scene": null,
+          "score": null
+        },
+        "20250822_125441": {
+          "state": "set_aside",
+          "detail": "set aside (printed material: sign)",
+          "scene": null,
+          "score": null
+        }
+      }
+    },
+    "people": {
+      "budapest-fullsize": [
+        {
+          "id": "person_0",
+          "label": "",
+          "face_count": 19,
+          "face_id": 0
+        },
+        {
+          "id": "person_5",
+          "label": "",
+          "face_count": 14,
+          "face_id": 66
+        },
+        {
+          "id": "person_4",
+          "label": "",
+          "face_count": 13,
+          "face_id": 51
+        },
+        {
+          "id": "person_1",
+          "label": "",
+          "face_count": 9,
+          "face_id": 6
+        },
+        {
+          "id": "person_3",
+          "label": "",
+          "face_count": 6,
+          "face_id": 18
+        },
+        {
+          "id": "person_9",
+          "label": "",
+          "face_count": 5,
+          "face_id": 253
+        },
+        {
+          "id": "person_2",
+          "label": "",
+          "face_count": 3,
+          "face_id": 10
+        },
+        {
+          "id": "person_11",
+          "label": "",
+          "face_count": 2,
+          "face_id": 323
+        },
+        {
+          "id": "person_6",
+          "label": "",
+          "face_count": 2,
+          "face_id": 121
+        },
+        {
+          "id": "person_7",
+          "label": "",
+          "face_count": 2,
+          "face_id": 123
+        },
+        {
+          "id": "person_8",
+          "label": "",
+          "face_count": 2,
+          "face_id": 129
+        }
+      ],
+      "a40333fd-1b21-4e7c-8ad9-49c26c24143e": [
+        {
+          "id": "person_0",
+          "label": "",
+          "face_count": 11,
+          "face_id": 0
+        },
+        {
+          "id": "person_1",
+          "label": "",
+          "face_count": 10,
+          "face_id": 1
+        },
+        {
+          "id": "person_7",
+          "label": "",
+          "face_count": 9,
+          "face_id": 102
+        },
+        {
+          "id": "person_3",
+          "label": "",
+          "face_count": 8,
+          "face_id": 49
+        },
+        {
+          "id": "person_2",
+          "label": "",
+          "face_count": 3,
+          "face_id": 46
+        },
+        {
+          "id": "person_8",
+          "label": "",
+          "face_count": 3,
+          "face_id": 148
+        },
+        {
+          "id": "person_5",
+          "label": "",
+          "face_count": 2,
+          "face_id": 71
+        },
+        {
+          "id": "person_6",
+          "label": "",
+          "face_count": 2,
+          "face_id": 92
+        }
+      ]
+    }
+  },
+  "r9_first_run": "c9f84395-4e2b-4b3d-a9cf-5ec425c33d0f",
+  "r9_first_wall_s": 593.3,
+  "r9_rerun": "bd901f3a-5c52-4605-a96d-6ae80e6f2fbd",
+  "r9_rerun_wall_s": 14.9,
+  "r9_ratio": 0.025
+}

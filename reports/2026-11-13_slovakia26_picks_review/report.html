@@ -1,0 +1,36 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Slovakia26 Picks Review</title>
+<style>
+:root{--bg:#f6f6f4;--fg:#1d1d1b;--mut:#6b6b66;--card:#fff;--line:#ddd;--keep:#2f7d4f;--drop:#b33a3a;--miss:#2b62b8}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#161615;--fg:#eee;--mut:#9a9a94;--card:#222220;--line:#383836}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}main{max-width:960px;margin:0 auto;padding:16px}
+table{border-collapse:collapse;width:100%;background:var(--card)}td,th{border:1px solid var(--line);padding:6px 10px;text-align:left}
+.bar{display:flex;height:22px;border-radius:4px;overflow:hidden;margin:8px 0}.bar span{color:#fff;font-size:12px;padding:2px 6px;white-space:nowrap}
+.mut{color:var(--mut);font-size:13px}.imgs{display:flex;gap:10px;flex-wrap:wrap}.imgs figure{margin:0;width:220px}.imgs img{width:220px;height:165px;object-fit:cover;border-radius:6px}
+figcaption{font-size:12px;color:var(--mut)}
+</style>
+<main>
+<h1>Slovakia26 picks review</h1>
+<p class=mut>2026-11-13 · run <code>52776cc5</code> (K=51, blur_min 73.3) · 715 photos → 302 picks · reviewed by the owner in <a href="review.html">review.html</a> · answers in <code>picks_review.json</code></p>
+<h2>Goal</h2><p>Gate 1 evidence: are the picks good, does the app skip good photos, are the people right?</p>
+<h2>Method</h2><p>Every pick: Keep or Drop with a reason. Every skipped photo: "Should pick" if wanted. Every person: main / stranger / split / mixed. 101 of 106 pages: all 96 scenes, all 6 "in no scene" pages, 1 of the 5 "removed before scenes" pages.</p>
+<h2>Outcome</h2>
+<p><b>219 of 299 picks kept (73%).</b></p>
+<div class=bar><span style="flex:219;background:var(--keep)">keep 219</span><span style="flex:47;background:var(--drop)">near-dup 47</span><span style="flex:33;background:#8a4a4a">other drops 33</span></div>
+<table><tr><th>Finding</th><th>Evidence</th></tr>
+<tr><td>Near-duplicate picks are the biggest problem</td><td>47 of 80 drops (41 in scenes, 7 alone). Without them: about 88% kept.</td></tr>
+<tr><td>The sharpness gate removes good photos</td><td><b>20 of 20</b> reviewed removed photos marked "Should pick" (sharpness 0.02-0.20, all with faces). Same as the 11-06 label study (59/60 wrong).</td></tr>
+<tr><td>Other drop reasons are small</td><td>other / none 18, dull 6, eyes / not looking 5, framing 4, stranger 4, blurry 2</td></tr>
+<tr><td>Few misses inside scenes</td><td>9 (7 outranked, 2 below score 0.4)</td></tr>
+<tr><td>People mostly right</td><td>4 main people correct; person 4 = split of person 2; persons 5-7 strangers</td></tr>
+<tr><td>Removed photos show the wrong reason</td><td>"Person detected" instead of the sharpness rejection: SIGHTING-149</td></tr>
+<tr><td>Owner notes</td><td>finger in frame (scene 82), dull dryer photo (lone page 3), kid pulling a face (scene 39)</td></tr>
+</table>
+<h2>Samples</h2>
+<div class=imgs>
+<figure><img src="img/20260818_152620.jpg" alt=""><figcaption>Kept pick, scene 41</figcaption></figure>
+<figure><img src="img/20260818_152615.jpg" alt=""><figcaption>Dropped: near-duplicate of another pick, scene 41</figcaption></figure>
+<figure><img src="img/20260821_150124.jpg" alt=""><figcaption>Removed by the sharpness gate (0.02), owner: should pick</figcaption></figure>
+</div>
+<p class=mut>Images are downscaled copies in <code>img/</code> and <code>crops/</code> (not in git). Originals: <code>D:\Slovakia26</code>.</p>
+</main>

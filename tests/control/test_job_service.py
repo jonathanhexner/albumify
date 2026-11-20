@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from tests._db import fresh_database_url
 from sim_bench.control.db import ControlDB
 from sim_bench.control.jobs import FAILED, SUCCEEDED
 from sim_bench.serving.curate_job import CurateJobInputs, JobCurator
@@ -21,7 +22,7 @@ from sim_bench.serving.runners import CANCELLED, LocalRunner, ModalRunner, RunOu
 from sim_bench.serving.serving_config import ServingConfig, load_serving_config
 from sim_bench.serving.staging import collect_images
 
-from tests.control.fakes import NAMES, fake_pipeline
+from tests.control.fakes import fake_output, NAMES, fake_pipeline
 
 
 class InProcessRunner:
@@ -31,7 +32,8 @@ class InProcessRunner:
         self.name, self.store = name, store
 
     def run(self, job_id):
-        res = JobCurator(self.store, spec_builder=SpecBuilder(), runner=fake_pipeline).calc(
+        res = JobCurator(self.store, spec_builder=SpecBuilder(), runner=fake_pipeline,
+                         output_builder=fake_output).calc(
             CurateJobInputs(job_id=job_id, pipeline="minimal"))
         return RunOutcome(ok=res.ok, error=res.error, wall_s=1.0)
 
@@ -46,7 +48,8 @@ class ResultsOnlyRunner:
     def run(self, job_id):
         self.worker.write_input_manifest(job_id, self.store.input_keys(job_id))
         self.worker.inputs = self.store.inputs              # the worker's own copy of the same photos
-        res = JobCurator(self.worker, spec_builder=SpecBuilder(), runner=fake_pipeline).calc(
+        res = JobCurator(self.worker, spec_builder=SpecBuilder(), runner=fake_pipeline,
+                         output_builder=fake_output).calc(
             CurateJobInputs(job_id=job_id, pipeline="minimal"))
         for rel in self.worker.results_files(job_id):
             dest = self.store.paths(job_id).root / rel
@@ -80,7 +83,7 @@ def src(tmp_path):
 
 
 def _service(tmp_path, factory):
-    db = ControlDB(f"sqlite:///{(tmp_path / 'c.db').as_posix()}")
+    db = ControlDB(fresh_database_url(tmp_path, "c.db"))
     cfg = ServingConfig(runner="local", pipeline="minimal", jobs_root=tmp_path / "jobs")
     return JobService(db, cfg, runner_factory=factory)
 
@@ -249,7 +252,7 @@ class ut_Estimate:
     def test_l4_estimate_has_minutes_and_dollars(self, tmp_path, src):
         est = _service(tmp_path, _in_process).estimate(src, runner="modal_gpu")
         assert est.n_photos == 6 and est.allowed
-        assert est.gpu_minutes == round((150 + 6 * 0.6) / 60, 1) and est.dollars is not None
+        assert est.gpu_minutes == round((150 + 6 * 0.6) * 1.7 / 60, 1) and est.dollars is not None
 
     def test_local_estimate_has_no_gpu_figures(self, tmp_path, src):
         est = _service(tmp_path, _in_process).estimate(src, runner="local")
@@ -278,7 +281,7 @@ class BlockingRunner:
         (self.store.paths(job_id).results_dir).mkdir(parents=True, exist_ok=True)
         (self.store.paths(job_id).results_dir / "bundle.json").write_text("{}")
         self.started.set()
-        self._stop.wait(30)
+        self._stop.wait(300)                  # always cancelled; long enough for slow Neon round trips
         return RunOutcome(ok=False, error=CANCELLED)
 
     def cancel(self, job_id):

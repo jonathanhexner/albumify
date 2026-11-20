@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from sim_bench.pipeline.clustering_labels import is_noise
 from sim_bench.album.schema import (
     Album, Counts, Dropped, Person, Pick, ScoreBreakdown,
     PICK, NEAR_DUP, NOT_SELECTED, SET_ASIDE,
@@ -40,7 +41,8 @@ def classify(
             out[sid] = (SET_ASIDE, set_aside[sid].get("reason", "set aside in triage"), [])
         else:
             cid = labels.get(sid)
-            if cid is not None and cid in clusters_with_pick:
+            # SIGHTING-146: noise (-1) is "in no scene", so it has no moment a pick could share
+            if cid is not None and not is_noise(cid) and cid in clusters_with_pick:
                 # sorted: iterating the set would give an arbitrary order, and this list is written
                 # into album.json as `beaten_by` (spec-110 AC4 wants a reproducible album)
                 winners = sorted(s for s in selected_set if labels.get(s) == cid)

@@ -4,10 +4,10 @@ import streamlit as st
 
 from app.streamlit.session import get_session
 from app.streamlit.components.album_selector import render_album_selector
-from app.streamlit.components.pipeline_runner import render_pipeline_runner, render_pipeline_progress, poll_pipeline_status, STEP_DISPLAY_NAMES
+from app.streamlit.components.pipeline_runner import (RUN_ON, STAGE_TEXT, STEP_DISPLAY_NAMES, poll_pipeline_status,
+                                                      render_pipeline_runner)
 from app.streamlit.models import PipelineStatus
-from app.streamlit.session import add_notification, clear_pipeline_state
-from app.streamlit.config import get_config
+from app.streamlit.session import add_notification
 
 
 def render_configure_page() -> None:
@@ -31,6 +31,10 @@ def render_configure_page() -> None:
     if state.pipeline_status == PipelineStatus.RUNNING:
         _render_running_pipeline()
         return
+
+    # R8: a run that failed or was cancelled says why, here where it was started
+    if state.pipeline_status == PipelineStatus.FAILED and state.pipeline_progress:
+        st.error(f"The last run did not finish: {state.pipeline_progress.current_step_message or 'no reason recorded'}")
 
     # Pipeline configuration and run button
     job_id = render_pipeline_runner(album)
@@ -56,11 +60,15 @@ def _render_running_pipeline() -> None:
 
     st.subheader("Pipeline Running...")
 
-    # Cancel button (outside fragment so it persists)
+    # Cancel button (outside fragment so it persists). The run ends failed / "cancelled by owner"; the
+    # fragment below sees that and goes back to the form with the message.
     if st.button("Cancel Pipeline", type="secondary"):
-        clear_pipeline_state()
-        add_notification("Pipeline cancelled", "warning")
-        st.rerun()
+        from app.streamlit.api_client import ApiError, get_client
+        try:
+            get_client().cancel_run(job_id)
+            add_notification("Cancelling the run", "warning")
+        except ApiError as e:
+            st.error(str(e))
 
     # Progress fragment — auto-refreshes every 2 seconds
     _pipeline_progress_fragment(job_id)
@@ -91,12 +99,14 @@ def _pipeline_progress_fragment(job_id: str) -> None:
         st.rerun(scope="app")
         return
 
+    _render_stage(progress)
+
     # Render step-by-step progress
     completed_steps = getattr(progress, 'completed_steps', None) or []
     total_steps = getattr(progress, 'total_steps', None) or 0
     current_step = progress.current_step
 
-    if total_steps > 0:
+    if total_steps > 0:          # spec-117 R11: the worker writes the steps on either machine
         n_done = len(completed_steps)
         st.progress(n_done / total_steps, text=f"Step {n_done}/{total_steps}")
 
@@ -117,17 +127,39 @@ def _pipeline_progress_fragment(job_id: str) -> None:
 
     if current_step:
         display = STEP_DISPLAY_NAMES.get(current_step, current_step)
-        st.write(f":orange[>>] {display} ...")
+        st.write(f":orange[>>] {display} {step_detail(progress)}")
 
     # Show elapsed time
     if progress.started_at:
         from datetime import datetime
         try:
             started = progress.started_at if isinstance(progress.started_at, datetime) else datetime.fromisoformat(str(progress.started_at))
-            elapsed = (datetime.utcnow() - started).total_seconds()
+            elapsed = (datetime.utcnow() - started.replace(tzinfo=None)).total_seconds()
             st.caption(f"Elapsed: {elapsed:.0f}s")
         except Exception:
             pass
+
+
+def step_detail(progress) -> str:
+    """spec-117 R5: "43% (307/715)" within the current step, "..." when the worker has not said yet."""
+    fraction = getattr(progress, "step_fraction", None)
+    if fraction is None:
+        return "..."
+    text = f"{round(fraction * 100)}%"
+    done, total = getattr(progress, "photos_done", None), getattr(progress, "photos_total", None)
+    if done is not None and total:
+        text += f" ({done}/{total})"
+    return text
+
+
+def _render_stage(progress) -> None:
+    """Which machine and what it is doing (R7); the GPU an L4 run got (spec-117 R10)."""
+    if not progress.runner:
+        return
+    stage = STAGE_TEXT.get(progress.stage, progress.stage or "Running")
+    where = RUN_ON.get(progress.runner, progress.runner)
+    gpu = getattr(progress, "gpu", None)
+    st.info(f"**{stage}** on {where}" + (f" ({gpu})" if gpu else ""))
 
 
 def _render_run_history(album) -> None:

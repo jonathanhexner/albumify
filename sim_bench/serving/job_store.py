@@ -8,6 +8,7 @@ testable off Modal.
                                  photos in the shared input store (spec-112 A2), or (older jobs) the
                                  staged 768 px images themselves
     <root>/_inputs/<sha16>/<stem>.jpg   shared, content-addressed input store (:mod:`input_store`)
+    <root>/<job_id>/run_spec.json   the run's steps + parameters, when it was given some (spec-116)
     <root>/<job_id>/album.json   normalized Album (spec-106 contract) -- the RESULT the front end reads
     <root>/<job_id>/display/     display copies of the picks, for the front end
     <root>/<job_id>/run.json     run record: device, timing, step placement (debug trail, not a contract)
@@ -60,16 +61,28 @@ class JobPaths:
     def bundle_path(self) -> Path:
         return self.results_dir / "bundle.json"
 
+    @property
+    def run_output_path(self) -> Path:
+        return self.results_dir / "run_output.json"
+
+    @property
+    def run_spec_path(self) -> Path:
+        return self.root / "run_spec.json"
+
 
 class JobStore:
     """Job directories under one root (a Modal Volume mount in production)."""
 
-    def __init__(self, root: Path | str, inputs_root: Path | str | None = None):
+    def __init__(self, root: Path | str, inputs_root: Path | str | None = None, objects=None):
         from sim_bench.serving.input_store import InputStore   # lazy: input_store -> staging -> here
+        from sim_bench.storage.object_store import LocalObjectStore
 
         self.root = Path(root)
         # "_inputs" cannot collide with a job: job ids start alphanumeric
         self.inputs = InputStore(inputs_root if inputs_root is not None else self.root / "_inputs")
+        # spec-117 R7: display images, face crops and the results the app reads (<job_id>/...); the job
+        # folders themselves unless R2 is configured (make_object_store)
+        self.objects = objects if objects is not None else LocalObjectStore(self.root)
 
     # --- layout ---------------------------------------------------------------
 
@@ -111,8 +124,13 @@ class JobStore:
                     sum(len(d) for _, d in images) / 1e6)
         return written
 
-    def write_input_manifest(self, job_id: str, keys: Sequence[str]) -> Path:
-        """Point the job at photos in the shared input store (replaces any previous inputs)."""
+    def write_input_manifest(self, job_id: str, keys: Sequence[str],
+                             originals: Optional[Dict[str, str]] = None,
+                             sizes: Optional[Dict[str, Sequence[int]]] = None) -> Path:
+        """Point the job at photos in the shared input store (replaces any previous inputs).
+
+        ``originals`` maps key -> the original photo's path (spec-116 R5) and ``sizes`` key -> its [width, height]
+        in pixels (spec-117 R6): the worker maps its results to the originals without reading them."""
         paths = self.paths(job_id)
         if paths.input_dir.exists():
             shutil.rmtree(paths.input_dir)
@@ -123,7 +141,9 @@ class JobStore:
         if len(set(names)) != len(names):
             raise ValueError(f"job {job_id}: two inputs share a file name")
         manifest = paths.input_dir / _MANIFEST
-        manifest.write_text(json.dumps({"inputs": list(keys)}, indent=2), encoding="utf-8")
+        body = {"inputs": list(keys), "originals": dict(originals or {}),
+                "sizes": {k: list(v) for k, v in (sizes or {}).items()}}
+        manifest.write_text(json.dumps(body, indent=2), encoding="utf-8")
         logger.info("job %s: %d inputs in the shared store", job_id, len(keys))
         return manifest
 
@@ -133,6 +153,25 @@ class JobStore:
         if not manifest.is_file():
             return None
         return list(json.loads(manifest.read_text(encoding="utf-8"))["inputs"])
+
+    def input_originals(self, job_id: str) -> Dict[str, str]:
+        """Input-store key -> original photo path; empty for jobs that predate spec-116."""
+        manifest = self.paths(job_id).input_dir / _MANIFEST
+        if not manifest.is_file():
+            return {}
+        return dict(json.loads(manifest.read_text(encoding="utf-8")).get("originals") or {})
+
+    def input_sizes(self, job_id: str) -> Dict[str, List[int]]:
+        """Input-store key -> the original's [width, height]; empty for jobs that predate spec-117."""
+        manifest = self.paths(job_id).input_dir / _MANIFEST
+        if not manifest.is_file():
+            return {}
+        return {k: list(v) for k, v in (json.loads(manifest.read_text(encoding="utf-8")).get("sizes") or {}).items()}
+
+    def manifest(self, job_id: str) -> Optional[Dict]:
+        """The whole manifest (inputs, originals, sizes), to hand to a remote worker; None for older jobs."""
+        manifest = self.paths(job_id).input_dir / _MANIFEST
+        return json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else None
 
     def input_images(self, job_id: str) -> List[Path]:
         """The job's staged images, sorted by name (stable order -> stable album order)."""
@@ -161,6 +200,20 @@ class JobStore:
             files += sorted(p for p in paths.results_dir.rglob("*") if p.is_file())
         return [p.relative_to(paths.root).as_posix() for p in files]
 
+    def read_object(self, job_id: str, key: str) -> Optional[bytes]:
+        """A job's stored file by its key (spec-117 R7): ``inputs/...`` from the shared input store if the job's
+        manifest lists it, anything else from the object store under this job's own prefix. Else None."""
+        if not key:
+            return None
+        if key.startswith(INPUTS_PREFIX) or self.objects.is_local:
+            path = self.resolve(job_id, key)
+            return path.read_bytes() if path is not None else None
+        from sim_bench.storage.object_store import job_key
+        try:
+            return self.objects.get_or_none(job_key(self.paths(job_id).job_id, key))
+        except ValueError:                # a key that tries to leave the job's prefix
+            return None
+
     def resolve(self, job_id: str, key: str) -> Optional[Path]:
         """A stored file key -> an existing file of THIS job: inside its folder, or a photo its manifest lists
         (spec-115 R7: another job's photo is not served through this job, even with the right key). Else None."""
@@ -186,10 +239,12 @@ class JobStore:
         return paths.album_path
 
     def read_album(self, job_id: str) -> Optional[Dict]:
+        """``album.json`` from the job folder, else (an L4 run, spec-117: nothing copied back) the object store."""
         path = self.paths(job_id).album_path
-        if not path.is_file():
-            return None
-        return json.loads(path.read_text(encoding="utf-8"))
+        if path.is_file():
+            return json.loads(path.read_text(encoding="utf-8"))
+        data = None if self.objects.is_local else self.read_object(job_id, "album.json")
+        return json.loads(data.decode("utf-8")) if data else None
 
     def write_run_record(self, job_id: str, record: Dict) -> Path:
         paths = self.paths(job_id)
@@ -245,3 +300,24 @@ class JobStore:
         if not path.is_file():
             return None
         return json.loads(path.read_text(encoding="utf-8"))
+
+    def write_run_output(self, job_id: str, text: str) -> Path:
+        """``results/run_output.json`` (spec-116 R4). Written after the bundle, which clears ``results/``."""
+        path = self.paths(job_id).run_output_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def read_run_output(self, job_id: str) -> Optional[str]:
+        path = self.paths(job_id).run_output_path
+        return path.read_text(encoding="utf-8") if path.is_file() else None
+
+    def write_run_spec(self, job_id: str, spec: Dict) -> Path:
+        paths = self.paths(job_id)
+        paths.root.mkdir(parents=True, exist_ok=True)
+        paths.run_spec_path.write_text(json.dumps(spec, indent=2, default=str), encoding="utf-8")
+        return paths.run_spec_path
+
+    def read_run_spec(self, job_id: str) -> Optional[Dict]:
+        path = self.paths(job_id).run_spec_path
+        return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None

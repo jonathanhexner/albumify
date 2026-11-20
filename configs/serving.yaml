@@ -8,7 +8,8 @@
 #   jobs_root: local job store; every job's files land here whichever runner ran it
 #
 # Env overrides: ALBUMIFY_RUNNER, ALBUMIFY_PIPELINE, ALBUMIFY_DEVICE, ALBUMIFY_JOBS_ROOT.
-# The control DB is DATABASE_URL (unset -> ~/.sim_bench/control.db).
+# The database is DATABASE_URL (spec-117: Neon, every Albumify table); unset -> ~/.sim_bench/control.db
+# for the job tables and ~/.sim_bench/sim_bench.db for the rest. L4 runs need it set.
 
 runner: local
 pipeline: default
@@ -22,3 +23,15 @@ max_gpu_minutes: 30
 l4_fixed_seconds: 150
 l4_seconds_per_photo: 0.6
 l4_dollars_per_hour: 0.80
+
+# spec-117 R10: Modal tries these GPUs in this order; the run records the one it got. The spend cap above is
+# checked at the dearest GPU in the list (Modal list prices, 2026).
+gpu: [L4, A10G]
+gpu_dollars_per_hour:
+  L4: 0.80
+  A10G: 1.10
+# review M6: how much slower than the L4 each GPU runs. The estimate (and so the spend cap) assumes the slowest
+# GPU in the list. A10G measured on Slovakia26, 2026-11-13: 16.5 min against 9.7 min at L4 speed.
+gpu_slowdown:
+  L4: 1.0
+  A10G: 1.7

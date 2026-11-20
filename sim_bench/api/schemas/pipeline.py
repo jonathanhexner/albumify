@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class PipelineRequest(BaseModel):
@@ -11,6 +11,8 @@ class PipelineRequest(BaseModel):
     config: Optional[dict[str, dict]] = None  # Runtime overrides (merged with profile)
     profile: Optional[str] = None  # Config profile name (uses default if not specified)
     fail_fast: bool = True
+    runner: str = "local"  # spec-116: where it runs. Explicit: only an owner's choice ever starts the L4
+    pipeline_name: Optional[str] = None  # the name the steps came from; default_pipeline if not given
 
 
 class PipelineStatus(BaseModel):
@@ -24,9 +26,34 @@ class PipelineStatus(BaseModel):
     total_steps: Optional[int] = None
     created_at: datetime
     started_at: Optional[datetime] = None
+    runner: Optional[str] = None  # spec-116 R7: None for runs made before it
+    stage: Optional[str] = None   # queued | staging | uploading | running | saving results | loading
+    # spec-117 R5: from the job row, written by the worker on either machine
+    step_fraction: Optional[float] = None    # 0..1 within current_step
+    photos_done: Optional[int] = None
+    photos_total: Optional[int] = None
+    heartbeat_at: Optional[datetime] = None
+    gpu: Optional[str] = None                # the GPU an L4 run got (spec-117 R10)
 
     class Config:
         from_attributes = True
+
+
+class RunRow(BaseModel):
+    """One row of the Albums page (spec-116 R10)."""
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    album_id: str
+    album_name: str
+    folder: str
+    ran_on: str
+    created_at: datetime
+    photos: Optional[int] = None
+    picks: Optional[int] = None
+    people: Optional[int] = None
+    status: str
+    comparable: bool = False  # it has a finished job, so Compare runs can open it
 
 
 class PipelineResultResponse(BaseModel):

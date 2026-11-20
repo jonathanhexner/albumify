@@ -17,11 +17,11 @@ from __future__ import annotations
 import os
 import socket
 from datetime import datetime, timezone
-from typing import Callable, Dict, FrozenSet, List, Optional
+from typing import Callable, Dict, FrozenSet, List, Optional, Tuple
 
 import psutil
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from sim_bench.control.db import ControlDB
 from sim_bench.control.models import Job, JobEvent
@@ -95,6 +95,7 @@ class JobRepo:
             job.tag = tag or job.tag
             job.error = job.failed_step = None
             job.started_at = job.finished_at = None
+            job.progress = job.heartbeat_at = job.call_id = job.gpu = None
             _event(s, job_id, "status", QUEUED)
             return job
 
@@ -123,29 +124,52 @@ class JobRepo:
             _event(s, job_id, kind, message)
 
     def get(self, job_id: str) -> Optional[Job]:
-        with self._db.session() as s:
+        with self._db.read_session() as s:
             return s.get(Job, job_id)
+
+    def set_progress(self, job_id: str, progress: Optional[Dict] = None, *, heartbeat: bool = True,
+                     **fields) -> None:
+        """spec-117 R5: the live state of a run (``progress`` replaces the old one when given) and its heartbeat.
+        One UPDATE; no status event (the status set is ``transition``'s)."""
+        values = dict(fields)
+        if progress is not None:
+            values["progress"] = progress
+        if heartbeat:
+            values["heartbeat_at"] = _now()
+        if not values:
+            return
+        with self._db.session() as s:
+            s.execute(update(Job).where(Job.id == job_id).values(**values))
 
     def set_tag(self, job_id: str, tag: Optional[str]) -> None:
         with self._db.session() as s:
             s.get(Job, job_id).tag = tag
 
     def reap_orphans(self, alive: Callable[[Optional[str]], bool] = worker_alive) -> List[str]:
-        """Fail every live job whose worker process is gone; return their ids."""
+        """Fail every live job whose worker process is gone; return their ids. A detached L4 run (it has a call
+        id) is not judged by the process that started it -- that one may restart freely (spec-117 R8); its
+        heartbeat and call are, by ``RunWatchdog``."""
         with self._db.session() as s:
             ids = [j.id for j in s.scalars(select(Job).where(Job.status.in_(LIVE)))
-                   if not alive(j.worker)]
+                   if not j.call_id and not alive(j.worker)]
         for job_id in ids:
             self.fail(job_id, "interrupted: the process running this job ended before it finished "
                               "(killed, out of memory, or closed)")
         return ids
 
     def list(self, limit: int = 100) -> List[Job]:
-        with self._db.session() as s:
+        with self._db.read_session() as s:
             return list(s.scalars(select(Job).order_by(Job.created_at.desc()).limit(limit)))
 
+    def runners(self) -> Dict[str, Tuple[str, str]]:
+        """job id -> (runner, status) for every job: the Albums page's runs table needs nothing else, and full rows
+        carry each job's pipeline and source (SIGHTING-152)."""
+        with self._db.read_session() as s:
+            rows = s.execute(select(Job.id, Job.runner, Job.status))
+            return {job_id: (runner, status) for job_id, runner, status in rows}
+
     def events(self, job_id: str) -> List[JobEvent]:
-        with self._db.session() as s:
+        with self._db.read_session() as s:
             return list(s.scalars(select(JobEvent).where(JobEvent.job_id == job_id)
                                   .order_by(JobEvent.id)))
 

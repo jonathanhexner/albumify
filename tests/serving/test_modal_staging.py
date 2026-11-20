@@ -1,5 +1,6 @@
-"""spec-115 W3 (R8, R9, R13): Modal runner uploads only missing photos and copies back results only;
-photo retention keeps what another job used within 7 days. A fake Volume stands in for Modal.
+"""spec-115 W3 (R8, R9, R13) + spec-117 W5 (R8): the Modal runner uploads only missing photos, starts a detached
+call, follows the job row and copies nothing back; photo retention keeps what another job used within 7 days.
+A fake stands in for Modal: its "worker" ends the job in the database itself, as the real one does.
 """
 from __future__ import annotations
 
@@ -9,20 +10,25 @@ from pathlib import Path
 
 import pytest
 
+from sim_bench.control.db import ControlDB
+from sim_bench.control.jobs import FAILED, RUNNING, STAGING, SUCCEEDED, JobRepo
 from sim_bench.serving.input_retention import RETENTION_DAYS, mark_used, purge, release
 from sim_bench.serving.job_store import JobStore
 from sim_bench.serving.runners import CANCELLED, ModalRunner
+
+from tests._db import fresh_database_url
 
 DAY = 86400.0
 KEYS = ["0000000000000001/a.jpg", "0000000000000002/b.jpg"]
 
 
-class FakeVolume:
-    """The Modal side: an input store + a job store on 'remote' disk, the worker's JobCurator stand-in."""
+class FakeModal:
+    """The Modal side: an input Volume on 'remote' disk; ``start`` = a detached call whose worker writes its own
+    files on the remote side and ends the job row (``outcome``: succeeded | failed | none = never ends)."""
 
-    def __init__(self, root: Path):
-        self.inputs, self.jobs = root / "inputs", root / "jobs"
-        self.uploads, self.calls, self.cancelled = [], [], False
+    def __init__(self, root: Path, db: ControlDB, outcome: str = "succeeded"):
+        self.inputs, self.jobs, self.db, self.outcome = root / "inputs", root / "jobs", db, outcome
+        self.uploads, self.calls, self.cancelled, self.status_calls = [], [], [], 0
 
     def missing(self, keys):
         return [k for k in keys if not (self.inputs / k).is_file()]
@@ -33,31 +39,26 @@ class FakeVolume:
             (self.inputs / k).write_bytes(store.inputs.path(k).read_bytes())
         self.uploads.append(len(keys))
 
-    def run_job(self, job_id, keys, pipeline):
-        self.calls.append((job_id, tuple(keys), pipeline))
-        if self.cancelled:
-            return {"ok": False, "error": CANCELLED}
+    def start(self, job_id, keys, spec, manifest, pipeline):
+        self.calls.append((job_id, tuple(keys), pipeline, manifest))
         root = self.jobs / job_id
         (root / "results").mkdir(parents=True, exist_ok=True)
-        (root / "display").mkdir(exist_ok=True)
-        (root / "display" / "a.jpg").write_bytes(b"picture")   # must never come back
         (root / "album.json").write_text("{}")
-        (root / "run.json").write_text(json.dumps({"ok": True, "timing": {"total_ms": 1000}}))
-        (root / "results" / "bundle.json").write_text("{}")
-        return {"ok": True}
+        (root / "run.json").write_text(json.dumps({"ok": True}))
+        repo = JobRepo(self.db)
+        if self.outcome == "succeeded":
+            repo.transition(job_id, "loading")
+            repo.transition(job_id, SUCCEEDED, "worker saved its results")
+        elif self.outcome == "failed":
+            repo.fail(job_id, "CUDA out of memory", "score_ava")
+        return f"call-{job_id}"
 
-    def download_results(self, job_id, store):
-        worker = JobStore(self.jobs)
-        worker_root, n = worker.paths(job_id).root, 0
-        for rel in worker.results_files(job_id):
-            dest = store.paths(job_id).root / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes((worker_root / rel).read_bytes())
-            n += 1
-        return n
+    def status(self, call_id):
+        self.status_calls += 1
+        return "running" if self.outcome == "none" else "done"
 
-    def cancel(self):
-        self.cancelled = True
+    def cancel(self, call_id):
+        self.cancelled.append(call_id)
 
 
 @pytest.fixture
@@ -65,49 +66,105 @@ def store(tmp_path):
     s = JobStore(tmp_path / "pc")
     for k in KEYS:
         s.inputs.put_bytes(k, b"jpeg")
-    s.write_input_manifest("j1", KEYS)
+    s.write_input_manifest("j1", KEYS, {k: f"D:/trip/{Path(k).name}" for k in KEYS}, {k: [1536, 1024] for k in KEYS})
     s.write_input_manifest("j2", KEYS)
     return s
 
 
+@pytest.fixture
+def db(tmp_path):
+    d = ControlDB(fresh_database_url(tmp_path, "c.db"))
+    repo = JobRepo(d)
+    for job_id in ("j1", "j2"):
+        repo.create(job_id, runner="modal_gpu")
+        repo.transition(job_id, STAGING)
+        repo.transition(job_id, RUNNING)
+    return d
+
+
+def _runner(store, fake, db):
+    return ModalRunner(store, remote=fake, db=db, poll_s=0.01)
+
+
 class ut_ModalStaging:
 
-    def test_second_job_on_the_same_photos_uploads_nothing(self, store, tmp_path):
-        vol = FakeVolume(tmp_path / "modal")
-        first = ModalRunner(store, remote=vol).run("j1")
-        second = ModalRunner(store, remote=vol).run("j2")
+    def test_second_job_on_the_same_photos_uploads_nothing(self, store, db, tmp_path):
+        fake = FakeModal(tmp_path / "modal", db)
+        first = _runner(store, fake, db).run("j1")
+        second = _runner(store, fake, db).run("j2")
         assert first.ok and second.ok
-        assert vol.uploads == [2, 0]
+        assert fake.uploads == [2, 0]
         assert second.notes[0] == "uploaded 0 new photos to Modal (2 already there)"
 
-    def test_only_results_come_back(self, store, tmp_path):
-        out = ModalRunner(store, remote=FakeVolume(tmp_path / "modal")).run("j1")
+    def test_nothing_comes_back_and_the_job_row_is_the_outcome(self, store, db, tmp_path):
+        """spec-117 R6/R8: the worker wrote the database; the PC's job folder holds its manifest only."""
+        out = _runner(store, FakeModal(tmp_path / "modal", db), db).run("j1")
         root = store.paths("j1").root
         got = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
-        assert got == ["album.json", "input/manifest.json", "results/bundle.json", "run.json"]
-        assert out.notes[1] == "copied back 3 result files"
+        assert got == ["input/manifest.json"]
+        assert out.ok and JobRepo(db).get("j1").status == SUCCEEDED
 
-    def test_cancelled_call_ends_cancelled_and_copies_nothing(self, store, tmp_path):
-        vol = FakeVolume(tmp_path / "modal")
-        runner = ModalRunner(store, remote=vol)
+    def test_the_call_id_is_stored_and_the_manifest_travels(self, store, db, tmp_path):
+        fake = FakeModal(tmp_path / "modal", db)
+        _runner(store, fake, db).run("j1")
+        assert JobRepo(db).get("j1").call_id == "call-j1"
+        manifest = fake.calls[0][3]
+        assert manifest["originals"]["0000000000000001/a.jpg"] == "D:/trip/a.jpg"
+        assert manifest["sizes"]["0000000000000001/a.jpg"] == [1536, 1024]
+
+    def test_a_worker_failure_is_read_from_the_job_row(self, store, db, tmp_path):
+        out = _runner(store, FakeModal(tmp_path / "modal", db, outcome="failed"), db).run("j1")
+        assert not out.ok and (out.error, out.failed_step) == ("CUDA out of memory", "score_ava")
+
+    def test_a_call_that_ends_without_results_fails(self, store, db, tmp_path):
+        fake = FakeModal(tmp_path / "modal", db, outcome="crash")      # call done, job row never ended
+        out = _runner(store, fake, db).run("j1")
+        assert not out.ok and "ended without saving its results" in out.error
+
+    def test_a_queued_run_reads_waiting_for_a_gpu(self, store, db, tmp_path):
+        """R9: between the spawn and the worker's first write the stage is "waiting for gpu", never "running"."""
+        fake = FakeModal(tmp_path / "modal", db, outcome="none")
+        runner = _runner(store, fake, db)
+        seen = []
+        original = fake.status
+
+        def status(call_id):
+            seen.append(JobRepo(db).get("j1").progress["stage"])
+            runner.cancel("j1")
+            return original(call_id)
+
+        fake.status = status
+        out = runner.run("j1")
+        assert seen == ["waiting for gpu"]
+        assert out.error == CANCELLED and fake.cancelled == ["call-j1"]     # cancel goes to the call by id
+
+    def test_cancelled_before_the_call_starts_no_gpu(self, store, db, tmp_path):
+        fake = FakeModal(tmp_path / "modal", db)
+        runner = _runner(store, fake, db)
         runner.cancel("j1")
         out = runner.run("j1")
-        assert not out.ok and out.error == CANCELLED
-        assert not store.paths("j1").album_path.exists()
+        assert not out.ok and out.error == CANCELLED and fake.calls == []
 
-    def test_cancel_during_upload_starts_no_gpu_call(self, store, tmp_path):
-        vol = FakeVolume(tmp_path / "modal")
-        runner = ModalRunner(store, remote=vol)
-        original = vol.upload
-        vol.upload = lambda keys, st: (original(keys, st), runner.cancel("j1"))   # cancel lands mid-upload
+    def test_cancel_during_upload_starts_no_gpu_call(self, store, db, tmp_path):
+        fake = FakeModal(tmp_path / "modal", db)
+        runner = _runner(store, fake, db)
+        original = fake.upload
+        fake.upload = lambda keys, st: (original(keys, st), runner.cancel("j1"))   # cancel lands mid-upload
         out = runner.run("j1")
-        assert out.error == CANCELLED and vol.calls == []
+        assert out.error == CANCELLED and fake.calls == []
 
-    def test_job_without_a_manifest_is_refused(self, tmp_path):
+    def test_job_without_a_manifest_is_refused(self, tmp_path, db):
         s = JobStore(tmp_path / "pc")
         s.stage_inputs("old", [("a.jpg", b"x")])
-        out = ModalRunner(s, remote=FakeVolume(tmp_path / "modal")).run("old")
+        out = _runner(s, FakeModal(tmp_path / "modal", db), db).run("old")
         assert not out.ok and "no input manifest" in out.error
+
+    def test_the_real_remote_refuses_a_local_sqlite_database(self, store, tmp_path):
+        """The L4 worker writes the database: a SQLite file on this PC cannot be it. Refused before any upload."""
+        from sim_bench.serving.detached_modal import DetachedModalRemote
+        local = ControlDB(f"sqlite:///{(tmp_path / 'local.db').as_posix()}")
+        out = ModalRunner(store, remote=DetachedModalRemote(), volumes=object(), db=local).run("j1")
+        assert not out.ok and "DATABASE_URL" in out.error
 
 
 class ut_InputRetention:
@@ -166,37 +223,3 @@ class ut_InputRetention:
         assert not (jobs / "ancient" / "input" / "x.jpg").exists()
         assert (jobs / "ancient" / "album.json").exists()          # results stay
         assert (jobs / "fresh" / "input" / "x.jpg").exists()
-
-
-class ut_ModalVolumeRemoteDownload:
-
-    def test_missing_results_folder_does_not_hide_the_run_error(self, tmp_path, monkeypatch):
-        """review M5: the worker failed before writing results; only run.json comes back.
-
-        A stand-in ``modal`` module: importing the real one switches Windows to the selector event loop, which
-        breaks every later Playwright test in the same run (it cannot start a browser process)."""
-        import sys
-        import types
-        from sim_bench.serving.runners import ModalVolumeRemote
-
-        class Vol:
-            def listdir(self, path, recursive=False):
-                raise FileNotFoundError(path)
-
-            def read_file(self, path):
-                if path.endswith("run.json"):
-                    yield b'{"ok": false, "error": "boom", "failed_step": "score_ava"}'
-                else:
-                    raise FileNotFoundError(path)
-
-        fake = types.ModuleType("modal")
-        fake.Volume = types.SimpleNamespace(from_name=lambda *a, **k: Vol())
-        fake_volume = types.ModuleType("modal.volume")
-        fake_volume.FileEntryType = types.SimpleNamespace(FILE=1)
-        monkeypatch.setitem(sys.modules, "modal", fake)
-        monkeypatch.setitem(sys.modules, "modal.volume", fake_volume)
-        store = JobStore(tmp_path)
-        n = ModalVolumeRemote().download_results("j1", store)
-        assert n == 1 and not store.paths("j1").album_path.exists()
-        assert json.loads(store.paths("j1").run_path.read_text())["failed_step"] == "score_ava"
-        assert not list(store.paths("j1").root.rglob("*.part"))

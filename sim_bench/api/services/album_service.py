@@ -8,6 +8,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from sim_bench.api.database.models import Album
+from sim_bench.api.services.result_service import result_cache
 
 
 class AlbumService:
@@ -69,7 +70,9 @@ class AlbumService:
             self._logger.warning(f"Attempted to delete non-existent album: {album_id}")
             return False
 
+        run_ids = [run.id for run in album.pipeline_runs]
         self._session.delete(album)
         self._session.commit()
+        result_cache.evict(run_ids)
         self._logger.info(f"Deleted album {album_id}")
         return True

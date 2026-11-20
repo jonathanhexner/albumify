@@ -4,6 +4,299 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-156: a lost connection to Modal fails a healthy GPU run and loses its results
+**Status**: RESOLVED 2026-11-14 on `spec/117-m3-fixes` (from `spec/117-neon-r2` 9cd0e67). Found by the spec-117 code review (H1)
+**Severity**: High (the exact "PC drops out" case spec-117 R8 exists for)
+**Persona**: serving / watchdog
+
+**Problem**: `DetachedModalRemote.status()` turned every exception into `"failed: ..."`, including a lost connection
+from this PC to Modal. The watchdog took that as "the call ended", failed the job, and when the worker later finished,
+`WorkerPersister` could no longer move the job to loading, so its results were refused.
+**Why the tests missed it**: the watchdog tests' fake remote *raised* on a lost connection (the watchdog handles that),
+while the real `status()` *returned* "failed".
+**Fix**: `status()` returns `"unknown"` for errors that mean "could not reach Modal" (`OSError`, Modal
+`ConnectionError` / `ClientClosed` / `ServiceError`, grpclib stream/protocol errors, gRPC UNAVAILABLE /
+DEADLINE_EXCEEDED); `call_ended("unknown")` is False, so the heartbeat decides. A real failure of the call (timeout,
+crash, cancel, not found) is still "failed".
+**Prevention**: `tests/serving/test_detached_modal_status.py` drives the real `status()` with the real exception types
+and runs the watchdog on it (12 tests; the file fails to import on the old code).
+
+---
+
+### SIGHTING-155: heartbeat test fails on Neon (timing window shorter than one Neon write)
+**Status**: RESOLVED 2026-11-14 on `spec/117-m3-fixes` (test only). Found in spec-117 M3 (parity run on Neon: 296 passed, 1 failed)
+**Severity**: Low (test only; production beats every 5 s and GPU run `f7d8ba85` kept its heartbeat for 16 min)
+**Persona**: test infrastructure
+
+**Problem**: `tests/serving/test_db_progress.py::ut_DbProgressWriter::test_heartbeat_thread_beats_at_least_every_interval`
+set `heartbeat_s=0.2`, slept a fixed 0.7 s and expected `heartbeat_at` to have moved. On Neon it had not.
+**Cause (measured)**: one heartbeat write to Neon takes 0.65 s (about 4 round trips of 0.16 s), so the first beat
+landed at ~0.85 s, after the read.
+**Fix**: the test polls `heartbeat_at` until it moves (10 s deadline) instead of one fixed sleep.
+**Left**: re-run the Neon parity set (`pytest -m needs_neon tests/storage/test_neon_parity.py`, ~52 min) to show 297/297.
+
+---
+
+### SIGHTING-154: re-running the same album gives slightly different picks (3 of ~330)
+**Status**: OPEN 2026-11-14. Found in spec-117 T8.3. Owner 2026-11-14: a follow-up, does not block the spec-117 merge
+**Severity**: Medium (spec-110 AC4 "re-running a job reproduces it" not met; the user sees picks change)
+**Persona**: album selection
+
+**Problem**: GPU runs `f7d8ba85` (329 picks) and `fd52013c` (331) on the same 715 photos, same code and config:
+only in the first `20260818_160622`; only in the second `20260818_160621`, `20260822_174227`, `20260828_211441`.
+Scene count equal (97). The local run after them made 328.
+**Suspicion**: near-ties in `select_best` between near-duplicate shots; the first run computed some features fresh
+(GPU float32) while the second read them from the cache (serialised), or Siamese comparisons are not deterministic.
+**Repro**: two GPU runs of Slovakia26 back to back; diff `album.json` picks (both in R2 under `jobs/<id>/`).
+
+---
+
+### SIGHTING-153: the first L4 runs against Neon failed three times (worker import, idle transaction, slow uploads)
+**Status**: RESOLVED 2026-11-14 on `spec/117-neon-r2` (`c0a2606`, `1b7d747`, and the upload fix). Found in spec-117 T8.2 from the real app
+**Severity**: High (every L4 run failed)
+**Persona**: serving / worker
+
+**Problem 1** (run `61f3b9a8`): `ModuleNotFoundError: No module named 'fastapi'` at job start. The 2026-11-13
+autocommit change (SIGHTING-152) imported `fastapi.Request` at the top of `session.py`; the worker image has no FastAPI
+and imports `session.py` inside the job (`curate_job.py`), so no import-time test saw it.
+**Fix 1**: import FastAPI only when installed. **Prevention**: `tests/architecture/test_worker_imports_without_fastapi.py`
+imports every worker module with FastAPI/Starlette/uvicorn blocked (fails on `dd33596`).
+
+**Problem 2** (run `6745cbb0`): `IdleInTransactionSessionTimeout` after `triage_content` (8.5 min on the A10G). The
+step's batch cache read (`UniversalCacheHandler.load_many`) committed only when it deleted stale rows, so the worker's
+connection sat idle in a transaction while the step computed, and Neon ended it. Steps on this PC finished sooner.
+**Fix 2**: `load_many` always ends its transaction. **Prevention**:
+`tests/pipeline/test_cache_handler_batch.py::test_a_read_leaves_no_transaction_open` (fails before).
+
+**Problem 3** (run `54b46cd0`): all 38 steps done in 16.5 min, then the worker spent 13+ min saving and hit Modal's
+1800 s function timeout. `LocalRenders` uploaded each display image and face crop to R2 one after another (~0.6 s per
+PUT from Modal, ~0.95 s from this PC: the local T8.1 run `5a6cfec8` spent 20.5 of its 24 min in "loading").
+**Fix 3**: uploads go through a 16-thread pool (R2 client pool 16). Real: 563 crops in 29 s (52 ms per file).
+**Prevention**: `tests/control/test_local_renders.py::test_uploads_run_in_parallel_and_all_arrive` (fails before).
+
+**Also found**: `AppTest.from_function` (`test_gallery_keys.py`, SIGHTING-151) leaves its script as `__main__`; the
+spec-104 step-isolation tests then crashed in their spawned children. `tests/streamlit/conftest.py` restores it.
+
+---
+
+### SIGHTING-152: Albumify on Neon is 10-20x slower than on local SQLite
+**Status**: PARTLY FIXED 2026-11-13 on `spec/117-neon-r2` (C1-C3, API result cache, C5 thumbnails, runs-list and People queries, autocommit reads; Streamlit rendering and per-request pre-ping remain). Found in spec-117 T8.1 from the real app, run `5a6cfec8`
+**Severity**: High for a public URL (blocks spec-117 R11 page timings)
+**Persona**: API / database
+
+**Problem**: Results for Slovakia26 (302 picks) takes 54 s cold and 28.5 s warm on the Neon-backed app (port 8511),
+2.9 s on the local SQLite app (8501). Explore 54 s, Albums 8-12 s. API calls alone: result 2.8 s, picks 1.8 s, run
+list 6.0 s.
+**Measured 2026-11-13** (profiling copy of the API: per-request time + SQL count; same pages driven in Playwright):
+
+| Page | Neon | local SQLite |
+|---|---|---|
+| Albums | 7.7-15 s | 1.0 s |
+| Results (302 picks) | 105 s cold / 18 s warm | 2.9 s warm |
+| Explore | 54 s | 4.5 s |
+| People & Faces | 4.4 s | 0.8 s |
+
+API time 75 s of 211 s page time; 61 s of it in SQL, only 188 queries (0.33 s each). Causes, largest first:
+1. **Over-fetching:** list endpoints load whole `pipeline_results` rows (JSON up to 2.8 MB each, 30 MB in all) to show
+   counts. `GET /api/v1/results/?album_id` 7 calls 28.5 s; `GET /api/v1/pipeline/runs` 3 calls 26.9 s. Slovakia26 rows:
+   all columns 2.0 s vs summary columns 0.18 s.
+2. **N+1:** the runs list runs one `albums` query per run (26 per call, ~160 ms each).
+3. **Repeats:** one Results visit re-fetched `/results/` and `/results/<id>/images` 7 times each (Streamlit reruns, no
+   client cache); each re-reads the 2.8 MB row.
+4. **Cold thumbnails** (not Neon): after a UI restart the gallery decodes 302 full-size originals (105 s vs 18 s warm).
+5. **Distance:** 160-320 ms per round trip to Neon us-east-1 from this PC.
+**Fixed 2026-11-13 (C1-C3)**: `ResultService.list_results` reads summary columns in 2 queries and no longer returns
+`step_decisions` (new `GET /api/v1/results/{id}/decisions`); `list_runs` loads albums in the same query; finished result
+rows are kept in the API process (`ResultCache`, evicted by the run's writer and album deletion); the UI keeps result
+reads for 10 s. Tests: `tests/api/test_result_queries.py` (6, query counts), API/serving/control/UI suites 474 passed.
+
+| Page (Neon) | before | after |
+|---|---|---|
+| Albums | 7.7-15.3 s | 3.7-9.3 s |
+| Results, first open | 105 s | 86 s |
+| Results, again | 18.4 s | 4.6 s |
+| Explore, first | 54.5 s | 48.4 s |
+| Explore, again | 54.5 s | 5.9 s |
+| People & Faces | 4.4 s | 4.5 s |
+| API total / SQL queries | 75 s / 188 | 29 s / 45 |
+
+**Fixed 2026-11-13, part 2 (C5 + queries)**: thumbnails are made from the run's 768 px staged copy (6 ms vs 90 ms
+each): the API adds `display_path` to every image (`RunDisplayCopies`, from the job manifest, kept in the result
+cache), the UI records original -> copy (`app/streamlit/thumb_sources.py`) and all five thumbnail loaders (gallery,
+cluster table, metrics table, Explore, Results comparisons) open the copy. Runs table: runs, albums, result counts and
+people counts in one query, jobs read as (id, runner, status) only. People list: one query (latest run as a
+subquery), `face_instances` (~107 kB) not loaded. Tests: `tests/api/test_result_queries.py` (8),
+`tests/streamlit/test_thumb_sources.py` (2); API/serving/control/UI/storage/architecture suites 478 passed.
+
+| Page (Neon, both servers restarted) | before | part 1 | part 2 |
+|---|---|---|---|
+| Albums, first / again | 7.7-15.3 s | 9.3 / 3.7 s | 9.6 / 3.0 s |
+| Results, first open | 105 s | 86 s | 12.3 s |
+| Results, again | 18.4 s | 4.6 s | 3.9 s |
+| Explore, first / again | 54.5 s | 48.4 / 5.9 s | 8.0 / 5.8 s |
+| People & Faces | 4.4 s | 4.5 s | 1.8 s |
+
+**Fixed 2026-11-13, part 3 (autocommit reads, owner-approved)**: on Postgres, GET/HEAD requests get an autocommit
+session (`get_session`), and the jobs DB has `ControlDB.read_session()` for its read-only methods and job-file routes:
+no `BEGIN` before or `ROLLBACK`/`COMMIT` after a read (psycopg 3 sends `BEGIN` as its own round trip). Audit: no GET
+handler writes more than one row. Writes keep transactions (live check on Neon: create/update/read/delete a profile).
+Test: `tests/api/test_read_sessions.py` (8); suites 486 passed.
+
+| Page (Neon, both servers restarted) | part 2 | part 3 |
+|---|---|---|
+| Albums, first / again | 9.6 / 3.0 s | 8.0 / 2.4 s |
+| Results, first / again | 12.3 / 3.9 s | 11.6 / 3.2 s |
+| Explore, first / again | 8.0 / 5.8 s | 7.7 / 5.9 s |
+| People & Faces | 1.8 s | 1.5 s |
+| Per call: albums, people / runs | 0.48 / 1.9 s | 0.34 / 1.37 s |
+
+**Still open (R11 < 2 s on People only; owner 2026-11-14: a follow-up, does not block the spec-117 merge)**: Streamlit draws a 302-photo page in ~3-4 s even on SQLite (Results, Explore);
+the first request after an API start reflects the schema (Albums first ~8 s); the pool pre-ping is one round trip per
+request (kept: Neon closes idle connections); the runs table uses two pools (API + jobs). People thumbnails still
+crop the originals (7 photos, uncached).
+**Repro**: start the spec-117 stack against `DATABASE_URL`; Albums -> Open the newest Slovakia26 run; time until idle.
+
+---
+
+### SIGHTING-151: Results gallery crashes on duplicate "Detail" button keys
+**Status**: RESOLVED 2026-11-13 on `spec/117-neon-r2` (found in spec-117 T8.1; not Neon-specific; code from 2026-05-09 `4b86028`). Verified: `tests/streamlit/test_gallery_keys.py` fails before (duplicate `detail_20449`), passes after; live app on Neon: 302 Detail buttons, 0 errors (was 231 + error)
+**Severity**: High (gallery stops part-way: 231 of 302 picks shown, plus a Streamlit error box)
+**Persona**: Albumify frontend
+
+**Problem**: `StreamlitDuplicateElementKey: key='detail_82333'`. `components/gallery.py` `render_image_card` keys the
+button `detail_{hash(image.path) % 100000}`; with ~300 images two paths collide often (birthday odds ~35%). Python's
+string hash changes per process, so it appears on some server starts and not others (8501 showed none today).
+**Fix**: `gallery.py` keys the button `detail_{image.path}`; it was the only hash-based widget key in `app/streamlit`.
+**Repro**: Results -> Selected Only on a run with 300 picks; restart Streamlit until it appears.
+
+---
+
+### SIGHTING-150: select_best "Best in cluster" / "Rank N" labels are not score order
+**Status**: OPEN 2026-11-13 (found mapping code for spec-118; fix planned there, R10)
+**Severity**: Low (picks are right; only the reason text and the `rank` metric are wrong)
+**Persona**: Pipeline / selection
+
+**Problem**: `select_best.py` `_select_from_cluster` sorts `filtered` by score but writes decisions with
+`enumerate(scored_images, 1)`, the unsorted list, so "Best in cluster" means "first in input order".
+**Repro**: in run `52776cc5`, picks labelled "Rank 2" can have a higher composite than the "Best in cluster" photo.
+
+---
+
+### SIGHTING-149: Photos removed by filter_quality show "Person detected" as their reason
+**Status**: OPEN 2026-11-13 (found in the Slovakia26 picks review, run `52776cc5`)
+**Severity**: Medium (Results and the review page hide why 89 photos were dropped)
+**Persona**: Pipeline / run output
+
+**Problem**: all 89 photos removed before scene clustering carry `filter_reason` "Person detected (conf ...)" or
+"No person detected"; their real reason ("Sharpness 0.05 < threshold 0.2") is only in `step_decisions`.
+**Suspicion**: `serving/run_output.py` `build_reason_by_path` keeps the FIRST decision per photo unless it is
+`select_best`; `detect_persons` writes first, so the `filter_quality` rejection never wins.
+**Repro**: in `pipeline_results` of `52776cc5`, compare `image_metrics[...].filter_reason` with the `filter_quality`
+entry in `step_decisions` for `D:\Slovakia2660821_150124.jpg`.
+
+---
+
+### SIGHTING-148: The face clustering app hangs on a run of ~1,000 faces
+**Status**: RESOLVED 2026-11-07 (found opening the Slovakia26 re-run `277fb705` via `?load_run=`); verified on that run:
+every tab opens in 1-7 s (Merge Analysis 2.9 s, 20 images; was 5,961 images and never finished), 0 closed-socket errors, 1 log
+dir per app start
+**Severity**: Medium (the app is unusable on real albums bigger than Budapest's 340 faces)
+**Persona**: Face clustering app
+
+**Problem**: one page load of the 984-face run renders 4,932 images and 19,398 buttons and had not finished after 3 min;
+the browser froze. Loading the run itself takes 0.6 s. While the browser hangs, the server writes ~1,000
+`WebSocketClosedError` tracebacks per second (83 MB of log in 2 min), and every rerun opens a new `logs/<timestamp>/` folder
+(2,952 folders, 803 MB).
+**Root cause**: `st.tabs` runs all 11 tab bodies on every rerun, and the tabs' 0.4 s worker polls (`st.rerun()`) reran all
+of them; Merge Analysis' default "By iteration" view built every pair of every iteration (collapsed expanders still build
+their crops); `setup_logging` ran at the top of `main.py`, which Streamlit re-executes per rerun.
+**Fix**: a tab selector renders only the chosen tab (`app/face_clustering/main.py`); the iteration view shows one iteration,
+10 pairs a page; `setup_logging` is once per process per surface.
+**Also found**: `tests/face_clustering/conftest.py` redirected `run_history_db.get_db_path` but `run_history` binds it by
+name, so the History tab queried a table-less DB under pytest (fixed, test-only). `tests/face_clustering/test_streamlit_e2e.py`
+(opt-in `e2e`) is stale since 2026-04-08: it clicks "Browse Clusters", "Debug", "Output directory", none of which exist; it
+fails on the old app too. Not fixed here.
+**Reproduce**: open `http://localhost:8502/?load_run=results%5CSlovakia26%5Cface_clustering_20261106_121259`.
+
+### SIGHTING-147: The album pipeline splits ~4 people into 76 (K=5 instead of the validated K=51)
+**Status**: RESOLVED 2026-11-07; verified on a real Slovakia26 re-run (`Slovakia26-20261107-231700-0f0a`, K=51 and
+blur_min=73.3 confirmed in its run.json): 8 people, four main ones of 136, 108, 108, 97 faces plus four of 3-5 faces (was 76); through Albums as `52776cc5`: Results
+shows 8 people, 302 picks; its export has 8 clusters, 18 noise faces (was 79 and 60)
+**Severity**: High for Gate 1 (the People page is unusable)
+**Persona**: Pipeline / People clustering
+
+**Problem**: the Slovakia26 re-run `277fb705` found 76 people (41 with >= 5 faces) where the album has about 4.
+**Root cause**: `configs/pipeline.yaml` `people_clustering` kept the code defaults `K: 5`, `blur_min: 50.0`; the profile
+validated on Budapest (`profile_4.json`) uses `K: 51`, `blur_min: 73.3`. A mutual-kNN graph with 5 neighbours breaks one
+person into many small groups. Recluster of the same 984 faces: K=5 -> 76 people (reproduces the run), K=15 -> 21,
+K=51 -> 10 people, top sizes 151, 119, 119, 117 then 5 and below.
+**Fix**: `pipeline.yaml` takes `K: 51`, `blur_min: 73.3` from profile_4.
+**Prevention (open)**: nothing ties the album config to the validated profile; a parity test is the follow-up.
+**Reproduce**: recluster `results/Slovakia26/face_clustering_20261106_121259` with stages cluster..export at K=5 and K=51.
+
+### SIGHTING-146: Photos in no scene (-1) compete as one scene; losers are called near-duplicates
+**Status**: RESOLVED 2026-11-06 (found reviewing the 10-23 Slovakia26 L4 run, job `Slovakia26-20261023-115640`); verified on the Slovakia26 re-run `277fb705`: 0 near-dups beaten by no-scene picks (was 85), 85 no-scene picks (was 24)
+**Severity**: High for Gate 1 (good, unique photos are dropped from every album)
+**Persona**: Pipeline / Selection
+
+**Problem**: `cluster_scenes` labels photos that fit no scene `-1` (noise). `select_best` treats `-1` as one scene, so 109
+unrelated photos over 11 days competed for a few slots: 24 picked, 85 dropped. `album.normalizer.classify` then marks the 85
+`near_dup` "beaten by" the same 24 photos. Eyeballed 12 of the 85: none is a duplicate of anything.
+**Root cause**: `-1` means "no scene", but both consumers read it as a scene id like any other.
+**Fix**: each `-1` photo is its own moment: kept iff composite >= `min_score_threshold` (no keep-the-best fallback, which
+would keep every one); `classify` never reports `near_dup` for `-1`.
+**Reproduce**: `reports/2026-11-06_slovakia26_l4_review/contact_sheet.html` section 2.
+
+### SIGHTING-145: An L4 run dies if the PC drops off the network
+**Status**: OPEN 2026-10-31 (found during spec-116 T4.2, twice)
+**Severity**: High for the L4 path (a drop during a paid run would stop it and lose its results)
+**Persona**: Serving
+
+**Problem**: `ModalVolumeRemote.run_job` holds `run_app.run()` open for the whole run. Both Slovakia26 attempts ended on
+`ConnectionError: [Errno 11001] getaddrinfo failed`, and Modal logged "Stopping app - local client disconnected". The error
+is raised on leaving the `with` block, past the `except` around `.get()`.
+**Suspicion**: an ephemeral app is tied to its client. Modal's own message points at detached running; a deployed app with
+`spawn` plus a re-attach by call id would survive a drop. Both drops happened while queued, so no paid run was lost yet.
+**Reproduce**: start an L4 run, cut the PC's network, watch `modal app logs <app id>`.
+
+### SIGHTING-144: The sharpness gate depends on photo resolution
+**Status**: DECIDED 2026-11-14: owner keeps 768 px for every run (no return to full size). The threshold now means
+"sharp at 768 px"; any retune of `filter_quality.min_sharpness` is a separate follow-up. Found by spec-116 R13
+**Severity**: High for Gate 1 (it decides which photos reach the album, and spec-116 moves every run to 768 px)
+**Persona**: Pipeline / Quality
+
+**Problem**: Budapest 122 with one threshold (`filter_quality.min_sharpness: 0.2`): median score 0.05 at full size, 0.31 at
+768 px; the gate removes 114 vs 26 photos. So 768 px runs keep far more photos than full-size runs did, and the threshold
+does not mean the same thing across sizes.
+**Suspicion**: the score measures per-pixel detail, which rises when a photo is shrunk. Thresholds were tuned elsewhere (spec-098).
+**Reproduce**: `reports/2026-10-30_spec116_r13_fullsize_vs_768/results.json`; `scripts/spec116_r13_fullsize_vs_768.py`.
+
+### SIGHTING-143: An L4 run waiting for a GPU shows as "Running"
+**Status**: OPEN 2026-10-30 (found during spec-116 T4.2)
+**Severity**: Low (nothing is billed while it waits; the elapsed time just reads as if the job were slow)
+**Persona**: Serving / App
+
+**Problem**: the first spec-116 Slovakia26 L4 run sat in Modal's queue for 29+ minutes ("Function 'curate_job' is waiting to be
+scheduled on a GPU_L4 worker", 0 tasks) while Configure & Run said "Running on L4 (GPU)".
+**Suspicion**: `ModalRunner` writes the stage `running` before `spawn`; nothing reads the call's scheduled state, and the
+worker's own `progress.json` sits on the Volume where the app cannot see it.
+**Reproduce**: start an L4 run when Modal has no L4 capacity; compare the stage with `modal app logs <app id>`.
+
+### SIGHTING-142: Album picks include near-identical photos; select_best ignores its own limits
+**Status**: OPEN 2026-10-25 (owner: "the selections are poor, we're getting near identical images")
+**Severity**: High for Gate 1 (the picks are what the owner judges)
+**Persona**: Pipeline / Selection
+
+**Problem**: Slovakia26 L4 job `Slovakia26-20261023-114445` (715 photos, 251 picks). `select_best.max_images_per_cluster: 2`, yet
+43 of 95 scenes have more than 2 picks (one has 9) and scene -1 (unclustered) has 25. 37 of 250 consecutive picks are within
+5 s of each other (e.g. `20260818_152912`, `_152913`, `_152914`, all in scene 2); 104 within 30 s. `min_score_threshold: 0.4`,
+yet pick #1 has composite 0.33.
+**Suspicion, unverified**: the per-scene cap is applied per person subgroup rather than per scene; scene -1 bypasses the cap and
+the near-duplicate check; the threshold is applied to a different score than `composite`. Not engine-related (the local run of
+the same photos gave the same picks).
+**Reproduce**: run Slovakia26 through Configure & Run (after spec-116, the Results page shows each pick's reason); or read
+`~/.sim_bench/jobs/Slovakia26-20261023-114445/album.json` and count picks per `scene_cluster`.
+
 ### SIGHTING-141: Worker face crops have red and blue swapped (and the detector may be fed RGB)
 **Status**: crop swap FIXED 2026-10-23 (owner: fix it); detector colour order still a suspicion, OPEN until measured.
 **Severity**: Medium (every face crop in the Albumify People tab and, likely, the face-clustering app export shows wrong colours; embeddings are NOT affected)

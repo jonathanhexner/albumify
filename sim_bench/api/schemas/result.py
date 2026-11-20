@@ -15,6 +15,7 @@ class ImageMetrics(BaseModel):
     bug). Add new per-image metrics HERE; ``_build_image_dict`` derives from it.
     """
     path: str
+    display_path: Optional[str] = None   # the run's 768 px copy, for thumbnails (SIGHTING-152); None = use path
     iqa_score: Optional[float] = None
     ava_score: Optional[float] = None
     composite_score: Optional[float] = None

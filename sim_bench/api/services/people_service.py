@@ -5,9 +5,11 @@ import uuid
 from collections import defaultdict
 from typing import Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from sim_bench.api.database.models import Person, Album, PipelineRun
+
+logger = logging.getLogger(__name__)
 
 
 def _bbox_to_xywh(bbox) -> Optional[list]:
@@ -70,6 +72,72 @@ def _normalized_bbox(face) -> Optional[list]:
     return xywh
 
 
+def _thumbnail_info(face) -> tuple:
+    """Extract thumbnail path and bbox from a face object."""
+    if not face:
+        return None, None
+    # Prefer pre-cropped image if available
+    crop_path = getattr(face, 'crop_path', None)
+    if crop_path:
+        return str(crop_path), None
+    # Fall back to original image + bbox (normalized to [0,1] -- SIGHTING-104).
+    bbox = _normalized_bbox(face)
+    # spec-079 / SIGHTING-100: FaceRecord uses image_path; legacy used original_path.
+    return str(getattr(face, 'original_path', None) or getattr(face, 'image_path', '')), bbox
+
+
+def people_payload(people_clusters: dict, people_thumbnails: dict = None,
+                   attachment_decisions: dict = None) -> list[dict]:
+    """Clustering results -> plain dicts, one per person (spec-116: travels in ``run_output.json``).
+
+    Args:
+        people_clusters: Dict mapping cluster_id to list of Face objects
+        people_thumbnails: Optional dict mapping cluster_id to best face
+        attachment_decisions: Optional dict mapping face_key to attachment info
+    """
+    payload = []
+    attachment_decisions = attachment_decisions or {}
+
+    for cluster_id, faces in (people_clusters or {}).items():
+        if not faces:
+            continue
+
+        face_instances = []
+        for face in faces:
+            # Get and validate image path. spec-079 / SIGHTING-100: the unified chain produces
+            # FaceRecord (image_path); legacy faces used original_path. Support both.
+            raw_path = getattr(face, 'original_path', None) or getattr(face, 'image_path', None)
+            img_path = str(raw_path) if raw_path else None
+            if not img_path or img_path in ('', '.', 'None'):
+                logger.warning(f"Skipping face with invalid path: {raw_path} "
+                               f"(cluster {cluster_id}, face_index {face.face_index})")
+                continue
+
+            # Look up assignment method from attachment_decisions
+            face_key = f"{img_path.replace(chr(92), '/')}:face_{face.face_index}"
+            decision = attachment_decisions.get(face_key, {})
+            face_instances.append({
+                'image_path': img_path,
+                'face_index': face.face_index,
+                'bbox': _normalized_bbox(face),  # [0,1] -- SIGHTING-104
+                'score': getattr(face, 'quality', None) and face.quality.overall if hasattr(face, 'quality') else None,
+                'assignment_method': decision.get('method', 'core'),
+                'assignment_confidence': decision.get('confidence', 1.0),
+            })
+
+        # Determine thumbnail - prefer saved crop_path over original image
+        thumbnail_face = (people_thumbnails or {}).get(cluster_id) or faces[0]
+        thumbnail_path, thumbnail_bbox = _thumbnail_info(thumbnail_face)
+        payload.append({
+            'person_index': cluster_id,
+            'face_instances': face_instances,
+            'thumbnail_image_path': thumbnail_path,
+            'thumbnail_face_index': thumbnail_face.face_index,
+            'thumbnail_bbox': thumbnail_bbox,
+        })
+    return payload
+
+
 class PeopleService:
     """Service for managing detected people (face clusters)."""
 
@@ -88,24 +156,22 @@ class PeopleService:
             album_id: Album ID
             run_id: Optional specific run ID (defaults to latest run)
         """
-        query = self._session.query(Person).filter(Person.album_id == album_id)
-
+        # the list shows names, counts and a thumbnail: every face instance (~100 kB a run) stays in the database,
+        # and the latest run is found in the same query; each Neon query costs ~0.3 s (SIGHTING-152)
+        query = (self._session.query(Person).filter(Person.album_id == album_id)
+                 .options(defer(Person.face_instances)))
         if run_id:
             query = query.filter(Person.run_id == run_id)
         else:
-            # Get latest run for this album
             latest_run = (
-                self._session.query(PipelineRun)
+                self._session.query(PipelineRun.id)
                 .filter(PipelineRun.album_id == album_id)
                 .filter(PipelineRun.status == "completed")
                 .order_by(PipelineRun.completed_at.desc())
-                .first()
+                .limit(1)
+                .scalar_subquery()
             )
-            if latest_run:
-                query = query.filter(Person.run_id == latest_run.id)
-            else:
-                return []
-
+            query = query.filter(Person.run_id == latest_run)
         return query.order_by(Person.face_count.desc()).all()
 
     def get_person(self, album_id: str, person_id: str) -> Optional[Person]:
@@ -339,19 +405,6 @@ class PeopleService:
         )
         return (max_index[0] + 1) if max_index else 0
 
-    def _get_thumbnail_info(self, face) -> tuple:
-        """Extract thumbnail path and bbox from a face object."""
-        if not face:
-            return None, None
-        # Prefer pre-cropped image if available
-        crop_path = getattr(face, 'crop_path', None)
-        if crop_path:
-            return str(crop_path), None
-        # Fall back to original image + bbox (normalized to [0,1] -- SIGHTING-104).
-        bbox = _normalized_bbox(face)
-        # spec-079 / SIGHTING-100: FaceRecord uses image_path; legacy used original_path.
-        return str(getattr(face, 'original_path', None) or getattr(face, 'image_path', '')), bbox
-
     def create_from_clusters(
         self,
         album_id: str,
@@ -360,82 +413,9 @@ class PeopleService:
         people_thumbnails: dict = None,
         attachment_decisions: dict = None
     ) -> list[Person]:
-        """Create Person records from pipeline clustering results.
-
-        Args:
-            album_id: Album ID
-            run_id: Pipeline run ID
-            people_clusters: Dict mapping cluster_id to list of Face objects
-            people_thumbnails: Optional dict mapping cluster_id to best face
-            attachment_decisions: Optional dict mapping face_key to attachment info
-
-        Returns:
-            List of created Person records
-        """
-        created = []
-        attachment_decisions = attachment_decisions or {}
-
-        for cluster_id, faces in people_clusters.items():
-            if not faces:
-                continue
-
-            # Build face instances
-            face_instances = []
-            images = set()
-
-            for face in faces:
-                # Get and validate image path. spec-079 / SIGHTING-100: the
-                # unified chain produces FaceRecord (image_path); legacy faces
-                # used original_path. Support both.
-                raw_path = getattr(face, 'original_path', None) or getattr(face, 'image_path', None)
-                img_path = str(raw_path) if raw_path else None
-                if not img_path or img_path in ('', '.', 'None'):
-                    self._logger.warning(
-                        f"Skipping face with invalid path: {raw_path} "
-                        f"(cluster {cluster_id}, face_index {face.face_index})"
-                    )
-                    continue
-
-                bbox = _normalized_bbox(face)  # [0,1] -- SIGHTING-104
-
-                # Look up assignment method from attachment_decisions
-                face_key = f"{img_path.replace(chr(92), '/')}:face_{face.face_index}"
-                decision = attachment_decisions.get(face_key, {})
-                assignment_method = decision.get('method', 'core')
-                assignment_confidence = decision.get('confidence', 1.0)
-
-                instance = {
-                    'image_path': img_path,
-                    'face_index': face.face_index,
-                    'bbox': bbox,
-                    'score': getattr(face, 'quality', None) and face.quality.overall if hasattr(face, 'quality') else None,
-                    'assignment_method': assignment_method,
-                    'assignment_confidence': assignment_confidence
-                }
-                face_instances.append(instance)
-                images.add(img_path)
-
-            # Determine thumbnail - prefer saved crop_path over original image
-            thumbnail_face = (people_thumbnails or {}).get(cluster_id) or (faces[0] if faces else None)
-            thumbnail_path, thumbnail_bbox = self._get_thumbnail_info(thumbnail_face)
-
-            person = Person(
-                id=str(uuid.uuid4()),
-                album_id=album_id,
-                run_id=run_id,
-                person_index=cluster_id,
-                name=None,
-                face_instances=face_instances,
-                face_count=len(face_instances),
-                image_count=len(images),
-                thumbnail_image_path=thumbnail_path,
-                thumbnail_face_index=thumbnail_face.face_index if thumbnail_face else None,
-                thumbnail_bbox=thumbnail_bbox
-            )
-
-            self._session.add(person)
-            created.append(person)
-
+        """Create and commit Person records from pipeline clustering results (see :func:`people_payload`)."""
+        created = self.add_from_payload(
+            album_id, run_id, people_payload(people_clusters, people_thumbnails, attachment_decisions))
         self._session.commit()
 
         # Refresh all created records
@@ -445,6 +425,27 @@ class PeopleService:
         self._logger.info(
             f"Created {len(created)} people records for album {album_id}, run {run_id}"
         )
+        return created
+
+    def add_from_payload(self, album_id: str, run_id: str, payload: list[dict]) -> list[Person]:
+        """Add Person records from a :func:`people_payload` list; the caller commits (spec-116 R8)."""
+        created = []
+        for entry in payload:
+            person = Person(
+                id=str(uuid.uuid4()),
+                album_id=album_id,
+                run_id=run_id,
+                person_index=entry["person_index"],
+                name=None,
+                face_instances=entry["face_instances"],
+                face_count=len(entry["face_instances"]),
+                image_count=len({f["image_path"] for f in entry["face_instances"]}),
+                thumbnail_image_path=entry["thumbnail_image_path"],
+                thumbnail_face_index=entry["thumbnail_face_index"],
+                thumbnail_bbox=entry["thumbnail_bbox"],
+            )
+            self._session.add(person)
+            created.append(person)
         return created
 
     def delete_for_run(self, run_id: str) -> int:

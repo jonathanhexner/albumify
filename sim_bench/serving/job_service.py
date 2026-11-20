@@ -1,11 +1,14 @@
 """The control plane's one job flow (spec-112 TA4.2):
 
-    create (queued) -> stage (staging) -> runner.run (running) -> load (loading) -> succeeded
-                                     any failure or exception ---------------------> failed
+    create (queued) -> stage (staging) -> runner.run (running) -> load + on_loaded (loading) -> succeeded
+                                     any failure or exception --------------------------------> failed
 
-Same code whatever the runner; only ``runner`` differs. The runner writes files, this service is
-the only thing that writes the DB. Synchronous by design: the API calls it from a background task,
-the CLI calls it directly.
+Same code whatever the runner; only ``runner`` differs. Synchronous by design: the API calls it from a
+background task, the CLI calls it directly.
+
+spec-117 R6: the real workers (the child process here, the L4) write their own progress and results and end the
+job ``succeeded`` / ``failed`` themselves; once the runner returns, this service reads the job row. A runner whose
+worker did not (an in-process test fake, an older worker) still gets its files loaded here, as before.
 """
 from __future__ import annotations
 
@@ -34,6 +37,14 @@ logger = logging.getLogger(__name__)
 __all__ = ["SubmitInputs", "SubmitResult", "Estimate", "JobService", "RemoteError", "new_job_id"]
 
 
+def _pixel_size(photo: Path) -> list:
+    """[width, height] of the original as stored (no EXIF turn), read from its header only."""
+    from PIL import Image
+
+    with Image.open(photo) as img:
+        return [int(img.size[0]), int(img.size[1])]
+
+
 def new_job_id(source: Path) -> str:
     slug = re.sub(r"[^A-Za-z0-9]+", "-", Path(source).name).strip("-")[:40] or "job"
     # random suffix: two submits of one folder in the same second must not collide (review L4)
@@ -58,6 +69,9 @@ class SubmitInputs:
     n: Optional[int] = None
     tag: Optional[str] = None          # e.g. regression:slovakia (spec-114); None = an owner's album
     rerun_of: Optional[str] = None     # spec-115 R5: the same photos as this earlier job (its manifest)
+    run_spec: Optional[Dict] = None    # spec-116 R2: what to run; None = the named pipeline's yaml
+    # spec-116: called once the results are loaded, before the job counts as succeeded; raising fails the job
+    on_loaded: Optional[Callable[[str], None]] = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,21 +96,36 @@ class Estimate:
 RunnerFactory = Callable[[str, JobStore, str, str], Runner]
 
 
-def _default_factory(name: str, store: JobStore, pipeline: str, device: str) -> Runner:
-    return make_runner(name, store, pipeline=pipeline, device=device)
-
-
 class JobService:
     def __init__(self, db: ControlDB, config: ServingConfig, *,
                  store: Optional[JobStore] = None,
-                 runner_factory: RunnerFactory = _default_factory):
+                 runner_factory: Optional[RunnerFactory] = None):
         self.db, self.config = db, config
-        self.store = store or JobStore(config.jobs_root)
+        if store is None:
+            from sim_bench.storage.object_store import make_object_store   # R2 when R2_* is set (spec-117 R7)
+            store = JobStore(config.jobs_root, objects=make_object_store(config.jobs_root))
+        self.store = store
         self.repo = JobRepo(db)
-        self._factory = runner_factory
+        # the real runners get the job database: their workers write progress and results to it (spec-117)
+        self._factory = runner_factory or (lambda name, st, pipeline, device: make_runner(
+            name, st, pipeline=pipeline, device=device, db=self.db))
         self._active: Dict[str, Runner] = {}          # job id -> the runner working on it (for cancel)
         self._cancel_requested: Set[str] = set()
         self._modal = threading.Lock()                 # one Modal job at a time: one cache writer (R4, review M4)
+        self._detached = None                          # DetachedModalRemote, made when first needed (spec-117)
+
+    @property
+    def detached(self):
+        """Start / status / cancel of L4 runs by call id; lazy, so the API starts without Modal."""
+        if self._detached is None:
+            from sim_bench.serving.detached_modal import DetachedModalRemote
+            self._detached = DetachedModalRemote()
+        return self._detached
+
+    def watchdog(self):
+        """spec-117 R9: fails detached runs whose worker is gone (heartbeat stopped, call ended)."""
+        from sim_bench.serving.run_watchdog import RunWatchdog
+        return RunWatchdog(self.db, self.detached)
 
     def estimate(self, source: Optional[Path], start: int = 0, n: Optional[int] = None,
                  runner: Optional[str] = None, rerun_of: Optional[str] = None) -> Estimate:
@@ -110,8 +139,8 @@ class JobService:
             count = len(select_images(Path(source), start, n))
         if cfg.runner != "modal_gpu":
             return Estimate(runner=cfg.runner, n_photos=count)
-        minutes = round((cfg.l4_fixed_seconds + count * cfg.l4_seconds_per_photo) / 60, 1)
-        dollars = round(minutes / 60 * cfg.l4_dollars_per_hour, 2)
+        minutes = round((cfg.l4_fixed_seconds + count * cfg.l4_seconds_per_photo) * cfg.slowest_slowdown / 60, 1)
+        dollars = round(minutes / 60 * cfg.dearest_dollars_per_hour, 2)   # spec-117 R10 + M6: slowest, dearest GPU
         reason = None
         if count > cfg.max_photos_l4:
             reason = f"{count} photos is over the L4 limit of {cfg.max_photos_l4}; choose a smaller range"
@@ -133,15 +162,21 @@ class JobService:
         runner = self._active.get(job_id)
         if runner is not None:
             runner.cancel(job_id)
+        elif job.call_id:                  # a detached L4 run this process did not start (or since restarted)
+            try:
+                self.detached.cancel(job.call_id)
+            except Exception as e:
+                raise RemoteError(f"Modal did not cancel the run: {type(e).__name__}: {e}") from e
+            self.repo.fail(job_id, CANCELLED)
         elif job.status == QUEUED:
             self.repo.fail(job_id, CANCELLED)
 
     def run_settings(self, job_id: str) -> Optional[Dict]:
         """The settings the run recorded in run.json (spec-115 R12), if any."""
-        path = self.store.paths(job_id).run_path
+        data = self.store.read_object(job_id, "run.json")   # the job folder, or R2 for an L4 run (spec-117)
         try:
-            return json.loads(path.read_text(encoding="utf-8")).get("settings") or None
-        except (OSError, ValueError):     # not there yet, or still being copied back
+            return json.loads(data.decode("utf-8")).get("settings") or None if data else None
+        except ValueError:
             return None
 
     def delete_remote_inputs(self, job_id: str, remote=None) -> Dict:
@@ -176,6 +211,28 @@ class JobService:
             f.unlink(missing_ok=True)
         for d in (paths.results_dir, paths.display_dir, paths.faces_dir):
             shutil.rmtree(d, ignore_errors=True)
+        if not self.store.objects.is_local:            # spec-117: and what the worker put in R2
+            for sub in ("results/", "display/", "faces/"):
+                self.store.objects.delete_prefix(f"{job_id}/{sub}")
+
+    def delete_job(self, job_id: str) -> int:
+        """Delete a finished job: its rows (photos, faces, people, events, edits go with it) and every file
+        under ``<job_id>/`` in the object store (spec-117 R14). Its staged photos stay (shared by content).
+        Returns the number of stored files deleted."""
+        from sim_bench.control.models import Job
+
+        job = self.repo.get(job_id)
+        if job is None:
+            raise KeyError(job_id)
+        if job.status not in TERMINAL:
+            raise ValueError(f"job {job_id!r} is {job.status}; cancel it or let it finish first")
+        n = self.store.objects.delete_prefix(f"{self.store.paths(job_id).job_id}/")
+        if not self.store.objects.is_local:            # the job folder here: manifest, run spec
+            shutil.rmtree(self.store.paths(job_id).root, ignore_errors=True)
+        with self.db.session() as s:
+            s.delete(s.get(Job, job_id))
+        logger.info("job %s deleted (%d stored files)", job_id, n)
+        return n
 
     def create(self, inputs: SubmitInputs) -> str:
         """Record the job (queued) and return its id; ``run`` does the work."""
@@ -207,7 +264,7 @@ class JobService:
     def _stage(self, job_id: str, source: Path, start: int, n: Optional[int]) -> None:
         """Put the folder's photos in the shared input store (only new ones are resized) and point
         the job at them (spec-112 A2)."""
-        keys, fresh = [], 0
+        keys, originals, sizes, fresh = [], {}, {}, 0
         for photo in select_images(source, start, n):
             try:
                 key = self.store.inputs.key_for(photo)
@@ -215,11 +272,13 @@ class JobService:
                     self.store.inputs.put_bytes(key, downsample(photo))
                     fresh += 1
                 keys.append(key)
+                originals[key] = str(photo)
+                sizes[key] = _pixel_size(photo)
             except Exception as e:   # one unreadable file must not sink the job; it is logged
                 logger.warning("skipping unreadable image %s: %s", photo, e)
         if not keys:
             raise ValueError(f"no readable images in {source}")
-        self.store.write_input_manifest(job_id, keys)
+        self.store.write_input_manifest(job_id, keys, originals, sizes)
         self.repo.log(job_id, f"staged {len(keys)} photos ({fresh} new, {len(keys) - fresh} already staged)")
 
     def run(self, job_id: str, inputs: SubmitInputs) -> SubmitResult:
@@ -231,10 +290,13 @@ class JobService:
             self.repo.transition(job_id, STAGING, worker=this_worker())
             if inputs.rerun_of is not None:
                 keys = self.store.input_keys(inputs.rerun_of)
-                self.store.write_input_manifest(job_id, keys)
+                self.store.write_input_manifest(job_id, keys, self.store.input_originals(inputs.rerun_of),
+                                                self.store.input_sizes(inputs.rerun_of))
                 self.repo.log(job_id, f"staged {len(keys)} photos (the same photos as {inputs.rerun_of})")
             elif inputs.source is not None:
                 self._stage(job_id, Path(inputs.source), inputs.start, inputs.n)
+            if inputs.run_spec:
+                self.store.write_run_spec(job_id, inputs.run_spec)
             n = len(self.store.input_images(job_id))
             if n == 0:
                 raise ValueError(f"job {job_id!r} has no staged inputs")
@@ -260,16 +322,23 @@ class JobService:
                 self.repo.log(job_id, note)
             if outcome.error == CANCELLED or job_id in self._cancel_requested:
                 raise _Cancelled()
+            if outcome.wall_s is not None:
+                self.repo.log(job_id, f"pipeline {outcome.wall_s}s")
+            after = self.repo.get(job_id)
+            if after.status == SUCCEEDED:          # the worker wrote its results (spec-117 R6)
+                return SubmitResult(job_id, SUCCEEDED)
+            if after.status == FAILED:             # ... or recorded its own failure
+                return SubmitResult(job_id, FAILED, after.error)
             if not outcome.ok:
                 self.repo.fail(job_id, outcome.error or "run failed", outcome.failed_step)
                 return SubmitResult(job_id, FAILED, outcome.error)
-            if outcome.wall_s is not None:
-                self.repo.log(job_id, f"pipeline {outcome.wall_s}s")
 
             self.repo.transition(job_id, LOADING)
             res = ResultsLoader(self.db, self.store).calc(LoadInputs(job_id))
             for w in res.warnings:
                 self.repo.log(job_id, w, kind="warning")
+            if inputs.on_loaded is not None:
+                inputs.on_loaded(job_id)
             self.repo.transition(job_id, SUCCEEDED,
                                  f"{res.n_picks} picks of {res.n_photos} photos, "
                                  f"{res.n_faces} faces, {res.n_people} people")

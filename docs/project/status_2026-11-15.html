@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albumify Status</title>
+<style>
+:root{--bg:#fbfaf7;--card:#fff;--ink:#1f2328;--muted:#5d6670;--line:#e3e0d8;--ok:#2f7d43;--okbg:#e3f3e5;--warn:#9a6a12;--warnbg:#fff1d6;--bad:#a8322d;--badbg:#fbe4e2;--info:#2d5d9f;--infobg:#e4edf8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15181c;--card:#1d2126;--ink:#e6e8eb;--muted:#9aa3ad;--line:#2f353c;--ok:#7cc98d;--okbg:#1f3326;--warn:#e7b562;--warnbg:#3a2f18;--bad:#f08a84;--badbg:#3d2120;--info:#8db4ea;--infobg:#1e2b3d}}
+:root[data-theme="dark"]{--bg:#15181c;--card:#1d2126;--ink:#e6e8eb;--muted:#9aa3ad;--line:#2f353c;--ok:#7cc98d;--okbg:#1f3326;--warn:#e7b562;--warnbg:#3a2f18;--bad:#f08a84;--badbg:#3d2120;--info:#8db4ea;--infobg:#1e2b3d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:920px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:25px;margin:0 0 4px}
+h2{font-size:18px;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.sub{color:var(--muted);margin:0 0 16px}
+.lead{background:var(--infobg);border-left:4px solid var(--info);padding:12px 16px;border-radius:6px;font-size:16px}
+.tbl{width:100%;overflow-x:auto}
+table{border-collapse:collapse;width:100%;background:var(--card);border:1px solid var(--line);font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;background:color-mix(in srgb,var(--line) 45%,var(--card))}
+code{font-family:ui-monospace,Consolas,monospace;font-size:13px;background:color-mix(in srgb,var(--line) 50%,transparent);padding:1px 5px;border-radius:4px}
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.ok{background:var(--okbg);color:var(--ok)}.warn{background:var(--warnbg);color:var(--warn)}.bad{background:var(--badbg);color:var(--bad)}.info{background:var(--infobg);color:var(--info)}
+.lanes{display:grid;gap:10px;margin:10px 0}
+.lane{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.lane b{display:block;margin-bottom:4px}
+.track{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13.5px}
+.track .n{border:1px solid var(--line);border-radius:7px;padding:4px 9px;background:var(--bg)}
+.track .n.done{border-color:var(--ok);color:var(--ok)}
+.track .n.todo{border-style:dashed;color:var(--muted)}
+.track .a{color:var(--muted)}
+ol.steps{padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px 10px 48px;margin:8px 0;position:relative}
+ol.steps li::before{content:counter(s);position:absolute;left:14px;top:10px;width:24px;height:24px;border-radius:50%;background:var(--info);color:var(--card);font-weight:700;text-align:center;line-height:24px;font-size:13px}
+.muted{color:var(--muted);font-size:13.5px}
+ul{padding-left:20px}li{margin:3px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Albumify — where things stand</h1>
+<p class="sub">2026-11-15 · specs 116 + 117 (one run path, one cloud database) · nothing pushed yet</p>
+
+<div class="lead"><b>In one line:</b> the work is finished and tested, and every blocking review finding is fixed.
+To close specs 116 and 117, three things remain: <b>merge the fix branch, refresh the two reviews, open one pull request</b>.
+That's about an hour of work and one OK from you to push.</div>
+
+<h2>1. Why it felt confusing: two sessions worked in parallel</h2>
+<div class="lanes">
+  <div class="lane"><b>This session (terminal) — checks and reviews</b>
+    <div class="track"><span class="n done">tests</span><span class="a">→</span><span class="n done">Budapest gate</span><span class="a">→</span><span class="n done">secret scan</span><span class="a">→</span><span class="n done">2 code reviews</span><span class="a">→</span><span class="n done">report emailed</span></div>
+    <p class="muted">Output on branch <code>spec/117-neon-r2</code>, folder <code>D:\sim-bench-117</code>. The review files are written but not committed yet.</p></div>
+  <div class="lane"><b>Other session (Telegram) — fixes</b>
+    <div class="track"><span class="n done">fixed every review blocker</span><span class="a">→</span><span class="n done">Budapest 11/11</span><span class="a">→</span><span class="n done">Neon tests</span><span class="a">→</span><span class="n done">your 2 decisions recorded</span></div>
+    <p class="muted">4 commits on branch <code>spec/117-m3-fixes</code>, folder <code>D:\sim-bench-117-m3</code>. Separate folders, so nothing was overwritten.</p></div>
+  <div class="lane"><b>Still to do — in one session only</b>
+    <div class="track"><span class="n todo">merge the two branches</span><span class="a">→</span><span class="n todo">full suite</span><span class="a">→</span><span class="n todo">refresh reviews</span><span class="a">→</span><span class="n todo">PR 117 → main</span><span class="a">→</span><span class="n todo">your OK to push</span></div></div>
+</div>
+
+<h2>2. What is done</h2>
+<div class="tbl"><table>
+<tr><th>Area</th><th>Result</th><th>Proof</th></tr>
+<tr><td>One run path (116)</td><td><span class="pill ok">done</span> choose this PC or the GPU; every run shows in Albums / Results / People</td><td>Full suite, Budapest gate</td></tr>
+<tr><td>One cloud database (117)</td><td><span class="pill ok">done</span> all tables on Neon, files on R2; the GPU worker writes results itself</td><td>Data migrated: 17 tables, counts checked</td></tr>
+<tr><td>Runs survive the PC dropping out</td><td><span class="pill ok">proven</span> GPU run finished with the PC's app switched off</td><td>Run <code>f7d8ba85</code>: 329 picks, 7 people</td></tr>
+<tr><td>Speed</td><td><span class="pill ok">better</span> saving 20 min → ~1 min; local run 24 → 4.9 min; re-runs reuse the cache</td><td>Run <code>fd52013c</code></td></tr>
+<tr><td>Tests</td><td><span class="pill ok">pass</span> 1805 passed, 0 failed; Budapest 11/11 (on both branches)</td><td>Logs in the session</td></tr>
+<tr><td>Tests on the real cloud database</td><td><span class="pill ok">pass</span> 315 of 316. The 1 failure was a test time limit, since fixed; those 8 tests now pass on Neon</td><td>Not a full 316-test rerun (2 h); optional</td></tr>
+<tr><td>Security</td><td><span class="pill ok">clean</span> no key or password in git, files, logs or the database</td><td>Secret scan</td></tr>
+<tr><td>Review blockers</td><td><span class="pill ok">fixed</span> network-blip bug (a run kept alive), worker refuses to run with no database, spend cap at A10 speed, architecture docs, heartbeat test</td><td>Branch <code>spec/117-m3-fixes</code></td></tr>
+<tr><td>Your decisions</td><td><span class="pill ok">recorded</span> keep 768 px images; page speed and the 3-photo re-run difference become follow-ups, not merge blockers</td><td>Commit <code>f11f595</code></td></tr>
+</table></div>
+
+<h2>3. How we close 116 and 117</h2>
+<ol class="steps">
+<li><b>Commit the review work</b> on <code>spec/117-neon-r2</code>: both REVIEW.md files and the report page. Drop my duplicate SIGHTING-155 and keep the fix branch's copy. <span class="muted">~5 min</span></li>
+<li><b>Merge</b> <code>spec/117-m3-fixes</code> into <code>spec/117-neon-r2</code>. Expect no conflicts: 117 has no other new commits. <span class="muted">~5 min</span></li>
+<li><b>Full test suite</b> on the merged branch. <span class="muted">~7 min</span></li>
+<li><b>Refresh both code reviews.</b> Expect: 117's High findings are fixed; 116's two Highs are settled by your 768 px decision and by merging 116 and 117 together. Mark both specs <i>Implemented</i>, and spec-112 Phase B with them. <span class="muted">~30 min</span></li>
+<li><b>Open one pull request, 117 → main</b> (it includes 116). <span class="pill warn">needs your OK</span> to push. <span class="muted">~5 min</span></li>
+</ol>
+<p class="muted">Rule while this runs: <b>one session does all of it</b>, so the two don't overwrite each other. I suggest this terminal session, since the uncommitted review files are in its folder. The other session pauses on the 117 branches.</p>
+
+<h2>4. Follow-ups after the merge (not blockers)</h2>
+<div class="tbl"><table>
+<tr><th>Item</th><th>What</th></tr>
+<tr><td>Page speed (117 R11)</td><td>Only People is under 2 s. Results 11.6 s and Explore 7.7 s on first open. The cause is the app drawing about 300 photos, not the database.</td></tr>
+<tr><td>SIGHTING-154</td><td>Re-running an album changes 3 of ~330 picks</td></tr>
+<tr><td>Cancel a queued GPU run</td><td>Not yet tried on real Modal</td></tr>
+<tr><td>Review Mediums still open</td><td>Same cache row written twice at once fails the step; <code>serving</code> imports from <code>api</code> (spec-119 would fix this); 116 config not tied to the K=51 profile</td></tr>
+<tr><td>71 skipped tests</td><td>Reasons not yet listed</td></tr>
+</table></div>
+
+<h2>5. All open PRDs and how each closes</h2>
+<div class="tbl"><table>
+<tr><th>Spec</th><th>Status</th><th>How it closes</th></tr>
+<tr><td><b>116</b> one run path</td><td><span class="pill info">ready</span></td><td>Steps 1–5 above</td></tr>
+<tr><td><b>117</b> one cloud database</td><td><span class="pill info">ready</span></td><td>Steps 1–5 above</td></tr>
+<tr><td><b>112</b> Neon + R2, Phase B</td><td><span class="pill info">ready</span></td><td>Closed by 117; mark Implemented in the same PR</td></tr>
+<tr><td><b>118</b> album tiers, Gate 1</td><td><span class="pill warn">draft</span></td><td>You approve the spec → build → judge Gate 1 on Best 30. <b>Next big piece after the merge.</b></td></tr>
+<tr><td><b>119</b> repository layer</td><td><span class="pill warn">proposal</span></td><td>Written by the other session. Review after the merge, then approve, park or drop.</td></tr>
+<tr><td>110 Modal worker</td><td><span class="pill bad">stale</span></td><td>AC4/AC5 were re-run checks. The M2 runs likely cover them; confirm and close.</td></tr>
+<tr><td>109 GPU + parallelism</td><td><span class="pill bad">stale</span></td><td>The 100/300-photo benchmark is still open. Close it as covered by real runs, or park it.</td></tr>
+<tr><td>106 Live Curator (the product)</td><td><span class="pill info">umbrella</span></td><td>Stays open. It's the public web app, and 116–118 are its steps.</td></tr>
+<tr><td>107, 108, 111, 102, 103</td><td><span class="pill bad">stale</span></td><td>Partly built, untouched for weeks. Suggest: <b>park</b> them (mark "Parked" in ROADMAP with one line each) unless you want one back.</td></tr>
+</table></div>
+
+<h2>6. What I need from you</h2>
+<ol>
+<li><b>Which session closes 116/117?</b> Suggest this one; the other pauses.</li>
+<li><b>OK to push</b> and open the PR after steps 1–4. Or reply "full Neon rerun first" if you want the 2-hour proof.</li>
+<li><b>Old specs:</b> park 102, 103, 107, 108, 109, 111 and close 110? (yes / pick)</li>
+<li><b>Spec-118:</b> review and approve, so Gate 1 work can start.</li>
+<li><b>Housekeeping:</b> rotate the Gemini API key; delete the 3 failed runs from Albums; keep Telegram on one session only.</li>
+</ol>
+</main>
+</body>
+</html>

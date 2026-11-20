@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from sqlalchemy import delete
@@ -109,10 +110,9 @@ class ResultsLoader:
     # --- rows -----------------------------------------------------------------
 
     def _photo_rows(self, job_id: str, album: Dict, bundle: Dict, warnings: List[str]) -> List[Photo]:
-        paths = self._store.paths(job_id)
         files = self._store.input_file_keys(job_id)
-        displays = {p.stem: p.name for p in paths.display_dir.iterdir()} \
-            if paths.display_dir.is_dir() else {}
+        prefix = f"{job_id}/display/"           # spec-117 R7: what the object store holds, one listing
+        displays = {Path(k).stem: k[len(prefix):] for k in self._store.objects.list(prefix)}
         brows = {p["photo_id"]: p for p in bundle.get("photos", [])}
         picks = {p["id"]: p for p in album.get("picks", [])}
         dropped = {d["id"]: d for d in album.get("dropped", [])}
@@ -166,14 +166,14 @@ class ResultsLoader:
         return rows
 
     def _face_rows(self, job_id: str, bundle: Dict) -> List[Face]:
-        faces_dir = self._store.paths(job_id).faces_dir
+        cropped = set(self._store.objects.list(f"{job_id}/faces/"))
         return [Face(job_id=job_id, face_id=int(f["face_id"]), photo_id=f["photo_id"],
                      person_id=f.get("person_id"), bbox=list(f["bbox"]),
                      det_score=f.get("det_score"), blur_score=f.get("blur_score"),
                      pose=f.get("pose"), is_core=bool(f.get("is_core")),
                      rejection_reason=f.get("rejection_reason"),
                      crop_key=f"faces/{int(f['face_id'])}.jpg"
-                     if (faces_dir / f"{int(f['face_id'])}.jpg").is_file() else None)
+                     if f"{job_id}/faces/{int(f['face_id'])}.jpg" in cropped else None)
                 for f in bundle.get("faces", [])]
 
 

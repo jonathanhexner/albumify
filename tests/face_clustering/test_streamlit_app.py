@@ -364,3 +364,18 @@ def test_human_override_of_ml_included_in_training_data():
 
     assert (0, 1) in human_label_map
     assert human_label_map[(0, 1)] == 1
+
+
+@pytest.mark.skipif(not HAS_APPTEST, reason="streamlit.testing.v1 not available")
+def test_only_the_chosen_tab_renders():
+    """SIGHTING-148: a tab selector renders one tab body; st.tabs built all 11 on every rerun."""
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
+    at.run()
+    selector = at.radio(key="fc_active_tab")
+    assert selector.value == "Run" and len(selector.options) == 11
+    assert any("Run" in b.label for b in at.button)
+    for tab in selector.options:
+        at.radio(key="fc_active_tab").set_value(tab).run()
+        assert not at.exception, f"tab {tab!r} raised: {at.exception}"
+    # last tab chosen: the Run tab's Run button is no longer built
+    assert not any(b.label.startswith("Run") for b in at.button), [b.label for b in at.button]

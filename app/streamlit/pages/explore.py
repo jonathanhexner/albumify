@@ -17,15 +17,20 @@ from app.streamlit.session import get_session
 from app.streamlit.components.album_selector import render_album_selector
 from app.streamlit.api_client import get_client
 from app.streamlit.components.image_popup import image_detail_btn
+from app.streamlit.thumb_sources import source
 
 logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 20
 
 
-@st.cache_data(show_spinner=False)
 def _load_thumb(path: str, size: int = 60) -> Optional[str]:
-    """Load a square thumbnail as base64."""
+    """A square thumbnail as base64, from the run's 768 px copy when there is one."""
+    return _load_thumb_file(source(path), size)
+
+
+@st.cache_data(show_spinner=False)
+def _load_thumb_file(path: str, size: int = 60) -> Optional[str]:
     try:
         with Image.open(path) as img:
             img = ImageOps.exif_transpose(img)
@@ -60,7 +65,7 @@ def render_explore_page() -> None:
 
     latest = results[0]
     job_id = latest.get("job_id", latest.get("id", ""))
-    decisions = latest.get("step_decisions") or []
+    decisions = client.get_step_decisions(job_id)
     images = client.get_images(job_id)
     st.session_state["_popup_all_images"] = images
     # Build path->ImageInfo lookup for thumbnails

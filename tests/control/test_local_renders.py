@@ -98,3 +98,47 @@ class ut_LocalRenders:
         faces = store.paths("j").faces_dir
         assert res.bad_boxes == [5] and (faces / "0.jpg").is_file() and not (faces / "5.jpg").exists()
         assert not list(faces.glob("*.part")) and not list(store.paths("j").display_dir.glob("*.part"))
+
+
+class _SlowStore:
+    """An object store where every PUT takes 50 ms, like R2 from far away (0.5-1 s in real life)."""
+
+    def __init__(self, real):
+        import threading
+        self._real, self.is_local, self.max_at_once, self._now, self._lock = real, False, 0, 0, threading.Lock()
+
+    def list(self, prefix):
+        return self._real.list(prefix)
+
+    def _slow(self, fn, *args):
+        import time
+        with self._lock:
+            self._now += 1
+            self.max_at_once = max(self.max_at_once, self._now)
+        time.sleep(0.05)
+        fn(*args)
+        with self._lock:
+            self._now -= 1
+
+    def put(self, key, data):
+        self._slow(self._real.put, key, data)
+
+    def put_file(self, key, path):
+        self._slow(self._real.put_file, key, path)
+
+
+def test_uploads_run_in_parallel_and_all_arrive(tmp_path):
+    """spec-117 T8.2: ~1,300 files one PUT after another took 10-20 min and ran the L4 worker into its timeout."""
+    import time
+    store = JobStore(tmp_path / "jobs")
+    store.stage_inputs("j", [(f"p{i}.jpg", _photo()) for i in range(20)])
+    store.objects = _SlowStore(store.objects)
+    album = {"picks": [{"id": f"p{i}"} for i in range(20)]}
+    bundle = {"faces": [{"face_id": i * 3 + k, "photo_id": f"p{i}", "bbox": BOX} for i in range(20) for k in range(3)]}
+    t0 = time.perf_counter()
+    res = LocalRenders(store).calc(LocalRendersInputs("j", album, bundle))
+    took = time.perf_counter() - t0
+    assert (res.n_displays, res.n_crops) == (20, 60)
+    assert len(list(store.paths("j").faces_dir.iterdir())) == 60 and len(list(store.paths("j").display_dir.iterdir())) == 20
+    assert store.objects.max_at_once > 1, "uploads went one at a time"
+    assert took < 80 * 0.05 / 2, f"{took:.2f}s for 80 uploads of 50 ms"       # one at a time would be >= 4 s

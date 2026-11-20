@@ -365,6 +365,58 @@ technical write-up</td>
 </table>
 <h2 id="current-position">Current position</h2>
 <ul>
+<li><strong>2026-11-15 — specs 116 + 117 M3 closed: every check green,
+both reviews accepted (no High open).</strong> Merged branch
+<code>b95e485</code>: full suite 1824 passed / 0 failed, Budapest 11/11,
+secret scan 0 hits, Neon parity 315/316 (one test time limit, fixed).
+Owner decisions: keep 768 px; page speed (R11) and SIGHTING-154 are
+follow-ups. Next: one PR 117 -&gt; main (closes 116, 117, 112 Phase B)
+on the owner's OK; then spec-118 (Gate 1). Follow-ups: deploy the fix
+image, try cancelling a queued GPU run, review M7/M8.</li>
+<li><strong>2026-11-14 — spec-117 M2 done: Slovakia26 ran on the GPU
+from the app and survived the PC dropping out.</strong> Deployed
+<code>albumify-curator</code>; three failures fixed on the way
+(SIGHTING-153: worker import, idle transaction, one-at-a-time uploads);
+run <code>f7d8ba85</code> finished with this PC's API and UI stopped,
+results in Albums. Saving dropped from 20 min to ~1 min, a local run
+from 24 to 4.9 min. Open: picks differ by 3 of ~330 between re-runs
+(SIGHTING-154), pages over 2 s (Streamlit drawing 300 photos). Next: M3
+close-out (secret scan, full suite, Budapest gate, /code-review, PR 117
+to main).</li>
+<li><strong>2026-11-13 — <a
+href="specs/118-album-tiers-gate1/spec.html">spec-118</a> album tiers
+drafted.</strong> Owner reviewed every pick of Slovakia26 run
+<code>52776cc5</code> (K=51): Best 10 10/10 kept, Best 30 28/30, all
+219/299 (<a
+href="reports/2026-11-13_slovakia26_picks_review/report.html">report</a>).
+The tail is weak, the top is not: show Best 10 / 30 / All and judge Gate
+1 on Best 30; quality fixes (near-duplicates, dull photos, bad faces,
+time/geo scenes, sharpness filter) parked in spec-118 and scored against
+the review. Spec-117: real migration to Neon done (17 tables, counts
+verified); T8.1 running.</li>
+<li><strong>2026-11-06 — <a
+href="specs/117-neon-r2-one-database/spec.html">spec-117</a> one cloud
+database drafted.</strong> Reviewing the 10-23 Slovakia26 L4 run found
+it unusable: face clustering ran without its settings (80 people for
+about 4), and photos in no scene were dropped as near-duplicates
+(SIGHTING-146, fixed, not committed). The owner chose option A: every
+Albumify table on Neon, files on R2, and the L4 worker writes status,
+progress and results itself, so a dropped PC no longer kills a run
+(SIGHTING-145). Accounts set up and checked. Sharpness gate: 59 of 60
+removals wrong on owner labels (<a
+href="reports/2026-11-06_sharpness_labels/report.html">report</a>); bad
+picks are mostly people not looking or strangers in frame.</li>
+<li><strong>2026-10-31 — spec-116 W1-W3 built, not Implemented.</strong>
+One run path works on this PC and passes every suite. Open: 768 px fails
+its Budapest check (sharpness gate, people; SIGHTING-144), and two L4
+attempts never got a GPU (SIGHTING-145).</li>
+<li><strong>2026-10-25 — <a
+href="specs/116-one-run-path/spec.html">spec-116</a> one run path
+drafted.</strong> The owner could not find the spec-115 L4 run in
+Albums: it lived on the Jobs page only, with no reasons shown. Configure
+&amp; Run gets a choice of where to run, and every run shows in
+Albums/Results/People. Then Gate 1. Near-duplicate picks filed as
+SIGHTING-142.</li>
 <li><strong>2026-10-23 — <a
 href="specs/115-album-workbench/spec.html">spec-115</a> album workbench
 Implemented</strong> (was spec-112 Phase A2); next: Gate 1, judged in
@@ -414,7 +466,8 @@ decision.</li>
 <tr>
 <td>1</td>
 <td>Quality bar for Gate 1</td>
-<td>Open — agree the bar before running Stage A</td>
+<td><strong>Decided 2026-11-13:</strong> Best 30 ≥ 90% kept and Best 10
+all kept, owner-judged in the app (spec-118)</td>
 </tr>
 <tr>
 <td>2</td>
@@ -546,6 +599,36 @@ needs one re-run after the SIGHTING-126 fix; AC5 unproven; SIGHTING-128
 open</td>
 <td><a
 href="specs/110-containerized-worker-modal-cpu/updates.html">updates</a></td>
+</tr>
+<tr>
+<td><a href="specs/118-album-tiers-gate1/spec.html">118</a></td>
+<td>Album tiers: Best 10 / Best 30 / All, ranked and spread over scenes;
+Gate 1 judged on Best 30; review yardstick + parked quality backlog</td>
+<td>A/C (Gate 1, after 117)</td>
+<td>Draft 2026-11-13 — awaiting owner approval</td>
+<td><a href="specs/118-album-tiers-gate1/updates.html">updates</a> · <a
+href="specs/118-album-tiers-gate1/tasks.html">tasks</a> · <a
+href="reports/2026-11-13_slovakia26_picks_review/report.html">review</a></td>
+</tr>
+<tr>
+<td><a href="specs/117-neon-r2-one-database/spec.html">117</a></td>
+<td>One cloud database: every Albumify table on Neon, files on R2, the
+L4 worker writes the database; runs survive a dropped PC</td>
+<td>C (next, before Gate 1)</td>
+<td>Code Review 2026-11-15 — accepted, no High open; migrated to Neon,
+GPU run proven, M3 checks green; merges to main with 116 in one PR</td>
+<td><a href="specs/117-neon-r2-one-database/updates.html">updates</a> ·
+<a href="specs/117-neon-r2-one-database/tasks.html">tasks</a></td>
+</tr>
+<tr>
+<td><a href="specs/116-one-run-path/spec.html">116</a></td>
+<td>One run path: choose this PC or the L4 in Configure &amp; Run; every
+run shows in Albums/Results/People</td>
+<td>C (next, before Gate 1)</td>
+<td>Code Review 2026-11-15 — accepted, no High open; merges to main with
+117 in one PR</td>
+<td><a href="specs/116-one-run-path/updates.html">updates</a> · <a
+href="specs/116-one-run-path/tasks.html">tasks</a></td>
 </tr>
 <tr>
 <td><a href="specs/115-album-workbench/spec.html">115</a></td>

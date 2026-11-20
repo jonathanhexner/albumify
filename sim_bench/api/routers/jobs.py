@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import func, select
 
 from sim_bench.api.schemas.jobs import (
@@ -24,6 +24,7 @@ from sim_bench.control.db import ControlDB
 from sim_bench.control.jobs import SUCCEEDED, InvalidTransition
 from sim_bench.control.models import Face, Photo
 from sim_bench.serving.job_service import JobService, RemoteError, SubmitInputs
+from sim_bench.serving.job_store import INPUTS_PREFIX
 from sim_bench.serving.serving_config import RUNNERS, load_serving_config
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,17 @@ def delete_remote_inputs(job_id: str, svc: JobService = Depends(get_job_service)
     return DeleteInputsOut(deleted=len(res.get("deleted", [])), kept=int(res.get("kept", 0)))
 
 
+@router.delete("/{job_id}")
+def delete_job(job_id: str, svc: JobService = Depends(get_job_service)):
+    """spec-117 R14: delete a finished job, its rows and its stored files (R2 or the job folder)."""
+    _job_or_404(svc, job_id)
+    try:
+        n = svc.delete_job(job_id)
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    return {"job_id": job_id, "deleted_files": n}
+
+
 @router.post("/{job_id}/load", response_model=JobAccepted)
 def load_job_files(job_id: str, body: JobLoad, svc: JobService = Depends(get_job_service)):
     """Record + load a job whose files are already in the store (e.g. a Modal run pulled down)."""
@@ -158,7 +170,7 @@ def compare_jobs(job_id: str, with_: str = Query(..., alias="with", description=
 def list_photos(job_id: str, svc: JobService = Depends(get_job_service)):
     """Every staged photo, including ones removed before the album saw them (with the reason)."""
     _job_or_404(svc, job_id)
-    with svc.db.session() as s:
+    with svc.db.read_session() as s:
         n_faces = dict(s.execute(select(Face.photo_id, func.count()).where(Face.job_id == job_id)
                                  .group_by(Face.photo_id)).all())
         photos = list(s.scalars(select(Photo).where(Photo.job_id == job_id).order_by(Photo.photo_id)))
@@ -172,7 +184,7 @@ def list_photos(job_id: str, svc: JobService = Depends(get_job_service)):
 def list_faces(job_id: str, person_id: int | None = None,
                svc: JobService = Depends(get_job_service)):
     _job_or_404(svc, job_id)
-    with svc.db.session() as s:
+    with svc.db.read_session() as s:
         q = select(Face).where(Face.job_id == job_id)
         if person_id is not None:
             q = q.where(Face.person_id == person_id)
@@ -182,17 +194,26 @@ def list_faces(job_id: str, person_id: int | None = None,
                     has_crop=f.crop_key is not None) for f in faces]
 
 
-def _file(svc: JobService, job_id: str, key: str | None) -> FileResponse:
-    path = svc.store.resolve(job_id, key or "")   # job folder or shared input store; never outside
-    if path is None:
+def _file(svc: JobService, job_id: str, key: str | None) -> Response:
+    """This job's own file only (spec-115 R7, spec-117 R7): the shared input store if its manifest lists the photo,
+    else its key under ``<job_id>/`` in the object store. Another job's key or a made-up one is a 404."""
+    if not key:
         raise HTTPException(404, "no file")
-    return FileResponse(path, media_type="image/jpeg")
+    if key.startswith(INPUTS_PREFIX) or svc.store.objects.is_local:
+        path = svc.store.resolve(job_id, key)     # job folder or shared input store; never outside
+        if path is None:
+            raise HTTPException(404, "no file")
+        return FileResponse(path, media_type="image/jpeg")
+    data = svc.store.read_object(job_id, key)
+    if data is None:
+        raise HTTPException(404, "no file")
+    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.get("/{job_id}/photos/{photo_id}/image")
 def photo_image(job_id: str, photo_id: str, svc: JobService = Depends(get_job_service)):
     """The display copy for picks, else the staged 768 px input (dropped photos are shown too)."""
-    with svc.db.session() as s:
+    with svc.db.read_session() as s:
         p = s.get(Photo, (job_id, photo_id))
     if p is None:
         raise HTTPException(404, f"no photo {photo_id!r} in job {job_id!r}")
@@ -201,7 +222,7 @@ def photo_image(job_id: str, photo_id: str, svc: JobService = Depends(get_job_se
 
 @router.get("/{job_id}/faces/{face_id}/crop")
 def face_crop(job_id: str, face_id: int, svc: JobService = Depends(get_job_service)):
-    with svc.db.session() as s:
+    with svc.db.read_session() as s:
         f = s.get(Face, (job_id, face_id))
     if f is None:
         raise HTTPException(404, f"no face {face_id} in job {job_id!r}")

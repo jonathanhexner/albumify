@@ -201,13 +201,14 @@ extract_face_embeddings:
 # A config SOURCE, not a step: PipelineService translates it through face_cluster.fc_params.FCParams
 # and broadcasts it to the 8 steps (spec-113 renamed it from the removed `cluster_people` step).
 people_clustering:
-  K: 5                          # kNN neighbours for mutual graph
+  # K and blur_min match the validated Budapest profile_4 (SIGHTING-147): K=5 split Slovakia26's ~4 people into 76.
+  K: 51                         # kNN neighbours for mutual graph
   distance_threshold: 0.35      # Max cosine distance for edge creation
   min_cluster_size: 2
   # Quality gating
   yaw_max: 30.0
   pitch_max: 25.0
-  blur_min: 50.0
+  blur_min: 73.3                # spec-098 noise-corrected scale
   # Optional stages
   merge_enabled: true    # Required for Face Clustering App merge analysis
   attach_enabled: false

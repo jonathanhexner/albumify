@@ -6,6 +6,33 @@ This file tracks lessons learned from bugs and issues to prevent repeating past 
 
 <!-- Add new entries at the top, newest first -->
 
+### 2026-11-15: a new test must pass in CI's package set, not only the local .venv (PR #5)
+**What happened**: spec-117 added architecture tests that load `psycopg`, `modal` and (through a curate job) `ultralytics`. All passed locally (1824/0); the PR's fast lane installs only light packages and failed 4 tests. Spec-117 had never run in CI before the PR.
+**Prevention**: before pushing, run the fast-lane command from `.github/workflows/tests.yml` in a fresh venv holding only that lane's packages (the local .venv hides missing ones; the first fix still missed `psutil`/the worker's heavy imports), and add a light dependency to its install step (or keep a heavy-stack test out of that lane, as the chain-order test is).
+
+### 2026-11-14: code the worker imports lazily needs its own import test (SIGHTING-153)
+**What happened**: a FastAPI import at the top of `session.py` passed 486 tests and broke every L4 run: the GPU image has no FastAPI and the worker imports that module only inside a job. The second failure (a read transaction left open across an 8.5-min step) only shows where steps are slow and the database is Postgres.
+**Prevention**: import every worker module with the web stack blocked (`tests/architecture/test_worker_imports_without_fastapi.py`); any DB read before long compute ends its transaction (asserted with `session.in_transaction()`).
+
+### 2026-11-13: on a far-away Postgres, count round trips per request, not queries (SIGHTING-152)
+**What happened**: Neon is 0.16 s away; a request with one query cost 0.80 s (pool pre-ping, psycopg 3's separate `BEGIN`, the query, `ROLLBACK`). Query-count tests caught the N+1s but not this; and first page opens were dominated by thumbnails decoded from full-size originals, not by SQL.
+**Prevention**: time `select 1` inside and outside a transaction before tuning queries; read requests run in autocommit (`tests/api/test_read_sessions.py`); thumbnails come from the 768 px copies (`tests/streamlit/test_thumb_sources.py`).
+
+### 2026-11-13: a short-hash widget key broke the gallery only on some restarts (SIGHTING-151)
+**What happened**: `detail_{hash(path) % 100000}` collided on ~300-photo albums and stopped the Results gallery at 231 of 302; Python's string hash changes per process, so it failed on some restarts and passed every small test.
+**Prevention**: key widgets by the full identifier; test with inputs built to collide (`tests/streamlit/test_gallery_keys.py`).
+
+### 2026-11-07: the album config drifted from the validated clustering profile
+**What happened**: `pipeline.yaml` kept the code defaults (K=5) while every clustering validation used profile_4 (K=51); the album pipeline split ~4 people into 76 and nobody compared the two.
+**Prevention**: a parameter validated in one place must be the one production reads; a parity test between `pipeline.yaml` and the reference profile is the follow-up.
+**Also**: Streamlit `st.tabs` builds every tab on every rerun, and collapsed expanders still build their contents; page anything per-item.
+
+### 2026-11-06: editing .py files kills a running local album run
+**What happened**: the API runs `uvicorn --reload`; a code edit restarted it and the Ctrl+C reached the LocalRunner child, failing a 715-photo Slovakia26 run 6 minutes in.
+**Prevention**: while a local run is in progress, edit no `.py` under the repo (tests included), or run the API without `--reload` for long runs.
+**Also**: SIGHTING-146 -- a sentinel label (-1 = "no cluster") read as an ordinary id by consumers; `clustering_labels.is_noise` exists, so every consumer of a cluster id must branch on it.
+
+
 ### 2026-10-23: spec-115 — what only the real app and real runs caught
 **What happened**: unit tests were green, yet driving the real app found: two widgets sharing the key
 `jobs_run_start` (the form's number box and the Start button) blanked the page; setting a selectbox's state after

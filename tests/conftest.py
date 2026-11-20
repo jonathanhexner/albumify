@@ -6,6 +6,23 @@ from pathlib import Path
 
 import pytest
 
+# ---------------------------------------------------------------------------
+# spec-117 R15 — no cloud unless a test asks for it
+# ---------------------------------------------------------------------------
+# The suite never reads .env and never sees the owner's Neon / R2 settings: everything runs on SQLite
+# and a local folder. The needs_neon parity run (tests/storage/test_neon_parity.py) hands a throwaway
+# Postgres schema to its child pytest through ALBUMIFY_TEST_DATABASE_URL; only tests/_db.py uses it.
+os.environ["ALBUMIFY_NO_DOTENV"] = "1"
+for _var in ("DATABASE_URL", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"):
+    os.environ.pop(_var, None)
+
+
+@pytest.fixture
+def control_db_url(tmp_path: Path) -> str:
+    """URL for the job tables (``ControlDB``); Postgres in the needs_neon parity run (spec-117 R3)."""
+    from tests._db import fresh_database_url
+    return fresh_database_url(tmp_path, "c.db")
+
 
 # ---------------------------------------------------------------------------
 # SIGHTING-119 — keep the suite collectable
@@ -131,3 +148,14 @@ def synthetic_action_log_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "sim_bench.db"
     init_table(db_path=db_path)
     return db_path
+
+
+@pytest.fixture(autouse=True)
+def empty_result_cache():
+    """Start every test with an empty API result cache (SIGHTING-152): it lives for the process, and tests reuse
+    run ids with different rows. Only touched when a test has imported the API."""
+    import sys
+    module = sys.modules.get("sim_bench.api.services.result_service")
+    if module is not None:
+        module.result_cache.evict()
+    yield

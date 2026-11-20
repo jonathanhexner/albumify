@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
+from tests._db import fresh_database_url
 from sim_bench.control.album_builder import (
     DEMOTED_DETAIL, AlbumBuilder, BuildInputs, EditError, record_edit,
 )
@@ -24,7 +25,7 @@ from sim_bench.serving.curate_job import CurateJobInputs, JobCurator, stable_alb
 from sim_bench.serving.job_store import JobStore
 from sim_bench.serving.pipeline_runner import SpecBuilder
 
-from tests.control.fakes import NAMES, fake_pipeline as _runner
+from tests.control.fakes import fake_output, NAMES, fake_pipeline as _runner
 
 
 def _jpeg() -> bytes:
@@ -37,10 +38,10 @@ def _jpeg() -> bytes:
 def env(tmp_path):
     store = JobStore(tmp_path / "jobs")
     store.stage_inputs("trip", [(n, _jpeg()) for n in NAMES])   # real images: the loader cuts face crops
-    JobCurator(store, spec_builder=SpecBuilder(), runner=_runner,
+    JobCurator(store, spec_builder=SpecBuilder(), runner=_runner, output_builder=fake_output,
                clock=lambda: "2026-10-10T00:00:00+00:00").calc(
         CurateJobInputs(job_id="trip", pipeline="minimal"))
-    db = ControlDB(f"sqlite:///{(tmp_path / 'c.db').as_posix()}")
+    db = ControlDB(fresh_database_url(tmp_path, "c.db"))
     JobRepo(db).create("trip", runner="local")
     return SimpleNamespace(store=store, db=db, loader=ResultsLoader(db, store),
                            builder=AlbumBuilder(db))
