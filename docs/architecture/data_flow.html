@@ -439,7 +439,8 @@ RunWatchdog (API, every 30 s; and on a status read): heartbeat &gt; 90 s, or cal
   DetachedModalRemote.status: "unknown" when this PC cannot reach Modal (unreachable(e)); call_ended("unknown") is
   False, so a network blip never fails a run: only the heartbeat does
 API restart / PC offline: the run goes on; reap_orphans skips jobs with a call id; cancel by call id
-DELETE /jobs/{id} (finished jobs only): JobService.delete_job -&gt; the job's rows + every file under &lt;job_id&gt;/
+DELETE /jobs/{id} or /api/v1/pipeline/runs/{id} (finished only): PipelineService.delete_run -&gt; JobService.delete_job (job rows + every file under &lt;job_id&gt;/) -&gt; the run row + its result / people / metric rows (SIGHTING-158)
+every 30 s: RunWatchdog.reconcile() -&gt; PipelineService.fail_runs_whose_job_failed() (SIGHTING-157)
 GPU estimate / spend cap: L4 minutes x ServingConfig.slowest_slowdown (gpu_slowdown, A10G 1.7), at the dearest rate
 </pre>
 

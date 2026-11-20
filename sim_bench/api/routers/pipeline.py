@@ -65,6 +65,17 @@ def list_runs(service: PipelineService = Depends(_pipeline_service)):
     return service.list_runs()
 
 
+@router.delete("/runs/{run_id}")
+def delete_run(run_id: str, pipeline_service: PipelineService = Depends(_pipeline_service)):
+    """Delete a finished run: its job, its stored files and its rows (SIGHTING-158)."""
+    try:
+        return pipeline_service.delete_run(run_id)
+    except KeyError:
+        raise HTTPException(404, f"no run {run_id!r}")
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+
+
 @router.get("/estimate", response_model=EstimateOut)
 def estimate_run(album_id: str, runner: str = "local", service: PipelineService = Depends(_pipeline_service)):
     """spec-116 R1: photos, and on the L4 GPU minutes, dollars and whether the spend cap allows it."""

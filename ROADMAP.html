@@ -365,6 +365,12 @@ technical write-up</td>
 </table>
 <h2 id="current-position">Current position</h2>
 <ul>
+<li><strong>2026-11-20 — specs 116 + 117 Implemented (PR #5 merged,
+<code>7ddfada</code>).</strong> Albumify runs on Neon + R2; GPU runs
+write their own results and survive this PC dropping out. Two
+run-lifecycle gaps found and fixed (SIGHTING-157 dead runs stuck
+"running", SIGHTING-158 delete left the run in Albums). Next: spec-118
+(album tiers, Gate 1), waiting for owner approval.</li>
 <li><strong>2026-11-15 — specs 116 + 117 M3 closed: every check green,
 both reviews accepted (no High open).</strong> Merged branch
 <code>b95e485</code>: full suite 1824 passed / 0 failed, Budapest 11/11,
@@ -615,8 +621,8 @@ href="reports/2026-11-13_slovakia26_picks_review/report.html">review</a></td>
 <td>One cloud database: every Albumify table on Neon, files on R2, the
 L4 worker writes the database; runs survive a dropped PC</td>
 <td>C (next, before Gate 1)</td>
-<td>Code Review 2026-11-15 — accepted, no High open; migrated to Neon,
-GPU run proven, M3 checks green; merges to main with 116 in one PR</td>
+<td>Implemented 2026-11-20 — PR #5 (<code>7ddfada</code>); Neon + R2,
+worker writes the DB, GPU runs survive a dropped PC</td>
 <td><a href="specs/117-neon-r2-one-database/updates.html">updates</a> ·
 <a href="specs/117-neon-r2-one-database/tasks.html">tasks</a></td>
 </tr>
@@ -625,8 +631,7 @@ GPU run proven, M3 checks green; merges to main with 116 in one PR</td>
 <td>One run path: choose this PC or the L4 in Configure &amp; Run; every
 run shows in Albums/Results/People</td>
 <td>C (next, before Gate 1)</td>
-<td>Code Review 2026-11-15 — accepted, no High open; merges to main with
-117 in one PR</td>
+<td>Implemented 2026-11-20 — merged with 117 (PR #5)</td>
 <td><a href="specs/116-one-run-path/updates.html">updates</a> · <a
 href="specs/116-one-run-path/tasks.html">tasks</a></td>
 </tr>
@@ -645,8 +650,8 @@ href="specs/115-album-workbench/REVIEW.html">REVIEW</a></td>
 <td><a href="specs/112-live-db-storage-runner/spec.html">112</a></td>
 <td>Live DB + storage, runner as config (Neon + R2)</td>
 <td>C</td>
-<td>In Progress — Phase A built and proven on Slovakia26 (L4); Phase A2
-moved to spec-115; Phase B (Neon + R2) open</td>
+<td>Implemented 2026-11-20 — Phase A built and proven (L4); A2 done as
+spec-115; Phase B done as spec-117 (PR #5)</td>
 <td><a href="specs/112-live-db-storage-runner/updates.html">updates</a>
 · <a href="specs/112-live-db-storage-runner/tasks.html">tasks</a></td>
 </tr>
