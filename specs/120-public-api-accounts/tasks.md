@@ -11,10 +11,10 @@
 - **D6** Limits live in `configs/public.yaml` (1,000 photos, 25 MB, 6 GB, 3 albums / 3,000 photos a month, $50 a month, alert at 80 %, 7 days, max 2 running).
 
 ## W1: Accounts and sign-in
-- [ ] T1.1 `Account`, `Invite`, `ContentReport` models in `sim_bench/control/models.py`; migration for existing databases (SQLite + Neon)
-- [ ] T1.2 `AuthVerifier` in `sim_bench/public_api/auth.py` (PyJWT, JWKS cache, issuer and expiry checks)
-- [ ] T1.3 `AccountRepo.get_or_create` (invite check), `record_consent`
-- [ ] T1.4 Tests `tests/public_api/test_auth.py`, `tests/public_api/test_accounts.py` (locally signed test keys, no network) — R1 R2 R3
+- [x] T1.1 `Account`, `Invite`, `ContentReport` models in `sim_bench/control/models.py`; migration for existing databases (SQLite + Neon)
+- [x] T1.2 `AuthVerifier` in `sim_bench/public_api/auth.py` (PyJWT, JWKS cache, issuer and expiry checks)
+- [x] T1.3 `AccountRepo.get_or_create` (invite check), `record_consent`
+- [x] T1.4 Tests `tests/public_api/test_auth.py`, `tests/public_api/test_accounts.py` (locally signed test keys, no network) — R1 R2 R3
 
 **Checkpoint:** a forged token gets 401; an uninvited email gets 403; no consent → no upload.
 

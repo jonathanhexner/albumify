@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-22 [FEATURE] spec-120 W1: public accounts and sign-in
+**Files**: `sim_bench/control/models.py` (`Account`, `Invite`, `ContentReport`), `sim_bench/public_api/{__init__,auth,accounts,app,schemas}.py` (new), `requirements.txt` (PyJWT), `tests/public_api/{conftest,test_auth,test_accounts}.py` (new).
+**Change**: a separate public FastAPI app; Clerk session tokens verified against the provider's keys (401 otherwise); accounts only for invited emails (403 waiting list); face-grouping consent recorded via `POST /v1/me/consent`.
+**Reason**: spec-120 R1-R3; owner approved the spec.
+
 ### 2026-11-22 [DOCS] spec-120 drafted: accounts and a public API; productization plan
 **Files**: `specs/120-public-api-accounts/{spec,tasks,updates}.md` (+ HTML), `ROADMAP.md`, `docs/project/productization_plan_2026-11-22.html`, `docs/project/productization_status_2026-11-21.html`.
 **Change**: new spec (15 requirements, 6 steps) for invite-only accounts, a separate public API on Modal, R2 uploads, quota and spend cap, durable job queue, retention; productization plan rebuilt around it.

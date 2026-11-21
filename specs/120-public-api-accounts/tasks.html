@@ -316,17 +316,17 @@ month, alert at 80 %, 7 days, max 2 running).</li>
 </ul>
 <h2 id="w1-accounts-and-sign-in">W1: Accounts and sign-in</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T1.1 <code>Account</code>,
-<code>Invite</code>, <code>ContentReport</code> models in
-<code>sim_bench/control/models.py</code>; migration for existing
-databases (SQLite + Neon)</label></li>
-<li><label><input type="checkbox" />T1.2 <code>AuthVerifier</code> in
-<code>sim_bench/public_api/auth.py</code> (PyJWT, JWKS cache, issuer and
-expiry checks)</label></li>
-<li><label><input type="checkbox" />T1.3
+<li><label><input type="checkbox" checked="" />T1.1
+<code>Account</code>, <code>Invite</code>, <code>ContentReport</code>
+models in <code>sim_bench/control/models.py</code>; migration for
+existing databases (SQLite + Neon)</label></li>
+<li><label><input type="checkbox" checked="" />T1.2
+<code>AuthVerifier</code> in <code>sim_bench/public_api/auth.py</code>
+(PyJWT, JWKS cache, issuer and expiry checks)</label></li>
+<li><label><input type="checkbox" checked="" />T1.3
 <code>AccountRepo.get_or_create</code> (invite check),
 <code>record_consent</code></label></li>
-<li><label><input type="checkbox" />T1.4 Tests
+<li><label><input type="checkbox" checked="" />T1.4 Tests
 <code>tests/public_api/test_auth.py</code>,
 <code>tests/public_api/test_accounts.py</code> (locally signed test
 keys, no network) — R1 R2 R3</label></li>

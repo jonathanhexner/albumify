@@ -43,6 +43,7 @@ psutil>=5.9  # control DB: detect a job whose worker process died (spec-114)
 alembic>=1.13,<2
 psycopg[binary]>=3.2,<4  # spec-117: Neon Postgres driver (DATABASE_URL); unused when it is unset
 boto3>=1.34  # spec-117: R2 object store (S3 API); unused when R2_* are unset
+PyJWT[crypto]>=2.8,<3  # spec-120: verify the sign-in provider's session tokens (JWKS)
 moto>=5.0  # spec-117 tests: a fake S3 for the R2 object store tests
 websockets>=12.0
 httpx>=0.26.0

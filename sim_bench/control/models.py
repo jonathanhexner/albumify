@@ -19,7 +19,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-__all__ = ["ControlBase", "Job", "JobEvent", "Photo", "Face", "Person", "Scene", "UserEdit"]
+__all__ = ["ControlBase", "Job", "JobEvent", "Photo", "Face", "Person", "Scene", "UserEdit",
+           "Account", "Invite", "ContentReport"]
 
 
 class ControlBase(DeclarativeBase):
@@ -152,3 +153,38 @@ class UserEdit(ControlBase):
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     __table_args__ = (Index("ix_user_edits_job", "job_id", "id"),)
+
+
+# --- spec-120: public accounts ------------------------------------------------------------------------------
+
+class Account(ControlBase):
+    """A signed-in user of the public site. ``id`` is the sign-in provider's user id (the token's ``sub``)."""
+
+    __tablename__ = "accounts"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)   # lower-case
+    face_consent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class Invite(ControlBase):
+    """An email allowed to create an account while signup is invite-only (spec-120 R2)."""
+
+    __tablename__ = "invites"
+
+    email: Mapped[str] = mapped_column(String(320), primary_key=True)              # lower-case
+    invited_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ContentReport(ControlBase):
+    """A user's report about a photo in an album (spec-120 R15)."""
+
+    __tablename__ = "content_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    job_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    photo_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

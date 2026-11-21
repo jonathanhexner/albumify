@@ -267,6 +267,9 @@
 id="toc-spec-120--progress--verification-updates">spec-120 — Progress
 &amp; verification updates</a>
 <ul>
+<li><a href="#2026-11-22--w1-done-accounts-and-sign-in"
+id="toc-2026-11-22--w1-done-accounts-and-sign-in">2026-11-22 — W1 done:
+accounts and sign-in</a></li>
 <li><a href="#2026-11-22--drafted"
 id="toc-2026-11-22--drafted">2026-11-22 — drafted</a></li>
 </ul></li>
@@ -277,8 +280,61 @@ id="toc-2026-11-22--drafted">2026-11-22 — drafted</a></li>
 <p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
-<p><strong>Status:</strong> Draft 2026-11-22 (awaiting owner
-approval)</p>
+<p><strong>Status:</strong> In Progress 2026-11-22 (owner approved; W1
+done)</p>
+<h2 id="2026-11-22--w1-done-accounts-and-sign-in">2026-11-22 — W1 done:
+accounts and sign-in</h2>
+<p>Owner: "go ahead". New package <code>sim_bench/public_api/</code> (a
+second FastAPI app; the owner API is untouched).</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1 a forged, expired, other-issuer, other-key, HS256-confused or
+email-less token gets 401; <code>/health</code> needs none; every route
+is covered</td>
+<td><code>tests/public_api/test_auth.py</code>: 15 passed (tokens signed
+with a local RSA key standing in for Clerk's)</td>
+</tr>
+<tr>
+<td>R2 only invited emails get an account; the same email under another
+sign-in is never merged</td>
+<td><code>tests/public_api/test_accounts.py</code>:
+<code>test_uninvited_email_is_waitlisted</code>,
+<code>test_an_email_taken_by_another_sign_in_is_not_merged</code>, 403
+through the API</td>
+</tr>
+<tr>
+<td>R3 consent is recorded once, through
+<code>POST /v1/me/consent</code></td>
+<td><code>test_upload_needs_face_consent</code>,
+<code>test_consent_is_recorded_through_the_api</code></td>
+</tr>
+<tr>
+<td>Existing databases get the new tables</td>
+<td>a copy of the real local <code>control.db</code>:
+<code>accounts</code>, <code>invites</code>,
+<code>content_reports</code> created on open, 20 jobs kept</td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td><code>tests/public_api tests/control tests/architecture</code>: 239
+passed, 0 failed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Not yet:</strong> R1 against a real Clerk issuer (needs the
+Clerk account: owner action, see below); R3's "no upload without
+consent" is enforced when uploads exist (W3). Clerk setup: create the
+application (Google + email link), add
+<code>"email": "{{user.primary_email_address}}"</code> to the
+session-token template, put <code>CLERK_ISSUER</code> in the Modal
+secret.</p>
 <h2 id="2026-11-22--drafted">2026-11-22 — drafted</h2>
 <p>Owner: "go with your recommendations, draft the spec" (productization
 plan, steps 3-4). Decisions taken from the plan's recommendations:

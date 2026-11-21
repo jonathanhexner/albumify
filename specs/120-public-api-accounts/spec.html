@@ -287,9 +287,9 @@ id="toc-decisions-risks-non-goals">Decisions, risks, non-goals</a></li>
 id="spec-120--accounts-and-a-public-api-signed-in-users-upload-a-trip-and-get-their-album">spec-120
 — Accounts and a public API: signed-in users upload a trip and get their
 album</h1>
-<p><strong>Status:</strong> Draft · <strong>Created:</strong> 2026-11-22
-· <strong>Roadmap:</strong> Stage C, next (productization plan steps
-3-4) · <strong>Plan:</strong> <a
+<p><strong>Status:</strong> In Progress (W1 done 2026-11-22) ·
+<strong>Created:</strong> 2026-11-22 · <strong>Roadmap:</strong> Stage
+C, next (productization plan steps 3-4) · <strong>Plan:</strong> <a
 href="../../docs/project/productization_plan_2026-11-22.html">productization
 plan</a> · <strong>Continues:</strong> <a
 href="../106-albumify-web-showcase/spec.html">spec-106</a> (public
@@ -316,7 +316,7 @@ Costs are capped per account and in total.</p>
 <tbody>
 <tr>
 <td>R1</td>
-<td>○ planned</td>
+<td>◐ partly</td>
 <td>Every endpoint except <code>/health</code> needs a valid sign-in
 token from the hosted provider (Clerk); a missing, expired or forged
 token gets 401</td>
@@ -325,14 +325,14 @@ expired, wrong issuer, tampered)</td>
 </tr>
 <tr>
 <td>R2</td>
-<td>○ planned</td>
+<td>● done</td>
 <td>Only invited emails get an account; anyone else gets 403 "on the
 waiting list"</td>
 <td><code>tests/public_api/test_accounts.py::test_uninvited_email_is_waitlisted</code></td>
 </tr>
 <tr>
 <td>R3</td>
-<td>○ planned</td>
+<td>◐ partly</td>
 <td>No upload is accepted until the account has recorded face-grouping
 consent</td>
 <td><code>tests/public_api/test_accounts.py::test_upload_needs_face_consent</code></td>
@@ -438,7 +438,7 @@ upload to album on the deployed API, <code>/code-review</code> REVIEW.md
 has no High open, Budapest gate 11/11.</p>
 <h2 id="3-plan">3. Plan</h2>
 <pre class="mermaid"><code>flowchart TD
-  S1[&quot;&lt;b&gt;○ W1: Accounts and sign-in&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/auth.py, public_api/accounts.py (new); control/models.py&lt;/i&gt;&quot;] --&gt; C1{{&quot;check R1 R2 R3&quot;}}
+  S1[&quot;&lt;b&gt;● W1: Accounts and sign-in&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/auth.py, public_api/accounts.py (new); control/models.py&lt;/i&gt;&quot;] --&gt; C1{{&quot;check R1 R2 R3&quot;}}
   C1 --&gt; S2[&quot;&lt;b&gt;○ W2: Ownership and fast reads&lt;/b&gt;&lt;br/&gt;&lt;i&gt;control/models.py (Job.owner_id); public_api/album_repo.py (new)&lt;/i&gt;&quot;]
   S2 --&gt; C2{{&quot;check R4 R11&quot;}}
   C2 --&gt; S3[&quot;&lt;b&gt;○ W3: Uploads, limits, quota, spend cap&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/uploads.py, public_api/limits.py (new); storage/object_store.py&lt;/i&gt;&quot;]
@@ -452,7 +452,8 @@ has no High open, Budapest gate 11/11.</p>
   classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
   classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
   classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
-  class S1,S2,S3,S4,S5,S6 todo
+  class S1 done
+  class S2,S3,S4,S5,S6 todo
   class C1,C2,C3,C4,C5,C6 check</code></pre>
 <h2 id="4-class-diagram">4. Class diagram</h2>
 <pre class="mermaid"><code>classDiagram
@@ -567,10 +568,12 @@ Context not drawn: <code>JobRepo</code> (queue rows),
 <tr>
 <td><code>sim_bench/public_api/app.py</code></td>
 <td><code>PublicApp</code> (FastAPI app)</td>
-<td>The ~11 public routes; every route resolves the account first</td>
+<td>The ~11 public routes; every route resolves the account first
+(built: <code>/health</code>, <code>/v1/me</code>,
+<code>/v1/me/consent</code>; album routes in W5)</td>
 <td>route functions</td>
 <td><code>app</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/public_api/auth.py</code></td>
@@ -579,16 +582,17 @@ Context not drawn: <code>JobRepo</code> (queue rows),
 the claims</td>
 <td><code>verify(token)</code></td>
 <td><code>issuer</code>, <code>jwks_url</code>, cached keys</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/public_api/accounts.py</code></td>
 <td><code>AccountRepo</code></td>
-<td>Account from claims, invite check, consent, delete everything</td>
+<td>Account from claims, invite check, consent, delete everything
+(built: all but <code>delete_everything</code>, W5)</td>
 <td><code>get_or_create</code>, <code>record_consent</code>,
 <code>delete_everything</code></td>
 <td><code>db</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/public_api/limits.py</code></td>
@@ -623,10 +627,10 @@ slice)</td>
 <td><code>sim_bench/public_api/schemas.py</code></td>
 <td>response models</td>
 <td>What the website receives: account, upload ticket, album, photo,
-person</td>
+person (built: account)</td>
 <td>—</td>
 <td>—</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/dispatcher.py</code></td>
@@ -720,7 +724,7 @@ this PC), <code>purge_inputs</code></td>
 <td>no JWT library</td>
 <td>✚ <code>PyJWT[crypto]</code> (JWKS verification)</td>
 <td>R1</td>
-<td>○</td>
+<td>●</td>
 </tr>
 </tbody>
 </table>
