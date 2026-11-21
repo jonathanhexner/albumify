@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>tasks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="tasks.md">tasks.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#tasks-accounts-and-a-public-api-120"
+id="toc-tasks-accounts-and-a-public-api-120">Tasks: Accounts and a
+public API (120)</a>
+<ul>
+<li><a href="#design-notes" id="toc-design-notes">Design Notes</a></li>
+<li><a href="#w1-accounts-and-sign-in"
+id="toc-w1-accounts-and-sign-in">W1: Accounts and sign-in</a></li>
+<li><a href="#w2-ownership-and-fast-reads"
+id="toc-w2-ownership-and-fast-reads">W2: Ownership and fast
+reads</a></li>
+<li><a href="#w3-uploads-limits-quota-spend-cap"
+id="toc-w3-uploads-limits-quota-spend-cap">W3: Uploads, limits, quota,
+spend cap</a></li>
+<li><a href="#w4-job-queue-and-staging-on-modal"
+id="toc-w4-job-queue-and-staging-on-modal">W4: Job queue and staging on
+Modal</a></li>
+<li><a href="#w5-album-endpoints" id="toc-w5-album-endpoints">W5: Album
+endpoints</a></li>
+<li><a href="#w6-retention-reports-deploy"
+id="toc-w6-retention-reports-deploy">W6: Retention, reports,
+deploy</a></li>
+<li><a href="#close-out" id="toc-close-out">Close-out</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="tasks-accounts-and-a-public-api-120">Tasks: Accounts and a
+public API (120)</h1>
+<p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
+href="updates.html">updates.md</a></p>
+<h2 id="design-notes">Design Notes</h2>
+<ul>
+<li><strong>D1</strong> A second FastAPI app
+(<code>sim_bench/public_api/</code>), deployed as a Modal web endpoint.
+The old API is not reachable from the internet and gets no new
+features.</li>
+<li><strong>D2</strong> Sign-in by Clerk; the API only verifies its JWT
+against Clerk's published keys (JWKS). No passwords stored here.</li>
+<li><strong>D3</strong> Ownership lives on the job row
+(<code>Job.owner_id</code>); every public read joins through it. Run
+rows keep <code>run_id == job_id</code>.</li>
+<li><strong>D4</strong> Queue = the <code>jobs</code> table (status
+<code>queued</code>); <code>JobDispatcher.tick()</code> runs every 30 s
+on Modal and starts jobs in creation order.</li>
+<li><strong>D5</strong> Uploads: signed PUT URLs per file into R2
+<code>uploads/&lt;job_id&gt;/</code>; <code>UploadStager</code> writes
+768 px inputs (EXIF kept, the existing <code>staging.downsample</code>)
+and the manifest; originals are swept after 7 days.</li>
+<li><strong>D6</strong> Limits live in <code>configs/public.yaml</code>
+(1,000 photos, 25 MB, 6 GB, 3 albums / 3,000 photos a month, $50 a
+month, alert at 80 %, 7 days, max 2 running).</li>
+</ul>
+<h2 id="w1-accounts-and-sign-in">W1: Accounts and sign-in</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T1.1 <code>Account</code>,
+<code>Invite</code>, <code>ContentReport</code> models in
+<code>sim_bench/control/models.py</code>; migration for existing
+databases (SQLite + Neon)</label></li>
+<li><label><input type="checkbox" />T1.2 <code>AuthVerifier</code> in
+<code>sim_bench/public_api/auth.py</code> (PyJWT, JWKS cache, issuer and
+expiry checks)</label></li>
+<li><label><input type="checkbox" />T1.3
+<code>AccountRepo.get_or_create</code> (invite check),
+<code>record_consent</code></label></li>
+<li><label><input type="checkbox" />T1.4 Tests
+<code>tests/public_api/test_auth.py</code>,
+<code>tests/public_api/test_accounts.py</code> (locally signed test
+keys, no network) — R1 R2 R3</label></li>
+</ul>
+<p><strong>Checkpoint:</strong> a forged token gets 401; an uninvited
+email gets 403; no consent → no upload.</p>
+<h2 id="w2-ownership-and-fast-reads">W2: Ownership and fast reads</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T2.1 <code>Job.owner_id</code>
+(indexed) + migration; owner-less jobs stay the owner's
+(<code>owner_id</code> NULL = the owner's own runs)</label></li>
+<li><label><input type="checkbox" />T2.2 <code>PublicAlbumRepo</code> in
+<code>sim_bench/public_api/album_repo.py</code>: list, album, photos
+(best 30 / all), people, rename; each one or two queries</label></li>
+<li><label><input type="checkbox" />T2.3 Tests
+<code>tests/public_api/test_isolation.py</code> (two users, every read),
+<code>tests/public_api/test_query_counts.py</code>; add to the
+<code>needs_neon</code> parity run — R4 R11</label></li>
+</ul>
+<p><strong>Checkpoint:</strong> user B gets 404 on everything of user A;
+query counts ≤ 2; real Neon timing &lt; 1 s on Slovakia26.</p>
+<h2 id="w3-uploads-limits-quota-spend-cap">W3: Uploads, limits, quota,
+spend cap</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T3.1
+<code>R2ObjectStore.presigned_put</code>, <code>presigned_get</code> in
+<code>sim_bench/storage/object_store.py</code></label></li>
+<li><label><input type="checkbox" />T3.2 <code>Limits</code>,
+<code>QuotaGuard</code>, <code>SpendGuard</code> in
+<code>sim_bench/public_api/limits.py</code>;
+<code>configs/public.yaml</code></label></li>
+<li><label><input type="checkbox" />T3.3
+<code>UploadService.create</code> (checks, estimate, runner by size) and
+<code>complete</code> (objects present → queued job)</label></li>
+<li><label><input type="checkbox" />T3.4 Tests
+<code>tests/public_api/test_uploads.py</code>,
+<code>tests/public_api/test_limits.py</code>; real R2 signed PUT — R5 R6
+R7 R8</label></li>
+</ul>
+<p><strong>Checkpoint:</strong> 1,001 photos, a 30 MB file or a
+<code>.exe</code> are refused before anything is stored; the 4th album
+of the month gets 429.</p>
+<h2 id="w4-job-queue-and-staging-on-modal">W4: Job queue and staging on
+Modal</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T4.1
+<code>SubmitInputs.owner_id</code>; <code>JobService.create</code> from
+an upload (no local folder)</label></li>
+<li><label><input type="checkbox" />T4.2 <code>JobDispatcher</code> in
+<code>sim_bench/serving/dispatcher.py</code></label></li>
+<li><label><input type="checkbox" />T4.3 <code>UploadStager</code> in
+<code>sim_bench/serving/upload_stager.py</code></label></li>
+<li><label><input type="checkbox" />T4.4 Modal functions
+<code>stage_upload</code>, <code>dispatch</code> (every 30 s) in
+<code>sim_bench/serving/modal_app.py</code></label></li>
+<li><label><input type="checkbox" />T4.5 Tests
+<code>tests/serving/test_dispatcher.py</code>,
+<code>tests/serving/test_upload_stager.py</code>; real Modal run of 50
+uploaded photos — R9 R10</label></li>
+</ul>
+<p><strong>Checkpoint:</strong> three queued jobs start in order, two at
+a time; killing the API mid-run loses nothing.</p>
+<h2 id="w5-album-endpoints">W5: Album endpoints</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T5.1 Routes in
+<code>sim_bench/public_api/app.py</code>, response models in
+<code>sim_bench/public_api/schemas.py</code></label></li>
+<li><label><input type="checkbox" />T5.2 Rename person; delete album
+(<code>PipelineService.delete_run</code> + R2 prefix); delete account
+(<code>AccountRepo.delete_everything</code>)</label></li>
+<li><label><input type="checkbox" />T5.3 Tests
+<code>tests/public_api/test_people.py</code>,
+<code>tests/public_api/test_delete.py</code>; real R2 listing empty
+after delete — R12 R13</label></li>
+</ul>
+<h2 id="w6-retention-reports-deploy">W6: Retention, reports, deploy</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T6.1 <code>RetentionSweeper</code>
+in <code>sim_bench/serving/retention.py</code>; Modal <code>sweep</code>
+daily</label></li>
+<li><label><input type="checkbox" />T6.2 <code>POST /v1/reports</code> →
+<code>ContentReport</code></label></li>
+<li><label><input type="checkbox" />T6.3 Modal <code>public_api</code>
+web endpoint, secrets from <code>albumify-cloud</code>,
+<code>/health</code></label></li>
+<li><label><input type="checkbox" />T6.4 Tests
+<code>tests/serving/test_retention.py</code>,
+<code>tests/public_api/test_reports.py</code>; real deploy + secret scan
+— R14 R15</label></li>
+</ul>
+<h2 id="close-out">Close-out</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />T7.1 One invited account: 200 photos
+from upload to album on the deployed API (real data)</label></li>
+<li><label><input type="checkbox" />T7.2 Full suite,
+<code>needs_neon</code> parity, Budapest gate, <code>/code-review</code>
+→ REVIEW.md</label></li>
+</ul>
+</div>
+</body>
+</html>

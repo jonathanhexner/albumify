@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-22 [DOCS] spec-120 drafted: accounts and a public API; productization plan
+**Files**: `specs/120-public-api-accounts/{spec,tasks,updates}.md` (+ HTML), `ROADMAP.md`, `docs/project/productization_plan_2026-11-22.html`, `docs/project/productization_status_2026-11-21.html`.
+**Change**: new spec (15 requirements, 6 steps) for invite-only accounts, a separate public API on Modal, R2 uploads, quota and spend cap, durable job queue, retention; productization plan rebuilt around it.
+**Reason**: owner accepted the plan's recommendations (accounts in v1, ship with the top 30, new API, Next.js).
+
 ### 2026-11-20 [BUGFIX] Failed and deleted runs leave Albums in step with their jobs (SIGHTING-157, SIGHTING-158)
 **Files**: `sim_bench/api/services/pipeline_service.py` (`fail_runs_whose_job_failed`, `delete_run`), `sim_bench/api/main.py` (`watchdog_tick`), `sim_bench/api/routers/pipeline.py` (`DELETE /api/v1/pipeline/runs/{run_id}`), `sim_bench/api/routers/jobs.py` (`DELETE /jobs/{job_id}` via `delete_run`), `tests/api/test_pipeline_service_runners.py` (6 tests), `docs/project/SIGHTINGS.md`, `docs/project/LEARNINGS.md`.
 **Change**: the watchdog loop also ends the run of a job it failed; deleting a run removes its job, stored files and every row.

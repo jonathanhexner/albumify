@@ -365,6 +365,14 @@ technical write-up</td>
 </table>
 <h2 id="current-position">Current position</h2>
 <ul>
+<li><strong>2026-11-22 — productization re-planned; <a
+href="specs/120-public-api-accounts/spec.html">spec-120</a>
+drafted.</strong> Owner: ship first with the top 30 picks, improve
+picking after launch; accounts in v1; new small public API instead of
+exposing the current FastAPI; Next.js website. Estimate ~70 focused days
+(<a href="docs/project/productization_plan_2026-11-22.html">plan</a>).
+spec-120 (accounts + public API) awaits approval; the website spec
+follows.</li>
 <li><strong>2026-11-20 — specs 116 + 117 Implemented (PR #5 merged,
 <code>7ddfada</code>).</strong> Albumify runs on Neon + R2; GPU runs
 write their own results and survive this PC dropping out. Two
@@ -536,6 +544,16 @@ training · multi-user persistence.</li>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><a href="specs/120-public-api-accounts/spec.html">120</a></td>
+<td>Accounts and a public API: signed-in users (invite list) upload up
+to 1,000 photos and keep their albums; quota, spend cap, durable queue,
+R2 uploads; old API frozen</td>
+<td>C (next; productization plan steps 3-4)</td>
+<td>Draft 2026-11-22, awaiting approval</td>
+<td><a href="specs/120-public-api-accounts/updates.html">updates</a> ·
+<a href="docs/project/productization_plan_2026-11-22.html">plan</a></td>
+</tr>
 <tr>
 <td><a href="specs/102-albumify-vs-vlm/spec.html">102</a></td>
 <td>Albumify vs VLM blind A/B</td>

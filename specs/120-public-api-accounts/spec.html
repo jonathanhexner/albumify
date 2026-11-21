@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-120--accounts-and-a-public-api-signed-in-users-upload-a-trip-and-get-their-album"
+id="toc-spec-120--accounts-and-a-public-api-signed-in-users-upload-a-trip-and-get-their-album">spec-120
+— Accounts and a public API: signed-in users upload a trip and get their
+album</a>
+<ul>
+<li><a href="#1-objective" id="toc-1-objective">1. Objective</a></li>
+<li><a href="#2-requirements" id="toc-2-requirements">2.
+Requirements</a></li>
+<li><a href="#3-plan" id="toc-3-plan">3. Plan</a></li>
+<li><a href="#4-class-diagram" id="toc-4-class-diagram">4. Class
+diagram</a></li>
+<li><a href="#5-new-files" id="toc-5-new-files">5. New files</a></li>
+<li><a href="#6-modified-files" id="toc-6-modified-files">6. Modified
+files</a></li>
+<li><a href="#decisions-risks-non-goals"
+id="toc-decisions-risks-non-goals">Decisions, risks, non-goals</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-120--accounts-and-a-public-api-signed-in-users-upload-a-trip-and-get-their-album">spec-120
+— Accounts and a public API: signed-in users upload a trip and get their
+album</h1>
+<p><strong>Status:</strong> Draft · <strong>Created:</strong> 2026-11-22
+· <strong>Roadmap:</strong> Stage C, next (productization plan steps
+3-4) · <strong>Plan:</strong> <a
+href="../../docs/project/productization_plan_2026-11-22.html">productization
+plan</a> · <strong>Continues:</strong> <a
+href="../106-albumify-web-showcase/spec.html">spec-106</a> (public
+service), <a href="../119-repository-layer/spec.md">spec-119</a>
+(repository slice)</p>
+<p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
+
+<h2 id="1-objective">1. Objective</h2>
+<p>A signed-in user (invite only at launch) uploads up to 1,000 trip
+photos, the GPU curates them, and the album stays in their account until
+they delete it. A new small public API serves the coming Next.js
+website; today's FastAPI stays frozen for the owner's Streamlit app.
+Costs are capped per account and in total.</p>
+<h2 id="2-requirements">2. Requirements</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Status</th>
+<th>Requirement</th>
+<th>How we know it works</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1</td>
+<td>○ planned</td>
+<td>Every endpoint except <code>/health</code> needs a valid sign-in
+token from the hosted provider (Clerk); a missing, expired or forged
+token gets 401</td>
+<td><code>tests/public_api/test_auth.py</code> (signed test keys: valid,
+expired, wrong issuer, tampered)</td>
+</tr>
+<tr>
+<td>R2</td>
+<td>○ planned</td>
+<td>Only invited emails get an account; anyone else gets 403 "on the
+waiting list"</td>
+<td><code>tests/public_api/test_accounts.py::test_uninvited_email_is_waitlisted</code></td>
+</tr>
+<tr>
+<td>R3</td>
+<td>○ planned</td>
+<td>No upload is accepted until the account has recorded face-grouping
+consent</td>
+<td><code>tests/public_api/test_accounts.py::test_upload_needs_face_consent</code></td>
+</tr>
+<tr>
+<td>R4</td>
+<td>○ planned</td>
+<td>A user sees, renames and deletes only their own albums; another
+user's album answers 404</td>
+<td><code>tests/public_api/test_isolation.py</code> (two users, every
+endpoint), also in the <code>needs_neon</code> parity run</td>
+</tr>
+<tr>
+<td>R5</td>
+<td>○ planned</td>
+<td>Uploads go straight to R2 with signed URLs; limits are checked
+before any compute: ≤ 1,000 photos, ≤ 25 MB each, ≤ 6 GB total,
+JPEG/HEIC/PNG/WebP</td>
+<td><code>tests/public_api/test_uploads.py</code>; real R2: signed PUT
+accepted, oversize and wrong type refused</td>
+</tr>
+<tr>
+<td>R6</td>
+<td>○ planned</td>
+<td>Creating an upload returns the expected wait (upload + processing
+minutes) and where it runs; ≥ 300 photos run on the GPU</td>
+<td><code>tests/public_api/test_uploads.py::test_estimate_and_runner_by_size</code></td>
+</tr>
+<tr>
+<td>R7</td>
+<td>○ planned</td>
+<td>Quota per account per calendar month: 3 albums and 3,000 photos;
+over it gets 429 with the reset date</td>
+<td><code>tests/public_api/test_limits.py::test_monthly_quota</code></td>
+</tr>
+<tr>
+<td>R8</td>
+<td>○ planned</td>
+<td>Global spend cap $50 a month: a job that would pass it waits or is
+refused; an alert is logged at 80 %</td>
+<td><code>tests/public_api/test_limits.py::test_spend_cap_and_alert</code></td>
+</tr>
+<tr>
+<td>R9</td>
+<td>○ planned</td>
+<td>Jobs wait in the database and a dispatcher starts them in order, at
+most N at once; restarting the API loses nothing</td>
+<td><code>tests/serving/test_dispatcher.py</code> (order, concurrency,
+restart)</td>
+</tr>
+<tr>
+<td>R10</td>
+<td>○ planned</td>
+<td>Uploaded originals are turned into 768 px inputs (EXIF kept) by a
+CPU function before the GPU run</td>
+<td><code>tests/serving/test_upload_stager.py</code>; real Modal run of
+50 uploaded photos to an album</td>
+</tr>
+<tr>
+<td>R11</td>
+<td>○ planned</td>
+<td>Album, photos (best 30 by default, <code>?tier=all</code>) and
+people each take at most 2 database queries; under 1 s on Neon for 1,000
+photos</td>
+<td><code>tests/public_api/test_query_counts.py</code>; real Neon timing
+on Slovakia26</td>
+</tr>
+<tr>
+<td>R12</td>
+<td>○ planned</td>
+<td>The only edit is renaming a person</td>
+<td><code>tests/public_api/test_people.py::test_rename_person_only</code></td>
+</tr>
+<tr>
+<td>R13</td>
+<td>○ planned</td>
+<td>Deleting an album or the whole account removes every row, face crop
+and stored file; a listing finds nothing left</td>
+<td><code>tests/public_api/test_delete.py</code>; real R2 listing after
+delete</td>
+</tr>
+<tr>
+<td>R14</td>
+<td>○ planned</td>
+<td>Original uploads are deleted 7 days after upload; albums and 768 px
+copies stay until the user deletes them</td>
+<td><code>tests/serving/test_retention.py</code> (clock moved 8
+days)</td>
+</tr>
+<tr>
+<td>R15</td>
+<td>○ planned</td>
+<td>A user can report an album photo; the public API runs on Modal at a
+public URL with a health check, keys only from the Modal secret</td>
+<td><code>tests/public_api/test_reports.py</code>; real deploy:
+<code>/health</code> 200, secret scan 0 hits</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Definition of done:</strong> R1-R15 ● with their checks green
+on SQLite and Neon, one real invited account takes 200 photos from
+upload to album on the deployed API, <code>/code-review</code> REVIEW.md
+has no High open, Budapest gate 11/11.</p>
+<h2 id="3-plan">3. Plan</h2>
+<pre class="mermaid"><code>flowchart TD
+  S1[&quot;&lt;b&gt;○ W1: Accounts and sign-in&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/auth.py, public_api/accounts.py (new); control/models.py&lt;/i&gt;&quot;] --&gt; C1{{&quot;check R1 R2 R3&quot;}}
+  C1 --&gt; S2[&quot;&lt;b&gt;○ W2: Ownership and fast reads&lt;/b&gt;&lt;br/&gt;&lt;i&gt;control/models.py (Job.owner_id); public_api/album_repo.py (new)&lt;/i&gt;&quot;]
+  S2 --&gt; C2{{&quot;check R4 R11&quot;}}
+  C2 --&gt; S3[&quot;&lt;b&gt;○ W3: Uploads, limits, quota, spend cap&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/uploads.py, public_api/limits.py (new); storage/object_store.py&lt;/i&gt;&quot;]
+  S3 --&gt; C3{{&quot;check R5 R6 R7 R8&quot;}}
+  C3 --&gt; S4[&quot;&lt;b&gt;○ W4: Job queue and staging on Modal&lt;/b&gt;&lt;br/&gt;&lt;i&gt;serving/dispatcher.py, serving/upload_stager.py (new); serving/job_service.py, serving/modal_app.py&lt;/i&gt;&quot;]
+  S4 --&gt; C4{{&quot;check R9 R10&quot;}}
+  C4 --&gt; S5[&quot;&lt;b&gt;○ W5: Album endpoints&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/app.py, public_api/schemas.py (new)&lt;/i&gt;&quot;]
+  S5 --&gt; C5{{&quot;check R12 R13&quot;}}
+  C5 --&gt; S6[&quot;&lt;b&gt;○ W6: Retention, reports, deploy&lt;/b&gt;&lt;br/&gt;&lt;i&gt;serving/retention.py (new); serving/modal_app.py&lt;/i&gt;&quot;]
+  S6 --&gt; C6{{&quot;check R14 R15&quot;}}
+  classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
+  classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
+  classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
+  class S1,S2,S3,S4,S5,S6 todo
+  class C1,C2,C3,C4,C5,C6 check</code></pre>
+<h2 id="4-class-diagram">4. Class diagram</h2>
+<pre class="mermaid"><code>classDiagram
+  direction TB
+  class PublicApp {
+    &lt;&lt;API&gt;&gt;
+    ✚ /v1/me  GET · DELETE
+    ✚ /v1/uploads  POST · complete
+    ✚ /v1/albums  list · one · photos · people
+    ✚ /v1/albums  rename person · DELETE
+    ✚ /v1/reports  POST
+  }
+  class AuthVerifier {
+    ✚ verify(token) Claims
+  }
+  class AccountRepo {
+    ✚ get_or_create(claims) Account
+    ✚ record_consent(account_id)
+    ✚ delete_everything(account_id) int
+  }
+  class UploadService {
+    ✚ create(account_id, files) UploadTicket
+    ✚ complete(upload_id) str
+  }
+  class PublicAlbumRepo {
+    ✚ album(account_id, job_id) AlbumView
+    ✚ photos(account_id, job_id, tier) List
+    ✚ people(account_id, job_id) List
+    ✚ rename_person(account_id, job_id, person_id, name)
+  }
+  class QuotaGuard {
+    ✚ check(account_id, n_photos)
+  }
+  class SpendGuard {
+    ✚ allows(dollars) bool
+  }
+  class JobDispatcher {
+    ✚ tick() int
+  }
+  class UploadStager {
+    ✚ calc(StageInputs) StageResult
+  }
+  class RetentionSweeper {
+    ✚ calc(SweepInputs) SweepResult
+  }
+  class Job {
+    status: str
+    ✚ owner_id: str
+  }
+  class R2ObjectStore {
+    delete_prefix(prefix) int
+    ✚ presigned_put(key, size, content_type) str
+    ✚ presigned_get(key) str
+  }
+  class JobService {
+    ✎ create(inputs) str
+  }
+  class DetachedModalRemote {
+    start(job_id, keys, spec, manifest)
+  }
+  class PipelineService {
+    delete_run(run_id) Dict
+  }
+  PublicApp --&gt; AuthVerifier
+  PublicApp --&gt; AccountRepo
+  PublicApp --&gt; UploadService
+  PublicApp --&gt; PublicAlbumRepo
+  UploadService --&gt; QuotaGuard
+  UploadService --&gt; SpendGuard
+  UploadService --&gt; JobService
+  UploadService --&gt; R2ObjectStore
+  PublicAlbumRepo --&gt; Job
+  AccountRepo --&gt; PipelineService
+  JobDispatcher --&gt; SpendGuard
+  JobDispatcher --&gt; DetachedModalRemote
+  UploadStager --&gt; R2ObjectStore
+  RetentionSweeper --&gt; R2ObjectStore
+  style PublicApp fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style AuthVerifier fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style AccountRepo fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style UploadService fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style PublicAlbumRepo fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style QuotaGuard fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style SpendGuard fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style JobDispatcher fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style UploadStager fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style RetentionSweeper fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style Job fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style R2ObjectStore fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style JobService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style DetachedModalRemote fill:#F2F0EC,stroke:#A89F92
+  style PipelineService fill:#F2F0EC,stroke:#A89F92</code></pre>
+<p>Also new, not drawn: tables <code>Account</code>,
+<code>Invite</code>, <code>ContentReport</code> (in
+<code>control/models.py</code>), <code>Limits</code> (values from
+<code>configs/public.yaml</code>), <code>SubmitInputs.owner_id</code>.
+Context not drawn: <code>JobRepo</code> (queue rows),
+<code>InputStore</code> (staged inputs).</p>
+<h2 id="5-new-files">5. New files</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class</th>
+<th>Responsibility</th>
+<th>Methods</th>
+<th>Attributes</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/public_api/app.py</code></td>
+<td><code>PublicApp</code> (FastAPI app)</td>
+<td>The ~11 public routes; every route resolves the account first</td>
+<td>route functions</td>
+<td><code>app</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/public_api/auth.py</code></td>
+<td><code>AuthVerifier</code></td>
+<td>Verify the provider's JWT against its published keys (JWKS); return
+the claims</td>
+<td><code>verify(token)</code></td>
+<td><code>issuer</code>, <code>jwks_url</code>, cached keys</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/public_api/accounts.py</code></td>
+<td><code>AccountRepo</code></td>
+<td>Account from claims, invite check, consent, delete everything</td>
+<td><code>get_or_create</code>, <code>record_consent</code>,
+<code>delete_everything</code></td>
+<td><code>db</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/public_api/limits.py</code></td>
+<td><code>Limits</code>, <code>QuotaGuard</code>,
+<code>SpendGuard</code></td>
+<td>Upload limits, monthly quota, monthly spend cap and 80 % alert</td>
+<td><code>check</code>, <code>spent_this_month</code>,
+<code>allows</code></td>
+<td>values from <code>configs/public.yaml</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/public_api/uploads.py</code></td>
+<td><code>UploadService</code></td>
+<td>Signed upload URLs, size/type/count checks, estimate, then a queued
+job</td>
+<td><code>create</code>, <code>complete</code></td>
+<td><code>store</code>, <code>jobs</code>, <code>limits</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/public_api/album_repo.py</code></td>
+<td><code>PublicAlbumRepo</code></td>
+<td>Every public read, owner-filtered, at most 2 queries each (spec-119
+slice)</td>
+<td><code>list</code>, <code>album</code>, <code>photos</code>,
+<code>people</code>, <code>rename_person</code></td>
+<td><code>session</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/public_api/schemas.py</code></td>
+<td>response models</td>
+<td>What the website receives: account, upload ticket, album, photo,
+person</td>
+<td>—</td>
+<td>—</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/dispatcher.py</code></td>
+<td><code>JobDispatcher</code></td>
+<td>Start queued jobs in order, at most <code>max_running</code>, within
+the spend cap</td>
+<td><code>tick()</code></td>
+<td><code>max_running</code>, <code>remote</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/upload_stager.py</code></td>
+<td><code>UploadStager</code></td>
+<td>Originals in R2 → 768 px inputs + manifest, EXIF kept</td>
+<td><code>calc(StageInputs)</code></td>
+<td><code>store</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/retention.py</code></td>
+<td><code>RetentionSweeper</code></td>
+<td>Delete originals older than 7 days</td>
+<td><code>calc(SweepInputs)</code></td>
+<td><code>store</code>, <code>clock</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>configs/public.yaml</code></td>
+<td>—</td>
+<td>Limits, quota, spend cap, concurrency, retention days</td>
+<td>—</td>
+<td>—</td>
+<td>○</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-modified-files">6. Modified files</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class / function</th>
+<th>Today</th>
+<th>After this spec</th>
+<th>Req</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/control/models.py</code></td>
+<td><code>Job</code>; new <code>Account</code>, <code>Invite</code>,
+<code>ContentReport</code></td>
+<td>jobs have no owner; no account tables</td>
+<td><code>Job.owner_id</code> (indexed); three new tables in the job
+database</td>
+<td>R2 R3 R4 R15</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/storage/object_store.py</code></td>
+<td><code>R2ObjectStore</code></td>
+<td>put / get / list / delete only</td>
+<td>✚ <code>presigned_put</code>, ✚ <code>presigned_get</code> (short
+expiry, size and type fixed in the signature)</td>
+<td>R5 R11</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/job_service.py</code></td>
+<td><code>SubmitInputs</code>, <code>JobService.create</code></td>
+<td>jobs come from a folder on this PC</td>
+<td>✚ <code>owner_id</code>; a job can start from an upload in R2
+(status queued, staged by <code>UploadStager</code>)</td>
+<td>R4 R10</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/modal_app.py</code></td>
+<td>Modal functions</td>
+<td><code>curate_job</code>, <code>stage_job</code> (photos sent from
+this PC), <code>purge_inputs</code></td>
+<td>✚ <code>public_api</code> web endpoint, ✚ <code>stage_upload</code>,
+✚ <code>dispatch</code> every 30 s, ✚ <code>sweep</code> daily</td>
+<td>R9 R10 R14 R15</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>requirements.txt</code></td>
+<td>—</td>
+<td>no JWT library</td>
+<td>✚ <code>PyJWT[crypto]</code> (JWKS verification)</td>
+<td>R1</td>
+<td>○</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decisions-risks-non-goals">Decisions, risks, non-goals</h2>
+<ul>
+<li><strong>Owner decisions 2026-11-22:</strong> invite list; 3 albums /
+3,000 photos a month; $50 a month cap; 1,000 photos per upload;
+originals 7 days, albums until deleted; face consent + delete
+everything; US region; private albums; rename only.</li>
+<li><strong>Clerk</strong> for sign-in: it works natively with Next.js,
+has a free tier and Google + email-link built in; the API only verifies
+its tokens, so switching to Auth.js later touches <code>auth.py</code>
+alone.</li>
+<li><strong>Originals go to R2, staged on Modal's CPU.</strong> Resizing
+in the browser would cut a 4 GB upload to ~0.3 GB but needs a HEIC
+decoder in the browser; left to the website spec as an
+optimisation.</li>
+<li><strong>The public API is a second FastAPI app,</strong> not new
+routes on the old one: none of the old routes are reachable from the
+internet. The old API and Streamlit app keep working, frozen.</li>
+<li><strong>Risks:</strong> 3-5 GB uploads take 20-40 min at home speeds
+(the website warns, R6); Neon's free 0.5 GB fills at roughly 300 albums
+(today 89 MB for 59 runs), so watch it; Modal web endpoints cold-start
+in seconds.</li>
+<li><strong>Not in this spec:</strong> the website (next spec),
+payments, share links, editing beyond renaming, picking quality (after
+launch), the privacy-policy text (website spec; it states photos are
+never used for training).</li>
+</ul>
+</div><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+document.querySelectorAll("pre.mermaid").forEach(function (pre) {
+  var div = document.createElement("div");
+  div.className = "mermaid";
+  div.textContent = pre.textContent;
+  pre.replaceWith(div);
+});
+mermaid.initialize({startOnLoad: false, securityLevel: "loose"});
+mermaid.run({querySelector: "div.mermaid"});
+</script>
+</body>
+</html>

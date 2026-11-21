@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Albumify Path to Production</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#f7f8f6;--surface:#fff;--fg:#1c2421;--muted:#5d6a65;--line:#d9dfdb;
+  --accent:#1f6f5c;--accent-soft:#e2f0eb;--ok:#2f7d4f;--ok-soft:#e3f2e8;--warn:#a86b00;--warn-soft:#fbf0d9;
+  --bad:#b23a3a;--bad-soft:#f7e2e2;--todo:#8a948f;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917;--surface:#1c2320;--fg:#e6ece9;--muted:#9aa8a2;--line:#2f3a36;--accent:#5cc2a4;--accent-soft:#1f332c;
+  --ok:#5fbf86;--ok-soft:#1e3326;--warn:#e0a640;--warn-soft:#3a2f18;--bad:#e07070;--bad-soft:#3d2120;--todo:#6f7a75;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917;--surface:#1c2320;--fg:#e6ece9;--muted:#9aa8a2;--line:#2f3a36;--accent:#5cc2a4;--accent-soft:#1f332c;
+  --ok:#5fbf86;--ok-soft:#1e3326;--warn:#e0a640;--warn-soft:#3a2f18;--bad:#e07070;--bad-soft:#3d2120;--todo:#6f7a75;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 var(--body);padding:0 16px 56px}
+main{max-width:1000px;margin:0 auto;display:grid;gap:40px}
+header{padding:32px 0 10px;border-bottom:2px solid var(--fg)}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:19px;margin:0 0 12px}
+p{margin:0 0 10px;max-width:74ch}
+.meta{color:var(--muted);font-size:13px}
+.label{font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+code{font-family:var(--mono);font-size:.88em}
+a{color:var(--accent)}
+.box{background:var(--surface);border:1px solid var(--line);padding:14px}
+.pill{display:inline-block;font:600 11px/1 var(--mono);padding:4px 7px;border-radius:3px;white-space:nowrap;border:1px solid currentColor}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.todo{color:var(--todo)}
+/* bottom line */
+.bl{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.bl div{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--c);padding:12px 14px}
+.bl b{display:block;font-size:15px;margin-bottom:4px}
+.bl span{font-size:13.5px;color:var(--muted)}
+/* stage track */
+.track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);background:var(--surface)}
+.stage{padding:14px;border-right:1px solid var(--line);display:grid;gap:6px;align-content:start;min-width:0}
+.stage:last-child{border-right:0}.stage.here{background:var(--accent-soft)}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%}
+.ghost{background:repeating-linear-gradient(45deg,var(--line),var(--line) 4px,transparent 4px,transparent 8px)}
+.tag{font:600 10px var(--mono);color:var(--accent);letter-spacing:.08em}
+.gate{font-size:12px;color:var(--muted)}
+@media (max-width:720px){.track{grid-template-columns:1fr}.stage{border-right:0;border-bottom:1px solid var(--line)}}
+/* tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);padding:12px}
+.tile .v{font:700 22px/1.2 var(--body)}.tile .k{font-size:12.5px;color:var(--muted)}
+/* bar charts */
+.chart{display:grid;gap:7px}
+.row{display:grid;grid-template-columns:130px minmax(0,1fr) 110px;gap:10px;align-items:center;font-size:13px}
+.row .b{height:16px;background:var(--line);position:relative}
+.row .b i{position:absolute;inset:0 auto 0 0}
+.row .b .before{background:var(--bad);opacity:.35}
+.row .b .goal{position:absolute;top:-4px;bottom:-4px;border-left:2px dashed var(--fg)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:10px;margin-right:5px;vertical-align:middle}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}.grid2>*{min-width:0}
+/* spec grid */
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.spec{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--c);padding:8px 10px;font-size:13px}
+.spec b{font-family:var(--mono)}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0;border:1px solid var(--line);background:var(--surface)}
+.step{padding:12px 14px;border-right:1px solid var(--line);border-top:4px solid var(--c);display:grid;gap:3px;align-content:start;position:relative}
+.step:last-child{border-right:0}
+.step .d{font:600 11px var(--mono);color:var(--muted);letter-spacing:.06em}
+.step span:last-child{font-size:13px;color:var(--muted)}
+.dec{display:grid;gap:8px}
+.dec div{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--warn);padding:8px 12px;display:grid;gap:2px}
+.dec span{font-size:13.5px;color:var(--ok)}
+pre.mermaid{background:var(--surface);border:1px solid var(--line);padding:12px;margin:0;overflow-x:auto;text-align:center;min-width:0}
+main>*,section>*{min-width:0}
+@media (max-width:560px){.row{grid-template-columns:96px minmax(0,1fr) 78px;font-size:12px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="label">Engineering review · 2026-11-21 · replaces the 2026-11-13 version</div>
+  <h1>Albumify: path to production</h1>
+  <p class="meta">Live photo-album curator: upload a trip, get the best photos. Repo <a href="https://github.com/jonathanhexner/albumify">github.com/jonathanhexner/albumify</a> · roadmap <code>ROADMAP.md</code>.</p>
+</header>
+
+<section>
+  <div class="label">Bottom line</div>
+  <div class="bl">
+    <div style="--c:var(--ok)"><b>Back end is done and merged</b><span>Cloud database, file store and GPU worker on <code>main</code> (PR #5, #6). A GPU run finishes even with this PC switched off.</span></div>
+    <div style="--c:var(--warn)"><b>Quality is close</b><span>Owner kept 10/10 of the top 10 and 28/30 of the top 30 picks. Gate 1 needs spec-118 (Best 10 / 30 / All) and a verdict.</span></div>
+    <div style="--c:var(--bad)"><b>No public URL yet</b><span>The public web front end (spec-106) has not started. It is the largest remaining block.</span></div>
+    <div style="--c:var(--accent)"><b>Next step</b><span>Approve spec-118 → judge Gate 1 → decide MVP scope → build the front end.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Where we are</h2>
+  <div class="track">
+    <div class="stage here"><span class="tag">▶ CURRENT GATE</span><b>A · Prove the picks</b>
+      <div class="bar"><i style="width:80%;background:var(--warn)"></i></div>
+      <span class="gate">Gate 1: "would I show these picks to a recruiter"</span><span class="pill warn">evidence in · needs spec-118</span></div>
+    <div class="stage"><b>B · Finalize engine</b>
+      <div class="bar"><i style="width:90%;background:var(--ok)"></i></div>
+      <span class="gate">folder → album, one command</span><span class="pill ok">done</span></div>
+    <div class="stage here"><span class="tag">▶ ACTIVE WORK</span><b>C · Build service</b>
+      <div class="bar" style="display:flex"><i style="width:60%;background:var(--ok)"></i><i class="ghost" style="width:40%"></i></div>
+      <span class="gate">back end ✓ · public front end ✗</span><span class="pill warn">front end next</span></div>
+    <div class="stage"><b>D · Harden + ship</b>
+      <div class="bar"><i style="width:0"></i></div>
+      <span class="gate">cold public URL, stranger upload, AC1-AC10</span><span class="pill todo">not started</span></div>
+  </div>
+  <p class="meta" style="margin-top:8px">Bars are a judgement of scope done per stage, not a measurement. Stage C moved from ~55% to ~60% this week: everything left in C is the front end.</p>
+</section>
+
+<section>
+  <h2>What was done since 2026-11-13</h2>
+  <div class="steps">
+    <div class="step" style="--c:var(--ok)"><span class="d">Nov 13</span><b>Data on Neon</b><span>17 tables moved, counts checked · Results page 105 s → 11.6 s</span></div>
+    <div class="step" style="--c:var(--ok)"><span class="d">Nov 14</span><b>GPU proof + checks</b><span>run finished with the PC off · 1805 tests, Budapest 11/11, secret scan 0 · reviews found 4 High</span></div>
+    <div class="step" style="--c:var(--ok)"><span class="d">Nov 15</span><b>Review fixes</b><span>network blip, DB guard, A10 cost cap · fixed worker redeployed · PR #5 opened</span></div>
+    <div class="step" style="--c:var(--ok)"><span class="d">Nov 20</span><b>PR #5 merged</b><span>specs 116, 117, 112-B Implemented · dead-run and delete bugs fixed (PR #6)</span></div>
+    <div class="step" style="--c:var(--accent)"><span class="d">Nov 21</span><b>PR #6 merged</b><span>Albums clean: 46 completed, 13 failed, 0 stuck</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>System on <code>main</code> today</h2>
+  <pre class="mermaid">
+flowchart LR
+  U["Owner<br/>Streamlit app"]:::cur --> API["FastAPI<br/>control plane"]:::ok
+  API -->|"run here"| W1["Worker on this PC"]:::ok
+  API -->|"run on GPU"| W2["Modal GPU worker<br/>(L4, falls back to A10)"]:::ok
+  W1 --> DB[("Neon Postgres<br/>jobs · results · cache")]:::ok
+  W2 -->|"writes its own results"| DB
+  W1 --> R2[("Cloudflare R2<br/>photos · crops")]:::ok
+  W2 --> R2
+  API -->|"watchdog every 30 s"| DB
+  WEB["Public web app<br/>Next.js on Vercel"]:::todo -.->|"replaces Streamlit"| API
+  classDef ok fill:#e3f2e8,stroke:#2f7d4f,color:#1c2421
+  classDef cur fill:#fbf0d9,stroke:#a86b00,color:#1c2421
+  classDef todo fill:#f1f3f2,stroke:#8a948f,stroke-dasharray:5 4,color:#5d6a65
+  </pre>
+  <div class="legend"><span><i style="background:var(--ok-soft);border:1px solid var(--ok)"></i>built and proven</span><span><i style="background:var(--warn-soft);border:1px solid var(--warn)"></i>works, owner-only (not public)</span><span><i style="border:1px dashed var(--todo)"></i>not started</span></div>
+</section>
+
+<section>
+  <h2>Evidence</h2>
+  <div class="tiles">
+    <div class="tile"><div class="v ok">1824 / 0</div><div class="k">tests passed / failed on the merged code</div></div>
+    <div class="tile"><div class="v ok">11 / 11</div><div class="k">Budapest regression scenarios</div></div>
+    <div class="tile"><div class="v ok">PC off ✓</div><div class="k">GPU run <code>f7d8ba85</code> finished with this PC's app stopped: 329 picks, 7 people</div></div>
+    <div class="tile"><div class="v ok">24 → 4.9 min</div><div class="k">a full local run of 715 photos (saving 20 → ~1 min)</div></div>
+    <div class="tile"><div class="v ok">0 hits</div><div class="k">secret scan: git, files, logs, database</div></div>
+    <div class="tile"><div class="v ok">89 MB · 0.3 GB</div><div class="k">Neon · R2 used (free tiers 0.5 GB · 10 GB)</div></div>
+    <div class="tile"><div class="v warn">315 / 316</div><div class="k">tests on Neon itself; the 1 was a test time limit, fixed</div></div>
+    <div class="tile"><div class="v warn">3 of 330</div><div class="k">picks differ on a re-run (SIGHTING-154)</div></div>
+  </div>
+</section>
+
+<section class="grid2">
+  <div>
+    <h2>Page speed on Neon</h2>
+    <div class="box chart" role="img" aria-label="Page load times before and after, with the 2 second target">
+      <div class="label">seconds · scale 0-30 s · dashed = 2 s target</div>
+      <div class="row"><span>Results, 1st open</span><span class="b"><i class="before" style="width:100%"></i><i style="width:38.7%;background:var(--warn)"></i><span class="goal" style="left:6.7%"></span></span><span><code>105 → 11.6</code></span></div>
+      <div class="row"><span>Explore, 1st open</span><span class="b"><i class="before" style="width:100%"></i><i style="width:25.7%;background:var(--warn)"></i><span class="goal" style="left:6.7%"></span></span><span><code>54.5 → 7.7</code></span></div>
+      <div class="row"><span>Results, again</span><span class="b"><i style="width:10.7%;background:var(--warn)"></i><span class="goal" style="left:6.7%"></span></span><span><code>3.2</code></span></div>
+      <div class="row"><span>Albums, again</span><span class="b"><i style="width:8%;background:var(--warn)"></i><span class="goal" style="left:6.7%"></span></span><span><code>2.4</code></span></div>
+      <div class="row"><span>People</span><span class="b"><i style="width:5%;background:var(--ok)"></i><span class="goal" style="left:6.7%"></span></span><span><code>1.5 ✓</code></span></div>
+      <div class="legend"><span><i style="background:var(--bad);opacity:.35"></i>before (off scale)</span><span><i style="background:var(--warn)"></i>now, over target</span><span><i style="background:var(--ok)"></i>now, on target</span></div>
+    </div>
+    <p class="meta" style="margin-top:8px">What is left is Streamlit drawing ~300 photos, not the database. The public front end replaces Streamlit, so this is not fixed separately.</p>
+  </div>
+  <div>
+    <h2>Quality: Gate 1 evidence</h2>
+    <div class="box chart" role="img" aria-label="Share of picks the owner kept by top-N cut-off">
+      <div class="label">owner kept, by top-N · dashed = 90% bar</div>
+      <div class="row"><span>Best 10</span><span class="b"><i style="width:100%;background:var(--ok)"></i><span class="goal" style="left:90%"></span></span><span><code>10/10</code></span></div>
+      <div class="row"><span>Best 30</span><span class="b"><i style="width:93.3%;background:var(--ok)"></i><span class="goal" style="left:90%"></span></span><span><code>28/30</code></span></div>
+      <div class="row"><span>Best 50</span><span class="b"><i style="width:90%;background:var(--ok)"></i><span class="goal" style="left:90%"></span></span><span><code>45/50</code></span></div>
+      <div class="row"><span>Best 100</span><span class="b"><i style="width:82%;background:var(--warn)"></i><span class="goal" style="left:90%"></span></span><span><code>82/100</code></span></div>
+      <div class="row"><span>All picks</span><span class="b"><i style="width:73.2%;background:var(--bad)"></i><span class="goal" style="left:90%"></span></span><span><code>219/299</code></span></div>
+    </div>
+    <p class="meta" style="margin-top:8px">The top is strong, the tail is weak, so the product shows Best 10 / 30 / All. Gate 1 passes at Best 30 ≥ 90% and Best 10 all kept (owner, 2026-11-13).</p>
+  </div>
+</section>
+
+<section>
+  <h2>Critical path to a public URL</h2>
+  <pre class="mermaid">
+flowchart LR
+  A["116 + 117<br/>one run path, cloud DB"]:::done --> B["Approve spec-118"]:::owner
+  B --> C["Build spec-118<br/>Best 10 / 30 / All"]:::next
+  C --> D{"Gate 1 verdict<br/>Slovakia26 + Budapest"}:::owner
+  D -->|pass| F["Public front end<br/>spec-106 · Next.js on Vercel"]:::big
+  D -->|fail| Q["Quality backlog<br/>in spec-118"]:::later
+  Q --> C
+  E["Decide MVP scope +<br/>content safety"]:::owner --> F
+  F --> G["Stage D<br/>adversarial uploads · cold start<br/>cost alarm · retention"]:::later
+  G --> H(["Public URL<br/>AC1-AC10"]):::later
+  classDef done fill:#e3f2e8,stroke:#2f7d4f,color:#1c2421
+  classDef next fill:#e2f0eb,stroke:#1f6f5c,stroke-width:2px,color:#1c2421
+  classDef owner fill:#fbf0d9,stroke:#a86b00,color:#1c2421
+  classDef big fill:#f7e2e2,stroke:#b23a3a,stroke-width:2px,color:#1c2421
+  classDef later fill:#f1f3f2,stroke:#8a948f,color:#5d6a65
+  </pre>
+  <div class="legend"><span><i style="background:var(--ok-soft);border:1px solid var(--ok)"></i>done</span><span><i style="background:var(--warn-soft);border:1px solid var(--warn)"></i>owner decision</span><span><i style="background:var(--accent-soft);border:2px solid var(--accent)"></i>next engineering</span><span><i style="background:var(--bad-soft);border:2px solid var(--bad)"></i>largest block</span><span><i style="background:var(--line)"></i>later</span></div>
+</section>
+
+<section class="grid2">
+  <div>
+    <h2>Open items by impact and effort</h2>
+    <pre class="mermaid">
+quadrantChart
+  title Follow-ups (not blocking the next step)
+  x-axis Small effort --> Large effort
+  y-axis Low impact --> High impact
+  quadrant-1 Plan it
+  quadrant-2 Do soon
+  quadrant-3 Batch later
+  quadrant-4 Question it
+  "149/150 wrong reasons": [0.28, 0.8]
+  "M8 R2 keys check": [0.2, 0.68]
+  "M7 Modal auth errors": [0.12, 0.6]
+  "Cancel queued GPU run": [0.3, 0.55]
+  "154 re-run differs": [0.55, 0.45]
+  "M2 cache write race": [0.4, 0.35]
+  "71 skipped tests": [0.35, 0.2]
+  "spec-119 repositories": [0.85, 0.4]
+  "Page speed in Streamlit": [0.7, 0.25]
+    </pre>
+    <p class="meta" style="margin-top:8px">149/150 are fixed inside spec-118. Page speed is moot once the front end replaces Streamlit.</p>
+  </div>
+  <div>
+    <h2>Open decisions for the owner</h2>
+    <div class="dec">
+      <div><b>Approve spec-118?</b><span>→ yes, it is the next step</span></div>
+      <div><b>MVP: anonymous, bounded, no accounts?</b><span>→ yes</span></div>
+      <div><b>Content safety for uploads</b><span>→ minimal terms + short retention</span></div>
+      <div><b>AI verification layer in v1?</b><span>→ no, v1.5</span></div>
+      <div><b>Old specs 102, 103, 107-111</b><span>→ park them; close 110</span></div>
+    </div>
+    <p class="meta" style="margin-top:8px">Each line: the question, then the recommendation.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Spec status</h2>
+  <div class="specs">
+    <div class="spec" style="--c:var(--ok)"><b>104</b> process isolation<br><span class="pill ok">merged</span></div>
+    <div class="spec" style="--c:var(--ok)"><b>113-115</b> cleanup · compare · workbench<br><span class="pill ok">merged</span></div>
+    <div class="spec" style="--c:var(--ok)"><b>116</b> one run path<br><span class="pill ok">merged 11-20</span></div>
+    <div class="spec" style="--c:var(--ok)"><b>117</b> Neon + R2, worker writes DB<br><span class="pill ok">merged 11-20</span></div>
+    <div class="spec" style="--c:var(--ok)"><b>112</b> live DB + storage<br><span class="pill ok">done via 115 + 117</span></div>
+    <div class="spec" style="--c:var(--warn)"><b>118</b> album tiers, Gate 1<br><span class="pill warn">draft · approve</span></div>
+    <div class="spec" style="--c:var(--bad)"><b>106</b> public web app<br><span class="pill bad">front end not started</span></div>
+    <div class="spec" style="--c:var(--todo)"><b>119</b> repository layer<br><span class="pill todo">proposal</span></div>
+    <div class="spec" style="--c:var(--todo)"><b>109 · 110</b> GPU · Modal worker<br><span class="pill todo">likely covered; close</span></div>
+    <div class="spec" style="--c:var(--todo)"><b>102 103 107 108 111</b><br><span class="pill todo">stale; park</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Code on <code>main</code></h2>
+  <pre class="mermaid">
+gitGraph
+  commit id: "PR #4 spec-115"
+  branch spec-117
+  commit id: "116 one run path"
+  commit id: "117 Neon + R2"
+  commit id: "M2 GPU proof"
+  commit id: "M3 review fixes"
+  checkout main
+  merge spec-117 id: "PR #5 7ddfada"
+  branch fix-157
+  commit id: "dead runs + delete"
+  checkout main
+  merge fix-157 id: "PR #6 fa131d4"
+  </pre>
+  <p class="meta" style="margin-top:8px">Housekeeping: SIGHTING-143 and 145 are fixed by spec-117 but still marked open; the local branches <code>spec/116-one-run-path</code>, <code>spec/117-m3-fixes</code> and the extra worktrees can be removed.</p>
+</section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+  const dark = document.documentElement.dataset.theme === "dark" ||
+    (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  mermaid.initialize({startOnLoad: true, theme: dark ? "dark" : "neutral", securityLevel: "strict",
+                      flowchart: {htmlLabels: true, curve: "basis"}});
+</script>
+</body>
+</html>
