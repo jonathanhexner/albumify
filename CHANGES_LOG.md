@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-20 [BUGFIX] Failed and deleted runs leave Albums in step with their jobs (SIGHTING-157, SIGHTING-158)
+**Files**: `sim_bench/api/services/pipeline_service.py` (`fail_runs_whose_job_failed`, `delete_run`), `sim_bench/api/main.py` (`watchdog_tick`), `sim_bench/api/routers/pipeline.py` (`DELETE /api/v1/pipeline/runs/{run_id}`), `sim_bench/api/routers/jobs.py` (`DELETE /jobs/{job_id}` via `delete_run`), `tests/api/test_pipeline_service_runners.py` (6 tests), `docs/project/SIGHTINGS.md`, `docs/project/LEARNINGS.md`.
+**Change**: the watchdog loop also ends the run of a job it failed; deleting a run removes its job, stored files and every row.
+**Reason**: run `54b46cd0` showed "running" for a week after its job failed; deleting job `61f3b9a8` left its run in Albums.
+
 ### 2026-11-15 [CONFIG] CI installs the spec-117 test deps; heavy secret test out of the fast lane
 **Files**: `.github/workflows/tests.yml`, `docs/project/LEARNINGS.md`.
 **Change**: fast lane installs `psycopg[binary]` and `modal==1.6.1`; full lane installs `modal==1.6.1`; fast lane deselects `test_no_secrets_leak.py::test_a_run_record_holds_no_secret` and `test_worker_imports_without_fastapi.py::test_worker_modules_import_without_the_web_stack` (both import the worker's pipeline -> ultralytics, insightface, torch; still run in the full lane and locally). Verified in a fresh venv with exactly the fast-lane packages: 151 passed, 3 deselected.

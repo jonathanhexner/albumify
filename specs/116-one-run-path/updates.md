@@ -2,7 +2,11 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** Code Review 2026-11-15 — accepted; merges with spec-117 in one PR
+**Status:** Implemented 2026-11-20 (PR #5, with spec-117)
+
+## 2026-11-20 — Implemented with spec-117 (PR #5, `7ddfada`)
+
+Merged to `main` together with spec-117; see [spec-117 updates](../117-neon-r2-one-database/updates.html) 2026-11-20.
 
 ## 2026-11-15 — review refreshed; merges together with spec-117
 

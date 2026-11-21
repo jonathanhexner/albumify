@@ -62,6 +62,22 @@ def startup():
     logger.info("Default config profile ready")
 
 
+def watchdog_tick(job_service=None, session_factory=None) -> int:
+    """One watchdog pass: fail detached jobs whose worker is gone, then end their runs failed so Albums shows it
+    (SIGHTING-157). Returns how many runs were ended."""
+    from sim_bench.api.database.session import get_session_direct
+    from sim_bench.api.routers.jobs import get_job_service
+    from sim_bench.api.services.pipeline_service import PipelineService
+
+    jobs = job_service or get_job_service()
+    jobs.watchdog().reconcile()
+    session = (session_factory or get_session_direct)()
+    try:
+        return PipelineService(session, job_service=jobs).fail_runs_whose_job_failed()
+    finally:
+        session.close()
+
+
 def _start_run_watchdog(period_s: float = 30.0) -> None:
     """spec-117 R9: detached L4 runs whose worker is gone end failed within ~2 min, even if no page asks.
     Only with DATABASE_URL set: without it there are no detached runs."""
@@ -72,11 +88,10 @@ def _start_run_watchdog(period_s: float = 30.0) -> None:
         return
 
     def loop() -> None:
-        from sim_bench.api.routers.jobs import get_job_service
         stop = threading.Event()
         while not stop.wait(period_s):
             try:
-                get_job_service().watchdog().reconcile()
+                watchdog_tick()
             except Exception as e:      # never takes the API down
                 logger.warning("run watchdog: %s", type(e).__name__)
 

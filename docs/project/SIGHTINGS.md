@@ -4,6 +4,38 @@ This file tracks issues that need investigation and resolution.
 
 ---
 
+### SIGHTING-158: deleting a run's job left the run in Albums
+**Status**: RESOLVED 2026-11-20 (found deleting the failed M2 runs)
+**Severity**: Medium (spec-117 R14 "delete a job, its rows and its files" not met for the Albums run)
+**Persona**: API / data
+
+**Problem**: `DELETE /jobs/61f3b9a8...` removed the job (and its R2 prefix) but the run stayed in Albums, with its
+result, people and metric rows. `JobService.delete_job` lives in `serving/` and only knows the job tables; nothing
+deleted `pipeline_runs` or the rows hanging off it, and the app had no way to delete a run at all.
+**Fix**: `PipelineService.delete_run(run_id)` deletes the job and its files (refused while the job is live), then
+the run with every row (metric rows explicitly: no ORM cascade). `DELETE /api/v1/pipeline/runs/{run_id}` is new;
+`DELETE /jobs/{job_id}` now goes through it. Tests: `tests/api/test_pipeline_service_runners.py`
+(`test_deleting_a_run_removes_its_job_files_and_every_row`, `test_a_ghost_run_whose_job_is_gone_can_be_deleted`,
+`test_a_live_run_is_not_deleted`).
+
+---
+
+### SIGHTING-157: a GPU run failed in the background stays "running" in Albums forever
+**Status**: RESOLVED 2026-11-20 (found on run `54b46cd0`, M2 2026-11-13)
+**Severity**: Medium (Albums shows a dead run as running; user cannot tell it failed)
+**Persona**: API / run lifecycle
+
+**Problem**: run `54b46cd0` hit Modal's 1800 s timeout while saving. The API's background watchdog failed its job
+("the L4 worker ended without saving its results (FunctionTimeoutError)") but the run row Albums reads stayed
+`running`: only `PipelineService.get_status` copies a failed job onto its run, and it runs only while that run's
+page is open. The process that started the run had been restarted, so nothing ever asked.
+**Fix**: `PipelineService.fail_runs_whose_job_failed()` ends every pending/running run whose job failed, with the
+job's reason; the API's 30 s watchdog loop (`sim_bench/api/main.py` `watchdog_tick`) calls it after `reconcile()`.
+Tests: `test_a_run_failed_in_the_background_shows_failed_in_albums`, `test_the_watchdog_tick_ends_the_run_too`,
+`test_a_live_run_is_left_alone`.
+
+---
+
 ### SIGHTING-156: a lost connection to Modal fails a healthy GPU run and loses its results
 **Status**: RESOLVED 2026-11-14 on `spec/117-m3-fixes` (from `spec/117-neon-r2` 9cd0e67). Found by the spec-117 code review (H1)
 **Severity**: High (the exact "PC drops out" case spec-117 R8 exists for)

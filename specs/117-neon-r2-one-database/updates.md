@@ -2,7 +2,20 @@
 
 **Spec:** [spec.md](spec.html) · [tasks.md](tasks.html) · roadmap stage: **C** · see [ROADMAP.md](../../ROADMAP.html)
 
-**Status:** Code Review 2026-11-15 — accepted, no High open; Implemented after the PR merges (and the follow-ups below are accepted or done)
+**Status:** Implemented 2026-11-20 (PR #5)
+
+## 2026-11-20 — Implemented: PR #5 merged; two run-lifecycle gaps fixed
+
+| Claim | Evidence |
+|---|---|
+| Merged to `main` | PR #5 (https://github.com/jonathanhexner/albumify/pull/5), merge commit `7ddfada`; CI fast-tests green after two CI fixes (`7dcf3cf`, `5c50f75`: spec-117 test deps; two heavy-stack tests run in the full lane only) |
+| App runs the merged code | API (Neon) and UI restarted from it; 62 runs listed |
+| A GPU run failed in the background shows failed in Albums | SIGHTING-157 fixed: `watchdog_tick` also ends the run; 3 tests in `tests/api/test_pipeline_service_runners.py` |
+| Deleting a run removes it everywhere | SIGHTING-158 fixed: `DELETE /api/v1/pipeline/runs/{run_id}`; 3 tests. Used to delete the failed M2 runs `61f3b9a8`, `6745cbb0`, `54b46cd0` (1,528 R2 files) |
+| Suites | `tests/api tests/control tests/serving tests/architecture tests/streamlit`: 473 passed, 0 failed |
+
+Follow-ups stay as listed on 2026-11-15 (R9 cancel of a queued run, review M2/M7/M8, R11, SIGHTING-154).
+Seven runs from Feb-Jun 2026 (before spec-116, no job row) still read "running"; owner to decide.
 
 ## 2026-11-15 — M3 close-out: checks, reviews, fixes merged
 

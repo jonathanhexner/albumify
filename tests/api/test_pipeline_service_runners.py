@@ -315,6 +315,66 @@ class ut_FailureStates:
         world.session.commit()
         self._assert_failed(world, run_id, "interrupted")
 
+    def _ghost(self, world):
+        """A GPU run whose job the background watchdog failed (Modal timeout) while its run row says running."""
+        run_id = world.svc.start_pipeline("alb", steps=STEPS, runner="modal_gpu")
+        world.jobs.repo.transition(run_id, "running")
+        world.jobs.repo.fail(run_id, "the L4 worker ended without saving its results (failed: FunctionTimeoutError)")
+        world.session.query(PipelineRun).filter_by(id=run_id).one().status = "running"
+        world.session.commit()
+        return run_id
+
+    def test_a_run_failed_in_the_background_shows_failed_in_albums(self, world):
+        """SIGHTING-157: no page asked for its status, so Albums showed it running forever."""
+        run_id = self._ghost(world)
+        assert world.svc.fail_runs_whose_job_failed() == 1
+        row = next(r for r in world.svc.list_runs() if r.run_id == run_id)
+        run = world.session.query(PipelineRun).filter_by(id=run_id).one()
+        assert row.status == "failed" and "FunctionTimeoutError" in run.error_message and run.completed_at
+        assert world.svc.fail_runs_whose_job_failed() == 0          # once
+
+    def test_the_watchdog_tick_ends_the_run_too(self, world):
+        from sim_bench.api.main import watchdog_tick
+        run_id = self._ghost(world)
+        assert watchdog_tick(job_service=world.jobs, session_factory=world.sessions) == 1
+        world.session.expire_all()
+        assert world.session.query(PipelineRun).filter_by(id=run_id).one().status == "failed"
+
+    def test_a_live_run_is_left_alone(self, world):
+        run_id = world.svc.start_pipeline("alb", steps=STEPS, runner="modal_gpu")
+        world.jobs.repo.transition(run_id, "running")
+        world.session.query(PipelineRun).filter_by(id=run_id).one().status = "running"
+        world.session.commit()
+        assert world.svc.fail_runs_whose_job_failed() == 0
+        assert world.session.query(PipelineRun).filter_by(id=run_id).one().status == "running"
+
+    def test_deleting_a_run_removes_its_job_files_and_every_row(self, world):
+        """SIGHTING-158: deleting the job left the run (and its rows) in Albums."""
+        run_id = _run(world)
+        assert world.session.query(PipelineResult).filter_by(run_id=run_id).count() == 1
+        out = world.svc.delete_run(run_id)
+        assert out["deleted_run"] and world.jobs.repo.get(run_id) is None
+        assert run_id not in [r.run_id for r in world.svc.list_runs()]
+        assert world.session.query(PipelineRun).filter_by(id=run_id).count() == 0
+        for model in (PipelineResult, Person, ImageMetricRow, FaceMetricRow):
+            assert world.session.query(model).filter_by(run_id=run_id).count() == 0, model.__name__
+
+    def test_a_ghost_run_whose_job_is_gone_can_be_deleted(self, world):
+        run_id = self._ghost(world)
+        world.jobs.delete_job(run_id)                     # what the old /jobs delete did: the run stayed
+        assert run_id in [r.run_id for r in world.svc.list_runs()]
+        assert world.svc.delete_run(run_id)["deleted_files"] == 0
+        assert run_id not in [r.run_id for r in world.svc.list_runs()]
+
+    def test_a_live_run_is_not_deleted(self, world):
+        run_id = world.svc.start_pipeline("alb", steps=STEPS, runner="modal_gpu")
+        world.jobs.repo.transition(run_id, "running")
+        with pytest.raises(ValueError):
+            world.svc.delete_run(run_id)
+        assert world.session.query(PipelineRun).filter_by(id=run_id).count() == 1
+        with pytest.raises(KeyError):
+            world.svc.delete_run("no-such-run")
+
     def test_a_bad_spec_leaves_nothing_behind(self, world):
         with pytest.raises(ValueError, match="Pipeline spec invalid"):
             world.svc.start_pipeline("alb", steps=["not_a_step"])

@@ -18,6 +18,7 @@ from sim_bench.api.schemas.jobs import (
     AlbumOut, CompareOut, DeleteInputsOut, EditIn, EditOut, EstimateOut, FaceOut, JobAccepted, JobDetail,
     JobEventOut, JobLoad, JobOut, JobSubmit, PhotoOut,
 )
+from sim_bench.api.database.session import get_session
 from sim_bench.control.album_builder import AlbumBuilder, BuildInputs, EditError, record_edit
 from sim_bench.control.compare import CompareJobsInputs, DifferentPhotos, JobComparer
 from sim_bench.control.db import ControlDB
@@ -108,14 +109,17 @@ def delete_remote_inputs(job_id: str, svc: JobService = Depends(get_job_service)
 
 
 @router.delete("/{job_id}")
-def delete_job(job_id: str, svc: JobService = Depends(get_job_service)):
-    """spec-117 R14: delete a finished job, its rows and its stored files (R2 or the job folder)."""
+def delete_job(job_id: str, svc: JobService = Depends(get_job_service), session=Depends(get_session)):
+    """spec-117 R14: delete a finished job, its stored files (R2 or the job folder) and its run in Albums with
+    every row (SIGHTING-158: the run used to stay behind)."""
+    from sim_bench.api.services.pipeline_service import PipelineService   # lazy: it imports this router
+
     _job_or_404(svc, job_id)
     try:
-        n = svc.delete_job(job_id)
+        out = PipelineService(session, job_service=svc).delete_run(job_id)
     except ValueError as e:
         raise HTTPException(409, str(e))
-    return {"job_id": job_id, "deleted_files": n}
+    return {"job_id": job_id, "deleted_files": out["deleted_files"]}
 
 
 @router.post("/{job_id}/load", response_model=JobAccepted)
