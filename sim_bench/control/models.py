@@ -47,6 +47,8 @@ class Job(ControlBase):
     heartbeat_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     call_id: Mapped[Optional[str]] = mapped_column(String(128))  # Modal function call id of a detached L4 run
     gpu: Mapped[Optional[str]] = mapped_column(String(32))       # the GPU the run got (L4, A10G)
+    # spec-120 R4: the public account that owns the job; NULL = the owner's own runs (Streamlit app, regression)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(128), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

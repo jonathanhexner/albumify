@@ -19,9 +19,9 @@
 **Checkpoint:** a forged token gets 401; an uninvited email gets 403; no consent → no upload.
 
 ## W2: Ownership and fast reads
-- [ ] T2.1 `Job.owner_id` (indexed) + migration; owner-less jobs stay the owner's (`owner_id` NULL = the owner's own runs)
-- [ ] T2.2 `PublicAlbumRepo` in `sim_bench/public_api/album_repo.py`: list, album, photos (best 30 / all), people, rename; each one or two queries
-- [ ] T2.3 Tests `tests/public_api/test_isolation.py` (two users, every read), `tests/public_api/test_query_counts.py`; add to the `needs_neon` parity run — R4 R11
+- [x] T2.1 `Job.owner_id` (indexed) + migration; owner-less jobs stay the owner's (`owner_id` NULL = the owner's own runs)
+- [x] T2.2 `PublicAlbumRepo` in `sim_bench/public_api/album_repo.py`: list, album, photos (best 30 / all), people, rename; each one or two queries
+- [x] T2.3 Tests `tests/public_api/test_isolation.py` (two users, every read), `tests/public_api/test_query_counts.py`; add to the `needs_neon` parity run — R4 R11
 
 **Checkpoint:** user B gets 404 on everything of user A; query counts ≤ 2; real Neon timing < 1 s on Slovakia26.
 

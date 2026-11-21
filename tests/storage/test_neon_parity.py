@@ -85,16 +85,25 @@ def test_both_table_sets_live_in_one_postgres_schema(neon_schema):
         engine.dispose()
 
 
-def test_api_control_serving_suites_pass_on_postgres(neon_schema):
-    url, schema, scrub = neon_schema
+def _suites_pass_on_postgres(url, scrub, suites, timeout_s):
     env = {**os.environ, "ALBUMIFY_TEST_DATABASE_URL": url}
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/api", "tests/control", "tests/serving", "-q", "-p", "no:cacheprovider",
-         "-W", "ignore::DeprecationWarning"],
-        cwd=REPO, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=3 * 3600)
+        [sys.executable, "-m", "pytest", *suites, "-q", "-p", "no:cacheprovider", "-W", "ignore::DeprecationWarning"],
+        cwd=REPO, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout_s)
     tail = _clean((proc.stdout or "")[-6000:] + (proc.stderr or "")[-2000:], scrub)
     assert proc.returncode == 0, tail
     assert " passed" in tail and " failed" not in tail, tail
+
+
+def test_public_api_suite_passes_on_postgres(neon_schema):
+    """spec-120 R4/R11 on Postgres, on its own: minutes, not the full run's two hours."""
+    url, _, scrub = neon_schema
+    _suites_pass_on_postgres(url, scrub, ["tests/public_api"], 1800)
+
+
+def test_api_control_serving_suites_pass_on_postgres(neon_schema):
+    url, schema, scrub = neon_schema
+    _suites_pass_on_postgres(url, scrub, ["tests/api", "tests/control", "tests/serving", "tests/public_api"], 3 * 3600)
     # the child really used Postgres: its tables are in this session's schema
     engine = DatabaseConfig(url).make_engine()
     try:

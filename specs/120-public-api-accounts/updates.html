@@ -267,6 +267,9 @@
 id="toc-spec-120--progress--verification-updates">spec-120 — Progress
 &amp; verification updates</a>
 <ul>
+<li><a href="#2026-11-22--w2-done-ownership-and-fast-reads"
+id="toc-2026-11-22--w2-done-ownership-and-fast-reads">2026-11-22 — W2
+done: ownership and fast reads</a></li>
 <li><a href="#2026-11-22--w1-done-accounts-and-sign-in"
 id="toc-2026-11-22--w1-done-accounts-and-sign-in">2026-11-22 — W1 done:
 accounts and sign-in</a></li>
@@ -280,8 +283,58 @@ id="toc-2026-11-22--drafted">2026-11-22 — drafted</a></li>
 <p><strong>Spec:</strong> <a href="spec.html">spec.md</a> · <a
 href="tasks.html">tasks.md</a> · roadmap stage: <strong>C</strong> · see
 <a href="../../ROADMAP.html">ROADMAP.md</a></p>
-<p><strong>Status:</strong> In Progress 2026-11-22 (owner approved; W1
-done)</p>
+<p><strong>Status:</strong> In Progress 2026-11-22 (owner approved;
+W1-W2 done)</p>
+<h2 id="2026-11-22--w2-done-ownership-and-fast-reads">2026-11-22 — W2
+done: ownership and fast reads</h2>
+<p><code>Job.owner_id</code> (NULL = the owner's own runs, never visible
+on the public site); older databases gain the column and its index on
+open (<code>_add_missing_indexes</code>, new).
+<code>PublicAlbumRepo</code>: list, album, photos (best 30 / all),
+people, rename person; each filtered by owner and at most two
+queries.</p>
+<table>
+<thead>
+<tr>
+<th>Claim</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R4 another user's album, photos, people or person is not found; the
+owner's own runs are nobody's</td>
+<td><code>tests/public_api/test_isolation.py::ut_Isolation</code> (two
+users, every read and the rename)</td>
+</tr>
+<tr>
+<td>R4 on Postgres too</td>
+<td><code>tests/storage/test_neon_parity.py::test_public_api_suite_passes_on_postgres</code>
+(new, <code>tests/public_api</code> alone): passed on Neon in 7.7 min;
+the full parity run now includes <code>tests/public_api</code></td>
+</tr>
+<tr>
+<td>R11 query counts: list 1, album 1, photos 2, people 2, rename 2</td>
+<td><code>tests/public_api/test_isolation.py::ut_QueryCounts</code></td>
+</tr>
+<tr>
+<td>R11 timing on real Neon, run <code>f7d8ba85</code> (715 photos, 659
+scored, 7 people), median of 5</td>
+<td>list 0.31 s · album 0.30 s · best 30 0.46 s · all 659 photos 0.62 s
+(once 1.07 s) · people 0.46 s. Run owned by a probe account for the
+test, reset after</td>
+</tr>
+<tr>
+<td>Nothing else broke</td>
+<td><code>tests/public_api tests/api tests/control tests/serving tests/architecture tests/streamlit</code>:
+509 passed, 0 failed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Not yet (R11 ◐):</strong> a 1,000-photo album is timed with
+the real 1,000-photo run (W6). The real Neon <code>jobs</code> table now
+has the empty <code>owner_id</code> column and its index (added when the
+timing script opened it, as the app does at start).</p>
 <h2 id="2026-11-22--w1-done-accounts-and-sign-in">2026-11-22 — W1 done:
 accounts and sign-in</h2>
 <p>Owner: "go ahead". New package <code>sim_bench/public_api/</code> (a

@@ -287,7 +287,7 @@ id="toc-decisions-risks-non-goals">Decisions, risks, non-goals</a></li>
 id="spec-120--accounts-and-a-public-api-signed-in-users-upload-a-trip-and-get-their-album">spec-120
 — Accounts and a public API: signed-in users upload a trip and get their
 album</h1>
-<p><strong>Status:</strong> In Progress (W1 done 2026-11-22) ·
+<p><strong>Status:</strong> In Progress (W1-W2 done 2026-11-22) ·
 <strong>Created:</strong> 2026-11-22 · <strong>Roadmap:</strong> Stage
 C, next (productization plan steps 3-4) · <strong>Plan:</strong> <a
 href="../../docs/project/productization_plan_2026-11-22.html">productization
@@ -339,7 +339,7 @@ consent</td>
 </tr>
 <tr>
 <td>R4</td>
-<td>○ planned</td>
+<td>● done</td>
 <td>A user sees, renames and deletes only their own albums; another
 user's album answers 404</td>
 <td><code>tests/public_api/test_isolation.py</code> (two users, every
@@ -393,7 +393,7 @@ CPU function before the GPU run</td>
 </tr>
 <tr>
 <td>R11</td>
-<td>○ planned</td>
+<td>◐ partly</td>
 <td>Album, photos (best 30 by default, <code>?tier=all</code>) and
 people each take at most 2 database queries; under 1 s on Neon for 1,000
 photos</td>
@@ -439,7 +439,7 @@ has no High open, Budapest gate 11/11.</p>
 <h2 id="3-plan">3. Plan</h2>
 <pre class="mermaid"><code>flowchart TD
   S1[&quot;&lt;b&gt;● W1: Accounts and sign-in&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/auth.py, public_api/accounts.py (new); control/models.py&lt;/i&gt;&quot;] --&gt; C1{{&quot;check R1 R2 R3&quot;}}
-  C1 --&gt; S2[&quot;&lt;b&gt;○ W2: Ownership and fast reads&lt;/b&gt;&lt;br/&gt;&lt;i&gt;control/models.py (Job.owner_id); public_api/album_repo.py (new)&lt;/i&gt;&quot;]
+  C1 --&gt; S2[&quot;&lt;b&gt;● W2: Ownership and fast reads&lt;/b&gt;&lt;br/&gt;&lt;i&gt;control/models.py (Job.owner_id); public_api/album_repo.py (new)&lt;/i&gt;&quot;]
   S2 --&gt; C2{{&quot;check R4 R11&quot;}}
   C2 --&gt; S3[&quot;&lt;b&gt;○ W3: Uploads, limits, quota, spend cap&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/uploads.py, public_api/limits.py (new); storage/object_store.py&lt;/i&gt;&quot;]
   S3 --&gt; C3{{&quot;check R5 R6 R7 R8&quot;}}
@@ -452,8 +452,8 @@ has no High open, Budapest gate 11/11.</p>
   classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
   classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
   classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
-  class S1 done
-  class S2,S3,S4,S5,S6 todo
+  class S1,S2 done
+  class S3,S4,S5,S6 todo
   class C1,C2,C3,C4,C5,C6 check</code></pre>
 <h2 id="4-class-diagram">4. Class diagram</h2>
 <pre class="mermaid"><code>classDiagram
@@ -621,7 +621,7 @@ slice)</td>
 <td><code>list</code>, <code>album</code>, <code>photos</code>,
 <code>people</code>, <code>rename_person</code></td>
 <td><code>session</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/public_api/schemas.py</code></td>
@@ -688,7 +688,7 @@ the spend cap</td>
 <td><code>Job.owner_id</code> (indexed); three new tables in the job
 database</td>
 <td>R2 R3 R4 R15</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/storage/object_store.py</code></td>

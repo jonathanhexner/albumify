@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-22 [FEATURE] spec-120 W2: album ownership and fast public reads
+**Files**: `sim_bench/control/models.py` (`Job.owner_id`), `sim_bench/control/db.py` (`_add_missing_indexes`), `sim_bench/public_api/album_repo.py` (new), `tests/public_api/test_isolation.py` (new), `tests/storage/test_neon_parity.py` (public API suite on Postgres).
+**Change**: every job can belong to a public account; `PublicAlbumRepo` serves album, photos (best 30 / all), people and rename, owner-filtered, at most 2 queries each.
+**Reason**: spec-120 R4, R11; real Neon timing 0.3-0.6 s median on a 715-photo run.
+
 ### 2026-11-22 [FEATURE] spec-120 W1: public accounts and sign-in
 **Files**: `sim_bench/control/models.py` (`Account`, `Invite`, `ContentReport`), `sim_bench/public_api/{__init__,auth,accounts,app,schemas}.py` (new), `requirements.txt` (PyJWT), `tests/public_api/{conftest,test_auth,test_accounts}.py` (new).
 **Change**: a separate public FastAPI app; Clerk session tokens verified against the provider's keys (401 otherwise); accounts only for invited emails (403 waiting list); face-grouping consent recorded via `POST /v1/me/consent`.

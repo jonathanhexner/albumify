@@ -86,6 +86,7 @@ def _create_schema(engine: Engine) -> None:
     if missing:
         ControlBase.metadata.create_all(engine, tables=missing)
     _add_missing_columns(engine)
+    _add_missing_indexes(engine)
 
 
 def _rename_job_people(engine: Engine, names=None) -> bool:
@@ -120,3 +121,16 @@ def _add_missing_columns(engine: Engine) -> None:
             with engine.begin() as conn:
                 conn.execute(text(f'ALTER TABLE {table.name} ADD COLUMN "{col.name}" {ddl}'))
             logger.info("control DB: added column %s.%s", table.name, col.name)
+
+
+def _add_missing_indexes(engine: Engine) -> None:
+    """Create model indexes an older DB lacks (an index on a column added later, e.g. ``jobs.owner_id``,
+    spec-120). One schema query on Postgres."""
+    tables = ControlBase.metadata.sorted_tables
+    found = inspect(engine).get_multi_indexes(filter_names=[t.name for t in tables])
+    names = {i["name"] for idx in found.values() for i in idx}
+    for table in tables:
+        for index in table.indexes:
+            if index.name not in names:
+                index.create(engine)
+                logger.info("control DB: added index %s", index.name)

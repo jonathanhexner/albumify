@@ -335,13 +335,15 @@ keys, no network) — R1 R2 R3</label></li>
 email gets 403; no consent → no upload.</p>
 <h2 id="w2-ownership-and-fast-reads">W2: Ownership and fast reads</h2>
 <ul class="task-list">
-<li><label><input type="checkbox" />T2.1 <code>Job.owner_id</code>
-(indexed) + migration; owner-less jobs stay the owner's
-(<code>owner_id</code> NULL = the owner's own runs)</label></li>
-<li><label><input type="checkbox" />T2.2 <code>PublicAlbumRepo</code> in
+<li><label><input type="checkbox" checked="" />T2.1
+<code>Job.owner_id</code> (indexed) + migration; owner-less jobs stay
+the owner's (<code>owner_id</code> NULL = the owner's own
+runs)</label></li>
+<li><label><input type="checkbox" checked="" />T2.2
+<code>PublicAlbumRepo</code> in
 <code>sim_bench/public_api/album_repo.py</code>: list, album, photos
 (best 30 / all), people, rename; each one or two queries</label></li>
-<li><label><input type="checkbox" />T2.3 Tests
+<li><label><input type="checkbox" checked="" />T2.3 Tests
 <code>tests/public_api/test_isolation.py</code> (two users, every read),
 <code>tests/public_api/test_query_counts.py</code>; add to the
 <code>needs_neon</code> parity run — R4 R11</label></li>

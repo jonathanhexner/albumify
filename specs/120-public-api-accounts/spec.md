@@ -1,6 +1,6 @@
 # spec-120 — Accounts and a public API: signed-in users upload a trip and get their album
 
-**Status:** In Progress (W1 done 2026-11-22) · **Created:** 2026-11-22 · **Roadmap:** Stage C, next (productization plan steps 3-4) · **Plan:** [productization plan](../../docs/project/productization_plan_2026-11-22.html) · **Continues:** [spec-106](../106-albumify-web-showcase/spec.html) (public service), [spec-119](../119-repository-layer/spec.md) (repository slice)
+**Status:** In Progress (W1-W2 done 2026-11-22) · **Created:** 2026-11-22 · **Roadmap:** Stage C, next (productization plan steps 3-4) · **Plan:** [productization plan](../../docs/project/productization_plan_2026-11-22.html) · **Continues:** [spec-106](../106-albumify-web-showcase/spec.html) (public service), [spec-119](../119-repository-layer/spec.md) (repository slice)
 
 <p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
 
@@ -17,14 +17,14 @@ stays frozen for the owner's Streamlit app. Costs are capped per account and in 
 | R1 | ◐ partly | Every endpoint except `/health` needs a valid sign-in token from the hosted provider (Clerk); a missing, expired or forged token gets 401 | `tests/public_api/test_auth.py` (signed test keys: valid, expired, wrong issuer, tampered) |
 | R2 | ● done | Only invited emails get an account; anyone else gets 403 "on the waiting list" | `tests/public_api/test_accounts.py::test_uninvited_email_is_waitlisted` |
 | R3 | ◐ partly | No upload is accepted until the account has recorded face-grouping consent | `tests/public_api/test_accounts.py::test_upload_needs_face_consent` |
-| R4 | ○ planned | A user sees, renames and deletes only their own albums; another user's album answers 404 | `tests/public_api/test_isolation.py` (two users, every endpoint), also in the `needs_neon` parity run |
+| R4 | ● done | A user sees, renames and deletes only their own albums; another user's album answers 404 | `tests/public_api/test_isolation.py` (two users, every endpoint), also in the `needs_neon` parity run |
 | R5 | ○ planned | Uploads go straight to R2 with signed URLs; limits are checked before any compute: ≤ 1,000 photos, ≤ 25 MB each, ≤ 6 GB total, JPEG/HEIC/PNG/WebP | `tests/public_api/test_uploads.py`; real R2: signed PUT accepted, oversize and wrong type refused |
 | R6 | ○ planned | Creating an upload returns the expected wait (upload + processing minutes) and where it runs; ≥ 300 photos run on the GPU | `tests/public_api/test_uploads.py::test_estimate_and_runner_by_size` |
 | R7 | ○ planned | Quota per account per calendar month: 3 albums and 3,000 photos; over it gets 429 with the reset date | `tests/public_api/test_limits.py::test_monthly_quota` |
 | R8 | ○ planned | Global spend cap $50 a month: a job that would pass it waits or is refused; an alert is logged at 80 % | `tests/public_api/test_limits.py::test_spend_cap_and_alert` |
 | R9 | ○ planned | Jobs wait in the database and a dispatcher starts them in order, at most N at once; restarting the API loses nothing | `tests/serving/test_dispatcher.py` (order, concurrency, restart) |
 | R10 | ○ planned | Uploaded originals are turned into 768 px inputs (EXIF kept) by a CPU function before the GPU run | `tests/serving/test_upload_stager.py`; real Modal run of 50 uploaded photos to an album |
-| R11 | ○ planned | Album, photos (best 30 by default, `?tier=all`) and people each take at most 2 database queries; under 1 s on Neon for 1,000 photos | `tests/public_api/test_query_counts.py`; real Neon timing on Slovakia26 |
+| R11 | ◐ partly | Album, photos (best 30 by default, `?tier=all`) and people each take at most 2 database queries; under 1 s on Neon for 1,000 photos | `tests/public_api/test_query_counts.py`; real Neon timing on Slovakia26 |
 | R12 | ○ planned | The only edit is renaming a person | `tests/public_api/test_people.py::test_rename_person_only` |
 | R13 | ○ planned | Deleting an album or the whole account removes every row, face crop and stored file; a listing finds nothing left | `tests/public_api/test_delete.py`; real R2 listing after delete |
 | R14 | ○ planned | Original uploads are deleted 7 days after upload; albums and 768 px copies stay until the user deletes them | `tests/serving/test_retention.py` (clock moved 8 days) |
@@ -38,7 +38,7 @@ from upload to album on the deployed API, `/code-review` REVIEW.md has no High o
 ```mermaid
 flowchart TD
   S1["<b>● W1: Accounts and sign-in</b><br/><i>public_api/auth.py, public_api/accounts.py (new); control/models.py</i>"] --> C1{{"check R1 R2 R3"}}
-  C1 --> S2["<b>○ W2: Ownership and fast reads</b><br/><i>control/models.py (Job.owner_id); public_api/album_repo.py (new)</i>"]
+  C1 --> S2["<b>● W2: Ownership and fast reads</b><br/><i>control/models.py (Job.owner_id); public_api/album_repo.py (new)</i>"]
   S2 --> C2{{"check R4 R11"}}
   C2 --> S3["<b>○ W3: Uploads, limits, quota, spend cap</b><br/><i>public_api/uploads.py, public_api/limits.py (new); storage/object_store.py</i>"]
   S3 --> C3{{"check R5 R6 R7 R8"}}
@@ -51,8 +51,8 @@ flowchart TD
   classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
   classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
   classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
-  class S1 done
-  class S2,S3,S4,S5,S6 todo
+  class S1,S2 done
+  class S3,S4,S5,S6 todo
   class C1,C2,C3,C4,C5,C6 check
 ```
 
@@ -163,7 +163,7 @@ Also new, not drawn: tables `Account`, `Invite`, `ContentReport` (in `control/mo
 | `sim_bench/public_api/accounts.py` | `AccountRepo` | Account from claims, invite check, consent, delete everything (built: all but `delete_everything`, W5) | `get_or_create`, `record_consent`, `delete_everything` | `db` | ● |
 | `sim_bench/public_api/limits.py` | `Limits`, `QuotaGuard`, `SpendGuard` | Upload limits, monthly quota, monthly spend cap and 80 % alert | `check`, `spent_this_month`, `allows` | values from `configs/public.yaml` | ○ |
 | `sim_bench/public_api/uploads.py` | `UploadService` | Signed upload URLs, size/type/count checks, estimate, then a queued job | `create`, `complete` | `store`, `jobs`, `limits` | ○ |
-| `sim_bench/public_api/album_repo.py` | `PublicAlbumRepo` | Every public read, owner-filtered, at most 2 queries each (spec-119 slice) | `list`, `album`, `photos`, `people`, `rename_person` | `session` | ○ |
+| `sim_bench/public_api/album_repo.py` | `PublicAlbumRepo` | Every public read, owner-filtered, at most 2 queries each (spec-119 slice) | `list`, `album`, `photos`, `people`, `rename_person` | `session` | ● |
 | `sim_bench/public_api/schemas.py` | response models | What the website receives: account, upload ticket, album, photo, person (built: account) | — | — | ● |
 | `sim_bench/serving/dispatcher.py` | `JobDispatcher` | Start queued jobs in order, at most `max_running`, within the spend cap | `tick()` | `max_running`, `remote` | ○ |
 | `sim_bench/serving/upload_stager.py` | `UploadStager` | Originals in R2 → 768 px inputs + manifest, EXIF kept | `calc(StageInputs)` | `store` | ○ |
@@ -174,7 +174,7 @@ Also new, not drawn: tables `Account`, `Invite`, `ContentReport` (in `control/mo
 
 | File | Class / function | Today | After this spec | Req | Status |
 |---|---|---|---|---|---|
-| `sim_bench/control/models.py` | `Job`; new `Account`, `Invite`, `ContentReport` | jobs have no owner; no account tables | `Job.owner_id` (indexed); three new tables in the job database | R2 R3 R4 R15 | ○ |
+| `sim_bench/control/models.py` | `Job`; new `Account`, `Invite`, `ContentReport` | jobs have no owner; no account tables | `Job.owner_id` (indexed); three new tables in the job database | R2 R3 R4 R15 | ● |
 | `sim_bench/storage/object_store.py` | `R2ObjectStore` | put / get / list / delete only | ✚ `presigned_put`, ✚ `presigned_get` (short expiry, size and type fixed in the signature) | R5 R11 | ○ |
 | `sim_bench/serving/job_service.py` | `SubmitInputs`, `JobService.create` | jobs come from a folder on this PC | ✚ `owner_id`; a job can start from an upload in R2 (status queued, staged by `UploadStager`) | R4 R10 | ○ |
 | `sim_bench/serving/modal_app.py` | Modal functions | `curate_job`, `stage_job` (photos sent from this PC), `purge_inputs` | ✚ `public_api` web endpoint, ✚ `stage_upload`, ✚ `dispatch` every 30 s, ✚ `sweep` daily | R9 R10 R14 R15 | ○ |
