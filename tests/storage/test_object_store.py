@@ -113,3 +113,102 @@ def test_local_store_layout_is_the_job_folder(tmp_path):
     LocalObjectStore(tmp_path).put("j1/display/a.jpg", b"A")
     assert (tmp_path / "j1" / "display" / "a.jpg").read_bytes() == b"A"
     assert check_key("j1/", prefix=True) == "j1/"
+
+
+# --- spec-120 R5: signed upload URLs ---------------------------------------------------------------------------
+
+def test_sizes_lists_every_object_with_its_size(store):
+    store.put("u1/0000.jpg", b"abc")
+    store.put("u1/0001.png", b"abcdef")
+    store.put("u10/0000.jpg", b"x")
+    assert store.sizes("u1/") == {"u1/0000.jpg": 3, "u1/0001.png": 6}
+    assert store.sizes("nothing/") == {}
+
+
+def test_signed_urls_need_r2(tmp_path):
+    with pytest.raises(NotImplementedError):
+        LocalObjectStore(tmp_path).presigned_put("u1/0000.jpg", 10, "image/jpeg")
+
+
+@pytest.fixture
+def r2v4():
+    """The fake bucket with a SigV4 client, as ``R2ObjectStore.from_env`` makes it."""
+    from botocore.config import Config
+    with mock_aws():
+        s3 = boto3.client("s3", region_name="us-east-1", config=Config(signature_version="s3v4"))
+        s3.create_bucket(Bucket=BUCKET)
+        yield R2ObjectStore(BUCKET, s3), s3
+
+
+class ut_R2SignedUrls:
+    def test_under_shares_the_bucket_with_another_prefix(self, r2):
+        store, s3 = r2
+        uploads = store.under("uploads/")
+        uploads.put("u1/0000.jpg", b"A")
+        assert [o["Key"] for o in s3.list_objects_v2(Bucket=BUCKET)["Contents"]] == ["uploads/u1/0000.jpg"]
+        assert store.list("u1/") == [] and uploads.sizes("u1/") == {"u1/0000.jpg": 1}
+        with pytest.raises(ValueError):
+            store.under("../")
+
+    def test_presigned_put_signs_size_and_type(self, r2v4):
+        store, _ = r2v4
+        url = store.under("uploads/").presigned_put("u1/0000.jpg", 1234, "image/jpeg", expires_s=600)
+        assert "/uploads/u1/0000.jpg?" in url and "X-Amz-Expires=600" in url
+        assert "X-Amz-SignedHeaders=content-length%3Bcontent-type%3Bhost" in url
+
+    def test_a_client_that_cannot_sign_the_size_gives_no_url(self, r2):
+        store, _ = r2                       # default client: older-style signature, size not signed
+        with pytest.raises(RuntimeError, match="s3v4"):
+            store.presigned_put("u1/0000.jpg", 1234, "image/jpeg")
+
+    def test_from_env_signs_with_sigv4(self, monkeypatch):
+        for v, val in (("R2_ACCOUNT_ID", "acct"), ("R2_ACCESS_KEY_ID", "AKIA"), ("R2_SECRET_ACCESS_KEY", "s"),
+                       ("R2_BUCKET", "albumify")):
+            monkeypatch.setenv(v, val)
+        assert R2ObjectStore.from_env()._s3.meta.config.signature_version == "s3v4"
+
+    def test_presigned_get(self, r2v4):
+        store, _ = r2v4
+        url = store.presigned_get("j1/display/a.jpg", expires_s=300)
+        assert "/jobs/j1/display/a.jpg?" in url and "X-Amz-Expires=300" in url
+
+
+@pytest.mark.needs_r2
+def test_real_r2_signed_put():
+    """spec-120 R5 on the real bucket: the signed PUT takes the declared size and type and refuses any other."""
+    import os
+    from pathlib import Path
+    import secrets
+
+    import requests
+    from dotenv import dotenv_values
+
+    env_file = Path(os.environ.get("ALBUMIFY_ENV_FILE") or Path(__file__).resolve().parents[2] / ".env")
+    env = dotenv_values(env_file) if env_file.is_file() else {}
+    if not all(env.get(v) for v in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET")):
+        pytest.skip("needs_r2: R2_* not in .env")
+    saved = {v: os.environ.get(v) for v in env}
+    os.environ.update({v: env[v] for v in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET")})
+    try:
+        uploads = R2ObjectStore.from_env().under("uploads/")
+    finally:
+        for v, old in saved.items():
+            if old is None:
+                os.environ.pop(v, None)
+            else:
+                os.environ[v] = old
+    prefix = f"_test-{secrets.token_hex(4)}/"
+    key, body = prefix + "0000.jpg", b"\xff\xd8" + b"0" * 98
+    try:
+        url = uploads.presigned_put(key, len(body), "image/jpeg", expires_s=120)
+        put = lambda data, ctype: requests.put(url, data=data, headers={"Content-Type": ctype}, timeout=30).status_code
+        assert put(body + b"more", "image/jpeg") == 403           # bigger than signed
+        assert put(body[:50], "image/jpeg") == 403                # smaller than signed
+        assert put(body, "application/x-msdownload") == 403       # another type
+        assert uploads.sizes(prefix) == {}
+        assert put(body, "image/jpeg") == 200
+        assert uploads.sizes(prefix) == {key: len(body)}
+        assert requests.get(uploads.presigned_get(key, 60), timeout=30).content == body
+    finally:
+        uploads.delete_prefix(prefix)
+    assert uploads.list(prefix) == []

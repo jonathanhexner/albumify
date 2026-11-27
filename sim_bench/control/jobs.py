@@ -78,13 +78,15 @@ class JobRepo:
         self._db = db
 
     def create(self, job_id: str, *, runner: str, pipeline: str = "default",
-               source: Optional[str] = None, tag: Optional[str] = None) -> Job:
-        """New job in ``queued``; an existing finished job is re-queued (same id = re-run)."""
+               source: Optional[str] = None, tag: Optional[str] = None,
+               owner_id: Optional[str] = None, n_inputs: int = 0) -> Job:
+        """New job in ``queued``; an existing finished job is re-queued (same id = re-run).
+        ``owner_id`` (spec-120) is set in the same transaction, so no one ever sees a public job without its owner."""
         with self._db.session() as s:
             job = s.get(Job, job_id)
             if job is None:
                 job = Job(id=job_id, status=QUEUED, runner=runner, pipeline=pipeline,
-                          source=source, tag=tag, created_at=_now())
+                          source=source, tag=tag, owner_id=owner_id, n_inputs=n_inputs, created_at=_now())
                 s.add(job)
                 s.flush()
                 _event(s, job_id, "status", QUEUED)

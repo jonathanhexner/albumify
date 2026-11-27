@@ -26,10 +26,10 @@
 **Checkpoint:** user B gets 404 on everything of user A; query counts ≤ 2; real Neon timing < 1 s on Slovakia26.
 
 ## W3: Uploads, limits, quota, spend cap
-- [ ] T3.1 `R2ObjectStore.presigned_put`, `presigned_get` in `sim_bench/storage/object_store.py`
-- [ ] T3.2 `Limits`, `QuotaGuard`, `SpendGuard` in `sim_bench/public_api/limits.py`; `configs/public.yaml`
-- [ ] T3.3 `UploadService.create` (checks, estimate, runner by size) and `complete` (objects present → queued job)
-- [ ] T3.4 Tests `tests/public_api/test_uploads.py`, `tests/public_api/test_limits.py`; real R2 signed PUT — R5 R6 R7 R8
+- [x] T3.1 `R2ObjectStore.presigned_put`, `presigned_get` in `sim_bench/storage/object_store.py`
+- [x] T3.2 `Limits`, `QuotaGuard`, `SpendGuard` in `sim_bench/public_api/limits.py`; `configs/public.yaml`
+- [x] T3.3 `UploadService.create` (checks, estimate, runner by size) and `complete` (objects present → queued job)
+- [x] T3.4 Tests `tests/public_api/test_uploads.py`, `tests/public_api/test_limits.py`; real R2 signed PUT — R5 R6 R7 R8
 
 **Checkpoint:** 1,001 photos, a 30 MB file or a `.exe` are refused before anything is stored; the 4th album of the month gets 429.
 

@@ -1,0 +1,101 @@
+<title>Why W4 Exists</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#F7F4EE;--surface:#FFFFFF;--sunk:#EFEAE1;--fg:#1B1714;--muted:#5E554B;--line:#D9D1C4;--accent:#0F766E;--accent-soft:#DDF0EC;--warn:#B45309;--warn-soft:#FDEFD9;--new:#3E8A4B;--new-soft:#E3F3E5}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15130F;--surface:#1E1B17;--sunk:#24201B;--fg:#EEE8DE;--muted:#A89F92;--line:#3A342D;--accent:#4FB3A8;--accent-soft:#18312E;--warn:#E0A458;--warn-soft:#342616;--new:#7CC48A;--new-soft:#1C3020;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15130F;--surface:#1E1B17;--sunk:#24201B;--fg:#EEE8DE;--muted:#A89F92;--line:#3A342D;--accent:#4FB3A8;--accent-soft:#18312E;--warn:#E0A458;--warn-soft:#342616;--new:#7CC48A;--new-soft:#1C3020;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:17px/1.55 "Source Sans 3",system-ui,sans-serif;margin:0}
+.wrap{max-width:900px;margin:0 auto;padding-inline:16px;padding-block:32px 64px}
+h1,h2,h3{font-family:"Schibsted Grotesk",system-ui,sans-serif;text-wrap:balance;line-height:1.2}
+h1{font-size:2rem;margin:0 0 .3em}
+h2{font-size:1.35rem;margin:2.2em 0 .6em;padding-top:.6em;border-top:1px solid var(--line)}
+h3{font-size:1.05rem;margin:0 0 .3em}
+p,li{max-width:68ch}
+code{font:500 .86em "IBM Plex Mono",ui-monospace,monospace;background:var(--sunk);padding:.08em .35em;border-radius:4px}
+.sub{color:var(--muted);margin:0 0 1.5em}
+.answer{background:var(--accent-soft);border-left:4px solid var(--accent);padding:16px 20px;border-radius:6px}
+.answer p{margin:.3em 0}
+.answer strong{color:var(--accent)}
+.flows{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:1em}
+@media (max-width:700px){.flows{grid-template-columns:1fr}}
+.flow{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.flow.now h3{color:var(--accent)} .flow.pub h3{color:var(--new)}
+.step{border:1px solid var(--line);background:var(--sunk);border-radius:6px;padding:8px 12px;font-size:.95rem}
+.step b{font-weight:600}
+.step.key{border-color:var(--warn);background:var(--warn-soft)}
+.step.newer{border-color:var(--new);background:var(--new-soft)}
+.arrow{text-align:center;color:var(--muted);font-size:.9rem;line-height:1.6}
+.tag{display:inline-block;font:500 .72rem "IBM Plex Mono",monospace;letter-spacing:.04em;text-transform:uppercase;padding:.1em .45em;border-radius:3px;background:var(--line);color:var(--fg);vertical-align:2px}
+.tag.w{background:var(--warn);color:var(--bg)} .tag.n{background:var(--new);color:var(--bg)}
+.tablebox{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.95rem;background:var(--surface)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--sunk);font-family:"Schibsted Grotesk",sans-serif;font-weight:500}
+.timeline{list-style:none;padding:0;margin:0;border-left:2px solid var(--line)}
+.timeline li{position:relative;padding:0 0 14px 20px}
+.timeline li::before{content:"";position:absolute;left:-7px;top:.45em;width:12px;height:12px;border-radius:50%;background:var(--line)}
+.timeline li.done::before{background:var(--accent)} .timeline li.here::before{background:var(--warn)}
+.timeline .d{font:500 .85rem "IBM Plex Mono",monospace;color:var(--muted)}
+.note{color:var(--muted);font-size:.93rem}
+</style>
+
+<div class="wrap">
+<h1>Why W4 exists</h1>
+<p class="sub">spec-120 · Accounts and a public API · 2026-11-28 · answering "was everything just idle?"</p>
+
+<div class="answer">
+  <p><strong>Nothing has been idle.</strong> No member of the public has ever uploaded a photo, so no public job has ever waited.</p>
+  <p>The upload code (W3) was written today and has only run inside tests. It isn't deployed and has no users. When I said "a completed upload just sits there," I meant that the code which picks it up hasn't been written yet. Nothing real is waiting: zero jobs, for zero minutes.</p>
+  <p>Your own albums never wait either. They start the moment you click Run, exactly as before.</p>
+</div>
+
+<h2>How it works today, and what changes for the public</h2>
+<div class="flows">
+  <div class="flow now">
+    <h3>Today: your runs <span class="tag">works, unchanged</span></h3>
+    <div class="step"><b>You</b> click Run in the Streamlit app on this PC</div>
+    <div class="arrow">↓</div>
+    <div class="step">The owner API (on this PC) makes the job row and <b>starts it immediately</b> (<code>background.add_task(svc.run)</code> in <code>api/routers/jobs.py</code>)</div>
+    <div class="arrow">↓</div>
+    <div class="step">Photos are read from your disk (<code>D:\Slovakia26</code>) and staged</div>
+    <div class="arrow">↓</div>
+    <div class="step">It runs here, or on the L4 GPU started from this PC; the worker writes results to Neon</div>
+    <p class="note">There's no waiting room because there's only one user, the starter is your click, and your PC is on when you click.</p>
+  </div>
+  <div class="flow pub">
+    <h3>Public site: a stranger's upload <span class="tag n">being built</span></h3>
+    <div class="step newer"><b>A user</b> uploads from the website at any hour (W3, built today)</div>
+    <div class="arrow">↓</div>
+    <div class="step newer">Their photos land in <b>R2 cloud storage</b>, not on your disk; the job row says <code>queued</code></div>
+    <div class="arrow">↓</div>
+    <div class="step key"><b>W4: who presses "Run"?</b> Not you, and not your PC, which may be off. A small <b>dispatcher on Modal</b> checks every 30 s: oldest first, at most 2 at once, within the $50 spend cap</div>
+    <div class="arrow">↓</div>
+    <div class="step key"><b>W4:</b> a Modal CPU step shrinks the originals from R2 to 768 px (today your PC does this)</div>
+    <div class="arrow">↓</div>
+    <div class="step">The same GPU worker as today writes the album to Neon</div>
+  </div>
+</div>
+
+<h2>Why your click can't just be copied</h2>
+<div class="tablebox"><table>
+  <thead><tr><th></th><th>Your runs</th><th>Public uploads</th><th>So W4 needs</th></tr></thead>
+  <tbody>
+    <tr><td>Who starts it</td><td>You, by clicking</td><td>Nobody clicks; the upload just ends</td><td>Something that starts jobs by itself</td></tr>
+    <tr><td>Where it starts from</td><td>This PC, which is on</td><td>Must work with this PC off</td><td>The starter lives on Modal, not here</td></tr>
+    <tr><td>Where the photos are</td><td>Your disk</td><td>R2 (full-size originals)</td><td>A step that shrinks them on Modal</td></tr>
+    <tr><td>How many at once</td><td>One, yours</td><td>Several users at the same time</td><td>A queue: in order, at most 2 running, spend cap checked</td></tr>
+    <tr><td>If the API restarts</td><td>You click again</td><td>A user's upload must not be lost</td><td>The queue lives in the database, not in memory</td></tr>
+  </tbody>
+</table></div>
+<p class="note">Why check every 30 s instead of starting the job the moment the upload finishes? Then a restart could never drop a job, and the "2 at a time" and spend-cap rules sit in one place. The cost is up to 30 s of delay on a run that takes 10–20 minutes.</p>
+
+<h2>Where we are</h2>
+<ul class="timeline">
+  <li class="done"><span class="d">2026-11-22</span> · W1 accounts and sign-in, W2 each user sees only their own albums (code and tests)</li>
+  <li class="done"><span class="d">2026-11-28</span> · W3 uploads and limits (code and tests; checked once against the real R2 bucket)</li>
+  <li class="here"><span class="d">next</span> · W4 the dispatcher and photo shrinking on Modal, then one real 50-photo run</li>
+  <li><span class="d">after</span> · W5 album pages for users, W6 deleting old photos and putting the public API online</li>
+  <li><span class="d">then</span> · the website spec; only then can a real invited user upload anything</li>
+</ul>
+<p class="note">One more thing that may have looked like waiting: the "Neon run" is a test, the public API tests re-run against a throwaway Postgres database. Each pass takes about 9 minutes. The first pass failed and I'm re-running it to read the failure.</p>
+</div>

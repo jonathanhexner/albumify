@@ -1,0 +1,33 @@
+# Albumify public site limits (spec-120, owner decisions 2026-11-22). Read by sim_bench/public_api/limits.py.
+# Every check here runs before anything is stored or computed.
+
+# One upload (R5)
+max_photos: 1000
+max_file_mb: 25
+max_total_gb: 6
+types: [jpeg, heic, png, webp]
+
+# Per account, per calendar month, UTC (R7)
+albums_per_month: 3
+photos_per_month: 3000
+
+# All public accounts together, per calendar month, UTC (R8). Counted at each upload's estimate when it is
+# completed; an alert is logged when the month passes alert_fraction of the cap.
+spend_cap_dollars: 50
+alert_fraction: 0.8
+
+# Where an upload runs and how long it is expected to take (R6). GPU figures come from configs/serving.yaml.
+gpu_min_photos: 300
+# Modal CPU: estimates, not measured yet (to be replaced by the W4 real run of 50 uploaded photos)
+cpu_fixed_seconds: 120
+cpu_seconds_per_photo: 3.0
+cpu_dollars_per_hour: 0.20
+# Assumed home upload speed for the wait shown before an upload starts (3-5 GB take 20-40 min, spec risks)
+assumed_upload_mbps: 20
+
+# Signed upload URLs stay valid this long: a 6 GB upload at home speed can take well over an hour
+upload_url_minutes: 180
+
+# Later steps: originals deleted after this many days (R14, W6); jobs running at once (R9, W4)
+retention_days: 7
+max_running: 2

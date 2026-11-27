@@ -402,6 +402,25 @@ only). <strong>spec-117:</strong> with <code>DATABASE_URL</code> set, these tabl
   </tbody>
 </table>
 
+<h2 id="control-public" style="border-color:#0f766e;">Control DB: public accounts and uploads<span class="src">spec-120 · ORM: sim_bench/control/models.py::Account, Invite, ContentReport, Upload · same database as <code>jobs</code> · writers: <code>AccountRepo</code>, <code>UploadService</code></span></h2>
+<p>The public site's users (spec-120). New tables are made by <code>create_all</code> on open. <code>jobs.owner_id</code>
+(indexed, nullable) names the account that owns a job; NULL = the owner's own runs (Streamlit app, regression), never
+shown on the public site. Quota (R7) and spend (R8) are counted over <code>uploads.completed_at</code> in the current
+UTC calendar month.</p>
+<table>
+  <thead><tr><th>Table . column</th><th>Type</th><th>Description</th><th>Producer (upstream value)</th></tr></thead>
+  <tbody>
+    <tr><td><code>accounts.id</code> <span class="pill pk">PK</span></td><td>VARCHAR(128)</td><td>The sign-in provider's user id.</td><td>Token <code>sub</code>, <code>AccountRepo.get_or_create</code>.</td></tr>
+    <tr><td><code>accounts.email</code> (unique), <code>face_consent_at</code>, <code>created_at</code></td><td>VARCHAR / TIMESTAMPTZ</td><td>Lower-case email; when face grouping was agreed (no upload before it, R3).</td><td>Token <code>email</code>; <code>POST /v1/me/consent</code>.</td></tr>
+    <tr><td><code>invites.email</code> <span class="pill pk">PK</span>, <code>invited_at</code></td><td>VARCHAR / TIMESTAMPTZ</td><td>Emails allowed to sign up while invite-only (R2).</td><td><code>AccountRepo.invite</code> (owner).</td></tr>
+    <tr><td><code>content_reports</code></td><td>id, account_id FK, job_id, photo_id, reason, created_at</td><td>A user's report about an album photo (R15).</td><td><code>POST /v1/reports</code> (W6).</td></tr>
+    <tr><td><code>uploads.id</code> <span class="pill pk">PK</span></td><td>VARCHAR(64)</td><td><code>up-&lt;time&gt;-&lt;hex&gt;</code>; becomes the job id on complete. Files in R2 <code>uploads/&lt;id&gt;/&lt;nnnn&gt;.&lt;ext&gt;</code>.</td><td><code>UploadService.create</code>.</td></tr>
+    <tr><td><code>uploads.account_id</code> FK (cascade), <code>files</code> JSON</td><td>VARCHAR / JSON</td><td>Owner; <code>[{name, key, size, content_type}]</code> (user file names are never keys).</td><td><code>POST /v1/uploads</code> body, checked against <code>configs/public.yaml</code>.</td></tr>
+    <tr><td><code>uploads.n_photos</code>, <code>total_bytes</code> (BIGINT), <code>runner</code>, <code>estimated_dollars</code></td><td>INT / BIGINT / VARCHAR / FLOAT</td><td>Size, where it runs (&ge; 300 photos GPU), the estimate counted against the spend cap.</td><td><code>UploadService.estimate</code>.</td></tr>
+    <tr><td><code>uploads.created_at</code>, <code>completed_at</code></td><td>TIMESTAMPTZ</td><td>Completed = every file arrived at its size and the job was queued.</td><td><code>UploadService.complete</code>.</td></tr>
+  </tbody>
+</table>
+
 <h2 style="border-color:#1d3a8a;">Schema v5 tables — added in spec-040 Phase 4, writers shipped 2026-05-20 (T2)</h2>
 
 <div class="callout" style="background:#eef2ff; border-left-color:#1d3a8a;">

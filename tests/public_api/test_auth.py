@@ -12,6 +12,8 @@ from sim_bench.control.db import ControlDB
 from sim_bench.public_api.accounts import AccountRepo
 from sim_bench.public_api.app import create_app
 from sim_bench.public_api.auth import AuthError, AuthVerifier, bearer_token
+from sim_bench.public_api.uploads import UploadService
+from sim_bench.storage.object_store import LocalObjectStore
 from tests.public_api.conftest import ISSUER
 
 
@@ -55,23 +57,27 @@ class ut_AuthVerifier:
 
 class ut_PublicAppAuth:
     @pytest.fixture
-    def client(self, verifier, control_db_url):
+    def client(self, verifier, control_db_url, tmp_path):
         accounts = AccountRepo(ControlDB(control_db_url))
         accounts.invite("ann@example.com")
-        return TestClient(create_app(verifier=verifier, accounts=accounts))
+        uploads = UploadService(accounts.db, LocalObjectStore(tmp_path / "uploads"))
+        return TestClient(create_app(verifier=verifier, accounts=accounts, uploads=uploads))
 
     def test_health_needs_no_token(self, client):
         assert client.get("/health").status_code == 200
 
-    @pytest.mark.parametrize("path,method", [("/v1/me", "get"), ("/v1/me/consent", "post")])
-    def test_every_other_route_needs_a_valid_token(self, client, signer, path, method):
+    # path, method, the answer with a valid token (past sign-in: 422 = no body sent, 404 = no such upload)
+    @pytest.mark.parametrize("path,method,signed_in", [
+        ("/v1/me", "get", 200), ("/v1/me/consent", "post", 200),
+        ("/v1/uploads", "post", 422), ("/v1/uploads/x/complete", "post", 404)])
+    def test_every_other_route_needs_a_valid_token(self, client, signer, path, method, signed_in):
         call = getattr(client, method)
         assert call(path).status_code == 401
         assert call(path, headers={"Authorization": "Bearer junk"}).status_code == 401
         assert call(path, headers={"Authorization": f"Bearer {signer.token(expires_in=-60)}"}).status_code == 401
-        assert call(path, headers={"Authorization": f"Bearer {signer.token()}"}).status_code == 200
+        assert call(path, headers={"Authorization": f"Bearer {signer.token()}"}).status_code == signed_in
 
     def test_every_route_is_covered(self, client):
         """A new route must be added to the 401 test above (or be /health)."""
         paths = {r.path for r in client.app.routes if getattr(r, "include_in_schema", False)}
-        assert paths == {"/health", "/v1/me", "/v1/me/consent"}
+        assert paths == {"/health", "/v1/me", "/v1/me/consent", "/v1/uploads", "/v1/uploads/{upload_id}/complete"}

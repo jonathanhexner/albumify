@@ -7,7 +7,9 @@ A key is job-relative: ``<job_id>/display/<photo>.jpg``, ``<job_id>/faces/<face_
     R2ObjectStore(bucket)         s3://<bucket>/jobs/<key>   everything of one job under jobs/<id>/
 
 so a key names the same file whichever store holds it, and a job's files are one prefix (``delete_prefix``).
-Keys are checked (no ``..``, no absolute paths, no backslashes) before either store touches anything.
+spec-120: the public site's uploads go straight from the browser to ``s3://<bucket>/uploads/<key>`` through signed
+URLs (``R2ObjectStore.under("uploads/")``, ``presigned_put``); R2 refuses a body whose size or type differs from the
+signed one. Keys are checked (no ``..``, no absolute paths, no backslashes) before either store touches anything.
 """
 from __future__ import annotations
 
@@ -16,7 +18,7 @@ import os
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,18 @@ class ObjectStore(ABC):
 
     @abstractmethod
     def delete_prefix(self, prefix: str) -> int: ...
+
+    def sizes(self, prefix: str) -> Dict[str, int]:
+        """Size in bytes of every object under ``prefix`` (one listing, no per-object request)."""
+        raise NotImplementedError
+
+    def presigned_put(self, key: str, size: int, content_type: str, expires_s: int = 3600) -> str:
+        """A URL the browser PUTs exactly ``size`` bytes of ``content_type`` to (spec-120 R5). R2 only."""
+        raise NotImplementedError("signed upload URLs need the R2 store")
+
+    def presigned_get(self, key: str, expires_s: int = 3600) -> str:
+        """A short-lived URL to read one object (spec-120 R11). R2 only."""
+        raise NotImplementedError("signed read URLs need the R2 store")
 
     def put_file(self, key: str, path: Path) -> None:
         self.put(key, Path(path).read_bytes())
@@ -119,6 +133,9 @@ class LocalObjectStore(ObjectStore):
                 out.append(p.relative_to(self.root).as_posix())
         return sorted(out)
 
+    def sizes(self, prefix: str) -> Dict[str, int]:
+        return {k: (self.root / k).stat().st_size for k in self.list(prefix)}
+
     def delete_prefix(self, prefix: str) -> int:
         """Delete every file under ``prefix`` (a folder prefix, ending in ``/``); returns how many."""
         if not prefix.endswith("/"):
@@ -151,11 +168,38 @@ class R2ObjectStore(ObjectStore):
             "s3", endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
             aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
             aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"], region_name="auto",
-            config=Config(retries={"max_attempts": 5, "mode": "standard"}, max_pool_connections=UPLOAD_WORKERS))
+            config=Config(retries={"max_attempts": 5, "mode": "standard"}, max_pool_connections=UPLOAD_WORKERS,
+                          signature_version="s3v4"))   # signed URLs carry size + type (spec-120)
         return cls(os.environ["R2_BUCKET"], client)
+
+    def under(self, base: str) -> "R2ObjectStore":
+        """The same bucket and connection, objects under another top-level prefix (e.g. ``uploads/``)."""
+        return R2ObjectStore(self.bucket, self._s3, base=check_key(base, prefix=True))
 
     def _name(self, key: str) -> str:
         return self._base + check_key(key)
+
+    def presigned_put(self, key: str, size: int, content_type: str, expires_s: int = 3600) -> str:
+        # Content-Length and Content-Type are signed headers: R2 answers 403 to any other size or type
+        # (checked on the real bucket, 2026-11-28). Only SigV4 signs them; an older-style URL would take any size.
+        url = self._s3.generate_presigned_url(
+            "put_object", ExpiresIn=int(expires_s),
+            Params={"Bucket": self.bucket, "Key": self._name(key), "ContentType": content_type,
+                    "ContentLength": int(size)})
+        if "X-Amz-SignedHeaders=content-length%3Bcontent-type" not in url:
+            raise RuntimeError("the R2 client does not sign size and type (needs signature_version='s3v4')")
+        return url
+
+    def presigned_get(self, key: str, expires_s: int = 3600) -> str:
+        return self._s3.generate_presigned_url(
+            "get_object", ExpiresIn=int(expires_s), Params={"Bucket": self.bucket, "Key": self._name(key)})
+
+    def sizes(self, prefix: str) -> Dict[str, int]:
+        full = self._base + check_key(prefix, prefix=True)
+        out: Dict[str, int] = {}
+        for page in self._s3.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=full):
+            out.update({o["Key"][len(self._base):]: int(o["Size"]) for o in page.get("Contents", [])})
+        return out
 
     def put(self, key: str, data: bytes) -> None:
         self._s3.put_object(Bucket=self.bucket, Key=self._name(key), Body=data)

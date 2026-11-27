@@ -15,12 +15,12 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
-    JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text,
+    JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 __all__ = ["ControlBase", "Job", "JobEvent", "Photo", "Face", "Person", "Scene", "UserEdit",
-           "Account", "Invite", "ContentReport"]
+           "Account", "Invite", "ContentReport", "Upload"]
 
 
 class ControlBase(DeclarativeBase):
@@ -190,3 +190,24 @@ class ContentReport(ControlBase):
     photo_id: Mapped[str] = mapped_column(String(255), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class Upload(ControlBase):
+    """One upload from the public site (spec-120 R5-R8): created with its files' names, sizes and types, the
+    browser PUTs each file to R2 ``uploads/<id>/<key>``, then ``complete`` checks them and queues job ``id``.
+    Quota and spend are counted over completed uploads."""
+
+    __tablename__ = "uploads"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)                 # = the job id once complete
+    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    files: Mapped[list] = mapped_column(JSON, nullable=False)       # [{name, key, size, content_type}]
+    n_photos: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)          # up to 6 GB: past 32 bits
+    runner: Mapped[str] = mapped_column(String(16), nullable=False)
+    estimated_dollars: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_uploads_account_completed", "account_id", "completed_at"),
+                      Index("ix_uploads_completed", "completed_at"))

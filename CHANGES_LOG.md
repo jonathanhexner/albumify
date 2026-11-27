@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-28 [FEATURE] spec-120 W3: uploads, limits, quota, spend cap
+**Files**: `sim_bench/public_api/{uploads,limits}.py` (new), `sim_bench/public_api/{app,schemas}.py`, `configs/public.yaml` (new), `sim_bench/storage/object_store.py`, `sim_bench/control/{models,jobs}.py`, `tests/public_api/{test_uploads,test_limits}.py` (new), `tests/public_api/test_auth.py`, `tests/storage/test_object_store.py`, `docs/architecture/{db_schemas,classes}.html`, `specs/120-public-api-accounts/{spec,tasks,updates}.md` (+ HTML).
+**Change**: `POST /v1/uploads` checks consent, count, size, type, monthly quota and spend cap, then returns one signed R2 PUT URL per file (size and type in the signature) plus the expected wait and runner; `POST /v1/uploads/{id}/complete` checks every file arrived at its size, re-checks quota and spend, and queues the job with its owner. New `uploads` table; `JobRepo.create(owner_id, n_inputs)`; `R2ObjectStore.under/presigned_put/presigned_get/sizes`, SigV4 forced (an older-style signature would not fix the size).
+**Reason**: spec-120 R5-R8, owner-approved 2026-11-22.
+
 ### 2026-11-28 [DOCS] spec-121 Product Desk moved to its own repo
 **Files**: `ROADMAP.md` (+ HTML).
 **Change**: the spec-121 draft (never committed) is removed; the roadmap row now points to the separate `product-desk` repo. spec-120 row updated to In Progress (W1-W2 done).

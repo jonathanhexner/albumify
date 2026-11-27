@@ -287,9 +287,10 @@ id="toc-decisions-risks-non-goals">Decisions, risks, non-goals</a></li>
 id="spec-120--accounts-and-a-public-api-signed-in-users-upload-a-trip-and-get-their-album">spec-120
 — Accounts and a public API: signed-in users upload a trip and get their
 album</h1>
-<p><strong>Status:</strong> In Progress (W1-W2 done 2026-11-22) ·
-<strong>Created:</strong> 2026-11-22 · <strong>Roadmap:</strong> Stage
-C, next (productization plan steps 3-4) · <strong>Plan:</strong> <a
+<p><strong>Status:</strong> In Progress (W1-W2 done 2026-11-22, W3 done
+2026-11-28) · <strong>Created:</strong> 2026-11-22 ·
+<strong>Roadmap:</strong> Stage C, next (productization plan steps 3-4)
+· <strong>Plan:</strong> <a
 href="../../docs/project/productization_plan_2026-11-22.html">productization
 plan</a> · <strong>Continues:</strong> <a
 href="../106-albumify-web-showcase/spec.html">spec-106</a> (public
@@ -332,10 +333,11 @@ waiting list"</td>
 </tr>
 <tr>
 <td>R3</td>
-<td>◐ partly</td>
+<td>● done</td>
 <td>No upload is accepted until the account has recorded face-grouping
 consent</td>
-<td><code>tests/public_api/test_accounts.py::test_upload_needs_face_consent</code></td>
+<td><code>tests/public_api/test_accounts.py::test_upload_needs_face_consent</code>,
+<code>tests/public_api/test_uploads.py::test_no_upload_without_face_consent</code></td>
 </tr>
 <tr>
 <td>R4</td>
@@ -347,30 +349,31 @@ endpoint), also in the <code>needs_neon</code> parity run</td>
 </tr>
 <tr>
 <td>R5</td>
-<td>○ planned</td>
+<td>● done</td>
 <td>Uploads go straight to R2 with signed URLs; limits are checked
 before any compute: ≤ 1,000 photos, ≤ 25 MB each, ≤ 6 GB total,
 JPEG/HEIC/PNG/WebP</td>
-<td><code>tests/public_api/test_uploads.py</code>; real R2: signed PUT
-accepted, oversize and wrong type refused</td>
+<td><code>tests/public_api/test_uploads.py</code>; real R2:
+<code>tests/storage/test_object_store.py::test_real_r2_signed_put</code>
+(signed PUT accepted, other size or type refused)</td>
 </tr>
 <tr>
 <td>R6</td>
-<td>○ planned</td>
+<td>● done</td>
 <td>Creating an upload returns the expected wait (upload + processing
 minutes) and where it runs; ≥ 300 photos run on the GPU</td>
 <td><code>tests/public_api/test_uploads.py::test_estimate_and_runner_by_size</code></td>
 </tr>
 <tr>
 <td>R7</td>
-<td>○ planned</td>
+<td>● done</td>
 <td>Quota per account per calendar month: 3 albums and 3,000 photos;
 over it gets 429 with the reset date</td>
 <td><code>tests/public_api/test_limits.py::test_monthly_quota</code></td>
 </tr>
 <tr>
 <td>R8</td>
-<td>○ planned</td>
+<td>● done</td>
 <td>Global spend cap $50 a month: a job that would pass it waits or is
 refused; an alert is logged at 80 %</td>
 <td><code>tests/public_api/test_limits.py::test_spend_cap_and_alert</code></td>
@@ -441,7 +444,7 @@ has no High open, Budapest gate 11/11.</p>
   S1[&quot;&lt;b&gt;● W1: Accounts and sign-in&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/auth.py, public_api/accounts.py (new); control/models.py&lt;/i&gt;&quot;] --&gt; C1{{&quot;check R1 R2 R3&quot;}}
   C1 --&gt; S2[&quot;&lt;b&gt;● W2: Ownership and fast reads&lt;/b&gt;&lt;br/&gt;&lt;i&gt;control/models.py (Job.owner_id); public_api/album_repo.py (new)&lt;/i&gt;&quot;]
   S2 --&gt; C2{{&quot;check R4 R11&quot;}}
-  C2 --&gt; S3[&quot;&lt;b&gt;○ W3: Uploads, limits, quota, spend cap&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/uploads.py, public_api/limits.py (new); storage/object_store.py&lt;/i&gt;&quot;]
+  C2 --&gt; S3[&quot;&lt;b&gt;● W3: Uploads, limits, quota, spend cap&lt;/b&gt;&lt;br/&gt;&lt;i&gt;public_api/uploads.py, public_api/limits.py (new); storage/object_store.py&lt;/i&gt;&quot;]
   S3 --&gt; C3{{&quot;check R5 R6 R7 R8&quot;}}
   C3 --&gt; S4[&quot;&lt;b&gt;○ W4: Job queue and staging on Modal&lt;/b&gt;&lt;br/&gt;&lt;i&gt;serving/dispatcher.py, serving/upload_stager.py (new); serving/job_service.py, serving/modal_app.py&lt;/i&gt;&quot;]
   S4 --&gt; C4{{&quot;check R9 R10&quot;}}
@@ -452,8 +455,8 @@ has no High open, Budapest gate 11/11.</p>
   classDef done fill:#FFFFFF,stroke:#1B1714,stroke-width:3px,color:#1B1714
   classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
   classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
-  class S1,S2 done
-  class S3,S4,S5,S6 todo
+  class S1,S2,S3 done
+  class S4,S5,S6 todo
   class C1,C2,C3,C4,C5,C6 check</code></pre>
 <h2 id="4-class-diagram">4. Class diagram</h2>
 <pre class="mermaid"><code>classDiagram
@@ -507,6 +510,8 @@ has no High open, Budapest gate 11/11.</p>
     delete_prefix(prefix) int
     ✚ presigned_put(key, size, content_type) str
     ✚ presigned_get(key) str
+    ✚ sizes(prefix) Dict
+    ✚ under(base) R2ObjectStore
   }
   class JobService {
     ✎ create(inputs) str
@@ -547,7 +552,7 @@ has no High open, Budapest gate 11/11.</p>
   style DetachedModalRemote fill:#F2F0EC,stroke:#A89F92
   style PipelineService fill:#F2F0EC,stroke:#A89F92</code></pre>
 <p>Also new, not drawn: tables <code>Account</code>,
-<code>Invite</code>, <code>ContentReport</code> (in
+<code>Invite</code>, <code>ContentReport</code>, <code>Upload</code> (in
 <code>control/models.py</code>), <code>Limits</code> (values from
 <code>configs/public.yaml</code>), <code>SubmitInputs.owner_id</code>.
 Context not drawn: <code>JobRepo</code> (queue rows),
@@ -570,7 +575,8 @@ Context not drawn: <code>JobRepo</code> (queue rows),
 <td><code>PublicApp</code> (FastAPI app)</td>
 <td>The ~11 public routes; every route resolves the account first
 (built: <code>/health</code>, <code>/v1/me</code>,
-<code>/v1/me/consent</code>; album routes in W5)</td>
+<code>/v1/me/consent</code>, <code>/v1/uploads</code>,
+<code>/v1/uploads/{id}/complete</code>; album routes in W5)</td>
 <td>route functions</td>
 <td><code>app</code></td>
 <td>●</td>
@@ -598,20 +604,24 @@ the claims</td>
 <td><code>sim_bench/public_api/limits.py</code></td>
 <td><code>Limits</code>, <code>QuotaGuard</code>,
 <code>SpendGuard</code></td>
-<td>Upload limits, monthly quota, monthly spend cap and 80 % alert</td>
-<td><code>check</code>, <code>spent_this_month</code>,
+<td>Upload limits, monthly quota, monthly spend cap and 80 % alert;
+counted over completed uploads</td>
+<td><code>load_limits</code>, <code>check</code>,
+<code>used_this_month</code>, <code>spent_this_month</code>,
 <code>allows</code></td>
 <td>values from <code>configs/public.yaml</code></td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/public_api/uploads.py</code></td>
 <td><code>UploadService</code></td>
 <td>Signed upload URLs, size/type/count checks, estimate, then a queued
 job</td>
-<td><code>create</code>, <code>complete</code></td>
-<td><code>store</code>, <code>jobs</code>, <code>limits</code></td>
-<td>○</td>
+<td><code>create</code>, <code>complete</code>,
+<code>estimate</code></td>
+<td><code>store</code>, <code>jobs</code>, <code>limits</code>,
+<code>quota</code>, <code>spend</code></td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/public_api/album_repo.py</code></td>
@@ -627,7 +637,7 @@ slice)</td>
 <td><code>sim_bench/public_api/schemas.py</code></td>
 <td>response models</td>
 <td>What the website receives: account, upload ticket, album, photo,
-person (built: account)</td>
+person (built: account, upload ticket)</td>
 <td>—</td>
 <td>—</td>
 <td>●</td>
@@ -663,7 +673,7 @@ the spend cap</td>
 <td>Limits, quota, spend cap, concurrency, retention days</td>
 <td>—</td>
 <td>—</td>
-<td>○</td>
+<td>●</td>
 </tr>
 </tbody>
 </table>
@@ -683,21 +693,32 @@ the spend cap</td>
 <tr>
 <td><code>sim_bench/control/models.py</code></td>
 <td><code>Job</code>; new <code>Account</code>, <code>Invite</code>,
-<code>ContentReport</code></td>
+<code>ContentReport</code>, <code>Upload</code></td>
 <td>jobs have no owner; no account tables</td>
-<td><code>Job.owner_id</code> (indexed); three new tables in the job
-database</td>
-<td>R2 R3 R4 R15</td>
+<td><code>Job.owner_id</code> (indexed); four new tables in the job
+database (<code>uploads</code>: W3, quota and spend are counted over
+it)</td>
+<td>R2 R3 R4 R7 R8 R15</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/jobs.py</code></td>
+<td><code>JobRepo.create</code></td>
+<td>job made without an owner</td>
+<td>✚ <code>owner_id</code>, <code>n_inputs</code>, set in the same
+transaction as the row</td>
+<td>R4</td>
 <td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/storage/object_store.py</code></td>
-<td><code>R2ObjectStore</code></td>
+<td><code>R2ObjectStore</code>, <code>ObjectStore</code></td>
 <td>put / get / list / delete only</td>
-<td>✚ <code>presigned_put</code>, ✚ <code>presigned_get</code> (short
-expiry, size and type fixed in the signature)</td>
+<td>✚ <code>presigned_put</code>, ✚ <code>presigned_get</code> (size and
+type fixed in the signature; SigV4 only, refused otherwise), ✚
+<code>sizes</code>, ✚ <code>under</code></td>
 <td>R5 R11</td>
-<td>○</td>
+<td>●</td>
 </tr>
 <tr>
 <td><code>sim_bench/serving/job_service.py</code></td>
@@ -724,6 +745,15 @@ this PC), <code>purge_inputs</code></td>
 <td>no JWT library</td>
 <td>✚ <code>PyJWT[crypto]</code> (JWKS verification)</td>
 <td>R1</td>
+<td>●</td>
+</tr>
+<tr>
+<td><code>docs/architecture/db_schemas.html</code>,
+<code>docs/architecture/classes.html</code></td>
+<td>—</td>
+<td>no public tables or classes</td>
+<td>public accounts and uploads section; public API row</td>
+<td>R2-R8</td>
 <td>●</td>
 </tr>
 </tbody>
