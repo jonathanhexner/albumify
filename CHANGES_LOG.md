@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-27 [DOCS] Roadmap row for spec-119
+**Files**: `ROADMAP.md` (+ HTML).
+**Change**: spec-119 (one repository layer) listed as a Stage C proposal, parked until after launch, linked to its brief.
+**Reason**: the proposal was on disk only, with no roadmap row; owner asked to add it.
+
 ### 2026-11-27 [DOCS] Layered PRD brief rule; spec-119 brief
 **Files**: `CLAUDE.md` (Roadmap + readable docs), `WORKFLOW.md` (spec.md section, directory layout), `.claude/skills/prd/SKILL.md` (v1.1.0, new step 8), `specs/119-repository-layer/brief.html` (new).
 **Change**: every new or re-planned spec also gets `brief.html`, an interactive page with a CEO layer on top and role tabs for head of SW engineering, app architect, app designer and product designer; spec.md stays the engineering source, lint and render unchanged. First example: spec-119.
