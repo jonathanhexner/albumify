@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-27 [DOCS] Layered PRD brief rule; spec-119 brief
+**Files**: `CLAUDE.md` (Roadmap + readable docs), `WORKFLOW.md` (spec.md section, directory layout), `.claude/skills/prd/SKILL.md` (v1.1.0, new step 8), `specs/119-repository-layer/brief.html` (new).
+**Change**: every new or re-planned spec also gets `brief.html`, an interactive page with a CEO layer on top and role tabs for head of SW engineering, app architect, app designer and product designer; spec.md stays the engineering source, lint and render unchanged. First example: spec-119.
+**Reason**: owner rule (option A): one PRD has to serve executives and engineers.
+
 ### 2026-11-22 [FEATURE] spec-120 W2: album ownership and fast public reads
 **Files**: `sim_bench/control/models.py` (`Job.owner_id`), `sim_bench/control/db.py` (`_add_missing_indexes`), `sim_bench/public_api/album_repo.py` (new), `tests/public_api/test_isolation.py` (new), `tests/storage/test_neon_parity.py` (public API suite on Postgres).
 **Change**: every job can belong to a public account; `PublicAlbumRepo` serves album, photos (best 30 / all), people and rename, owner-filtered, at most 2 queries each.

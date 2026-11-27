@@ -1,0 +1,397 @@
+<title>Spec-119 Repository Layer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column. Shared top layer (CEO) always visible, then an audience switch that opens one deeper layer at a time; each layer drills further with collapsible blocks. */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --sunk:#e8ecf2; --fg:#16202e; --muted:#566377; --line:#d3dae4;
+  --accent:#2448a8; --accent-soft:#e1e8f8;
+  --ok:#22744a; --warn:#9a6200; --bad:#a83232; --todo:#7c8798;
+  --new:#e2f3e7; --chg:#fbf0d9; --del:#f9e3e1;
+  --display:"Schibsted Grotesk",system-ui,"Segoe UI",sans-serif;
+  --body:"Source Sans 3",system-ui,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10151d; --surface:#171e29; --sunk:#1e2734; --fg:#e4e9f1; --muted:#97a3b6; --line:#2c3746;
+  --accent:#8eaaf5; --accent-soft:#1f2b45;
+  --ok:#6cc595; --warn:#e2ad55; --bad:#ee8a8a; --todo:#7e899a;
+  --new:#173324; --chg:#3a2f17; --del:#3d1f1f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151d; --surface:#171e29; --sunk:#1e2734; --fg:#e4e9f1; --muted:#97a3b6; --line:#2c3746;
+  --accent:#8eaaf5; --accent-soft:#1f2b45;
+  --ok:#6cc595; --warn:#e2ad55; --bad:#ee8a8a; --todo:#7e899a;
+  --new:#173324; --chg:#3a2f17; --del:#3d1f1f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body);padding-inline:16px;padding-block:0 64px}
+main{max-width:960px;margin:0 auto;display:grid;gap:32px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:clamp(26px,4.4vw,36px);font-weight:800;letter-spacing:-.015em;line-height:1.15}
+h2{font-size:21px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+p{margin:0;max-width:68ch}
+code,.mono{font-family:var(--mono);font-size:.86em}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font:600 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.meta{color:var(--muted);font-size:14px}
+.stack{display:grid;gap:12px}
+header{padding-block:36px 20px;border-bottom:1px solid var(--line);display:grid;gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:600 12px/1 var(--mono);padding:6px 8px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
+.c-warn{color:var(--warn)} .c-ok{color:var(--ok)} .c-bad{color:var(--bad)} .c-todo{color:var(--todo)} .c-acc{color:var(--accent)}
+
+/* CEO layer */
+.answer{background:var(--surface);border:1px solid var(--line);padding:20px;display:grid;gap:12px}
+.answer p{font-size:17px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.tile{background:var(--surface);padding:14px 16px;display:grid;gap:4px;min-width:0}
+.tile b{font:800 26px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.tile span{font-size:13px;color:var(--muted)}
+.timeline{list-style:none;margin:0;padding:0;display:grid;gap:0;border-left:2px solid var(--line);margin-left:6px}
+.timeline li{position:relative;padding:0 0 18px 20px;display:grid;gap:2px}
+.timeline li::before{content:"";position:absolute;left:-7px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.timeline li.now::before{background:var(--warn);border-color:var(--warn)}
+.timeline .d{font:600 12px var(--mono);color:var(--muted)}
+.decide{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.opt{background:var(--surface);border:1px solid var(--line);padding:16px;display:grid;gap:8px;align-content:start;min-width:0}
+.opt.rec{border:2px solid var(--accent)}
+.opt .tag{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.opt ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:15px}
+
+/* audience switch */
+.switch{position:sticky;top:env(safe-area-inset-top,0px);z-index:2;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font:600 14px var(--body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 12px;cursor:pointer}
+.tabs button:hover{border-color:var(--accent)}
+.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.tabs .depth{font:400 11px var(--mono);opacity:.75;margin-left:6px}
+.layer{display:grid;gap:22px}
+.layer>.lead{font-size:17px}
+
+/* drill-down */
+details{background:var(--surface);border:1px solid var(--line)}
+details>summary{cursor:pointer;padding:12px 16px;font:700 15px var(--display);list-style:none;display:flex;gap:10px;align-items:baseline}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"+";font:600 15px var(--mono);color:var(--accent);width:12px;flex:none}
+details[open]>summary::before{content:"\2212"}
+details>summary .s{font:400 13px var(--body);color:var(--muted);margin-left:auto;text-align:right}
+details>.in{padding:0 16px 16px;display:grid;gap:12px;min-width:0}
+details details{background:var(--sunk)}
+
+.tw{overflow-x:auto;border:1px solid var(--line);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.new td:first-child{box-shadow:inset 4px 0 var(--ok)}
+tr.chg td:first-child{box-shadow:inset 4px 0 var(--warn)}
+tr.del td:first-child{box-shadow:inset 4px 0 var(--bad)}
+.bar{display:grid;grid-template-columns:150px minmax(0,1fr) 34px;gap:10px;align-items:center;font-size:14px}
+.bar i{display:block;height:14px;background:var(--accent);border-radius:2px}
+.bars{display:grid;gap:6px;background:var(--surface);border:1px solid var(--line);padding:14px}
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;counter-reset:w}
+.flow div{background:var(--surface);border:1px dashed var(--todo);padding:10px;display:grid;gap:4px;font-size:14px;min-width:0}
+.flow b{font-family:var(--display)}
+.flow .k{font:600 11px var(--mono);color:var(--muted)}
+.none{background:var(--surface);border:1px solid var(--line);padding:18px;display:grid;gap:10px}
+.diagram{overflow-x:auto;background:var(--surface);border:1px solid var(--line);padding:12px}
+.diagram svg{display:block;min-width:640px;width:100%;height:auto}
+.diagram text{font-family:var(--body);font-size:13px;fill:var(--fg)}
+.diagram .t{font-family:var(--display);font-weight:700;font-size:14px}
+.diagram .sm{font-size:11px;fill:var(--muted)}
+.box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.box.db{fill:var(--sunk)}
+.box.repo{fill:var(--new);stroke:var(--ok)}
+.box.bad{stroke:var(--bad)}
+.edge{stroke:var(--muted);stroke-width:1.4;fill:none}
+.edge.bad{stroke:var(--bad);stroke-dasharray:5 4}
+.ah{fill:var(--muted)} .ah.bad{fill:var(--bad)}
+footer{border-top:1px solid var(--line);padding-top:16px;display:grid;gap:6px;font-size:14px;color:var(--muted)}
+@media (max-width:520px){.bar{grid-template-columns:110px minmax(0,1fr) 30px}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<main>
+<header>
+  <div class="eyebrow">Albumify · PRD brief · spec-119</div>
+  <h1>One repository layer: every database read and write goes through one place</h1>
+  <div class="chips">
+    <span class="chip c-warn">Proposal, not approved</span>
+    <span class="chip c-bad">Not committed to git</span>
+    <span class="chip c-todo">Not on the roadmap</span>
+    <span class="chip c-acc">1 slice already built in spec-120</span>
+  </div>
+  <p class="meta">Written 2026-11-14 · brief prepared 2026-11-27 · source: <code>specs/119-repository-layer/spec.md</code> (worktree <code>D:\sim-bench-117</code>)</p>
+</header>
+
+<!-- ============ LAYER 0: CEO (always visible) ============ -->
+<section class="stack" aria-labelledby="ceo-h">
+  <div class="eyebrow">Layer 1 · CEO</div>
+  <h2 id="ceo-h">In one minute</h2>
+  <div class="answer">
+    <p><b>What it is.</b> An internal clean-up of how our code talks to the database. Today about 60 places in the code write their own database queries. Spec-119 moves them all behind a small set of "repositories" (one class per kind of data, the only code allowed to query). Customers see no change.</p>
+    <p><b>Why it exists.</b> Moving to the cloud database (Neon) on 2026-11-14 showed the cost of the scattered queries: most fixes touched several files, and one tangle between the GPU worker and the web server made a GPU run fail at start. The code review of that work (spec-117, finding M3) asked for this clean-up as a follow-up.</p>
+    <p><b>Recommendation.</b> Do not build it before launch. The part the public site needs (fast reads that only show each user their own albums) is already built in spec-120. Commit the proposal and list it on the roadmap under "after launch".</p>
+  </div>
+
+  <div class="tiles" role="list">
+    <div class="tile" role="listitem"><b>59+</b><span>places that query the database directly (services and routers, counted 2026-11-14)</span></div>
+    <div class="tile" role="listitem"><b>0</b><span>changes users would see: pages, results and picks stay the same</span></div>
+    <div class="tile" role="listitem"><b>~4–6 days</b><span>rough size; my estimate from the spec's notes, not a planned number</span></div>
+    <div class="tile" role="listitem"><b>0 days</b><span>delay to launch if parked, because spec-120 already holds the public slice</span></div>
+  </div>
+
+  <h3>Where it came from</h3>
+  <ol class="timeline">
+    <li><span class="d">2026-06-25 · spec-086</span><span>First slice: one repository for the People page (<code>ImageRepository</code>). The plan was to move the rest over area by area. It stopped after slice 1.</span></li>
+    <li><span class="d">2026-11-14 · spec-117, cloud database</span><span>The first GPU run on Neon (run <code>61f3b9a8</code>) failed at start because the GPU worker imported a web-server file. The code review logged this as M3: the worker should not depend on the web server's code.</span></li>
+    <li><span class="d">2026-11-14 · proposal written</span><span>Spec-119 was drafted the same day as a follow-up. It was labelled "review after 117 merges", given a provisional number and never committed.</span></li>
+    <li><span class="d">2026-11-22 · spec-120, public API</span><span>The productization plan took one slice of it: <code>PublicAlbumRepo</code>, which filters every public read by owner and makes at most two queries. Reads on Neon dropped to 0.3–0.6 s.</span></li>
+    <li class="now"><span class="d">today</span><span>Still a proposal on disk only. Spec-120 links to it, but there is no row in the roadmap.</span></li>
+  </ol>
+
+  <h3>Your decision</h3>
+  <div class="decide">
+    <div class="opt rec">
+      <span class="tag">Recommended · A</span>
+      <b>Park until after launch</b>
+      <ul><li>Commit the proposal; add a roadmap row under "after launch"</li><li>Launch date unaffected</li><li>Fits the plan's own post-launch item "retire the old API"</li></ul>
+    </div>
+    <div class="opt">
+      <span class="tag">B</span>
+      <b>Do only the first two steps now</b>
+      <ul><li>About 1 day (spec's estimate)</li><li>Untangles the GPU worker from the web server and fixes a rare cache clash (review M2)</li><li>Adds a day to a 70-day plan</li></ul>
+    </div>
+    <div class="opt">
+      <span class="tag">C</span>
+      <b>Build it all before launch</b>
+      <ul><li>About a week</li><li>Only helps the internal owner app; the public side is already covered</li><li>Not recommended</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AUDIENCE SWITCH ============ -->
+<nav class="switch" aria-label="Choose a deeper layer">
+  <div class="eyebrow">Go deeper: pick your role</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-eng" aria-controls="l-eng" aria-selected="true">Head of SW engineering<span class="depth">L2</span></button>
+    <button role="tab" id="t-arch" aria-controls="l-arch" aria-selected="false">App architect<span class="depth">L3</span></button>
+    <button role="tab" id="t-app" aria-controls="l-app" aria-selected="false">App designer<span class="depth">L4</span></button>
+    <button role="tab" id="t-prod" aria-controls="l-prod" aria-selected="false">Product designer<span class="depth">L4</span></button>
+    <button role="tab" id="t-all" aria-controls="l-eng" aria-selected="false">Show all</button>
+  </div>
+</nav>
+
+<!-- ============ LAYER 2: Head of SW engineering ============ -->
+<section class="layer" id="l-eng" role="tabpanel" aria-labelledby="t-eng">
+  <div class="eyebrow">Layer 2 · Head of software engineering</div>
+  <p class="lead">Spec-119 is a strangler-fig refactor: the new path replaces the old one area by area, and each step merges on its own. Behaviour stays the same. The payoff is cheaper schema changes and a GPU worker that no longer depends on the web server.</p>
+
+  <div class="stack">
+    <h3>Where the queries live today</h3>
+    <div class="bars" role="img" aria-label="Direct query spots per file">
+      <div class="bar"><span>face_service</span><i style="width:100%"></i><span class="mono">18</span></div>
+      <div class="bar"><span>result_service</span><i style="width:50%"></i><span class="mono">9</span></div>
+      <div class="bar"><span>pipeline_service</span><i style="width:50%"></i><span class="mono">9</span></div>
+      <div class="bar"><span>config_service</span><i style="width:33.3%"></i><span class="mono">6</span></div>
+      <div class="bar"><span>people_service</span><i style="width:27.8%"></i><span class="mono">5</span></div>
+      <div class="bar"><span>event_service</span><i style="width:27.8%"></i><span class="mono">5</span></div>
+      <div class="bar"><span>routers/jobs.py</span><i style="width:16.7%"></i><span class="mono">3</span></div>
+      <div class="bar"><span>album_service</span><i style="width:11.1%"></i><span class="mono">2</span></div>
+      <div class="bar"><span>routers/results.py</span><i style="width:11.1%"></i><span class="mono">2</span></div>
+    </div>
+    <p class="meta">Counted 2026-11-14 on <code>spec/117-neon-r2</code> at <code>9cd0e67</code>. Also outside the API: <code>run_watchdog</code>, <code>control/compare.py</code>, <code>control/album_builder.py</code>, <code>cache_handler</code>.</p>
+  </div>
+
+  <div class="stack">
+    <h3>Plan: six steps, each merges alone</h3>
+    <div class="flow">
+      <div><span class="k">W1 · ~½ day</span><b>Move storage out of api</b><span>engine, session, models to <code>storage/</code></span></div>
+      <div><span class="k">W2 · ~½ day</span><b>Jobs + cache</b><span>JobRepo reads; CacheRepository upsert</span></div>
+      <div><span class="k">W3 · largest</span><b>Runs and results</b><span>payloads must match the old ones exactly</span></div>
+      <div><span class="k">W4 · with W3</span><b>Backfill old runs</b><span>blob-only runs into normalized tables</span></div>
+      <div><span class="k">W5 · ~½ day</span><b>Faces, people, config, events</b><span>four more repositories</span></div>
+      <div><span class="k">W6 · ~½ day</span><b>Lock it in</b><span>architecture tests + Neon parity</span></div>
+    </div>
+    <p class="meta">Sizes come from the spec's note: "W1–W2 about a day; W3–W4 the biggest; W5–W6 about a day." W3–W4 has no number.</p>
+  </div>
+
+  <details>
+    <summary>Requirements R1–R12 and how each is checked <span class="s">12 rows · all ○ planned</span></summary>
+    <div class="in"><div class="tw"><table>
+      <thead><tr><th>#</th><th>Requirement</th><th>Check</th></tr></thead>
+      <tbody>
+      <tr><td class="n">R1</td><td>Engine, session and ORM models move to <code>storage/</code>; <code>api/database/</code> re-exports them for one release</td><td><code>test_layers.py::test_serving_does_not_import_api</code>; full suite</td></tr>
+      <tr><td class="n">R2</td><td><code>serving/</code>, <code>control/</code>, <code>pipeline/</code> import nothing from <code>sim_bench.api</code></td><td>import-graph test</td></tr>
+      <tr><td class="n">R3</td><td><code>JobRepo</code> owns every job read (live, recent, events, photos, faces)</td><td><code>test_jobs.py::test_repo_reads</code></td></tr>
+      <tr><td class="n">R4</td><td><code>CacheRepository</code> owns the feature cache, duplicate-safe upsert (review M2)</td><td><code>test_concurrent_put_same_key</code></td></tr>
+      <tr><td class="n">R5</td><td><code>RunRepository</code> owns albums, runs, run records</td><td><code>test_run_repository.py</code>; <code>tests/api</code></td></tr>
+      <tr><td class="n">R6</td><td><code>ResultRepository</code> reads from normalized tables; API shapes unchanged</td><td><code>test_same_payload_as_blob</code> on Budapest + Slovakia26</td></tr>
+      <tr><td class="n">R7</td><td>One-off backfill for blob-only runs; blobs kept as backup</td><td><code>test_backfill_metric_rows.py</code>; every album opens</td></tr>
+      <tr><td class="n">R8</td><td><code>FaceRepository</code>, <code>PeopleRepository</code>; <code>ImageRepository</code> folds in</td><td><code>test_face_repository.py</code>; people tests</td></tr>
+      <tr><td class="n">R9</td><td><code>ConfigRepository</code>, <code>EventRepository</code></td><td>their unit tests</td></tr>
+      <tr><td class="n">R10</td><td>No query code outside <code>storage/repositories/</code> and <code>control/jobs.py</code></td><td><code>test_no_queries_outside_repos.py</code></td></tr>
+      <tr><td class="n">R11</td><td>Repositories take the caller's session: one request = one transaction</td><td>Neon parity run, 0 failed</td></tr>
+      <tr><td class="n">R12</td><td>Nothing visible changes: pages, API responses, picks</td><td>full suite; Budapest gate 11/11; real albums open with same picks</td></tr>
+      </tbody></table></div></div>
+  </details>
+
+  <details>
+    <summary>Risks and open questions <span class="s">3 items</span></summary>
+    <div class="in"><div class="tw"><table>
+      <thead><tr><th>Item</th><th>Why it matters</th><th>Mitigation</th></tr></thead>
+      <tbody>
+      <tr><td>Results payload drift (W3)</td><td>Reading from normalized tables instead of JSON blobs could change what Results shows</td><td>R6 compares payloads byte for byte on two real trips</td></tr>
+      <tr><td>Old runs without metric rows</td><td>They would open empty after W3</td><td>R7 backfill, refuses runs already filled; blobs kept</td></tr>
+      <tr><td>Open: drop the JSON blob columns after W4?</td><td>Keeping them doubles storage per run; dropping them removes the fallback</td><td>Owner decision; spec suggests keeping for one release</td></tr>
+      </tbody></table></div></div>
+  </details>
+
+  <details>
+    <summary>How it relates to spec-120 and the launch plan <span class="s">overlap</span></summary>
+    <div class="in">
+      <p>Spec-120 built <code>PublicAlbumRepo</code> in a new package, <code>sim_bench/public_api/</code>. It follows the same rule spec-119 proposes (owner filter on every read, at most two queries each) but only for the public side. The owner's Streamlit app and its FastAPI keep the scattered queries; the plan freezes that API instead of fixing it.</p>
+      <p>The productization plan lists "retire the old API: move the owner app onto the public API's repositories" after launch. Spec-119 is the detailed version of that item, so the two should be merged into one post-launch row.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ LAYER 3: App architect ============ -->
+<section class="layer" id="l-arch" role="tabpanel" aria-labelledby="t-arch" hidden>
+  <div class="eyebrow">Layer 3 · App architect</div>
+  <p class="lead">Two rules come out of this spec. Only repositories write queries. And <code>serving/</code>, <code>control/</code> and <code>pipeline/</code> sit beneath the API and never import it. Both are enforced by architecture tests, so the layering cannot drift back.</p>
+
+  <div class="stack">
+    <h3>Before and after</h3>
+    <div class="diagram">
+      <svg viewBox="0 0 900 330" role="img" aria-label="Before: services, routers, watchdog, worker and cache handler each query the database and the worker imports the API. After: all go through repositories in storage, and nothing below the API imports it.">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ah"/></marker>
+          <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ah bad"/></marker>
+        </defs>
+        <text x="20" y="22" class="t">Today</text>
+        <rect x="20" y="40" width="170" height="44" rx="3" class="box"/><text x="32" y="60">api: routers + services</text><text x="32" y="76" class="sm">54 query spots in services</text>
+        <rect x="20" y="104" width="170" height="44" rx="3" class="box bad"/><text x="32" y="124">serving: GPU worker</text><text x="32" y="140" class="sm">imports api.database, api.services</text>
+        <rect x="20" y="168" width="170" height="44" rx="3" class="box"/><text x="32" y="188">control: watchdog, compare</text><text x="32" y="204" class="sm">query jobs themselves</text>
+        <rect x="20" y="232" width="170" height="44" rx="3" class="box"/><text x="32" y="252">pipeline: cache_handler</text><text x="32" y="268" class="sm">imports api.database.models</text>
+        <rect x="270" y="130" width="140" height="60" rx="3" class="box db"/><text x="284" y="156" class="t">Neon Postgres</text><text x="284" y="174" class="sm">tables + JSON blobs</text>
+        <path d="M190 62 L270 145" class="edge" marker-end="url(#a)"/>
+        <path d="M190 126 L270 155" class="edge" marker-end="url(#a)"/>
+        <path d="M190 190 L270 168" class="edge" marker-end="url(#a)"/>
+        <path d="M190 254 L270 180" class="edge" marker-end="url(#a)"/>
+        <path d="M105 104 L105 84" class="edge bad" marker-end="url(#ab)"/>
+        <text x="112" y="98" class="sm" style="fill:var(--bad)">worker imports api (M3)</text>
+
+        <line x1="450" y1="20" x2="450" y2="310" stroke="var(--line)"/>
+
+        <text x="480" y="22" class="t">After spec-119</text>
+        <rect x="480" y="40" width="160" height="40" rx="3" class="box"/><text x="492" y="65">api: routers + services</text>
+        <rect x="480" y="96" width="160" height="40" rx="3" class="box"/><text x="492" y="121">serving: GPU worker</text>
+        <rect x="480" y="152" width="160" height="40" rx="3" class="box"/><text x="492" y="177">control: watchdog, compare</text>
+        <rect x="480" y="208" width="160" height="40" rx="3" class="box"/><text x="492" y="233">pipeline: cache_handler</text>
+        <rect x="690" y="40" width="180" height="208" rx="3" class="box repo"/>
+        <text x="702" y="62" class="t">storage/repositories</text>
+        <text x="702" y="86">JobRepo</text><text x="702" y="106">CacheRepository</text><text x="702" y="126">RunRepository</text><text x="702" y="146">ResultRepository</text><text x="702" y="166">Face / PeopleRepository</text><text x="702" y="186">Config / EventRepository</text>
+        <text x="702" y="214" class="sm">session passed in by caller:</text><text x="702" y="230" class="sm">one request = one transaction</text>
+        <rect x="710" y="268" width="140" height="44" rx="3" class="box db"/><text x="724" y="295" class="t">Neon Postgres</text>
+        <path d="M640 60 L690 80" class="edge" marker-end="url(#a)"/>
+        <path d="M640 116 L690 120" class="edge" marker-end="url(#a)"/>
+        <path d="M640 172 L690 160" class="edge" marker-end="url(#a)"/>
+        <path d="M640 228 L690 200" class="edge" marker-end="url(#a)"/>
+        <path d="M780 248 L780 268" class="edge" marker-end="url(#a)"/>
+        <text x="480" y="282" class="sm">test_layers.py: serving / control / pipeline</text><text x="480" y="298" class="sm">never import sim_bench.api</text>
+      </svg>
+    </div>
+  </div>
+
+  <details>
+    <summary>Repositories and their methods <span class="s">7 classes</span></summary>
+    <div class="in"><div class="tw"><table>
+      <thead><tr><th>Class</th><th>Owns</th><th>Methods</th><th>Replaces</th></tr></thead>
+      <tbody>
+      <tr class="chg"><td><code>JobRepo</code></td><td>jobs, events, job photos and faces</td><td>+ <code>live</code>, <code>photos</code>, <code>faces</code>; <code>get</code>, <code>list</code>, <code>events</code></td><td>watchdog and <code>routers/jobs.py</code> queries</td></tr>
+      <tr class="new"><td><code>CacheRepository</code></td><td><code>universal_cache</code></td><td><code>get_many</code>, <code>put_many</code> (upsert), <code>delete</code></td><td><code>cache_handler</code>, <code>routers/results.py</code></td></tr>
+      <tr class="new"><td><code>RunRepository</code></td><td>albums, runs, run records</td><td><code>run</code>, <code>runs</code>, <code>save_run</code></td><td>pipeline/album/result services</td></tr>
+      <tr class="new"><td><code>ResultRepository</code></td><td>picks, scenes, image metrics</td><td><code>picks</code>, <code>scenes</code>, <code>image_metrics</code>, <code>images_for_person</code></td><td>JSON blob reads in <code>ResultService</code></td></tr>
+      <tr class="new"><td><code>FaceRepository</code></td><td>faces, overrides</td><td><code>faces</code>, <code>overrides</code>, <code>save_override</code></td><td>18 spots in <code>face_service</code></td></tr>
+      <tr class="new"><td><code>PeopleRepository</code></td><td>people</td><td><code>people</code>, <code>rename</code>, <code>merge</code></td><td><code>people_service</code> queries</td></tr>
+      <tr class="new"><td><code>Config</code> / <code>EventRepository</code></td><td>profiles, user events</td><td><code>get</code>, <code>save</code>, <code>log</code>, <code>recent</code></td><td>config and event services</td></tr>
+      <tr class="del"><td><code>ImageRepository</code></td><td>(spec-086)</td><td><code>get_images_for_person</code> removed</td><td>folds into <code>ResultRepository</code></td></tr>
+      </tbody></table></div>
+      <p class="meta">Row edge colour: green new, amber changed, red removed.</p></div>
+  </details>
+
+  <details>
+    <summary>Data model change: blobs to normalized rows <span class="s">W3–W4</span></summary>
+    <div class="in">
+      <p><code>RunPersister</code> already writes <code>image_metric_rows</code> and <code>face_metric_rows</code>, but most reads still come from the <code>PipelineResult</code> JSON columns (<code>scene_clusters</code>, <code>selected_images</code>, <code>image_metrics</code>). After W3, reads use the rows. W4 backfills older runs that only have blobs. The blobs stay as a backup until the owner decides otherwise.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Files: 10 new, 22 changed <span class="s">full lists</span></summary>
+    <div class="in">
+      <details><summary>New files <span class="s">10</span></summary><div class="in"><div class="tw"><table>
+        <thead><tr><th>File</th><th>Responsibility</th></tr></thead><tbody>
+        <tr class="new"><td><code>storage/models.py</code></td><td>all tables, moved from <code>api/database</code> and <code>control</code></td></tr>
+        <tr class="new"><td><code>storage/session.py</code></td><td>engine + session factory</td></tr>
+        <tr class="new"><td><code>storage/repositories/cache.py</code></td><td><code>CacheRepository</code></td></tr>
+        <tr class="new"><td><code>storage/repositories/runs.py</code></td><td><code>RunRepository</code></td></tr>
+        <tr class="new"><td><code>storage/repositories/results.py</code></td><td><code>ResultRepository</code></td></tr>
+        <tr class="new"><td><code>storage/repositories/faces.py</code></td><td><code>FaceRepository</code>, <code>PeopleRepository</code></td></tr>
+        <tr class="new"><td><code>storage/repositories/config.py</code></td><td><code>ConfigRepository</code>, <code>EventRepository</code></td></tr>
+        <tr class="new"><td><code>scripts/backfill_metric_rows.py</code></td><td>one-off backfill</td></tr>
+        <tr class="new"><td><code>tests/architecture/test_layers.py</code></td><td>no imports from <code>api</code> below it</td></tr>
+        <tr class="new"><td><code>tests/architecture/test_no_queries_outside_repos.py</code></td><td>no query code outside repositories</td></tr>
+      </tbody></table></div></div></details>
+      <details><summary>Changed files <span class="s">22</span></summary><div class="in"><p>All under <code>sim_bench/</code>: <code>api/database/models.py</code>, <code>api/database/session.py</code> (re-export), <code>control/jobs.py</code>, <code>serving/run_watchdog.py</code>, <code>api/routers/jobs.py</code>, <code>pipeline/cache_handler.py</code>, <code>api/routers/results.py</code>, <code>api/services/{result,pipeline,album,face,people,config,event}_service.py</code>, <code>serving/{worker_persister,runners,curate_job,run_output}.py</code>, <code>api/repositories/image_repository.py</code> (removed), <code>control/{compare,album_builder}.py</code>, and <code>tests/storage/test_neon_parity.py</code>. Per-file before/after is in <code>spec.md</code> §6.</p></div></details>
+    </div>
+  </details>
+</section>
+
+<!-- ============ LAYER 4: App designer ============ -->
+<section class="layer" id="l-app" role="tabpanel" aria-labelledby="t-app" hidden>
+  <div class="eyebrow">Layer 4 · App designer</div>
+  <div class="none">
+    <h3>No screen changes</h3>
+    <p>Requirement R12 fixes this: pages, API responses and picks stay exactly as they are. Nothing in the owner app or the public website needs a design.</p>
+    <p><b>What to check at release:</b> Slovakia26 and Budapest open in Albums, Results and People with the same picks, counts and people as before.</p>
+  </div>
+</section>
+
+<!-- ============ LAYER 4: Product designer ============ -->
+<section class="layer" id="l-prod" role="tabpanel" aria-labelledby="t-prod" hidden>
+  <div class="eyebrow">Layer 4 · Product designer</div>
+  <div class="none">
+    <h3>No product decisions needed</h3>
+    <p>No new flows, features or copy. The only open question (keep or drop the old JSON result columns) is technical.</p>
+    <p><b>Indirect effect:</b> after launch, moving the owner app onto the same data path as the public site gets cheaper, so features built for one side reach the other with less work.</p>
+  </div>
+</section>
+
+<footer>
+  <span><b>Sources:</b> <code>specs/119-repository-layer/spec.md</code> · <code>specs/117-neon-r2-one-database/REVIEW.md</code> (M2, M3) · commit <code>c0a2606</code> (run <code>61f3b9a8</code>) · <code>docs/project/handoff_m3_close_2026-11-14.md</code> · <code>docs/project/productization_plan_2026-11-22.html</code> · <code>specs/120-public-api-accounts/updates.md</code></span>
+  <span>Layers: L1 CEO is always shown. L2–L4 open one role at a time, and each layer drills further down.</span>
+</footer>
+</main>
+
+<script>
+(function(){
+  var tabs=[].slice.call(document.querySelectorAll('.tabs button'));
+  var panels={eng:'l-eng',arch:'l-arch',app:'l-app',prod:'l-prod'};
+  function show(key){
+    tabs.forEach(function(b){b.setAttribute('aria-selected', b.id==='t-'+key ? 'true':'false');});
+    Object.keys(panels).forEach(function(k){document.getElementById(panels[k]).hidden = !(key==='all' || k===key);});
+    if(key==='all'){document.querySelectorAll('.layer details').forEach(function(d){d.open=true;});}
+    try{localStorage.setItem('brief119-tab',key);}catch(e){}
+  }
+  tabs.forEach(function(b){b.addEventListener('click',function(){show(b.id.slice(2));});});
+  var start='eng';
+  var h=(location.hash||'').slice(1);
+  if(['eng','arch','app','prod','all'].indexOf(h)>=0){start=h;}
+  else{try{var s=localStorage.getItem('brief119-tab');if(s&&s!=='all')start=s;}catch(e){}}
+  show(start);
+})();
+</script>

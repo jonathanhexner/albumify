@@ -150,6 +150,10 @@ classDiagram
   and runs `scripts/prd_lint.py <spec.md> --render`, which must report 0 errors before the owner sees the spec.
   The lint enforces the limits above, named checks, plan coverage, file tables vs the disk, class-diagram members
   vs the code (AST), and that every diagram draws. Example: `specs/115-album-workbench/spec.md`.
+- **Layered brief (owner rule 2026-11-27):** each new or re-planned spec also gets `brief.html`, an interactive
+  page for every audience: L1 CEO (always visible: what, why now, recommendation + options, key numbers), then one
+  tab per role: L2 head of SW engineering, L3 app architect, L4 app designer, L4 product designer, each with
+  collapsible drill-downs. Built from spec.md and kept in step with it. Example: `specs/119-repository-layer/brief.html`.
 
 ### 2. `tasks.md` — Define HOW to build it
 
@@ -227,6 +231,7 @@ specs/
   NNN-feature-name/
     spec.md          # Required: what to build
     tasks.md         # Required: how to build it
+    brief.html       # Required for new/re-planned specs: layered brief, CEO -> engineering -> design
     research.md      # Optional: unresolved questions
     data-model.md    # Optional: complex schema changes
     contracts/       # Optional: shared API surfaces

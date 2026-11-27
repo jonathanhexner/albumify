@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>spec</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  /* Stylesheet for generated HTML views of Markdown docs (scripts/md2html.py).
+     Palette matches the Albumify HTML docs (specs/106 plan/architecture). */
+  :root{
+    --ground:#F5F0E7; --surface:#FFFFFF; --surface-2:#FBF6EC; --line:#E4DACB;
+    --ink:#1B1714; --ink-dim:#4A4239; --muted:#766B5C; --accent:#A96E12; --eng:#2A7288;
+    --good:#3E7A46; --warn:#B0791B; --crit:#B25B3C;
+    --sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+      --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+      --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E0D0C; --surface:#17130F; --surface-2:#1E1913; --line:#2C2620;
+    --ink:#F2EEE7; --ink-dim:#C8BFB2; --muted:#948A7C; --accent:#E8B04B; --eng:#6FB3C9;
+    --good:#7FB682; --warn:#E0A23A; --crit:#D98A6A; color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* override pandoc's default template (max-width:36em, side padding) */
+  body{margin:0;max-width:none;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;padding:0 16px;font-size:16px;}
+  header#title-block-header{display:none;}
+  .md-wrap{max-width:960px;margin:0 auto;padding:40px 0 80px;}
+  .md-banner{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);background:var(--surface-2);border-radius:8px;
+    padding:8px 12px;margin-bottom:28px;}
+  .md-banner a{color:var(--accent);}
+  h1,h2,h3,h4{letter-spacing:-0.02em;font-weight:800;line-height:1.15;margin:1.6em 0 .5em;}
+  h1{font-size:clamp(28px,4.5vw,44px);margin-top:0;}
+  h2{font-size:clamp(20px,2.6vw,28px);padding-bottom:.25em;border-bottom:1px solid var(--line);}
+  h3{font-size:18px;}
+  h4{font-size:15px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--accent);}
+  p,li{color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;font-size:13px;line-height:1.5;}
+  pre code{background:none;border:0;padding:0;}
+  blockquote{margin:1em 0;padding:8px 18px;border-left:3px solid var(--accent);background:var(--surface-2);
+    color:var(--ink-dim);border-radius:0 8px 8px 0;}
+  hr{border:0;border-top:1px solid var(--line);margin:2.2em 0;}
+  .table-wrap,table{max-width:100%;}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:1.2em 0;table-layout:auto;}
+  td,th{overflow-wrap:anywhere;}
+  td code{white-space:normal;overflow-wrap:anywhere;}
+  thead th{text-align:left;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);border-bottom:2px solid var(--line);padding:8px 10px;background:var(--surface-2);}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:nth-child(even) td{background:var(--surface);}
+  input[type=checkbox]{accent-color:var(--accent);margin-right:6px;}
+  nav#TOC{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 20px;margin:0 0 32px;}
+  nav#TOC ul{margin:0;padding-left:18px;}
+  nav#TOC li{font-size:14px;margin:3px 0;}
+  img{max-width:100%;}
+  strong{color:var(--ink);}
+  /* PRD change marking (WORKFLOW.md, 2026-10-23). Hue = type of change only: NEW green, CHANGED amber,
+     EXISTING grey, REMOVED red. Progress never uses hue: "●" done, "○" planned, "◐" partly done. */
+  :root{--new-fg:#1F6B2E;--new-bg:#E3F3E5;--new-bd:#8CC497;--chg-fg:#7A4A00;--chg-bg:#FFF1D6;--chg-bd:#E2B866;
+    --same-fg:#5A5248;--same-bg:#F1EEE9;--same-bd:#CFC6B8;--del-fg:#8E2F1C;--del-bg:#FBE4DE;--del-bd:#E3A08F;--card:#FFFFFF}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;
+    --chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;--same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;
+    --del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}}
+  :root[data-theme="dark"]{--new-fg:#9FD8A8;--new-bg:#16301B;--new-bd:#3E7A46;--chg-fg:#F2C77A;--chg-bg:#3A2A0E;--chg-bd:#8A6420;
+    --same-fg:#CFC6B8;--same-bg:#2A251F;--same-bd:#5A5248;--del-fg:#F0A898;--del-bg:#3A1A12;--del-bd:#8E4A3A;--card:#F5F0E7}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;line-height:1.5;
+    padding:0 6px;border-radius:3px;border:1px solid;white-space:nowrap;vertical-align:1px}
+  .tag.new{color:var(--new-fg);background:var(--new-bg);border-color:var(--new-bd)}
+  .tag.chg{color:var(--chg-fg);background:var(--chg-bg);border-color:var(--chg-bd)}
+  .tag.same{color:var(--same-fg);background:var(--same-bg);border-color:var(--same-bd)}
+  .tag.del{color:var(--del-fg);background:var(--del-bg);border-color:var(--del-bd)}
+  mark{background:#FFE9A8;color:#1B1714;padding:1px 3px;border-radius:2px}
+  .legend{font-size:13px;color:var(--ink-dim);margin:.4em 0 1.2em}
+  td:first-child{white-space:nowrap}
+  /* diagrams sit on a paper card in both themes: mermaid fills are light-theme colours */
+  div.mermaid{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:1.2em 0;overflow-x:auto;text-align:center}
+  /* wide tables and diagrams break out of the 960px prose column (up to 1240px), centred */
+  .md-wrap > table, div.mermaid{width:min(1240px,calc(100vw - 32px));max-width:none;position:relative;left:50%;transform:translateX(-50%);box-sizing:border-box}
+
+  </style>
+</head>
+<body>
+<div class="md-banner">Generated from <a href="spec.md">spec.md</a> by scripts/md2html.py &middot; do not edit this HTML by hand</div><div class="md-wrap">
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#spec-119--one-repository-layer-every-database-read-and-write-goes-through-a-repository"
+id="toc-spec-119--one-repository-layer-every-database-read-and-write-goes-through-a-repository">spec-119
+— One repository layer: every database read and write goes through a
+repository</a>
+<ul>
+<li><a href="#1-objective" id="toc-1-objective">1. Objective</a></li>
+<li><a href="#2-requirements" id="toc-2-requirements">2.
+Requirements</a></li>
+<li><a href="#3-plan" id="toc-3-plan">3. Plan</a></li>
+<li><a href="#4-class-diagram" id="toc-4-class-diagram">4. Class
+diagram</a></li>
+<li><a href="#5-new-files" id="toc-5-new-files">5. New files</a></li>
+<li><a href="#6-modified-files" id="toc-6-modified-files">6. Modified
+files</a></li>
+<li><a href="#evidence-where-we-are"
+id="toc-evidence-where-we-are">Evidence: where we are</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="spec-119--one-repository-layer-every-database-read-and-write-goes-through-a-repository">spec-119
+— One repository layer: every database read and write goes through a
+repository</h1>
+<p><strong>Status:</strong> Proposal (not approved; number provisional)
+· <strong>Created:</strong> 2026-11-14 · <strong>Roadmap:</strong> Stage
+C, after spec-117 merges · <strong>Continues:</strong> <a
+href="../086-image-repository-over-rundb/spec.md">spec-086</a> (slice 1)
+· <strong>Resolves:</strong> spec-117 review M3</p>
+<p class="legend">Colour = type of change: <span class="tag new">NEW</span> <span class="tag chg">CHANGED</span> <span class="tag del">REMOVED</span>. Progress = ● done · ◐ partly done · ○ planned. In the class diagram: ✚ new member · ✎ changed · ✖ removed · unmarked = unchanged.</p>
+
+<h2 id="1-objective">1. Objective</h2>
+<p>Every database read and write goes through a repository (one small
+class per kind of data, the only code that writes queries). Services,
+routers, the watchdog and the GPU worker call repositories;
+<code>serving/</code> stops importing from <code>api/</code> (review
+M3). Results are read from the normalized metric tables instead of the
+JSON blobs; API responses do not change.</p>
+<h2 id="2-requirements">2. Requirements</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Status</th>
+<th>Requirement</th>
+<th>How we know it works</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1</td>
+<td>○</td>
+<td>Engine, session and ORM models move from <code>api/database/</code>
+to <code>storage/</code>; <code>api/database/</code> re-exports them for
+one release so nothing breaks</td>
+<td><code>tests/architecture/test_layers.py::test_serving_does_not_import_api</code>;
+full suite green</td>
+</tr>
+<tr>
+<td>R2</td>
+<td>○</td>
+<td><code>serving/</code>, <code>control/</code> and
+<code>pipeline/</code> import nothing from
+<code>sim_bench.api</code></td>
+<td><code>tests/architecture/test_layers.py</code> (import-graph check
+over the package)</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>○</td>
+<td><code>JobRepo</code> also owns every job <em>read</em>: live jobs,
+recent jobs, events, photos and faces of a job; the watchdog,
+<code>routers/jobs.py</code> and <code>control/</code> use it</td>
+<td><code>tests/control/test_jobs.py::test_repo_reads</code>; grep check
+R10</td>
+</tr>
+<tr>
+<td>R4</td>
+<td>○</td>
+<td><code>CacheRepository</code> owns <code>universal_cache</code>:
+batch get per step, put with a duplicate-safe upsert (fixes review M2),
+delete for <code>routers/results.py</code></td>
+<td><code>tests/storage/test_cache_repository.py::test_concurrent_put_same_key</code>;
+<code>tests/pipeline/test_cache_handler_batch.py</code> unchanged and
+green</td>
+</tr>
+<tr>
+<td>R5</td>
+<td>○</td>
+<td><code>RunRepository</code> owns albums, runs and run records;
+<code>result_service</code>, <code>pipeline_service</code>,
+<code>album_service</code> use it</td>
+<td><code>tests/storage/test_run_repository.py</code>;
+<code>tests/api</code> green</td>
+</tr>
+<tr>
+<td>R6</td>
+<td>○</td>
+<td><code>ResultRepository</code> reads picks, scene clusters and
+per-image metrics from the normalized tables; the API response shapes do
+not change</td>
+<td><code>tests/storage/test_result_repository.py::test_same_payload_as_blob</code>
+on Budapest and Slovakia26 runs</td>
+</tr>
+<tr>
+<td>R7</td>
+<td>○</td>
+<td>Old runs that have only JSON blobs are backfilled into the
+normalized tables by a one-off script (row counts printed, refuses a run
+already filled); the blobs stay as the backup</td>
+<td><code>tests/scripts/test_backfill_metric_rows.py</code>; real: every
+run in Albums opens after the backfill</td>
+</tr>
+<tr>
+<td>R8</td>
+<td>○</td>
+<td><code>FaceRepository</code> and <code>PeopleRepository</code> own
+faces, overrides and people; <code>face_service</code>,
+<code>people_service</code> use them (<code>ImageRepository</code> folds
+into <code>ResultRepository</code>)</td>
+<td><code>tests/storage/test_face_repository.py</code>;
+<code>tests/api/test_people*.py</code> green</td>
+</tr>
+<tr>
+<td>R9</td>
+<td>○</td>
+<td><code>ConfigRepository</code> and <code>EventRepository</code> own
+profiles and user events</td>
+<td><code>tests/storage/test_config_repository.py</code>,
+<code>test_event_repository.py</code></td>
+</tr>
+<tr>
+<td>R10</td>
+<td>○</td>
+<td>No <code>select(</code>, <code>.query(</code> or
+<code>session.execute</code> outside <code>storage/repositories/</code>
+and <code>control/jobs.py</code> (migrations and scripts excepted,
+listed in the test)</td>
+<td><code>tests/architecture/test_no_queries_outside_repos.py</code></td>
+</tr>
+<tr>
+<td>R11</td>
+<td>○</td>
+<td>Repositories take a session from the caller, so one request = one
+transaction; every repository has a test on SQLite and the parity set
+runs them on Neon</td>
+<td><code>tests/storage/test_neon_parity.py</code>
+(<code>-m needs_neon</code>): 0 failed</td>
+</tr>
+<tr>
+<td>R12</td>
+<td>○</td>
+<td>Nothing else changes: pages, API responses, picks</td>
+<td>full suite green; Budapest gate 11/11; real: Slovakia26 and Budapest
+open in Albums, Results, People with the same picks</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Definition of done:</strong> every row ● with evidence in
+updates.md; <code>/code-review</code> → REVIEW.md with no high findings;
+<code>scripts/prd_lint.py</code> passes.</p>
+<h2 id="3-plan">3. Plan</h2>
+<p>Each step merges on its own (strangler fig: the new path replaces the
+old one area by area, never all at once).</p>
+<pre class="mermaid"><code>flowchart TD
+  S1[&quot;&lt;b&gt;○ W1 Move storage out of api&lt;/b&gt;&lt;br/&gt;&lt;i&gt;storage/models.py, storage/session.py; api/database re-exports&lt;/i&gt;&quot;] --&gt; C1{{&quot;check R1 R2&quot;}}
+  C1 --&gt; S2[&quot;&lt;b&gt;○ W2 Jobs + cache&lt;/b&gt;&lt;br/&gt;&lt;i&gt;JobRepo, CacheRepository; watchdog, routers/jobs, cache_handler&lt;/i&gt;&quot;] --&gt; C2{{&quot;check R3 R4&quot;}}
+  C2 --&gt; S3[&quot;&lt;b&gt;○ W3 Runs and results&lt;/b&gt;&lt;br/&gt;&lt;i&gt;RunRepository, ResultRepository; result/pipeline/album services&lt;/i&gt;&quot;] --&gt; C3{{&quot;check R5 R6&quot;}}
+  C3 --&gt; S4[&quot;&lt;b&gt;○ W4 Backfill old runs&lt;/b&gt;&lt;br/&gt;&lt;i&gt;scripts/backfill_metric_rows.py&lt;/i&gt;&quot;] --&gt; C4{{&quot;check R7&quot;}}
+  C4 --&gt; S5[&quot;&lt;b&gt;○ W5 Faces, people, config, events&lt;/b&gt;&lt;br/&gt;&lt;i&gt;Face/People/Config/EventRepository&lt;/i&gt;&quot;] --&gt; C5{{&quot;check R8 R9&quot;}}
+  C5 --&gt; S6[&quot;&lt;b&gt;○ W6 Lock it in&lt;/b&gt;&lt;br/&gt;&lt;i&gt;architecture tests, Neon parity&lt;/i&gt;&quot;] --&gt; C6{{&quot;check R10 R11 R12&quot;}}
+  classDef todo fill:#FFFFFF,stroke:#A89F92,stroke-width:1px,stroke-dasharray:5 4,color:#4A4239
+  classDef check fill:#F7F4EE,stroke:#A89F92,color:#1B1714
+  class S1,S2,S3,S4,S5,S6 todo
+  class C1,C2,C3,C4,C5,C6 check</code></pre>
+<h2 id="4-class-diagram">4. Class diagram</h2>
+<pre class="mermaid"><code>classDiagram
+  direction TB
+  class ResultService {
+    ✎ get_images(job_id, cluster_id, person_id, selected_only)
+    ✎ get_clusters(job_id)
+    ✎ get_metrics(job_id)
+  }
+  class PeopleService {
+    ✎ list_people(album_id, run_id)
+    ✎ get_person_images(album_id, person_id)
+  }
+  class FaceService {
+    ✎ get_all_faces()
+    ✎ apply_batch_changes()
+  }
+  class RunWatchdog {
+    ✎ reconcile(job_ids) int
+  }
+  class WorkerPersister {
+    ✎ calc(inputs) PersistResult
+  }
+  class UniversalCacheHandler {
+    ✎ store_many(items, metadata) int
+    ✎ load_many(keys) Dict
+  }
+  class JobRepo {
+    ✚ live() List
+    ✚ photos(job_id) List
+    ✚ faces(job_id) List
+    get(job_id)
+    list(limit)
+    events(job_id)
+  }
+  class CacheRepository {
+    ✚ get_many(keys) Dict
+    ✚ put_many(items) int
+    ✚ delete(key)
+  }
+  class RunRepository {
+    ✚ run(run_id)
+    ✚ runs(album_id) List
+    ✚ save_run(run)
+  }
+  class ResultRepository {
+    ✚ picks(run_id) List
+    ✚ scenes(run_id) Dict
+    ✚ image_metrics(run_id, paths) List
+    ✚ images_for_person(run_id, person_id) List
+  }
+  class FaceRepository {
+    ✚ faces(run_id) List
+    ✚ overrides(run_id) List
+    ✚ save_override(override)
+  }
+  class PeopleRepository {
+    ✚ people(album_id, run_id) List
+    ✚ rename(person_id, name)
+    ✚ merge(person_ids)
+  }
+  class ImageRepository {
+    ✖ get_images_for_person(run_id, person_id)
+  }
+  ResultService --&gt; ResultRepository
+  ResultService --&gt; RunRepository
+  PeopleService --&gt; PeopleRepository
+  PeopleService --&gt; ResultRepository
+  FaceService --&gt; FaceRepository
+  RunWatchdog --&gt; JobRepo
+  WorkerPersister --&gt; RunRepository
+  UniversalCacheHandler --&gt; CacheRepository
+  style CacheRepository fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style RunRepository fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style ResultRepository fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style FaceRepository fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style PeopleRepository fill:#E3F3E5,stroke:#3E8A4B,stroke-width:2px
+  style JobRepo fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ResultService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style PeopleService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style FaceService fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style RunWatchdog fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style WorkerPersister fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style UniversalCacheHandler fill:#FFF1D6,stroke:#C98A1B,stroke-width:2px
+  style ImageRepository fill:#FBE4E2,stroke:#A8322D,stroke-width:2px</code></pre>
+<p>Config, events, albums and the session move are in the tables below;
+left out of the diagram to keep it readable.</p>
+<h2 id="5-new-files">5. New files</h2>
+<p>All <span class="tag new">NEW</span>.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class</th>
+<th>Responsibility</th>
+<th>Methods</th>
+<th>Attributes</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/storage/models.py</code></td>
+<td>ORM models</td>
+<td>All tables, moved from <code>api/database/models.py</code> and
+<code>control/models.py</code></td>
+<td>—</td>
+<td>—</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/storage/session.py</code></td>
+<td>—</td>
+<td>Engine and session factory, moved from
+<code>api/database/session.py</code></td>
+<td><code>get_session</code>, <code>get_session_direct</code></td>
+<td>—</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/storage/repositories/cache.py</code></td>
+<td><code>CacheRepository</code></td>
+<td>Feature cache; duplicate-safe write (review M2)</td>
+<td><code>get_many</code>, <code>put_many</code>,
+<code>delete</code></td>
+<td><code>_session</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/storage/repositories/runs.py</code></td>
+<td><code>RunRepository</code></td>
+<td>Albums, runs, run records</td>
+<td><code>run</code>, <code>runs</code>, <code>save_run</code></td>
+<td><code>_session</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/storage/repositories/results.py</code></td>
+<td><code>ResultRepository</code></td>
+<td>Picks, scenes, image metrics from the normalized tables</td>
+<td><code>picks</code>, <code>scenes</code>, <code>image_metrics</code>,
+<code>images_for_person</code></td>
+<td><code>_session</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/storage/repositories/faces.py</code></td>
+<td><code>FaceRepository</code>, <code>PeopleRepository</code></td>
+<td>Faces, overrides, people</td>
+<td>see diagram</td>
+<td><code>_session</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/storage/repositories/config.py</code></td>
+<td><code>ConfigRepository</code>, <code>EventRepository</code></td>
+<td>Profiles, user events</td>
+<td><code>get</code>, <code>save</code>, <code>log</code>,
+<code>recent</code></td>
+<td><code>_session</code></td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>scripts/backfill_metric_rows.py</code></td>
+<td>—</td>
+<td>Fill the normalized tables for old blob-only runs</td>
+<td><code>main</code></td>
+<td>—</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>tests/architecture/test_layers.py</code></td>
+<td>—</td>
+<td><code>serving</code>/<code>control</code>/<code>pipeline</code>
+import nothing from <code>api</code></td>
+<td>—</td>
+<td>—</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>tests/architecture/test_no_queries_outside_repos.py</code></td>
+<td>—</td>
+<td>No query code outside the repositories</td>
+<td>—</td>
+<td>—</td>
+<td>○</td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-modified-files">6. Modified files</h2>
+<p>All <span class="tag chg">CHANGED</span>.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Class / function</th>
+<th>Today</th>
+<th>After this spec</th>
+<th>Req</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sim_bench/api/database/models.py</code></td>
+<td>ORM models</td>
+<td>Defines the API tables</td>
+<td>Re-exports <code>storage/models.py</code> for one release</td>
+<td>R1</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/database/session.py</code></td>
+<td><code>get_session</code></td>
+<td>Defines engine and session</td>
+<td>Re-exports <code>storage/session.py</code> for one release</td>
+<td>R1</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/jobs.py</code></td>
+<td><code>JobRepo</code></td>
+<td>All job writes; some reads</td>
+<td>+ <code>live</code>, <code>photos</code>, <code>faces</code>; all
+job reads</td>
+<td>R3</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/run_watchdog.py</code></td>
+<td><code>RunWatchdog.reconcile</code></td>
+<td><code>select(Job)</code> itself</td>
+<td><code>JobRepo.live()</code></td>
+<td>R3 R10</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/routers/jobs.py</code></td>
+<td><code>list_photos</code></td>
+<td>Queries photos and faces</td>
+<td><code>JobRepo.photos</code>, <code>JobRepo.faces</code></td>
+<td>R3 R10</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/pipeline/cache_handler.py</code></td>
+<td><code>UniversalCacheHandler</code></td>
+<td>Imports <code>api.database.models</code>; plain insert</td>
+<td><code>CacheRepository</code></td>
+<td>R2 R4</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/routers/results.py</code></td>
+<td><code>get_face_embedding</code></td>
+<td>Queries <code>UniversalCache</code></td>
+<td><code>CacheRepository</code></td>
+<td>R4 R10</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/result_service.py</code></td>
+<td><code>ResultService</code></td>
+<td>Reads JSON blob columns</td>
+<td><code>RunRepository</code>, <code>ResultRepository</code></td>
+<td>R5 R6 R12</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/pipeline_service.py</code></td>
+<td><code>PipelineService</code></td>
+<td>Queries runs</td>
+<td><code>RunRepository</code></td>
+<td>R5</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/album_service.py</code></td>
+<td><code>AlbumService</code></td>
+<td>Queries albums</td>
+<td><code>RunRepository</code></td>
+<td>R5</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/worker_persister.py</code></td>
+<td><code>WorkerPersister</code>, <code>write_run_rows</code></td>
+<td>Imports <code>api.database</code> and <code>api.services</code></td>
+<td>Imports <code>storage</code></td>
+<td>R2 R5</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/runners.py</code></td>
+<td>worker entry</td>
+<td>Imports <code>api.database.session</code></td>
+<td>Imports <code>storage.session</code></td>
+<td>R2</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/curate_job.py</code></td>
+<td>cache setup</td>
+<td>Imports <code>api.database</code></td>
+<td>Imports <code>storage</code></td>
+<td>R2</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/serving/run_output.py</code></td>
+<td><code>RunOutput</code></td>
+<td>Imports <code>api.schemas</code>,
+<code>api.services.people_service</code></td>
+<td>Shared shapes move out of <code>api</code></td>
+<td>R2</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/face_service.py</code></td>
+<td><code>FaceService</code></td>
+<td>18 query spots</td>
+<td><code>FaceRepository</code></td>
+<td>R8 R10</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/people_service.py</code></td>
+<td><code>PeopleService</code></td>
+<td>Queries people + <code>ImageRepository</code></td>
+<td><code>PeopleRepository</code>, <code>ResultRepository</code></td>
+<td>R8</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/repositories/image_repository.py</code></td>
+<td><code>ImageRepository</code></td>
+<td>One read for People</td>
+<td>Removed; folded into <code>ResultRepository</code></td>
+<td>R8</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/config_service.py</code></td>
+<td><code>ConfigService</code></td>
+<td>Queries profiles</td>
+<td><code>ConfigRepository</code></td>
+<td>R9</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/api/services/event_service.py</code></td>
+<td><code>EventService</code></td>
+<td>Queries events</td>
+<td><code>EventRepository</code></td>
+<td>R9</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/compare.py</code></td>
+<td><code>JobComparer</code></td>
+<td>Queries directly</td>
+<td>Repositories</td>
+<td>R10</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>sim_bench/control/album_builder.py</code></td>
+<td><code>AlbumBuilder</code></td>
+<td>Queries directly</td>
+<td>Repositories</td>
+<td>R10</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>tests/storage/test_neon_parity.py</code></td>
+<td>parity set</td>
+<td>api/control/serving</td>
+<td>+ repository tests</td>
+<td>R11</td>
+<td>○</td>
+</tr>
+</tbody>
+</table>
+<h2 id="evidence-where-we-are">Evidence: where we are</h2>
+<p>Measured 2026-11-14 on <code>spec/117-neon-r2</code> at 9cd0e67.</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Today</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repositories</td>
+<td><code>ImageRepository</code> (spec-086, used only by
+<code>people_service</code>); <code>JobRepo</code> (all job writes; the
+watchdog and <code>routers/jobs.py</code> read around it)</td>
+</tr>
+<tr>
+<td>Direct queries in services</td>
+<td><code>face_service</code> 18 · <code>result_service</code> 9 ·
+<code>pipeline_service</code> 9 · <code>config_service</code> 6 ·
+<code>people_service</code> 5 · <code>event_service</code> 5 ·
+<code>album_service</code> 2</td>
+</tr>
+<tr>
+<td>Direct queries in routers</td>
+<td><code>routers/jobs.py</code> 3 (photos, faces) ·
+<code>routers/results.py</code> 2 (<code>UniversalCache</code>)</td>
+</tr>
+<tr>
+<td>Outside the API</td>
+<td><code>run_watchdog</code> reads <code>jobs</code> itself;
+<code>control/compare.py</code>, <code>album_builder.py</code> query
+directly; <code>cache_handler</code> imports
+<code>api.database.models</code></td>
+</tr>
+<tr>
+<td>Layering</td>
+<td><code>serving/</code> imports <code>api.database.session</code>,
+<code>api.database.models</code>,
+<code>api.services.run_persister</code>,
+<code>api.services.people_service</code> (review M3)</td>
+</tr>
+<tr>
+<td>Data</td>
+<td><code>image_metric_rows</code> / <code>face_metric_rows</code> are
+written by <code>RunPersister</code>, but most reads still use the
+<code>PipelineResult</code> JSON columns (<code>scene_clusters</code>,
+<code>selected_images</code>, <code>image_metrics</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Notes</strong></p>
+<ul>
+<li>Why now: the Neon move showed how many files hold queries; every
+Neon fix touched several. Each later schema change costs that
+again.</li>
+<li>Rough size: W1–W2 about a day; W3–W4 the biggest (results payloads
+must match exactly); W5–W6 about a day.</li>
+<li>Open question for the owner: drop the JSON blob columns after W4, or
+keep them for a release as a backup?</li>
+<li>Not in scope: a new database library, async access, any change to
+API responses.</li>
+</ul>
+</div><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+document.querySelectorAll("pre.mermaid").forEach(function (pre) {
+  var div = document.createElement("div");
+  div.className = "mermaid";
+  div.textContent = pre.textContent;
+  pre.replaceWith(div);
+});
+mermaid.initialize({startOnLoad: false, securityLevel: "loose"});
+mermaid.run({querySelector: "div.mermaid"});
+</script>
+</body>
+</html>

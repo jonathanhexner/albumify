@@ -1,7 +1,7 @@
 ---
 name: prd
-description: Use when the user asks to write, draft, re-plan, split out or check a spec / PRD in this repo (e.g. "write spec-116 for X", "/prd", "re-plan spec-112 in the new format", "check spec-115"). Produces specs/NNN-<name>/{spec,tasks,updates}.md in the mandated diagram-first format, grounds every class/file claim in the real code, renders the HTML, and runs scripts/prd_lint.py before showing it to the owner. Does not implement anything.
-version: 1.0.0
+description: Use when the user asks to write, draft, re-plan, split out or check a spec / PRD in this repo (e.g. "write spec-116 for X", "/prd", "re-plan spec-112 in the new format", "check spec-115"). Produces specs/NNN-<name>/{spec,tasks,updates}.md in the mandated diagram-first format plus a layered interactive brief.html (CEO on top, then engineering, architect and designer layers), grounds every class/file claim in the real code, renders the HTML, and runs scripts/prd_lint.py before showing it to the owner. Does not implement anything.
+version: 1.1.0
 user-invocable: true
 argument-hint: "[what to spec]  |  check <spec dir or spec.md>"
 ---
@@ -13,7 +13,7 @@ is fixed in `WORKFLOW.md` → "### 1. `spec.md`" (template, colour rules, limits
 time; this skill is the procedure, WORKFLOW.md is the contract. `specs/115-album-workbench/spec.md` is the
 reference example.
 
-Mode: `check <spec>` → only steps 6-7 on an existing spec, then report. Otherwise steps 1-8.
+Mode: `check <spec>` → only steps 6-7 on an existing spec (plus: does brief.html exist and agree with spec.md?), then report. Otherwise steps 1-9.
 
 ## 1. Ground it before writing a word
 - Read `ROADMAP.md` (stage, neighbouring specs), the specs this one touches, and **the code it will change**.
@@ -59,6 +59,28 @@ diagram members that do not exist, diagrams that did not draw). Warnings: fix, o
 Open the HTML in Playwright at 1400 px (screenshots stay on disk, outside git). Check the diagrams are legible,
 nothing wraps badly, and the first screen answers "what, why, how do we know". Aim for under ~6,000 px.
 
-## 8. Hand over: do not implement
-Reply with the link, the objective, the requirement count by status, open decisions as questions, and the lint
+## 8. Build the layered brief: `brief.html`
+Owner rule 2026-11-27 (CLAUDE.md "Layered PRD brief"). One self-contained HTML page per spec, built from spec.md
+(never contradicting it), for people who will not read spec.md. Load the `artifact-design` skill first.
+- **L1 CEO, always visible, top of page:** status chips (Draft / approved / committed / on roadmap); what it is
+  and why now in plain words (no jargon, or define it in one clause); where it came from (short dated timeline,
+  when there is history); the recommendation and the decision as 2-3 option cards, the recommended one marked;
+  3-4 key numbers with their source. Every number traceable to spec.md, updates.md, a report or a commit.
+- **Role tabs below L1** (sticky bar, one open at a time, plus "Show all"; `#eng`, `#arch`, `#app`, `#prod`
+  deep-link to a tab):
+  - **L2 head of SW engineering:** plan steps with sizes, requirements + checks, risks and open questions,
+    links to other specs.
+  - **L3 app architect:** before/after diagram (inline SVG, both themes), classes and methods (green new, amber
+    changed, red removed), data-model changes, full file lists.
+  - **L4 app designer:** screens and states that change, with what to check at release.
+  - **L4 product designer:** flows, copy, product decisions needed.
+  A role with no work gets a short layer that says so and names the requirement that guarantees it.
+- **Drill down with nested `<details>`**, so each layer opens short and expands as far as the reader wants.
+- Inline SVG, not mermaid, inside tabs and `<details>` (mermaid draws at the wrong size when hidden).
+- No photos and no base64 images (public repo rule). Publish it as an Artifact for the owner and link it.
+- Re-plan or a status change in spec.md → update brief.html in the same edit.
+Reference example: `specs/119-repository-layer/brief.html`.
+
+## 9. Hand over: do not implement
+Reply with the brief link, the spec link, the objective, the requirement count by status, open decisions as questions, and the lint
 result. Code starts only after the owner approves (CLAUDE.md "Implementation gate"). Log a CHANGES_LOG [DOCS] entry.
