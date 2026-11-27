@@ -2,6 +2,11 @@
 
 **Purpose**: Track all code modifications with timestamps for debugging and history.
 
+### 2026-11-28 [DOCS] spec-121 Product Desk moved to its own repo
+**Files**: `ROADMAP.md` (+ HTML).
+**Change**: the spec-121 draft (never committed) is removed; the roadmap row now points to the separate `product-desk` repo. spec-120 row updated to In Progress (W1-W2 done).
+**Reason**: owner decided the desk is a generic tool for all their projects, developed in its own repo.
+
 ### 2026-11-27 [DOCS] Roadmap row for spec-119
 **Files**: `ROADMAP.md` (+ HTML).
 **Change**: spec-119 (one repository layer) listed as a Stage C proposal, parked until after launch, linked to its brief.
